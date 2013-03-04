@@ -10,23 +10,24 @@ int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsgi_route
 	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
 
-        char *path_info = uwsgi_regexp_apply_ovec(*subject, *subject_len, ur->data, ur->data_len, ur->ovector, ur->ovn);
-	uint16_t path_info_len = strlen(path_info);
+	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
 
+	uint16_t path_info_len = ub->pos;
 	uint16_t query_string_len = 0;
 	
-	char *query_string = strchr(path_info, '?');
+	char *query_string = memchr(ub->buf, '?', ub->pos);
 	if (query_string) {
-		path_info_len = query_string - path_info;
+		path_info_len = query_string - ub->buf;
 		query_string++;
-		query_string_len = strlen(query_string);
+		query_string_len = ub->pos - (path_info_len + 1);
 		if (wsgi_req->query_string_len > 0) {
 			tmp_qs = uwsgi_concat4n(query_string, query_string_len, "&", 1, wsgi_req->query_string, wsgi_req->query_string_len, "", 0);
 			query_string = tmp_qs;
 			query_string_len = strlen(query_string);
 		}	
 	}
-	// over engineering, could be requiredin the future...
+	// over engineering, could be required in the future...
 	else {
 		if (wsgi_req->query_string_len > 0) {
 			query_string = wsgi_req->query_string;
@@ -37,7 +38,7 @@ int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsgi_route
 		}
 	}
 
-	char *ptr = uwsgi_req_append(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
+	char *ptr = uwsgi_req_append(wsgi_req, "PATH_INFO", 9, ub->buf, path_info_len);
         if (!ptr) goto clear;
 
 	// set new path_info
@@ -51,14 +52,14 @@ int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsgi_route
 	wsgi_req->query_string = ptr;
 	wsgi_req->query_string_len = query_string_len;
 
-	free(path_info);
+	uwsgi_buffer_destroy(ub);
 	if (tmp_qs) free(tmp_qs);
 	if (ur->custom)
 		return UWSGI_ROUTE_CONTINUE;
 	return UWSGI_ROUTE_NEXT;
 
 clear:
-	free(path_info);
+	uwsgi_buffer_destroy(ub);
 	if (tmp_qs) free(tmp_qs);
 	return UWSGI_ROUTE_BREAK;
 }

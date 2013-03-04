@@ -45,13 +45,13 @@ int uwsgi_ssl_session_new_cb(SSL *ssl, SSL_SESSION *sess) {
         i2d_SSL_SESSION(sess, &p);
 
         // ok let's write the value to the cache
-        uwsgi_wlock(uwsgi.cache_lock);
-        if (uwsgi_cache_set((char *) sess->session_id, sess->session_id_length, session_blob, len, uwsgi.ssl_sessions_timeout, 0)) {
+        uwsgi_wlock(uwsgi.ssl_sessions_cache->lock);
+        if (uwsgi_cache_set2(uwsgi.ssl_sessions_cache, (char *) sess->session_id, sess->session_id_length, session_blob, len, uwsgi.ssl_sessions_timeout, 0)) {
                 if (uwsgi.ssl_verbose) {
                         uwsgi_log("[uwsgi-ssl] unable to store session of size %d in the cache\n", len);
                 }
         }
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.ssl_sessions_cache->lock);
         return 0;
 }
 
@@ -60,28 +60,28 @@ SSL_SESSION *uwsgi_ssl_session_get_cb(SSL *ssl, unsigned char *key, int keylen, 
         uint64_t valsize = 0;
 
         *copy = 0;
-        uwsgi_rlock(uwsgi.cache_lock);
-        char *value = uwsgi_cache_get((char *)key, keylen, &valsize);
+        uwsgi_rlock(uwsgi.ssl_sessions_cache->lock);
+        char *value = uwsgi_cache_get2(uwsgi.ssl_sessions_cache, (char *)key, keylen, &valsize);
         if (!value) {
-                uwsgi_rwunlock(uwsgi.cache_lock);
+                uwsgi_rwunlock(uwsgi.ssl_sessions_cache->lock);
                 if (uwsgi.ssl_verbose) {
                         uwsgi_log("[uwsgi-ssl] cache miss\n");
                 }
                 return NULL;
         }
         SSL_SESSION *sess = d2i_SSL_SESSION(NULL, (const unsigned char **)&value, valsize);
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.ssl_sessions_cache->lock);
         return sess;
 }
 
 void uwsgi_ssl_session_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
-        uwsgi_wlock(uwsgi.cache_lock);
-        if (uwsgi_cache_del((char *) sess->session_id, sess->session_id_length, 0, 0)) {
+        uwsgi_wlock(uwsgi.ssl_sessions_cache->lock);
+        if (uwsgi_cache_del2(uwsgi.ssl_sessions_cache, (char *) sess->session_id, sess->session_id_length, 0, 0)) {
                 if (uwsgi.ssl_verbose) {
                         uwsgi_log("[uwsgi-ssl] error removing cache item\n");
                 }
         }
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.ssl_sessions_cache->lock);
 }
 
 #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
@@ -109,6 +109,31 @@ static int uwsgi_sni_cb(SSL *ssl, int *ad, void *arg) {
                 url = url->next;
         }
 #endif
+
+	if (uwsgi.sni_dir) {
+		size_t sni_dir_len = strlen(uwsgi.sni_dir);
+		char *sni_dir_cert = uwsgi_concat4n(uwsgi.sni_dir, sni_dir_len, "/", 1, (char *) servername, servername_len, ".crt", 4);
+		char *sni_dir_key = uwsgi_concat4n(uwsgi.sni_dir, sni_dir_len, "/", 1, (char *) servername, servername_len, ".key", 4);
+		char *sni_dir_client_ca = uwsgi_concat4n(uwsgi.sni_dir, sni_dir_len, "/", 1, (char *) servername, servername_len, ".ca", 3);
+		if (uwsgi_file_exists(sni_dir_cert) && uwsgi_file_exists(sni_dir_key)) {
+			char *client_ca = NULL;
+			if (uwsgi_file_exists(sni_dir_client_ca)) {
+				client_ca = sni_dir_client_ca;
+			}
+			usl = uwsgi_ssl_add_sni_item(uwsgi_str((char *)servername), sni_dir_cert, sni_dir_key, uwsgi.sni_dir_ciphers, client_ca);
+			if (!usl) goto done;
+			free(sni_dir_cert);
+			free(sni_dir_key);
+			free(sni_dir_client_ca);
+			SSL_set_SSL_CTX(ssl, usl->custom_ptr);
+			uwsgi_log("[uwsgi-sni for pid %d] added context for %s\n", (int) getpid(), servername);
+			return SSL_TLSEXT_ERR_OK;
+		}
+done:
+		free(sni_dir_cert);
+		free(sni_dir_key);
+		free(sni_dir_client_ca);
+	}
 
         return SSL_TLSEXT_ERR_NOACK;
 }
@@ -221,12 +246,22 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 
 	if (uwsgi.ssl_sessions_use_cache) {
 
-                if (!uwsgi.cache_max_items) {
+		// we need to early initialize locking and caching
+		uwsgi_setup_locking();
+		uwsgi_cache_create_all();
+
+		uwsgi.ssl_sessions_cache = uwsgi_cache_by_name(uwsgi.ssl_sessions_use_cache);
+		if (!uwsgi.ssl_sessions_cache) {
+			uwsgi_log("unable to find cache \"%s\"\n", uwsgi.ssl_sessions_use_cache ? uwsgi.ssl_sessions_use_cache : "default");
+			exit(1);
+		}
+
+                if (!uwsgi.ssl_sessions_cache->max_items) {
                         uwsgi_log("you have to enable uWSGI cache to use it as SSL session store !!!\n");
                         exit(1);
                 }
 
-                if (uwsgi.cache_blocksize < 4096) {
+                if (uwsgi.ssl_sessions_cache->blocksize < 4096) {
                         uwsgi_log("cache blocksize for SSL session store must be at least 4096 bytes\n");
                         exit(1);
                 }
@@ -235,7 +270,9 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
                         SSL_SESS_CACHE_NO_INTERNAL|
                         SSL_SESS_CACHE_NO_AUTO_CLEAR);
 
+#ifdef SSL_OP_NO_TICKET
                 ssloptions |= SSL_OP_NO_TICKET;
+#endif
 
                 // just for fun
                 SSL_CTX_sess_set_cache_size(ctx, 0);
@@ -374,4 +411,89 @@ char *uwsgi_ssl_rand(size_t len) {
 		return NULL;
 	}
 	return (char *) buf;
+}
+
+char *uwsgi_sha1(char *src, size_t len, char *dst) {
+        SHA_CTX sha;
+        SHA1_Init(&sha);
+        SHA1_Update(&sha, src, len);
+        SHA1_Final((unsigned char *)dst, &sha);
+	return dst;
+}
+
+char *uwsgi_sha1_2n(char *s1, size_t len1, char *s2, size_t len2, char *dst) {
+        SHA_CTX sha;
+        SHA1_Init(&sha);
+        SHA1_Update(&sha, s1, len1);
+        SHA1_Update(&sha, s2, len2);
+        SHA1_Final((unsigned char *)dst, &sha);
+        return dst;
+}
+
+void uwsgi_opt_sni(char *opt, char *value, void *foobar) {
+        char *client_ca = NULL;
+        char *v = uwsgi_str(value);
+
+        char *space = strchr(v, ' ');
+        if (!space) {
+                uwsgi_log("invalid %s syntax, must be sni_key<space>crt,key[,ciphers,client_ca]\n", opt);
+                exit(1);
+        }
+        *space = 0;
+        char *crt = space+1;
+        char *key = strchr(crt, ',');
+        if (!key) {
+                uwsgi_log("invalid %s syntax, must be sni_key<space>crt,key[,ciphers,client_ca]\n", opt);
+                exit(1);
+        }
+        *key = '\0'; key++;
+
+        char *ciphers = strchr(key, ',');
+        if (ciphers) {
+                *ciphers = '\0'; ciphers++;
+                client_ca = strchr(ciphers, ',');
+                if (client_ca) {
+                        *client_ca = '\0'; client_ca++;
+                }
+        }
+
+        if (!uwsgi.ssl_initialized) {
+                uwsgi_ssl_init();
+        }
+
+        SSL_CTX *ctx = uwsgi_ssl_new_server_context(v, crt, key, ciphers, client_ca);
+        if (!ctx) {
+                uwsgi_log("[uwsgi-ssl] DANGER unable to initialize context for \"%s\"\n", v);
+                free(v);
+                return;
+        }
+
+#ifdef UWSGI_PCRE
+        if (!strcmp(opt, "sni-regexp")) {
+                struct uwsgi_regexp_list *url = uwsgi_regexp_new_list(&uwsgi.sni_regexp, v);
+                url->custom_ptr = ctx;
+        }
+        else {
+#endif
+                struct uwsgi_string_list *usl = uwsgi_string_new_list(&uwsgi.sni, v);
+                usl->custom_ptr = ctx;
+#ifdef UWSGI_PCRE
+        }
+#endif
+
+}
+
+struct uwsgi_string_list *uwsgi_ssl_add_sni_item(char *name, char *crt, char *key, char *ciphers, char *client_ca) {
+	if (!uwsgi.ssl_initialized) {
+                uwsgi_ssl_init();
+        }
+	SSL_CTX *ctx = uwsgi_ssl_new_server_context(name, crt, key, ciphers, client_ca);
+        if (!ctx) {
+                uwsgi_log("[uwsgi-ssl] DANGER unable to initialize context for \"%s\"\n", name);
+		return NULL;
+	}
+
+	struct uwsgi_string_list *usl = uwsgi_string_new_list(&uwsgi.sni, name);
+	usl->custom_ptr = ctx;
+	return usl;
 }

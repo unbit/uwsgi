@@ -21,7 +21,12 @@ XS(XS_error) {
 
         psgi_check_args(0);
 
-        ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->error)[wsgi_req->async_id]);
+	if (uwsgi.threads > 1) {
+        	ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->error)[wsgi_req->async_id]);
+	}
+	else {
+        	ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->error)[0]);
+	}
         XSRETURN(1);
 }
 
@@ -32,7 +37,12 @@ XS(XS_input) {
 	struct uwsgi_app *wi = &uwsgi_apps[wsgi_req->app_id];
         psgi_check_args(0);
 
-        ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->input)[wsgi_req->async_id]);
+	if (uwsgi.threads > 1) {
+        	ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->input)[wsgi_req->async_id]);
+	}
+	else {
+        	ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->input)[0]);
+	}
         XSRETURN(1);
 }
 
@@ -66,7 +76,12 @@ XS(XS_stream)
 		while (psgi_response(wsgi_req, response) != UWSGI_OK);
 
 		SvREFCNT_dec(response);
-                ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->stream)[wsgi_req->async_id]);
+		if (uwsgi.threads > 1) {
+                	ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->stream)[wsgi_req->async_id]);
+		}
+		else {
+                	ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->stream)[0]);
+		}
                 XSRETURN(1);
 	}
 	else {
@@ -83,83 +98,30 @@ XS(XS_input_read) {
 
         dXSARGS;
         struct wsgi_request *wsgi_req = current_wsgi_req();
-        int fd = -1;
-        char *tmp_buf;
-        ssize_t bytes = 0, len;
-        size_t remains;
-        SV *read_buf;
 
         psgi_check_args(3);
 
+        SV *read_buf = ST(1);
+        unsigned long arg_len = SvIV(ST(2));
 
-        read_buf = ST(1);
-        len = SvIV(ST(2));
+	ssize_t rlen = 0;
 
-        // return empty string if no post_cl or pos >= post_cl
-        if (!wsgi_req->post_cl || (size_t) wsgi_req->post_pos >= wsgi_req->post_cl) {
-                sv_setpvn(read_buf, "", 0);
-                goto ret;
-        }
-
-        if (wsgi_req->body_as_file) {
-                fd = fileno((FILE *)wsgi_req->async_post);
-        }
-        else if (uwsgi.post_buffering > 0) {
-                fd = -1;
-                if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
-                        fd = fileno((FILE *)wsgi_req->async_post);
-                }
-        }
-        else {
-                fd = wsgi_req->poll.fd;
-        }
-        // return the whole input
-        if (len <= 0) {
-                remains = wsgi_req->post_cl;
-        }
-        else {
-                remains = len ;
-        }
-
-        if (remains + wsgi_req->post_pos > wsgi_req->post_cl) {
-                remains = wsgi_req->post_cl - wsgi_req->post_pos;
-        }
-
-        if (remains <= 0) {
-                sv_setpvn(read_buf, "", 0);
-                goto ret;
-        }
-
-        // data in memory ?
-        if (fd == -1) {
-                sv_setpvn(read_buf, wsgi_req->post_buffering_buf, remains);
-                bytes = remains;
-                wsgi_req->post_pos += remains;
+	char *buf = uwsgi_request_body_read(wsgi_req, arg_len, &rlen);
+        if (buf) {
+		sv_setpvn(read_buf, buf, rlen);
 		goto ret;
         }
 
-        tmp_buf = uwsgi_malloc(remains);
-
-        if (uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
-                free(tmp_buf);
-                croak("error waiting for psgi.input data");
-                goto ret;
+        // error ?
+        if (rlen < 0) {
+		croak("error during read(%lu) on psgi.input", arg_len);
+		goto ret;
         }
 
-        bytes = read(fd, tmp_buf, remains);
-        if (bytes < 0) {
-                free(tmp_buf);
-                croak("error reading psgi.input data");
-                goto ret;
-        }
-
-        wsgi_req->post_pos += bytes;
-        sv_setpvn(read_buf, tmp_buf, bytes);
-
-        free(tmp_buf);
+	croak("timeout during read(%lu) on psgi.input", arg_len);
 
 ret:
-        XSRETURN_IV(bytes);
+        XSRETURN_IV(rlen);
 }
 
 
@@ -182,7 +144,10 @@ XS(XS_streaming_write) {
 
         body = SvPV(ST(1), blen);
 
-        wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, body, blen);
+	uwsgi_response_write_body_do(wsgi_req, body, blen);
+	uwsgi_pl_check_write_errors {
+		// noop
+	}
 
         XSRETURN(0);
 }
@@ -257,9 +222,7 @@ xs_init(pTHX)
 
 nonworker:
 
-#ifdef UWSGI_EMBEDDED
         init_perl_embedded_module();
-#endif
 
 }
 
@@ -413,6 +376,24 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 			}
 		}
 
+		if (uperl.argv_items || uperl.argv_item) {
+			AV *uperl_argv = GvAV(PL_argvgv);
+			if (uperl.argv_items) {
+				char *argv_list = uwsgi_str(uperl.argv_items);
+				char *p = strtok(argv_list, " ");
+				while(p) {
+					av_push(uperl_argv, newSVpv(p, 0));
+					p = strtok(NULL, " ");
+				}
+			}
+			struct uwsgi_string_list *usl = uperl.argv_item;
+			while(usl) {
+				av_push(uperl_argv, newSVpv(usl->value, usl->len));
+				usl = usl->next;
+			}
+		}
+		
+
 		SV *dollar_zero = get_sv("0", GV_ADD);
 		sv_setsv(dollar_zero, newSVpv(app, app_len));
 
@@ -473,6 +454,8 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 	if (interpreters != uperl.main) {
 		PERL_SET_CONTEXT(uperl.main[0]);
 	}
+
+	uperl.loaded = 1;
 
 	return id;
 

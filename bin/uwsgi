@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+cmd = File.expand_path "#{File.dirname(__FILE__)}/../ext/uwsgi/uwsgi.ruby"
+
+exec(cmd, *ARGV)

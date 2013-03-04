@@ -41,10 +41,22 @@ void uwsgi_mule(int id) {
 			uwsgi_error("prctl()");
 		}
 #endif
+
+		signal(SIGALRM, SIG_IGN);
+                signal(SIGHUP, SIG_IGN);
+                signal(SIGINT, end_me);
+                signal(SIGTERM, end_me);
+                signal(SIGUSR1, SIG_IGN);
+                signal(SIGUSR2, SIG_IGN);
+                signal(SIGPIPE, SIG_IGN);
+                signal(SIGSTOP, SIG_IGN);
+                signal(SIGTSTP, SIG_IGN);
+
 		uwsgi.muleid = id;
 		// avoid race conditions
 		uwsgi.mules[id - 1].id = id;
 		uwsgi.mules[id - 1].pid = getpid();
+		uwsgi.mypid = uwsgi.mules[id - 1].pid;
 
 		uwsgi_fixup_fds(0, id, NULL);
 
@@ -70,8 +82,8 @@ void uwsgi_mule(int id) {
 			for (i = 0; i < 256; i++) {
 				if (uwsgi.p[i]->mule) {
 					if (uwsgi.p[i]->mule(uwsgi.mules[id - 1].patch) == 1) {
-						// never here
-						break;
+						// never here ?
+						end_me(1);
 					}
 				}
 			}

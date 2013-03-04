@@ -13,7 +13,7 @@ extern struct uwsgi_server uwsgi;
 
 void uwsgi_json_config(char *file, char *magic_table[]) {
 
-	int len = 0;
+	size_t len = 0;
 	char *json_data;
 
 

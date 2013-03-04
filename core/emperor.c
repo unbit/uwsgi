@@ -6,7 +6,6 @@ a supervisor for multiple uWSGI instances
 
 */
 #include "uwsgi.h"
-#include <glob.h>
 
 
 extern struct uwsgi_server uwsgi;
@@ -88,7 +87,7 @@ void uwsgi_emperor_blacklist_add(char *id) {
 		}
 	}
 
-	strcpy(uebi->id, id);
+	strncpy(uebi->id, id, 0xff);
 	gettimeofday(&uebi->first_attempt, NULL);
 	memcpy(&uebi->last_attempt, &uebi->first_attempt, sizeof(struct timeval));
 	uebi->throttle_level = uwsgi.emperor_throttle;
@@ -638,6 +637,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 				char *oe = uwsgi_concat2n(*uenvs, strchr(*uenvs, '=') - *uenvs, "", 0);
 				if (unsetenv(oe)) {
 					uwsgi_error("unsetenv()");
+					free(oe);
 					break;
 				}
 				free(oe);
@@ -1041,7 +1041,7 @@ void emperor_loop() {
 					else if (byte == 30 && uwsgi.emperor_broodlord > 0 && uwsgi.emperor_broodlord_count < uwsgi.emperor_broodlord) {
 						uwsgi_log("[emperor] going in broodlord mode: launching zergs for %s\n", ui_current->name);
 						char *zerg_name = uwsgi_concat3(ui_current->name, ":", "zerg");
-						emperor_add(NULL, zerg_name, uwsgi_now(), NULL, 0, ui_current->uid, ui_current->gid);
+						emperor_add(ui_current->scanner, zerg_name, uwsgi_now(), NULL, 0, ui_current->uid, ui_current->gid);
 						free(zerg_name);
 					}
 				}
@@ -1342,13 +1342,21 @@ end:
 void uwsgi_emperor_start() {
 
 	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.master_process) {
+		if (uwsgi.emperor_procname) {
+			uwsgi_set_processname(uwsgi.emperor_procname);
+		}
 		uwsgi_notify_ready();
 		emperor_loop();
 		// never here
 		exit(1);
 	}
 
-	uwsgi.emperor_pid = uwsgi_fork("uWSGI Emperor");
+	if (uwsgi.emperor_procname) {
+		uwsgi.emperor_pid = uwsgi_fork(uwsgi.emperor_procname);
+	}
+	else {
+		uwsgi.emperor_pid = uwsgi_fork("uWSGI Emperor");
+	}
 	if (uwsgi.emperor_pid < 0) {
 		uwsgi_error("pid()");
 		exit(1);

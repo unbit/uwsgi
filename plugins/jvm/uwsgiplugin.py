@@ -2,19 +2,28 @@ import os,sys
 
 NAME='jvm'
 
-# Snow Leopard
-#JVM_INCPATH = "/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/JavaVM.framework/Versions/1.6.0/Headers/"
-#JVM_LIBPATH = "/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/JavaVM.framework/Versions/1.6.0/Libraries/ -framework JavaVM"
+JVM_INCPATH = None
+JVM_LIBPATH = None
 
-# FreeBSD openjdk7 example
-# env UWSGICONFIG_JVM_INCPATH="/usr/local/openjdk7/include -I/usr/local/openjdk7/include/freebsd/" UWSGICONFIG_JVM_LIBPATH="/usr/local/openjdk7/jre/lib/amd64/server" python uwsgiconfig.py --plugin plugins/jvm
+operating_system = os.uname()[0].lower()
+arch = os.uname()[4]
 
-# NexentaOS example
-# UWSGICONFIG_JVM_INCPATH="/usr/java/include -I /usr/java/include/solaris" UWSGICONFIG_JVM_LIBPATH="/usr/java/jre/lib/i386/" python uwsgiconfig.py --plugin plugins/jvm
+if arch in ('i686', 'x86', 'x86_32'):
+    arch = 'i386'
+elif arch in ('x86_64',):
+    arch = 'amd64'
 
-# Ubuntu
-JVM_INCPATH = "/usr/lib/jvm/java-6-openjdk/include/ -I/usr/lib/jvm/java-6-openjdk/include/linux"
-JVM_LIBPATH = "/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/"
+known_jvms = ('/usr/lib/jvm/java-7-openjdk', '/usr/local/openjdk7', '/usr/lib/jvm/java-6-openjdk', '/usr/local/openjdk', '/usr/java' )
+for jvm in known_jvms:
+   if os.path.exists(jvm):
+       JVM_INCPATH = ["-I%s/include/" % jvm, "-I%s/include/%s" % (jvm, operating_system)]
+       JVM_LIBPATH = ["-L%s/jre/lib/%s/server" % (jvm, arch)]
+       break
+   if os.path.exists("%s-%s" % (jvm, arch)):
+       jvm = "%s-%s" % (jvm, arch)
+       JVM_INCPATH = ["-I%s/include/" % jvm, "-I%s/include/%s" % (jvm, operating_system)]
+       JVM_LIBPATH = ["-L%s/jre/lib/%s/server" % (jvm, arch)]
+       break
 
 try: 
     JVM_INCPATH = os.environ['UWSGICONFIG_JVM_INCPATH'] 
@@ -26,22 +35,17 @@ try:
 except: 
     pass 
 
-try:
-    JVM_INCPATH = os.environ['UWSGICONFIG_JVM_INCPATH']
-except:
-    pass
+if not JVM_INCPATH or not JVM_LIBPATH:
+    print("unable to autodetect the JVM path, please specify UWSGICONFIG_JVM_INCPATH and UWSGICONFIG_JVM_LIBPATH environment vars")
+    os._exit(1)
 
-try:
-    JVM_LIBPATH = os.environ['UWSGICONFIG_JVM_LIBPATH']
-except:
-    pass
-
-CFLAGS = ['-I' + JVM_INCPATH]
-LDFLAGS = ['-L' + JVM_LIBPATH]
+CFLAGS = JVM_INCPATH
+print CFLAGS
+LDFLAGS = JVM_LIBPATH
 LIBS = ['-ljvm']
 GCC_LIST = ['jvm_plugin']
 
 if os.environ.has_key('LD_RUN_PATH'):
-	os.environ['LD_RUN_PATH'] += ':' + JVM_LIBPATH
+    os.environ['LD_RUN_PATH'] += ':' + JVM_LIBPATH[0][2:]
 else:
-	os.environ['LD_RUN_PATH'] = JVM_LIBPATH
+    os.environ['LD_RUN_PATH'] = JVM_LIBPATH[0][2:]

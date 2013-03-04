@@ -6,7 +6,9 @@ int uwsgi_signal_handler(uint8_t sig) {
 
 	struct uwsgi_signal_entry *use = NULL;
 
-	use = &uwsgi.shared->signal_table[sig];
+	int pos = (uwsgi.mywid * 256) + sig;
+
+	use = &uwsgi.shared->signal_table[pos];
 
 	if (!use->handler)
 		return -1;
@@ -55,13 +57,11 @@ int uwsgi_signal_handler(uint8_t sig) {
 			set_mule_harakiri(uwsgi.shared->options[UWSGI_OPTION_MULE_HARAKIRI]);
 		}
 	}
-#ifdef UWSGI_SPOOLER
 	else if (uwsgi.i_am_a_spooler && (getpid() == uwsgi.i_am_a_spooler->pid)) {
 		if (uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
 			set_spooler_harakiri(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI]);
 		}
 	}
-#endif
 
 	int ret = uwsgi.p[use->modifier1]->signal_handler(sig, use->handler);
 
@@ -77,20 +77,19 @@ int uwsgi_signal_handler(uint8_t sig) {
 			set_mule_harakiri(0);
 		}
 	}
-#ifdef UWSGI_SPOOLER
 	else if (uwsgi.i_am_a_spooler && (getpid() == uwsgi.i_am_a_spooler->pid)) {
 		if (uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
 			set_spooler_harakiri(0);
 		}
 	}
-#endif
 
 	return ret;
 }
 
 int uwsgi_signal_registered(uint8_t sig) {
 
-	if (uwsgi.shared->signal_table[sig].handler != NULL)
+	int pos = (uwsgi.mywid * 256) + sig;
+	if (uwsgi.shared->signal_table[pos].handler != NULL)
 		return 1;
 
 	return 0;
@@ -100,12 +99,20 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
 
 	struct uwsgi_signal_entry *use = NULL;
 
+	if (!uwsgi.master_process) return -1;
+
+	if (uwsgi.mywid == 0 && uwsgi.workers[0].pid != uwsgi.mypid) {
+                uwsgi_log("only the master and the workers can register signal handlers\n");
+                return -1;
+        }
+
 	if (strlen(receiver) > 63)
 		return -1;
 
 	uwsgi_lock(uwsgi.signal_table_lock);
 
-	use = &uwsgi.shared->signal_table[sig];
+	int pos = (uwsgi.mywid * 256) + sig;
+	use = &uwsgi.shared->signal_table[pos];
 
 	if (use->handler) {
 		uwsgi_log("[uwsgi-signal] you cannot re-register a signal !!!\n");
@@ -123,6 +130,15 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
 	}
 	else {
 		uwsgi_log("[uwsgi-signal] signum %d registered (wid: %d modifier1: %d target: %s)\n", sig, uwsgi.mywid, modifier1, receiver);
+	}
+
+	// check for cow
+	if (uwsgi.mywid == 0) {
+		int i;
+                for(i=1;i<=uwsgi.numproc;i++) {
+                        int pos = (i * 256);
+                        memcpy(&uwsgi.shared->signal_table[pos], use, sizeof(struct uwsgi_signal_entry) * 256);
+                }
 	}
 
 	uwsgi_unlock(uwsgi.signal_table_lock);
@@ -426,7 +442,8 @@ int uwsgi_signal_send(int fd, uint8_t sig) {
 
 void uwsgi_route_signal(uint8_t sig) {
 
-	struct uwsgi_signal_entry *use = &ushared->signal_table[sig];
+	int pos = (uwsgi.mywid * 256) + sig;
+	struct uwsgi_signal_entry *use = &ushared->signal_table[pos];
 	int i;
 
 	// send to first available worker
@@ -457,7 +474,6 @@ void uwsgi_route_signal(uint8_t sig) {
 	else if (!strcmp(use->receiver, "subscribed")) {
 	}
 	// route to spooler
-#ifdef UWSGI_SPOOLER
 	else if (!strcmp(use->receiver, "spooler")) {
 		if (ushared->worker_signal_pipe[0] != -1) {
 			if (uwsgi_signal_send(ushared->spooler_signal_pipe[0], sig)) {
@@ -465,7 +481,6 @@ void uwsgi_route_signal(uint8_t sig) {
 			}
 		}
 	}
-#endif
 	else if (!strcmp(use->receiver, "mules")) {
 		for (i = 0; i < uwsgi.mules_cnt; i++) {
 			if (uwsgi_signal_send(uwsgi.mules[i].signal_pipe[0], sig)) {

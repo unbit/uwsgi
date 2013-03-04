@@ -2,225 +2,13 @@
 
 extern struct uwsgi_server uwsgi;
 
-int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf) {
+/*
 
-	size_t post_remains = wsgi_req->post_cl;
-	int ret;
-	ssize_t len;
-	char *ptr = buf;
+	poll based fd waiter.
+	Use it for blocking areas (like startup functions)
+	DO NOT USE IN REQUEST PLUGINS !!!
 
-	while (post_remains > 0) {
-		if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-			inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		}
-
-		ret = uwsgi_waitfd(wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		if (ret < 0) {
-			return 0;
-		}
-
-		if (!ret) {
-			uwsgi_log("buffering POST data to memory timed-out !!! (Content-Length: %llu received: %llu)\n", (unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_cl - post_remains);
-			return 0;
-		}
-
-		if (wsgi_req->socket->proto_read_body) {
-			len = wsgi_req->socket->proto_read_body(wsgi_req, ptr, post_remains);
-		}
-		else {
-			len = read(wsgi_req->poll.fd, ptr, post_remains);
-		}
-
-		if (len < 0) {
-			uwsgi_error("read()");
-			return 0;
-		}
-
-		if (len == 0) {
-			uwsgi_log("client did not send the whole body: %s (Content-Length: %llu received: %llu)\n", strerror(errno), (unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_cl - post_remains);
-			return 0;
-		}
-
-		ptr += len;
-		post_remains -= len;
-	}
-
-	return 1;
-
-}
-
-int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) {
-
-	size_t post_remains = wsgi_req->post_cl;
-	ssize_t post_chunk;
-	int ret, i;
-	int upload_progress_fd = -1;
-	char *upload_progress_filename = NULL;
-	const char *x_progress_id = "X-Progress-ID=";
-	char *xpi_ptr = (char *) x_progress_id;
-
-	wsgi_req->async_post = tmpfile();
-	if (!wsgi_req->async_post) {
-		uwsgi_error("tmpfile()");
-		return 0;
-	}
-
-	if (uwsgi.upload_progress) {
-		// first check for X-Progress-ID size
-		// separator + 'X-Progress-ID' + '=' + uuid     
-		if (wsgi_req->uri_len > 51) {
-			for (i = 0; i < wsgi_req->uri_len; i++) {
-				if (wsgi_req->uri[i] == xpi_ptr[0]) {
-					if (xpi_ptr[0] == '=') {
-						if (wsgi_req->uri + i + 36 <= wsgi_req->uri + wsgi_req->uri_len) {
-							upload_progress_filename = wsgi_req->uri + i + 1;
-						}
-						break;
-					}
-					xpi_ptr++;
-				}
-				else {
-					xpi_ptr = (char *) x_progress_id;
-				}
-			}
-
-			// now check for valid uuid (from spec available at http://en.wikipedia.org/wiki/Universally_unique_identifier)
-			if (upload_progress_filename) {
-
-				uwsgi_log("upload progress uuid = %.*s\n", 36, upload_progress_filename);
-				if (!check_hex(upload_progress_filename, 8))
-					goto cycle;
-				if (upload_progress_filename[8] != '-')
-					goto cycle;
-
-				if (!check_hex(upload_progress_filename + 9, 4))
-					goto cycle;
-				if (upload_progress_filename[13] != '-')
-					goto cycle;
-
-				if (!check_hex(upload_progress_filename + 14, 4))
-					goto cycle;
-				if (upload_progress_filename[18] != '-')
-					goto cycle;
-
-				if (!check_hex(upload_progress_filename + 19, 4))
-					goto cycle;
-				if (upload_progress_filename[23] != '-')
-					goto cycle;
-
-				if (!check_hex(upload_progress_filename + 24, 12))
-					goto cycle;
-
-				upload_progress_filename = uwsgi_concat4n(uwsgi.upload_progress, strlen(uwsgi.upload_progress), "/", 1, upload_progress_filename, 36, ".js", 3);
-				// here we use O_EXCL to avoid eventual application bug in uuid generation/using
-				upload_progress_fd = open(upload_progress_filename, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP);
-				if (upload_progress_fd < 0) {
-					uwsgi_error_open(upload_progress_filename);
-					free(upload_progress_filename);
-				}
-			}
-		}
-	}
-
-cycle:
-	if (upload_progress_filename && upload_progress_fd == -1) {
-		uwsgi_log("invalid X-Progress-ID value: must be a UUID\n");
-	}
-	// manage buffered data and upload progress
-	while (post_remains > 0) {
-
-		if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-			inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		}
-
-		ret = uwsgi_waitfd(wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		if (ret < 0) {
-			return 0;
-		}
-
-		if (!ret) {
-			uwsgi_log("buffering POST data to disk timed-out !!! (Content-Length: %llu received: %llu)\n", (unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_cl - post_remains);
-			goto end;
-		}
-
-		if (post_remains > len) {
-			if (wsgi_req->socket->proto_read_body) {
-				post_chunk = wsgi_req->socket->proto_read_body(wsgi_req, buf, len);
-			}
-			else {
-				post_chunk = read(wsgi_req->poll.fd, buf, len);
-			}
-		}
-		else {
-			if (wsgi_req->socket->proto_read_body) {
-				post_chunk = wsgi_req->socket->proto_read_body(wsgi_req, buf, len);
-			}
-			else {
-				post_chunk = read(wsgi_req->poll.fd, buf, post_remains);
-			}
-		}
-
-		if (post_chunk < 0) {
-			uwsgi_error("read()");
-			goto end;
-		}
-
-		if (post_chunk == 0) {
-			uwsgi_log("client did not send the whole body: %s (Content-Length: %llu received: %llu)\n", strerror(errno), (unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_cl - post_remains);
-			goto end;
-		}
-
-		if (fwrite(buf, post_chunk, 1, wsgi_req->async_post) != 1) {
-			uwsgi_error("fwrite()");
-			goto end;
-		}
-		if (upload_progress_fd > -1) {
-			//write json data to the upload progress file
-			if (lseek(upload_progress_fd, 0, SEEK_SET)) {
-				uwsgi_error("lseek()");
-				goto end;
-			}
-
-			// reuse buf for json buffer
-			ret = snprintf(buf, len, "{ \"state\" : \"uploading\", \"received\" : %d, \"size\" : %d }\r\n", (int) (wsgi_req->post_cl - post_remains), (int) wsgi_req->post_cl);
-			if (ret < 0) {
-				uwsgi_log("unable to write JSON data in upload progress file %s\n", upload_progress_filename);
-				goto end;
-			}
-			if (write(upload_progress_fd, buf, ret) < 0) {
-				uwsgi_error("write()");
-				goto end;
-			}
-
-			if (fsync(upload_progress_fd)) {
-				uwsgi_error("fsync()");
-			}
-		}
-		post_remains -= post_chunk;
-	}
-	rewind(wsgi_req->async_post);
-
-	if (upload_progress_fd > -1) {
-		close(upload_progress_fd);
-		if (unlink(upload_progress_filename)) {
-			uwsgi_error("unlink()");
-		}
-		free(upload_progress_filename);
-	}
-
-	return 1;
-
-end:
-	if (upload_progress_fd > -1) {
-		close(upload_progress_fd);
-		if (unlink(upload_progress_filename)) {
-			uwsgi_error("unlink()");
-		}
-		free(upload_progress_filename);
-	}
-	return 0;
-}
-
+*/
 int uwsgi_waitfd_event(int fd, int timeout, int event) {
 
 	int ret;
@@ -239,7 +27,7 @@ int uwsgi_waitfd_event(int fd, int timeout, int event) {
 	ret = poll(&upoll, 1, timeout);
 
 	if (ret < 0) {
-		uwsgi_error("poll()");
+		uwsgi_error("uwsgi_waitfd_event()/poll()");
 	}
 	else if (ret > 0) {
 		if (upoll.revents & event) {
@@ -251,7 +39,10 @@ int uwsgi_waitfd_event(int fd, int timeout, int event) {
 	return ret;
 }
 
-char *uwsgi_read_fd(int fd, int *size, int add_zero) {
+/*
+	consume data from an fd (blocking)
+*/
+char *uwsgi_read_fd(int fd, size_t *size, int add_zero) {
 
 	char stack_buf[4096];
 	ssize_t len;
@@ -262,7 +53,12 @@ char *uwsgi_read_fd(int fd, int *size, int add_zero) {
 		len = read(fd, stack_buf, 4096);
 		if (len > 0) {
 			*size += len;
-			buffer = realloc(buffer, *size);
+			char *tmp = realloc(buffer, *size);
+			if (!tmp) {
+				uwsgi_error("uwsgi_read_fd()/realloc()");
+				exit(1);
+			}
+			buffer = tmp;
 			memcpy(buffer + (*size - len), stack_buf, len);
 		}
 	}
@@ -270,6 +66,10 @@ char *uwsgi_read_fd(int fd, int *size, int add_zero) {
 	if (add_zero) {
 		*size = *size + 1;
 		buffer = realloc(buffer, *size);
+		if (!buffer) {
+			uwsgi_error("uwsgi_read_fd()/realloc()");
+			exit(1);
+		}
 		buffer[*size - 1] = 0;
 	}
 
@@ -277,6 +77,7 @@ char *uwsgi_read_fd(int fd, int *size, int add_zero) {
 
 }
 
+// simply read the whole content of a file
 char *uwsgi_simple_file_read(char *filename) {
 
 	struct stat sb;
@@ -315,7 +116,11 @@ end:
 
 }
 
-char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[]) {
+/*
+	extremely complex function for reading resources (files, url...)
+	need a lot of refactoring...
+*/
+char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_table[]) {
 
 	int fd;
 	struct stat sb;
@@ -387,6 +192,8 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 			exit(1);
 		}
 
+		free(ip);
+
 		uri[0] = '/';
 
 		len = write(fd, "GET ", 4);
@@ -419,11 +226,12 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 			}
 			else if (body == 4) {
 				*size = *size + 1;
-				buffer = realloc(buffer, *size);
-				if (!buffer) {
-					uwsgi_error("realloc()");
+				char *tmp = realloc(buffer, *size);
+				if (!tmp) {
+					uwsgi_error("uwsgi_open_and_read()/realloc()");
 					exit(1);
 				}
+				buffer = tmp;
 				buffer[*size - 1] = byte;
 			}
 			else {
@@ -447,7 +255,12 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 
 		if (add_zero) {
 			*size = *size + 1;
-			buffer = realloc(buffer, *size);
+			char *tmp = realloc(buffer, *size);
+			if (!tmp) {
+				uwsgi_error("uwsgi_open_and_read()/realloc()");
+				exit(1);
+			}
+			buffer = tmp;
 			buffer[*size - 1] = 0;
 		}
 
@@ -630,13 +443,7 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 			goto end;
 		}
 
-		buffer = malloc(sb.st_size + add_zero);
-
-		if (!buffer) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
-
+		buffer = uwsgi_malloc(sb.st_size + add_zero);
 
 		len = read(fd, buffer, sb.st_size);
 		if (len != sb.st_size) {
@@ -664,6 +471,7 @@ end:
 	return buffer;
 }
 
+// attach an fd using UNIX sockets
 int *uwsgi_attach_fd(int fd, int *count_ptr, char *code, size_t code_len) {
 
 	struct msghdr msg;
@@ -752,6 +560,7 @@ int *uwsgi_attach_fd(int fd, int *count_ptr, char *code, size_t code_len) {
 	return ret;
 }
 
+// signal free close
 void uwsgi_protected_close(int fd) {
 
 	sigset_t mask, oset;
@@ -767,6 +576,7 @@ void uwsgi_protected_close(int fd) {
 	}
 }
 
+// signal free read
 ssize_t uwsgi_protected_read(int fd, void *buf, size_t len) {
 
 	sigset_t mask, oset;
@@ -785,6 +595,8 @@ ssize_t uwsgi_protected_read(int fd, void *buf, size_t len) {
 	return ret;
 }
 
+
+// pipe datas from a fd to another (blocking)
 ssize_t uwsgi_pipe(int src, int dst, int timeout) {
 	char buf[8192];
 	size_t written = -1;
@@ -841,6 +653,9 @@ timeout:
 	return -1;
 }
 
+/*
+	even if it is marked as non-blocking, so not use in request plugins as it uses poll() and not the hooks
+*/
 int uwsgi_write_nb(int fd, char *buf, size_t remains, int timeout) {
 	char *ptr = buf;
 	while(remains > 0) {
@@ -860,6 +675,41 @@ int uwsgi_write_nb(int fd, char *buf, size_t remains, int timeout) {
 	return 0;
 }
 
+/*
+	this is like uwsgi_write_nb() but with fast initial write and hooked wait (use it in request plugin)
+*/
+int uwsgi_write_true_nb(int fd, char *buf, size_t remains, int timeout) {
+        char *ptr = buf;
+	int ret;
+
+        while(remains > 0) {
+		ssize_t len = write(fd, ptr, remains);
+		if (len > 0) goto written;
+		if (len == 0) return -1;		
+		if (len < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) goto wait;
+			return -1;
+		}
+wait:
+                ret = uwsgi.wait_write_hook(fd, timeout);
+                if (ret > 0) {
+			len = write(fd, ptr, remains);
+			if (len > 0) goto written;
+                }
+                return -1;
+written:
+                ptr += len;
+                remains -= len;
+                continue;
+        }
+
+        return 0;
+}
+
+
+
+
+// like uwsgi_pipe but with fixed size
 ssize_t uwsgi_pipe_sized(int src, int dst, size_t required, int timeout) {
 	char buf[8192];
 	size_t written = 0;
@@ -917,6 +767,7 @@ timeout:
 }
 
 
+// check if an fd is valid
 int uwsgi_valid_fd(int fd) {
 	int ret = fcntl(fd, F_GETFL);
 	if (ret == 0) {
@@ -973,4 +824,170 @@ int uwsgi_read_nb(int fd, char *buf, size_t remains, int timeout) {
         }
 
         return 0;
+}
+
+/*
+        this is like uwsgi_read_nb() but with fast initial read and hooked wait (use it in request plugin)
+*/
+ssize_t uwsgi_read_true_nb(int fd, char *buf, size_t len, int timeout) {
+        int ret;
+
+	ssize_t rlen = read(fd, buf, len);
+        if (rlen > 0) {
+		return rlen;	
+	}
+        if (rlen == 0) return -1;
+        if (rlen < 0) {
+        	if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) goto wait;
+        }
+        return -1;
+wait:
+        ret = uwsgi.wait_read_hook(fd, timeout);
+        if (ret > 0) {
+        	rlen = read(fd, buf, len);
+                if (rlen > 0) {
+			return rlen;
+                }
+		return -1;
+	}
+        return ret;
+}
+
+
+
+/*
+	this is a pretty magic function used for read a full uwsgi response
+	it is true non blocking, so you can use it in request plugins
+	buffer is expected to be at least 4 bytes, rlen is a get/set value
+*/
+
+int uwsgi_read_with_realloc(int fd, char **buffer, size_t *rlen, int timeout) {
+	if (*rlen < 4) return -1;
+	char *buf = *buffer;
+	int ret;
+
+	// start reading the header
+	char *ptr = buf;
+	size_t remains = 4;
+	while(remains > 0) {
+		ssize_t len = read(fd, ptr, remains);
+                if (len > 0) goto readok;
+                if (len == 0) return -1;
+                if (len < 0) {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) goto wait;
+                        return -1;
+                }
+wait:
+                ret = uwsgi.wait_read_hook(fd, timeout);
+                if (ret > 0) {
+                        len = read(fd, ptr, remains);
+                        if (len > 0) goto readok;
+                }
+                return -1;
+readok:
+                ptr += len;
+                remains -= len;
+                continue;
+        }
+
+	struct uwsgi_header *uh = (struct uwsgi_header *) buf;
+	uint16_t pktsize = uh->pktsize;
+	
+	if (pktsize > *rlen) {
+		char *tmp_buf = realloc(buf, pktsize);
+		if (!tmp_buf) {
+			uwsgi_error("uwsgi_read_with_realloc()/realloc()");
+			return -1;
+		}
+		*buffer = tmp_buf;
+	}
+
+	*rlen = pktsize;
+	// read the body
+	remains = pktsize;
+	ptr = buf;
+	while(remains > 0) {
+                ssize_t len = read(fd, ptr, remains);
+                if (len > 0) goto readok2;
+                if (len == 0) return -1;
+                if (len < 0) {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) goto wait2;
+                        return -1;
+                }
+wait2:
+                ret = uwsgi.wait_read_hook(fd, timeout);
+                if (ret > 0) {
+                        len = read(fd, ptr, remains);
+                        if (len > 0) goto readok2;
+                }
+                return -1;
+readok2:
+                ptr += len;
+                remains -= len;
+                continue;
+        }
+
+	return 0;
+	
+}
+
+/*
+
+	this is a commodity (big) function to send a buffer and wsgi_req body to a socket
+	and to receive back data (and send them to the client)
+
+*/
+
+int uwsgi_proxy_nb(struct wsgi_request *wsgi_req, char *addr, struct uwsgi_buffer *ub, size_t remains, int timeout) {
+
+        int fd = uwsgi_connect(addr, 0, 1);
+        if (fd < 0) {
+		return -1;
+        }
+
+        int ret = uwsgi.wait_write_hook(fd, timeout);
+        if (ret <= 0) {
+		goto end;
+        }
+
+        // send the request (+ remaining data)
+	if (ub) {
+        	if (uwsgi_write_true_nb(fd, ub->buf, ub->pos, timeout)) {
+			goto end;
+        	}
+	}
+
+        // send the body
+        while(remains > 0) {
+                ssize_t rlen = 0;
+                char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
+                if (!buf) {
+			goto end;
+                }
+                if (buf == uwsgi.empty) break;
+                // write data to the node
+                if (uwsgi_write_true_nb(fd, buf, rlen, timeout)) {
+			goto end;
+                }
+                remains -= rlen;
+        }
+
+        // read the response
+        for(;;) {
+                char buf[8192];
+                ssize_t rlen = uwsgi_read_true_nb(fd, buf, 8192, timeout);
+                if (rlen > 0) {
+                        if (uwsgi_response_write_body_do(wsgi_req, buf, rlen)) {
+                                break;
+                        }
+                        continue;
+                }
+                break;
+        }
+
+	close(fd);
+	return 0;
+end:
+	close(fd);
+	return -1;
 }

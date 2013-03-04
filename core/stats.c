@@ -13,6 +13,7 @@ struct uwsgi_stats *uwsgi_stats_new(size_t chunk_size) {
 	us->chunk = chunk_size;
 	us->size = chunk_size;
 	us->tabs = 1;
+	us->dirty = 0;
 	us->minified = uwsgi.stats_minified;
 	if (!us->minified) {
 		us->base[1] = '\n';
@@ -373,7 +374,7 @@ struct uwsgi_stats_pusher *uwsgi_stats_pusher_get(char *name) {
 	return usp;
 }
 
-void uwsgi_stats_pusher_add(struct uwsgi_stats_pusher *pusher, char *arg) {
+struct uwsgi_stats_pusher_instance *uwsgi_stats_pusher_add(struct uwsgi_stats_pusher *pusher, char *arg) {
 	struct uwsgi_stats_pusher_instance *old_uspi = NULL, *uspi = uwsgi.stats_pusher_instances;
 	while (uspi) {
 		old_uspi = uspi;
@@ -389,6 +390,8 @@ void uwsgi_stats_pusher_add(struct uwsgi_stats_pusher *pusher, char *arg) {
 	else {
 		uwsgi.stats_pusher_instances = uspi;
 	}
+
+	return uspi;
 }
 
 void uwsgi_stats_pusher_loop(struct uwsgi_thread *ut) {
@@ -413,12 +416,17 @@ void uwsgi_stats_pusher_loop(struct uwsgi_thread *ut) {
 		while (uspi) {
 			int delta = uspi->freq ? uspi->freq : uwsgi.stats_pusher_default_freq;
 			if ((uspi->last_run + delta) <= now) {
-				if (!us) {
-					us = uwsgi_master_generate_stats();
-					if (!us)
-						goto next;
+				if (uspi->raw) {
+					uspi->pusher->func(uspi, now, NULL, 0);
 				}
-				uspi->pusher->func(uspi, us->base, us->pos);
+				else {
+					if (!us) {
+						us = uwsgi_master_generate_stats();
+						if (!us)
+							goto next;
+					}
+					uspi->pusher->func(uspi, now, us->base, us->pos);
+				}
 				uspi->last_run = now;
 			}
 next:
@@ -456,7 +464,7 @@ void uwsgi_stats_pusher_setup() {
 	}
 }
 
-void uwsgi_register_stats_pusher(char *name, void (*func) (struct uwsgi_stats_pusher_instance *, char *, size_t)) {
+struct uwsgi_stats_pusher *uwsgi_register_stats_pusher(char *name, void (*func) (struct uwsgi_stats_pusher_instance *, time_t, char *, size_t)) {
 
 	struct uwsgi_stats_pusher *pusher = uwsgi.stats_pushers, *old_pusher = NULL;
 
@@ -475,6 +483,8 @@ void uwsgi_register_stats_pusher(char *name, void (*func) (struct uwsgi_stats_pu
 	else {
 		uwsgi.stats_pushers = pusher;
 	}
+
+	return pusher;
 }
 
 struct uwsgi_stats_pusher_file_conf {
@@ -483,7 +493,7 @@ struct uwsgi_stats_pusher_file_conf {
 	char *separator;
 };
 
-void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *uspi, char *json, size_t json_len) {
+void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *uspi, time_t now, char *json, size_t json_len) {
 	struct uwsgi_stats_pusher_file_conf *uspic = (struct uwsgi_stats_pusher_file_conf *) uspi->data;
 	if (!uspi->configured) {
 		uspic = uwsgi_calloc(sizeof(struct uwsgi_stats_pusher_file_conf));
@@ -519,4 +529,51 @@ void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *uspi, char *jso
 	}
 
 	close(fd);
+}
+
+static void stats_dump_var(char *k, uint16_t kl, char *v, uint16_t vl, void *data) {
+	struct uwsgi_stats *us = (struct uwsgi_stats *) data;
+	if (us->dirty) return;
+	uint16_t i;
+	// replace " with '
+	for(i=0;i<kl;i++) {
+		if (k[i] == '"') {
+			k[i] = '\'';
+		}
+	}
+	for(i=0;i<vl;i++) {
+		if (v[i] == '"') {
+			v[i] = '\'';
+		}
+	}
+	char *var = uwsgi_concat3n(k, kl, "=", 1, v,vl);
+	if (uwsgi_stats_str(us, var)) {
+		us->dirty = 1;
+		free(var);
+		return;
+	}
+	free(var);
+	if (uwsgi_stats_comma(us)) {
+		us->dirty = 1;
+	}	
+	return;
+}
+
+int uwsgi_stats_dump_vars(struct uwsgi_stats *us, struct uwsgi_core *uc) {
+	if (!uc->in_request) return 0;
+	struct uwsgi_header *uh = (struct uwsgi_header *) uwsgi.workers[0].cores[0].buffer;
+	uint16_t pktsize = uh->pktsize;
+	if (!pktsize) return 0;
+	char *dst = uwsgi.workers[0].cores[0].buffer;
+	memcpy(dst, uc->buffer+4, uwsgi.buffer_size);
+	// ok now check if something changed...
+	if (!uc->in_request) return 0;
+	if (uh->pktsize != pktsize) return 0;
+	if (memcmp(dst, uc->buffer+4, uwsgi.buffer_size)) return 0;
+	// nothing changed let's dump vars
+	int ret = uwsgi_hooked_parse(dst, pktsize, stats_dump_var, us);
+	if (ret) return -1;
+	if (us->dirty) return -1;
+	if (uwsgi_stats_str(us, "")) return -1;
+	return 0;
 }

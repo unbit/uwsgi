@@ -1,6 +1,4 @@
-#ifdef UWSGI_SNMP
-
-#include "uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
@@ -408,6 +406,17 @@ int uwsgi_setup_snmp(void) {
 
 	return snmp_fd;
 }
-#else
-#warning "*** SNMP support is disabled ***"
-#endif
+
+void uwsgi_master_manage_snmp(int snmp_fd) {
+        struct sockaddr_in udp_client;
+        socklen_t udp_len = sizeof(udp_client);
+        ssize_t rlen = recvfrom(snmp_fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
+
+        if (rlen < 0) {
+                uwsgi_error("recvfrom()");
+        }
+        else if (rlen > 0) {
+                manage_snmp(snmp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
+        }
+}
+

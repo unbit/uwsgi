@@ -45,6 +45,10 @@ static struct uwsgi_lock_item *uwsgi_register_lock(char *id, int rw) {
 
 #ifdef UWSGI_LOCK_USE_MUTEX
 
+#ifdef OBSOLETE_LINUX_KERNEL
+#undef EOWNERDEAD
+#endif
+
 #ifdef EOWNERDEAD
 #define UWSGI_LOCK_ENGINE_NAME "pthread robust mutexes"
 int uwsgi_pthread_robust_mutexes_enabled = 1;
@@ -58,6 +62,12 @@ int uwsgi_pthread_robust_mutexes_enabled = 1;
 #define UWSGI_RWLOCK_SIZE	sizeof(pthread_mutex_t)
 #else
 #define UWSGI_RWLOCK_SIZE	sizeof(pthread_rwlock_t)
+#endif
+
+#ifndef PTHREAD_PRIO_INHERIT
+int pthread_mutexattr_setprotocol (pthread_mutexattr_t *__attr,
+                                          int __protocol);
+#define PTHREAD_PRIO_INHERIT 1
 #endif
 
 // REMEMBER lock must contains space for both pthread_mutex_t and pthread_mutexattr_t !!! 
@@ -81,8 +91,15 @@ retry:
 	}
 
 #ifdef EOWNERDEAD
+#ifndef PTHREAD_MUTEX_ROBUST
+#define PTHREAD_MUTEX_ROBUST PTHREAD_MUTEX_ROBUST_NP
+#endif
+	if (pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT)) {
+		uwsgi_log("unable to set PTHREAD_PRIO_INHERIT\n");
+		exit(1);
+	}
 	if (uwsgi_pthread_robust_mutexes_enabled) {
-		if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST_NP)) {
+		if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST)) {
 			uwsgi_log("unable to make the mutex 'robust'\n");
 			exit(1);
 		}
@@ -540,6 +557,10 @@ pid_t uwsgi_rwlock_ipcsem_check(struct uwsgi_lock_item *uli) {
 
 void uwsgi_setup_locking() {
 
+	int i;
+
+	if (uwsgi.locking_setup) return;
+
 	// use the fastest available locking
 	if (uwsgi.lock_engine) {
 		if (!strcmp(uwsgi.lock_engine, "ipcsem")) {
@@ -556,8 +577,10 @@ void uwsgi_setup_locking() {
 			uwsgi.lock_ops.rwunlock = uwsgi_rwunlock_ipcsem;
 			uwsgi.lock_size = 8;
 			uwsgi.rwlock_size = 8;
-			return;
+			goto ready;
 		}
+		uwsgi_log("unable to find lock engine \"%s\"\n", uwsgi.lock_engine);
+		exit(1);
 	}
 
 	uwsgi_log_initial("lock engine: %s\n", UWSGI_LOCK_ENGINE_NAME);
@@ -576,8 +599,8 @@ void uwsgi_setup_locking() {
 	uwsgi.lock_size = UWSGI_LOCK_SIZE;
 	uwsgi.rwlock_size = UWSGI_RWLOCK_SIZE;
 
+ready:
 	// application generic lock
-	int i;
 	uwsgi.user_lock = uwsgi_malloc(sizeof(void *) * (uwsgi.locks + 1));
 	for (i = 0; i < uwsgi.locks + 1; i++) {
 		uwsgi.user_lock[i] = uwsgi_lock_init(uwsgi_concat2("user ", uwsgi_num2str(i)));
@@ -608,8 +631,13 @@ void uwsgi_setup_locking() {
 		uwsgi.cron_table_lock = uwsgi_lock_init("cron");
 	}
 
-	uwsgi.rpc_table_lock = uwsgi_lock_init("rpc");
+	if (uwsgi.use_thunder_lock) {
+		// process shared thunder lock
+		uwsgi.the_thunder_lock = uwsgi_lock_init("thunder");	
+	}
 
+	uwsgi.rpc_table_lock = uwsgi_lock_init("rpc");
+	uwsgi.locking_setup = 1;
 }
 
 

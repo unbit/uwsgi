@@ -69,22 +69,23 @@ int uwsgi_request_ping(struct wsgi_request *wsgi_req) {
 	char len;
 
 	uwsgi_log( "PING\n");
-	wsgi_req->uh.modifier2 = 1;
-	wsgi_req->uh.pktsize = 0;
+	wsgi_req->uh->modifier2 = 1;
+	wsgi_req->uh->pktsize = 0;
+	wsgi_req->do_not_account = 1;
 
 	len = strlen(uwsgi.shared->warning_message);
 	if (len > 0) {
 		// TODO: check endianess ?
-		wsgi_req->uh.pktsize = len;
+		wsgi_req->uh->pktsize = len;
 	}
-	if (write(wsgi_req->poll.fd, wsgi_req, 4) != 4) {
-		uwsgi_error("write()");
+
+	if (uwsgi_response_write_body_do(wsgi_req, (char *) wsgi_req->uh, 4)) {
+		return -1;
 	}
 
 	if (len > 0) {
-		if (write(wsgi_req->poll.fd, uwsgi.shared->warning_message, len)
-				!= len) {
-			uwsgi_error("write()");
+		if (uwsgi_response_write_body_do(wsgi_req, uwsgi.shared->warning_message, len)) {
+			return -1;
 		}
 	}
 

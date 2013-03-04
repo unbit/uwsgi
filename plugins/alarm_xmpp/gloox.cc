@@ -1,5 +1,6 @@
 #include "../../uwsgi.h"
 #include <gloox/client.h>
+#include <gloox/error.h>
 #include <gloox/message.h>
 #include <gloox/connectionlistener.h>
 #include <gloox/connectiontcpclient.h>
@@ -23,6 +24,8 @@ class Jabbo : public ConnectionListener{
 			uwsgi_string_new_list(&dest, p);
 			p = strtok_r(NULL, ",", &ctx);
 		}
+
+		full_jid = jab_username;
 
         	JID jid(jab_username);
         	client = new Client( jid, jab_password );
@@ -51,11 +54,14 @@ class Jabbo : public ConnectionListener{
 		event_queue_add_fd_read(u_thread->queue, fd);
 		event_queue_add_fd_read(u_thread->queue, u_thread->pipe[1]);
 		u_connected = 1;
+		uwsgi_log_alarm("-xmpp] (%s) connected to the XMPP server\n", full_jid);
     	}
 
     	virtual void onDisconnect(ConnectionError e) {
+		uwsgi_log_alarm("-xmpp] (%s) trying reconnect to the XMPP server...\n", full_jid);
 		if (u_connected) {
-			event_queue_del_fd(u_thread->queue, fd, event_queue_read());
+			// no need to remove it as it is already closed...
+			//event_queue_del_fd(u_thread->queue, fd, event_queue_read());
 			event_queue_del_fd(u_thread->queue, u_thread->pipe[1], event_queue_read());
 		}
         	sleep(1);
@@ -64,11 +70,22 @@ class Jabbo : public ConnectionListener{
         	fd = static_cast<ConnectionTCPClient*>( client->connectionImpl() )->socket();
     	}
 
+	virtual void onResourceBindError(const Error *error) {
+		uwsgi_log_alarm("-xmpp] (%s) onResourceBindError(): %s\n", full_jid, error->text().c_str());
+		client->disconnect();
+	}
+
+	virtual void onSessionCreateError(const Error *error) {
+		uwsgi_log_alarm("-xmpp] (%s) onSessionCreateError(): %s\n", full_jid, error->text().c_str());
+		client->disconnect();
+	}
+
 	virtual bool onTLSConnect(const CertInfo& info) {
 		return true;
 	}
 
 	Client* client;
+	char *full_jid;
 	int fd;
 	int u_connected;
 	struct uwsgi_thread *u_thread;

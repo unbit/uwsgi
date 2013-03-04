@@ -4,6 +4,17 @@
 
 	uWSGI offloading subsystem
 
+	steps to offload a task
+
+	1) allocate a uwsgi_offload_request structure (could be on stack)
+	struct uwsgi_offload_request uor;
+	2) prepare it for a specific engine (last argument is the takeover flag)
+	uwsgi_offload_setup(my_engine, &uor, 1)
+	3) run it (last argument is the waiter)
+	int uwsgi_offload_run(wsgi_req, &uor, NULL);
+
+	between 2 and 3 you can set specific values
+
 */
 
 
@@ -13,19 +24,20 @@ extern struct uwsgi_server uwsgi;
 #define uwsgi_offload_0r_1w(x, y) if (event_queue_del_fd(ut->queue, x, event_queue_read())) return -1;\
 					if (event_queue_fd_read_to_write(ut->queue, y)) return -1;
 
-static int uwsgi_offload_net_transfer(struct uwsgi_thread *, struct uwsgi_offload_request *, int);
-static int uwsgi_offload_sendfile_transfer(struct uwsgi_thread *, struct uwsgi_offload_request *, int);
+void uwsgi_offload_setup(struct uwsgi_offload_engine *uoe, struct uwsgi_offload_request *uor, struct wsgi_request *wsgi_req, uint8_t takeover) {
 
-static void uwsgi_offload_setup(struct uwsgi_offload_request *uor, struct wsgi_request *wsgi_req,
-	int (*func)(struct uwsgi_thread *, struct uwsgi_offload_request *, int)) {
-
-	wsgi_req->fd_closed = 1;
 	memset(uor, 0, sizeof(struct uwsgi_offload_request));
-	uor->s = wsgi_req->poll.fd;
-	uor->func = func;
-	// put socket in non-blocking mode
-	uwsgi_socket_nb(uor->s);
-	
+
+	uor->engine = uoe;
+
+	uor->s = wsgi_req->fd;
+	uor->fd = -1;
+	uor->fd2 = -1;
+	// an engine could changes behaviour based on pipe anf takeover values
+	uor->pipe[0] = -1;
+	uor->pipe[1] = -1;
+	uor->takeover = takeover;
+
 }
 
 static int uwsgi_offload_enqueue(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor) {
@@ -38,79 +50,92 @@ static int uwsgi_offload_enqueue(struct wsgi_request *wsgi_req, struct uwsgi_off
 	struct uwsgi_thread *ut = uwsgi.offload_thread[uc->offload_rr];
 	uc->offload_rr++;
 	if (write(ut->pipe[0], uor, sizeof(struct uwsgi_offload_request)) != sizeof(struct uwsgi_offload_request)) {
+		if (uor->takeover) {
+			wsgi_req->fd_closed = 0;
+		}
 		return -1;
 	}
 	return 0;
 }
 
-int uwsgi_offload_request_net_do(struct wsgi_request *wsgi_req, char *socket, struct uwsgi_buffer *ubuf) {
+/*
 
-	// fill offload request
-	struct uwsgi_offload_request uor;
-	uwsgi_offload_setup(&uor, wsgi_req, uwsgi_offload_net_transfer);
+	transfer offload engine:
+		name -> socket name
+		ubuf -> data to send
 
-	uor.fd = uwsgi_connect(socket, 0, 1);
-	if (uor.fd < 0) {
-		uwsgi_error("uwsgi_offload_request_net_do() -> connect()");
-		goto error;
+*/
+
+int u_offload_transfer_prepare(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor) {
+
+	if (!uor->name) {
+		return -1;
 	}
 
-	uor.ubuf = ubuf;
-
-	if (uwsgi_offload_enqueue(wsgi_req, &uor)) {
-		goto error2;
+	uor->fd = uwsgi_connect(uor->ubuf->buf, 0, 1);
+	if (uor->fd < 0) {
+		uwsgi_error("u_offload_transfer_prepare()/connect()");
+		return -1;
 	}
 
 	return 0;
-
-error2:
-	close(uor.fd);
-error:
-	wsgi_req->fd_closed = 0;
-	return -1;
 }
 
-int uwsgi_offload_request_sendfile_do(struct wsgi_request *wsgi_req, char *filename, size_t len) {
+/*
 
-	// fill offload request
-	struct uwsgi_offload_request uor;
-	uwsgi_offload_setup(&uor, wsgi_req, uwsgi_offload_sendfile_transfer);
+	sendfile offload engine:
+		name -> filename to transfer
+		fd -> file descriptor of file to transfer	
+		fd2 -> sendfile destination (default wsgi_req->fd)
+		len -> size of the file or amount of data to transfer
+		pos -> position in the file
 
-	uor.fd = open(filename, O_RDONLY | O_NONBLOCK);
-	if (uor.fd < 0) {
-		uwsgi_error_open(filename);
-		goto error;
+*/
+
+static int u_offload_sendfile_prepare(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor) {
+
+	if (!uor->name && uor->fd == -1) return -1;
+
+	if (uor->name) {
+		uor->fd = open(uor->name, O_RDONLY | O_NONBLOCK);
+		if (uor->fd < 0) {
+			uwsgi_error_open(uor->name);
+			return -1;
+		}
 	}
 
 	// make a fstat to get the file size
-	if (!len) {
+	if (!uor->len) {
 		struct stat st;
-		if (fstat(uor.fd, &st)) {
-			uwsgi_error("fstat()");
-			goto error2;
+		if (fstat(uor->fd, &st)) {
+			uwsgi_error("u_offload_sendfile_prepare()/fstat()");
+			if (uor->name) {
+				close(uor->fd);
+			}
+			return -1;
 		}
-		len = st.st_size;
+		uor->len = st.st_size;
 	}
 
-	uor.len = len;
-
-	if (uwsgi_offload_enqueue(wsgi_req, &uor)) {
-		goto error2;
+	if (uor->fd2 == -1) {
+		uor->fd2 = uor->s;
 	}
+	uor->s = -1;
 
 	return 0;
-
-error2:
-	close(uor.fd);
-error:
-	wsgi_req->fd_closed = 0;
-	return -1;
 }
 
 static void uwsgi_offload_close(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor) {
 	// close the socket and the file descriptor
-	close(uor->s);
-	close(uor->fd);
+	if (uor->takeover && uor->s > -1) {
+		close(uor->s);
+	}
+	if (uor->fd != -1) {
+		close(uor->fd);
+	}
+	if (uor->fd2 != -1) {
+		close(uor->fd2);
+	}
 	// remove the structure from the linked list;
 	struct uwsgi_offload_request *prev = uor->prev;
 	struct uwsgi_offload_request *next = uor->next;
@@ -139,6 +164,11 @@ static void uwsgi_offload_close(struct uwsgi_thread *ut, struct uwsgi_offload_re
 		uwsgi_buffer_destroy(uor->ubuf);
 	}
 
+	if (uor->pipe[0] != -1) {
+		close(uor->pipe[1]);
+		close(uor->pipe[0]);
+	}
+
 	free(uor);
 }
 
@@ -159,7 +189,7 @@ static void uwsgi_offload_append(struct uwsgi_thread *ut, struct uwsgi_offload_r
 static struct uwsgi_offload_request *uwsgi_offload_get_by_fd(struct uwsgi_thread *ut, int s) {
 	struct uwsgi_offload_request *uor = ut->offload_requests_head;
 	while (uor) {
-		if (uor->s == s || uor->fd == s) {
+		if (uor->s == s || uor->fd == s || uor->fd2 == s) {
 			return uor;
 		}
 		uor = uor->next;
@@ -185,8 +215,8 @@ static void uwsgi_offload_loop(struct uwsgi_thread *ut) {
 					free(uor);
 					continue;
 				}
-				// start monitoring socket for write
-				if (uor->func(ut, uor, -1)) {
+				// cal the event function for the first time
+				if (uor->engine->event_func(ut, uor, -1)) {
 					uwsgi_offload_close(ut, uor);
 					continue;
 				}
@@ -199,7 +229,7 @@ static void uwsgi_offload_loop(struct uwsgi_thread *ut) {
 			if (!uor)
 				continue;
 			// run the hook
-			if (uor->func(ut, uor, interesting_fd)) {
+			if (uor->engine->event_func(ut, uor, interesting_fd)) {
 				uwsgi_offload_close(ut, uor);
 			}
 		}
@@ -221,14 +251,14 @@ the offload task starts after having acquired the file fd
 
 */
 
-static int uwsgi_offload_sendfile_transfer(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor, int fd) {
+static int u_offload_sendfile_do(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor, int fd) {
 
 	if (fd == -1) {
-		if (event_queue_add_fd_write(ut->queue, uor->s)) return -1;
+		if (event_queue_add_fd_write(ut->queue, uor->fd2)) return -1;
 		return 0;
 	}
 #if defined(__linux__) || defined(__sun__)
-	ssize_t len = sendfile(uor->s, uor->fd, &uor->pos, 128 * 1024);
+	ssize_t len = sendfile(uor->fd2, uor->fd, &uor->pos, 128 * 1024);
 	if (len > 0) {
         	uor->written += len;
                 if (uor->written >= uor->len) {
@@ -238,25 +268,25 @@ static int uwsgi_offload_sendfile_transfer(struct uwsgi_thread *ut, struct uwsgi
 	}
         else if (len < 0) {
 		uwsgi_offload_retry
-                uwsgi_error("sendfile()");
+                uwsgi_error("u_offload_sendfile_do()");
 	}
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
 	off_t sbytes = 0;
-	int ret = sendfile(uor->fd, uor->s, uor->pos, 0, NULL, &sbytes, 0);
+	int ret = sendfile(uor->fd, uor->fd2, uor->pos, 0, NULL, &sbytes, 0);
 	// transfer finished
 	if (ret == -1) {
 		uor->pos += sbytes;
 		uwsgi_offload_retry
-                uwsgi_error("sendfile()");
+                uwsgi_error("u_offload_sendfile_do()");
 	}
 #elif defined(__APPLE__)
 	off_t len = 0;
-        int ret = sendfile(uor->fd, uor->s, uor->pos, &len, NULL, 0);
+        int ret = sendfile(uor->fd, uor->fd2, uor->pos, &len, NULL, 0);
         // transfer finished
         if (ret == -1) {
                 uor->pos += len;
                 uwsgi_offload_retry
-                uwsgi_error("sendfile()");
+                uwsgi_error("u_offload_sendfile_do()");
         }
 #endif
 	return -1;
@@ -273,7 +303,7 @@ the offload task starts soon after the call to connect()
 		3 -> write to s
 		4 -> write to fd
 */
-static int uwsgi_offload_net_transfer(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor, int fd) {
+static int u_offload_transfer_do(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor, int fd) {
 	
 	ssize_t rlen;
 
@@ -289,7 +319,7 @@ static int uwsgi_offload_net_transfer(struct uwsgi_thread *ut, struct uwsgi_offl
 			if (fd == uor->fd) {
 				uor->status = 1;
 				// ok try to send the request right now...
-				return uwsgi_offload_net_transfer(ut, uor, fd);
+				return u_offload_transfer_do(ut, uor, fd);
 			}
 			return -1;
 		// write event (or just connected)
@@ -307,7 +337,7 @@ static int uwsgi_offload_net_transfer(struct uwsgi_thread *ut, struct uwsgi_offl
 				}
 				else if (rlen < 0) {
 					uwsgi_offload_retry
-					uwsgi_error("uwsgi_offload_net_transfer() -> write()");
+					uwsgi_error("u_offload_transfer_do() -> write()");
 				}
 			}	
 			return -1;
@@ -327,7 +357,7 @@ static int uwsgi_offload_net_transfer(struct uwsgi_thread *ut, struct uwsgi_offl
 				}
 				if (rlen < 0) {
 					uwsgi_offload_retry
-					uwsgi_error("uwsgi_offload_net_transfer() -> read()/fd");
+					uwsgi_error("u_offload_transfer_do() -> read()/fd");
 				}
 			}
 			else if (fd == uor->s) {
@@ -341,7 +371,7 @@ static int uwsgi_offload_net_transfer(struct uwsgi_thread *ut, struct uwsgi_offl
 				}
 				if (rlen < 0) {
 					uwsgi_offload_retry
-					uwsgi_error("uwsgi_offload_net_transfer() -> read()/s");
+					uwsgi_error("u_offload_transfer_do() -> read()/s");
 				}
 			}
 			return -1;
@@ -360,7 +390,7 @@ static int uwsgi_offload_net_transfer(struct uwsgi_thread *ut, struct uwsgi_offl
 			}
 			else if (rlen < 0) {
 				uwsgi_offload_retry
-				uwsgi_error("uwsgi_offload_net_transfer() -> write()/s");
+				uwsgi_error("u_offload_transfer_do() -> write()/s");
 			}
 			return -1;
 		// write event on fd
@@ -378,7 +408,7 @@ static int uwsgi_offload_net_transfer(struct uwsgi_thread *ut, struct uwsgi_offl
 			}
 			else if (rlen < 0) {
 				uwsgi_offload_retry
-				uwsgi_error("uwsgi_offload_net_transfer() -> write()/fd");
+				uwsgi_error("u_offload_transfer_do() -> write()/fd");
 			}
 			return -1;
 		default:
@@ -386,4 +416,94 @@ static int uwsgi_offload_net_transfer(struct uwsgi_thread *ut, struct uwsgi_offl
 	}
 
 	return -1;
+}
+
+int uwsgi_offload_run(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor, int *wait) {
+
+	if (uor->engine->prepare_func(wsgi_req, uor)) {
+		return -1;
+	}
+
+	if (wait) {
+                if (pipe(uor->pipe)) {
+                        uwsgi_error("uwsgi_offload_setup()/pipe()");
+                        return -1;
+                }
+                *wait = uor->pipe[0];
+                uwsgi_socket_nb(uor->pipe[0]);
+                uwsgi_socket_nb(uor->pipe[1]);
+        }
+
+        if (uor->takeover) {
+                wsgi_req->fd_closed = 1;
+        }
+
+	if (uwsgi_offload_enqueue(wsgi_req, uor)) {
+		close(uor->pipe[0]);
+		close(uor->pipe[1]);
+		if (uor->takeover) {
+			wsgi_req->fd_closed = 0;
+		}
+		return -1;
+        }
+
+        return 0;
+	
+};
+
+struct uwsgi_offload_engine *uwsgi_offload_engine_by_name(char *name) {
+	struct uwsgi_offload_engine *uoe = uwsgi.offload_engines;
+	while(uoe) {
+		if (!strcmp(name, uoe->name)) {
+			return uoe;
+		}
+	}
+	return NULL;
+}
+
+struct uwsgi_offload_engine *uwsgi_offload_register_engine(char *name, int (*prepare_func)(struct wsgi_request *, struct uwsgi_offload_request *), int (*event_func) (struct uwsgi_thread *, struct uwsgi_offload_request *, int)) {
+
+	struct uwsgi_offload_engine *old_engine=NULL,*engine=uwsgi.offload_engines;
+	while(engine) {
+		if (!strcmp(engine->name, name)) {
+			return engine;
+		}
+		old_engine = engine;
+		engine = engine->next;
+	}
+
+	engine = uwsgi_calloc(sizeof(struct uwsgi_offload_engine));
+	engine->name = name;
+	engine->prepare_func = prepare_func;
+	engine->event_func = event_func;
+
+	if (old_engine) {
+		old_engine->next = engine;
+	}
+	else {
+		uwsgi.offload_engines = engine;
+	}
+
+	return engine;
+}
+
+void uwsgi_offload_engines_register_all() {
+	uwsgi.offload_engine_sendfile = uwsgi_offload_register_engine("sendfile", u_offload_sendfile_prepare, u_offload_sendfile_do);
+	uwsgi.offload_engine_transfer = uwsgi_offload_register_engine("transfer", u_offload_transfer_prepare, u_offload_transfer_do);
+}
+
+int uwsgi_offload_request_sendfile_do(struct wsgi_request *wsgi_req, int fd, size_t len) {
+	struct uwsgi_offload_request uor;
+	uwsgi_offload_setup(uwsgi.offload_engine_sendfile, &uor, wsgi_req, 1);
+	uor.fd = fd;
+	uor.len = len;
+	return uwsgi_offload_run(wsgi_req, &uor, NULL);
+}
+
+int uwsgi_offload_request_net_do(struct wsgi_request *wsgi_req, char *socketname, struct uwsgi_buffer *ubuf) {
+	struct uwsgi_offload_request uor;
+	uwsgi_offload_setup(uwsgi.offload_engine_transfer, &uor, wsgi_req, 1);
+	uor.name = socketname;
+	uor.ubuf = ubuf;
+	return uwsgi_offload_run(wsgi_req, &uor, NULL);
 }

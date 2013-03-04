@@ -20,7 +20,9 @@ void uwsgi_systemd_notify(char *message) {
 
 	msghdr->msg_iovlen = 3;
 
-	sendmsg(uwsgi.notification_fd, msghdr, 0);
+	if (sendmsg(uwsgi.notification_fd, msghdr, 0) < 0) {
+		uwsgi_error("sendmsg()");
+	}
 }
 
 void uwsgi_systemd_notify_ready(void) {
@@ -33,8 +35,9 @@ void uwsgi_systemd_notify_ready(void) {
 
 	msghdr->msg_iovlen = 1;
 
-	sendmsg(uwsgi.notification_fd, msghdr, 0);
-
+	if (sendmsg(uwsgi.notification_fd, msghdr, 0) < 0) {
+		uwsgi_error("sendmsg()");
+	}
 }
 
 

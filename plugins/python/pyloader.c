@@ -15,12 +15,8 @@ extern char **environ;
 
 PyMethodDef uwsgi_sendfile_method[] = {{"uwsgi_sendfile", py_uwsgi_sendfile, METH_VARARGS, ""}};
 
-#ifdef UWSGI_ASYNC
 PyMethodDef uwsgi_eventfd_read_method[] = { {"uwsgi_eventfd_read", py_eventfd_read, METH_VARARGS, ""}};
 PyMethodDef uwsgi_eventfd_write_method[] = { {"uwsgi_eventfd_write", py_eventfd_write, METH_VARARGS, ""}};
-#endif
-
-#ifdef UWSGI_MINTERPRETERS
 
 void set_dyn_pyhome(char *home, uint16_t pyhome_len) {
 
@@ -30,7 +26,7 @@ void set_dyn_pyhome(char *home, uint16_t pyhome_len) {
 
 	PyObject *pysys_dict = get_uwsgi_pydict("sys");
 
-	PyObject *pypath = pypath = PyDict_GetItemString(pysys_dict, "path");
+	PyObject *pypath = PyDict_GetItemString(pysys_dict, "path");
 	if (!pypath) {
 		PyErr_Print();
 		exit(1);
@@ -67,8 +63,6 @@ void set_dyn_pyhome(char *home, uint16_t pyhome_len) {
 
         }
 }
-
-#endif
 
 
 int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThreadState *interpreter, int app_type) {
@@ -161,7 +155,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
         	}
 	}
 
-#ifdef UWSGI_MINTERPRETERS
 	if (interpreter == NULL && id) {
 
 		wi->interpreter = Py_NewInterpreter();
@@ -172,10 +165,8 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		PyThreadState_Swap(wi->interpreter);
 		init_pyargv();
 
-#ifdef UWSGI_EMBEDDED
 		// we need to inizialize an embedded module for every interpreter
 		init_uwsgi_embedded_module();
-#endif
 		init_uwsgi_vars();
 
 	}
@@ -189,9 +180,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	if (wsgi_req->pyhome_len) {
 		set_dyn_pyhome(wsgi_req->pyhome, wsgi_req->pyhome_len);
 	}
-#else
-	wi->interpreter = up.main_thread;
-#endif
 
 	if (wsgi_req->touch_reload_len > 0 && wsgi_req->touch_reload_len < 0xff) {
 		struct stat trst;
@@ -245,7 +233,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 	Py_INCREF((PyObject *)wi->callable);
 
-#ifdef UWSGI_ASYNC
 	wi->environ = malloc(sizeof(PyObject*)*uwsgi.cores);
 	if (!wi->environ) {
 		uwsgi_error("malloc()");
@@ -259,13 +246,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 			exit(1);
 		}
 	}
-#else
-	wi->environ = PyDict_New();
-	if (!wi->environ) {
-		uwsgi_log("unable to allocate new env dictionary for app\n");
-		exit(1);
-	}
-#endif
 
 	wi->argc = 1;
 
@@ -292,7 +272,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		wi->response_subhandler = uwsgi_response_subhandler_pump;
 	}
 
-#ifdef UWSGI_ASYNC
 	wi->args = malloc(sizeof(PyObject*)*uwsgi.cores);
 	if (!wi->args) {
 		uwsgi_error("malloc()");
@@ -315,30 +294,18 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 			}
 		}
 	}
-#else
-
-	// add start_response on WSGI app
-	Py_INCREF((PyObject *)up.wsgi_spitout);
-	wi->args = PyTuple_New(wi->argc);
-	if (app_type == PYTHON_APP_TYPE_WSGI) {
-		if (PyTuple_SetItem(wi->args, 1, up.wsgi_spitout)) {
-			uwsgi_log("unable to set start_response in args tuple\n");
-			exit(1);
-		}
-	}
-#endif
 
 	if (app_type == PYTHON_APP_TYPE_WSGI) {
 		// prepare sendfile() for WSGI app
 		wi->sendfile = PyCFunction_New(uwsgi_sendfile_method, NULL);
 
-#ifdef UWSGI_ASYNC
 		wi->eventfd_read = PyCFunction_New(uwsgi_eventfd_read_method, NULL);
 		wi->eventfd_write = PyCFunction_New(uwsgi_eventfd_write_method, NULL);
-#endif
 	}
 
 	// cache most used values
+	wi->error = PyFile_FromFile(stderr, "wsgi_errors", "w", NULL);
+	Py_INCREF(wi->error);
 
 	wi->gateway_version = PyTuple_New(2);
         PyTuple_SetItem(wi->gateway_version, 0, PyInt_FromLong(1));
@@ -424,7 +391,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 doh:
 	if (PyErr_Occurred())
 		PyErr_Print();
-#ifdef UWSGI_MINTERPRETERS
 	if (interpreter == NULL && id) {
 		Py_EndInterpreter(wi->interpreter);
 		if (uwsgi.threads > 1) {
@@ -434,7 +400,6 @@ doh:
 			PyThreadState_Swap(up.main_thread);
 		}
 	}
-#endif
 	return -1;
 }
 
@@ -479,9 +444,7 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 
 	PyObject *tmp_callable;
 	PyObject *applications;
-#ifdef UWSGI_EMBEDDED
 	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
-#endif
 
 	char *module = (char *) arg1;
 
@@ -504,10 +467,8 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 		return NULL;
 	}
 
-#ifdef UWSGI_EMBEDDED
 	applications = PyDict_GetItemString(uwsgi_dict, "applications");
 	if (applications && PyDict_Check(applications)) return applications;
-#endif
 
 	applications = PyDict_GetItemString(wsgi_dict, "applications");
 	if (applications && PyDict_Check(applications)) return applications;

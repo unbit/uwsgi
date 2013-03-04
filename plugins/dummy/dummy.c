@@ -1,6 +1,6 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
-int dummy_request(struct wsgi_request *wsgi_req) {
+static int dummy_request(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi_parse_vars(wsgi_req)) {
 		return -1;

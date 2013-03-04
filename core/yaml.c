@@ -61,9 +61,9 @@ int yaml_get_depth(char *line) {
 	return depth;
 }
 
-char *yaml_get_line(char *yaml, off_t size) {
+char *yaml_get_line(char *yaml, size_t size) {
 
-	off_t i;
+	size_t i;
 	char *ptr = yaml;
 	int comment = 0;
 
@@ -96,7 +96,7 @@ char *yaml_get_line(char *yaml, off_t size) {
 
 void uwsgi_yaml_config(char *file, char *magic_table[]) {
 
-	int len = 0;
+	size_t len = 0;
 	char *yaml;
 
 	int in_uwsgi_section = 0;

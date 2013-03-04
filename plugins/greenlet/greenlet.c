@@ -17,7 +17,7 @@ struct uwsgi_option greenlet_options[] = {
 
 PyObject *py_uwsgi_greenlet_request(PyObject * self, PyObject *args) {
 
-	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh.modifier1]->request(uwsgi.wsgi_req);
+	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req);
 	uwsgi.wsgi_req->suspended = 0;
 
 	Py_DECREF(ugl.gl[uwsgi.wsgi_req->async_id]);
@@ -52,15 +52,20 @@ static inline void greenlet_schedule_to_main(struct wsgi_request *wsgi_req) {
 }
 
 
-int greenlet_init() {
+static int greenlet_init() {
 	return 0;
 }
 
-void greenlet_init_apps(void) {
+static void greenlet_init_apps(void) {
 
 	if (!ugl.enabled) {
 		return;
 	}
+
+	if (uwsgi.async <= 1) {
+                uwsgi_log("the greenlet loop engine requires async mode\n");
+                exit(1);
+        }
 
 
 	PyGreenlet_Import();

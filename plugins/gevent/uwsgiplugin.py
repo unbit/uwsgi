@@ -5,4 +5,4 @@ CFLAGS = ['-I' + sysconfig.get_python_inc(), '-I' + sysconfig.get_python_inc(pla
 LDFLAGS = []
 LIBS = []
 
-GCC_LIST = ['gevent']
+GCC_LIST = ['gevent', 'hooks']

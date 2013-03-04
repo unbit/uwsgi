@@ -1,56 +1,8 @@
-#include "uwsgi.h"
+#include <uwsgi.h>
 
 
 extern struct uwsgi_server uwsgi;
 extern char **environ;
-
-/* statistically ordered */
-struct http_status_codes hsc[] = {
-	{"200", "OK"},
-	{"302", "Found"},
-	{"404", "Not Found"},
-	{"500", "Internal Server Error"},
-	{"301", "Moved Permanently"},
-	{"304", "Not Modified"},
-	{"303", "See Other"},
-	{"403", "Forbidden"},
-	{"307", "Temporary Redirect"},
-	{"401", "Unauthorized"},
-	{"400", "Bad Request"},
-	{"405", "Method Not Allowed"},
-	{"408", "Request Timeout"},
-
-	{"100", "Continue"},
-	{"101", "Switching Protocols"},
-	{"201", "Created"},
-	{"202", "Accepted"},
-	{"203", "Non-Authoritative Information"},
-	{"204", "No Content"},
-	{"205", "Reset Content"},
-	{"206", "Partial Content"},
-	{"300", "Multiple Choices"},
-	{"305", "Use Proxy"},
-	{"402", "Payment Required"},
-	{"406", "Not Acceptable"},
-	{"407", "Proxy Authentication Required"},
-	{"409", "Conflict"},
-	{"410", "Gone"},
-	{"411", "Length Required"},
-	{"412", "Precondition Failed"},
-	{"413", "Request Entity Too Large"},
-	{"414", "Request-URI Too Long"},
-	{"415", "Unsupported Media Type"},
-	{"416", "Requested Range Not Satisfiable"},
-	{"417", "Expectation Failed"},
-	{"501", "Not Implemented"},
-	{"502", "Bad Gateway"},
-	{"503", "Service Unavailable"},
-	{"504", "Gateway Timeout"},
-	{"505", "HTTP Version Not Supported"},
-	{"", NULL},
-};
-
-
 
 #ifdef __BIG_ENDIAN__
 uint16_t uwsgi_swap16(uint16_t x) {
@@ -140,7 +92,6 @@ void set_mule_harakiri(int sec) {
 	}
 }
 
-#ifdef UWSGI_SPOOLER
 // set spooler harakiri
 void set_spooler_harakiri(int sec) {
 	if (sec == 0) {
@@ -153,7 +104,6 @@ void set_spooler_harakiri(int sec) {
 		alarm(sec);
 	}
 }
-#endif
 
 
 // daemonize to the specified logfile
@@ -240,37 +190,6 @@ char *uwsgi_get_cwd() {
 
 	return cwd;
 
-}
-
-// generate internal server error message
-void internal_server_error(struct wsgi_request *wsgi_req, char *message) {
-
-	if (uwsgi.wsgi_req->headers_size == 0) {
-		if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
-			uwsgi.wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, "HTTP/1.1 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 63);
-		}
-		else {
-			uwsgi.wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, "Status: 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 62);
-		}
-		uwsgi.wsgi_req->header_cnt = 2;
-	}
-
-	uwsgi.wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, "<h1>uWSGI Error</h1>", 20);
-	uwsgi.wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, message, strlen(message));
-}
-
-// check if a string_list containes an item
-struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *list, char *key, size_t keylen) {
-	struct uwsgi_string_list *usl = list;
-	while (usl) {
-		if (keylen == usl->len) {
-			if (!memcmp(key, usl->value, keylen)) {
-				return usl;
-			}
-		}
-		usl = usl->next;
-	}
-	return NULL;
 }
 
 #ifdef __linux__
@@ -539,18 +458,20 @@ void uwsgi_as_root() {
 				}
 			}
 			int additional_groups = getgroups(0, NULL);
-			gid_t *gids = uwsgi_calloc(sizeof(gid_t) * additional_groups);
-			int i;
-			if (getgroups(additional_groups, gids) > 0) {
-				for (i = 0; i < additional_groups; i++) {
-					if (gids[i] == uwsgi.gid)
-						continue;
-					struct group *gr = getgrgid(gids[i]);
-					if (gr) {
-						uwsgi_log("set additional group %d (%s)\n", gids[i], gr->gr_name);
-					}
-					else {
-						uwsgi_log("set additional group %d\n", gids[i]);
+			if (additional_groups > 0) {
+				gid_t *gids = uwsgi_calloc(sizeof(gid_t) * additional_groups);
+				if (getgroups(additional_groups, gids) > 0) {
+					int i;
+					for (i = 0; i < additional_groups; i++) {
+						if (gids[i] == uwsgi.gid)
+							continue;
+						struct group *gr = getgrgid(gids[i]);
+						if (gr) {
+							uwsgi_log("set additional group %d (%s)\n", gids[i], gr->gr_name);
+						}
+						else {
+							uwsgi_log("set additional group %d\n", gids[i]);
+						}
 					}
 				}
 			}
@@ -637,13 +558,11 @@ void uwsgi_destroy_request(struct wsgi_request *wsgi_req) {
 
 	wsgi_req->socket->proto_close(wsgi_req);
 
-#ifdef UWSGI_THREADING
 	int foo;
 	if (uwsgi.threads > 1) {
 		// now the thread can die...
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &foo);
 	}
-#endif
 
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));
 
@@ -657,7 +576,16 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	int tmp_id;
 	uint64_t tmp_rt, rss = 0, vsz = 0;
 
-	wsgi_req->end_of_request = uwsgi_micros();
+	// check if headers should be sent
+	if (wsgi_req->headers) {
+		if (!wsgi_req->headers_sent && !wsgi_req->headers_size && !wsgi_req->response_size) {
+			uwsgi_response_write_headers_do(wsgi_req);
+		}
+		uwsgi_buffer_destroy(wsgi_req->headers);
+	}
+
+	uint64_t end_of_request = uwsgi_micros();
+	wsgi_req->end_of_request = end_of_request;
 
 	tmp_rt = wsgi_req->end_of_request - wsgi_req->start_of_request;
 
@@ -672,27 +600,45 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 
-	// close the connection with the webserver
-	if (!wsgi_req->fd_closed || wsgi_req->body_as_file) {
+	// close the connection with the client
+	if (!wsgi_req->fd_closed) {
 		// NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
 		wsgi_req->socket->proto_close(wsgi_req);
 	}
-	uwsgi.workers[0].requests++;
-	uwsgi.workers[uwsgi.mywid].requests++;
-	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests++;
-	// this is used for MAX_REQUESTS
-	uwsgi.workers[uwsgi.mywid].delta_requests++;
+
+	if (wsgi_req->post_file) {
+		fclose(wsgi_req->post_file);
+	}
+
+	if (wsgi_req->post_read_buf) {
+		free(wsgi_req->post_read_buf);
+	}
+
+	if (wsgi_req->post_readline_buf) {
+		free(wsgi_req->post_readline_buf);
+	}
+
+	if (wsgi_req->proto_parser_buf) {
+		free(wsgi_req->proto_parser_buf);
+	}
+
+	if (!wsgi_req->do_not_account) {
+		uwsgi.workers[0].requests++;
+		uwsgi.workers[uwsgi.mywid].requests++;
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests++;
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].write_errors += wsgi_req->write_errors;
+		// this is used for MAX_REQUESTS
+		uwsgi.workers[uwsgi.mywid].delta_requests++;
+	}
 
 	// after_request hook
-	if (uwsgi.p[wsgi_req->uh.modifier1]->after_request)
-		uwsgi.p[wsgi_req->uh.modifier1]->after_request(wsgi_req);
+	if (uwsgi.p[wsgi_req->uh->modifier1]->after_request)
+		uwsgi.p[wsgi_req->uh->modifier1]->after_request(wsgi_req);
 
-#ifdef UWSGI_THREADING
 	if (uwsgi.threads > 1) {
 		// now the thread can die...
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &tmp_id);
 	}
-#endif
 
 	// leave harakiri mode
 	if (uwsgi.workers[uwsgi.mywid].harakiri > 0) {
@@ -725,21 +671,51 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		free(ptr);
 	}
 
+	// free additional headers
+	struct uwsgi_string_list *ah = wsgi_req->additional_headers;
+	while (ah) {
+		struct uwsgi_string_list *ptr = ah;
+		ah = ah->next;
+		free(ptr->value);
+		free(ptr);
+	}
+	// free remove headers
+	ah = wsgi_req->remove_headers;
+	while (ah) {
+                struct uwsgi_string_list *ptr = ah;
+                ah = ah->next;
+                free(ptr->value);
+                free(ptr);
+        }
+
+	// free websocket engine
+	if (wsgi_req->websocket_buf) {
+		uwsgi_buffer_destroy(wsgi_req->websocket_buf);
+	}
+
 
 	// reset request
+	wsgi_req->uh->pktsize = 0;
 	tmp_id = wsgi_req->async_id;
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));
 	wsgi_req->async_id = tmp_id;
 
-	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi.workers[uwsgi.mywid].delta_requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]) {
+	// yes, this is pretty useless but we cannot ensure all of the plugin have the same behaviour
+	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
+
+	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0
+	    && uwsgi.workers[uwsgi.mywid].delta_requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]
+	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn*1000000) >= uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME]*1000000)) {
 		goodbye_cruel_world();
 	}
 
-	if (uwsgi.reload_on_as && (rlim_t) vsz >= uwsgi.reload_on_as) {
+	if (uwsgi.reload_on_as && (rlim_t) vsz >= uwsgi.reload_on_as
+	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn*1000000) >= uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME]*1000000)) {
 		goodbye_cruel_world();
 	}
 
-	if (uwsgi.reload_on_rss && (rlim_t) rss >= uwsgi.reload_on_rss) {
+	if (uwsgi.reload_on_rss && (rlim_t) rss >= uwsgi.reload_on_rss
+	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn*1000000) >= uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME]*1000000)) {
 		goodbye_cruel_world();
 	}
 
@@ -848,17 +824,19 @@ void uwsgi_linux_ksm_map(void) {
 #endif
 
 #ifdef __linux__
-long uwsgi_num_from_file(char *filename) {
+long uwsgi_num_from_file(char *filename, int quiet) {
 	char buf[16];
 	ssize_t len;
 	int fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		uwsgi_error_open(filename);
+		if (!quiet)
+			uwsgi_error_open(filename);
 		return -1L;
 	}
 	len = read(fd, buf, sizeof(buf));
 	if (len == 0) {
-		uwsgi_log("read error %s\n", filename);
+		if (!quiet)
+			uwsgi_log("read error %s\n", filename);
 		close(fd);
 		return -1L;
 	}
@@ -870,15 +848,15 @@ long uwsgi_num_from_file(char *filename) {
 // setup for a new request
 void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_socket *uwsgi_sock) {
 
-	wsgi_req->poll.events = POLLIN;
-
 	wsgi_req->app_id = uwsgi.default_app;
 
 	wsgi_req->async_id = async_id;
 	wsgi_req->sendfile_fd = -1;
 
 	wsgi_req->hvec = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].hvec;
-	wsgi_req->buffer = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].buffer;
+	// skip the first 4 bytes;
+	wsgi_req->uh = (struct uwsgi_header *) uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].buffer;
+	wsgi_req->buffer = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].buffer+4;
 
 	if (uwsgi.post_buffering > 0) {
 		wsgi_req->post_buffering_buf = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].post_buf;
@@ -889,7 +867,6 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_so
 	}
 
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
-	uwsgi.workers[uwsgi.mywid].busy = 0;
 
 	// now check for suspend request
 	if (uwsgi.workers[uwsgi.mywid].suspended == 1) {
@@ -903,24 +880,20 @@ cycle:
 	}
 }
 
-#ifdef UWSGI_ASYNC
 int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
-	uwsgi.workers[uwsgi.mywid].busy = 1;
 
 	wsgi_req->start_of_request = uwsgi_micros();
 	wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request / 1000000;
 
 	if (!wsgi_req->do_not_add_to_async_queue) {
-		if (event_queue_add_fd_read(uwsgi.async_queue, wsgi_req->poll.fd) < 0)
+		if (event_queue_add_fd_read(uwsgi.async_queue, wsgi_req->fd) < 0)
 			return -1;
 
 		async_add_timeout(wsgi_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		uwsgi.async_proto_fd_table[wsgi_req->poll.fd] = wsgi_req;
+		uwsgi.async_proto_fd_table[wsgi_req->fd] = wsgi_req;
 	}
-
-
 
 	// enter harakiri mode
 	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
@@ -929,20 +902,25 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 
 	return 0;
 }
-#endif
 
 // receive a new request
-int wsgi_req_recv(struct wsgi_request *wsgi_req) {
+int wsgi_req_recv(int queue, struct wsgi_request *wsgi_req) {
 
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
-	uwsgi.workers[uwsgi.mywid].busy = 1;
 
 	wsgi_req->start_of_request = uwsgi_micros();
 	wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request / 1000000;
 
 	// edge triggered sockets get the whole request during accept() phase
 	if (!wsgi_req->socket->edge_trigger) {
-		if (!uwsgi_parse_packet(wsgi_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+		for(;;) {
+			int ret = wsgi_req->socket->proto(wsgi_req);
+			if (ret == UWSGI_OK) break;
+			if (ret == UWSGI_AGAIN) {
+				ret = uwsgi_wait_read_req(wsgi_req);
+				if (ret <= 0) return -1;	
+				continue;
+			}
 			return -1;
 		}
 	}
@@ -957,25 +935,36 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 		return 0;
 #endif
 
-	wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);
+	wsgi_req->async_status = uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req);
 
 	return 0;
 }
 
+void uwsgi_post_accept(struct wsgi_request *wsgi_req) {
+
+	// set close on exec (if not a new socket)
+	if (!wsgi_req->socket->edge_trigger && uwsgi.close_on_exec) {
+		if (fcntl(wsgi_req->fd, F_SETFD, FD_CLOEXEC) < 0) {
+			uwsgi_error("fcntl()");
+		}
+	}
+
+	// enable TCP_NODELAY ?
+	if (uwsgi.tcp_nodelay) {
+		uwsgi_tcp_nodelay(wsgi_req->fd);
+	}
+}
 
 // accept a new request
 int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 
-	wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, fd);
+	wsgi_req->fd = wsgi_req->socket->proto_accept(wsgi_req, fd);
 
-	if (wsgi_req->poll.fd < 0) {
+	if (wsgi_req->fd < 0) {
 		return -1;
 	}
 
-	// set close on exec (if not a new socket)
-	if (!wsgi_req->socket->edge_trigger && uwsgi.close_on_exec) {
-		fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC);
-	}
+	uwsgi_post_accept(wsgi_req);
 
 	return 0;
 }
@@ -1037,15 +1026,15 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	if (timeout > 0) {
 		uwsgi_heartbeat();
 		// no need to continue if timed-out
-		if (ret == 0)
+		if (ret == 0) {
+			thunder_unlock;
 			return -1;
+		}
 	}
 
-#ifdef UWSGI_THREADING
 	// kill the thread after the request completion
 	if (uwsgi.threads > 1)
 		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &ret);
-#endif
 
 	if (uwsgi.signal_socket > -1 && (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket)) {
 
@@ -1053,10 +1042,8 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 		uwsgi_receive_signal(interesting_fd, "worker", uwsgi.mywid);
 
-#ifdef UWSGI_THREADING
 		if (uwsgi.threads > 1)
 			pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
-#endif
 		return -1;
 	}
 
@@ -1064,38 +1051,18 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	while (uwsgi_sock) {
 		if (interesting_fd == uwsgi_sock->fd || (uwsgi_sock->retry && uwsgi_sock->retry[wsgi_req->async_id]) || (uwsgi_sock->fd_threads && interesting_fd == uwsgi_sock->fd_threads[wsgi_req->async_id])) {
 			wsgi_req->socket = uwsgi_sock;
-			wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, interesting_fd);
+			wsgi_req->fd = wsgi_req->socket->proto_accept(wsgi_req, interesting_fd);
 			thunder_unlock;
-			if (wsgi_req->poll.fd < 0) {
-#ifdef UWSGI_THREADING
+			if (wsgi_req->fd < 0) {
 				if (uwsgi.threads > 1)
 					pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
-#endif
 				return -1;
 			}
 
 			if (!uwsgi_sock->edge_trigger) {
-// in Linux, new sockets do not inherit attributes
-#ifndef __linux__
-				/* re-set blocking socket */
-				int arg = uwsgi_sock->arg;
-				arg &= (~O_NONBLOCK);
-				if (fcntl(wsgi_req->poll.fd, F_SETFL, arg) < 0) {
-					uwsgi_error("fcntl()");
-#ifdef UWSGI_THREADING
-					if (uwsgi.threads > 1)
-						pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
-#endif
-					return -1;
-				}
-
-#endif
-
-				if (uwsgi.close_on_exec) {
-					fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC);
-				}
-
+				uwsgi_post_accept(wsgi_req);
 			}
+
 			return 0;
 		}
 
@@ -1103,59 +1070,9 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	}
 
 	thunder_unlock;
-#ifdef UWSGI_THREADING
 	if (uwsgi.threads > 1)
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
-#endif
 	return -1;
-}
-
-// fix related options
-void sanitize_args() {
-
-	if (uwsgi.async > 1) {
-		uwsgi.cores = uwsgi.async;
-	}
-
-	if (uwsgi.threads > 1) {
-		uwsgi.has_threads = 1;
-		uwsgi.cores = uwsgi.threads;
-	}
-
-	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-		if (!uwsgi.post_buffering) {
-			uwsgi_log(" *** WARNING: you have enabled harakiri without post buffering. Slow upload could be rejected on post-unbuffered webservers *** \n");
-		}
-	}
-
-	if (uwsgi.write_errors_exception_only) {
-		uwsgi.ignore_sigpipe = 1;
-		uwsgi.ignore_write_errors = 1;
-	}
-
-
-	if (uwsgi.cheaper_count > 0 && uwsgi.cheaper_count >= uwsgi.numproc) {
-		uwsgi_log("invalid cheaper value: must be lower than processes\n");
-		exit(1);
-	}
-
-	if (uwsgi.cheaper && uwsgi.cheaper_count) {
-		if (uwsgi.cheaper_initial < uwsgi.cheaper_count) {
-			uwsgi_log("warning: invalid cheaper-initial value (%d), must be equal or higher than cheaper (%d), using %d as initial number of workers\n",
-				uwsgi.cheaper_initial, uwsgi.cheaper_count, uwsgi.cheaper_count);
-			uwsgi.cheaper_initial = uwsgi.cheaper_count;
-		}
-		else if (uwsgi.cheaper_initial > uwsgi.numproc) {
-			uwsgi_log("warning: invalid cheaper-initial value (%d), must be lower or equal than worker count (%d), using %d as initial number of workers\n",
-				uwsgi.cheaper_initial, uwsgi.numproc, uwsgi.numproc);
-			uwsgi.cheaper_initial = uwsgi.numproc;
-		}
-	}
-
-	if (uwsgi.auto_snapshot > 0 && uwsgi.auto_snapshot > uwsgi.numproc) {
-		uwsgi_log("invalid auto-snapshot value: must be <= than processes\n");
-		exit(1);
-	}
 }
 
 // translate a OS env to a uWSGI option
@@ -1181,16 +1098,6 @@ void env_to_arg(char *src, char *dst) {
 	dst[strlen(src)] = 0;
 }
 
-// lower a string
-char *uwsgi_lower(char *str, size_t size) {
-	size_t i;
-	for (i = 0; i < size; i++) {
-		str[i] = tolower((int) str[i]);
-	}
-
-	return str;
-}
-
 // parse OS envs
 void parse_sys_envs(char **envs) {
 
@@ -1213,278 +1120,6 @@ void parse_sys_envs(char **envs) {
 	}
 
 }
-
-// check if a string is contained in another one
-char *uwsgi_str_contains(char *str, int slen, char what) {
-
-	int i;
-	for (i = 0; i < slen; i++) {
-		if (str[i] == what) {
-			return str + i;
-		}
-	}
-	return NULL;
-}
-
-// fast compare 2 sized strings
-int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
-
-	if (slen != dlen)
-		return 1;
-
-	return memcmp(src, dst, dlen);
-
-}
-
-// fast sized check of initial part of a string
-int uwsgi_starts_with(char *src, int slen, char *dst, int dlen) {
-
-	if (slen < dlen)
-		return -1;
-
-	return memcmp(src, dst, dlen);
-}
-
-// unsized check
-int uwsgi_startswith(char *src, char *what, int wlen) {
-
-	int i;
-
-	for (i = 0; i < wlen; i++) {
-		if (src[i] != what[i])
-			return -1;
-	}
-
-	return 0;
-}
-
-// concatenate strings
-char *uwsgi_concatn(int c, ...) {
-
-	va_list s;
-	char *item;
-	int j = c;
-	char *buf;
-	size_t len = 1;
-	size_t tlen = 1;
-
-	va_start(s, c);
-	while (j > 0) {
-		item = va_arg(s, char *);
-		if (item == NULL) {
-			break;
-		}
-		len += va_arg(s, int);
-		j--;
-	}
-	va_end(s);
-
-
-	buf = uwsgi_malloc(len);
-	memset(buf, 0, len);
-
-	j = c;
-
-	len = 0;
-
-	va_start(s, c);
-	while (j > 0) {
-		item = va_arg(s, char *);
-		if (item == NULL) {
-			break;
-		}
-		tlen = va_arg(s, int);
-		memcpy(buf + len, item, tlen);
-		len += tlen;
-		j--;
-	}
-	va_end(s);
-
-
-	return buf;
-
-}
-
-char *uwsgi_concat2(char *one, char *two) {
-
-	char *buf;
-	size_t len = strlen(one) + strlen(two) + 1;
-
-
-	buf = uwsgi_malloc(len);
-	buf[len - 1] = 0;
-
-	memcpy(buf, one, strlen(one));
-	memcpy(buf + strlen(one), two, strlen(two));
-
-	return buf;
-
-}
-
-char *uwsgi_concat4(char *one, char *two, char *three, char *four) {
-
-	char *buf;
-	size_t len = strlen(one) + strlen(two) + strlen(three) + strlen(four) + 1;
-
-
-	buf = uwsgi_malloc(len);
-	buf[len - 1] = 0;
-
-	memcpy(buf, one, strlen(one));
-	memcpy(buf + strlen(one), two, strlen(two));
-	memcpy(buf + strlen(one) + strlen(two), three, strlen(three));
-	memcpy(buf + strlen(one) + strlen(two) + strlen(three), four, strlen(four));
-
-	return buf;
-
-}
-
-
-char *uwsgi_concat3(char *one, char *two, char *three) {
-
-	char *buf;
-	size_t len = strlen(one) + strlen(two) + strlen(three) + 1;
-
-
-	buf = uwsgi_malloc(len);
-	buf[len - 1] = 0;
-
-	memcpy(buf, one, strlen(one));
-	memcpy(buf + strlen(one), two, strlen(two));
-	memcpy(buf + strlen(one) + strlen(two), three, strlen(three));
-
-	return buf;
-
-}
-
-char *uwsgi_concat2n(char *one, int s1, char *two, int s2) {
-
-	char *buf;
-	size_t len = s1 + s2 + 1;
-
-
-	buf = uwsgi_malloc(len);
-	buf[len - 1] = 0;
-
-	memcpy(buf, one, s1);
-	memcpy(buf + s1, two, s2);
-
-	return buf;
-
-}
-
-char *uwsgi_concat2nn(char *one, int s1, char *two, int s2, int *len) {
-
-	char *buf;
-	*len = s1 + s2 + 1;
-
-
-	buf = uwsgi_malloc(*len);
-	buf[*len - 1] = 0;
-
-	memcpy(buf, one, s1);
-	memcpy(buf + s1, two, s2);
-
-	return buf;
-
-}
-
-
-char *uwsgi_concat3n(char *one, int s1, char *two, int s2, char *three, int s3) {
-
-	char *buf;
-	size_t len = s1 + s2 + s3 + 1;
-
-
-	buf = uwsgi_malloc(len);
-	buf[len - 1] = 0;
-
-	memcpy(buf, one, s1);
-	memcpy(buf + s1, two, s2);
-	memcpy(buf + s1 + s2, three, s3);
-
-	return buf;
-
-}
-
-char *uwsgi_concat4n(char *one, int s1, char *two, int s2, char *three, int s3, char *four, int s4) {
-
-	char *buf;
-	size_t len = s1 + s2 + s3 + s4 + 1;
-
-
-	buf = uwsgi_malloc(len);
-	buf[len - 1] = 0;
-
-	memcpy(buf, one, s1);
-	memcpy(buf + s1, two, s2);
-	memcpy(buf + s1 + s2, three, s3);
-	memcpy(buf + s1 + s2 + s3, four, s4);
-
-	return buf;
-
-}
-
-
-
-// concat unsized strings
-char *uwsgi_concat(int c, ...) {
-
-	va_list s;
-	char *item;
-	size_t len = 1;
-	int j = c;
-	char *buf;
-
-	va_start(s, c);
-	while (j > 0) {
-		item = va_arg(s, char *);
-		if (item == NULL) {
-			break;
-		}
-		len += (int) strlen(item);
-		j--;
-	}
-	va_end(s);
-
-
-	buf = uwsgi_malloc(len);
-	memset(buf, 0, len);
-
-	j = c;
-
-	len = 0;
-
-	va_start(s, c);
-	while (j > 0) {
-		item = va_arg(s, char *);
-		if (item == NULL) {
-			break;
-		}
-		memcpy(buf + len, item, strlen(item));
-		len += strlen(item);
-		j--;
-	}
-	va_end(s);
-
-
-	return buf;
-
-}
-
-char *uwsgi_strncopy(char *s, int len) {
-
-	char *buf;
-
-	buf = uwsgi_malloc(len + 1);
-	buf[len] = 0;
-
-	memcpy(buf, s, len);
-
-	return buf;
-
-}
-
 
 // get the application id
 int uwsgi_get_app_id(char *app_name, int app_name_len, int modifier1) {
@@ -1528,6 +1163,10 @@ int uwsgi_get_app_id(char *app_name, int app_name_len, int modifier1) {
 			if (modifier1 == uwsgi_apps[i].modifier1)
 				return i;
 		}
+	}
+
+	if (!uwsgi.no_default_app) {
+		return uwsgi.default_app;
 	}
 
 	return -1;
@@ -1785,6 +1424,27 @@ int uwsgi_logic_opt_if_not_dir(char *key, char *value) {
 	return 0;
 }
 
+int uwsgi_logic_opt_if_plugin(char *key, char *value) {
+
+        if (plugin_already_loaded(uwsgi.logic_opt_data)) {
+                add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+                return 1;
+        }
+
+        return 0;
+}
+
+int uwsgi_logic_opt_if_not_plugin(char *key, char *value) {
+
+        if (!plugin_already_loaded(uwsgi.logic_opt_data)) {
+                add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+                return 1;
+        }
+
+        return 0;
+}
+
+
 
 int uwsgi_logic_opt_if_exists(char *key, char *value) {
 
@@ -1817,6 +1477,25 @@ int uwsgi_logic_opt_for(char *key, char *value) {
 
 	return 1;
 }
+
+int uwsgi_logic_opt_for_glob(char *key, char *value) {
+
+	glob_t g;
+	int i;
+        if (glob(uwsgi.logic_opt_data, GLOB_MARK | GLOB_NOCHECK, NULL, &g)) {
+                uwsgi_error("uwsgi_logic_opt_for_glob()");
+                return 0;
+        }
+
+	for (i = 0; i < (int) g.gl_pathc; i++) {
+                add_exported_option(key, uwsgi_substitute(value, "%(_)", g.gl_pathv[i]), 0);
+        }
+
+	globfree(&g);
+
+        return 1;
+}
+
 
 void add_exported_option(char *key, char *value, int configured) {
 
@@ -1903,6 +1582,11 @@ add:
 			uwsgi.master_process = 1;
 			uwsgi.log_master = 1;
 		}
+		if (op->flags & UWSGI_OPT_REQ_LOG_MASTER) {
+			uwsgi.master_process = 1;
+			uwsgi.log_master = 1;
+			uwsgi.req_log_master = 1;
+		}
 		// requires threads ?
 		if (op->flags & UWSGI_OPT_THREADS) {
 			uwsgi.has_threads = 1;
@@ -1934,10 +1618,6 @@ add:
 		// requires no_server ?
 		if (op->flags & UWSGI_OPT_NO_SERVER) {
 			uwsgi.no_server = 1;
-		}
-		// requires cluster ?
-		if (op->flags & UWSGI_OPT_CLUSTER) {
-			uwsgi.cluster = value;
 		}
 		// requires post_buffering ?
 		if (op->flags & UWSGI_OPT_POST_BUFFERING) {
@@ -1978,29 +1658,13 @@ void *uwsgi_calloc(size_t size) {
 }
 
 
-char *uwsgi_cheap_string(char *buf, int len) {
-
-	int i;
-	char *cheap_buf = buf - 1;
-
-
-	for (i = 0; i < len; i++) {
-		*cheap_buf++ = buf[i];
-	}
-
-
-	buf[len - 1] = 0;
-
-	return buf - 1;
-}
-
 char *uwsgi_resolve_ip(char *domain) {
 
 	struct hostent *he;
 
 	he = gethostbyname(domain);
 	if (!he || !*he->h_addr_list || (he->h_addrtype != AF_INET
-#ifdef UWSGI_IPV6
+#ifdef AF_INET6
 					 && he->h_addrtype != AF_INET6
 #endif
 	    )) {
@@ -2015,9 +1679,9 @@ int uwsgi_file_exists(char *filename) {
 	return !access(filename, R_OK);
 }
 
-char *magic_sub(char *buffer, int len, int *size, char *magic_table[]) {
+char *magic_sub(char *buffer, size_t len, size_t *size, char *magic_table[]) {
 
-	int i;
+	size_t i;
 	size_t magic_len = 0;
 	char *magic_buf = uwsgi_malloc(len);
 	char *magic_ptr = magic_buf;
@@ -2863,7 +2527,7 @@ char *uwsgi_get_line(char *ptr, char *watermark, int *size) {
 
 void uwsgi_build_mime_dict(char *filename) {
 
-	int size = 0;
+	size_t size = 0;
 	char *buf = uwsgi_open_and_read(filename, &size, 1, NULL);
 	char *watermark = buf + size;
 
@@ -3505,49 +3169,6 @@ void uwsgi_write_pidfile(char *pidfile_name) {
 	fclose(pidfile);
 }
 
-int uwsgi_manage_exception(char *type, char *value, char *repr) {
-
-	struct uwsgi_string_list *list = NULL;
-
-	// first manage non fatal case (like signals and alarm)....
-
-	if (uwsgi.reload_on_exception) {
-		return -1;
-	}
-
-	if (type) {
-		list = uwsgi.reload_on_exception_type;
-		while (list) {
-			if (!strcmp(list->value, type)) {
-				return -1;
-			}
-			list = list->next;
-		}
-	}
-
-	if (value) {
-		list = uwsgi.reload_on_exception_value;
-		while (list) {
-			if (!strcmp(list->value, value)) {
-				return -1;
-			}
-			list = list->next;
-		}
-	}
-
-	if (repr) {
-		list = uwsgi.reload_on_exception_repr;
-		while (list) {
-			if (!strcmp(list->value, repr)) {
-				return -1;
-			}
-			list = list->next;
-		}
-	}
-
-	return 0;
-}
-
 char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {
 	char src[PATH_MAX + 1];
 	memcpy(src, dir, dir_len);
@@ -3859,6 +3480,14 @@ int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, char kv_separ
 		usl = usl->next;
 	}
 
+	// destroy the list (no need to destroy the value as it is a pointer to buf)
+	usl = itemlist;
+	while(usl) {
+		struct uwsgi_string_list *tmp_usl = usl;
+		usl = usl->next;	
+		free(tmp_usl);
+	}
+
 	free(buf);
 	return 0;
 }
@@ -3899,67 +3528,6 @@ error:
 	return -1;
 }
 
-void uwsgi_simple_set_status(struct wsgi_request *wsgi_req, int status) {
-	wsgi_req->status = status;
-}
-
-void uwsgi_simple_inc_headers(struct wsgi_request *wsgi_req) {
-	wsgi_req->header_cnt++;
-}
-
-void uwsgi_simple_response_write(struct wsgi_request *wsgi_req, char *buf, size_t len) {
-	wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, buf, len);
-}
-
-void uwsgi_simple_response_write_header(struct wsgi_request *wsgi_req, char *buf, size_t len) {
-	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, buf, len);
-}
-
-ssize_t uwsgi_simple_request_read(struct wsgi_request *wsgi_req, char *buf, size_t len) {
-	if (wsgi_req->post_cl == 0)
-		return 0;
-	if ((size_t) wsgi_req->post_pos >= wsgi_req->post_cl)
-		return 0;
-	size_t remains = wsgi_req->post_cl - wsgi_req->post_pos;
-	remains = UMIN(len, remains);
-
-	int fd = -1;
-
-	if (wsgi_req->body_as_file) {
-		fd = fileno((FILE *) wsgi_req->async_post);
-	}
-	else if (uwsgi.post_buffering > 0) {
-		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
-			fd = fileno((FILE *) wsgi_req->async_post);
-		}
-	}
-	else {
-		fd = wsgi_req->poll.fd;
-	}
-
-	// data in memory ?
-	if (fd == -1) {
-		memcpy(buf, wsgi_req->post_buffering_buf + wsgi_req->post_buffering_read, remains);
-		wsgi_req->post_buffering_read += remains;
-		wsgi_req->post_pos += remains;
-		return remains;
-	}
-
-	if (uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
-		uwsgi_log("error waiting for request body");
-		return -1;
-	}
-
-	ssize_t rlen = read(fd, buf, remains);
-	if (rlen < 0) {
-		uwsgi_error("error reading request body:");
-		return -1;
-	}
-
-	wsgi_req->post_pos += rlen;
-	return rlen;
-}
-
 int uwsgi_plugin_modifier1(char *plugin) {
 	int ret = -1;
 	char *symbol_name = uwsgi_concat2(plugin, "_plugin");
@@ -3995,4 +3563,217 @@ char *uwsgi_strip(char *src) {
 	}
 
 	return dst;
+}
+
+void uwsgi_uuid(char *buf) {
+#ifdef UWSGI_UUID
+        uuid_t uuid_zmq;
+        uuid_generate(uuid_zmq);
+        uuid_unparse(uuid_zmq, buf);
+#else
+	snprintf(buf, 37, "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand());
+#endif
+}
+
+int uwsgi_uuid_cmp(char *x, char *y) {
+	int i;
+	for(i=0;i<36;i++) {
+		if (x[i] != y[i]) {
+			if (x[i] > y[i]) {
+				return 1;
+			}
+			return 0;
+		}
+	}
+	return 0;
+}
+
+void uwsgi_additional_header_add(struct wsgi_request *wsgi_req, char *hh, uint16_t hh_len) {
+	// will be freed on request's end
+	char *header = uwsgi_concat2n(hh, hh_len, "", 0);
+	uwsgi_string_new_list(&wsgi_req->additional_headers, header);
+}
+
+void uwsgi_remove_header(struct wsgi_request *wsgi_req, char *hh, uint16_t hh_len) {
+	char *header = uwsgi_concat2n(hh, hh_len, "", 0);
+	uwsgi_string_new_list(&wsgi_req->remove_headers, header);
+}
+
+// based on nginx implementation
+
+static uint8_t b64_table64[] = {
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 62, 77, 77, 77, 63,
+                52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 77, 77, 77, 77, 77, 77,
+                77,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
+                15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 77, 77, 77, 77, 77,
+                77, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+                41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 77, 77, 77, 77, 77,
+
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77
+        };
+
+static char b64_table64_2[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+char *uwsgi_base64_decode(char *buf, size_t len, size_t *d_len) {
+
+	// find the real size and check for invalid values
+        size_t i;
+        for (i = 0; i < len; i++) {
+                if (buf[i] == '=')
+                        break;
+
+                // check for invalid content
+                if (b64_table64[ (uint8_t) buf[i] ] == 77) {
+                        return NULL;
+                }
+        }
+
+	// check for invalid size
+        if (i % 4 == 1)
+                return NULL;
+
+	// compute the new size
+        *d_len = (((len+3)/4) * 3);
+        char *dst = uwsgi_malloc(*d_len + 1);
+
+        char *ptr = dst;
+        uint8_t *src = (uint8_t *) buf;
+        while(i > 3) {
+                *ptr++= (char) ( b64_table64[src[0]] << 2 | b64_table64[src[1]] >> 4);
+                *ptr++= (char) ( b64_table64[src[1]] << 4 | b64_table64[src[2]] >> 2);
+                *ptr++= (char) ( b64_table64[src[2]] << 6 | b64_table64[src[3]]);
+
+                src+=4;
+                i-=4;
+        }
+
+        if (i > 1) {
+                *ptr++= (char) ( b64_table64[src[0]] << 2 | b64_table64[src[1]] >> 4);
+        }
+
+        if (i > 2) {
+                *ptr++= (char) ( b64_table64[src[1]] << 4 | b64_table64[src[2]] >> 2);
+        }
+
+	*d_len = (ptr - dst);
+	*ptr++= 0;
+
+        return dst;
+
+}
+
+char *uwsgi_base64_encode(char *buf, size_t len, size_t *d_len) {
+	*d_len = ((len * 4)/3) + 5;
+	uint8_t *src = (uint8_t *) buf;
+	char *dst = uwsgi_malloc(*d_len);
+	char *ptr = dst;
+	while(len >= 3) {
+		*ptr++= b64_table64_2[ src[0]  >> 2];
+		*ptr++= b64_table64_2[((src[0] << 4) & 0x30) | (src[1] >> 4)];
+        	*ptr++= b64_table64_2[((src[1] << 2) & 0x3C) | (src[2] >> 6)];
+        	*ptr++= b64_table64_2[src[2] & 0x3F];
+        	src += 3;
+        	len -= 3;
+    	}
+
+	if (len > 0) {
+		*ptr++= b64_table64_2[ src[0]  >> 2];
+		uint8_t tmp = (src[0] << 4) & 0x30;
+		if (len > 1) tmp |= src[1] >> 4;
+		*ptr++= b64_table64_2[tmp];
+		if (len < 2) {
+			*ptr++= '=';
+		}
+		else {
+			*ptr++= b64_table64_2[(src[1] << 2) & 0x3C];
+		}
+		*ptr++= '=';
+	}
+
+	*ptr = 0;
+	*d_len = ((char *)ptr - dst);
+
+	return dst;
+}
+
+uint16_t uwsgi_be16(char *buf) {
+	uint16_t *src = (uint16_t *) buf;
+	uint16_t ret = 0;
+	uint8_t *ptr = (uint8_t *) &ret;
+	ptr[0] = (uint8_t) ((*src >> 8) & 0xff);
+        ptr[1] = (uint8_t) (*src & 0xff);
+	return ret;
+}
+
+uint32_t uwsgi_be32(char *buf) {
+	uint32_t *src = (uint32_t *) buf;
+	uint32_t ret = 0;
+	uint8_t *ptr = (uint8_t *) &ret;
+	ptr[0] = (uint8_t) ((*src >> 24) & 0xff);
+	ptr[1] = (uint8_t) ((*src >> 16) & 0xff);
+	ptr[2] = (uint8_t) ((*src >> 8) & 0xff);
+        ptr[3] = (uint8_t) (*src & 0xff);
+	return ret;
+}
+
+uint64_t uwsgi_be64(char *buf) {
+	uint64_t *src = (uint64_t *) buf;
+	uint64_t ret = 0;
+	uint8_t *ptr = (uint8_t *) &ret;
+	ptr[0] = (uint8_t) ((*src >> 56) & 0xff);
+	ptr[1] = (uint8_t) ((*src >> 48) & 0xff);
+	ptr[2] = (uint8_t) ((*src >> 40) & 0xff);
+	ptr[3] = (uint8_t) ((*src >> 32) & 0xff);
+	ptr[4] = (uint8_t) ((*src >> 24) & 0xff);
+	ptr[5] = (uint8_t) ((*src >> 16) & 0xff);
+	ptr[6] = (uint8_t) ((*src >> 8) & 0xff);
+        ptr[7] = (uint8_t) (*src & 0xff);
+	return ret;
+}
+
+char *uwsgi_get_header(struct wsgi_request *wsgi_req, char *hh, uint16_t len, uint16_t *rlen) {
+	char *key = uwsgi_malloc(len + 6);
+	uint16_t key_len = len;
+	char *ptr = key;	
+	*rlen = 0;
+	if (uwsgi_strncmp(hh, len, "Content-Length", 14) && uwsgi_strncmp(hh, len, "Content-Type", 12)) {
+		memcpy(ptr, "HTTP_", 5);
+		ptr+=5;
+		key_len += 5;
+	}
+
+	uint16_t i;
+	for(i=0;i<len;i++) {
+		if (hh[i] == '-') {
+			*ptr++= '_';
+		}
+		else {
+			*ptr++= toupper((int)hh[i]);
+		}
+	}
+
+	char *value = uwsgi_get_var(wsgi_req, key, key_len, rlen); 
+	free(key);
+	return value;
+	
 }

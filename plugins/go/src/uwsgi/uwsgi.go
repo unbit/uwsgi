@@ -29,6 +29,7 @@ import (
 	"strings"
 	"strconv"
 	"io"
+	"runtime"
 )
 
 // this stores the modifier used by the go plugin (default 11)
@@ -123,9 +124,18 @@ func RegisterSignal(signum int, who string, handler func(int)) bool {
 	return false
 }
 
+func Alarm(alarm string, msg string) {
+	a := C.CString(alarm)
+	defer C.free(unsafe.Pointer(a))
+	m := C.CString(msg)
+	defer C.free(unsafe.Pointer(m))
+        ml := len(msg)
+	C.uwsgi_alarm_trigger(a, m, C.size_t(ml))
+}
+
 // get an item from the cache
 func CacheGet(key string) []byte {
-	if int(C.uwsgi_cache_enabled()) == 0 {
+	if (C.uwsgi.caches) == nil {
                 return nil
         }
 
@@ -134,9 +144,9 @@ func CacheGet(key string) []byte {
         kl := len(key)
 	var vl C.uint64_t = C.uint64_t(0)
 
-	C.uwsgi_cache_rlock()
+	C.uwsgi_cache_rlock(C.uwsgi.caches)
 
-	c_value := C.uwsgi_cache_get(k, C.uint16_t(kl), &vl)
+	c_value := C.uwsgi_cache_get2(C.uwsgi.caches, k, C.uint16_t(kl), &vl)
 
 	var p []byte
 
@@ -146,14 +156,14 @@ func CacheGet(key string) []byte {
 		p = nil
 	}
 
-	C.uwsgi_cache_rwunlock()
+	C.uwsgi_cache_rwunlock(C.uwsgi.caches)
 
 	return p
 }
 
 // remove an intem from the cache
 func CacheDel(key string) bool {
-	if int(C.uwsgi_cache_enabled()) == 0 {
+	if (C.uwsgi.caches) == nil {
 		return false
 	}
 
@@ -161,20 +171,20 @@ func CacheDel(key string) bool {
 	defer C.free(unsafe.Pointer(k))
 	kl := len(key)
 
-	C.uwsgi_cache_wlock()
+	C.uwsgi_cache_wlock(C.uwsgi.caches)
 
-	if int(C.uwsgi_cache_del(k, C.uint16_t(kl), C.uint64_t(0))) < 0 {
-		C.uwsgi_cache_rwunlock();
+	if int(C.uwsgi_cache_del2(C.uwsgi.caches, k, C.uint16_t(kl), C.uint64_t(0), C.uint16_t(0))) < 0 {
+		C.uwsgi_cache_rwunlock(C.uwsgi.caches);
                 return false;
 	}
 
-        C.uwsgi_cache_rwunlock();
+        C.uwsgi_cache_rwunlock(C.uwsgi.caches);
 	return true
 }
 
 // check if an item exists in the cache
 func CacheExists(key string) bool {
-	if int(C.uwsgi_cache_enabled()) == 0 {
+	if (C.uwsgi.caches) == nil {
                 return false
         }
 
@@ -182,21 +192,21 @@ func CacheExists(key string) bool {
         defer C.free(unsafe.Pointer(k))
         kl := len(key)
 
-        C.uwsgi_cache_rlock()
+        C.uwsgi_cache_rlock(C.uwsgi.caches)
 
-        if int(C.uwsgi_cache_exists(k, C.uint16_t(kl))) > 0 {
-                C.uwsgi_cache_rwunlock();
+        if int(C.uwsgi_cache_exists2(C.uwsgi.caches, k, C.uint16_t(kl))) > 0 {
+                C.uwsgi_cache_rwunlock(C.uwsgi.caches);
                 return true;
         }
 
-        C.uwsgi_cache_rwunlock();
+        C.uwsgi_cache_rwunlock(C.uwsgi.caches);
         return false
 }
 
 // put an item in the cache
 func CacheSetFlags(key string, p []byte, expires uint64, flags int) bool {
 
-	if int(C.uwsgi_cache_enabled()) == 0 {
+	if (C.uwsgi.caches) == nil {
 		return false
 	}
 
@@ -206,14 +216,14 @@ func CacheSetFlags(key string, p []byte, expires uint64, flags int) bool {
 	v := unsafe.Pointer(&p[0])
 	vl := len(p)
 
-	C.uwsgi_cache_wlock()
+	C.uwsgi_cache_wlock(C.uwsgi.caches)
 
-        if int(C.uwsgi_cache_set(k, C.uint16_t(kl), (*C.char)(v), C.uint64_t(vl), C.uint64_t(expires), C.uint16_t(flags))) < 0 {
-                C.uwsgi_cache_rwunlock();
+        if int(C.uwsgi_cache_set2(C.uwsgi.caches, k, C.uint16_t(kl), (*C.char)(v), C.uint64_t(vl), C.uint64_t(expires), C.uint64_t(flags))) < 0 {
+                C.uwsgi_cache_rwunlock(C.uwsgi.caches);
                 return false;
         }
 
-        C.uwsgi_cache_rwunlock();
+        C.uwsgi_cache_rwunlock(C.uwsgi.caches);
 	return true
 }
 
@@ -303,7 +313,6 @@ type ResponseWriter struct {
 	wsgi_req *C.struct_wsgi_request
 	headers      http.Header
 	wroteHeader bool
-	headers_chunk string
 }
 
 func (w *ResponseWriter) Write(p []byte) (n int, err error) {
@@ -312,33 +321,31 @@ func (w *ResponseWriter) Write(p []byte) (n int, err error) {
 	}
 
 	m := len(p)
-	C.uwsgi_simple_response_write(w.wsgi_req, (*C.char)(unsafe.Pointer(&p[0])), C.size_t(m))
+	C.uwsgi_response_write_body_do(w.wsgi_req, (*C.char)(unsafe.Pointer(&p[0])), C.size_t(m))
 	return m+n, err
 }
 
+// TODO fix it !!!
 func (w *ResponseWriter) WriteHeader(status int) {
-	proto := "HTTP/1.0"
-	if w.r.ProtoAtLeast(1, 1) {
-		proto = "HTTP/1.1"
-	}
 	codestring := http.StatusText(status)
-	w.headers_chunk += proto + " " + strconv.Itoa(status) + " " + codestring + "\r\n"
-	C.uwsgi_simple_set_status(w.wsgi_req, C.int(status))
+	var tmp_buf string = strconv.Itoa(status) + " " + codestring
+	c_status := C.CString(tmp_buf)
+	defer C.free(unsafe.Pointer(c_status))
+	C.uwsgi_response_prepare_headers(w.wsgi_req, c_status, C.uint16_t(len(tmp_buf)) )
 	if w.headers.Get("Content-Type") == "" {
 		w.headers.Set("Content-Type", "text/html; charset=utf-8")
 	}
 	for k := range w.headers {
+		hk_c := C.CString(k)
+		defer C.free(unsafe.Pointer(hk_c))
 		for _, v := range w.headers[k] {
 			v = strings.NewReplacer("\n", " ", "\r", " ").Replace(v)
 			v = strings.TrimSpace(v)
-			w.headers_chunk += k + ": " + v + "\r\n"
-			C.uwsgi_simple_inc_headers(w.wsgi_req)
+			hv_c := C.CString(v)
+                	defer C.free(unsafe.Pointer(hv_c))
+			C.uwsgi_response_add_header(w.wsgi_req, hk_c, C.uint16_t(len(k)), hv_c, C.uint16_t(len(v)))
 		}
 	}
-	w.headers_chunk += "\r\n"
-	c_h_chunk := C.CString(w.headers_chunk)
-	defer C.free(unsafe.Pointer(c_h_chunk))
-	C.uwsgi_simple_response_write_header(w.wsgi_req, c_h_chunk, C.size_t(len(w.headers_chunk)))
 	w.wroteHeader = true
 }
 
@@ -358,14 +365,18 @@ func (br *BodyReader) Close() error {
 
 func (br *BodyReader) Read(p []byte) (n int, err error) {
 	m := len(p)
-	rlen := int(C.uwsgi_simple_request_read(br.wsgi_req, (*C.char)(unsafe.Pointer(&p[0])), C.size_t(m)))
-	if rlen < 0 {
-		err = io.ErrUnexpectedEOF
-		rlen = 0
-	} else if rlen == 0 {
-		err = io.EOF
+	var rlen C.ssize_t = C.ssize_t(0)
+        c_body := C.uwsgi_request_body_read(br.wsgi_req, C.ssize_t(m), &rlen)
+	if (c_body == C.uwsgi.empty) {
+		err = io.EOF;
+		return 0, err
+	} else if (c_body != nil) {
+		C.memcpy(unsafe.Pointer(&p[0]), unsafe.Pointer(c_body), C.size_t(rlen))
+		return int(rlen), err
 	}
-	return rlen, err
+	err = io.ErrUnexpectedEOF
+	rlen = 0
+	return int(rlen), err
 }
 
 //export uwsgi_go_helper_request
@@ -374,7 +385,7 @@ func uwsgi_go_helper_request(env *map[string]string, wsgi_req *C.struct_wsgi_req
 	if err != nil {
 	} else {
 		httpReq.Body = &BodyReader{wsgi_req}
-		w := ResponseWriter{httpReq, wsgi_req,http.Header{},false, ""}
+		w := ResponseWriter{httpReq, wsgi_req,http.Header{},false}
 		if uwsgi_default_request_handler != nil {
 			uwsgi_default_request_handler(&w, httpReq)
 		} else if uwsgi_default_handler != nil {
@@ -383,6 +394,11 @@ func uwsgi_go_helper_request(env *map[string]string, wsgi_req *C.struct_wsgi_req
 			http.DefaultServeMux.ServeHTTP(&w, httpReq)
 		}
 	}
+}
+
+//export uwsgi_go_helper_version
+func uwsgi_go_helper_version() *C.char {
+	return C.CString(runtime.Version())
 }
 
 //export uwsgi_go_helper_signal_handler

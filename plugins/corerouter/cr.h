@@ -3,19 +3,188 @@
 #define COREROUTER_STATUS_RECV_HDR 2
 #define COREROUTER_STATUS_RESPONSE 3
 
-#define cr_add_timeout(u, x) uwsgi_add_rb_timer(u->timeouts, time(NULL)+u->socket_timeout, x)
-#define cr_add_fake_timeout(u, x) uwsgi_add_rb_timer(u->timeouts, time(NULL)+1, x)
-#define cr_add_check_timeout(x) uwsgi_add_rb_timer(timeouts, time(NULL)+x, NULL)
-#define cr_del_check_timeout(x) rb_erase(&x->rbt, timeouts);
-#define cr_del_timeout(u, x) rb_erase(&x->timeout->rbt, u->timeouts); free(x->timeout);
+#define cr_add_timeout(u, x) uwsgi_add_rb_timer(u->timeouts, uwsgi_now()+u->socket_timeout, x)
+#define cr_add_timeout_fast(u, x, t) uwsgi_add_rb_timer(u->timeouts, t+u->socket_timeout, x)
+#define cr_del_timeout(u, x) uwsgi_del_rb_timer(u->timeouts, x->timeout); free(x->timeout);
+
+#define uwsgi_cr_error(x, y) uwsgi_log("[uwsgi-%s client_addr: %s client_port: %s] %s: %s [%s line %d]\n", x->session->corerouter->short_name, x->session->client_address, x->session->client_port, y, strerror(errno), __FILE__, __LINE__)
+#define uwsgi_cr_log(x, y, ...) uwsgi_log("[uwsgi-%s client_addr: %s client_port: %s]" y, x->session->corerouter->short_name, x->session->client_address, x->session->client_port, __VA_ARGS__)
 
 #define cr_try_again if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {\
                      	errno = EINPROGRESS;\
                      	return -1;\
                      }
 
+#define cr_write(peer, f) write(peer->fd, peer->out->buf + peer->out_pos, peer->out->pos - peer->out_pos);\
+	if (len < 0) {\
+                cr_try_again;\
+                uwsgi_cr_error(peer, f);\
+                return -1;\
+        }\
+        peer->out_pos += len;
+
+#define cr_write_buf(peer, buf, f) write(peer->fd, buf + buf##_pos, buf->pos - buf##_pos);\
+        if (len < 0) {\
+                cr_try_again;\
+                uwsgi_cr_error(peer, f);\
+                return -1;\
+        }\
+        buf##_pos += len;
+
+#define cr_write_complete(peer) peer->out_pos == peer->out->pos
+
+#define cr_write_complete_buf(peer, buf) buf##_pos == buf->pos
+
+#define cr_connect(peer, f) peer->fd = uwsgi_connectn(peer->instance_address, peer->instance_address_len, 0, 1);\
+        if (peer->fd < 0) {\
+                peer->failed = 1;\
+                peer->soopt = errno;\
+                return -1;\
+        }\
+        peer->session->corerouter->cr_table[peer->fd] = peer;\
+        peer->connecting = 1;\
+	cr_write_to_backend(peer, f);
+
+#define cr_read(peer, f) read(peer->fd, peer->in->buf + peer->in->pos, peer->in->len - peer->in->pos);\
+	if (len < 0) {\
+                cr_try_again;\
+                uwsgi_cr_error(peer, f);\
+                return -1;\
+        }\
+        peer->in->pos += len;\
+
+#define cr_read_exact(peer, l, f) read(peer->fd, peer->in->buf + peer->in->pos,l - peer->in->pos);\
+        if (len < 0) {\
+                cr_try_again;\
+                uwsgi_cr_error(peer, f);\
+                return -1;\
+        }\
+        peer->in->pos += len;\
+
+#define cr_reset_hooks(peer) if(!peer->session->main_peer->disabled) {\
+			if (uwsgi_cr_set_hooks(peer->session->main_peer, peer->session->main_peer->last_hook_read, NULL)) return -1;\
+		}\
+		else {\
+			if (uwsgi_cr_set_hooks(peer->session->main_peer, NULL, NULL)) return -1;\
+		}\
+		struct corerouter_peer *peers = peer->session->peers;\
+                while(peers) {\
+                        if (uwsgi_cr_set_hooks(peers, peers->last_hook_read, NULL)) return -1;\
+                        peers = peers->next;\
+                }
+
+#define cr_reset_hooks_and_read(peer, f) if (uwsgi_cr_set_hooks(peer->session->main_peer, peer->session->main_peer->last_hook_read, NULL)) return -1;\
+		peer->last_hook_read = f;\
+                struct corerouter_peer *peers = peer->session->peers;\
+                while(peers) {\
+                        if (uwsgi_cr_set_hooks(peers, peers->last_hook_read, NULL)) return -1;\
+                        peers = peers->next;\
+                }
+
+#define cr_write_to_main(peer, f) if (uwsgi_cr_set_hooks(peer->session->main_peer, NULL, f)) return -1;\
+		struct corerouter_peer *peers = peer->session->peers;\
+                while(peers) {\
+                        if (uwsgi_cr_set_hooks(peers, NULL, NULL)) return -1;\
+                        peers = peers->next;\
+                }
+
+#define cr_write_to_backend(peer, f) if (uwsgi_cr_set_hooks(peer->session->main_peer, NULL, NULL)) return -1;\
+		if (uwsgi_cr_set_hooks(peer, NULL, f)) return -1;\
+                struct corerouter_peer *peers = peer->session->peers;\
+                while(peers) {\
+			if (peers != peer) {\
+                        	if (uwsgi_cr_set_hooks(peers, NULL, NULL)) return -1;\
+			}\
+                        peers = peers->next;\
+                }
+
+#define cr_peer_connected(peer, f) socklen_t solen = sizeof(int);\
+        if (getsockopt(peer->fd, SOL_SOCKET, SO_ERROR, (void *) (&peer->soopt), &solen) < 0) {\
+                uwsgi_cr_error(peer, f "/getsockopt()");\
+                peer->failed = 1;\
+                return -1;\
+        }\
+        if (peer->soopt) {\
+                peer->failed = 1;\
+                return -1;\
+        }\
+	peer->connecting = 0;\
+	peer->can_retry = 0;\
+        if (peer->static_node) peer->static_node->custom2++;\
+        if (peer->un) {\
+		peer->un->requests++;\
+		peer->un->last_requests++;\
+	}\
+
 
 struct corerouter_session;
+
+// a peer is a connection to a socket (a client or a backend) and can be monitored for events.
+struct corerouter_peer {
+	// the file descriptor 
+	int fd;
+	// the session
+	struct corerouter_session *session;
+
+	// if set do not wait for events
+	int disabled;
+
+	// hook to run on a read event
+	ssize_t (*hook_read)(struct corerouter_peer *);
+	ssize_t (*last_hook_read)(struct corerouter_peer *);
+	// hook to run on a write event
+	ssize_t (*hook_write)(struct corerouter_peer *);
+	ssize_t (*last_hook_write)(struct corerouter_peer *);
+
+	// has the peer failed ?
+	int failed;
+	// is the peer connecting ?
+	int connecting;
+	// is there a connection error ?
+        int soopt;
+	// has the peer timed out ?
+        int timed_out;
+	// the timeout rb_tree
+        struct uwsgi_rb_timer *timeout;
+
+	// each peer can map to a different instance
+        char *tmp_socket_name;
+        char *instance_address;
+        uint64_t instance_address_len;
+
+	// backend info
+        struct uwsgi_subscribe_node *un;
+        struct uwsgi_string_list *static_node;
+
+	// incoming data 
+        struct uwsgi_buffer *in;
+	// data to send
+        struct uwsgi_buffer *out;
+	// amount of sent data (partial write management)
+	size_t out_pos;
+	int out_need_free;
+
+	// stream id (could have various use)
+	uint32_t sid;
+
+	// internal parser status
+	int r_parser_status;
+
+	// can retry ?
+	int can_retry;
+	// how many retries ?
+	uint16_t retries;
+
+	// parsed key
+        char *key;
+        uint16_t key_len;
+
+	uint8_t modifier1;
+	uint8_t modifier2;
+
+	struct corerouter_peer *prev;
+	struct corerouter_peer *next;
+};
 
 struct uwsgi_corerouter {
 
@@ -23,8 +192,8 @@ struct uwsgi_corerouter {
 	char *short_name;
 	size_t session_size;
 
-	void (*alloc_session)(struct uwsgi_corerouter *, struct uwsgi_gateway_socket *, struct corerouter_session *, struct sockaddr *, socklen_t);
-	int (*mapper)(struct uwsgi_corerouter *, struct corerouter_session *);
+	int (*alloc_session)(struct uwsgi_corerouter *, struct uwsgi_gateway_socket *, struct corerouter_session *, struct sockaddr *, socklen_t);
+	int (*mapper)(struct uwsgi_corerouter *, struct corerouter_peer *);
 
         int has_sockets;
 	int has_backends;
@@ -33,9 +202,10 @@ struct uwsgi_corerouter {
         int processes;
         int quiet;
 
-        struct rb_root *timeouts;
+        struct uwsgi_rbtree *timeouts;
 
-        int use_cache;
+        char *use_cache;
+	struct uwsgi_cache *cache;
         int nevents;
 
 	int max_retries;
@@ -64,8 +234,6 @@ struct uwsgi_corerouter {
         int socket_num;
         struct uwsgi_socket *to_socket;
 
-	int use_cluster;
-
         struct uwsgi_subscribe_slot **subscriptions;
 
         struct uwsgi_string_list *fallback;
@@ -76,7 +244,6 @@ struct uwsgi_corerouter {
         char *code_string_code;
         char *code_string_function;
 
-
         struct uwsgi_rb_timer *subscriptions_check;
 
         int cheap;
@@ -85,72 +252,53 @@ struct uwsgi_corerouter {
         int tolerance;
         int harakiri;
 
-        struct corerouter_session **cr_table;
+        struct corerouter_peer **cr_table;
+
+	int interesting_fd;
+
+	uint64_t active_sessions;
 
 };
 
+// a session is started when a client connect to the router
 struct corerouter_session {
-
-        int fd;
-        int instance_fd;
 
 	// corerouter related to this session
 	struct uwsgi_corerouter *corerouter;
 	// gateway socket related to this session
 	struct uwsgi_gateway_socket *ugs;
 
-	// parsed hostname
-        char *hostname;
-        uint16_t hostname_len;
-
-        int has_key;
-        int connecting;
-
-        char *instance_address;
-        uint64_t instance_address_len;
-
-        struct uwsgi_subscribe_node *un;
-        struct uwsgi_string_list *static_node;
-        int soopt;
-        int timed_out;
-
-        struct uwsgi_rb_timer *timeout;
-        int instance_failed;
-
-	// check content_length
-        size_t post_cl;
-        size_t post_remains;
-
+	// the list of fallback instances
         struct uwsgi_string_list *fallback;
-
-        char *buf_file_name;
-        FILE *buf_file;
-
-        char *tmp_socket_name;
 
 	// store the client address
 	struct sockaddr_un addr;
         socklen_t addr_len;
 
-	// async hooks:
-	// the session is watiting for this fd
-	ssize_t (*event_hook_read)(struct corerouter_session *);
-	ssize_t (*event_hook_write)(struct corerouter_session *);
-	ssize_t (*event_hook_instance_read)(struct corerouter_session *);
-	ssize_t (*event_hook_instance_write)(struct corerouter_session *);
-
 	void (*close)(struct corerouter_session *);
-	int (*retry)(struct uwsgi_corerouter *, struct corerouter_session *);
-	size_t retries;
+	int (*retry)(struct corerouter_peer *);
 
-	struct uwsgi_buffer *buffer;
-        size_t buffer_len;
-	off_t buffer_pos;
+	// leave the main peer alive
+	int can_keepalive;
+	// destroy the main peer after the last full write
+	int wait_full_write;
 
-	struct uwsgi_header uh;
-	
-	uint8_t modifier1;
-	uint8_t modifier2;
+	// this is the peer of the client
+	struct corerouter_peer *main_peer;
+	// this is the linked list of backends
+	struct corerouter_peer *peers;
+
+	// connect after the next successfull write
+	struct corerouter_peer *connect_peer_after_write;
+
+	union uwsgi_sockaddr client_sockaddr;
+#ifdef AF_INET6
+	char client_address[INET6_ADDRSTRLEN];
+#else
+	char client_address[INET_ADDRLEN];
+#endif
+
+	char client_port[6];
 };
 
 void uwsgi_opt_corerouter(char *, char *, void *);
@@ -174,20 +322,21 @@ int uwsgi_corerouter_init(struct uwsgi_corerouter *);
 struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *, struct uwsgi_gateway_socket *, int, struct sockaddr *, socklen_t);
 void corerouter_close_session(struct uwsgi_corerouter *, struct corerouter_session *);
 
-int uwsgi_cr_map_use_void(struct uwsgi_corerouter *, struct corerouter_session *);
-int uwsgi_cr_map_use_cache(struct uwsgi_corerouter *, struct corerouter_session *);
-int uwsgi_cr_map_use_pattern(struct uwsgi_corerouter *, struct corerouter_session *);
-int uwsgi_cr_map_use_cluster(struct uwsgi_corerouter *, struct corerouter_session *);
-int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *, struct corerouter_session *);
-int uwsgi_cr_map_use_subscription_dotsplit(struct uwsgi_corerouter *, struct corerouter_session *);
-int uwsgi_cr_map_use_base(struct uwsgi_corerouter *, struct corerouter_session *);
-int uwsgi_cr_map_use_cs(struct uwsgi_corerouter *, struct corerouter_session *);
-int uwsgi_cr_map_use_to(struct uwsgi_corerouter *, struct corerouter_session *);
-int uwsgi_cr_map_use_static_nodes(struct uwsgi_corerouter *, struct corerouter_session *);
+int uwsgi_cr_map_use_void(struct uwsgi_corerouter *, struct corerouter_peer *);
+int uwsgi_cr_map_use_cache(struct uwsgi_corerouter *, struct corerouter_peer *);
+int uwsgi_cr_map_use_pattern(struct uwsgi_corerouter *, struct corerouter_peer *);
+int uwsgi_cr_map_use_cluster(struct uwsgi_corerouter *, struct corerouter_peer *);
+int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *, struct corerouter_peer *);
+int uwsgi_cr_map_use_subscription_dotsplit(struct uwsgi_corerouter *, struct corerouter_peer *);
+int uwsgi_cr_map_use_base(struct uwsgi_corerouter *, struct corerouter_peer *);
+int uwsgi_cr_map_use_cs(struct uwsgi_corerouter *, struct corerouter_peer *);
+int uwsgi_cr_map_use_to(struct uwsgi_corerouter *, struct corerouter_peer *);
+int uwsgi_cr_map_use_static_nodes(struct uwsgi_corerouter *, struct corerouter_peer *);
 
 int uwsgi_corerouter_has_backends(struct uwsgi_corerouter *);
 
-int uwsgi_cr_hook_read(struct corerouter_session *, ssize_t (*)(struct corerouter_session *));
-int uwsgi_cr_hook_write(struct corerouter_session *, ssize_t (*)(struct corerouter_session *));
-int uwsgi_cr_hook_instance_read(struct corerouter_session *, ssize_t (*)(struct corerouter_session *));
-int uwsgi_cr_hook_instance_write(struct corerouter_session *, ssize_t (*)(struct corerouter_session *));
+int uwsgi_cr_set_hooks(struct corerouter_peer *, ssize_t (*)(struct corerouter_peer *), ssize_t (*)(struct corerouter_peer *));
+struct corerouter_peer *uwsgi_cr_peer_add(struct corerouter_session *);
+struct corerouter_peer *uwsgi_cr_peer_find_by_sid(struct corerouter_session *, uint32_t);
+void corerouter_close_peer(struct uwsgi_corerouter *, struct corerouter_peer *);
+struct uwsgi_rb_timer *corerouter_reset_timeout(struct uwsgi_corerouter *, struct corerouter_peer *);

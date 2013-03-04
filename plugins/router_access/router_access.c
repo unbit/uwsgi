@@ -58,10 +58,10 @@ static int uwsgi_routing_func_access(struct wsgi_request *wsgi_req, struct uwsgi
 	if (pass) return UWSGI_ROUTE_NEXT;
 
 forbidden:
-
-	wsgi_req->status = 403;
-	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "HTTP/1.0 403 Forbidden\r\nContent-Type: text/html\r\n\r\n", 51);
-	wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req,"<h1>403 Forbidden</h1>", 23);
+	if (uwsgi_response_prepare_headers(wsgi_req, "403 Forbidden", 13)) goto end;	
+	if (uwsgi_response_add_content_type(wsgi_req, "text/plain", 10)) goto end;
+	uwsgi_response_write_body_do(wsgi_req, "Forbidden", 9);
+end:
 	return UWSGI_ROUTE_BREAK;
 }
 

@@ -18,6 +18,7 @@ func request_handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
 	fmt.Fprintf(w, "<h1>Hi there, I love %s!</h1>", r.URL.Path[1:])
 	fmt.Println("LOGSIZE: ", uwsgi.LogSize())
+        uwsgi.Alarm("jabber", "Hello")
 	go slow()
 }
 

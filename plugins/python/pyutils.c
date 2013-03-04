@@ -41,54 +41,162 @@ char *uwsgi_python_get_exception_type(PyObject *exc) {
 	return NULL;
 }
 
-char *uwsgi_python_get_exception_value(PyObject *value) {
-	return PyString_AsString( PyObject_Str(value) );
-}
+struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *wsgi_req) {
+	PyObject *type = NULL;
+        PyObject *value = NULL;
+        PyObject *traceback = NULL;
+	struct uwsgi_buffer *ub = NULL;
 
-char *uwsgi_python_get_exception_repr(PyObject *exc, PyObject *value) {
-	char *exc_type = uwsgi_python_get_exception_type(exc);
-	char *exc_value = uwsgi_python_get_exception_value(value);
+	PyErr_Fetch(&type, &value, &traceback);
+        PyErr_NormalizeException(&type, &value, &traceback);
 
-	if (exc_type && exc_value) {
-		return uwsgi_concat3(exc_type, ": ", exc_value);
+	// traceback could not be available
+	if (!traceback) goto end;
+
+	PyObject *traceback_module = PyImport_ImportModule("traceback");
+	if (!traceback_module) {
+		goto end;
 	}
 
-	return NULL;
+	PyObject *traceback_dict = PyModule_GetDict(traceback_module);
+	PyObject *extract_tb = PyDict_GetItemString(traceback_dict, "extract_tb");
+	if (!extract_tb) goto end;
+	PyObject *args = PyTuple_New(1);
+	Py_INCREF(traceback);
+	PyTuple_SetItem(args, 0, traceback);
+	PyObject *result = PyEval_CallObject(extract_tb, args);
+	Py_DECREF(args);
+
+	if (!result) goto end;
+
+	ub = uwsgi_buffer_new(4096);
+	Py_ssize_t i;
+	// we have to build a uwsgi array with 5 items (4 are taken from the python tb)
+	for(i=0;i< PyList_Size(result);i++) {
+		PyObject *t = PyList_GetItem(result, i);
+		PyObject *tb_filename = PyTuple_GetItem(t, 0);
+		PyObject *tb_lineno = PyTuple_GetItem(t, 1);
+		PyObject *tb_function = PyTuple_GetItem(t, 2);
+		PyObject *tb_text = PyTuple_GetItem(t, 3);
+
+		int64_t line_no = PyInt_AsLong(tb_lineno);
+
+		// filename
+		if (uwsgi_buffer_u16le(ub, PyString_Size(tb_filename))) goto end0;
+		if (uwsgi_buffer_append(ub, PyString_AsString(tb_filename), PyString_Size(tb_filename))) goto end0;
+
+		// lineno
+		if (uwsgi_buffer_append_valnum(ub, line_no)) goto end0;
+
+		// function
+		if (uwsgi_buffer_u16le(ub, PyString_Size(tb_function))) goto end0;
+                if (uwsgi_buffer_append(ub, PyString_AsString(tb_function), PyString_Size(tb_function))) goto end0;
+
+		// text
+		if (uwsgi_buffer_u16le(ub, PyString_Size(tb_text))) goto end0;
+                if (uwsgi_buffer_append(ub, PyString_AsString(tb_text), PyString_Size(tb_text))) goto end0;
+
+		// custom (unused)
+		if (uwsgi_buffer_u16le(ub, 0)) goto end0;
+                if (uwsgi_buffer_append(ub, "", 0)) goto end0;
+		
+	}
+
+	Py_DECREF(result);
+	goto end;
+
+end0:
+	Py_DECREF(result);
+	uwsgi_buffer_destroy(ub);
+	ub = NULL;
+end:
+        PyErr_Restore(type, value, traceback);
+        return ub;
 }
 
-int uwsgi_python_manage_exceptions(void) {
-	PyObject *type = NULL;
-	PyObject *value = NULL;
-	PyObject *traceback = NULL;
 
-	char *exc_type = NULL;
-	char *exc_value = NULL;
-	char *exc_repr = NULL;
+struct uwsgi_buffer *uwsgi_python_exception_class(struct wsgi_request *wsgi_req) {
+	PyObject *type = NULL;
+        PyObject *value = NULL;
+        PyObject *traceback = NULL;
+	struct uwsgi_buffer *ub = NULL;
 
 	PyErr_Fetch(&type, &value, &traceback);
 	PyErr_NormalizeException(&type, &value, &traceback);
 
-	if (uwsgi.reload_on_exception_type) {
-		exc_type = uwsgi_python_get_exception_type(type);
+	char *class = uwsgi_python_get_exception_type(type);
+	if (class) {
+		size_t class_len = strlen(class);
+		ub = uwsgi_buffer_new(class_len);
+		if (uwsgi_buffer_append(ub, class, class_len)) {
+			uwsgi_buffer_destroy(ub);
+			ub = NULL;
+			goto end;
+		}
 	}
-
-	if (uwsgi.reload_on_exception_value) {
-		exc_value = uwsgi_python_get_exception_value(value);
-	}
-
-	if (uwsgi.reload_on_exception_repr) {
-		exc_repr = uwsgi_python_get_exception_repr(type, value);
-	}
-
-	int ret = uwsgi_manage_exception(exc_type, exc_value, exc_repr);
-
-	// free memory allocated for strcmp
-	if (exc_type) free(exc_type);
-	if (exc_repr) free(exc_repr);
-
+end:
+	free(class);
 	PyErr_Restore(type, value, traceback);
+	return ub;
+}
 
-	return ret;
+struct uwsgi_buffer *uwsgi_python_exception_msg(struct wsgi_request *wsgi_req) {
+        PyObject *type = NULL;
+        PyObject *value = NULL;
+        PyObject *traceback = NULL;
+        struct uwsgi_buffer *ub = NULL;
+
+        PyErr_Fetch(&type, &value, &traceback);
+        PyErr_NormalizeException(&type, &value, &traceback);
+
+	// value could be NULL ?
+	if (!value) goto end;
+
+        char *msg = PyString_AsString( PyObject_Str(value) );
+        if (msg) {
+                size_t msg_len = strlen(msg);
+                ub = uwsgi_buffer_new(msg_len);
+                if (uwsgi_buffer_append(ub, msg, msg_len)) {
+                        uwsgi_buffer_destroy(ub);
+                        ub = NULL;
+                        goto end;
+                }
+        }
+end:
+        PyErr_Restore(type, value, traceback);
+        return ub;
+}
+
+struct uwsgi_buffer *uwsgi_python_exception_repr(struct wsgi_request *wsgi_req) {
+	
+	struct uwsgi_buffer *ub_class = uwsgi_python_exception_class(wsgi_req);
+	if (!ub_class) return NULL;
+
+	struct uwsgi_buffer *ub_msg = uwsgi_python_exception_msg(wsgi_req);
+	if (!ub_msg) {
+		uwsgi_buffer_destroy(ub_class);
+		return NULL;
+	}
+
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(ub_class->pos + 2 + ub_msg->pos);
+	if (uwsgi_buffer_append(ub, ub_class->buf, ub_class->pos)) goto error;
+	if (uwsgi_buffer_append(ub, ": ", 2)) goto error;
+	if (uwsgi_buffer_append(ub, ub_msg->buf, ub_msg->pos)) goto error;
+
+	uwsgi_buffer_destroy(ub_class);
+	uwsgi_buffer_destroy(ub_msg);
+
+	return ub;
+
+error:
+	uwsgi_buffer_destroy(ub_class);
+	uwsgi_buffer_destroy(ub_msg);
+	uwsgi_buffer_destroy(ub);
+	return NULL;
+}
+
+void uwsgi_python_exception_log(struct wsgi_request *wsgi_req) {
+	PyErr_Print();
 }
 
 PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi_request *wsgi_req) {
@@ -100,27 +208,11 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi
 	//uwsgi_log("called\n");
 
 	if (PyErr_Occurred()) {
-
-
-		int do_exit = uwsgi_python_manage_exceptions();
-
-		if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
-			uwsgi_log("Memory Error detected !!!\n");
+		if (wsgi_req) {
+			uwsgi_manage_exception(wsgi_req, catch);
 		}
-
-		// this can be in a spooler or in the master
-		if (uwsgi.mywid > 0) {
-			uwsgi.workers[uwsgi.mywid].exceptions++;
-			if (wsgi_req) {
-				uwsgi_apps[wsgi_req->app_id].exceptions++;
-			}
-		}
-		if (!catch) {
+		else {
 			PyErr_Print();
-		}
-
-		if (do_exit) {
-			exit(UWSGI_EXCEPTION_CODE);
 		}
 	}
 
@@ -139,11 +231,9 @@ int uwsgi_python_call(struct wsgi_request *wsgi_req, PyObject *callable, PyObjec
 
 	if (wsgi_req->async_result) {
 		while ( manage_python_response(wsgi_req) != UWSGI_OK) {
-#ifdef UWSGI_ASYNC
 			if (uwsgi.async > 1) {
 				return UWSGI_AGAIN;
 			}
-#endif
 		}
 	}
 

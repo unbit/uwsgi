@@ -36,14 +36,21 @@ VALUE rack_uwsgi_log(VALUE *class, VALUE msg) {
 }
 
 VALUE rack_uwsgi_i_am_the_spooler(VALUE *class) {
-#ifdef UWSGI_SPOOLER
         if (uwsgi.i_am_a_spooler) {
                 return Qtrue;
         }
-#endif
-
         return Qfalse;
 }
+
+#ifdef UWSGI_SSL
+VALUE rack_uwsgi_i_am_the_lord(VALUE *class, VALUE legion_name) {
+	Check_Type(legion_name, T_STRING);
+        if (uwsgi_legion_i_am_the_lord(RSTRING_PTR(legion_name))) {
+                return Qtrue;
+        }
+        return Qfalse;
+}
+#endif
 
 
 
@@ -279,13 +286,13 @@ VALUE rack_uwsgi_cache_set(VALUE *class, VALUE rbkey, VALUE rbvalue) {
 		return Qnil;
         }
 
-        uwsgi_wlock(uwsgi.cache_lock);
+        uwsgi_wlock(uwsgi.caches->lock);
         if (uwsgi_cache_set(key, keylen, value, vallen, expires, 0)) {
-        	uwsgi_rwunlock(uwsgi.cache_lock);
+        	uwsgi_rwunlock(uwsgi.caches->lock);
 		return Qnil;
         }
 
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.caches->lock);
         return Qtrue;
 
 }
@@ -307,13 +314,13 @@ VALUE rack_uwsgi_cache_update(VALUE *class, VALUE rbkey, VALUE rbvalue) {
 		return Qnil;
         }
 
-        uwsgi_wlock(uwsgi.cache_lock);
+        uwsgi_wlock(uwsgi.caches->lock);
         if (uwsgi_cache_set(key, keylen, value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE)) {
-        	uwsgi_rwunlock(uwsgi.cache_lock);
+        	uwsgi_rwunlock(uwsgi.caches->lock);
 		return Qnil;
         }
 
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.caches->lock);
         return Qtrue;
 
 }
@@ -347,13 +354,13 @@ VALUE rack_uwsgi_cache_del(VALUE *class, VALUE rbkey) {
         char *key = RSTRING_PTR(rbkey);
 	size_t keylen = RSTRING_LEN(rbkey);
 	
-        uwsgi_wlock(uwsgi.cache_lock);
+        uwsgi_wlock(uwsgi.caches->lock);
         if (uwsgi_cache_del(key, keylen, 0, 0)) {
-        	uwsgi_rwunlock(uwsgi.cache_lock);
+        	uwsgi_rwunlock(uwsgi.caches->lock);
 		return Qfalse;
         }
 
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.caches->lock);
         return Qtrue;
 
 }
@@ -385,14 +392,14 @@ VALUE rack_uwsgi_cache_get(VALUE *class, VALUE rbkey) {
         uint64_t valsize;
         char *value = NULL;
 
-        uwsgi_rlock(uwsgi.cache_lock);
+        uwsgi_rlock(uwsgi.caches->lock);
         value = uwsgi_cache_get(key, keylen, &valsize);
         if (!value) {
-        	uwsgi_rwunlock(uwsgi.cache_lock);
+        	uwsgi_rwunlock(uwsgi.caches->lock);
         	return Qnil;
         }
         VALUE res = rb_str_new(value, valsize);
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.caches->lock);
         return res;
 
 }
@@ -470,6 +477,15 @@ VALUE rack_uwsgi_add_rb_timer(VALUE *class, VALUE rbsignum, VALUE secs) {
 }
 
 
+VALUE rack_uwsgi_alarm(VALUE *class, VALUE alarm, VALUE msg) {
+
+	Check_Type(alarm, T_STRING);
+	Check_Type(msg, T_STRING);
+
+	uwsgi_alarm_trigger(RSTRING_PTR(alarm), RSTRING_PTR(msg), RSTRING_LEN(msg));
+
+	return Qnil;
+}
 
 VALUE rack_uwsgi_add_file_monitor(VALUE *class, VALUE rbsignum, VALUE rbfilename) {
 
@@ -488,7 +504,6 @@ VALUE rack_uwsgi_add_file_monitor(VALUE *class, VALUE rbsignum, VALUE rbfilename
 }
 
 
-#ifdef UWSGI_ASYNC
 VALUE uwsgi_ruby_wait_fd_read(VALUE *class, VALUE arg1, VALUE arg2) {
 
 	Check_Type(arg1, T_FIXNUM);
@@ -500,8 +515,8 @@ VALUE uwsgi_ruby_wait_fd_read(VALUE *class, VALUE arg1, VALUE arg2) {
         int fd = NUM2INT(arg1);
         int timeout = NUM2INT(arg2);
 
-        if (fd >= 0) {
-                async_add_fd_read(wsgi_req, fd, timeout);
+        if (async_add_fd_read(wsgi_req, fd, timeout)) {
+		rb_raise(rb_eRuntimeError, "unable to add fd %d to the event queue", fd);
         }
 
         return Qtrue;
@@ -517,15 +532,12 @@ VALUE uwsgi_ruby_wait_fd_write(VALUE *class, VALUE arg1, VALUE arg2) {
         int fd = NUM2INT(arg1);
         int timeout = NUM2INT(arg2);
 
-        if (fd >= 0) {
-                async_add_fd_write(wsgi_req, fd, timeout);
+        if (async_add_fd_write(wsgi_req, fd, timeout)) {
+		rb_raise(rb_eRuntimeError, "unable to add fd %d to the event queue", fd);
         }
 
         return Qtrue;
 }
-#endif
-
-
 
 VALUE uwsgi_ruby_async_connect(VALUE *class, VALUE arg) {
 
@@ -537,7 +549,6 @@ VALUE uwsgi_ruby_async_connect(VALUE *class, VALUE arg) {
 }
 
 
-#ifdef UWSGI_ASYNC
 VALUE uwsgi_ruby_async_sleep(VALUE *class, VALUE arg) {
 
 	Check_Type(arg, T_FIXNUM);
@@ -551,7 +562,6 @@ VALUE uwsgi_ruby_async_sleep(VALUE *class, VALUE arg) {
 
         return Qtrue;
 }
-#endif
 
 VALUE uwsgi_ruby_masterpid(VALUE *class) {
 
@@ -665,14 +675,11 @@ VALUE uwsgi_ruby_do_rpc(int argc, VALUE *rpc_argv, VALUE *class) {
 
 	// response must always be freed
         char *response = uwsgi_do_rpc(node, func, argc - 2, argv, argvs, &size);
-
-        if (size > 0) {
+        if (response) {
                 VALUE ret = rb_str_new(response, size);
                 free(response);
                 return ret;
         }
-	free(response);
-
 clear:
 
         rb_raise(rb_eRuntimeError, "unable to call rpc function");
@@ -870,6 +877,74 @@ VALUE rack_uwsgi_send_spool(VALUE *class, VALUE args) {
 
 }
 
+VALUE uwsgi_ruby_websocket_handshake(int argc, VALUE *argv, VALUE *class) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	if (argc < 1) {
+		rb_raise(rb_eRuntimeError, "you neeto specify a valid websocket key");
+		return Qnil;
+	}
+
+        Check_Type(argv[0], T_STRING);
+        char *key = RSTRING_PTR(argv[0]);
+        size_t key_len = RSTRING_LEN(argv[0]);
+
+	char *origin = NULL;
+	size_t origin_len = 0;
+
+	if (argc > 1) {
+		Check_Type(argv[1], T_STRING);
+		origin = RSTRING_PTR(argv[1]);
+        	origin_len = RSTRING_LEN(argv[1]);
+	}
+
+	if (uwsgi_websocket_handshake(wsgi_req, key, key_len, origin, origin_len)) {
+        	rb_raise(rb_eRuntimeError, "unable to complete websocket handshake");
+        }
+	return Qnil;
+}
+
+VALUE uwsgi_ruby_websocket_send(VALUE *class, VALUE *msg) {
+	Check_Type(msg, T_STRING);
+	char *message = RSTRING_PTR(msg);
+	size_t message_len = RSTRING_LEN(msg);
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	if (uwsgi_websocket_send(wsgi_req, message, message_len)) {
+                rb_raise(rb_eRuntimeError, "unable to send websocket message");
+        }
+	return Qnil;
+}
+
+VALUE uwsgi_ruby_websocket_recv(VALUE *class) {
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+        struct uwsgi_buffer *ub = uwsgi_websocket_recv(wsgi_req);
+        if (!ub) {
+                rb_raise(rb_eRuntimeError, "unable to receive websocket message");
+		return Qnil;
+        }
+	VALUE ret = rb_str_new(ub->buf, ub->pos);
+	uwsgi_buffer_destroy(ub);
+	return ret;
+
+}
+
+VALUE uwsgi_ruby_websocket_recv_nb(VALUE *class) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+        struct uwsgi_buffer *ub = uwsgi_websocket_recv_nb(wsgi_req);
+        if (!ub) {
+                rb_raise(rb_eRuntimeError, "unable to receive websocket message");
+                return Qnil;
+        }
+        VALUE ret = rb_str_new(ub->buf, ub->pos);
+        uwsgi_buffer_destroy(ub);
+        return ret;
+
+}
+
+
 
 
 void uwsgi_rack_init_api() {
@@ -877,11 +952,9 @@ void uwsgi_rack_init_api() {
 	VALUE rb_uwsgi_embedded = rb_define_module("UWSGI");
         uwsgi_rack_api("suspend", uwsgi_ruby_suspend, 0);
         uwsgi_rack_api("masterpid", uwsgi_ruby_masterpid, 0);
-#ifdef UWSGI_ASYNC
         uwsgi_rack_api("async_sleep", uwsgi_ruby_async_sleep, 1);
         uwsgi_rack_api("wait_fd_read", uwsgi_ruby_wait_fd_read, 2);
         uwsgi_rack_api("wait_fd_write", uwsgi_ruby_wait_fd_write, 2);
-#endif
         uwsgi_rack_api("async_connect", uwsgi_ruby_async_connect, 1);
         uwsgi_rack_api("signal", uwsgi_ruby_signal, -1);
         uwsgi_rack_api("register_signal", uwsgi_ruby_register_signal, 3);
@@ -893,6 +966,13 @@ void uwsgi_rack_init_api() {
         uwsgi_rack_api("add_timer", rack_uwsgi_add_timer, 2);
         uwsgi_rack_api("add_rb_timer", rack_uwsgi_add_rb_timer, 2);
         uwsgi_rack_api("add_file_monitor", rack_uwsgi_add_file_monitor, 2);
+
+        uwsgi_rack_api("alarm", rack_uwsgi_alarm, 2);
+
+        uwsgi_rack_api("websocket_handshake", uwsgi_ruby_websocket_handshake, -1);
+        uwsgi_rack_api("websocket_send", uwsgi_ruby_websocket_send, 1);
+        uwsgi_rack_api("websocket_recv", uwsgi_ruby_websocket_recv, 0);
+        uwsgi_rack_api("websocket_recv_nb", uwsgi_ruby_websocket_recv_nb, 0);
 
         uwsgi_rack_api("setprocname", rack_uwsgi_setprocname, 1);
         uwsgi_rack_api("mem", rack_uwsgi_mem, 0);
@@ -918,9 +998,13 @@ void uwsgi_rack_init_api() {
 
         uwsgi_rack_api("rpc", uwsgi_ruby_do_rpc, -1);
 
+
+#ifdef UWSGI_SSL
+	uwsgi_rack_api("i_am_the_lord", rack_uwsgi_i_am_the_lord, 1);
+#endif
 	
 
-	if (uwsgi.cache_max_items > 0) {
+	if (uwsgi.caches) {
         	uwsgi_rack_api("cache_get", rack_uwsgi_cache_get, 1);
         	uwsgi_rack_api("cache_get!", rack_uwsgi_cache_get_exc, 1);
         	uwsgi_rack_api("cache_exists", rack_uwsgi_cache_exists, 1);

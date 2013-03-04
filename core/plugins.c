@@ -24,7 +24,7 @@ static void uwsgi_plugin_parse_section(char *filename) {
 }
 #endif
 
-static int plugin_already_loaded(const char *plugin) {
+int plugin_already_loaded(const char *plugin) {
 	int i;
 
 	for (i = 0; i < 256; i++) {
@@ -165,7 +165,6 @@ success:
 				uwsgi_log("%s\n", linkpath);
 #endif
 				free(plugin_entry_symbol);
-				up = dlsym(plugin_handle, plugin_entry_symbol);
 				char *slash = uwsgi_get_last_char(linkpath, '/');
 				if (!slash) {
 					slash = linkpath;

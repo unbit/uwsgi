@@ -1,4 +1,3 @@
-#ifdef UWSGI_SPOOLER
 #include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
@@ -97,8 +96,18 @@ pid_t spooler_start(struct uwsgi_spooler * uspool) {
 		exit(1);
 	}
 	else if (pid == 0) {
+
+		signal(SIGALRM, SIG_IGN);
+                signal(SIGHUP, SIG_IGN);
+                signal(SIGINT, end_me);
+                signal(SIGTERM, end_me);
 		// USR1 will be used to wake up the spooler
 		uwsgi_unix_signal(SIGUSR1, spooler_wakeup);
+                signal(SIGUSR2, SIG_IGN);
+                signal(SIGPIPE, SIG_IGN);
+                signal(SIGSTOP, SIG_IGN);
+                signal(SIGTSTP, SIG_IGN);
+
 		uwsgi.mywid = -1;
 		uwsgi.mypid = getpid();
 		uspool->pid = uwsgi.mypid;
@@ -574,7 +583,3 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 		}
 	}
 }
-
-#else
-#warning "*** Spooler support is disabled ***"
-#endif

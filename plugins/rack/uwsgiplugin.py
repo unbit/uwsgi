@@ -14,7 +14,7 @@ v = version.split('.')
 
 GCC_LIST = ['rack_plugin', 'rack_api']
 
-if v[0] == '1' and v[1] == '9':
+if (v[0] == '1' and v[1] == '9') or v[0] >= '2':
     CFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print RbConfig::CONFIG['CFLAGS']\"").read().rstrip().split()
     CFLAGS.append('-DRUBY19')
     CFLAGS.append('-Wno-unused-parameter')
@@ -34,10 +34,18 @@ else:
     CFLAGS.append('-I' + archdir + '/' + arch)
     CFLAGS.append('-I' + includedir + '/' + arch)
 
-LDFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['LDFLAGS']\"" % rbconfig).read().rstrip().split()
 
+LDFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['LDFLAGS']\"" % rbconfig).read().rstrip().split()
 libpath = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['libdir']\"" % rbconfig).read().rstrip()
-LDFLAGS.append('-L' + libpath )
-os.environ['LD_RUN_PATH'] = libpath
-LIBS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print '-l' + %s::CONFIG['RUBY_SO_NAME']\"" % rbconfig).read().rstrip().split()
+
+has_shared = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['ENABLE_SHARED']\"" % rbconfig).read().rstrip()
+
+LIBS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['LIBS']\"" % rbconfig).read().rstrip().split()
+
+if has_shared == 'yes':
+    LDFLAGS.append('-L' + libpath )
+    os.environ['LD_RUN_PATH'] = libpath
+    LIBS.append(os.popen(RUBYPATH + " -e \"require 'rbconfig';print '-l' + %s::CONFIG['RUBY_SO_NAME']\"" % rbconfig).read().rstrip())
+else:
+    GCC_LIST.append("%s/%s" % (libpath, os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['LIBRUBY_A']\"" % rbconfig).read().rstrip()))
 

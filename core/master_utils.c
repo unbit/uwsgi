@@ -5,15 +5,82 @@ extern struct uwsgi_server uwsgi;
 void worker_wakeup() {
 }
 
+uint64_t uwsgi_worker_exceptions(int wid) {
+	uint64_t total = 0;
+	int i;
+	for(i=0;i<uwsgi.cores;i++) {
+		total += uwsgi.workers[wid].cores[i].exceptions;
+	}
+
+	return total;
+}
+
+void uwsgi_curse(int wid, int sig) {
+	uwsgi.workers[wid].cursed_at = uwsgi_now();
+        uwsgi.workers[wid].no_mercy_at = uwsgi.workers[wid].cursed_at + uwsgi.worker_reload_mercy;
+
+	if (sig) {
+		(void) kill(uwsgi.workers[wid].pid, sig);
+	}
+}
+
+static void uwsgi_signal_spoolers(int signum) {
+
+        struct uwsgi_spooler *uspool = uwsgi.spoolers;
+        while (uspool) {
+                if (uspool->pid > 0) {
+                        kill(uspool->pid, signum);
+                        uwsgi_log("killing the spooler with pid %d\n", uspool->pid);
+                }
+                uspool = uspool->next;
+        }
+
+}
+void uwsgi_destroy_processes() {
+
+	int i;
+	int waitpid_status;
+
+        uwsgi_signal_spoolers(SIGKILL);
+
+        if (uwsgi.emperor_pid >= 0) {
+                kill(uwsgi.emperor_pid, SIGKILL);
+                waitpid(uwsgi.emperor_pid, &waitpid_status, 0);
+		uwsgi_log("The Emperor has been buried (pid: %d)\n", (int) uwsgi.emperor_pid);
+        }
+
+
+        uwsgi_detach_daemons();
+
+        for (i = 0; i < ushared->gateways_cnt; i++) {
+                if (ushared->gateways[i].pid > 0) {
+                        kill(ushared->gateways[i].pid, SIGKILL);
+			waitpid(ushared->gateways[i].pid, &waitpid_status, 0);
+			uwsgi_log("gateway \"%s %d\" has been buried (pid: %d)\n", ushared->gateways[i].name, ushared->gateways[i].num, (int) ushared->gateways[i].pid);
+		}
+        }
+
+	// TODO mules can be programmed to be gracefully reloaded
+        for (i = 0; i < uwsgi.mules_cnt; i++) {
+                if (uwsgi.mules[i].pid > 0) {
+                        kill(uwsgi.mules[i].pid, SIGKILL);
+			waitpid(uwsgi.mules[i].pid, &waitpid_status, 0);
+			uwsgi_log("mule %d has been buried (pid: %d)\n", i, (int) uwsgi.mules[i].pid);
+		}
+        }
+}
+
+
+
 void uwsgi_master_cleanup_hooks(void) {
 
 	int j;
 
 	// could be an inherited atexit hook
-	if (uwsgi.mywid > 0)
+	if (uwsgi.mypid != uwsgi.workers[0].pid)
 		return;
 
-	uwsgi.cleaning = 1;
+	uwsgi.status.is_cleaning = 1;
 
 	for (j = 0; j < uwsgi.gp_cnt; j++) {
 		if (uwsgi.gp[j]->master_cleanup) {
@@ -78,8 +145,7 @@ int uwsgi_calc_cheaper(void) {
 #endif
 			uwsgi.workers[oldest_worker].cheaped = 1;
 			uwsgi.workers[oldest_worker].manage_next_request = 0;
-			// wakeup task in case of wait
-			(void) kill(uwsgi.workers[oldest_worker].pid, SIGWINCH);
+			uwsgi_curse(oldest_worker, SIGWINCH);
 		}
 	}
 
@@ -131,7 +197,7 @@ int uwsgi_cheaper_algo_spare(void) {
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
 			// if a non-busy worker is found, the overload_count is decremented and stop the cycle
-			if (uwsgi.workers[i].busy == 0) {
+			if (uwsgi_worker_is_busy(i) == 0) {
 				if (overload_count > 0)
 					overload_count--;
 				goto healthy;
@@ -174,7 +240,7 @@ healthy:
 		for (i = 1; i <= uwsgi.numproc; i++) {
 			if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
 				active_workers++;
-				if (uwsgi.workers[i].busy == 1)
+				if (uwsgi_worker_is_busy(i) == 1)
 					busy_workers++;
 			}
 		}
@@ -374,35 +440,6 @@ void uwsgi_reload(char **argv) {
 
 }
 
-void master_check_cluster_nodes() {
-
-	int i;
-
-	for (i = 0; i < MAX_CLUSTER_NODES; i++) {
-		struct uwsgi_cluster_node *ucn = &uwsgi.shared->nodes[i];
-
-		if (ucn->name[0] != 0 && ucn->type == CLUSTER_NODE_STATIC && ucn->status == UWSGI_NODE_FAILED) {
-			// should i retry ?
-			if (uwsgi.master_cycles % ucn->errors == 0) {
-				if (!uwsgi_ping_node(i, uwsgi.wsgi_req)) {
-					ucn->status = UWSGI_NODE_OK;
-					uwsgi_log("re-enabled cluster node %d/%s\n", i, ucn->name);
-				}
-				else {
-					ucn->errors++;
-				}
-			}
-		}
-		else if (ucn->name[0] != 0 && ucn->type == CLUSTER_NODE_DYNAMIC) {
-			// if the last_seen attr is higher than 30 secs ago, mark the node as dead
-			if ((uwsgi.current_time - ucn->last_seen) > 30) {
-				uwsgi_log_verbose("no presence announce in the last 30 seconds by node %s, i assume it is dead.\n", ucn->name);
-				ucn->name[0] = 0;
-			}
-		}
-	}
-}
-
 void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 
 	int i;
@@ -444,14 +481,13 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 					close(uwsgi.workers[i].signal_pipe[1]);
 			}
 		}
-#ifdef UWSGI_SPOOLER
+
 		if (uwsgi.i_am_a_spooler && uwsgi.i_am_a_spooler->pid != getpid()) {
 			if (uwsgi.shared->spooler_signal_pipe[0] != -1)
 				close(uwsgi.shared->spooler_signal_pipe[0]);
 			if (uwsgi.shared->spooler_signal_pipe[1] != -1)
 				close(uwsgi.shared->spooler_signal_pipe[1]);
 		}
-#endif
 
 		if (uwsgi.shared->mule_signal_pipe[0] != -1)
 			close(uwsgi.shared->mule_signal_pipe[0]);
@@ -504,12 +540,15 @@ int uwsgi_respawn_worker(int wid) {
 	uwsgi.workers[wid].pending_harakiri = 0;
 	uwsgi.workers[wid].rss_size = 0;
 	uwsgi.workers[wid].vsz_size = 0;
+	// ... reset stopped_at
+	uwsgi.workers[wid].cursed_at = 0;
+	uwsgi.workers[wid].no_mercy_at = 0;
 
 	// internal statuses should be reset too
 
 	uwsgi.workers[wid].cheaped = 0;
-	uwsgi.workers[wid].busy = 0;
-	uwsgi.workers[wid].suspended = 0;
+	// SUSPENSION is managed by the user, not the master...
+	//uwsgi.workers[wid].suspended = 0;
 	uwsgi.workers[wid].sig = 0;
 
 	// this is required for various checks
@@ -548,7 +587,6 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
 		/*
 		   uwsgi.workers[uwsgi.mywid].cheaped = 0;
-		   uwsgi.workers[uwsgi.mywid].busy = 0;
 		   uwsgi.workers[uwsgi.mywid].suspended = 0;
 		   uwsgi.workers[uwsgi.mywid].sig = 0;
 		 */
@@ -556,12 +594,18 @@ int uwsgi_respawn_worker(int wid) {
 		// reset the apps count with a copy from the master 
 		uwsgi.workers[uwsgi.mywid].apps_cnt = uwsgi.workers[0].apps_cnt;
 
+		// reset wsgi_request structures
+		for(i=0;i<uwsgi.cores;i++) {
+			uwsgi.workers[uwsgi.mywid].cores[i].in_request = 0;
+			memset(&uwsgi.workers[uwsgi.mywid].cores[i].req, 0, sizeof(struct wsgi_request));
+		}
+
 		uwsgi_fixup_fds(wid, 0, NULL);
 
 		uwsgi.my_signal_socket = uwsgi.workers[wid].signal_pipe[1];
 
 		if (uwsgi.master_process) {
-			if ((uwsgi.workers[uwsgi.mywid].respawn_count || uwsgi.cheap)) {
+			if ((uwsgi.workers[uwsgi.mywid].respawn_count || uwsgi.status.is_cheap)) {
 				for (i = 0; i < 256; i++) {
 					if (uwsgi.p[i]->master_fixup) {
 						uwsgi.p[i]->master_fixup(1);
@@ -716,7 +760,7 @@ void uwsgi_manage_command_cron(time_t now) {
 			}
 		}
 		if (current_cron->month < 0) {
-			if ((uwsgi_cron_delta->tm_hour % abs(current_cron->month)) == 0) {
+			if ((uwsgi_cron_delta->tm_mon % abs(current_cron->month)) == 0) {
 				uc_month = uwsgi_cron_delta->tm_mon;
 			}
 		}
@@ -862,35 +906,63 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 	if (uwsgi_stats_comma(us))
 		goto end;
 
-	if (uwsgi.cache_max_items > 0) {
-		if (uwsgi_stats_key(us, "cache"))
+	if (uwsgi.caches) {
+
+		
+		if (uwsgi_stats_key(us, "caches"))
                 goto end;
 
-		if (uwsgi_stats_object_open(us))
-                        goto end;
+		if (uwsgi_stats_list_open(us)) goto end;
 
-		if (uwsgi_stats_keylong_comma(us, "max_items", (unsigned long long) uwsgi.cache_max_items))
-			goto end;
+		struct uwsgi_cache *uc = uwsgi.caches;
+		while(uc) {
+			if (uwsgi_stats_object_open(us))
+                        	goto end;
 
-		if (uwsgi_stats_keylong_comma(us, "blocksize", (unsigned long long) uwsgi.cache_blocksize))
-			goto end;
+			if (uwsgi_stats_keyval_comma(us, "name", uc->name ? uc->name : "default"))
+                        	goto end;
 
-		if (uwsgi_stats_keylong_comma(us, "items", (unsigned long long) ushared->cache_items))
-			goto end;
+			if (uwsgi_stats_keyval_comma(us, "hash", uc->hash->name))
+                        	goto end;
 
-		if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) ushared->cache_hits))
-			goto end;
+			if (uwsgi_stats_keylong_comma(us, "hashsize", (unsigned long long) uc->hashsize))
+				goto end;
 
-		if (uwsgi_stats_keylong_comma(us, "miss", (unsigned long long) ushared->cache_miss))
-			goto end;
+			if (uwsgi_stats_keylong_comma(us, "keysize", (unsigned long long) uc->keysize))
+				goto end;
 
-		if (uwsgi_stats_keylong(us, "full", (unsigned long long) ushared->cache_full))
-			goto end;
+			if (uwsgi_stats_keylong_comma(us, "max_items", (unsigned long long) uc->max_items))
+				goto end;
 
-		if (uwsgi_stats_object_close(us))
-			goto end;
+			if (uwsgi_stats_keylong_comma(us, "blocks", (unsigned long long) uc->blocks))
+				goto end;
 
-	if (uwsgi_stats_comma(us))
+			if (uwsgi_stats_keylong_comma(us, "blocksize", (unsigned long long) uc->blocksize))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "items", (unsigned long long) uc->n_items))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) uc->hits))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "miss", (unsigned long long) uc->miss))
+				goto end;
+
+			if (uwsgi_stats_keylong(us, "full", (unsigned long long) uc->full))
+				goto end;
+
+			if (uwsgi_stats_object_close(us))
+				goto end;
+
+			if (uc->next) {
+				if (uwsgi_stats_comma(us))
+					goto end;
+			}
+			uc = uc->next;
+		}
+
+		if (uwsgi_stats_comma(us))
 		goto end;
 	}
 
@@ -953,7 +1025,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			goto end;
 		if (uwsgi_stats_keylong_comma(us, "delta_requests", (unsigned long long) uwsgi.workers[i + 1].delta_requests))
 			goto end;
-		if (uwsgi_stats_keylong_comma(us, "exceptions", (unsigned long long) uwsgi.workers[i + 1].exceptions))
+		if (uwsgi_stats_keylong_comma(us, "exceptions", (unsigned long long) uwsgi_worker_exceptions(i + 1)))
 			goto end;
 		if (uwsgi_stats_keylong_comma(us, "harakiri_count", (unsigned long long) uwsgi.workers[i + 1].harakiri_count))
 			goto end;
@@ -971,7 +1043,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_keyval_comma(us, "status", "cheap"))
 				goto end;
 		}
-		else if (uwsgi.workers[i + 1].suspended && !uwsgi.workers[i + 1].busy) {
+		else if (uwsgi.workers[i + 1].suspended && !uwsgi_worker_is_busy(i+1)) {
 			if (uwsgi_stats_keyval_comma(us, "status", "pause"))
 				goto end;
 		}
@@ -980,7 +1052,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 				if (uwsgi_stats_keyvalnum_comma(us, "status", "sig", (unsigned long long) uwsgi.workers[i + 1].signum))
 					goto end;
 			}
-			else if (uwsgi.workers[i + 1].busy) {
+			else if (uwsgi_worker_is_busy(i+1)) {
 				if (uwsgi_stats_keyval_comma(us, "status", "busy"))
 					goto end;
 			}
@@ -1085,7 +1157,21 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_keylong_comma(us, "offloaded_requests", (unsigned long long) uc->offloaded_requests))
 				goto end;
 
-			if (uwsgi_stats_keylong(us, "in_request", (unsigned long long) uc->in_request))
+			if (uwsgi_stats_keylong_comma(us, "write_errors", (unsigned long long) uc->write_errors))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "in_request", (unsigned long long) uc->in_request))
+				goto end;
+
+			if (uwsgi_stats_key(us, "vars"))
+				goto end;
+
+			if (uwsgi_stats_list_open(us))
+                        	goto end;
+
+			if (uwsgi_stats_dump_vars(us, uc)) goto end;
+
+			if (uwsgi_stats_list_close(us))
 				goto end;
 
 
@@ -1113,7 +1199,6 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 	if (uwsgi_stats_list_close(us))
 		goto end;
 
-#ifdef UWSGI_SPOOLER
 	struct uwsgi_spooler *uspool = uwsgi.spoolers;
 	if (uspool) {
 		if (uwsgi_stats_comma(us))
@@ -1152,12 +1237,147 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		if (uwsgi_stats_list_close(us))
 			goto end;
 	}
+
+#ifdef UWSGI_SSL
+	struct uwsgi_legion *legion = NULL;
+	if (uwsgi.legions) {
+
+		if (uwsgi_stats_comma(us))
+			goto end;
+
+		if (uwsgi_stats_key(us, "legions"))
+			goto end;
+
+		if (uwsgi_stats_list_open(us))
+			goto end;
+
+		legion = uwsgi.legions;
+		while (legion) {
+			if (uwsgi_stats_object_open(us))
+				goto end;
+
+			if (uwsgi_stats_keyval_comma(us, "legion", legion->legion))
+				goto end;
+
+			if (uwsgi_stats_keyval_comma(us, "addr", legion->addr))
+				goto end;
+
+			if (uwsgi_stats_keyval_comma(us, "uuid", legion->uuid))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "valor", (unsigned long long) legion->valor))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "checksum", (unsigned long long) legion->checksum))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "quorum", (unsigned long long) legion->quorum))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "i_am_the_lord", (unsigned long long) legion->i_am_the_lord))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "lord_valor", (unsigned long long) legion->lord_valor))
+				goto end;
+
+			if (uwsgi_stats_keyvaln_comma(us, "lord_uuid", legion->lord_uuid, 36))
+				goto end;
+
+			// legion nodes start
+			if (uwsgi_stats_key(us, "nodes"))
+                                goto end;
+
+                        if (uwsgi_stats_list_open(us))
+                                goto end;
+
+                        struct uwsgi_string_list *nodes = legion->nodes;
+                        while (nodes) {
+
+				if (uwsgi_stats_str(us, nodes->value))
+                                	goto end;
+
+                                nodes = nodes->next;
+                                if (nodes) {
+                                        if (uwsgi_stats_comma(us))
+                                                goto end;
+                                }
+                        }
+
+			if (uwsgi_stats_list_close(us))
+				goto end;
+
+                        if (uwsgi_stats_comma(us))
+                        	goto end;
+
+
+			// legion members start
+			if (uwsgi_stats_key(us, "members"))
+				goto end;
+
+			if (uwsgi_stats_list_open(us))
+				goto end;
+
+			pthread_mutex_lock(&legion->lock);
+			struct uwsgi_legion_node *node = legion->nodes_head;
+			while (node) {
+				if (uwsgi_stats_object_open(us))
+					goto unlock_legion_mutex;
+
+				if (uwsgi_stats_keyvaln_comma(us, "name", node->name, node->name_len))
+					goto unlock_legion_mutex;
+
+				if (uwsgi_stats_keyval_comma(us, "uuid", node->uuid))
+					goto unlock_legion_mutex;
+
+				if (uwsgi_stats_keylong_comma(us, "valor", (unsigned long long) node->valor))
+					goto unlock_legion_mutex;
+
+				if (uwsgi_stats_keylong_comma(us, "checksum", (unsigned long long) node->checksum))
+					goto unlock_legion_mutex;
+
+				if (uwsgi_stats_keylong(us, "last_seen", (unsigned long long) node->last_seen))
+					goto unlock_legion_mutex;
+
+				if (uwsgi_stats_object_close(us))
+					goto unlock_legion_mutex;
+
+				node = node->next;
+				if (node) {
+					if (uwsgi_stats_comma(us))
+						goto unlock_legion_mutex;
+				}
+			}
+			pthread_mutex_unlock(&legion->lock);
+
+			if (uwsgi_stats_list_close(us))
+				goto end;
+			// legion nodes end
+
+			if (uwsgi_stats_object_close(us))
+				goto end;
+
+			legion = legion->next;
+			if (legion) {
+				if (uwsgi_stats_comma(us))
+					goto end;
+			}
+		}
+
+		if (uwsgi_stats_list_close(us))
+			goto end;
+
+	}
 #endif
 
 	if (uwsgi_stats_object_close(us))
 		goto end;
 
 	return us;
+#ifdef UWSGI_SSL
+unlock_legion_mutex:
+	if (legion)
+		pthread_mutex_unlock(&legion->lock);
+#endif
 end:
 	free(us->base);
 	free(us);
@@ -1254,3 +1474,20 @@ void trigger_harakiri(int i) {
 	// to avoid races
 
 }
+
+void uwsgi_master_fix_request_counters() {
+	int i;
+	uint64_t total_counter = 0;
+        for (i = 1; i <= uwsgi.numproc;i++) {
+		uint64_t tmp_counter = 0;
+		int j;
+		for(j=0;j<uwsgi.cores;j++) {
+			tmp_counter += uwsgi.workers[i].cores[j].requests;
+		}
+		uwsgi.workers[i].requests = tmp_counter;
+		total_counter += tmp_counter;
+	}
+
+	uwsgi.workers[0].requests = total_counter;
+}
+

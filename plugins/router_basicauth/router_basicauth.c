@@ -5,78 +5,10 @@
 #ifdef __linux__
 #include <crypt.h>
 #else
-#ifdef UWSGI_THREADING
 pthread_mutex_t ur_basicauth_crypt_mutex;
-#endif
 #endif
 
 extern struct uwsgi_server uwsgi;
-
-// this algo is based on nginx one (the fastest i have tested)
-static char *http_basic_auth_get(char *authorization, uint16_t len) {
-
-	uint16_t i;
-	static uint8_t table64[] = {
-        	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 62, 77, 77, 77, 63,
-        	52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 77, 77, 77, 77, 77, 77,
-        	77,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
-        	15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 77, 77, 77, 77, 77,
-        	77, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
-        	41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 77, 77, 77, 77, 77,
-
-        	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77
-	};
-
-	for (i = 0; i < len; i++) {
-		if (authorization[i] == '=')
-			break;
-
-		// check for invalid content
-		if (table64[ (uint8_t) authorization[i] ] == 77) {
-			return NULL;
-		}
-	}
-
-	// check for invalid length
-	if (i % 4 == 1)
-		return NULL;
-
-	uint16_t dst_len = (((len+3)/4) * 3) + 1;
-	char *dst = uwsgi_malloc(dst_len);
-
-	char *ptr = dst;
-	uint8_t *src = (uint8_t *) authorization;
-	while(i > 3) {
-		*ptr++= (char) ( table64[src[0]] << 2 | table64[src[1]] >> 4);
-		*ptr++= (char) ( table64[src[1]] << 4 | table64[src[2]] >> 2);
-		*ptr++= (char) ( table64[src[2]] << 6 | table64[src[3]]);
-
-		src+=4;
-		i-=4;
-	}
-
-	if (i > 1) {
-		*ptr++= (char) ( table64[src[0]] << 2 | table64[src[1]] >> 4);
-	}
-
-	if (i > 2) {
-		*ptr++= (char) ( table64[src[1]] << 4 | table64[src[2]] >> 2);
-	}
-
-	*ptr++= 0;	
-
-	return dst;
-	
-}
 
 static uint16_t htpasswd_check(char *filename, char *auth) {
 
@@ -127,23 +59,12 @@ static uint16_t htpasswd_check(char *filename, char *auth) {
 
 int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
-        struct iovec iov[4];
-
-        if (wsgi_req->protocol_len > 0) {
-        	iov[0].iov_base = wsgi_req->protocol;
-        	iov[0].iov_len = wsgi_req->protocol_len;
-	}
-	else {
-        	iov[0].iov_base = "HTTP/1.0";
-        	iov[0].iov_len = 8;
-	}
-
-	// chec for "Basic =" string at least
 	if (wsgi_req->authorization_len > 7 && ur->data2_len > 0) {
 		if (strncmp(wsgi_req->authorization, "Basic ", 6))
 			goto forbidden;
 
-		char *auth = http_basic_auth_get(wsgi_req->authorization+6, wsgi_req->authorization_len-6);
+		size_t auth_len = 0;
+		char *auth = uwsgi_base64_decode(wsgi_req->authorization+6, wsgi_req->authorization_len-6, &auth_len);
 		if (auth) {
 			if (!ur->custom) {
 				// check htpasswd-like file
@@ -153,16 +74,20 @@ int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_rou
 					if (wsgi_req->remote_user)
 						wsgi_req->remote_user_len = ulen;
 					free(auth);
-					return UWSGI_ROUTE_CONTINUE;
+					if (ur->data3_len > 0)
+						return UWSGI_ROUTE_CONTINUE;
+					return UWSGI_ROUTE_GOON;
 				}
 			}
 			else {
-				if (!strcmp(auth, ur->data2)) {
+				if (!uwsgi_strncmp(auth, auth_len, ur->data2, ur->data2_len)) {
 					wsgi_req->remote_user = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, auth, ur->custom); 
 					if (wsgi_req->remote_user)
 						wsgi_req->remote_user_len = ur->custom;
 					free(auth);
-					return UWSGI_ROUTE_CONTINUE;
+					if (ur->data3_len > 0)
+						return UWSGI_ROUTE_CONTINUE;
+					return UWSGI_ROUTE_GOON;
 				}
 			}
 			free(auth);
@@ -173,21 +98,13 @@ int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_rou
 	}
 
 forbidden:
-        iov[1].iov_base = " 401 Authorization Required\r\nWWW-Authenticate: Basic realm=\"";
-        iov[1].iov_len = 60 ;
-
-	iov[2].iov_base = ur->data;
-	iov[2].iov_len = ur->data_len;
-
-	iov[3].iov_base = "\"\r\n\r\n";
-	iov[3].iov_len = 5;
-
-        wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, iov, 4);
-
-	wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req,"Unauthorized", 12);
-
-	wsgi_req->status = 401;
-
+	if (uwsgi_response_prepare_headers(wsgi_req, "401 Authorization Required", 26)) goto end;
+	char *realm = uwsgi_concat3n("Basic realm=\"", 13, ur->data, ur->data_len, "\"", 1);
+	int ret = uwsgi_response_add_header(wsgi_req, "WWW-Authenticate", 16, realm, 13 + ur->data_len + 1);
+	free(realm);
+	if (ret) goto end;
+	uwsgi_response_write_body_do(wsgi_req, "Unauthorized", 12);
+end:
 	return UWSGI_ROUTE_BREAK;
 }
 
@@ -197,7 +114,7 @@ void router_basicauth_init_lock() {
 }
 #endif
 
-int uwsgi_router_basicauth(struct uwsgi_route *ur, char *args) {
+static int uwsgi_router_basicauth(struct uwsgi_route *ur, char *args) {
 
 	ur->func = uwsgi_routing_func_basicauth;
 
@@ -227,10 +144,17 @@ int uwsgi_router_basicauth(struct uwsgi_route *ur, char *args) {
 	return 0;
 }
 
+static int uwsgi_router_basicauth_last(struct uwsgi_route *ur, char *args) {
+	uwsgi_router_basicauth(ur, args);
+	ur->data3_len = 1;
+	return 0;
+}
+
 
 void router_basicauth_register(void) {
 
 	uwsgi_register_router("basicauth", uwsgi_router_basicauth);
+	uwsgi_register_router("basicauth-last", uwsgi_router_basicauth_last);
 }
 
 struct uwsgi_plugin router_basicauth_plugin = {

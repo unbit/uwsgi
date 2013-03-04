@@ -64,12 +64,10 @@ void simple_loop() {
 
 void uwsgi_loop_cores_run(void *(*func) (void *)) {
 	int i;
-#ifdef UWSGI_THREADING
 	for (i = 1; i < uwsgi.threads; i++) {
 		long j = i;
 		pthread_create(&uwsgi.workers[uwsgi.mywid].cores[i].thread_id, &uwsgi.threads_attr, func, (void *) j);
 	}
-#endif
 	long y = 0;
 	func((void *) y);
 }
@@ -120,12 +118,9 @@ void *simple_loop_run(void *arg1) {
 
 	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core_id].req;
 
-#ifdef UWSGI_THREADING
 	if (uwsgi.threads > 1) {
 		uwsgi_setup_thread_req(core_id, wsgi_req);
 	}
-#endif
-
 	// initialize the main event queue to monitor sockets
 	int main_queue = event_queue_init();
 
@@ -146,7 +141,7 @@ void *simple_loop_run(void *arg1) {
 			continue;
 		}
 
-		if (wsgi_req_recv(wsgi_req)) {
+		if (wsgi_req_recv(main_queue, wsgi_req)) {
 			uwsgi_destroy_request(wsgi_req);
 			continue;
 		}

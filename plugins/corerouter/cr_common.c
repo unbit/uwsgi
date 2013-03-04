@@ -40,7 +40,7 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 					}
 				}
 				else {
-					ugs->port = strchr(ugs->name, ':');
+					ugs->port = strrchr(ugs->name, ':');
 					int current_defer_accept = uwsgi.no_defer_accept;
 					if (ugs->no_defer) {
                         			uwsgi.no_defer_accept = 1;
@@ -59,6 +59,15 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
                         			uwsgi.no_defer_accept = current_defer_accept;
 					}
 				}
+
+				// fix SERVER_PORT
+				if (!ugs->port || !ugs->port_len) {
+					ugs->port = strchr(ugs->name, ':');
+					if (ugs->port) {
+						ugs->port++;
+						ugs->port_len = strlen(ugs->port);
+					}
+				}
 				// put socket in non-blocking mode
 				uwsgi_socket_nb(ugs->fd);
 				uwsgi_log("%s bound on %s fd %d\n", ucr->name, ugs->name, ugs->fd);
@@ -66,12 +75,7 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 			else if (ugs->subscription) {
 				if (ugs->fd == -1) {
 					if (strchr(ugs->name, ':')) {
-#ifdef UWSGI_UDP
 						ugs->fd = bind_to_udp(ugs->name, 0, 0);
-#else
-						uwsgi_log("uWSGI has been built without UDP support !!!\n");
-						exit(1);
-#endif
 					}
 					else {
 						ugs->fd = bind_to_unix_dgram(ugs->name);

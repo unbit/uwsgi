@@ -54,9 +54,9 @@ char *ini_get_key(char *key) {
 	return ptr;
 }
 
-char *ini_get_line(char *ini, off_t size) {
+char *ini_get_line(char *ini, size_t size) {
 
-	off_t i;
+	size_t i;
 	char *ptr = ini;
 
 	for (i = 0; i < size; i++) {
@@ -78,7 +78,7 @@ char *ini_get_line(char *ini, off_t size) {
 
 void uwsgi_ini_config(char *file, char *magic_table[]) {
 
-	int len = 0;
+	size_t len = 0;
 	char *ini;
 
 	char *ini_line;
