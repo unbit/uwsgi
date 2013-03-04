@@ -56,7 +56,7 @@ char *ini_get_key(char *key) {
 
 char *ini_get_line(char *ini, size_t size) {
 
-	off_t i;
+	size_t i;
 	char *ptr = ini;
 
 	for (i = 0; i < size; i++) {

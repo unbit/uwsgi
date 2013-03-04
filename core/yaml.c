@@ -63,7 +63,7 @@ int yaml_get_depth(char *line) {
 
 char *yaml_get_line(char *yaml, size_t size) {
 
-	off_t i;
+	size_t i;
 	char *ptr = yaml;
 	int comment = 0;
 
