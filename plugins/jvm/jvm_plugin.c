@@ -31,6 +31,7 @@ JNIEXPORT jint JNICALL uwsgi_jvm_api_worker_id(JNIEnv *env, jclass c) {
 }
 
 JNIEXPORT void JNICALL uwsgi_jvm_api_register_signal(JNIEnv *env, jclass c, jint signum, jstring target, jobject handler) {
+	// no need to release it
 	char *t = uwsgi_jvm_str2c(target);
 	if (uwsgi_register_signal(signum, t, uwsgi_jvm_ref(handler), jvm_plugin.modifier1)) {
 		uwsgi_jvm_throw("unable to register signal handler");
@@ -38,6 +39,7 @@ JNIEXPORT void JNICALL uwsgi_jvm_api_register_signal(JNIEnv *env, jclass c, jint
 }
 
 JNIEXPORT void JNICALL uwsgi_jvm_api_register_rpc(JNIEnv *env, jclass c, jstring name, jobject func) {
+	// no need to release it
 	char *n = uwsgi_jvm_str2c(name);
 	if (uwsgi_register_rpc(n, jvm_plugin.modifier1, 0, uwsgi_jvm_ref(func))) {
 		uwsgi_jvm_throw("unable to register rpc function");
@@ -52,6 +54,7 @@ static JNINativeMethod uwsgi_jvm_api_methods[] = {
 
 static struct uwsgi_option uwsgi_jvm_options[] = {
         {"jvm-main-class", required_argument, 0, "load the specified class and call its main() function", uwsgi_opt_add_string_list, &ujvm.main_classes, 0},
+        {"jvm-opt", required_argument, 0, "add the specified jvm option", uwsgi_opt_add_string_list, &ujvm.opts, 0},
         {"jvm-class", required_argument, 0, "load the specified class", uwsgi_opt_add_string_list, &ujvm.classes, 0},
         {"jvm-classpath", required_argument, 0, "add the specified directory to the classpath", uwsgi_opt_add_string_list, &ujvm.classpath, 0},
         {0, 0, 0, 0},
@@ -59,8 +62,7 @@ static struct uwsgi_option uwsgi_jvm_options[] = {
 
 // returns 0 if ok, -1 on exception
 int uwsgi_jvm_exception(void) {
-
-	if ((*ujvm_env)->ExceptionOccurred(ujvm_env)) {
+	if ((*ujvm_env)->ExceptionCheck(ujvm_env)) {
         	(*ujvm_env)->ExceptionDescribe(ujvm_env);
         	(*ujvm_env)->ExceptionClear(ujvm_env);
 		return -1;
@@ -69,7 +71,7 @@ int uwsgi_jvm_exception(void) {
 }
 
 void uwsgi_jvm_clear_exception() {
-	if ((*ujvm_env)->ExceptionOccurred(ujvm_env)) {
+	if ((*ujvm_env)->ExceptionCheck(ujvm_env)) {
 		(*ujvm_env)->ExceptionClear(ujvm_env);
 	}
 }
@@ -103,6 +105,7 @@ jclass uwsgi_jvm_class_from_object(jobject o) {
 jobject uwsgi_jvm_object_class_name(jobject o) {
 	jclass c = uwsgi_jvm_class_from_object(o);
 	jmethodID mid = uwsgi_jvm_get_method_id(c, "getClass", "()Ljava/lang/Class;");
+	uwsgi_jvm_local_unref(c);
 	if (!mid) return NULL;
 
 	jobject oc = uwsgi_jvm_call_object(o, mid);
@@ -112,6 +115,7 @@ jobject uwsgi_jvm_object_class_name(jobject o) {
         if (!c2) return NULL;	
 
 	mid = uwsgi_jvm_get_method_id(c2, "getName", "()Ljava/lang/String;");
+	uwsgi_jvm_local_unref(c2);
         if (!mid) return NULL;
 
 	return uwsgi_jvm_call_object(oc, mid);
@@ -165,6 +169,17 @@ jmethodID uwsgi_jvm_get_method_id(jclass cls, char *name, char *signature) {
         return mid;
 }
 
+// returns the method id, given the method name and its signature
+jmethodID uwsgi_jvm_get_method_id_quiet(jclass cls, char *name, char *signature) {
+        jmethodID mid = (*ujvm_env)->GetMethodID(ujvm_env, cls, name, signature);
+	if ((*ujvm_env)->ExceptionCheck(ujvm_env)) {
+                (*ujvm_env)->ExceptionClear(ujvm_env);
+                return NULL;
+        }
+        return mid;
+}
+
+
 // returns the static method id, given the method name and its signature
 jmethodID uwsgi_jvm_get_static_method_id(jclass cls, char *name, char *signature) {
 	jmethodID mid = (*ujvm_env)->GetStaticMethodID(ujvm_env, cls, name, signature);
@@ -179,7 +194,11 @@ jobject uwsgi_jvm_ref(jobject obj) {
 }
 
 void uwsgi_jvm_unref(jobject obj) {
-	(*ujvm_env)->DeleteLocalRef(ujvm_env, obj);
+	(*ujvm_env)->DeleteGlobalRef(ujvm_env, obj);
+}
+
+void uwsgi_jvm_local_unref(jobject obj) {
+        (*ujvm_env)->DeleteLocalRef(ujvm_env, obj);
 }
 
 jobject uwsgi_jvm_hashmap() {
@@ -235,7 +254,8 @@ jobject uwsgi_jvm_iterator(jobject set) {
 jobject uwsgi_jvm_auto_iterator(jobject o) {
 	jclass c = uwsgi_jvm_class_from_object(o);
 	if (!c) return NULL;
-        jmethodID mid = uwsgi_jvm_get_method_id(c, "iterator", "()Ljava/util/Iterator;");
+        jmethodID mid = uwsgi_jvm_get_method_id_quiet(c, "iterator", "()Ljava/util/Iterator;");
+	uwsgi_jvm_local_unref(c);
         if (!mid) return NULL;
         return uwsgi_jvm_call_object(o, mid);
 }
@@ -255,6 +275,7 @@ jobject uwsgi_jvm_getKey(jobject item) {
 	jclass c = uwsgi_jvm_class_from_object(item);
 	if (!c) return NULL;
 	jmethodID mid = uwsgi_jvm_get_method_id(c, "getKey", "()Ljava/lang/Object;");
+	uwsgi_jvm_local_unref(c);
 	if (!mid) return NULL;
 	return uwsgi_jvm_call_object(item, mid);
 }
@@ -263,6 +284,7 @@ jobject uwsgi_jvm_getValue(jobject item) {
         jclass c = uwsgi_jvm_class_from_object(item);
         if (!c) return NULL;
         jmethodID mid = uwsgi_jvm_get_method_id(c, "getValue", "()Ljava/lang/Object;");
+	uwsgi_jvm_local_unref(c);
         if (!mid) return NULL;
         return uwsgi_jvm_call_object(item, mid);
 }
@@ -276,7 +298,7 @@ int uwsgi_jvm_iterator_hasNext(jobject iterator) {
                 if (!mid) return 0;
         }
 
-        if (uwsgi_jvm_call_object(iterator, mid)) {
+        if (uwsgi_jvm_call_bool(iterator, mid)) {
 		return 1;
 	}
 	return 0;
@@ -348,6 +370,17 @@ jobject uwsgi_jvm_call_object(jobject o, jmethodID mid, ...) {
         return ret;
 }
 
+int uwsgi_jvm_call_bool(jobject o, jmethodID mid, ...) {
+        va_list args;
+        va_start(args, mid);
+        int ret = (*ujvm_env)->CallBooleanMethodV(ujvm_env, o, mid, args);
+        va_end(args);
+        if (uwsgi_jvm_exception()) {
+                return 0;
+        }
+        return ret;
+}
+
 
 jobject uwsgi_jvm_call_objectA(jobject o, jmethodID mid, jvalue *args) {
 	jobject ret = (*ujvm_env)->CallObjectMethodA(ujvm_env, o, mid, args);
@@ -368,11 +401,20 @@ static int uwsgi_jvm_init(void) {
 
 static void uwsgi_jvm_create(void) {
 
-	JavaVMOption options[1];
 
         ujvm.vm_args.version = JNI_VERSION_1_2;
-
         JNI_GetDefaultJavaVMInitArgs(&ujvm.vm_args);
+
+	JavaVMOption *options;
+
+	struct uwsgi_string_list *usl = ujvm.opts;
+	int opt_count = 1;
+	while(usl) {
+		opt_count++;
+		usl = usl->next;
+	}
+
+	options = uwsgi_calloc(sizeof(JavaVMOption) * opt_count);
 
         options[0].optionString = "-Djava.class.path=.";
 
@@ -390,8 +432,16 @@ static void uwsgi_jvm_create(void) {
                 cp = cp->next;
         }
 
+	usl = ujvm.opts;
+	opt_count = 1;
+	while(usl) {
+		options[opt_count].optionString = usl->value;
+		opt_count++;
+		usl = usl->next;
+	}
+	
         ujvm.vm_args.options  = options;
-        ujvm.vm_args.nOptions = 1;
+        ujvm.vm_args.nOptions = opt_count;
 
 	JNIEnv  *env;
 	if (pthread_key_create(&ujvm.env, NULL)) {
@@ -464,7 +514,7 @@ static void uwsgi_jvm_create(void) {
 	ujvm.api_rpc_function_mid = uwsgi_jvm_get_method_id(uwsgi_rpc_function_class, "function", "([Ljava/lang/String;)Ljava/lang/String;");
 	if (!ujvm.api_rpc_function_mid) exit(1);
 
-	struct uwsgi_string_list *usl = ujvm.main_classes;
+	usl = ujvm.main_classes;
 	while(usl) {
 		jclass c = uwsgi_jvm_class(usl->value);
 		if (!c) {
@@ -539,24 +589,25 @@ static uint16_t uwsgi_jvm_rpc(void *func, uint8_t argc, char **argv, uint16_t ar
 	jobject str_array = (*ujvm_env)->NewObjectArray(ujvm_env, argc, ujvm.str_class, NULL);
 	uint8_t i;
 	for(i=0;i<argc;i++) {
-		(*ujvm_env)->SetObjectArrayElement(ujvm_env, str_array, i, uwsgi_jvm_str(argv[i], argvs[i]));
+		jobject j_arg = uwsgi_jvm_str(argv[i], argvs[i]);
+		(*ujvm_env)->SetObjectArrayElement(ujvm_env, str_array, i, j_arg);
+		uwsgi_jvm_local_unref(j_arg);
 	}
 	args[0].l = str_array;
 	jobject ret = uwsgi_jvm_call_objectA(func, ujvm.api_rpc_function_mid, args);
-	(*ujvm_env)->DeleteLocalRef(ujvm_env, str_array);
+	uwsgi_jvm_local_unref(str_array);
 	if (ret == NULL) {
-		goto end;
+		return 0;
 	}
 	size_t rlen = uwsgi_jvm_strlen(ret);
 	if (rlen <= 0xffff) {
 		char *b = uwsgi_jvm_str2c(ret);
 		memcpy(buffer, b, rlen);
 		uwsgi_jvm_release_chars(ret, b);
-		(*ujvm_env)->DeleteLocalRef(ujvm_env, ret);
+		uwsgi_jvm_local_unref(ret);
 		return rlen;
 	}
-end:
-	(*ujvm_env)->DeleteLocalRef(ujvm_env, ret);
+	uwsgi_jvm_local_unref(ret);
 	return 0;
 }
 

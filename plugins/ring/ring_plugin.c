@@ -33,7 +33,9 @@ static jobject uwsgi_ring_invoke1(jobject o, jobject arg1) {
 static jobject uwsgi_ring_keyword(char *key, size_t len) {
 	jobject j_key = uwsgi_jvm_str(key, len);
 	if (!j_key) return NULL;
-	return uwsgi_ring_invoke1(uring.keyword, j_key);
+	jobject kw = uwsgi_ring_invoke1(uring.keyword, j_key);
+	uwsgi_jvm_local_unref(j_key);
+	return kw;
 }
 
 static int uwsgi_ring_request_item_add(jobject hm, char *key, size_t keylen, char *value, size_t vallen) {
@@ -41,9 +43,15 @@ static int uwsgi_ring_request_item_add(jobject hm, char *key, size_t keylen, cha
 	if (!j_key) return -1;
 
 	jobject j_value = uwsgi_jvm_str(value, vallen);
-	if (!j_value) return -1;
+	if (!j_value) {
+		uwsgi_jvm_local_unref(j_key);
+		return -1;
+	}
 
-	return uwsgi_jvm_hashmap_put(hm, j_key, j_value);
+	int ret = uwsgi_jvm_hashmap_put(hm, j_key, j_value);
+	uwsgi_jvm_local_unref(j_key);
+	uwsgi_jvm_local_unref(j_value);
+	return ret;	
 }
 
 static jobject uwsgi_ring_PersistentArrayMap_get(jobject pam, jobject key) {
@@ -53,72 +61,85 @@ static jobject uwsgi_ring_PersistentArrayMap_get(jobject pam, jobject key) {
 static jobject uwsgi_ring_PersistentArrayMap_iterator(jobject pam) {
 	jobject set = uwsgi_jvm_call_object(pam, uring.PersistentArrayMap_entrySet);
 	if (!set) return NULL;
-	return uwsgi_jvm_iterator(set);
+	jobject iter = uwsgi_jvm_iterator(set);
+	uwsgi_jvm_local_unref(set);
+	return iter;
 }
 
 static jobject uwsgi_ring_response_get(jobject r, char *name, size_t len) {
 	jobject j_key = uwsgi_ring_keyword(name, len);
         if (!j_key) return NULL;
 
-	return uwsgi_ring_PersistentArrayMap_get(r, j_key);
+	jobject item = uwsgi_ring_PersistentArrayMap_get(r, j_key);
+	uwsgi_jvm_local_unref(j_key);
+	return item;
 }
 
 static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 	char status_str[1];
-	uwsgi_log("managing ring request\n");
+	jobject response = NULL;
+	jobject entries = NULL;
+	jobject r_status = NULL;
+	jobject r_headers = NULL;
+	jobject r_body = NULL;
+
 	jobject hm = uwsgi_jvm_hashmap();
 	if (!hm) return -1;
 
-	if (uwsgi_ring_request_item_add(hm, "request-method", 14, wsgi_req->method, wsgi_req->method_len)) goto error;
-	if (uwsgi_ring_request_item_add(hm, "uri", 3, wsgi_req->uri, wsgi_req->uri_len)) goto error;
+	if (uwsgi_ring_request_item_add(hm, "request-method", 14, wsgi_req->method, wsgi_req->method_len)) goto end;
+	if (uwsgi_ring_request_item_add(hm, "uri", 3, wsgi_req->uri, wsgi_req->uri_len)) goto end;
 
-	jobject response = uwsgi_ring_invoke1(uring.handler, hm);
-	if (!response) goto error;
+	response = uwsgi_ring_invoke1(uring.handler, hm);
+	if (!response) goto end;
 
 	if (!uwsgi_jvm_object_is_instance(response, uring.PersistentArrayMap)) {
 		uwsgi_log("invalid ring response type, must be: clojure.lang.PersistentArrayMap\n");
-		goto error;
+		goto end;
 	}
 	
-	jobject r_status = uwsgi_ring_response_get(response, "status", 6);
-	if (!r_status) goto error;
+	r_status = uwsgi_ring_response_get(response, "status", 6);
+	if (!r_status) goto end;
 
 	if (!uwsgi_jvm_object_is_instance(r_status, ujvm.long_class) && !uwsgi_jvm_object_is_instance(r_status, ujvm.int_class)) {
 		uwsgi_log("invalid ring response status type, must be: java.lang.Long\n");
-		goto error;
+		goto end;
 	}
+
 
 	long n_status = uwsgi_jvm_number2c(r_status);
-	if (n_status == -1) goto error;
+	if (n_status == -1) goto end;
 
 	if (uwsgi_num2str2(n_status, status_str) != 3) {
-		goto error;
+		goto end;
 	}
 
-	if (uwsgi_response_prepare_headers(wsgi_req, status_str, 3)) goto error;
+	if (uwsgi_response_prepare_headers(wsgi_req, status_str, 3)) goto end;
 
-	jobject r_headers = uwsgi_ring_response_get(response, "headers", 7);
-	if (!r_headers) goto error;
+	r_headers = uwsgi_ring_response_get(response, "headers", 7);
+	if (!r_headers) goto end;
 
 	if (!uwsgi_jvm_object_is_instance(r_headers, uring.PersistentArrayMap)) {
 		uwsgi_log("invalid ring response headers type, must be: clojure.lang.PersistentArrayMap\n");
-		goto error;
+		goto end;
 	}
 
-	jobject entries = uwsgi_ring_PersistentArrayMap_iterator(r_headers);
-	if (!entries) goto error;
+	entries = uwsgi_ring_PersistentArrayMap_iterator(r_headers);
+	if (!entries) goto end;
 
+	int error = 0;
 	while(uwsgi_jvm_iterator_hasNext(entries)) {
-		jobject hh = uwsgi_jvm_iterator_next(entries);
-		if (!hh) goto error;
-		jobject h_key = uwsgi_jvm_getKey(hh);
-		if (!h_key) goto error;
-		jobject h_value = uwsgi_jvm_getValue(hh);
-		if (!h_value) goto error;
+		jobject hh = NULL, h_key = NULL, h_value = NULL;
+
+		hh = uwsgi_jvm_iterator_next(entries);
+		if (!hh) { error = 1 ; goto clear;}
+		h_key = uwsgi_jvm_getKey(hh);
+		if (!h_key) { error = 1 ; goto clear;}
+		h_value = uwsgi_jvm_getValue(hh);
+		if (!h_value) { error = 1 ; goto clear;}
 
 		if (!uwsgi_jvm_object_is_instance(h_key, ujvm.str_class)) {
 			uwsgi_log("headers key must be java/lang/String !!!\n");
-			goto error;
+			error = 1 ; goto clear;
 		}
 
 		if (uwsgi_jvm_object_is_instance(h_value, ujvm.str_class)) {
@@ -129,16 +150,18 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 			int ret = uwsgi_response_add_header(wsgi_req, c_h_key, c_h_keylen, c_h_value, c_h_vallen);
 			uwsgi_jvm_release_chars(h_key, c_h_key);
 			uwsgi_jvm_release_chars(h_value, c_h_value);
-			if (ret) goto error;	
+			if (ret) { error = 1 ; goto clear;}
 		}
 		else if (uwsgi_jvm_object_is_instance(h_value, uring.PersistentVector) || uwsgi_jvm_object_is_instance(h_value, uring.PersistentList)) {
 			jobject values = uwsgi_jvm_auto_iterator(h_value);
-			if (!values) goto error;
+			if (!values) { error = 1 ; goto clear;}
 			while(uwsgi_jvm_iterator_hasNext(values)) {
 				jobject hh_value = uwsgi_jvm_iterator_next(values);
 				if (!uwsgi_jvm_object_is_instance(hh_value, ujvm.str_class)) {
                         		uwsgi_log("headers value must be java/lang/String !!!\n");
-                        		goto error;
+					uwsgi_jvm_local_unref(hh_value);
+					uwsgi_jvm_local_unref(values);
+					error = 1 ; goto clear;
                 		}
 				char *c_h_key = uwsgi_jvm_str2c(h_key);
 				uint16_t c_h_keylen = uwsgi_jvm_strlen(h_key);
@@ -147,24 +170,35 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 				int ret = uwsgi_response_add_header(wsgi_req, c_h_key, c_h_keylen, c_h_value, c_h_vallen);
 				uwsgi_jvm_release_chars(h_key, c_h_key);
 				uwsgi_jvm_release_chars(hh_value, c_h_value);
-				if (ret) goto error;
+				uwsgi_jvm_local_unref(hh_value);
+				if (ret) { uwsgi_jvm_local_unref(values); error = 1 ; goto clear;}
 			}
+			uwsgi_jvm_local_unref(values);
 		}
 		else {
 			uwsgi_log("unsupported header value !!! (must be java/lang/String, clojure/lang/PersistentVector or clojure/lang/PersistentList)\n");
-			goto error;
+			error = 1 ; goto clear;
 		}
+clear:
+		if (h_value)
+		uwsgi_jvm_local_unref(h_value);
+		if (h_key)
+		uwsgi_jvm_local_unref(h_key);
+		if (hh)
+		uwsgi_jvm_local_unref(hh);
+		if (error) goto end;
 	}
 
-	jobject r_body = uwsgi_ring_response_get(response, "body", 4);
-        if (!r_body) goto error;
+	r_body = uwsgi_ring_response_get(response, "body", 4);
+        if (!r_body) goto end;
+
 
         if (uwsgi_jvm_object_is_instance(r_body, ujvm.str_class)) {
 		char *c_body = uwsgi_jvm_str2c(r_body);
 		size_t c_body_len = uwsgi_jvm_strlen(r_body);
 		uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
 		uwsgi_jvm_release_chars(r_body, c_body);
-		return UWSGI_OK;
+		goto end;
         }
 
 	jobject chunks = uwsgi_jvm_auto_iterator(r_body);
@@ -173,36 +207,57 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 			jobject chunk = uwsgi_jvm_iterator_next(chunks);
 			if (!uwsgi_jvm_object_is_instance(chunk, ujvm.str_class)) {
                         	uwsgi_log("body iSeq item must be java/lang/String !!!\n");
-                                goto error;
+				uwsgi_jvm_local_unref(chunk);
+                                goto done;
                         }
 			char *c_body = uwsgi_jvm_str2c(chunk);
                 	size_t c_body_len = uwsgi_jvm_strlen(chunk);
                 	int ret = uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
                 	uwsgi_jvm_release_chars(chunk, c_body);
-			if (ret) goto error;
+			uwsgi_jvm_local_unref(chunk);
+			if (ret) goto done;
 		}
-		return UWSGI_OK;
+done:
+		uwsgi_jvm_local_unref(chunks);
+		goto end;
 	}
 
 	if (uwsgi_jvm_object_is_instance(r_body, ujvm.file_class)) {
 		jobject j_filename = uwsgi_jvm_filename(r_body);
-		if (!j_filename) goto error;
+		if (!j_filename) goto end;
 		char *c_filename = uwsgi_jvm_str2c(j_filename);
 		int fd = open(c_filename, O_RDONLY);
 		if (fd < 0) {
 			uwsgi_error("clojure/ring->open()");
-			goto error;
+			goto done2;
 		}
 		uwsgi_response_sendfile_do(wsgi_req, fd, 0, 0);
-		uwsgi_log("sendfile fd = %d\n", fd);
+done2:
 		uwsgi_jvm_release_chars(j_filename, c_filename);
-		return UWSGI_OK;
+		uwsgi_jvm_local_unref(j_filename);
+		goto end;
 	}
 
 	uwsgi_log("unsupported clojure/ring body type\n");
-error:
-	// destroy the hashmap
-	return -1;
+end:
+	// destroy the hashmap and the response
+	uwsgi_jvm_local_unref(hm);
+	if (entries) {
+		uwsgi_jvm_local_unref(entries);
+	}
+	if (r_status) {
+		uwsgi_jvm_local_unref(r_status);
+	}
+	if (r_headers) {
+		uwsgi_jvm_local_unref(r_headers);
+	}
+	if (r_body) {
+		uwsgi_jvm_local_unref(r_body);
+	}
+	if (response) {
+		uwsgi_jvm_local_unref(response);
+	}
+	return UWSGI_OK;
 }
 
 static int uwsgi_ring_setup() {

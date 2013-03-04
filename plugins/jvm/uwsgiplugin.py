@@ -40,7 +40,6 @@ if not JVM_INCPATH or not JVM_LIBPATH:
     os._exit(1)
 
 CFLAGS = JVM_INCPATH
-print CFLAGS
 LDFLAGS = JVM_LIBPATH
 LIBS = ['-ljvm']
 GCC_LIST = ['jvm_plugin']

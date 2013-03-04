@@ -12,6 +12,7 @@ struct uwsgi_jvm {
         struct uwsgi_string_list *classpath;
         struct uwsgi_string_list *classes;
         struct uwsgi_string_list *main_classes;
+        struct uwsgi_string_list *opts;
 
 	jclass str_class;
 	jclass long_class;
@@ -55,6 +56,7 @@ int uwsgi_jvm_hashmap_put(jobject, jobject, jobject);
 jobject uwsgi_jvm_call_object(jobject, jmethodID, ...);
 jobject uwsgi_jvm_call_object_static(jclass, jmethodID, ...);
 jmethodID uwsgi_jvm_get_method_id(jclass, char *, char *);
+jmethodID uwsgi_jvm_get_method_id_quiet(jclass, char *, char *);
 jclass uwsgi_jvm_class_from_object(jobject);
 
 jobject uwsgi_jvm_object_class_name(jobject);
@@ -77,3 +79,5 @@ long uwsgi_jvm_int2c(jobject);
 long uwsgi_jvm_long2c(jobject);
 
 jobject uwsgi_jvm_filename(jobject);
+void uwsgi_jvm_local_unref(jobject);
+int uwsgi_jvm_call_bool(jobject, jmethodID, ...);
