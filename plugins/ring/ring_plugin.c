@@ -5,6 +5,7 @@
 extern struct uwsgi_jvm ujvm;
 
 struct uwsgi_ring {
+	struct uwsgi_string_list *scripts;
 	char *app;
 	jobject handler;
 	jobject keyword;
@@ -22,7 +23,8 @@ struct uwsgi_ring {
 } uring;
 
 static struct uwsgi_option uwsgi_ring_options[] = {
-        {"ring-app", required_argument, 0, "load the specified clojure/ring application", uwsgi_opt_set_str, &uring.app, 0},
+        {"ring-load", required_argument, 0, "load the specified clojure script", uwsgi_opt_add_string_list, &uring.scripts, 0},
+        {"ring-app", required_argument, 0, "map the specified ring application (syntax namespace:function)", uwsgi_opt_set_str, &uring.app, 0},
         {0, 0, 0, 0},
 };
 
@@ -30,6 +32,7 @@ static jobject uwsgi_ring_invoke1(jobject o, jobject arg1) {
 	return uwsgi_jvm_call_object(o, uring.invoke1, arg1);
 }
 
+// create a new clojure keyword
 static jobject uwsgi_ring_keyword(char *key, size_t len) {
 	jobject j_key = uwsgi_jvm_str(key, len);
 	if (!j_key) return NULL;
@@ -38,6 +41,7 @@ static jobject uwsgi_ring_keyword(char *key, size_t len) {
 	return kw;
 }
 
+// add a string item to the ring request map
 static int uwsgi_ring_request_item_add(jobject hm, char *key, size_t keylen, char *value, size_t vallen) {
 	jobject j_key = uwsgi_ring_keyword(key, keylen);
 	if (!j_key) return -1;
@@ -54,10 +58,12 @@ static int uwsgi_ring_request_item_add(jobject hm, char *key, size_t keylen, cha
 	return ret;	
 }
 
+// get an item from a PersistentArrayMap
 static jobject uwsgi_ring_PersistentArrayMap_get(jobject pam, jobject key) {
 	return uwsgi_jvm_call_object(pam, uring.PersistentArrayMap_get, key);
 }
 
+// get the iterator from a PersistentArrayMap
 static jobject uwsgi_ring_PersistentArrayMap_iterator(jobject pam) {
 	jobject set = uwsgi_jvm_call_object(pam, uring.PersistentArrayMap_entrySet);
 	if (!set) return NULL;
@@ -66,6 +72,7 @@ static jobject uwsgi_ring_PersistentArrayMap_iterator(jobject pam) {
 	return iter;
 }
 
+// get an item from the ring response map
 static jobject uwsgi_ring_response_get(jobject r, char *name, size_t len) {
 	jobject j_key = uwsgi_ring_keyword(name, len);
         if (!j_key) return NULL;
@@ -75,6 +82,7 @@ static jobject uwsgi_ring_response_get(jobject r, char *name, size_t len) {
 	return item;
 }
 
+// the request handler
 static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 	char status_str[1];
 	jobject response = NULL;
@@ -88,6 +96,9 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi_ring_request_item_add(hm, "request-method", 14, wsgi_req->method, wsgi_req->method_len)) goto end;
 	if (uwsgi_ring_request_item_add(hm, "uri", 3, wsgi_req->uri, wsgi_req->uri_len)) goto end;
+	if (uwsgi_ring_request_item_add(hm, "server-name", 11, wsgi_req->host, wsgi_req->host_len)) goto end;
+	if (uwsgi_ring_request_item_add(hm, "remote-addr", 11, wsgi_req->remote_addr, wsgi_req->remote_addr_len)) goto end;
+	if (uwsgi_ring_request_item_add(hm, "query-string", 12, wsgi_req->query_string, wsgi_req->query_string_len)) goto end;
 
 	response = uwsgi_ring_invoke1(uring.handler, hm);
 	if (!response) goto end;
