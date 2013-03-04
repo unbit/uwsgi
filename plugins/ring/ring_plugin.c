@@ -1,5 +1,19 @@
 #include <jvm.h>
 
+/*
+
+	Clojure/ring JVM handler
+
+	to run a ring app you need to load the clojure jar, a clojure script and specify a namspace:handler app
+
+	./uwsgi --http :9090 --http-modifier1 8 --http-modifier2 1 --jvm-classpath clojuretest/lib/clojure-1.3.0.jar --ring-load clojuretest/src/clojuretest/core.clj --ring-app clojuretest.core:handler
+
+	TODO
+		app mountpoints
+		check if loading compiled classes works
+
+*/
+
 #define UWSGI_JVM_REQUEST_HANDLER_RING	1
 
 extern struct uwsgi_jvm ujvm;
@@ -304,8 +318,12 @@ static int uwsgi_ring_setup() {
 		exit(1);
 	}
 
-	if (uwsgi_jvm_call_static(clojure, clojure_loadresourcescript, uwsgi_jvm_str(uring.app, 0))) {
-		exit(1);	
+	struct uwsgi_string_list *usl = uring.scripts;
+	while(usl) {
+		if (uwsgi_jvm_call_static(clojure, clojure_loadresourcescript, uwsgi_jvm_str(usl->value, 0))) {
+			exit(1);	
+		}
+		usl = usl->next;
 	}
 
 	jmethodID clojure_var = uwsgi_jvm_get_static_method_id(clojure, "var", "(Ljava/lang/String;Ljava/lang/String;)Lclojure/lang/Var;");
@@ -323,19 +341,22 @@ static int uwsgi_ring_setup() {
 		exit(1);
 	}
 
-	char *ns = "clojuretest.core";
-	char *func = "handler";
-	uring.handler = uwsgi_jvm_call_object_static(clojure, clojure_var, uwsgi_jvm_str(ns, 0), uwsgi_jvm_str(func, 0));
-	if (!uring.handler) {
-		exit(1);
-	} 
-
-	ns = "clojure.core";
-	func = "keyword";
-	uring.keyword = uwsgi_jvm_call_object_static(clojure, clojure_var, uwsgi_jvm_str(ns, 0), uwsgi_jvm_str(func, 0));
+	uring.keyword = uwsgi_jvm_call_object_static(clojure, clojure_var, uwsgi_jvm_str("clojure.core", 0), uwsgi_jvm_str("keyword", 0));
 	if (!uring.keyword) {
 		exit(1);
 	}
+
+	char *namespace = uwsgi_str(uring.app);
+	char *colon = strchr(namespace, ':');
+	if (!colon) {
+		uwsgi_log("invalid ring application namespace/handler\n");
+		exit(1);
+	}
+	*colon = 0;
+	uring.handler = uwsgi_jvm_call_object_static(clojure, clojure_var, uwsgi_jvm_str(namespace, 0), uwsgi_jvm_str(colon+1, 0));
+	if (!uring.handler) {
+		exit(1);
+	} 
 
 	uring.invoke1 = uwsgi_jvm_get_method_id(clojure_var_class, "invoke", "(Ljava/lang/Object;)Ljava/lang/Object;");
 	if (!uring.invoke1) {
