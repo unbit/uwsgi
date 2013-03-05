@@ -41,6 +41,7 @@ int uwsgi_jvm_call_static(jclass, jmethodID, ...);
 int uwsgi_jvm_call(jobject, jmethodID, ...);
 
 void uwsgi_jvm_clear_exception(void);
+int uwsgi_jvm_exception(void);
 char *uwsgi_jvm_str2c(jobject);
 
 void uwsgi_jvm_throw(char *);

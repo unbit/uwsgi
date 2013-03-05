@@ -23,25 +23,47 @@ struct uwsgi_ring {
 	char *app;
 	jobject handler;
 	jobject keyword;
+	jobject into;
 	// invoke with 1 arg
 	jmethodID invoke1;
 	// invoke with 2 args
 	jmethodID invoke2;
 
+	jclass Associative;
 	jclass PersistentArrayMap;
-	jmethodID PersistentArrayMap_get;
-	jmethodID PersistentArrayMap_entrySet;
 
 } uring;
 
 static struct uwsgi_option uwsgi_ring_options[] = {
         {"ring-load", required_argument, 0, "load the specified clojure script", uwsgi_opt_add_string_list, &uring.scripts, 0},
+        {"clojure-load", required_argument, 0, "load the specified clojure script", uwsgi_opt_add_string_list, &uring.scripts, 0},
         {"ring-app", required_argument, 0, "map the specified ring application (syntax namespace:function)", uwsgi_opt_set_str, &uring.app, 0},
         {0, 0, 0, 0},
 };
 
 static jobject uwsgi_ring_invoke1(jobject o, jobject arg1) {
 	return uwsgi_jvm_call_object(o, uring.invoke1, arg1);
+}
+
+static jobject uwsgi_ring_invoke2(jobject o, jobject arg1, jobject arg2) {
+	return uwsgi_jvm_call_object(o, uring.invoke2, arg1, arg2);
+}
+
+// here we create a PersistentArrayMap empty object (we use that for clojure "into")
+static jobject uwsgi_ring_associative() {
+        // optimization
+        static jmethodID mid = 0;
+
+        if (!mid) {
+                mid = uwsgi_jvm_get_method_id(uring.PersistentArrayMap, "<init>", "()V");
+                if (!mid) return NULL;
+        }
+
+        jobject o = (*ujvm_env)->NewObject(ujvm_env, uring.PersistentArrayMap, mid);
+        if (uwsgi_jvm_exception()) {
+                return NULL;
+        }
+        return o;
 }
 
 // create a new clojure keyword
@@ -70,18 +92,53 @@ static int uwsgi_ring_request_item_add(jobject hm, char *key, size_t keylen, cha
 	return ret;	
 }
 
-// get an item from a PersistentArrayMap
-static jobject uwsgi_ring_PersistentArrayMap_get(jobject pam, jobject key) {
-	return uwsgi_jvm_call_object(pam, uring.PersistentArrayMap_get, key);
+// add a keyword item to the ring request map
+static int uwsgi_ring_request_item_add_keyword(jobject hm, char *key, size_t keylen, char *value, size_t vallen) {
+        jobject j_key = uwsgi_ring_keyword(key, keylen);
+        if (!j_key) return -1;
+	
+	char *lc_value = uwsgi_malloc(vallen);
+	char *ptr = lc_value;
+	size_t i;
+	for(i=0;i<vallen;i++) {
+		*ptr++= tolower((int) value[i]);
+	}
+
+        jobject j_value = uwsgi_ring_keyword(lc_value, vallen);
+	free(lc_value);
+        if (!j_value) {
+                uwsgi_jvm_local_unref(j_key);
+                return -1;
+        }
+
+        int ret = uwsgi_jvm_hashmap_put(hm, j_key, j_value);
+        uwsgi_jvm_local_unref(j_key);
+        uwsgi_jvm_local_unref(j_value);
+        return ret;
 }
 
-// get the iterator from a PersistentArrayMap
-static jobject uwsgi_ring_PersistentArrayMap_iterator(jobject pam) {
-	jobject set = uwsgi_jvm_call_object(pam, uring.PersistentArrayMap_entrySet);
+
+// get the iterator from an Associative object
+static jobject uwsgi_ring_Associative_iterator(jobject o) {
+	jclass c = uwsgi_jvm_class_from_object(o);
+	if (!c) return NULL;
+	jmethodID mid = uwsgi_jvm_get_method_id(c, "entrySet", "()Ljava/util/Set;");
+	uwsgi_jvm_local_unref(c);
+	if (!mid) return NULL;
+	jobject set = uwsgi_jvm_call_object(o, mid);
 	if (!set) return NULL;
 	jobject iter = uwsgi_jvm_iterator(set);
 	uwsgi_jvm_local_unref(set);
 	return iter;
+}
+
+static jobject uwsgi_ring_Associative_get(jobject o, jobject key) {
+	jclass c = uwsgi_jvm_class_from_object(o);
+        if (!c) return NULL;
+        jmethodID mid = uwsgi_jvm_get_method_id(c, "get", "(Ljava/lang/Object;)Ljava/lang/Object;");
+        uwsgi_jvm_local_unref(c);
+        if (!mid) return NULL;
+        return uwsgi_jvm_call_object(o, mid, key);
 }
 
 // get an item from the ring response map
@@ -89,7 +146,7 @@ static jobject uwsgi_ring_response_get(jobject r, char *name, size_t len) {
 	jobject j_key = uwsgi_ring_keyword(name, len);
         if (!j_key) return NULL;
 
-	jobject item = uwsgi_ring_PersistentArrayMap_get(r, j_key);
+	jobject item = uwsgi_ring_Associative_get(r, j_key);
 	uwsgi_jvm_local_unref(j_key);
 	return item;
 }
@@ -97,6 +154,7 @@ static jobject uwsgi_ring_response_get(jobject r, char *name, size_t len) {
 // the request handler
 static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 	char status_str[1];
+	jobject request = NULL;
 	jobject response = NULL;
 	jobject entries = NULL;
 	jobject r_status = NULL;
@@ -106,17 +164,32 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 	jobject hm = uwsgi_jvm_hashmap();
 	if (!hm) return -1;
 
-	if (uwsgi_ring_request_item_add(hm, "request-method", 14, wsgi_req->method, wsgi_req->method_len)) goto end;
+	jobject empty_request = uwsgi_ring_associative();
+	if (!empty_request) {
+		uwsgi_jvm_local_unref(hm);
+		return -1;
+	}
+
+	if (uwsgi_ring_request_item_add_keyword(hm, "request-method", 14, wsgi_req->method, wsgi_req->method_len)) goto end;
 	if (uwsgi_ring_request_item_add(hm, "uri", 3, wsgi_req->uri, wsgi_req->uri_len)) goto end;
 	if (uwsgi_ring_request_item_add(hm, "server-name", 11, wsgi_req->host, wsgi_req->host_len)) goto end;
 	if (uwsgi_ring_request_item_add(hm, "remote-addr", 11, wsgi_req->remote_addr, wsgi_req->remote_addr_len)) goto end;
-	if (uwsgi_ring_request_item_add(hm, "query-string", 12, wsgi_req->query_string, wsgi_req->query_string_len)) goto end;
+	if (wsgi_req->query_string_len > 0) {
+		if (uwsgi_ring_request_item_add(hm, "query-string", 12, wsgi_req->query_string, wsgi_req->query_string_len)) goto end;
+	}
+	if (wsgi_req->content_type_len) {
+		if (uwsgi_ring_request_item_add(hm, "content-type", 12, wsgi_req->content_type, wsgi_req->content_type_len)) goto end;
+	}
 
-	response = uwsgi_ring_invoke1(uring.handler, hm);
+	// convert the HashMap to Associative
+	request = uwsgi_ring_invoke2(uring.into, empty_request, hm);
+	if (!request) goto end;
+
+	response = uwsgi_ring_invoke1(uring.handler, request);
 	if (!response) goto end;
 
-	if (!uwsgi_jvm_object_is_instance(response, uring.PersistentArrayMap)) {
-		uwsgi_log("invalid ring response type, must be: clojure.lang.PersistentArrayMap\n");
+	if (!uwsgi_jvm_object_is_instance(response, uring.Associative)) {
+		uwsgi_log("invalid ring response type, need to implement: clojure.lang.Associative\n");
 		goto end;
 	}
 	
@@ -141,12 +214,12 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 	r_headers = uwsgi_ring_response_get(response, "headers", 7);
 	if (!r_headers) goto end;
 
-	if (!uwsgi_jvm_object_is_instance(r_headers, uring.PersistentArrayMap)) {
-		uwsgi_log("invalid ring response headers type, must be: clojure.lang.PersistentArrayMap\n");
+	if (!uwsgi_jvm_object_is_instance(r_headers, uring.Associative)) {
+		uwsgi_log("invalid ring response headers type, need to implement: clojure.lang.Associative\n");
 		goto end;
 	}
 
-	entries = uwsgi_ring_PersistentArrayMap_iterator(r_headers);
+	entries = uwsgi_ring_Associative_iterator(r_headers);
 	if (!entries) goto end;
 
 	int error = 0;
@@ -230,6 +303,7 @@ clear:
 	if (chunks) {
 		while(uwsgi_jvm_iterator_hasNext(chunks)) {
 			jobject chunk = uwsgi_jvm_iterator_next(chunks);
+			if (!chunk) goto done;
 			if (!uwsgi_jvm_object_is_instance(chunk, ujvm.str_class)) {
                         	uwsgi_log("body iSeq item must be java/lang/String !!!\n");
 				uwsgi_jvm_local_unref(chunk);
@@ -270,8 +344,12 @@ done2:
 
 	uwsgi_log("unsupported clojure/ring body type\n");
 end:
-	// destroy the hashmap and the response
+	// destroy the request map and the response
 	uwsgi_jvm_local_unref(hm);
+	uwsgi_jvm_local_unref(empty_request);
+	if (request) {
+		uwsgi_jvm_local_unref(request);
+	}
 	if (entries) {
 		uwsgi_jvm_local_unref(entries);
 	}
@@ -303,6 +381,12 @@ static int uwsgi_ring_setup() {
 		exit(1);
 	}
 
+	uring.Associative = uwsgi_jvm_class("clojure/lang/Associative");
+        if (!uring.Associative) {
+                exit(1);
+        }
+
+	// we use that for allocating the empty associative passed to "into"
 	uring.PersistentArrayMap = uwsgi_jvm_class("clojure/lang/PersistentArrayMap");
         if (!uring.PersistentArrayMap) {
                 exit(1);
@@ -326,18 +410,13 @@ static int uwsgi_ring_setup() {
 		exit(1);
 	}
 
-	uring.PersistentArrayMap_get = uwsgi_jvm_get_method_id(uring.PersistentArrayMap, "get", "(Ljava/lang/Object;)Ljava/lang/Object;");
-	if (!uring.PersistentArrayMap_get) {
-		exit(1);
-	}
-
-	uring.PersistentArrayMap_entrySet = uwsgi_jvm_get_method_id(uring.PersistentArrayMap, "entrySet", "()Ljava/util/Set;");
-	if (!uring.PersistentArrayMap_entrySet) {
-		exit(1);
-	}
-
 	uring.keyword = uwsgi_jvm_call_object_static(clojure, clojure_var, uwsgi_jvm_str("clojure.core", 0), uwsgi_jvm_str("keyword", 0));
 	if (!uring.keyword) {
+		exit(1);
+	}
+
+	uring.into = uwsgi_jvm_call_object_static(clojure, clojure_var, uwsgi_jvm_str("clojure.core", 0), uwsgi_jvm_str("into", 0));
+	if (!uring.into) {
 		exit(1);
 	}
 
