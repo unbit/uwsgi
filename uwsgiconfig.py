@@ -353,7 +353,7 @@ def build_uwsgi(uc, print_only=False):
                 if uwsgi_os == 'Darwin':
                     found_arch = False
                     sanitized_ldflags = []
-                    for flag in up.LDFLAGS:
+                    for flag in up['LDFLAGS']:
                         if flag == '-arch':
                             found_arch = True
                             continue
