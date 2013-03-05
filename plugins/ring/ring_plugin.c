@@ -32,8 +32,6 @@ struct uwsgi_ring {
 	jmethodID PersistentArrayMap_get;
 	jmethodID PersistentArrayMap_entrySet;
 
-	jclass PersistentVector;
-	jclass PersistentList;
 } uring;
 
 static struct uwsgi_option uwsgi_ring_options[] = {
@@ -167,6 +165,7 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 			error = 1 ; goto clear;
 		}
 
+		// check for string
 		if (uwsgi_jvm_object_is_instance(h_value, ujvm.str_class)) {
 			char *c_h_key = uwsgi_jvm_str2c(h_key);
 			uint16_t c_h_keylen = uwsgi_jvm_strlen(h_key);
@@ -175,11 +174,13 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 			int ret = uwsgi_response_add_header(wsgi_req, c_h_key, c_h_keylen, c_h_value, c_h_vallen);
 			uwsgi_jvm_release_chars(h_key, c_h_key);
 			uwsgi_jvm_release_chars(h_value, c_h_value);
-			if (ret) { error = 1 ; goto clear;}
+			if (ret) error = 1;
+			goto clear;
 		}
-		else if (uwsgi_jvm_object_is_instance(h_value, uring.PersistentVector) || uwsgi_jvm_object_is_instance(h_value, uring.PersistentList)) {
-			jobject values = uwsgi_jvm_auto_iterator(h_value);
-			if (!values) { error = 1 ; goto clear;}
+
+		// check for collection
+		jobject values = uwsgi_jvm_auto_iterator(h_value);
+		if (values) {
 			while(uwsgi_jvm_iterator_hasNext(values)) {
 				jobject hh_value = uwsgi_jvm_iterator_next(values);
 				if (!uwsgi_jvm_object_is_instance(hh_value, ujvm.str_class)) {
@@ -199,11 +200,10 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 				if (ret) { uwsgi_jvm_local_unref(values); error = 1 ; goto clear;}
 			}
 			uwsgi_jvm_local_unref(values);
+			goto clear;
 		}
-		else {
-			uwsgi_log("unsupported header value !!! (must be java/lang/String, clojure/lang/PersistentVector or clojure/lang/PersistentList)\n");
-			error = 1 ; goto clear;
-		}
+		uwsgi_log("unsupported header value !!! (must be java/lang/String or collection/seq)\n");
+		error = 1;
 clear:
 		if (h_value)
 		uwsgi_jvm_local_unref(h_value);
@@ -300,16 +300,6 @@ static int uwsgi_ring_setup() {
 
 	uring.PersistentArrayMap = uwsgi_jvm_class("clojure/lang/PersistentArrayMap");
         if (!uring.PersistentArrayMap) {
-                exit(1);
-        }
-
-	uring.PersistentVector = uwsgi_jvm_class("clojure/lang/PersistentVector");
-        if (!uring.PersistentVector) {
-                exit(1);
-        }
-
-	uring.PersistentList = uwsgi_jvm_class("clojure/lang/PersistentList");
-        if (!uring.PersistentList) {
                 exit(1);
         }
 
