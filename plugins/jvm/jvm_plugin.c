@@ -585,15 +585,22 @@ static void uwsgi_jvm_create(void) {
 			exit(1);
 		}
 		jmethodID mid = uwsgi_jvm_get_static_method_id(c, "main", "([Ljava/lang/String;)V");
-		if (!mid) {
+		if (mid) {
+			jobject j_args = (*ujvm_env)->NewObjectArray(ujvm_env, 0, ujvm.str_class, NULL);
+			if (uwsgi_jvm_call_static(c, mid, j_args)) {
+                        	exit(1);
+			}
+			uwsgi_jvm_local_unref(j_args);
+		}
+		else {
 			mid = uwsgi_jvm_get_static_method_id(c, "main", "()V");
-		}
-		if (!mid) {
-			uwsgi_log("unable to find main() method in class \"%s\"\n", usl->value);
-			exit(1);
-		}
-		if (uwsgi_jvm_call_static(c, mid)) {
-			exit(1);
+			if (!mid) {
+				uwsgi_log("unable to find main() method in class \"%s\"\n", usl->value);
+				exit(1);
+			}
+			if (uwsgi_jvm_call_static(c, mid)) {
+				exit(1);
+			}
 		}
 		usl = usl->next;
 	}
