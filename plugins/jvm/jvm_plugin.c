@@ -605,6 +605,12 @@ static void uwsgi_jvm_create(void) {
 		usl = usl->next;
 	}
 
+	usl = ujvm.classes;
+	while(usl) {
+		uwsgi_jvm_class(usl->value);
+		usl = usl->next;
+	}
+
 	// load request_handlers setup functions
 	int i;
 	for(i=0;i<UMAX8;i++) {
