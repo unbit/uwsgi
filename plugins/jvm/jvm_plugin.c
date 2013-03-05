@@ -160,6 +160,47 @@ long uwsgi_jvm_number2c(jobject o) {
 	return -1;
 }
 
+int uwsgi_jvm_consume_input_stream(struct wsgi_request *wsgi_req, size_t chunk, jobject o) {
+	int ret = 0;
+	jclass c = uwsgi_jvm_class_from_object(o);
+	jmethodID mid_read = uwsgi_jvm_get_method_id(c, "read", "([B)I");
+	if (!mid_read) {
+		uwsgi_jvm_local_unref(c);
+		return -1;
+	}
+	jmethodID mid_close = uwsgi_jvm_get_method_id(c, "close", "()V");
+        if (!mid_close) {
+                uwsgi_jvm_local_unref(c);
+                return -1;
+        }
+	uwsgi_jvm_local_unref(c);
+
+	// allocate the byte buffer
+	jobject byte_buffer = (*ujvm_env)->NewByteArray(ujvm_env, chunk);
+	if (!byte_buffer) return -1;
+
+	// ok start reading from the input stream
+	for(;;) {
+		long len = (*ujvm_env)->CallIntMethod(ujvm_env, o, mid_read, byte_buffer);
+		if ((*ujvm_env)->ExceptionCheck(ujvm_env)) {
+			(*ujvm_env)->ExceptionClear(ujvm_env);
+			break;
+		}
+		if (len <= 0) {
+			break;
+		}
+		// get the body of the array
+		uint8_t *buf = (*ujvm_env)->GetByteArrayElements(ujvm_env, byte_buffer, JNI_FALSE);
+		if (!buf) { ret = -1; break }
+		//send
+		// release
+	}
+
+	uwsgi_jvm_local_unref(byte_buffer);
+	// close the inputstream
+	return ret;
+}
+
 // returns the method id, given the method name and its signature
 jmethodID uwsgi_jvm_get_method_id(jclass cls, char *name, char *signature) {
 	jmethodID mid = (*ujvm_env)->GetMethodID(ujvm_env, cls, name, signature);
@@ -480,8 +521,14 @@ static void uwsgi_jvm_create(void) {
 	ujvm.long_class = uwsgi_jvm_class("java/lang/Long");
 	if (!ujvm.long_class) exit(1);
 
+	ujvm.byte_class = uwsgi_jvm_class("java/lang/Byte");
+	if (!ujvm.byte_class) exit(1);
+
 	ujvm.file_class = uwsgi_jvm_class("java/io/File");
 	if (!ujvm.file_class) exit(1);
+
+	ujvm.input_stream_class = uwsgi_jvm_class("java/io/InputStream");
+	if (!ujvm.input_stream_class) exit(1);
 
 	ujvm.hashmap_class = uwsgi_jvm_class("java/util/HashMap");
 	if (!ujvm.hashmap_class) exit(1);
@@ -546,7 +593,7 @@ static void uwsgi_jvm_create(void) {
 
 // get the raw body of a java string
 char *uwsgi_jvm_str2c(jobject obj) {
-    return (char *) (*ujvm_env)->GetStringUTFChars(ujvm_env, obj, NULL);
+    return (char *) (*ujvm_env)->GetStringUTFChars(ujvm_env, obj, JNI_FALSE);
 }
 
 // return the size of a java string (UTF8)
@@ -587,6 +634,7 @@ void uwsgi_jvm_release_chars(jobject o, char *str) {
 static uint16_t uwsgi_jvm_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
 	jvalue args[1];
 	jobject str_array = (*ujvm_env)->NewObjectArray(ujvm_env, argc, ujvm.str_class, NULL);
+	if (!str_array) return 0;
 	uint8_t i;
 	for(i=0;i<argc;i++) {
 		jobject j_arg = uwsgi_jvm_str(argv[i], argvs[i]);

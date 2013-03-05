@@ -17,6 +17,8 @@ struct uwsgi_jvm {
 	jclass str_class;
 	jclass long_class;
 	jclass int_class;
+	jclass byte_class;
+	jclass input_stream_class;
 	jclass file_class;
 	jclass hashmap_class;
 	jclass set_class;
@@ -81,3 +83,5 @@ long uwsgi_jvm_long2c(jobject);
 jobject uwsgi_jvm_filename(jobject);
 void uwsgi_jvm_local_unref(jobject);
 int uwsgi_jvm_call_bool(jobject, jmethodID, ...);
+
+int uwsgi_jvm_consume_input_stream(struct wsgi_request *, size_t, jobject);

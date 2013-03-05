@@ -263,6 +263,10 @@ done2:
 		goto end;
 	}
 
+	if (uwsgi_jvm_object_is_instance(r_body, ujvm.input_stream_class)) {
+		uwsgi_jvm_consume_input_stream(wsgi_req, 8192, r_body);
+	}
+
 	uwsgi_log("unsupported clojure/ring body type\n");
 end:
 	// destroy the hashmap and the response
