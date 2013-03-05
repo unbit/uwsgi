@@ -298,7 +298,8 @@ struct corerouter_session {
 	char client_address[INET_ADDRLEN];
 #endif
 
-	char client_port[6];
+	// use 11 bytes to be snprintf friendly
+	char client_port[11];
 };
 
 void uwsgi_opt_corerouter(char *, char *, void *);

@@ -160,6 +160,14 @@ long uwsgi_jvm_number2c(jobject o) {
 	return -1;
 }
 
+size_t uwsgi_jvm_array_len(jobject o) {
+	jsize len = (*ujvm_env)->GetArrayLength(ujvm_env, o);
+	if (uwsgi_jvm_exception()) {
+		return 0;
+	}
+	return len;
+}
+
 int uwsgi_jvm_consume_input_stream(struct wsgi_request *wsgi_req, size_t chunk, jobject o) {
 	int ret = 0;
 	jclass c = uwsgi_jvm_class_from_object(o);
@@ -190,14 +198,23 @@ int uwsgi_jvm_consume_input_stream(struct wsgi_request *wsgi_req, size_t chunk, 
 			break;
 		}
 		// get the body of the array
-		uint8_t *buf = (*ujvm_env)->GetByteArrayElements(ujvm_env, byte_buffer, JNI_FALSE);
-		if (!buf) { ret = -1; break }
+		size_t buf_len = uwsgi_jvm_array_len(byte_buffer);
+		char *buf = (char *) (*ujvm_env)->GetByteArrayElements(ujvm_env, byte_buffer, JNI_FALSE);
+		if (!buf) { ret = -1; break; }
 		//send
+		if (uwsgi_response_write_body_do(wsgi_req, buf, buf_len)) {
+			(*ujvm_env)->ReleaseByteArrayElements(ujvm_env, byte_buffer, (jbyte *) buf, 0);
+			ret = -1; break;
+		}
 		// release
+		(*ujvm_env)->ReleaseByteArrayElements(ujvm_env, byte_buffer, (jbyte *) buf, 0);
 	}
 
 	uwsgi_jvm_local_unref(byte_buffer);
 	// close the inputstream
+	if (uwsgi_jvm_call(o, mid_close)) {
+		return -1;
+	}
 	return ret;
 }
 
