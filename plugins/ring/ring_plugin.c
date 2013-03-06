@@ -134,6 +134,35 @@ static int uwsgi_ring_request_item_add_keyword(jobject hm, char *key, size_t key
         return ret;
 }
 
+static int uwsgi_ring_request_header_add(jobject hm, char *key, size_t keylen, char *value, size_t vallen) {
+	size_t i;
+	char *lkey = uwsgi_malloc(keylen);
+	char *ptr = lkey;
+	for(i=0;i<keylen;i++) {
+		if (key[i] == '_') {
+			*ptr++= '-';
+		}
+		else {
+			*ptr++= tolower((int) key[i]);
+		}
+	}
+
+	jobject j_key = uwsgi_jvm_str(lkey, keylen);
+	free(lkey);
+	if (!j_key) return -1;
+	
+	jobject j_value = uwsgi_jvm_str(value, vallen);
+	if (!j_value) {
+		uwsgi_jvm_local_unref(j_key);
+		return -1;
+	}
+
+	int ret = uwsgi_jvm_hashmap_put(hm, j_key, j_value);
+	uwsgi_jvm_local_unref(j_key);
+        uwsgi_jvm_local_unref(j_value);
+	return ret;
+}
+
 static int uwsgi_ring_request_item_add_num(jobject hm, char *key, size_t keylen, long num) {
         jobject j_key = uwsgi_ring_keyword(key, keylen);
         if (!j_key) return -1;
@@ -150,6 +179,14 @@ static int uwsgi_ring_request_item_add_num(jobject hm, char *key, size_t keylen,
         return ret;
 }
 
+static int uwsgi_ring_request_item_add_obj(jobject hm, char *key, size_t keylen, jobject o) {
+        jobject j_key = uwsgi_ring_keyword(key, keylen);
+        if (!j_key) return -1;
+
+        int ret = uwsgi_jvm_hashmap_put(hm, j_key, o);
+        uwsgi_jvm_local_unref(j_key);
+        return ret;
+}
 
 
 // get the iterator from an Associative object
@@ -204,9 +241,26 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
+	// *** REQUEST GENERATION ***
+
 	if (uwsgi_ring_request_item_add_keyword(hm, "request-method", 14, wsgi_req->method, wsgi_req->method_len)) goto end;
 	if (uwsgi_ring_request_item_add(hm, "uri", 3, wsgi_req->uri, wsgi_req->uri_len)) goto end;
 	if (uwsgi_ring_request_item_add(hm, "server-name", 11, wsgi_req->host, wsgi_req->host_len)) goto end;
+
+	// server-port is required !!!
+	uint16_t server_port_len = 0;
+	char *server_port = uwsgi_get_var(wsgi_req, "SERVER_PORT", 11, &server_port_len);
+	if (!server_port) goto end;
+
+	if (uwsgi_ring_request_item_add_num(hm, "server-port", 11, uwsgi_str_num(server_port, server_port_len))) goto end;
+
+	if (wsgi_req->scheme_len > 0) {
+		if (uwsgi_ring_request_item_add_keyword(hm, "scheme", 6, wsgi_req->scheme, wsgi_req->scheme_len)) goto end;
+	}
+	else {
+		if (uwsgi_ring_request_item_add_keyword(hm, "scheme", 6, "http", 4)) goto end;
+	}
+
 	if (uwsgi_ring_request_item_add(hm, "remote-addr", 11, wsgi_req->remote_addr, wsgi_req->remote_addr_len)) goto end;
 	if (wsgi_req->query_string_len > 0) {
 		if (uwsgi_ring_request_item_add(hm, "query-string", 12, wsgi_req->query_string, wsgi_req->query_string_len)) goto end;
@@ -219,8 +273,53 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 		if (uwsgi_ring_request_item_add_num(hm, "content-length", 14, wsgi_req->post_cl)) goto end;
 	}
 
+	// generate :headers
+	jobject req_headers = uwsgi_jvm_hashmap();
+	if (!req_headers) goto end;
+
+	int i;
+	for(i=0;i<wsgi_req->var_cnt;i++) {
+		char *hk = wsgi_req->hvec[i].iov_base;
+		uint16_t hk_l = wsgi_req->hvec[i].iov_len;
+		char *hv = wsgi_req->hvec[i+1].iov_base;
+                uint16_t hv_l = wsgi_req->hvec[i+1].iov_len;
+		if (!uwsgi_starts_with(hk, hk_l, "HTTP_", 5)) {
+			if (uwsgi_ring_request_header_add(req_headers,hk+5,hk_l-5, hv, hv_l)) goto hend;
+		}
+		else if (!uwsgi_strncmp(hk, hk_l, "CONTENT_TYPE", 12)) {
+			if (uwsgi_ring_request_header_add(req_headers,hk,hk_l, hv, hv_l)) goto hend;
+		}
+		else if (!uwsgi_strncmp(hk, hk_l, "CONTENT_LENGTH", 14)) {
+			if (uwsgi_ring_request_header_add(req_headers, hk,hk_l, hv, hv_l)) goto hend;
+		}
+		i++;
+	}
+
+	jobject h_empty_request = uwsgi_ring_associative();
+	if (!h_empty_request) goto hend;
+
+	// convert the req_headers HashMap to Associative
+        jobject clj_req_headers = uwsgi_ring_invoke2(uring.into, h_empty_request, req_headers);
+	if (!clj_req_headers) {
+		uwsgi_jvm_local_unref(h_empty_request);
+		goto hend;
+	}
+	uwsgi_jvm_local_unref(h_empty_request);
+
+	// add :headers
+	if (uwsgi_ring_request_item_add_obj(hm, "headers", 7, clj_req_headers)) {
+		uwsgi_jvm_local_unref(clj_req_headers);
+hend:
+		uwsgi_jvm_local_unref(req_headers);
+		goto end;
+	}
+	uwsgi_jvm_local_unref(clj_req_headers);
+	uwsgi_jvm_local_unref(req_headers);
+
 	// add :body input stream
 	if (uwsgi_ring_request_item_add_body(hm, "body", 4)) goto end;
+
+	// *** END OF REQUEST GENERATION ***
 
 	// convert the HashMap to Associative
 	request = uwsgi_ring_invoke2(uring.into, empty_request, hm);
