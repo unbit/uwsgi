@@ -92,6 +92,23 @@ static int uwsgi_ring_request_item_add(jobject hm, char *key, size_t keylen, cha
 	return ret;	
 }
 
+static int uwsgi_ring_request_item_add_body(jobject hm, char *key, size_t keylen) {
+        jobject j_key = uwsgi_ring_keyword(key, keylen);
+        if (!j_key) return -1;
+
+        jobject j_value = uwsgi_jvm_request_body_input_stream();
+        if (!j_value) {
+                uwsgi_jvm_local_unref(j_key);
+                return -1;
+        }
+
+        int ret = uwsgi_jvm_hashmap_put(hm, j_key, j_value);
+        uwsgi_jvm_local_unref(j_key);
+        uwsgi_jvm_local_unref(j_value);
+        return ret;
+}
+
+
 // add a keyword item to the ring request map
 static int uwsgi_ring_request_item_add_keyword(jobject hm, char *key, size_t keylen, char *value, size_t vallen) {
         jobject j_key = uwsgi_ring_keyword(key, keylen);
@@ -201,6 +218,9 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->post_cl > 0) {
 		if (uwsgi_ring_request_item_add_num(hm, "content-length", 14, wsgi_req->post_cl)) goto end;
 	}
+
+	// add :body input stream
+	if (uwsgi_ring_request_item_add_body(hm, "body", 4)) goto end;
 
 	// convert the HashMap to Associative
 	request = uwsgi_ring_invoke2(uring.into, empty_request, hm);

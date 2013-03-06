@@ -382,6 +382,19 @@ jobject uwsgi_jvm_iterator_next(jobject iterator) {
         return uwsgi_jvm_call_object(iterator, mid);
 }
 
+jobject uwsgi_jvm_request_body_input_stream() {
+	static jmethodID mid = 0;
+        if (!mid) {
+                mid = uwsgi_jvm_get_method_id(ujvm.request_body_class, "<init>", "()V");
+                if (!mid) return NULL;
+        }
+        jobject o = (*ujvm_env)->NewObject(ujvm_env, ujvm.request_body_class, mid);
+        if (uwsgi_jvm_exception()) {
+                return NULL;
+        }
+        return o;
+}
+
 jobject uwsgi_jvm_num(long num) {
 	static jmethodID mid = 0;
 	if (!mid) {
@@ -597,6 +610,9 @@ static void uwsgi_jvm_create(void) {
 	if (!uwsgi_rpc_function_class) exit(1);
 	ujvm.api_rpc_function_mid = uwsgi_jvm_get_method_id(uwsgi_rpc_function_class, "function", "([Ljava/lang/String;)Ljava/lang/String;");
 	if (!ujvm.api_rpc_function_mid) exit(1);
+
+	ujvm.request_body_class = uwsgi_jvm_class("uwsgi$RequestBody");
+	if (!ujvm.request_body_class) exit(1);
 
 	usl = ujvm.main_classes;
 	while(usl) {

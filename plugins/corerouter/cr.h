@@ -53,7 +53,7 @@
         }\
         peer->in->pos += len;\
 
-#define cr_read_exact(peer, l, f) read(peer->fd, peer->in->buf + peer->in->pos,l - peer->in->pos);\
+#define cr_read_exact(peer, l, f) read(peer->fd, peer->in->buf + peer->in->pos, (l - peer->in->pos));\
         if (len < 0) {\
                 cr_try_again;\
                 uwsgi_cr_error(peer, f);\

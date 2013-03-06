@@ -14,6 +14,8 @@ struct uwsgi_jvm {
         struct uwsgi_string_list *main_classes;
         struct uwsgi_string_list *opts;
 
+	jclass request_body_class;
+
 	jclass str_class;
 	jclass long_class;
 	jclass int_class;
@@ -88,3 +90,4 @@ int uwsgi_jvm_call_bool(jobject, jmethodID, ...);
 
 int uwsgi_jvm_consume_input_stream(struct wsgi_request *, size_t, jobject);
 jobject uwsgi_jvm_num(long);
+jobject uwsgi_jvm_request_body_input_stream(void);
