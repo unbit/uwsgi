@@ -75,6 +75,20 @@ static void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vall
 		peer->key_len = vallen;
 		return;
 	}
+
+	if (!uwsgi_strncmp("REMOTE_ADDR", 11, key, keylen)) {
+		if (vallen < sizeof(peer->session->client_address)) {
+			strncpy(peer->session->client_address, val, vallen);
+		}
+                return;
+        }
+
+	if (!uwsgi_strncmp("REMOTE_PORT", 11, key, keylen)) {
+		if (vallen < sizeof(peer->session->client_port)) {
+			strncpy(peer->session->client_port, val, vallen);
+		}
+                return;
+        }
 }
 
 // writing client body to the instance
