@@ -1125,6 +1125,8 @@ void hr_session_ssl_close(struct corerouter_session *cs) {
                 X509_free(hs->ssl_client_cert);
         }
 
+	// clear the errors (otherwise they could be propagated)
+	ERR_clear_error();
         SSL_free(hs->ssl);
 }
 #endif
