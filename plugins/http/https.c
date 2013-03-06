@@ -226,6 +226,8 @@ void hr_session_ssl_close(struct corerouter_session *cs) {
 	}
 #endif
 
+	// clear the errors (otherwise they could be propagated)
+	ERR_clear_error();
         SSL_free(hr->ssl);
 }
 
