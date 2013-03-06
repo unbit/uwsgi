@@ -580,6 +580,10 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 		}
 	}
 
+	if (n_ui->zerg) {
+		uwsgi.emperor_broodlord_num++;
+	}
+
 	// TODO pre-start hook
 
 	// a new uWSGI instance will start 
@@ -635,7 +639,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 
 		// add UWSGI_BROODLORD_NUM
 		if (n_ui->zerg) {
-			uef = uwsgi_num2str(uwsgi.emperor_broodlord_count);
+			uef = uwsgi_num2str(uwsgi.emperor_broodlord_num);
 			if (setenv("UWSGI_BROODLORD_NUM", uef, 1)) {
                         	uwsgi_error("setenv()");
                         	exit(1);
