@@ -1604,6 +1604,7 @@ struct uwsgi_server {
 		pid_t emperor_pid;
 		int emperor_broodlord;
 		int emperor_broodlord_count;
+		uint64_t emperor_broodlord_num;
 		char *emperor_stats;
 		int emperor_stats_fd;
 		struct uwsgi_string_list *vassals_templates;
