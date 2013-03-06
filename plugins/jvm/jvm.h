@@ -87,3 +87,4 @@ void uwsgi_jvm_local_unref(jobject);
 int uwsgi_jvm_call_bool(jobject, jmethodID, ...);
 
 int uwsgi_jvm_consume_input_stream(struct wsgi_request *, size_t, jobject);
+jobject uwsgi_jvm_num(long);

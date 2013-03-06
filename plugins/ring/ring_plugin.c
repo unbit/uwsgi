@@ -117,6 +117,23 @@ static int uwsgi_ring_request_item_add_keyword(jobject hm, char *key, size_t key
         return ret;
 }
 
+static int uwsgi_ring_request_item_add_num(jobject hm, char *key, size_t keylen, long num) {
+        jobject j_key = uwsgi_ring_keyword(key, keylen);
+        if (!j_key) return -1;
+
+	jobject j_value = uwsgi_jvm_num(num);
+        if (!j_value) {
+                uwsgi_jvm_local_unref(j_key);
+                return -1;
+        }
+
+        int ret = uwsgi_jvm_hashmap_put(hm, j_key, j_value);
+        uwsgi_jvm_local_unref(j_key);
+        uwsgi_jvm_local_unref(j_value);
+        return ret;
+}
+
+
 
 // get the iterator from an Associative object
 static jobject uwsgi_ring_Associative_iterator(jobject o) {
@@ -179,6 +196,10 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 	}
 	if (wsgi_req->content_type_len) {
 		if (uwsgi_ring_request_item_add(hm, "content-type", 12, wsgi_req->content_type, wsgi_req->content_type_len)) goto end;
+	}
+
+	if (wsgi_req->post_cl > 0) {
+		if (uwsgi_ring_request_item_add_num(hm, "content-length", 14, wsgi_req->post_cl)) goto end;
 	}
 
 	// convert the HashMap to Associative

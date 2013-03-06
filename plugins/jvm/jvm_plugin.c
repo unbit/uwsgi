@@ -382,6 +382,18 @@ jobject uwsgi_jvm_iterator_next(jobject iterator) {
         return uwsgi_jvm_call_object(iterator, mid);
 }
 
+jobject uwsgi_jvm_num(long num) {
+	static jmethodID mid = 0;
+	if (!mid) {
+		mid = uwsgi_jvm_get_method_id(ujvm.int_class, "<init>", "(I)V");
+		if (!mid) return NULL;
+	}
+	jobject o = (*ujvm_env)->NewObject(ujvm_env, ujvm.int_class, mid, num);
+	if (uwsgi_jvm_exception()) {
+                return NULL;
+        }
+	return o;
+}
 
 jobject uwsgi_jvm_str(char *str, size_t len) {
 	jobject new_str;
