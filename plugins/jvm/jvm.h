@@ -25,7 +25,9 @@ struct uwsgi_jvm {
 	jclass hashmap_class;
 	jclass set_class;
 	jclass iterator_class;
+
 	jclass runtime_exception;
+	jclass io_exception;
 
 	jmethodID api_signal_handler_mid;
 	jmethodID api_rpc_function_mid;
@@ -47,6 +49,7 @@ int uwsgi_jvm_exception(void);
 char *uwsgi_jvm_str2c(jobject);
 
 void uwsgi_jvm_throw(char *);
+void uwsgi_jvm_throw_io(char *);
 
 jobject uwsgi_jvm_call_objectA(jobject o, jmethodID mid, jvalue *);
 void uwsgi_jvm_release_chars(jobject, char *);

@@ -52,6 +52,25 @@ static JNINativeMethod uwsgi_jvm_api_methods[] = {
 	{"worker_id", "()I", (void *) &uwsgi_jvm_api_worker_id},
 };
 
+JNIEXPORT jint JNICALL uwsgi_jvm_request_body_read(JNIEnv *env, jobject o) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	ssize_t rlen = 0;
+        char *chunk = uwsgi_request_body_read(wsgi_req, 1, &rlen);
+	if (!chunk) {
+		uwsgi_jvm_throw_io("error reading request body");	
+		return -1;
+	}
+	if (chunk == uwsgi.empty) {
+		return -1;
+	}
+	uint8_t byte = chunk[0];
+	return (jint) byte;
+}
+
+static JNINativeMethod uwsgi_jvm_request_body_methods[] = {
+	{"read", "()I", (void *) &uwsgi_jvm_request_body_read},
+};
+
 static struct uwsgi_option uwsgi_jvm_options[] = {
         {"jvm-main-class", required_argument, 0, "load the specified class and call its main() function", uwsgi_opt_add_string_list, &ujvm.main_classes, 0},
         {"jvm-opt", required_argument, 0, "add the specified jvm option", uwsgi_opt_add_string_list, &ujvm.opts, 0},
@@ -485,6 +504,10 @@ void uwsgi_jvm_throw(char *message) {
 	(*ujvm_env)->ThrowNew(ujvm_env, ujvm.runtime_exception, message);
 }
 
+void uwsgi_jvm_throw_io(char *message) {
+        (*ujvm_env)->ThrowNew(ujvm_env, ujvm.io_exception, message);
+}
+
 static int uwsgi_jvm_init(void) {
 
 	return 0;
@@ -592,6 +615,9 @@ static void uwsgi_jvm_create(void) {
 	ujvm.runtime_exception = uwsgi_jvm_class("java/lang/RuntimeException");
 	if (!ujvm.runtime_exception) exit(1);
 
+	ujvm.io_exception = uwsgi_jvm_class("java/io/IOException");
+	if (!ujvm.io_exception) exit(1);
+
 	jclass uwsgi_class = uwsgi_jvm_class("uwsgi");
 	if (!uwsgi_class) {
 		exit(1);
@@ -613,6 +639,11 @@ static void uwsgi_jvm_create(void) {
 
 	ujvm.request_body_class = uwsgi_jvm_class("uwsgi$RequestBody");
 	if (!ujvm.request_body_class) exit(1);
+
+	(*ujvm_env)->RegisterNatives(ujvm_env, ujvm.request_body_class, uwsgi_jvm_request_body_methods, sizeof(uwsgi_jvm_request_body_methods)/sizeof(uwsgi_jvm_request_body_methods[0]));
+	if (uwsgi_jvm_exception()) {
+		exit(1);
+	}
 
 	usl = ujvm.main_classes;
 	while(usl) {
