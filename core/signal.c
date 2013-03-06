@@ -114,8 +114,8 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
 	int pos = (uwsgi.mywid * 256) + sig;
 	use = &uwsgi.shared->signal_table[pos];
 
-	if (use->handler) {
-		uwsgi_log("[uwsgi-signal] you cannot re-register a signal !!!\n");
+	if (use->handler && uwsgi.mywid == 0) {
+		uwsgi_log("[uwsgi-signal] you cannot re-register a signal as the master !!!\n");
 		uwsgi_unlock(uwsgi.signal_table_lock);
 		return -1;
 	}
