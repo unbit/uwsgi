@@ -4,7 +4,7 @@
 
 */
 
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 #include "../corerouter/cr.h"
 
 static struct uwsgi_fastrouter {

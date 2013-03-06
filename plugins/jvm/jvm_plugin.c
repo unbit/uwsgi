@@ -237,6 +237,14 @@ jmethodID uwsgi_jvm_get_method_id_quiet(jclass cls, char *name, char *signature)
         return mid;
 }
 
+jmethodID uwsgi_jvm_get_static_method_id_quiet(jclass cls, char *name, char *signature) {
+        jmethodID mid = (*ujvm_env)->GetStaticMethodID(ujvm_env, cls, name, signature);
+        if ((*ujvm_env)->ExceptionCheck(ujvm_env)) {
+                (*ujvm_env)->ExceptionClear(ujvm_env);
+                return NULL;
+        }
+        return mid;
+}
 
 // returns the static method id, given the method name and its signature
 jmethodID uwsgi_jvm_get_static_method_id(jclass cls, char *name, char *signature) {
@@ -584,7 +592,7 @@ static void uwsgi_jvm_create(void) {
 		if (!c) {
 			exit(1);
 		}
-		jmethodID mid = uwsgi_jvm_get_static_method_id(c, "main", "([Ljava/lang/String;)V");
+		jmethodID mid = uwsgi_jvm_get_static_method_id_quiet(c, "main", "([Ljava/lang/String;)V");
 		if (mid) {
 			jobject j_args = (*ujvm_env)->NewObjectArray(ujvm_env, 0, ujvm.str_class, NULL);
 			if (uwsgi_jvm_call_static(c, mid, j_args)) {

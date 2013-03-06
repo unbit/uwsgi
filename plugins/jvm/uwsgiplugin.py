@@ -55,7 +55,7 @@ if "-framework JavaVM" in JVM_LIBPATH:
 
 GCC_LIST = ['jvm_plugin']
 
-if os.environ.has_key('LD_RUN_PATH'):
+if 'LD_RUN_PATH' in os.environ:
     os.environ['LD_RUN_PATH'] += ':' + JVM_LIBPATH[0][2:]
 else:
     os.environ['LD_RUN_PATH'] = JVM_LIBPATH[0][2:]
@@ -63,6 +63,6 @@ else:
 def post_build(config):
     if os.system("javac %s/plugins/jvm/uwsgi.java" % os.getcwd()) != 0:
         os._exit(1)
-    if os.system("jar cvf %s/plugins/jvm/uwsgi.jar %s/plugins/jvm/*.class" % (os.getcwd(), os.getcwd())) != 0:
+    if os.system("cd %s/plugins/jvm ; jar cvf uwsgi.jar *.class" % os.getcwd()) != 0:
         os._exit(1)
-    print("*** uwsgi.jar available in %s/plugins/jvm ***" % os.getcwd())
+    print("*** uwsgi.jar available in %s/plugins/jvm/uwsgi.jar ***" % os.getcwd())

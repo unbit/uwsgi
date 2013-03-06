@@ -51,6 +51,7 @@ void uwsgi_jvm_release_chars(jobject, char *);
 
 int uwsgi_jvm_register_request_handler(uint8_t, int (*)(void), int (*)(struct wsgi_request *));
 jmethodID uwsgi_jvm_get_static_method_id(jclass, char *, char *);
+jmethodID uwsgi_jvm_get_static_method_id_quiet(jclass, char *, char *);
 
 jobject uwsgi_jvm_str(char *, size_t);
 jobject uwsgi_jvm_hashmap(void);
