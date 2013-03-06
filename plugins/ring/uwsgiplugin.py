@@ -4,8 +4,10 @@ up = {}
 try:
     execfile('%s/uwsgiplugin.py' % jvm_path, up)
 except:
-    with open('%s/uwsgiplugin.py' % jvm_path) as f:
-        exec(f.read(), up)
+    f = open('%s/uwsgiplugin.py' % jvm_path)
+    exec(f.read(), up)
+    f.close()
+
 NAME='ring'
 CFLAGS = up['CFLAGS']
 CFLAGS.append('-I%s' % jvm_path)

@@ -21,7 +21,7 @@ if operating_system == 'darwin':
             JVM_INCPATH = ["-Wno-deprecated-declarations", "-I%s" % jvm]
             JVM_LIBPATH = ["-framework JavaVM"]
 else:
-    known_jvms = ('/usr/lib/jvm/java-7-openjdk', '/usr/local/openjdk7', '/usr/lib/jvm/java-6-openjdk', '/usr/local/openjdk', '/usr/java' )
+    known_jvms = ('/usr/lib/jvm/java-7-openjdk', '/usr/local/openjdk7', '/usr/lib/jvm/java-6-openjdk', '/usr/local/openjdk', '/usr/java', '/usr/lib/jvm/java/')
     for jvm in known_jvms:
        if os.path.exists(jvm + '/include'):
            JVM_INCPATH = ["-I%s/include/" % jvm, "-I%s/include/%s" % (jvm, operating_system)]
