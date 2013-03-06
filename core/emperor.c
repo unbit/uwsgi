@@ -185,8 +185,24 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 
 	while (c_ui) {
 		if (c_ui->scanner == ues) {
-			if (stat(c_ui->name, &st)) {
-				emperor_stop(c_ui);
+			if (c_ui->zerg) {
+				char *colon = strrchr(c_ui->name, ':');
+				if (!colon) {
+					emperor_stop(c_ui);
+				}
+				else {
+					char *filename = uwsgi_calloc(0xff);
+					memcpy(filename, c_ui->name, colon - c_ui->name);
+					if (stat(filename, &st)) {
+						emperor_stop(c_ui);
+					}
+					free(filename);
+				}
+			}
+			else {
+                                if (stat(c_ui->name, &st)) {
+                                       	emperor_stop(c_ui);
+                                }
 			}
 		}
 		c_ui = c_ui->ui_next;
@@ -245,9 +261,25 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 
 	while (c_ui) {
 		if (c_ui->scanner == ues) {
-			if (stat(c_ui->name, &st)) {
-				emperor_stop(c_ui);
-			}
+			if (c_ui->zerg) {
+                                char *colon = strrchr(c_ui->name, ':');
+                                if (!colon) {
+                                        emperor_stop(c_ui);
+                                }
+                                else {
+                                        char *filename = uwsgi_calloc(0xff);
+                                        memcpy(filename, c_ui->name, colon - c_ui->name);
+                                        if (stat(filename, &st)) {
+                                                emperor_stop(c_ui);
+                                        }
+                                        free(filename);
+                                }
+                        }
+                        else {
+                                if (stat(c_ui->name, &st)) { 
+                                        emperor_stop(c_ui);
+                                }       
+                        }
 		}
 		c_ui = c_ui->ui_next;
 	}
@@ -600,6 +632,16 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 			exit(1);
 		}
 		free(uef);
+
+		// add UWSGI_BROODLORD_NUM
+		if (n_ui->zerg) {
+			uef = uwsgi_num2str(uwsgi.emperor_broodlord_count);
+			if (setenv("UWSGI_BROODLORD_NUM", uef, 1)) {
+                        	uwsgi_error("setenv()");
+                        	exit(1);
+                	}
+                	free(uef);
+		}
 
 		if (n_ui->use_config) {
 			uef = uwsgi_num2str(n_ui->pipe_config[1]);
