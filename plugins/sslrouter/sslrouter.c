@@ -335,6 +335,8 @@ static ssize_t sr_read(struct corerouter_peer *main_peer) {
 
 static void sr_session_close(struct corerouter_session *cs) {
 	struct sslrouter_session *sr = (struct sslrouter_session *) cs;
+	// clear the errors (otherwise they could be propagated)
+        ERR_clear_error();
         SSL_free(sr->ssl);
 }
 
