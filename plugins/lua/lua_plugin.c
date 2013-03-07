@@ -130,9 +130,11 @@ static int uwsgi_api_cache_update(lua_State *L) {
 			expires = lua_tonumber(L, 3);
 		}
 
+		uwsgi_wlock(uwsgi.caches->lock);
         	uwsgi_cache_set((char *)key, strlen(key), (char *)value,
 				(uint16_t) vallen, expires,
 				UWSGI_CACHE_FLAG_UPDATE);
+		uwsgi_rwunlock(uwsgi.caches->lock);
 		
 	}
 
