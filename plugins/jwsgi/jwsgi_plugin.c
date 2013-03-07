@@ -1,158 +1,177 @@
-#include "../jvm/jvm.h"
+#include <jvm.h>
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_jvm ujvm;
 
-static int MAX_LREFS = 16;
+#define UWSGI_JVM_REQUEST_HANDLER_JWSGI	0
 
-void uwsgi_jwsgi_init(void) {
+struct uwsgi_jwsgi {
+	char *app;
+	jmethodID app_mid;
+	jclass app_class;
+} ujwsgi;
 
+static struct uwsgi_option uwsgi_jwsgi_options[] = {
+        {"jwsgi", required_argument, 0, "load the specified JWSGI application (syntax class:method)", uwsgi_opt_set_str, &ujwsgi.app, 0},
+        {0, 0, 0, 0},
+};
 
+static int uwsgi_jwsgi_add_request_item(jobject hm, char *key, uint16_t key_len, char *value, uint16_t value_len) {
+	jobject j_key = uwsgi_jvm_str(key, key_len);
+	if (!j_key) return -1;
+
+	jobject j_value = uwsgi_jvm_str(value, value_len);
+	if (!j_value) {
+		uwsgi_jvm_local_unref(j_value);
+		return -1;
+	}
+
+	int ret = uwsgi_jvm_hashmap_put(hm, j_key, j_value);
+	uwsgi_jvm_local_unref(j_key);
+	uwsgi_jvm_local_unref(j_value);
+	return ret;
 }
 
-int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
+static int uwsgi_jwsgi_add_request_input(jobject hm, char *key, uint16_t key_len) {
+	jobject j_key = uwsgi_jvm_str(key, key_len);
+        if (!j_key) return -1;
 
-    jmethodID jmid;
-    int i;
-    jobject env;
-    jobject hkey, hval;
-    jobject response;
-
-    jobject status;
-    jobject headers, header;
-    jobject body;
-
-    const char* body_str;
-    const char* status_str;
-    const char* hkey_str;
-    const char* hval_str;
-
-    jclass hc;
-
-    jmethodID hh_size, hh_get;
-    int hlen;
-
-    if (!wsgi_req->uh.pktsize) {
-        uwsgi_log("Invalid JWSGI request. skip.\n");
-        return -1;
-    }
-
-    if (uwsgi_parse_vars(wsgi_req)) {
-        uwsgi_log("Invalid JWSGI request. skip.\n");
-        return -1;
-    }
-
-    if ((*ujvm.env)->PushLocalFrame(ujvm.env, MAX_LREFS) < 0) {
-        uwsgi_log("jwsgi can not allocate frame!");
-        return -1;
-    }
-
-    jmid = uwsgi_jvm_get_static_method_id(ujvm.main_class, "jwsgi", "(Ljava/util/Hashtable;)[Ljava/lang/Object;");
-
-    uwsgi_log("jwsgi method id = %d\n", jmid);
-
-    env = uwsgi_jvm_ht_new();
-    uwsgi_jvm_exception();
-
-    int cnt = wsgi_req->var_cnt;
-    for(i=0;i<cnt;i++) {
-
-        if ((*ujvm.env)->PushLocalFrame(ujvm.env, MAX_LREFS) < 0) {
-            uwsgi_log("jwsgi can not allocate frame!");
-            return -1;
+        jobject j_value = uwsgi_jvm_request_body_input_stream();
+        if (!j_value) {
+                uwsgi_jvm_local_unref(j_value);
+                return -1;
         }
 
-        hkey = uwsgi_jvm_str_new(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
-        hval = uwsgi_jvm_str_new(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len);
-        uwsgi_jvm_ht_put(env, hkey, hval);
-        uwsgi_jvm_exception();
+        int ret = uwsgi_jvm_hashmap_put(hm, j_key, j_value);
+        uwsgi_jvm_local_unref(j_key);
+        uwsgi_jvm_local_unref(j_value);
+        return ret;
+}
 
-        (*ujvm.env)->PopLocalFrame(ujvm.env, NULL);
+static int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
+	char status_str[11];
+	jobject hm = NULL;
+	jobject response = NULL;
+	jobject r_status = NULL;
+	jobject r_headers = NULL;
+	jobject r_headers_entries = NULL;
+	jobject r_body = NULL;
 
-        i++;
-    }
+	hm = uwsgi_jvm_hashmap();
+	if (!hm) return -1;
 
-    uwsgi_log("env created\n");
+	int i;
+	for(i=0;i<wsgi_req->var_cnt;i++) {
+                char *hk = wsgi_req->hvec[i].iov_base;
+                uint16_t hk_l = wsgi_req->hvec[i].iov_len;
+                char *hv = wsgi_req->hvec[i+1].iov_base;
+                uint16_t hv_l = wsgi_req->hvec[i+1].iov_len;
+		if (uwsgi_jwsgi_add_request_item(hm, hk, hk_l, hv, hv_l)) goto end;
+		i++;
+	}
 
-    uwsgi_jvm_ht_put(env, uwsgi_jvm_str("jwsgi.input"), uwsgi_jvm_fd(wsgi_req->poll.fd));
+	if (uwsgi_jwsgi_add_request_input(hm, "jwsgi.input", 11)) goto end;
 
-    uwsgi_log("jwsgi.input created\n");
+	response = uwsgi_jvm_call_object_static(ujwsgi.app_class, ujwsgi.app_mid, hm);
+	if (!response) goto end;
 
-    response = (*ujvm.env)->CallObjectMethod(ujvm.env, ujvm.main_class, jmid, env);
-    uwsgi_jvm_exception();
+	if (uwsgi_jvm_array_len(response) != 3) {
+		uwsgi_log("invalid JWSGI response object\n");
+		goto end;
+	}
 
-    uwsgi_log("RESPONSE SIZE %d\n", (*ujvm.env)->GetArrayLength(ujvm.env, response));
+	r_status = uwsgi_jvm_array_get(response, 0);
+	if (!r_status) goto end;
 
+	long n_status = uwsgi_jvm_number2c(r_status);
+        if (n_status == -1) goto end;
 
-    if ((*ujvm.env)->PushLocalFrame(ujvm.env, MAX_LREFS) < 0) {
-        uwsgi_log("jwsgi can not allocate frame!");
-        return -1;
-    }
-
-    status = uwsgi_jvm_array_get(response, 0);
-    uwsgi_jvm_exception();
-
-    status_str = uwsgi_jvm_str2c(status);
-    wsgi_req->headers_size += write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
-    wsgi_req->headers_size += write(wsgi_req->poll.fd, " ", 1);
-    wsgi_req->headers_size += write(wsgi_req->poll.fd, status_str, uwsgi_jvm_strlen2c(status));
-    wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
-    (*ujvm.env)->ReleaseStringUTFChars(ujvm.env, status, status_str);
-
-    headers = uwsgi_jvm_array_get(response, 1);
-
-    hc = uwsgi_jvm_get_object_class(headers);
-    hh_size = uwsgi_jvm_get_method_id(hc, "size","()I");
-    hh_get = uwsgi_jvm_get_method_id(hc, "get","(I)Ljava/lang/Object;");
-
-    hlen = (*ujvm.env)->CallIntMethod(ujvm.env, headers, hh_size);
-
-    for(i=0;i<hlen;i++) {
-
-        if ((*ujvm.env)->PushLocalFrame(ujvm.env, MAX_LREFS) < 0) {
-            uwsgi_log("jwsgi can not allocate frame!");
-            return -1;
+	if (uwsgi_num2str2(n_status, status_str) != 3) {
+                goto end;
         }
 
-        header = (*ujvm.env)->CallObjectMethod(ujvm.env, headers, hh_get, i);
-        hkey = uwsgi_jvm_array_get(header, 0);
-        hval = uwsgi_jvm_array_get(header, 1);
-        hkey_str = uwsgi_jvm_str2c(hkey);
-        hval_str = uwsgi_jvm_str2c(hval);
+	if (uwsgi_response_prepare_headers(wsgi_req, status_str, 3)) goto end;
 
-        wsgi_req->headers_size += write(wsgi_req->poll.fd, hkey_str, uwsgi_jvm_strlen2c(hkey));
-        wsgi_req->headers_size += write(wsgi_req->poll.fd, ": ", 2);
-        wsgi_req->headers_size += write(wsgi_req->poll.fd, hval_str, uwsgi_jvm_strlen2c(hval));
-        wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
+	r_headers = uwsgi_jvm_array_get(response, 1);
+	if (!r_headers) goto end;
 
-        (*ujvm.env)->ReleaseStringUTFChars(ujvm.env, hkey, hkey_str);
-        (*ujvm.env)->ReleaseStringUTFChars(ujvm.env, hval, hval_str);
+	// get entrySet
+	r_headers_entries = uwsgi_jvm_entryset(r_headers);	
+	if (!r_headers_entries) goto end;
 
-        (*ujvm.env)->PopLocalFrame(ujvm.env, NULL);
-    }
+	// get iterator
+	jobject values = uwsgi_jvm_auto_iterator(r_headers_entries);
+	if (values) {
+		int ret = uwsgi_jvm_iterator_to_response_headers(wsgi_req, values);
+		uwsgi_jvm_local_unref(values);
+		if (ret) goto end;
+	}
+	else {
+		uwsgi_log("unsupported response headers type !!! (must be java/util/HashMap)\n");
+		goto end;
+	}
 
-    wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
+	r_body = uwsgi_jvm_array_get(response, 2);
+	if (!r_body) goto end;
 
-    body = uwsgi_jvm_array_get(response, 2);
-    body_str = (*ujvm.env)->GetStringUTFChars(ujvm.env, body, NULL);
-    wsgi_req->response_size = write(wsgi_req->poll.fd, body_str, (*ujvm.env)->GetStringUTFLength(ujvm.env, body));
-    (*ujvm.env)->ReleaseStringUTFChars(ujvm.env, body, status_str);
+	if (uwsgi_jvm_object_to_response_body(wsgi_req, r_body)) {
+		uwsgi_log("unsupported JWSGI response body type\n");
+	}
 
-    (*ujvm.env)->PopLocalFrame(ujvm.env, NULL);
+end:
+	if (r_status) uwsgi_jvm_local_unref(r_status);
+	if (r_headers_entries) uwsgi_jvm_local_unref(r_headers_entries);
+	if (r_headers) uwsgi_jvm_local_unref(r_headers);
+	if (r_body) uwsgi_jvm_local_unref(r_body);
 
-    (*ujvm.env)->PopLocalFrame(ujvm.env, NULL);
-
-    return 1;
+	if (response) {
+		uwsgi_jvm_local_unref(response);
+	}
+	uwsgi_jvm_local_unref(hm);
+	return UWSGI_OK;
 }
 
-void uwsgi_jwsgi_after_request(struct wsgi_request *wsgi_req) {
-    log_request(wsgi_req);
+static int uwsgi_jwsgi_setup() {
+
+	char *app = uwsgi_str(ujwsgi.app);
+
+	char *colon = strchr(app, ':');
+
+	if (!colon) {
+		uwsgi_log("invalid JWSGI app definition, must be class:method\n");
+		exit(1);
+	}
+
+	*colon = 0;
+
+	ujwsgi.app_class = uwsgi_jvm_class(app);
+	if (!ujwsgi.app_class) {
+		exit(1);
+	}
+
+	ujwsgi.app_mid = uwsgi_jvm_get_static_method_id(ujwsgi.app_class, colon+1, "(Ljava/util/HashMap;)[Ljava/lang/Object;");
+	if (!ujwsgi.app_mid) {
+		exit(1);
+	}
+
+	uwsgi_log("JWSGI app \"%s\" loaded\n", ujwsgi.app);
+	return 0;
 }
+
+static int uwsgi_jwsgi_init() {
+
+        if (!ujwsgi.app) return 0;
+
+        if (uwsgi_jvm_register_request_handler(UWSGI_JVM_REQUEST_HANDLER_JWSGI, uwsgi_jwsgi_setup, uwsgi_jwsgi_request)) {
+                exit(1);
+        }
+
+        return 0;
+}
+
 
 struct uwsgi_plugin jwsgi_plugin = {
-
-    .name = "jwsgi",
-    .modifier1 = 8,
-    .request = uwsgi_jwsgi_request,
-    .after_request = uwsgi_jwsgi_after_request,
+        .name = "jwsgi",
+        .options = uwsgi_jwsgi_options,
+        .init = uwsgi_jwsgi_init,
 };

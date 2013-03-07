@@ -105,6 +105,189 @@ static struct uwsgi_option uwsgi_jvm_options[] = {
         {0, 0, 0, 0},
 };
 
+jobject uwsgi_jvm_entryset(jobject o) {
+	jclass c = uwsgi_jvm_class_from_object(o);
+        if (!c) return NULL;
+        jmethodID mid = uwsgi_jvm_get_method_id(c, "entrySet", "()Ljava/util/Set;");
+        uwsgi_jvm_local_unref(c);
+        if (!mid) return NULL;
+        return uwsgi_jvm_call_object(o, mid);
+}
+
+int uwsgi_jvm_object_to_response_body(struct wsgi_request *wsgi_req, jobject body) {
+
+	// check for string
+	if (uwsgi_jvm_object_is_instance(body, ujvm.str_class)) {
+                char *c_body = uwsgi_jvm_str2c(body);
+                size_t c_body_len = uwsgi_jvm_strlen(body);
+                uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
+                uwsgi_jvm_release_chars(body, c_body);
+		return 0;
+        }
+
+	// check for string array
+	if (uwsgi_jvm_object_is_instance(body, ujvm.str_array_class)) {
+		size_t items = uwsgi_jvm_array_len(body);
+		size_t i;
+		for(i=0;i<items;i++) {
+			jobject chunk = uwsgi_jvm_array_get(body, i);
+                        if (!chunk) return 0;
+                        if (!uwsgi_jvm_object_is_instance(chunk, ujvm.str_class)) {
+                                uwsgi_log("body array item must be java/lang/String !!!\n");
+                                uwsgi_jvm_local_unref(chunk);
+				return 0;
+                        }
+                        char *c_body = uwsgi_jvm_str2c(chunk);
+                        size_t c_body_len = uwsgi_jvm_strlen(chunk);
+                        int ret = uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
+                        uwsgi_jvm_release_chars(chunk, c_body);
+                        uwsgi_jvm_local_unref(chunk);
+                        if (ret) return 0;
+		}
+	}
+
+	// check for iterable
+        jobject chunks = uwsgi_jvm_auto_iterator(body);
+        if (chunks) {
+                while(uwsgi_jvm_iterator_hasNext(chunks)) {
+                        jobject chunk = uwsgi_jvm_iterator_next(chunks);
+                        if (!chunk) goto done;
+                        if (!uwsgi_jvm_object_is_instance(chunk, ujvm.str_class)) {
+                                uwsgi_log("body iterable item must be java/lang/String !!!\n");
+                                uwsgi_jvm_local_unref(chunk);
+                                goto done;
+                        }
+                        char *c_body = uwsgi_jvm_str2c(chunk);
+                        size_t c_body_len = uwsgi_jvm_strlen(chunk);
+                        int ret = uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
+                        uwsgi_jvm_release_chars(chunk, c_body);
+                        uwsgi_jvm_local_unref(chunk);
+                        if (ret) goto done;
+                }
+done:
+                uwsgi_jvm_local_unref(chunks);
+		return 0;
+        }
+
+        if (uwsgi_jvm_object_is_instance(body, ujvm.file_class)) {
+                jobject j_filename = uwsgi_jvm_filename(body);
+                if (!j_filename) return 0;
+                char *c_filename = uwsgi_jvm_str2c(j_filename);
+                int fd = open(c_filename, O_RDONLY);
+                if (fd < 0) {
+                        uwsgi_error("java/io/File.open()");
+                        goto done2;
+                }
+                uwsgi_response_sendfile_do(wsgi_req, fd, 0, 0);
+done2:
+                uwsgi_jvm_release_chars(j_filename, c_filename);
+                uwsgi_jvm_local_unref(j_filename);
+		return 0;
+        }
+
+        if (uwsgi_jvm_object_is_instance(body, ujvm.input_stream_class)) {
+                uwsgi_jvm_consume_input_stream(wsgi_req, 8192, body);
+		return 0;
+        }
+
+	return -1;
+}
+
+int uwsgi_jvm_iterator_to_response_headers(struct wsgi_request *wsgi_req, jobject headers) {
+        int error = 0;
+        while(uwsgi_jvm_iterator_hasNext(headers)) {
+                jobject hh = NULL, h_key = NULL, h_value = NULL;
+
+                hh = uwsgi_jvm_iterator_next(headers);
+
+                if (!hh) { error = 1 ; goto clear;}
+                h_key = uwsgi_jvm_getKey(hh);
+                if (!h_key) { error = 1 ; goto clear;}
+                h_value = uwsgi_jvm_getValue(hh);
+                if (!h_value) { error = 1 ; goto clear;}
+
+
+                if (!uwsgi_jvm_object_is_instance(h_key, ujvm.str_class)) {
+                        uwsgi_log("headers key must be java/lang/String !!!\n");
+                        error = 1 ; goto clear;
+                }
+
+                // check for string
+                if (uwsgi_jvm_object_is_instance(h_value, ujvm.str_class)) {
+                        char *c_h_key = uwsgi_jvm_str2c(h_key);
+                        uint16_t c_h_keylen = uwsgi_jvm_strlen(h_key);
+                        char *c_h_value = uwsgi_jvm_str2c(h_value);
+                        uint16_t c_h_vallen = uwsgi_jvm_strlen(h_value);
+                        int ret = uwsgi_response_add_header(wsgi_req, c_h_key, c_h_keylen, c_h_value, c_h_vallen);
+                        uwsgi_jvm_release_chars(h_key, c_h_key);
+                        uwsgi_jvm_release_chars(h_value, c_h_value);
+                        if (ret) error = 1;
+                        goto clear;
+                }
+
+		// check for string array
+		if (uwsgi_jvm_object_is_instance(h_value, ujvm.str_array_class)) {
+			size_t items = uwsgi_jvm_array_len(h_value);
+			size_t i;
+			for(i=0;i<items;i++) {
+				jobject hh_value = uwsgi_jvm_array_get(h_value, i);
+                                if (!uwsgi_jvm_object_is_instance(hh_value, ujvm.str_class)) {
+                                        uwsgi_log("headers value must be java/lang/String !!!\n");
+                                        uwsgi_jvm_local_unref(hh_value);
+                                        error = 1 ; goto clear;
+                                }
+                                char *c_h_key = uwsgi_jvm_str2c(h_key);
+                                uint16_t c_h_keylen = uwsgi_jvm_strlen(h_key);
+                                char *c_h_value = uwsgi_jvm_str2c(hh_value);
+                                uint16_t c_h_vallen = uwsgi_jvm_strlen(hh_value);
+                                int ret = uwsgi_response_add_header(wsgi_req, c_h_key, c_h_keylen, c_h_value, c_h_vallen);
+                                uwsgi_jvm_release_chars(h_key, c_h_key);
+                                uwsgi_jvm_release_chars(hh_value, c_h_value);
+                                uwsgi_jvm_local_unref(hh_value);
+                                if (ret) { error = 1 ; goto clear;}
+			}
+			goto clear;
+		}
+		
+                // check for iterable
+                jobject values = uwsgi_jvm_auto_iterator(h_value);
+                if (values) {
+                        while(uwsgi_jvm_iterator_hasNext(values)) {
+                                jobject hh_value = uwsgi_jvm_iterator_next(values);
+                                if (!uwsgi_jvm_object_is_instance(hh_value, ujvm.str_class)) {
+                                        uwsgi_log("headers value must be java/lang/String !!!\n");
+                                        uwsgi_jvm_local_unref(hh_value);
+                                        uwsgi_jvm_local_unref(values);
+                                        error = 1 ; goto clear;
+                                }
+                                char *c_h_key = uwsgi_jvm_str2c(h_key);
+                                uint16_t c_h_keylen = uwsgi_jvm_strlen(h_key);
+                                char *c_h_value = uwsgi_jvm_str2c(hh_value);
+                                uint16_t c_h_vallen = uwsgi_jvm_strlen(hh_value);
+                                int ret = uwsgi_response_add_header(wsgi_req, c_h_key, c_h_keylen, c_h_value, c_h_vallen);
+                                uwsgi_jvm_release_chars(h_key, c_h_key);
+                                uwsgi_jvm_release_chars(hh_value, c_h_value);
+                                uwsgi_jvm_local_unref(hh_value);
+                                if (ret) { uwsgi_jvm_local_unref(values); error = 1 ; goto clear;}
+                        }
+                        uwsgi_jvm_local_unref(values);
+                        goto clear;
+                }
+                uwsgi_log("unsupported header value !!! (must be java/lang/String or [java/lang/String)\n");
+                error = 1;
+clear:
+                if (h_value)
+                uwsgi_jvm_local_unref(h_value);
+                if (h_key)
+                uwsgi_jvm_local_unref(h_key);
+                if (hh)
+                uwsgi_jvm_local_unref(hh);
+                if (error) return -1;;
+        }
+        return 0;
+}
+
+
 // returns 0 if ok, -1 on exception
 int uwsgi_jvm_exception(void) {
 	if ((*ujvm_env)->ExceptionCheck(ujvm_env)) {
@@ -211,6 +394,14 @@ size_t uwsgi_jvm_array_len(jobject o) {
 		return 0;
 	}
 	return len;
+}
+
+jobject uwsgi_jvm_array_get(jobject o, long index) {
+	jobject ret = (*ujvm_env)->GetObjectArrayElement(ujvm_env, o, index);
+	if (uwsgi_jvm_exception()) {
+                return NULL;
+        }
+        return ret;
 }
 
 int uwsgi_jvm_consume_input_stream(struct wsgi_request *wsgi_req, size_t chunk, jobject o) {
@@ -613,6 +804,9 @@ static void uwsgi_jvm_create(void) {
 
 	ujvm.str_class = uwsgi_jvm_class("java/lang/String");
 	if (!ujvm.str_class) exit(1);
+
+	ujvm.str_array_class = uwsgi_jvm_class("[Ljava/lang/String;");
+	if (!ujvm.str_array_class) exit(1);
 
 	ujvm.int_class = uwsgi_jvm_class("java/lang/Integer");
 	if (!ujvm.int_class) exit(1);

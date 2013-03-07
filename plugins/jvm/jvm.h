@@ -17,6 +17,7 @@ struct uwsgi_jvm {
 	jclass request_body_class;
 
 	jclass str_class;
+	jclass str_array_class;
 	jclass long_class;
 	jclass int_class;
 	jclass byte_class;
@@ -96,3 +97,9 @@ jobject uwsgi_jvm_num(long);
 jobject uwsgi_jvm_request_body_input_stream(void);
 
 size_t uwsgi_jvm_array_len(jobject);
+jobject uwsgi_jvm_array_get(jobject, long);
+
+int uwsgi_jvm_iterator_to_response_headers(struct wsgi_request *, jobject);
+jobject uwsgi_jvm_entryset(jobject);
+
+int uwsgi_jvm_object_to_response_body(struct wsgi_request *, jobject);

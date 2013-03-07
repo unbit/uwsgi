@@ -224,7 +224,7 @@ static jobject uwsgi_ring_response_get(jobject r, char *name, size_t len) {
 
 // the request handler
 static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
-	char status_str[1];
+	char status_str[11];
 	jobject request = NULL;
 	jobject response = NULL;
 	jobject entries = NULL;
@@ -362,127 +362,16 @@ hend:
 	entries = uwsgi_ring_Associative_iterator(r_headers);
 	if (!entries) goto end;
 
-	int error = 0;
-	while(uwsgi_jvm_iterator_hasNext(entries)) {
-		jobject hh = NULL, h_key = NULL, h_value = NULL;
-
-		hh = uwsgi_jvm_iterator_next(entries);
-		if (!hh) { error = 1 ; goto clear;}
-		h_key = uwsgi_jvm_getKey(hh);
-		if (!h_key) { error = 1 ; goto clear;}
-		h_value = uwsgi_jvm_getValue(hh);
-		if (!h_value) { error = 1 ; goto clear;}
-
-		if (!uwsgi_jvm_object_is_instance(h_key, ujvm.str_class)) {
-			uwsgi_log("headers key must be java/lang/String !!!\n");
-			error = 1 ; goto clear;
-		}
-
-		// check for string
-		if (uwsgi_jvm_object_is_instance(h_value, ujvm.str_class)) {
-			char *c_h_key = uwsgi_jvm_str2c(h_key);
-			uint16_t c_h_keylen = uwsgi_jvm_strlen(h_key);
-			char *c_h_value = uwsgi_jvm_str2c(h_value);
-                        uint16_t c_h_vallen = uwsgi_jvm_strlen(h_value);
-			int ret = uwsgi_response_add_header(wsgi_req, c_h_key, c_h_keylen, c_h_value, c_h_vallen);
-			uwsgi_jvm_release_chars(h_key, c_h_key);
-			uwsgi_jvm_release_chars(h_value, c_h_value);
-			if (ret) error = 1;
-			goto clear;
-		}
-
-		// check for collection
-		jobject values = uwsgi_jvm_auto_iterator(h_value);
-		if (values) {
-			while(uwsgi_jvm_iterator_hasNext(values)) {
-				jobject hh_value = uwsgi_jvm_iterator_next(values);
-				if (!uwsgi_jvm_object_is_instance(hh_value, ujvm.str_class)) {
-                        		uwsgi_log("headers value must be java/lang/String !!!\n");
-					uwsgi_jvm_local_unref(hh_value);
-					uwsgi_jvm_local_unref(values);
-					error = 1 ; goto clear;
-                		}
-				char *c_h_key = uwsgi_jvm_str2c(h_key);
-				uint16_t c_h_keylen = uwsgi_jvm_strlen(h_key);
-				char *c_h_value = uwsgi_jvm_str2c(hh_value);
-				uint16_t c_h_vallen = uwsgi_jvm_strlen(hh_value);
-				int ret = uwsgi_response_add_header(wsgi_req, c_h_key, c_h_keylen, c_h_value, c_h_vallen);
-				uwsgi_jvm_release_chars(h_key, c_h_key);
-				uwsgi_jvm_release_chars(hh_value, c_h_value);
-				uwsgi_jvm_local_unref(hh_value);
-				if (ret) { uwsgi_jvm_local_unref(values); error = 1 ; goto clear;}
-			}
-			uwsgi_jvm_local_unref(values);
-			goto clear;
-		}
-		uwsgi_log("unsupported header value !!! (must be java/lang/String or collection/seq)\n");
-		error = 1;
-clear:
-		if (h_value)
-		uwsgi_jvm_local_unref(h_value);
-		if (h_key)
-		uwsgi_jvm_local_unref(h_key);
-		if (hh)
-		uwsgi_jvm_local_unref(hh);
-		if (error) goto end;
+	if (uwsgi_jvm_iterator_to_response_headers(wsgi_req, entries)) {
+		goto end;
 	}
 
 	r_body = uwsgi_ring_response_get(response, "body", 4);
         if (!r_body) goto end;
 
-
-        if (uwsgi_jvm_object_is_instance(r_body, ujvm.str_class)) {
-		char *c_body = uwsgi_jvm_str2c(r_body);
-		size_t c_body_len = uwsgi_jvm_strlen(r_body);
-		uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
-		uwsgi_jvm_release_chars(r_body, c_body);
-		goto end;
-        }
-
-	jobject chunks = uwsgi_jvm_auto_iterator(r_body);
-	if (chunks) {
-		while(uwsgi_jvm_iterator_hasNext(chunks)) {
-			jobject chunk = uwsgi_jvm_iterator_next(chunks);
-			if (!chunk) goto done;
-			if (!uwsgi_jvm_object_is_instance(chunk, ujvm.str_class)) {
-                        	uwsgi_log("body iSeq item must be java/lang/String !!!\n");
-				uwsgi_jvm_local_unref(chunk);
-                                goto done;
-                        }
-			char *c_body = uwsgi_jvm_str2c(chunk);
-                	size_t c_body_len = uwsgi_jvm_strlen(chunk);
-                	int ret = uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
-                	uwsgi_jvm_release_chars(chunk, c_body);
-			uwsgi_jvm_local_unref(chunk);
-			if (ret) goto done;
-		}
-done:
-		uwsgi_jvm_local_unref(chunks);
-		goto end;
+	if (uwsgi_jvm_object_to_response_body(wsgi_req, r_body)) {
+		uwsgi_log("unsupported clojure/ring body type\n");
 	}
-
-	if (uwsgi_jvm_object_is_instance(r_body, ujvm.file_class)) {
-		jobject j_filename = uwsgi_jvm_filename(r_body);
-		if (!j_filename) goto end;
-		char *c_filename = uwsgi_jvm_str2c(j_filename);
-		int fd = open(c_filename, O_RDONLY);
-		if (fd < 0) {
-			uwsgi_error("clojure/ring->open()");
-			goto done2;
-		}
-		uwsgi_response_sendfile_do(wsgi_req, fd, 0, 0);
-done2:
-		uwsgi_jvm_release_chars(j_filename, c_filename);
-		uwsgi_jvm_local_unref(j_filename);
-		goto end;
-	}
-
-	if (uwsgi_jvm_object_is_instance(r_body, ujvm.input_stream_class)) {
-		uwsgi_jvm_consume_input_stream(wsgi_req, 8192, r_body);
-		goto end;
-	}
-
-	uwsgi_log("unsupported clojure/ring body type\n");
 end:
 	// destroy the request map and the response
 	uwsgi_jvm_local_unref(hm);
