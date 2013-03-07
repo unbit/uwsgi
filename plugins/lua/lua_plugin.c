@@ -133,29 +133,69 @@ static char *encode_lua_table(lua_State *L, int index, uint16_t *size) {
 
 static int uwsgi_api_cache_set(lua_State *L) {
 
-	int args = lua_gettop(L);
+        int args = lua_gettop(L);
         const char *key ;
         const char *value ;
         uint64_t expires = 0;
-	size_t vallen;
+        size_t vallen;
+
+        if (!uwsgi.cache_max_items) goto error;
 
 
-	if (args > 1) {
+        if (args > 1) {
 
-		key = lua_tolstring(L, 1, NULL);
-		value = lua_tolstring(L, 2, &vallen);
-		if (args > 2) {
-			expires = lua_tonumber(L, 3);
-		}
+                key = lua_tolstring(L, 1, NULL);
+                value = lua_tolstring(L, 2, &vallen);
+                if (args > 2) {
+                        expires = lua_tonumber(L, 3);
+                }
 
-        	uwsgi_cache_set((char *)key, strlen(key), (char *)value, (uint16_t) vallen, expires, 0);
-		
-	}
+                uwsgi_wlock(uwsgi.cache_lock);
+                uwsgi_cache_set((char *)key, strlen(key), (char *)value, (uint16_t) vallen, expires, 0);
+                uwsgi_rwunlock(uwsgi.cache_lock);
+        }
 
-	lua_pushnil(L);
-	return 1;
+error:
+
+        lua_pushnil(L);
+        return 1;
 
 }
+
+static int uwsgi_api_cache_update(lua_State *L) {
+
+        int args = lua_gettop(L);
+        const char *key ;
+        const char *value ;
+        uint64_t expires = 0;
+        size_t vallen;
+
+        if (!uwsgi.cache_max_items) goto error;
+
+
+        if (args > 1) {
+
+                key = lua_tolstring(L, 1, NULL);
+                value = lua_tolstring(L, 2, &vallen);
+                if (args > 2) {
+                        expires = lua_tonumber(L, 3);
+                }
+
+                uwsgi_wlock(uwsgi.cache_lock);
+                uwsgi_cache_set((char *)key, strlen(key), (char *)value,
+                                (uint16_t) vallen, expires,
+                                UWSGI_CACHE_FLAG_UPDATE);
+                uwsgi_rwunlock(uwsgi.cache_lock);
+
+        }
+
+error:
+
+        lua_pushnil(L);
+        return 1;
+
+}
+
 
 static int uwsgi_api_register_signal(lua_State *L) {
 
@@ -184,23 +224,25 @@ static int uwsgi_api_cache_get(lua_State *L) {
         char *value ;
         uint64_t valsize;
 	const char *key ;
-
         lca(L, 1);
+
+	if (!uwsgi.cache_max_items) goto error;
 
 	if (lua_isstring(L, 1)) {
 
 		key = lua_tolstring(L, 1, NULL);
+		uwsgi_rlock(uwsgi.cache_lock);
         	value = uwsgi_cache_get((char *)key, strlen(key), &valsize);
-
         	if (value) {
                 	lua_pushlstring(L, value, valsize);
+			uwsgi_rwunlock(uwsgi.cache_lock);
 			return 1;
         	}
-
+		uwsgi_rwunlock(uwsgi.cache_lock);
 	}
 
+error:
 	lua_pushnil(L);
-
         return 1;
 
 }
@@ -349,6 +391,7 @@ static const luaL_reg uwsgi_api[] = {
   {"send_message", uwsgi_api_send_message},
   {"cache_get", uwsgi_api_cache_get},
   {"cache_set", uwsgi_api_cache_set},
+  {"cache_update", uwsgi_api_cache_update},
   {"register_signal", uwsgi_api_register_signal},
   {"register_rpc", uwsgi_api_register_rpc},
   {"lock", uwsgi_api_lock},
