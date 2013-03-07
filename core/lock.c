@@ -478,7 +478,9 @@ void uwsgi_lock_ipcsem(struct uwsgi_lock_item *uli) {
 
 	memcpy(&semid, uli->lock_ptr, sizeof(int));
 
+retry:
 	if (semop(semid, &sb, 1)) {
+		if (errno == EINTR) goto retry;
 		uwsgi_error("semop()");
 	}
 }
@@ -493,7 +495,9 @@ void uwsgi_unlock_ipcsem(struct uwsgi_lock_item *uli) {
 
 	memcpy(&semid, uli->lock_ptr, sizeof(int));
 
+retry:
 	if (semop(semid, &sb, 1)) {
+		if (errno == EINTR) goto retry;
 		uwsgi_error("semop()");
 	}
 
