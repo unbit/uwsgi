@@ -2686,7 +2686,6 @@ uint32_t uwsgi_cache_exists2(struct uwsgi_cache *, char *, uint16_t);
 struct uwsgi_cache *uwsgi_cache_create(char *);
 struct uwsgi_cache *uwsgi_cache_by_name(char *);
 void uwsgi_cache_create_all(void);
-char *uwsgi_cache_safe_get2(struct uwsgi_cache *, char *, uint16_t, uint64_t *);
 
 #define uwsgi_cache_set(x1, x2, x3, x4, x5, x6) uwsgi_cache_set2(uwsgi.caches, x1, x2, x3, x4, x5, x6)
 #define uwsgi_cache_del(x1, x2, x3, x4) uwsgi_cache_del2(uwsgi.caches, x1, x2, x3, x4)
@@ -3894,6 +3893,8 @@ struct uwsgi_stats_pusher_instance *uwsgi_stats_pusher_add(struct uwsgi_stats_pu
 int plugin_already_loaded(const char *);
 
 char *uwsgi_cache_magic_get(char *, uint16_t, uint64_t *, char *);
+int uwsgi_cache_magic_set(char *, uint16_t, char *, uint64_t, uint64_t, uint64_t, char *);
+int uwsgi_cache_magic_del(char *, uint16_t, char *);
 
 #ifdef UWSGI_ZLIB
 #include <zlib.h>

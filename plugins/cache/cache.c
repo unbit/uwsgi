@@ -7,35 +7,52 @@
 	For request generating a response containing cache data, we need to make
 	a copy to avoid holding the lock too much in case of blocking/slow writes
 
-	uwsgi_cache_safe_get2() will do the job
+	we use 1.9 cache magic functions to be DRY
 
 	the modifier2 is the command to run. Some command is extremely raw, and generally it is mean
 	for internal uWSGI usage.
+
+	commands:
+
+		0 -> simple cache get for values not bigger than 64k, the request is [111, keysize, 0] + key / response is [111, vallen, 0] + value
+
+		1 -> simple cache set for values not bigger than 64k, the request is [111, pktsize, 1] + (key, value) / response is connection closed
+
+		2 -> simple cache del, the request is [111, keysize, 2] + key / response is connection closed
+
+		3/4 -> simple dict based get command -> [111, pktsize ,3/4] + (key|get) / response is value for "key and get", but if "get" and no key is found an HTTP 404 is returned
+
+		5 -> get and stream -> [111, keysize, 5] + key response is a stream of the value til the whole object is transferred
+
+		6 -> dump the whole cache
+
+		17 -> magic interface for plugins remote access { "cmd": "get|set|update|del|exists", "key": "cache key", "expires": "seconds", "cache": "the cache name"}
+			returns: {"status":"ok|notfound|error", "size": "size of the following body, if present"} + stream
 
 */
 
 extern struct uwsgi_server uwsgi;
 
-static void cache_command(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
+static void cache_simple_command(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 
         struct wsgi_request *wsgi_req = (struct wsgi_request *) data;
-        uint64_t tmp_vallen = 0;
 
         if (vallen > 0) {
                 if (!uwsgi_strncmp(key, keylen, "key", 3)) {
-                        val = uwsgi_cache_get(val, vallen, &tmp_vallen);
-                        if (val && tmp_vallen > 0) {
-#ifdef UWSGI_DEBUG
-				uwsgi_log("cache value size: %llu\n", tmp_vallen);
-#endif
-				uwsgi_response_write_body_do(wsgi_req, val, tmp_vallen);
+        		uint64_t vallen = 0;
+                        char *value = uwsgi_cache_magic_get(val, vallen, &vallen, NULL);
+                        if (value) {
+				uwsgi_response_write_body_do(wsgi_req, value, vallen);
+				free(value);
                         }
 
                 }
                 else if (!uwsgi_strncmp(key, keylen, "get", 3)) {
-                        val = uwsgi_cache_get(val, vallen, &tmp_vallen);
-                        if (val && vallen > 0) {
-				uwsgi_response_write_body_do(wsgi_req, val, tmp_vallen);
+        		uint64_t vallen = 0;
+                        char *value = uwsgi_cache_magic_get(val, vallen, &vallen, NULL);
+                        if (value) {
+				uwsgi_response_write_body_do(wsgi_req, value, vallen);
+				free(value);
                         }
                         else {
 				uwsgi_404(wsgi_req);
@@ -45,7 +62,7 @@ static void cache_command(char *key, uint16_t keylen, char *val, uint16_t vallen
 }
 
 
-int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
+static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 
         uint64_t vallen = 0;
         char *value;
@@ -57,21 +74,23 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                 case 0:
                         // get
                         if (wsgi_req->uh->pktsize > 0) {
-                                value = uwsgi_cache_get(wsgi_req->buffer, wsgi_req->uh->pktsize, &vallen);
-                                if (value && vallen > 0) {
+                                value = uwsgi_cache_magic_get(wsgi_req->buffer, wsgi_req->uh->pktsize, &vallen, NULL);
+                                if (value) {
                                         wsgi_req->uh->pktsize = vallen;
-					if (uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4)) return -1;
+					if (uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4)) { free(value) ; return -1;}
 					uwsgi_response_write_body_do(wsgi_req, value, vallen);
+					free(value);
                                 }
                         }
                         break;
                 case 1:
                         // set
                         if (wsgi_req->uh->pktsize > 0) {
+				// max 3 items
                                 argc = 3;
                                 if (!uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh->pktsize, argv, argvs, &argc)) {
                                         if (argc > 1) {
-                                                uwsgi_cache_set(argv[0], argvs[0], argv[1], argvs[1], 0, 0);
+						uwsgi_cache_magic_set(argv[0], argvs[0], argv[1], argvs[1], 0, 0, NULL);
                                         }
                                 }
                         }
@@ -79,30 +98,32 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                 case 2:
                         // del
                         if (wsgi_req->uh->pktsize > 0) {
-                                uwsgi_cache_del(wsgi_req->buffer, wsgi_req->uh->pktsize, 0, 0);
+                                uwsgi_cache_magic_del(wsgi_req->buffer, wsgi_req->uh->pktsize, NULL);
                         }
                         break;
                 case 3:
                 case 4:
                         // dict
                         if (wsgi_req->uh->pktsize > 0) {
-                                uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh->pktsize, cache_command, (void *) wsgi_req);
+                                uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh->pktsize, cache_simple_command, (void *) wsgi_req);
                         }
                         break;
                 case 5:
                         // get (uwsgi + stream)
                         if (wsgi_req->uh->pktsize > 0) {
-                                value = uwsgi_cache_get(wsgi_req->buffer, wsgi_req->uh->pktsize, &vallen);
-                                if (value && vallen > 0) {
+                                value = uwsgi_cache_magic_get(wsgi_req->buffer, wsgi_req->uh->pktsize, &vallen, NULL);
+                                if (value) {
                                         wsgi_req->uh->pktsize = 0;
                                         wsgi_req->uh->modifier2 = 1;
-					if (uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4)) return -1;
+					if (uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4)) { free(value) ;return -1;}
 					uwsgi_response_write_body_do(wsgi_req, value, vallen);
+					free(value);
                                 }
                                 else {
                                         wsgi_req->uh->pktsize = 0;
                                         wsgi_req->uh->modifier2 = 0;
-					if (uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4)) return -1;
+					uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4);
+					free(value);
                                 }
                         }
                         break;
@@ -127,15 +148,17 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 			uwsgi_response_write_body_do(wsgi_req, cache_dump->buf, cache_dump->pos);
 			uwsgi_buffer_destroy(cache_dump);
 			uwsgi_wlock(uwsgi.caches->lock);
-			int ret = uwsgi_write_nb(wsgi_req->fd, (char *)uwsgi.caches->items, uwsgi.caches->filesize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-			if (!ret) {
-				wsgi_req->response_size += uwsgi.caches->filesize;
-			}
+			// make a copy of the whole cache
+			char *buf = uwsgi_malloc(uwsgi.caches->filesize);
+			memcpy(buf, uwsgi.caches->items, uwsgi.caches->filesize);
 			uwsgi_rwunlock(uwsgi.caches->lock);
+			// write the whole cache
+			uwsgi_response_write_body_do(wsgi_req, buf, uwsgi.caches->filesize);
+			free(buf);
 			break;
         }
 
-        return 0;
+        return UWSGI_OK;
 }
 
 struct uwsgi_plugin cache_plugin = {

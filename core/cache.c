@@ -950,7 +950,7 @@ void *cache_udp_server_loop(void *ucache) {
                                 expires = uwsgi_str_num(buf + 10 + keylen+vallen, ss);
                         }
                         uwsgi_wlock(uc->lock);
-                        if (uwsgi_cache_set(key, keylen, val, vallen, expires, UWSGI_CACHE_FLAG_UPDATE|UWSGI_CACHE_FLAG_LOCAL|UWSGI_CACHE_FLAG_ABSEXPIRE)) {
+                        if (uwsgi_cache_set2(uc, key, keylen, val, vallen, expires, UWSGI_CACHE_FLAG_UPDATE|UWSGI_CACHE_FLAG_LOCAL|UWSGI_CACHE_FLAG_ABSEXPIRE)) {
                                 uwsgi_log("[cache-udp-server] unable to update cache\n");
                         }
                         uwsgi_rwunlock(uc->lock);
@@ -958,7 +958,7 @@ void *cache_udp_server_loop(void *ucache) {
                 // cache del
                 else if (buf[3] == 11) {
                         uwsgi_wlock(uc->lock);
-                        if (uwsgi_cache_del(key, keylen, 0, UWSGI_CACHE_FLAG_LOCAL)) {
+                        if (uwsgi_cache_del2(uc, key, keylen, 0, UWSGI_CACHE_FLAG_LOCAL)) {
                                 uwsgi_log("[cache-udp-server] unable to update cache\n");
                         }
                         uwsgi_rwunlock(uc->lock);
@@ -1165,7 +1165,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		if (c_hashsize) uc->hashsize = uwsgi_n64(c_hashsize);
 		if (!uc->hashsize) { uwsgi_log("invalid cache hashsize for \"%s\"\n", uc->name); exit(1); }
 		if (c_keysize) uc->keysize = uwsgi_n64(c_keysize);
-		if (!uc->keysize) { uwsgi_log("invalid cache keysize for \"%s\"\n", uc->name); exit(1); }
+		if (!uc->keysize || uc->keysize >= UMAX16) { uwsgi_log("invalid cache keysize for \"%s\"\n", uc->name); exit(1); }
 		if (c_bitmap) uc->use_blocks_bitmap = 1; 
 
 		uc->store_sync = uwsgi.cache_store_sync;
@@ -1249,20 +1249,6 @@ void uwsgi_cache_create_all() {
 	uwsgi.cache_setup = 1;
 }
 
-char *uwsgi_cache_safe_get2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_t * valsize) {
-	uwsgi_rlock(uc->lock);
-	char *value = uwsgi_cache_get2(uc, key, keylen, valsize);
-	if (value && *valsize) {
-		char *buf = uwsgi_malloc(*valsize);
-		memcpy(buf, value, *valsize);
-		uwsgi_rwunlock(uc->lock);
-		return buf;
-	}
-	uwsgi_rwunlock(uc->lock);
-	return NULL;
-	
-}
-
 /*
  * uWSGI cache magic functions. They can be used by plugin to easily access local and remote caches
  *
@@ -1308,3 +1294,62 @@ char *uwsgi_cache_magic_get(char *key, uint16_t keylen, uint64_t *vallen, char *
 	return NULL;
 }
 
+
+int uwsgi_cache_magic_set(char *key, uint16_t keylen, char *value, uint64_t vallen, uint64_t expires, uint64_t flags, char *cachename) {
+
+	struct uwsgi_cache *uc = NULL;
+        char *cache_server = NULL;
+        if (cachename) {
+                char *at = strchr(cachename, '@');
+                if (!at) {
+                        uc = uwsgi_cache_by_name(cachename);
+                }
+                else {
+                }
+        }
+	// use default (local) cache
+	else {
+                uc = uwsgi.caches;
+        }
+
+	// we have a local cache !!!
+	if (uc) {
+                uwsgi_wlock(uc->lock);
+                int ret = uwsgi_cache_set2(uc, key, keylen, value, vallen, expires, flags);
+                uwsgi_rwunlock(uc->lock);
+		return ret;
+        }
+
+	// we have a remote one
+	if (cache_server) {
+        }
+
+        return -1;
+
+}
+
+int uwsgi_cache_magic_del(char *key, uint16_t keylen, char *cachename) {
+	struct uwsgi_cache *uc = NULL;
+        char *cache_server = NULL;
+        if (cachename) {
+                char *at = strchr(cachename, '@');
+                if (!at) {
+                        uc = uwsgi_cache_by_name(cachename);
+                }
+                else {
+                }
+        }
+	// use default (local) cache
+	if (uc) {
+                uwsgi_wlock(uc->lock);
+                int ret = uwsgi_cache_del2(uc, key, keylen, 0, 0);
+                uwsgi_rwunlock(uc->lock);
+                return ret;
+        }
+
+	// we have a remote one
+	if (cache_server) {
+	}
+
+	return -1;
+}
