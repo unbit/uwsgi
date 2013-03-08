@@ -1439,7 +1439,13 @@ int uwsgi_cache_magic_set(char *key, uint16_t keylen, char *value, uint64_t vall
                         return -1;
                 }
 
-                struct uwsgi_buffer *ub = uwsgi_cache_prepare_magic_set(cache_name, cache_name_len, key, keylen, vallen, expires);
+		struct uwsgi_buffer *ub = NULL;
+		if (flags & UWSGI_CACHE_FLAG_UPDATE) {
+                	ub = uwsgi_cache_prepare_magic_update(cache_name, cache_name_len, key, keylen, vallen, expires);
+		}
+		else {
+                	ub = uwsgi_cache_prepare_magic_set(cache_name, cache_name_len, key, keylen, vallen, expires);
+		}
                 if (!ub) {
                         close(fd);
                         return -1;

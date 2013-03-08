@@ -98,7 +98,7 @@ static void manage_magic_context(struct wsgi_request *wsgi_req, struct uwsgi_cac
 	}
 
 	// cache set
-	if (!uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "set", 3)) {
+	if (!uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "set", 3) || !uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "update", 6)) {
 		if (ucmc->size == 0 || ucmc->size > uc->max_item_size) return;
 		wsgi_req->post_cl = ucmc->size;
 		// read the value
@@ -107,7 +107,7 @@ static void manage_magic_context(struct wsgi_request *wsgi_req, struct uwsgi_cac
 		if (rlen != (ssize_t) ucmc->size) return;
 		// ok let's lock
 		uwsgi_wlock(uc->lock);
-		if (uwsgi_cache_set2(uc, ucmc->key, ucmc->key_len, value, ucmc->size, ucmc->expires, 0)) {
+		if (uwsgi_cache_set2(uc, ucmc->key, ucmc->key_len, value, ucmc->size, ucmc->expires, ucmc->cmd_len > 3 ? UWSGI_CACHE_FLAG_UPDATE : 0)) {
 			uwsgi_rwunlock(uc->lock);
 			return;
 		}
