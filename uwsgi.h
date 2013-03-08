@@ -2685,11 +2685,6 @@ struct uwsgi_cache *uwsgi_cache_by_name(char *);
 struct uwsgi_cache *uwsgi_cache_by_namelen(char *, uint16_t);
 void uwsgi_cache_create_all(void);
 
-#define uwsgi_cache_set(x1, x2, x3, x4, x5, x6) uwsgi_cache_set2(uwsgi.caches, x1, x2, x3, x4, x5, x6)
-#define uwsgi_cache_del(x1, x2, x3, x4) uwsgi_cache_del2(uwsgi.caches, x1, x2, x3, x4)
-#define uwsgi_cache_get(x1, x2, x3) uwsgi_cache_get2(uwsgi.caches, x1, x2, x3)
-#define uwsgi_cache_exists(x1, x2) uwsgi_cache_exists2(uwsgi.caches, x1, x2)
-
 void uwsgi_cache_sync_all(void);
 void uwsgi_cache_start_sweepers(void);
 void uwsgi_cache_start_sync_servers(void);
