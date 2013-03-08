@@ -3727,16 +3727,12 @@ void uwsgi_daemons_spawn_all();
 	int uwsgi_send_http_stats(int);
 
 	ssize_t uwsgi_simple_request_read(struct wsgi_request *, char *, size_t);
-	int uwsgi_plugin_modifier1(char *);
+int uwsgi_plugin_modifier1(char *);
 
-	void uwsgi_cache_wlock(struct uwsgi_cache *);
-	void uwsgi_cache_rlock(struct uwsgi_cache *);
-	void uwsgi_cache_rwunlock(struct uwsgi_cache *);
+void *cache_udp_server_loop(void *);
 
-	void *cache_udp_server_loop(void *);
-
-	void uwsgi_user_lock(int);
-	void uwsgi_user_unlock(int);
+void uwsgi_user_lock(int);
+void uwsgi_user_unlock(int);
 
 	void simple_loop_run_int(int);
 
@@ -3908,6 +3904,7 @@ char *uwsgi_cache_magic_get(char *, uint16_t, uint64_t *, char *);
 int uwsgi_cache_magic_set(char *, uint16_t, char *, uint64_t, uint64_t, uint64_t, char *);
 int uwsgi_cache_magic_del(char *, uint16_t, char *);
 int uwsgi_cache_magic_exists(char *, uint16_t, char *);
+int uwsgi_cache_magic_clear(char *);
 void uwsgi_cache_magic_context_hook(char *, uint16_t, char *, uint16_t, void *);
 
 #ifdef UWSGI_ZLIB

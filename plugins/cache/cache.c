@@ -135,6 +135,28 @@ static void manage_magic_context(struct wsgi_request *wsgi_req, struct uwsgi_cac
                 return;
         }
 
+	// cache clear
+        if (!uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "clear", 5)) {
+		uint64_t i;
+		uwsgi_wlock(uc->lock);
+		for (i = 1; i < uwsgi.caches->max_items; i++) {
+			if (uwsgi_cache_del2(uc, NULL, 0, i, 0)) {
+                                uwsgi_rwunlock(uc->lock);
+                                return;
+                        }	
+		}
+                // we are still locked !!!
+                ub = uwsgi_buffer_new(uwsgi.page_size);
+                ub->pos = 4;
+                if (uwsgi_buffer_append_keyval(ub, "status", 6, "ok", 2)) goto error;
+                if (uwsgi_buffer_set_uh(ub, 111, 17)) goto error;
+                // unlock !!!
+                uwsgi_rwunlock(uc->lock);
+                uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+                uwsgi_buffer_destroy(ub);
+                return;
+        }
+
 	// cache set
 	if (!uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "set", 3) || !uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "update", 6)) {
 		if (ucmc->size == 0 || ucmc->size > uc->max_item_size) return;

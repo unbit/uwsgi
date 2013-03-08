@@ -751,18 +751,6 @@ static void cache_send_udp_command(struct uwsgi_cache *uc, char *key, uint16_t k
 
 }
 
-void uwsgi_cache_wlock(struct uwsgi_cache *uc) {
-	uwsgi.lock_ops.wlock(uc->lock);
-}
-
-void uwsgi_cache_rlock(struct uwsgi_cache *uc) {
-	uwsgi.lock_ops.rlock(uc->lock);
-}
-
-void uwsgi_cache_rwunlock(struct uwsgi_cache *uc) {
-	uwsgi.lock_ops.rwunlock(uc->lock);
-}
-
 void *cache_udp_server_loop(void *ucache) {
         // block all signals
         sigset_t smask;
@@ -1231,6 +1219,22 @@ error:
         return NULL;
 }
 
+struct uwsgi_buffer *uwsgi_cache_prepare_magic_clear(char *cache_name, uint16_t cache_name_len) {
+        struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+        ub->pos = 4;
+
+        if (uwsgi_buffer_append_keyval(ub, "cmd", 3, "clear", 5)) goto error;
+        if (cache_name) {
+                if (uwsgi_buffer_append_keyval(ub, "cache", 5, cache_name, cache_name_len)) goto error;
+        }
+
+        return ub;
+error:
+        uwsgi_buffer_destroy(ub);
+        return NULL;
+}
+
+
 struct uwsgi_buffer *uwsgi_cache_prepare_magic_set(char *cache_name, uint16_t cache_name_len, char *key, uint16_t key_len, uint64_t len, uint64_t expires) {
         struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
 	ub->pos = 4;
@@ -1609,3 +1613,77 @@ int uwsgi_cache_magic_del(char *key, uint16_t keylen, char *cache) {
         return -1 ;
 
 }
+
+int uwsgi_cache_magic_clear(char *cache) {
+
+        struct uwsgi_cache_magic_context ucmc;
+        struct uwsgi_cache *uc = NULL;
+        char *cache_server = NULL;
+        char *cache_name = NULL;
+        uint16_t cache_name_len = 0;
+        if (cache) {
+                char *at = strchr(cache, '@');
+                if (!at) {
+                        uc = uwsgi_cache_by_name(cache);
+                }
+                else {
+                        cache_server = at + 1;
+                        cache_name = cache;
+                        cache_name_len = at - cache;
+                }
+        }
+        // use default (local) cache
+        else {
+                uc = uwsgi.caches;
+        }
+
+        // we have a local cache !!!
+        if (uc) {
+		uint64_t i;
+                uwsgi_wlock(uc->lock);
+		for (i = 1; i < uwsgi.caches->max_items; i++) {
+                	if (uwsgi_cache_del2(uc, NULL, 0, i, 0)) {
+                        	uwsgi_rwunlock(uc->lock);
+                        	return -1;
+                	}
+		}
+                uwsgi_rwunlock(uc->lock);
+                return 0;
+        }
+
+        // we have a remote one
+        if (cache_server) {
+                int fd = uwsgi_connect(cache_server, 0, 1);
+                if (fd < 0) return -1;
+
+                int ret = uwsgi.wait_write_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                if (ret <= 0) {
+                        close(fd);
+                        return -1;
+                }
+
+                struct uwsgi_buffer *ub = uwsgi_cache_prepare_magic_clear(cache_name, cache_name_len);
+                if (!ub) {
+                        close(fd);
+                        return -1;
+                }
+
+                if (cache_magic_send_and_manage(fd, ub, NULL, 0, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], &ucmc)) {
+                        close(fd);
+                        uwsgi_buffer_destroy(ub);
+                        return -1;
+                }
+
+                if (uwsgi_strncmp(ucmc.status, ucmc.status_len, "ok", 2)) {
+                        close(fd);
+                        uwsgi_buffer_destroy(ub);
+                        return -1;
+                }
+
+                return 0;
+        }
+
+        return -1 ;
+
+}
+
