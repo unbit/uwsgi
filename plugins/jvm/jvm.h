@@ -21,6 +21,7 @@ struct uwsgi_jvm {
 	jclass long_class;
 	jclass int_class;
 	jclass byte_class;
+	jclass bytearray_class;
 	jclass input_stream_class;
 	jclass file_class;
 	jclass hashmap_class;
@@ -103,3 +104,7 @@ int uwsgi_jvm_iterator_to_response_headers(struct wsgi_request *, jobject);
 jobject uwsgi_jvm_entryset(jobject);
 
 int uwsgi_jvm_object_to_response_body(struct wsgi_request *, jobject);
+
+jobject uwsgi_jvm_bytearray(char *, size_t);
+char *uwsgi_jvm_bytearray2c(jobject);
+void uwsgi_jvm_release_bytearray(jobject, char *);

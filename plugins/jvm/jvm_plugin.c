@@ -46,10 +46,62 @@ JNIEXPORT void JNICALL uwsgi_jvm_api_register_rpc(JNIEnv *env, jclass c, jstring
 	}
 }
 
+JNIEXPORT void JNICALL uwsgi_jvm_api_lock_zero(JNIEnv *env, jclass c) {
+	uwsgi_lock(uwsgi.user_lock[0]);
+}
+
+JNIEXPORT void JNICALL uwsgi_jvm_api_unlock_zero(JNIEnv *env, jclass c) {
+        uwsgi_unlock(uwsgi.user_lock[0]);
+}
+
+JNIEXPORT void JNICALL uwsgi_jvm_api_lock(JNIEnv *env, jclass c, jint locknum) {
+	if (locknum < 0 || locknum > uwsgi.locks) {
+		uwsgi_jvm_throw("invalid lock number");
+		return;
+	}
+        uwsgi_lock(uwsgi.user_lock[locknum]);
+}
+
+JNIEXPORT void JNICALL uwsgi_jvm_api_unlock(JNIEnv *env, jclass c, jint locknum) {
+	if (locknum < 0 || locknum > uwsgi.locks) {
+		uwsgi_jvm_throw("invalid lock number");
+		return;
+	}
+        uwsgi_unlock(uwsgi.user_lock[locknum]);
+}
+
+JNIEXPORT jobject JNICALL uwsgi_jvm_api_cache_get(JNIEnv *env, jclass c, jstring jkey) {
+	if (!uwsgi.caches) {
+		uwsgi_jvm_throw("cache not available");
+		return NULL;
+	}
+
+	size_t keylen = uwsgi_jvm_strlen(jkey);
+	char *key = uwsgi_jvm_str2c(jkey);
+	uwsgi_rlock(uwsgi.caches->lock);
+	uint64_t vallen = 0;
+	char *value = uwsgi_cache_get(key, keylen, &vallen);
+	uwsgi_jvm_release_chars(jkey, key);
+
+	if (value) {
+		uwsgi_rwunlock(uwsgi.caches->lock);
+		jobject o = uwsgi_jvm_bytearray(value, vallen);
+		uwsgi_rwunlock(uwsgi.caches->lock);
+		return o;
+	}
+	uwsgi_rwunlock(uwsgi.caches->lock);
+	return NULL;
+}
+
 static JNINativeMethod uwsgi_jvm_api_methods[] = {
 	{"register_signal", "(ILjava/lang/String;Luwsgi$SignalHandler;)V", (void *) &uwsgi_jvm_api_register_signal},
 	{"register_rpc", "(Ljava/lang/String;Luwsgi$RpcFunction;)V", (void *) &uwsgi_jvm_api_register_rpc},
 	{"worker_id", "()I", (void *) &uwsgi_jvm_api_worker_id},
+	{"lock", "()V", (void *) &uwsgi_jvm_api_lock_zero},
+	{"unlock", "()V", (void *) &uwsgi_jvm_api_unlock_zero},
+	{"lock", "(I)V", (void *) &uwsgi_jvm_api_lock},
+	{"unlock", "(I)V", (void *) &uwsgi_jvm_api_unlock},
+	{"cache_get", "(Ljava/lang/String;)[B", (void *) &uwsgi_jvm_api_cache_get},
 };
 
 JNIEXPORT jint JNICALL uwsgi_jvm_request_body_read(JNIEnv *env, jobject o) {
@@ -146,22 +198,41 @@ int uwsgi_jvm_object_to_response_body(struct wsgi_request *wsgi_req, jobject bod
 		}
 	}
 
+	// check for bytearray
+	if (uwsgi_jvm_object_is_instance(body, ujvm.bytearray_class)) {
+		char *c_body = uwsgi_jvm_bytearray2c(body);
+                size_t c_body_len = uwsgi_jvm_array_len(body);
+                uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
+                uwsgi_jvm_release_bytearray(body, c_body);
+                return 0;
+	}
+
 	// check for iterable
         jobject chunks = uwsgi_jvm_auto_iterator(body);
         if (chunks) {
                 while(uwsgi_jvm_iterator_hasNext(chunks)) {
                         jobject chunk = uwsgi_jvm_iterator_next(chunks);
                         if (!chunk) goto done;
-                        if (!uwsgi_jvm_object_is_instance(chunk, ujvm.str_class)) {
-                                uwsgi_log("body iterable item must be java/lang/String !!!\n");
+			int ret = -1;
+                        if (uwsgi_jvm_object_is_instance(chunk, ujvm.str_class)) {
+                        	char *c_body = uwsgi_jvm_str2c(chunk);
+                        	size_t c_body_len = uwsgi_jvm_strlen(chunk);
+                        	ret = uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
+                        	uwsgi_jvm_release_chars(chunk, c_body);
+                        	uwsgi_jvm_local_unref(chunk);
+			}
+			else if (uwsgi_jvm_object_is_instance(chunk, ujvm.bytearray_class)) {
+                        	char *c_body = uwsgi_jvm_bytearray2c(chunk);
+                        	size_t c_body_len = uwsgi_jvm_array_len(chunk);
+                        	ret = uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
+                        	uwsgi_jvm_release_bytearray(chunk, c_body);
+                        	uwsgi_jvm_local_unref(chunk);
+			}
+			else {
+				uwsgi_log("body iterable item must be java/lang/String or array of bytes!!!\n");
                                 uwsgi_jvm_local_unref(chunk);
                                 goto done;
-                        }
-                        char *c_body = uwsgi_jvm_str2c(chunk);
-                        size_t c_body_len = uwsgi_jvm_strlen(chunk);
-                        int ret = uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
-                        uwsgi_jvm_release_chars(chunk, c_body);
-                        uwsgi_jvm_local_unref(chunk);
+			}
                         if (ret) goto done;
                 }
 done:
@@ -402,6 +473,16 @@ jobject uwsgi_jvm_array_get(jobject o, long index) {
                 return NULL;
         }
         return ret;
+}
+
+jobject uwsgi_jvm_bytearray(char *buf, size_t len) {
+	jobject byte_buffer = (*ujvm_env)->NewByteArray(ujvm_env, len);
+        if (!byte_buffer) return NULL;
+
+	char *dbuf = (char *) (*ujvm_env)->GetByteArrayElements(ujvm_env, byte_buffer, JNI_FALSE);
+	memcpy(dbuf, buf, len);
+	(*ujvm_env)->ReleaseByteArrayElements(ujvm_env, byte_buffer, (jbyte *) dbuf, 0);
+	return byte_buffer;
 }
 
 int uwsgi_jvm_consume_input_stream(struct wsgi_request *wsgi_req, size_t chunk, jobject o) {
@@ -817,6 +898,9 @@ static void uwsgi_jvm_create(void) {
 	ujvm.byte_class = uwsgi_jvm_class("java/lang/Byte");
 	if (!ujvm.byte_class) exit(1);
 
+	ujvm.bytearray_class = uwsgi_jvm_class("[B");
+	if (!ujvm.bytearray_class) exit(1);
+
 	ujvm.file_class = uwsgi_jvm_class("java/io/File");
 	if (!ujvm.file_class) exit(1);
 
@@ -909,8 +993,13 @@ static void uwsgi_jvm_create(void) {
 }
 
 // get the raw body of a java string
-char *uwsgi_jvm_str2c(jobject obj) {
-    return (char *) (*ujvm_env)->GetStringUTFChars(ujvm_env, obj, JNI_FALSE);
+char *uwsgi_jvm_str2c(jobject o) {
+	return (char *) (*ujvm_env)->GetStringUTFChars(ujvm_env, o, JNI_FALSE);
+}
+
+// get c from bytearray
+char *uwsgi_jvm_bytearray2c(jobject o) {
+	return (char *) (*ujvm_env)->GetByteArrayElements(ujvm_env, o, JNI_FALSE);
 }
 
 // return the size of a java string (UTF8)
@@ -946,6 +1035,10 @@ static int uwsgi_jvm_request(struct wsgi_request *wsgi_req) {
 
 void uwsgi_jvm_release_chars(jobject o, char *str) {
 	(*ujvm_env)->ReleaseStringUTFChars(ujvm_env, o, str);
+}
+
+void uwsgi_jvm_release_bytearray(jobject o, char *str) {
+	(*ujvm_env)->ReleaseByteArrayElements(ujvm_env, o, (jbyte *)str, 0);
 }
 
 static uint16_t uwsgi_jvm_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {

@@ -17,7 +17,16 @@ public class uwsgi {
 	}
 
 	public static native int worker_id();
+
 	public static native void register_signal(int signum, String target, SignalHandler sh);
+
 	public static native void register_rpc(String name, RpcFunction rf);
+
+	public static native void lock();
+	public static native void unlock();
+	public static native void lock(int locknum);
+	public static native void unlock(int locknum);
+
+	public static native byte[] cache_get(String key);
 
 }

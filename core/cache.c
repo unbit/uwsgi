@@ -183,6 +183,7 @@ static void uwsgi_cache_load_files(struct uwsgi_cache *uc) {
 				uwsgi_log("[cache] stored %s\n", usl->value);
 			}		
 			uwsgi_rwunlock(uc->lock);
+			free(value);
 		}
 		usl = usl->next;
 	}
