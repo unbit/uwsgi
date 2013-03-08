@@ -1095,6 +1095,20 @@ struct uwsgi_cache *uwsgi_cache_by_name(char *name) {
 	return NULL;
 }
 
+struct uwsgi_cache *uwsgi_cache_by_namelen(char *name, uint16_t len) {
+        struct uwsgi_cache *uc = uwsgi.caches;
+        if (!name || *name == 0) {
+                return uwsgi.caches;
+        }
+        while(uc) {
+                if (uc->name && !uwsgi_strncmp(uc->name, uc->name_len, name, len)) {
+                        return uc;
+                }
+                uc = uc->next;
+        }
+        return NULL;
+}
+
 void uwsgi_cache_create_all() {
 
 	if (uwsgi.cache_setup) return;
@@ -1125,15 +1139,150 @@ void uwsgi_cache_create_all() {
  * You have to free the returned memory !!!
  *
  */
-char *uwsgi_cache_magic_get(char *key, uint16_t keylen, uint64_t *vallen, char *cachename) {
+
+void uwsgi_cache_magic_context_hook(char *key, uint16_t key_len, char *value, uint16_t vallen, void *data) {
+	struct uwsgi_cache_magic_context *ucmc = (struct uwsgi_cache_magic_context *) data;
+
+	if (!uwsgi_strncmp(key, key_len, "cmd", 3)) {
+		ucmc->cmd = value;
+		ucmc->cmd_len = vallen;
+		return;
+	}
+
+	if (!uwsgi_strncmp(key, key_len, "key", 3)) {
+                ucmc->key = value;
+                ucmc->key_len = vallen; 
+                return;
+        }
+
+	if (!uwsgi_strncmp(key, key_len, "expires", 7)) {
+                ucmc->expires = uwsgi_str_num(value, vallen);
+                return;
+        }
+
+	if (!uwsgi_strncmp(key, key_len, "size", 4)) {
+                ucmc->size = uwsgi_str_num(value, vallen);
+                return;
+        }
+
+	if (!uwsgi_strncmp(key, key_len, "cache", 5)) {
+                ucmc->cache = value;
+                ucmc->cache_len = vallen; 
+                return;
+        }
+
+	if (!uwsgi_strncmp(key, key_len, "status", 6)) {
+                ucmc->status = value;
+                ucmc->status_len = vallen;
+                return;
+        }
+}
+
+static struct uwsgi_buffer *uwsgi_cache_prepare_magic_get(char *cache_name, uint16_t cache_name_len, char *key, uint16_t key_len) {
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	ub->pos = 4;
+
+	if (uwsgi_buffer_append_keyval(ub, "cmd", 3, "get", 3)) goto error;
+	if (uwsgi_buffer_append_keyval(ub, "key", 3, key, key_len)) goto error;
+	if (cache_name) {
+		if (uwsgi_buffer_append_keyval(ub, "cache", 5, cache_name, cache_name_len)) goto error;
+	}
+
+	return ub;
+error:
+	uwsgi_buffer_destroy(ub);
+	return NULL;
+}
+
+struct uwsgi_buffer *uwsgi_cache_prepare_magic_exists(char *cache_name, uint16_t cache_name_len, char *key, uint16_t key_len) {
+        struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	ub->pos = 4;
+
+        if (uwsgi_buffer_append_keyval(ub, "cmd", 3, "exists", 6)) goto error;
+        if (uwsgi_buffer_append_keyval(ub, "key", 3, key, key_len)) goto error;
+        if (cache_name) {
+                if (uwsgi_buffer_append_keyval(ub, "cache", 5, cache_name, cache_name_len)) goto error;
+        }
+
+        return ub;
+error:
+        uwsgi_buffer_destroy(ub);
+        return NULL;
+}
+
+struct uwsgi_buffer *uwsgi_cache_prepare_magic_del(char *cache_name, uint16_t cache_name_len, char *key, uint16_t key_len) {
+        struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	ub->pos = 4;
+
+        if (uwsgi_buffer_append_keyval(ub, "cmd", 3, "del", 3)) goto error;
+        if (uwsgi_buffer_append_keyval(ub, "key", 3, key, key_len)) goto error;
+        if (cache_name) {
+                if (uwsgi_buffer_append_keyval(ub, "cache", 5, cache_name, cache_name_len)) goto error;
+        }
+
+        return ub;
+error:
+        uwsgi_buffer_destroy(ub);
+        return NULL;
+}
+
+struct uwsgi_buffer *uwsgi_cache_prepare_magic_set(char *cache_name, uint16_t cache_name_len, char *key, uint16_t key_len, uint64_t len, uint64_t expires) {
+        struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	ub->pos = 4;
+
+        if (uwsgi_buffer_append_keyval(ub, "cmd", 3, "set", 3)) goto error;
+        if (uwsgi_buffer_append_keyval(ub, "key", 3, key, key_len)) goto error;
+        if (uwsgi_buffer_append_keynum(ub, "size", 4, len)) goto error;
+	if (expires > 0) {
+		if (uwsgi_buffer_append_keynum(ub, "expires", 7, expires)) goto error;
+	}
+        if (uwsgi_buffer_append_keynum(ub, "size", 4, len)) goto error;
+        if (cache_name) {
+                if (uwsgi_buffer_append_keyval(ub, "cache", 5, cache_name, cache_name_len)) goto error;
+        }
+
+        return ub;
+error:
+        uwsgi_buffer_destroy(ub);
+        return NULL;
+}
+
+struct uwsgi_buffer *uwsgi_cache_prepare_magic_update(char *cache_name, uint16_t cache_name_len, char *key, uint16_t key_len, uint64_t len, uint64_t expires) {
+        struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	ub->pos = 4;
+
+        if (uwsgi_buffer_append_keyval(ub, "cmd", 3, "update", 6)) goto error;
+        if (uwsgi_buffer_append_keyval(ub, "key", 3, key, key_len)) goto error;
+        if (uwsgi_buffer_append_keynum(ub, "size", 4, len)) goto error;
+        if (expires > 0) {
+                if (uwsgi_buffer_append_keynum(ub, "expires", 7, expires)) goto error;
+        }
+        if (uwsgi_buffer_append_keynum(ub, "size", 4, len)) goto error;
+        if (cache_name) {
+                if (uwsgi_buffer_append_keyval(ub, "cache", 5, cache_name, cache_name_len)) goto error;
+        }
+
+        return ub;
+error:
+        uwsgi_buffer_destroy(ub);
+        return NULL;
+}
+
+char *uwsgi_cache_magic_get(char *key, uint16_t keylen, uint64_t *vallen, char *cache) {
+	struct uwsgi_cache_magic_context ucmc;
 	struct uwsgi_cache *uc = NULL;
 	char *cache_server = NULL;
-	if (cachename) {
-		char *at = strchr(cachename, '@');
+	char *cache_name = NULL;
+	uint16_t cache_name_len = 0;
+	if (cache) {
+		char *at = strchr(cache, '@');
 		if (!at) {
-			uc = uwsgi_cache_by_name(cachename);
+			uc = uwsgi_cache_by_name(cache);
 		}
 		else {
+			cache_server = at + 1;
+			cache_name = cache;
+			cache_name_len = at - cache;
 		}
 	}
 	// use default (local) cache
@@ -1157,6 +1306,88 @@ char *uwsgi_cache_magic_get(char *key, uint16_t keylen, uint64_t *vallen, char *
 
 	// we have a remote one
 	if (cache_server) {
+		int fd = uwsgi_connect(cache_server, 0, 1);
+		if (fd < 0) return NULL;
+
+		// wait for connection;
+		int ret = uwsgi.wait_write_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		if (ret <= 0) {
+			close(fd);
+			return NULL;
+		}
+
+		struct uwsgi_buffer *ub = uwsgi_cache_prepare_magic_get(cache_name, cache_name_len, key, keylen);
+		if (!ub) {
+			close(fd);
+			return NULL;
+		}
+
+		if (uwsgi_buffer_set_uh(ub, 111, 17)) {
+			close(fd);
+			uwsgi_buffer_destroy(ub);
+			return NULL;
+		}
+
+		if (uwsgi_write_true_nb(fd, ub->buf, ub->pos, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+			close(fd);
+			uwsgi_buffer_destroy(ub);
+			return NULL;
+		}
+
+		// ok now wait for the response, using the same buffer of the request
+		// NOTE: after using a uwsgi_buffer in that way we basically destroy (even if we can safely free it)
+		size_t rlen = ub->pos;
+        	if (uwsgi_read_with_realloc(fd, &ub->buf, &rlen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+			close(fd);
+			uwsgi_buffer_destroy(ub);
+			return NULL;
+		}
+
+		// now we have a uwsgi dictionary with all of the options needed, let's parse it
+		memset(&ucmc, 0, sizeof(struct uwsgi_cache_magic_context));
+		if (uwsgi_hooked_parse(ub->buf, rlen, uwsgi_cache_magic_context_hook, &ucmc)) {
+			close(fd);
+			uwsgi_buffer_destroy(ub);
+			return NULL;
+		}
+
+		if (uwsgi_strncmp(ucmc.status, ucmc.status_len, "ok", 2)) {
+			close(fd);
+                        uwsgi_buffer_destroy(ub);
+                        return NULL;
+		}
+
+		if (ucmc.size == 0) {
+			close(fd);
+                        uwsgi_buffer_destroy(ub);
+                        return NULL;
+		}
+
+		// ok we now need to fix our buffer (if needed)
+		if (ucmc.size > rlen) {
+			char *tmp_buf = realloc(ub->buf, ucmc.size);
+			if (!tmp_buf) {
+				uwsgi_error("uwsgi_cache_magic_get()/realloc()");
+				close(fd);
+				uwsgi_buffer_destroy(ub);
+				return NULL;
+			}
+			ub->buf = tmp_buf;
+		}
+
+		if (uwsgi_read_whole_true_nb(fd, ub->buf, ucmc.size, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+			close(fd);
+			uwsgi_buffer_destroy(ub);
+			return NULL;
+		}
+
+		// now the magic, we dereference the internal buffer and return it to the caller
+		char *value = ub->buf;
+		ub->buf = NULL;
+		uwsgi_buffer_destroy(ub);
+		*vallen = ucmc.size;
+		return value;
+		
 	}
 
 	return NULL;

@@ -61,6 +61,46 @@ static void cache_simple_command(char *key, uint16_t keylen, char *val, uint16_t
         }
 }
 
+// this function does not use the magic api internally to avoid too much copy
+static void manage_magic_context(struct wsgi_request *wsgi_req, struct uwsgi_cache_magic_context *ucmc) {
+
+	struct uwsgi_buffer *ub = NULL;
+	struct uwsgi_cache *uc = uwsgi.caches;
+
+	if (ucmc->cache_len > 0) {
+		uc = uwsgi_cache_by_namelen(ucmc->cache, ucmc->cache_len);
+		if (!uc) return;
+	}
+
+	if (!uc) return;
+
+	// cache get
+	if (!uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "get", 3)) {
+		uint64_t vallen = 0;
+		uwsgi_rlock(uc->lock);
+		char *value = uwsgi_cache_get2(uc, ucmc->key, ucmc->key_len, &vallen);
+		if (!value) {
+			uwsgi_rwunlock(uc->lock);
+			return;
+		}
+		// we are still locked !!!
+		ub = uwsgi_buffer_new(uwsgi.page_size);
+		ub->pos = 4;
+		if (uwsgi_buffer_append_keyval(ub, "status", 6, "ok", 2)) goto error;
+		if (uwsgi_buffer_append_keynum(ub, "size", 4, vallen)) goto error;
+		if (uwsgi_buffer_set_uh(ub, 111, 17)) goto error;
+		if (uwsgi_buffer_append(ub, value, vallen)) goto error;
+		// unlock !!!
+		uwsgi_rwunlock(uc->lock);
+		uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+		uwsgi_buffer_destroy(ub);
+		return;	
+	}
+
+error:
+	uwsgi_rwunlock(uc->lock);
+	uwsgi_buffer_destroy(ub);
+}
 
 static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 
@@ -69,6 +109,9 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
         char *argv[3];
         uint16_t argvs[3];
         uint8_t argc = 0;
+
+	// used for modifier2 17
+	struct uwsgi_cache_magic_context ucmc;
 
         switch(wsgi_req->uh->modifier2) {
                 case 0:
@@ -155,6 +198,16 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 			// write the whole cache
 			uwsgi_response_write_body_do(wsgi_req, buf, uwsgi.caches->filesize);
 			free(buf);
+			break;
+		case 17:
+			if (wsgi_req->uh->pktsize == 0) break;
+			memset(&ucmc, 0, sizeof(struct uwsgi_cache_magic_context));
+			if (uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh->pktsize, uwsgi_cache_magic_context_hook, &ucmc)) {
+				break;
+			}
+			manage_magic_context(wsgi_req, &ucmc);
+			break;
+		default:
 			break;
         }
 

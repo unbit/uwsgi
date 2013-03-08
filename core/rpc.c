@@ -111,6 +111,7 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 	// wait for connection;
 	int ret = uwsgi.wait_write_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 	if (ret <= 0) {
+		close(fd);
 		return NULL;
 	}
 

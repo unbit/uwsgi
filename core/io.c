@@ -854,6 +854,20 @@ wait:
 }
 
 
+/*
+	like the previous one but consume the whole len (if possibile)
+*/
+
+ssize_t uwsgi_read_whole_true_nb(int fd, char *buf, size_t remains, int timeout) {
+	char *ptr = buf;
+	while(remains > 0) {
+		ssize_t len = uwsgi_read_true_nb(fd, ptr, remains, timeout);
+		if (len <= 0) return len;
+		ptr += len;
+		remains -= len;
+	}
+	return remains;
+}
 
 /*
 	this is a pretty magic function used for read a full uwsgi response
@@ -900,6 +914,7 @@ readok:
 			return -1;
 		}
 		*buffer = tmp_buf;
+		buf = *buffer;
 	}
 
 	*rlen = pktsize;

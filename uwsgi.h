@@ -2681,6 +2681,7 @@ char *uwsgi_cache_get2(struct uwsgi_cache *, char *, uint16_t, uint64_t *);
 uint32_t uwsgi_cache_exists2(struct uwsgi_cache *, char *, uint16_t);
 struct uwsgi_cache *uwsgi_cache_create(char *);
 struct uwsgi_cache *uwsgi_cache_by_name(char *);
+struct uwsgi_cache *uwsgi_cache_by_namelen(char *, uint16_t);
 void uwsgi_cache_create_all(void);
 
 #define uwsgi_cache_set(x1, x2, x3, x4, x5, x6) uwsgi_cache_set2(uwsgi.caches, x1, x2, x3, x4, x5, x6)
@@ -2697,9 +2698,9 @@ void uwsgi_cache_start_sync_servers(void);
 	void *uwsgi_calloc(size_t);
 
 
-	int event_queue_init(void);
-	void *event_queue_alloc(int);
-	int event_queue_add_fd_read(int, int);
+int event_queue_init(void);
+void *event_queue_alloc(int);
+int event_queue_add_fd_read(int, int);
 	int event_queue_add_fd_write(int, int);
 	int event_queue_del_fd(int, int, int);
 	int event_queue_wait(int, int, int *);
@@ -2968,6 +2969,7 @@ void uwsgi_socket_b(int);
 int uwsgi_write_nb(int, char *, size_t, int);
 int uwsgi_read_nb(int, char *, size_t, int);
 ssize_t uwsgi_read_true_nb(int, char *, size_t, int);
+ssize_t uwsgi_read_whole_true_nb(int, char *, size_t, int);
 int uwsgi_read_uh(int fd, struct uwsgi_header *, int);
 int uwsgi_proxy_nb(struct wsgi_request *, char *, struct uwsgi_buffer *, size_t, int);
 
@@ -3596,6 +3598,7 @@ int uwsgi_buffer_insert(struct uwsgi_buffer *, size_t, char *, size_t);
 int uwsgi_buffer_insert_chunked(struct uwsgi_buffer *, size_t, size_t);
 int uwsgi_buffer_append_chunked(struct uwsgi_buffer *, size_t);
 int uwsgi_buffer_append_json(struct uwsgi_buffer *, char *, size_t);
+int uwsgi_buffer_set_uh(struct uwsgi_buffer *, uint8_t, uint8_t);
 
 ssize_t uwsgi_buffer_write_simple(struct wsgi_request *, struct uwsgi_buffer *);
 
@@ -3887,9 +3890,24 @@ struct uwsgi_stats_pusher_instance *uwsgi_stats_pusher_add(struct uwsgi_stats_pu
 
 int plugin_already_loaded(const char *);
 
+struct uwsgi_cache_magic_context {
+	char *cmd;
+	uint16_t cmd_len;
+	char *key;
+	uint16_t key_len;
+	uint64_t size;
+	uint64_t expires;
+	char *status;
+	uint16_t status_len;
+	char *cache;
+	uint16_t cache_len;
+};
+
 char *uwsgi_cache_magic_get(char *, uint16_t, uint64_t *, char *);
 int uwsgi_cache_magic_set(char *, uint16_t, char *, uint64_t, uint64_t, uint64_t, char *);
 int uwsgi_cache_magic_del(char *, uint16_t, char *);
+int uwsgi_cache_magic_exists(char *, uint16_t, char *);
+void uwsgi_cache_magic_context_hook(char *, uint16_t, char *, uint16_t, void *);
 
 #ifdef UWSGI_ZLIB
 #include <zlib.h>
