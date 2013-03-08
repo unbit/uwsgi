@@ -63,7 +63,7 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 	}
 
 	uint64_t valsize = 0;
-	char *value = uwsgi_cache_safe_get2(urcc->cache, c_k, c_k_len, &valsize);
+	char *value = uwsgi_cache_magic_get(c_k, c_k_len, &valsize, urcc->name);
 	if (value) {
 		if (urcc->type_num == 1) {
 			if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto error;
@@ -134,17 +134,6 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
                 if (!strcmp(urcc->type, "body")) {
                         urcc->type_num = 1;
                 }
-
-		if (urcc->name) {
-			urcc->cache = uwsgi_cache_by_name(urcc->name);
-			if (!urcc->cache) {
-				uwsgi_log("unable to find cache \"%s\"\n", urcc->name);
-				exit(1);
-			}
-		}
-		else {
-			urcc->cache = uwsgi.caches;
-		}
 
                 ur->data2 = urcc;
 	return 0;
