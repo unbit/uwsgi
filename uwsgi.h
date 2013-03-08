@@ -2970,7 +2970,7 @@ void uwsgi_socket_b(int);
 int uwsgi_write_nb(int, char *, size_t, int);
 int uwsgi_read_nb(int, char *, size_t, int);
 ssize_t uwsgi_read_true_nb(int, char *, size_t, int);
-ssize_t uwsgi_read_whole_true_nb(int, char *, size_t, int);
+int uwsgi_read_whole_true_nb(int, char *, size_t, int);
 int uwsgi_read_uh(int fd, struct uwsgi_header *, int);
 int uwsgi_proxy_nb(struct wsgi_request *, char *, struct uwsgi_buffer *, size_t, int);
 

@@ -99,7 +99,28 @@ static void manage_magic_context(struct wsgi_request *wsgi_req, struct uwsgi_cac
 
 	// cache set
 	if (!uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "set", 3)) {
-		// allocate memory for the item	
+		if (ucmc->size == 0 || ucmc->size > uc->max_item_size) return;
+		wsgi_req->post_cl = ucmc->size;
+		// read the value
+		ssize_t rlen = 0;
+		char *value = uwsgi_request_body_read(wsgi_req, ucmc->size, &rlen);
+		if (rlen != (ssize_t) ucmc->size) return;
+		// ok let's lock
+		uwsgi_wlock(uc->lock);
+		if (uwsgi_cache_set2(uc, ucmc->key, ucmc->key_len, value, ucmc->size, ucmc->expires, 0)) {
+			uwsgi_rwunlock(uc->lock);
+			return;
+		}
+		// we are still locked !!!
+		ub = uwsgi_buffer_new(uwsgi.page_size);
+		ub->pos = 4;
+                if (uwsgi_buffer_append_keyval(ub, "status", 6, "ok", 2)) goto error;
+		if (uwsgi_buffer_set_uh(ub, 111, 17)) goto error;
+		// unlock !!!
+		uwsgi_rwunlock(uc->lock);
+		uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+                uwsgi_buffer_destroy(ub);
+                return;
 	}
 
 	return;
