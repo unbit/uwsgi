@@ -38,4 +38,6 @@ public class uwsgi {
 
 	public static native void alarm(String alarm, String msg);
 
+	public static native String rpc(String... args);
+
 }
