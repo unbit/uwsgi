@@ -230,8 +230,10 @@ static ssize_t fr_recv_uwsgi_header(struct corerouter_peer *main_peer) {
 
 	// header ready
 	if (main_peer->in->pos == 4) {
-		// change the reading default hook
+		// change the reading default and current hook (simulate a reset hook but without syscall)
+		// this is a special case for the fastrouter as it changes its hook without changing the event mapping
 		main_peer->last_hook_read = fr_recv_uwsgi_vars;
+		main_peer->hook_read = fr_recv_uwsgi_vars;
 		return fr_recv_uwsgi_vars(main_peer);
 	}
 
