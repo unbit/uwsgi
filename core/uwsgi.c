@@ -2541,6 +2541,9 @@ next:
 #endif
 
 	if (uwsgi.master_process) {
+		// initialize threads with shared state
+		uwsgi_alarm_thread_start();
+        	uwsgi_exceptions_handler_thread_start();
 		// initialize a mutex to avoid glibc problem with pthread+fork()
 		if (uwsgi.threaded_logger) {
 			pthread_mutex_init(&uwsgi.threaded_logger_lock, NULL);

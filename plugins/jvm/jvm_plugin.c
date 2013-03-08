@@ -93,6 +93,17 @@ JNIEXPORT jobject JNICALL uwsgi_jvm_api_cache_get(JNIEnv *env, jclass c, jstring
 	return NULL;
 }
 
+JNIEXPORT void JNICALL uwsgi_jvm_api_alarm(JNIEnv *env, jclass c, jstring alarm, jstring msg) {
+
+	char *c_alarm = uwsgi_jvm_str2c(alarm);
+	size_t c_msg_len = uwsgi_jvm_strlen(msg);
+	char *c_msg = uwsgi_jvm_str2c(msg);
+        uwsgi_alarm_trigger(c_alarm, c_msg, c_msg_len);
+	uwsgi_jvm_release_chars(msg, c_msg);
+	uwsgi_jvm_release_chars(alarm, c_alarm);
+
+}
+
 static JNINativeMethod uwsgi_jvm_api_methods[] = {
 	{"register_signal", "(ILjava/lang/String;Luwsgi$SignalHandler;)V", (void *) &uwsgi_jvm_api_register_signal},
 	{"register_rpc", "(Ljava/lang/String;Luwsgi$RpcFunction;)V", (void *) &uwsgi_jvm_api_register_rpc},
@@ -102,6 +113,7 @@ static JNINativeMethod uwsgi_jvm_api_methods[] = {
 	{"lock", "(I)V", (void *) &uwsgi_jvm_api_lock},
 	{"unlock", "(I)V", (void *) &uwsgi_jvm_api_unlock},
 	{"cache_get", "(Ljava/lang/String;)[B", (void *) &uwsgi_jvm_api_cache_get},
+	{"alarm", "(Ljava/lang/String;Ljava/lang/String;)V", (void *) &uwsgi_jvm_api_alarm},
 };
 
 JNIEXPORT jint JNICALL uwsgi_jvm_request_body_read(JNIEnv *env, jobject o) {

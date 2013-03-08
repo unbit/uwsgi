@@ -28,5 +28,14 @@ public class uwsgi {
 	public static native void unlock(int locknum);
 
 	public static native byte[] cache_get(String key);
+	public static native byte[] cache_get(String key, String cache);
+	public static native void cache_set(String key, byte[] value);
+	public static native void cache_update(String key, byte[] value);
+	public static native void cache_set(String key, byte[] value, int expires);
+	public static native void cache_update(String key, byte[] value, int expires);
+	public static native void cache_set(String key, byte[] value, int expires, String cache);
+	public static native void cache_update(String key, byte[] value, int expires, String cache);
+
+	public static native void alarm(String alarm, String msg);
 
 }
