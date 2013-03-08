@@ -2581,25 +2581,21 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 	char *value;
 	Py_ssize_t vallen = 0;
 	Py_ssize_t keylen = 0;
+	char *remote = NULL;
 
 	uint64_t expires = 0;
 
-	if (!PyArg_ParseTuple(args, "s#s#|i:cache_set", &key, &keylen, &value, &vallen, &expires)) {
+	if (!PyArg_ParseTuple(args, "s#s#|is:cache_set", &key, &keylen, &value, &vallen, &expires, &remote)) {
 		return NULL;
 	}
 
-	if (uwsgi.caches) {
-		UWSGI_RELEASE_GIL
-		uwsgi_wlock(uwsgi.caches->lock);
-		if (uwsgi_cache_set(key, keylen, value, vallen, expires, 0)) {
-			uwsgi_rwunlock(uwsgi.caches->lock);
-			UWSGI_GET_GIL
-			Py_INCREF(Py_None);
-			return Py_None;
-		}
-		uwsgi_rwunlock(uwsgi.caches->lock);
+	UWSGI_RELEASE_GIL
+	if (uwsgi_cache_magic_set(key, keylen, value, vallen, expires, 0, remote)) {
 		UWSGI_GET_GIL
+		Py_INCREF(Py_None);
+		return Py_None;
 	}
+	UWSGI_GET_GIL
 
 	Py_INCREF(Py_True);
 	return Py_True;

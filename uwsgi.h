@@ -690,6 +690,7 @@ struct uwsgi_cache {
 	uint64_t blocks_bitmap_size;
 
 	uint64_t max_items;
+	uint64_t max_item_size;
 	uint64_t n_items;
 	struct uwsgi_cache_item *items;
 

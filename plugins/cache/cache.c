@@ -97,6 +97,12 @@ static void manage_magic_context(struct wsgi_request *wsgi_req, struct uwsgi_cac
 		return;	
 	}
 
+	// cache set
+	if (!uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "set", 3)) {
+		// allocate memory for the item	
+	}
+
+	return;
 error:
 	uwsgi_rwunlock(uc->lock);
 	uwsgi_buffer_destroy(ub);
