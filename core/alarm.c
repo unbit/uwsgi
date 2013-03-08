@@ -267,6 +267,7 @@ void uwsgi_alarms_init() {
 }
 
 void uwsgi_alarm_thread_start() {
+	if (!uwsgi.alarm_instances) return;
 	// start the alarm_thread
 	uwsgi.alarm_thread = uwsgi_thread_new(uwsgi_alarm_thread_loop);
 	if (!uwsgi.alarm_thread) {
