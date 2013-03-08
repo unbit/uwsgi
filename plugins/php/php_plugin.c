@@ -244,25 +244,53 @@ PHP_FUNCTION(uwsgi_masterpid) {
 	RETURN_LONG(0);
 }
 
+PHP_FUNCTION(uwsgi_cache_exists) {
+
+        char *key = NULL;
+        int keylen = 0;
+        char *cache = NULL;
+
+        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &key, &keylen, &cache) == FAILURE) {
+                RETURN_NULL();
+        }
+
+        if (uwsgi_cache_magic_exists(key, keylen, cache)) {
+                RETURN_TRUE;
+        }
+
+        RETURN_NULL();
+}
+
+PHP_FUNCTION(uwsgi_cache_clear) {
+
+        char *cache = NULL;
+
+        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s", &cache) == FAILURE) {
+                RETURN_NULL();
+        }
+
+        if (!uwsgi_cache_magic_clear(cache)) {
+                RETURN_TRUE;
+        }
+
+        RETURN_NULL();
+}
+
+
 PHP_FUNCTION(uwsgi_cache_del) {
 	
 	char *key = NULL;
         int keylen = 0;
+	char *cache = NULL;
 
-        if (!uwsgi.caches)
-                RETURN_NULL();
-
-        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &key, &keylen) == FAILURE) {
+        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &key, &keylen, &cache) == FAILURE) {
                 RETURN_NULL();
         }
 
-	uwsgi_wlock(uwsgi.caches->lock);
-        if (uwsgi_cache_del(key, keylen, 0, 0)) {
-                uwsgi_rwunlock(uwsgi.caches->lock);
+        if (!uwsgi_cache_magic_del(key, keylen, cache)) {
 		RETURN_TRUE;
         }
 
-        uwsgi_rwunlock(uwsgi.caches->lock);
 	RETURN_NULL();
 }
 
@@ -270,23 +298,22 @@ PHP_FUNCTION(uwsgi_cache_get) {
 
 	char *key = NULL;
 	int keylen = 0;
+	char *cache = NULL;
 	uint64_t valsize;
 
 	if (!uwsgi.caches)
 		RETURN_NULL();
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &key, &keylen) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &key, &keylen, &cache) == FAILURE) {
                 RETURN_NULL();
         }
 
-	uwsgi_rlock(uwsgi.caches->lock);
-	char *value = uwsgi_cache_get(key, keylen, &valsize);
+	char *value = uwsgi_cache_magic_get(key, keylen, &valsize, cache);
 	if (value) {
 		char *ret = estrndup(value, valsize);
-		uwsgi_rwunlock(uwsgi.caches->lock);
+		free(value);
 		RETURN_STRING(ret, 0);
 	}
-	uwsgi_rwunlock(uwsgi.caches->lock);
 	RETURN_NULL();
 }
 
@@ -296,24 +323,18 @@ PHP_FUNCTION(uwsgi_cache_set) {
 	char *value = NULL;
 	int vallen;
 	uint64_t expires = 0;
+	char *cache = NULL;
 
 	if (!uwsgi.caches)
 		RETURN_NULL();
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|l", &key, &keylen, &value, &vallen, &expires) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|ls", &key, &keylen, &value, &vallen, &expires, &cache) == FAILURE) {
                 RETURN_NULL();
         }
 
-	if ((uint64_t)vallen > uwsgi.caches->blocksize) {
-		RETURN_NULL();
-	}
-	
-	uwsgi_wlock(uwsgi.caches->lock);
-	if (uwsgi_cache_set(key, keylen, value, vallen, expires, 0)) {
-		uwsgi_rwunlock(uwsgi.caches->lock);
+	if (uwsgi_cache_magic_set(key, keylen, value, vallen, expires, 0, cache)) {
 		RETURN_TRUE;
 	}
-	uwsgi_rwunlock(uwsgi.caches->lock);
 	RETURN_NULL();
 	
 }
@@ -324,24 +345,18 @@ PHP_FUNCTION(uwsgi_cache_update) {
         char *value = NULL;
         int vallen;
         uint64_t expires = 0;
+        char *cache = NULL;
 
-	if (!uwsgi.caches)
-		RETURN_NULL();
+        if (!uwsgi.caches)
+                RETURN_NULL();
 
-        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|l", &key, &keylen, &value, &vallen, &expires) == FAILURE) {
+        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|ls", &key, &keylen, &value, &vallen, &expires, &cache) == FAILURE) {
                 RETURN_NULL();
         }
 
-        if ((uint64_t)vallen > uwsgi.caches->blocksize) {
-                RETURN_NULL();
-        }
-
-        uwsgi_wlock(uwsgi.caches->lock);
-        if (uwsgi_cache_set(key, keylen, value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE)) {
-                uwsgi_rwunlock(uwsgi.caches->lock);
+        if (uwsgi_cache_magic_set(key, keylen, value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE, cache)) {
                 RETURN_TRUE;
         }
-        uwsgi_rwunlock(uwsgi.caches->lock);
         RETURN_NULL();
 
 }
@@ -444,11 +459,15 @@ zend_function_entry uwsgi_php_functions[] = {
 	PHP_FE(uwsgi_worker_id,   NULL)
 	PHP_FE(uwsgi_masterpid,   NULL)
 	PHP_FE(uwsgi_signal,   NULL)
+
 	PHP_FE(uwsgi_rpc,   NULL)
+
 	PHP_FE(uwsgi_cache_get,   NULL)
 	PHP_FE(uwsgi_cache_set,   NULL)
 	PHP_FE(uwsgi_cache_update,   NULL)
 	PHP_FE(uwsgi_cache_del,   NULL)
+	PHP_FE(uwsgi_cache_clear,   NULL)
+	PHP_FE(uwsgi_cache_exists,   NULL)
 	{ NULL, NULL, NULL},
 };
 
