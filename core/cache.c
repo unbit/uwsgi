@@ -934,8 +934,8 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		uc->name = "default";
 		uc->name_len = strlen(uc->name);
 		uc->blocksize = uwsgi.cache_blocksize;
-		uc->max_item_size = uc->blocksize;
 		if (!uc->blocksize) uc->blocksize = UMAX16;
+		uc->max_item_size = uc->blocksize;
 		uc->max_items = uwsgi.cache_max_items;
 		uc->blocks = uwsgi.cache_max_items;
 		uc->keysize = 2048;
@@ -1476,6 +1476,7 @@ int uwsgi_cache_magic_set(char *key, uint16_t keylen, char *value, uint64_t vall
         char *cache_server = NULL;
         char *cache_name = NULL;
         uint16_t cache_name_len = 0;
+
         if (cache) {
                 char *at = strchr(cache, '@');
                 if (!at) {
