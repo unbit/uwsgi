@@ -176,15 +176,28 @@ static void uwsgi_cache_load_files(struct uwsgi_cache *uc) {
 	struct uwsgi_string_list *usl = uwsgi.load_file_in_cache;
 	while(usl) {
 		size_t len = 0;
-		char *value = uwsgi_open_and_read(usl->value, &len, 0, NULL);
+		char *value = NULL;
+		char *key = usl->value;
+		uint16_t key_len = usl->len;
+		char *space = strchr(usl->value, ' ');
+		if (space) {
+			// need to skip ?
+			if (uwsgi_strncmp(uc->name, uc->name_len, usl->value, space-usl->value)) {
+				goto next;
+			}
+			key = space+1;
+			key_len = usl->len - ((space-usl->value)+1);
+		}
+		value = uwsgi_open_and_read(key, &len, 0, NULL);
 		if (value) {
 			uwsgi_wlock(uc->lock);
-			if (!uwsgi_cache_set2(uc,usl->value, usl->len, value, len, 0, 0)) {
-				uwsgi_log("[cache] stored %s\n", usl->value);
+			if (!uwsgi_cache_set2(uc, key, key_len, value, len, 0, 0)) {
+				uwsgi_log("[cache] stored \"%.*s\" in \"%s\"\n", key_len, key, uc->name);
 			}		
 			uwsgi_rwunlock(uc->lock);
 			free(value);
 		}
+next:
 		usl = usl->next;
 	}
 }
@@ -1058,6 +1071,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 	// default (old-stye) cache ?
 	if (!arg) {
 		uc->name = "default";
+		uc->name_len = strlen(uc->name);
 		uc->blocksize = uwsgi.cache_blocksize;
 		if (!uc->blocksize) uc->blocksize = UMAX16;
 		uc->max_items = uwsgi.cache_max_items;
@@ -1127,6 +1141,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		}
 
 		uc->name = c_name;
+		uc->name_len = strlen(c_name);
 		uc->max_items = uwsgi_n64(c_max_items);
 		if (!uc->max_items) {
 			uwsgi_log("you have to specify the maximum number of cache items\n");
@@ -1247,3 +1262,49 @@ char *uwsgi_cache_safe_get2(struct uwsgi_cache *uc, char *key, uint16_t keylen, 
 	return NULL;
 	
 }
+
+/*
+ * uWSGI cache magic functions. They can be used by plugin to easily access local and remote caches
+ *
+ * they generate (when needed) a new memory buffer. Locking is automatically managed
+ *
+ * You have to free the returned memory !!!
+ *
+ */
+char *uwsgi_cache_magic_get(char *key, uint16_t keylen, uint64_t *vallen, char *cachename) {
+	struct uwsgi_cache *uc = NULL;
+	char *cache_server = NULL;
+	if (cachename) {
+		char *at = strchr(cachename, '@');
+		if (!at) {
+			uc = uwsgi_cache_by_name(cachename);
+		}
+		else {
+		}
+	}
+	// use default (local) cache
+	else {
+		uc = uwsgi.caches;
+	}
+
+	// we have a local cache !!!
+	if (uc) {
+		uwsgi_rlock(uc->lock);
+		char *value = uwsgi_cache_get2(uc, key, keylen, vallen);
+		if (!value) {
+			uwsgi_rwunlock(uc->lock);
+			return NULL;
+		}
+		char *buf = uwsgi_malloc(*vallen);
+		memcpy(buf, value, *vallen);
+		uwsgi_rwunlock(uc->lock);
+		return buf;
+	}
+
+	// we have a remote one
+	if (cache_server) {
+	}
+
+	return NULL;
+}
+

@@ -3893,6 +3893,8 @@ struct uwsgi_stats_pusher_instance *uwsgi_stats_pusher_add(struct uwsgi_stats_pu
 
 int plugin_already_loaded(const char *);
 
+char *uwsgi_cache_magic_get(char *, uint16_t, uint64_t *, char *);
+
 #ifdef UWSGI_ZLIB
 #include <zlib.h>
 int uwsgi_deflate_init(z_stream *, char *, size_t);
