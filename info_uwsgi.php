@@ -15,10 +15,11 @@ rpc result:<br/>
 
 <?
 	if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-		uwsgi_cache_update('foobar', $_POST['cache_val']);
+		echo uwsgi_cache_update('foobar', $_POST['cache_val']);
 	}
 
 ?>
+cache value: <?= uwsgi_cache_get('foobar') ?><br/>
 <form method="POST">
 	<input type="text" name="cache_val" value="<?=uwsgi_cache_get('foobar')?>"/>
 	<input type="submit" value="cache set" />

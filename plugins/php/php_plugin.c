@@ -121,6 +121,7 @@ static int sapi_uwsgi_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 		char *buf = uwsgi_request_body_read(wsgi_req, count_bytes - read_bytes, &rlen);
 		if (buf == uwsgi.empty) break;
 		if (buf) {
+			memcpy(buffer, buf, rlen);
 			read_bytes += rlen;
 			continue;
 		}
