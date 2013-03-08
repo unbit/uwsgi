@@ -2633,41 +2633,8 @@ PyObject *py_uwsgi_cache_update(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_cache_exists(PyObject * self, PyObject * args) {
 
-	char *key;
-	Py_ssize_t keylen = 0;
-	char *remote = NULL;
-
-	if (!PyArg_ParseTuple(args, "s#|s:cache_exists", &key, &keylen, &remote)) {
-		return NULL;
-	}
-	
-	if (remote && strlen(remote) > 0) {
-		// TODO FIX THIS !!!
-		UWSGI_RELEASE_GIL
-		//uwsgi_simple_message_string(remote, 111, 0, key, keylen, buffer, &valsize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		UWSGI_GET_GIL
-/*
-		if (valsize > 0) {
-			Py_INCREF(Py_True);
-			return Py_True;
-		}	
-*/
-        }
-	else if (uwsgi.caches) {
-		UWSGI_RELEASE_GIL
-		uwsgi_rlock(uwsgi.caches->lock);
-		if (uwsgi_cache_exists(key, keylen)) {
-			uwsgi_rwunlock(uwsgi.caches->lock);
-			UWSGI_GET_GIL
-			Py_INCREF(Py_True);
-			return Py_True;
-		}
-		uwsgi_rwunlock(uwsgi.caches->lock);
-		UWSGI_GET_GIL
-	}
-
-	Py_INCREF(Py_None);
-	return Py_None;
+	Py_INCREF(Py_True);
+	return Py_True;
 
 }
 
