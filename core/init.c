@@ -68,7 +68,6 @@ void uwsgi_init_default() {
 
 	uwsgi.signal_socket = -1;
 	uwsgi.my_signal_socket = -1;
-	uwsgi.cache_server_fd = -1;
 	uwsgi.stats_fd = -1;
 
 	uwsgi.stats_pusher_default_freq = 3;

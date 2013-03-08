@@ -2143,10 +2143,6 @@ struct uwsgi_server {
 		struct uwsgi_string_list *cache_udp_server;
 		struct uwsgi_string_list *cache_udp_node;
 
-		char *cache_server;
-		int cache_server_threads;
-		int cache_server_fd;
-		pthread_mutex_t cache_server_lock;
 		char *cache_sync;
 
 		// the stats server
@@ -3004,53 +3000,52 @@ socklen_t socket_to_in_addr6(char *, char *, int, struct sockaddr_in6 *);
 	long uwsgi_num_from_file(char *, int);
 #endif
 
-	void uwsgi_add_sockets_to_queue(int, int);
-	void uwsgi_del_sockets_from_queue(int);
+void uwsgi_add_sockets_to_queue(int, int);
+void uwsgi_del_sockets_from_queue(int);
 
-	int uwsgi_run_command_and_wait(char *, char *);
+int uwsgi_run_command_and_wait(char *, char *);
 
-	void uwsgi_manage_signal_cron(time_t);
-	pid_t uwsgi_run_command(char *, int *, int);
+void uwsgi_manage_signal_cron(time_t);
+pid_t uwsgi_run_command(char *, int *, int);
 
-	void uwsgi_manage_command_cron(time_t);
+void uwsgi_manage_command_cron(time_t);
 
-	int *uwsgi_attach_fd(int, int *, char *, size_t);
+int *uwsgi_attach_fd(int, int *, char *, size_t);
 
-	int uwsgi_count_sockets(struct uwsgi_socket *);
-	int uwsgi_file_exists(char *);
+int uwsgi_count_sockets(struct uwsgi_socket *);
+int uwsgi_file_exists(char *);
 
-	int uwsgi_signal_registered(uint8_t);
+int uwsgi_signal_registered(uint8_t);
 
-	int uwsgi_endswith(char *, char *);
-
-	int uwsgi_cache_server(char *, int);
-
-	void uwsgi_chown(char *, char *);
-
-	char *uwsgi_get_binary_path(char *);
-
-	char *uwsgi_lower(char *, size_t);
-	int uwsgi_num2str2n(int, char *, int);
-	void create_logpipe(void);
-
-	char *uwsgi_str_contains(char *, int, char);
-
-	int uwsgi_simple_parse_vars(struct wsgi_request *, char *, char *);
-
-	void uwsgi_build_mime_dict(char *);
-	struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **, char *, int, char *, int);
-	void uwsgi_dyn_dict_del(struct uwsgi_dyn_dict *);
+int uwsgi_endswith(char *, char *);
 
 
-	void uwsgi_apply_config_pass(char symbol, char *(*)(char *));
+void uwsgi_chown(char *, char *);
 
-	void uwsgi_mule(int);
+char *uwsgi_get_binary_path(char *);
 
-	char *uwsgi_string_get_list(struct uwsgi_string_list **, int, size_t *);
+char *uwsgi_lower(char *, size_t);
+int uwsgi_num2str2n(int, char *, int);
+void create_logpipe(void);
 
-	void uwsgi_fixup_fds(int, int, struct uwsgi_gateway *);
+char *uwsgi_str_contains(char *, int, char);
 
-	void uwsgi_set_processname(char *);
+int uwsgi_simple_parse_vars(struct wsgi_request *, char *, char *);
+
+void uwsgi_build_mime_dict(char *);
+struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **, char *, int, char *, int);
+void uwsgi_dyn_dict_del(struct uwsgi_dyn_dict *);
+
+
+void uwsgi_apply_config_pass(char symbol, char *(*)(char *));
+
+void uwsgi_mule(int);
+
+char *uwsgi_string_get_list(struct uwsgi_string_list **, int, size_t *);
+
+void uwsgi_fixup_fds(int, int, struct uwsgi_gateway *);
+
+void uwsgi_set_processname(char *);
 
 	void http_url_decode(char *, uint16_t *, char *);
 
