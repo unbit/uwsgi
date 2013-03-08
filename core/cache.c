@@ -1397,6 +1397,74 @@ char *uwsgi_cache_magic_get(char *key, uint16_t keylen, uint64_t *vallen, char *
 	return NULL;
 }
 
+int uwsgi_cache_magic_exists(char *key, uint16_t keylen, char *cache) {
+        struct uwsgi_cache_magic_context ucmc;
+        struct uwsgi_cache *uc = NULL;
+        char *cache_server = NULL;
+        char *cache_name = NULL;
+        uint16_t cache_name_len = 0;
+        if (cache) {
+                char *at = strchr(cache, '@');
+                if (!at) {
+                        uc = uwsgi_cache_by_name(cache);
+                }
+                else {
+                        cache_server = at + 1;
+                        cache_name = cache;
+                        cache_name_len = at - cache;
+                }
+        }
+        // use default (local) cache
+        else {
+                uc = uwsgi.caches;
+        }
+
+        // we have a local cache !!!
+        if (uc) {
+                uwsgi_rlock(uc->lock);
+                if (!uwsgi_cache_exists2(uc, key, keylen)) {
+                        uwsgi_rwunlock(uc->lock);
+                        return 0;
+                }
+		uwsgi_rwunlock(uc->lock);
+		return 1;
+        }
+
+	// we have a remote one
+        if (cache_server) {
+                int fd = uwsgi_connect(cache_server, 0, 1);
+                if (fd < 0) return 0;
+
+                int ret = uwsgi.wait_write_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                if (ret <= 0) {
+                        close(fd);
+			return 0;
+                }
+
+                struct uwsgi_buffer *ub = uwsgi_cache_prepare_magic_exists(cache_name, cache_name_len, key, keylen);
+                if (!ub) {
+                        close(fd);
+			return 0;
+                }
+
+                if (cache_magic_send_and_manage(fd, ub, NULL, 0, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], &ucmc)) {
+                        close(fd);
+                        uwsgi_buffer_destroy(ub);
+			return 0;
+                }
+
+                if (uwsgi_strncmp(ucmc.status, ucmc.status_len, "ok", 2)) {
+                        close(fd);
+                        uwsgi_buffer_destroy(ub);
+			return 0;
+                }
+
+		return 1;
+        }
+
+        return 0;
+}
+
 
 int uwsgi_cache_magic_set(char *key, uint16_t keylen, char *value, uint64_t vallen, uint64_t expires, uint64_t flags, char *cache) {
 	struct uwsgi_cache_magic_context ucmc;
@@ -1472,28 +1540,72 @@ int uwsgi_cache_magic_set(char *key, uint16_t keylen, char *value, uint64_t vall
 
 }
 
-int uwsgi_cache_magic_del(char *key, uint16_t keylen, char *cachename) {
-	struct uwsgi_cache *uc = NULL;
+int uwsgi_cache_magic_del(char *key, uint16_t keylen, char *cache) {
+
+	struct uwsgi_cache_magic_context ucmc;
+        struct uwsgi_cache *uc = NULL;
         char *cache_server = NULL;
-        if (cachename) {
-                char *at = strchr(cachename, '@');
+        char *cache_name = NULL;
+        uint16_t cache_name_len = 0;
+        if (cache) {
+                char *at = strchr(cache, '@');
                 if (!at) {
-                        uc = uwsgi_cache_by_name(cachename);
+                        uc = uwsgi_cache_by_name(cache);
                 }
                 else {
+                        cache_server = at + 1;
+                        cache_name = cache;
+                        cache_name_len = at - cache;
                 }
         }
-	// use default (local) cache
-	if (uc) {
-                uwsgi_wlock(uc->lock);
-                int ret = uwsgi_cache_del2(uc, key, keylen, 0, 0);
-                uwsgi_rwunlock(uc->lock);
-                return ret;
+        // use default (local) cache
+        else {
+                uc = uwsgi.caches;
         }
 
-	// we have a remote one
-	if (cache_server) {
-	}
+        // we have a local cache !!!
+        if (uc) {
+                uwsgi_wlock(uc->lock);
+                if (uwsgi_cache_del2(uc, key, keylen, 0, 0)) {
+                        uwsgi_rwunlock(uc->lock);
+                        return -1;
+                }
+                uwsgi_rwunlock(uc->lock);
+                return 0;
+        }
 
-	return -1;
+        // we have a remote one
+        if (cache_server) {
+                int fd = uwsgi_connect(cache_server, 0, 1);
+                if (fd < 0) return -1;
+
+                int ret = uwsgi.wait_write_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                if (ret <= 0) {
+                        close(fd);
+                        return -1;
+                }
+
+                struct uwsgi_buffer *ub = uwsgi_cache_prepare_magic_del(cache_name, cache_name_len, key, keylen);
+                if (!ub) {
+                        close(fd);
+                        return -1;
+                }
+
+                if (cache_magic_send_and_manage(fd, ub, NULL, 0, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], &ucmc)) {
+                        close(fd);
+                        uwsgi_buffer_destroy(ub);
+                        return -1;
+                }
+
+                if (uwsgi_strncmp(ucmc.status, ucmc.status_len, "ok", 2)) {
+                        close(fd);
+                        uwsgi_buffer_destroy(ub);
+                        return -1;
+                }
+
+                return 0;
+        }
+
+        return -1 ;
+
 }

@@ -2544,33 +2544,24 @@ PyObject *py_uwsgi_cache_clear(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_cache_del(PyObject * self, PyObject * args) {
 
 	char *key;
-	Py_ssize_t keylen = 0;
-	char *remote = NULL;
+        Py_ssize_t keylen = 0;
+        char *cache = NULL;
 
-	if (!PyArg_ParseTuple(args, "s#|s:cache_del", &key, &keylen, &remote)) {
-		return NULL;
-	}
+        if (!PyArg_ParseTuple(args, "s#|s:cache_del", &key, &keylen, &cache)) {
+                return NULL;
+        }
 
-	if (remote && strlen(remote) > 0) {
-		UWSGI_RELEASE_GIL
-		//uwsgi_simple_send_string(remote, 111, 2, key, keylen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);	
-		UWSGI_GET_GIL
-	}
-	else if (uwsgi.caches) {
-		UWSGI_RELEASE_GIL
-		uwsgi_wlock(uwsgi.caches->lock);
-		if (uwsgi_cache_del(key, keylen, 0, 0)) {
-			uwsgi_rwunlock(uwsgi.caches->lock);
-			UWSGI_GET_GIL
-			Py_INCREF(Py_None);
-			return Py_None;
-		}
-		uwsgi_rwunlock(uwsgi.caches->lock);
-		UWSGI_GET_GIL
-	}
+        UWSGI_RELEASE_GIL
+        if (!uwsgi_cache_magic_del(key, keylen, cache)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_True);
+                return Py_True;
+        }
+        UWSGI_GET_GIL
 
-	Py_INCREF(Py_True);
-	return Py_True;
+        Py_INCREF(Py_None);
+        return Py_None;
+
 
 }
 
@@ -2633,9 +2624,24 @@ PyObject *py_uwsgi_cache_update(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_cache_exists(PyObject * self, PyObject * args) {
 
-	Py_INCREF(Py_True);
-	return Py_True;
+	char *key;
+        Py_ssize_t keylen = 0;
+        char *cache = NULL;
 
+        if (!PyArg_ParseTuple(args, "s#|s:cache_get", &key, &keylen, &cache)) {
+                return NULL;
+        }
+
+        UWSGI_RELEASE_GIL
+        if (uwsgi_cache_magic_exists(key, keylen, cache)) {
+		UWSGI_GET_GIL
+		Py_INCREF(Py_True);
+		return Py_True;
+	}
+        UWSGI_GET_GIL
+
+        Py_INCREF(Py_None);
+        return Py_None;
 }
 
 PyObject *py_uwsgi_queue_push(PyObject * self, PyObject * args) {
