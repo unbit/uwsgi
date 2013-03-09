@@ -38,6 +38,8 @@ namespace uwsgi {
 
 	class uWSGIRequest: HttpWorkerRequest {
 
+		private String filepath = null;
+
 		public override string GetAppPath() {
 			return "/";
 		}
@@ -137,6 +139,9 @@ namespace uwsgi {
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		extern public override void SendUnknownResponseHeader (string name, string value);
 
+		public string hack_current_filename() {
+			return filepath;
+		}
 	}
 
 	public class uWSGIApplicationHost: MarshalByRefObject {
