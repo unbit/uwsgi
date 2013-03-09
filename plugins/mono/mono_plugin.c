@@ -281,6 +281,16 @@ static void uwsgi_mono_create_jit() {
 
 	MonoAssembly *assembly = mono_domain_assembly_open(umono.main_domain, umono.assembly_name);
 	if (!assembly) {
+		uwsgi_log("%s not found trying in global gac...\n", umono.assembly_name);
+		assembly = mono_assembly_load_with_partial_name(umono.assembly_name, NULL);
+		if (!assembly) {
+			if (!strcmp("uwsgi.dll", umono.assembly_name)) {
+				assembly = mono_assembly_load_with_partial_name("uwsgi", NULL);
+			}	
+		}
+	}
+
+	if (!assembly) {
 		uwsgi_log("unable to load \"%s\" in the Mono domain\n", umono.assembly_name);
 		exit(1);
 	}

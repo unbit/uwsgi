@@ -6,6 +6,8 @@ using System.Web.Hosting;
 using System.Text;
 using System.Runtime.CompilerServices;
 
+[assembly: System.Reflection.AssemblyVersion ("0.0.0.1")]
+
 namespace uwsgi {
 
 	public delegate void uWSGIHook();
