@@ -452,6 +452,7 @@ void uwsgi_stats_pusher_setup() {
 		pusher = uwsgi_stats_pusher_get(ssp);
 		if (!pusher) {
 			uwsgi_log("unable to find \"%s\" stats_pusher\n", ssp);
+			free(ssp);
 			exit(1);
 		}
 		char *arg = NULL;
@@ -461,6 +462,7 @@ void uwsgi_stats_pusher_setup() {
 		}
 		uwsgi_stats_pusher_add(pusher, arg);
 		usl = usl->next;
+		free(ssp);
 	}
 }
 
