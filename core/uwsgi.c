@@ -3826,10 +3826,8 @@ void uwsgi_opt_flock(char *opt, char *filename, void *none) {
 
 	if (uwsgi_fcntl_is_locked(fd)) {
 		uwsgi_log("uWSGI ERROR: %s is locked by another instance\n", filename);
-		close(fd);
 		exit(1);
 	}
-	close(fd);
 }
 
 void uwsgi_opt_flock_wait(char *opt, char *filename, void *none) {
@@ -3841,10 +3839,8 @@ void uwsgi_opt_flock_wait(char *opt, char *filename, void *none) {
 	}
 
 	if (uwsgi_fcntl_lock(fd)) {
-		close(fd);
 		exit(1);
 	}
-	close(fd);
 }
 
 // report CFLAGS used for compiling the server
