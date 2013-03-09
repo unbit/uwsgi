@@ -717,7 +717,7 @@ static PyObject *py_uwsgi_route(PyObject * self, PyObject * args) {
                 return NULL;
         }
 
-	int ret = uwsgi_route_api_func(wsgi_req, uwsgi_str(router_name), uwsgi_str(router_args));
+	int ret = uwsgi_route_api_func(wsgi_req, router_name, uwsgi_str(router_args));
 	return PyInt_FromLong(ret);
 }
 #endif
