@@ -1264,6 +1264,7 @@ void signal_pidfile(int sig, char *filename) {
 	else {
 		uwsgi_log("error: invalid pidfile\n");
 	}
+	free(buffer);
 }
 
 /*static*/ void uwsgi_command_signal(char *opt) {
