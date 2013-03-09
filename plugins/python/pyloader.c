@@ -563,7 +563,9 @@ PyObject *uwsgi_file_loader(void *arg1) {
 	char *callable = up.callable;
 	if (!callable) callable = "application";
 
-	char *py_filename = uwsgi_concat2("uwsgi_file_", uwsgi_pythonize(filename));
+	char *pythonized_filename = uwsgi_pythonize(filename);
+	char *py_filename = uwsgi_concat2("uwsgi_file_", pythonized_filename);
+	free(pythonized_filename);
 
 	wsgi_file_module = uwsgi_pyimport_by_filename(py_filename, filename);
 	if (!wsgi_file_module) {

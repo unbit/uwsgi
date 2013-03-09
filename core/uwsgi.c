@@ -1264,6 +1264,7 @@ void signal_pidfile(int sig, char *filename) {
 	else {
 		uwsgi_log("error: invalid pidfile\n");
 	}
+	free(buffer);
 }
 
 /*static*/ void uwsgi_command_signal(char *opt) {
@@ -3457,7 +3458,8 @@ void uwsgi_opt_load_dl(char *opt, char *value, void *none) {
 
 void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 
-	char *p = strtok(uwsgi_concat2(value, ""), ",");
+	char *plugins_list = uwsgi_concat2(value, "");
+	char *p = strtok(plugins_list, ",");
 	while (p != NULL) {
 #ifdef UWSGI_DEBUG
 		uwsgi_debug("loading plugin %s\n", p);
@@ -3467,6 +3469,8 @@ void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 		}
 		p = strtok(NULL, ",");
 	}
+	free(p);
+	free(plugins_list);
 }
 
 void uwsgi_opt_check_static(char *opt, char *value, void *foobar) {
@@ -3822,9 +3826,10 @@ void uwsgi_opt_flock(char *opt, char *filename, void *none) {
 
 	if (uwsgi_fcntl_is_locked(fd)) {
 		uwsgi_log("uWSGI ERROR: %s is locked by another instance\n", filename);
+		close(fd);
 		exit(1);
 	}
-
+	close(fd);
 }
 
 void uwsgi_opt_flock_wait(char *opt, char *filename, void *none) {
@@ -3836,9 +3841,10 @@ void uwsgi_opt_flock_wait(char *opt, char *filename, void *none) {
 	}
 
 	if (uwsgi_fcntl_lock(fd)) {
+		close(fd);
 		exit(1);
 	}
-
+	close(fd);
 }
 
 // report CFLAGS used for compiling the server

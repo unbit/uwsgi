@@ -28,13 +28,6 @@ ssize_t send_udp_message(uint8_t modifier1, uint8_t modifier2, char *host, char 
 
 	struct uwsgi_header *uh;
 
-	if (message) {
-		uh = (struct uwsgi_header *) message;
-	}
-	else {
-		uh = (struct uwsgi_header *) uwsgi_malloc(4);
-	}
-
 	udp_port = strchr(host, ':');
 	if (udp_port) {
 		udp_port[0] = 0;
@@ -62,6 +55,13 @@ ssize_t send_udp_message(uint8_t modifier1, uint8_t modifier2, char *host, char 
 		// use 102 as the magic number
 		strncat(un_addr.sun_path, host, 102);
 
+	}
+
+	if (message) {
+		uh = (struct uwsgi_header *) message;
+	}
+	else {
+		uh = (struct uwsgi_header *) uwsgi_malloc(4);
 	}
 
 	uh->modifier1 = modifier1;
