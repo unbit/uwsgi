@@ -335,28 +335,31 @@ shit:
         if (code_start) {
                 code_end = name_to_symbol_pkg(fullname2, "end");
                 if (code_end) {
+			char *symbolized;
                         PyObject *mod = PyImport_AddModule(fullname);
 			if (!mod) goto clear;
                         PyObject *dict = PyModule_GetDict(mod);
 			if (!dict) goto clear;
 
                         source = uwsgi_concat2n(code_start, code_end-code_start, "", 0);
-			modname = uwsgi_concat3("sym://", symbolize(fullname), "___init___py");
+			symbolized = symbolize(fullname);
+			modname = uwsgi_concat3("sym://", symbolized, "___init___py");
 
 			PyObject *pkgpath = Py_BuildValue("[O]", PyString_FromString(modname));
 
 			PyDict_SetItemString(dict, "__path__", pkgpath);
 			PyDict_SetItemString(dict, "__loader__", self);
 
-                        code = Py_CompileString(source, modname, Py_file_input);
-		if (!code) {
-			PyErr_Print();
-			goto shit2;
-		}
+			code = Py_CompileString(source, modname, Py_file_input);
+			if (!code) {
+				PyErr_Print();
+				goto shit2;
+			}
                         mod = PyImport_ExecCodeModuleEx(fullname, code, modname);
 
 			Py_DECREF(code);
 shit2:
+			free(symbolized);
 			free(source);
 			free(modname);
 			free(fullname2);

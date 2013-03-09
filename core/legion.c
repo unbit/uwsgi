@@ -716,6 +716,7 @@ void uwsgi_opt_legion_quorum(char *opt, char *value, void *foobar) {
         }
 
 	ul->quorum = atoi(space+1);
+	free(legion);
 }
 
 

@@ -47,6 +47,7 @@ void uwsgi_init_queue() {
 		// fix header
 		uwsgi.queue_header = uwsgi.queue;
 		uwsgi.queue += 16;
+		close(queue_fd);
 	}
 	else {
 		uwsgi.queue = mmap(NULL, (uwsgi.queue_blocksize * uwsgi.queue_size) + 16, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
