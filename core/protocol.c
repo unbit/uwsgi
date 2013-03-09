@@ -886,44 +886,6 @@ nextsm2:
 	return 0;
 }
 
-ssize_t uwsgi_send_empty_pkt(int fd, char *socket_name, uint8_t modifier1, uint8_t modifier2) {
-
-	struct uwsgi_header uh;
-	char *port;
-	uint16_t s_port;
-	struct sockaddr_in uaddr;
-	int ret;
-
-	uh.modifier1 = modifier1;
-	uh.pktsize = 0;
-	uh.modifier2 = modifier2;
-
-	if (socket_name) {
-		port = strchr(socket_name, ':');
-		if (!port)
-			return -1;
-		s_port = atoi(port + 1);
-		port[0] = 0;
-		memset(&uaddr, 0, sizeof(struct sockaddr_in));
-		uaddr.sin_family = AF_INET;
-		uaddr.sin_addr.s_addr = inet_addr(socket_name);
-		uaddr.sin_port = htons(s_port);
-
-		port[0] = ':';
-
-		ret = sendto(fd, &uh, 4, 0, (struct sockaddr *) &uaddr, sizeof(struct sockaddr_in));
-	}
-	else {
-		ret = send(fd, &uh, 4, 0);
-	}
-
-	if (ret < 0) {
-		uwsgi_error("sendto()");
-	}
-
-	return ret;
-}
-
 int uwsgi_hooked_parse(char *buffer, size_t len, void (*hook) (char *, uint16_t, char *, uint16_t, void *), void *data) {
 
 	char *ptrbuf, *bufferend;

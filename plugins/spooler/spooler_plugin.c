@@ -20,16 +20,19 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
 
         if (uspool == NULL) {
                 uwsgi_log("the spooler is inactive !!!...skip\n");
-                uwsgi_send_empty_pkt(wsgi_req->poll.fd, NULL, 255, 0);
+		uh.modifier1 = 255;
+		uh.pktsize = 0;
+		uh.modifier2 = 0;
+		uwsgi_response_write_body_do(wsgi_req, (char *) &uh, 4);
                 return -1;
         }
 
-        i = spool_request(uspool, spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, wsgi_req->buffer, wsgi_req->uh.pktsize, NULL, 0, NULL, 0);
+        i = spool_request(uspool, spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, wsgi_req->buffer, wsgi_req->uh->pktsize, NULL, 0, NULL, 0);
         uh.modifier1 = 255;
         uh.pktsize = 0;
         if (i > 0) {
                 uh.modifier2 = 1;
-                if (write(wsgi_req->poll.fd, &uh, 4) != 4) {
+		if (uwsgi_response_write_body_do(wsgi_req, (char *) &uh, 4)) {
                         uwsgi_log("disconnected client, remove spool file.\n");
                         /* client disconnect, remove spool file */
                         if (unlink(spool_filename)) {
@@ -43,10 +46,7 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
         else {
                 /* announce a failed spool request */
                 uh.modifier2 = 0;
-                i = write(wsgi_req->poll.fd, &uh, 4);
-                if (i != 4) {
-                        uwsgi_error("write()");
-                }
+		uwsgi_response_write_body_do(wsgi_req, (char *) &uh, 4);
         }
 
         return -1;
