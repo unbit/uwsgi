@@ -3457,7 +3457,8 @@ void uwsgi_opt_load_dl(char *opt, char *value, void *none) {
 
 void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 
-	char *p = strtok(uwsgi_concat2(value, ""), ",");
+	char *plugins_list = uwsgi_concat2(value, "");
+	char *p = strtok(plugins_list, ",");
 	while (p != NULL) {
 #ifdef UWSGI_DEBUG
 		uwsgi_debug("loading plugin %s\n", p);
@@ -3467,6 +3468,8 @@ void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 		}
 		p = strtok(NULL, ",");
 	}
+	free(p);
+	free(plugins_list);
 }
 
 void uwsgi_opt_check_static(char *opt, char *value, void *foobar) {
