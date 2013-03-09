@@ -344,12 +344,14 @@ int uwsgi_route_api_func(struct wsgi_request *wsgi_req, char *router, char *args
 		}
 		r = r->next;
 	}
+	free(args);
 	return -1;
 found:
 	ur = uwsgi_calloc(sizeof(struct uwsgi_route));
 	// initialize the virtual route
 	if (r->func(ur, args)) {
 		free(ur);
+		free(args);
 		return -1;
 	}
 	// call it
@@ -358,6 +360,7 @@ found:
 		ur->free(ur);
 	}
 	free(ur);
+	free(args);
 	return ret;
 }
 
