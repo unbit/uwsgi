@@ -319,37 +319,41 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 			uwsgi_log("[cache-sync] unable to connect to the cache server\n");
 			goto next;
 		}
-		struct uwsgi_header cuh;
-		cuh.modifier1 = 111;
-		cuh.modifier2 = 6;
-		cuh.pktsize = 0;
-		if (write(fd, &cuh, 4) != 4) {
+
+		struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size + uc->filesize);
+		ub->pos = 4;
+		if (uwsgi_buffer_append(ub, uc->name, uc->name_len)) {
+			uwsgi_buffer_destroy(ub);
+			close(fd);
+			goto next;
+		}
+
+		if (uwsgi_buffer_set_uh(ub, 111, 6)) {
+			uwsgi_buffer_destroy(ub);
+			close(fd);
+			goto next;
+		}
+
+		if (uwsgi_write_nb(fd, ub->buf, ub->pos, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+			uwsgi_buffer_destroy(ub);
 			uwsgi_log("[cache-sync] unable to write to the cache server\n");
+			close(fd);
 			goto next;
 		}
 
-		int ret = uwsgi_read_uh(fd, &cuh, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		if (ret) {
+		size_t rlen = ub->pos;
+        	if (uwsgi_read_with_realloc(fd, &ub->buf, &rlen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+			uwsgi_buffer_destroy(ub);
 			uwsgi_log("[cache-sync] unable to read from the cache server\n");
-			goto next;
-		}
-
-		if (cuh.modifier1 != 111 || cuh.modifier2 != 7) {
-			uwsgi_log("[cache-sync] invalid uwsgi packet received from the cache server\n");
+			close(fd);
 			goto next;
 		}
 	
-		char *dump_buf = uwsgi_malloc(cuh.pktsize);
-		ret = uwsgi_read_nb(fd, dump_buf, cuh.pktsize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		if (ret) {
-                        uwsgi_log("[cache-sync] unable to read from the cache server\n");
-			goto next;
-                }
+		uwsgi_hooked_parse(ub->buf, ub->pos, cache_sync_hook, uc);
 
-		uwsgi_hooked_parse(dump_buf, cuh.pktsize, cache_sync_hook, NULL);
-
-		ret = uwsgi_read_nb(fd, (char *) uc->items, uc->filesize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		if (ret) {
+		if (uwsgi_read_nb(fd, (char *) uc->items, uc->filesize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+			uwsgi_buffer_destroy(ub);
+			close(fd);
                         uwsgi_log("[cache-sync] unable to read from the cache server\n");
 			goto next;
                 }
@@ -358,6 +362,9 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 		memset(uc->hashtable, 0, sizeof(uint64_t) * UMAX16);
 		// re-fill the hashtable
                 uwsgi_cache_fix(uc);
+
+		uwsgi_buffer_destroy(ub);
+		close(fd);
 		break;
 next:
 		if (!usl->next) {

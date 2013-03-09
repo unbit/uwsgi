@@ -199,6 +199,7 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 
 	// used for modifier2 17
 	struct uwsgi_cache_magic_context ucmc;
+	struct uwsgi_cache *uc = NULL;
 
         switch(wsgi_req->uh->modifier2) {
                 case 0:
@@ -259,32 +260,39 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                         break;
 		case 6:
 			// dump
-			wsgi_req->uh->modifier2 = 7;
-			struct uwsgi_buffer *cache_dump = uwsgi_buffer_new(4096);
-			if (uwsgi_buffer_append_keynum(cache_dump, "items", 5, uwsgi.cache_max_items)) {
+			uc = uwsgi.caches;
+			if (wsgi_req->uh->pktsize > 0) {
+				uc = uwsgi_cache_by_namelen(wsgi_req->buffer, wsgi_req->uh->pktsize);
+			}
+
+			if (!uc) break;
+
+			uwsgi_wlock(uc->lock);
+			struct uwsgi_buffer *cache_dump = uwsgi_buffer_new(uwsgi.page_size + uc->filesize);
+			cache_dump->pos = 4;
+			if (uwsgi_buffer_append_keynum(cache_dump, "items", 5, uc->max_items)) {
 				uwsgi_buffer_destroy(cache_dump);
 				break;
 			}
-			if (uwsgi_buffer_append_keynum(cache_dump, "blocksize", 9, uwsgi.cache_blocksize)) {
+			if (uwsgi_buffer_append_keynum(cache_dump, "blocksize", 9, uc->blocksize)) {
 				uwsgi_buffer_destroy(cache_dump);
 				break;
 			}
 
-                        wsgi_req->uh->pktsize = cache_dump->pos;
-			if (uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4)) {
+			if (uwsgi_buffer_set_uh(cache_dump, 111, 7)) {
 				uwsgi_buffer_destroy(cache_dump);
-				return -1;
+				break;
 			}
+
+			if (uwsgi_buffer_append(cache_dump, (char *)uc->items, uc->filesize)) {
+				uwsgi_buffer_destroy(cache_dump);
+				break;
+			}
+
+			uwsgi_rwunlock(uc->lock);
+
 			uwsgi_response_write_body_do(wsgi_req, cache_dump->buf, cache_dump->pos);
 			uwsgi_buffer_destroy(cache_dump);
-			uwsgi_wlock(uwsgi.caches->lock);
-			// make a copy of the whole cache
-			char *buf = uwsgi_malloc(uwsgi.caches->filesize);
-			memcpy(buf, uwsgi.caches->items, uwsgi.caches->filesize);
-			uwsgi_rwunlock(uwsgi.caches->lock);
-			// write the whole cache
-			uwsgi_response_write_body_do(wsgi_req, buf, uwsgi.caches->filesize);
-			free(buf);
 			break;
 		case 17:
 			if (wsgi_req->uh->pktsize == 0) break;
