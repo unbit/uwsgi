@@ -8,7 +8,7 @@ except:
     exec(f.read(), up)
     f.close()
 
-NAME='ring'
+NAME='jwsgi'
 CFLAGS = up['CFLAGS']
 CFLAGS.append('-I%s' % jvm_path)
 LDFLAGS = []
