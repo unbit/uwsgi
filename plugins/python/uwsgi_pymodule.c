@@ -2331,63 +2331,6 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 
 }
 
-PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
-
-	pid_t grunt_pid;
-	struct wsgi_request *wsgi_req = py_current_wsgi_req();
-
-	if (uwsgi.grunt) {
-		uwsgi_log("spawning a grunt from worker %d (pid :%d)...\n", uwsgi.mywid, uwsgi.mypid);
-	}
-	else {
-		uwsgi_log("grunt support is disabled !!!\n");
-		goto clear;
-	}
-
-	// use a normal fork here
-	grunt_pid = fork();
-	if (grunt_pid < 0) {
-		uwsgi_error("fork()");
-		goto clear;
-	}
-	// now i am a grunt, avoid it making mess
-	else if (grunt_pid == 0) {
-		// it will no more accepts requests
-		uwsgi_close_all_sockets();
-		// create a new session
-		setsid();
-		// exit on SIGPIPE
-		signal(SIGPIPE, (void *) &end_me);
-		// here we create a new worker. Each grunt will race on this datas, so do not rely on them
-		uwsgi.mywid = uwsgi.numproc + 1;
-		uwsgi.mypid = getpid();
-		memset(&uwsgi.workers[uwsgi.mywid], 0, sizeof(struct uwsgi_worker));
-		// this is pratically useless...
-		uwsgi.workers[uwsgi.mywid].id = uwsgi.mywid;
-		// this field will be overwrite after each call
-		uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
-
-		// reset the random seed
-		uwsgi_python_reset_random_seed();
-		// TODO
-		// manage thread in grunt processes
-		Py_INCREF(Py_True);
-		return Py_True;
-	}
-
-	// close connection on the original worker
-	if (PyTuple_Size(args) == 0) {
-		if (wsgi_req->socket) {
-			wsgi_req->socket->proto_close(wsgi_req);
-		}
-		wsgi_req->fd_closed = 1;
-	}
-
-      clear:
-	Py_INCREF(Py_None);
-	return Py_None;
-}
-
 static PyMethodDef uwsgi_spooler_methods[] = {
 #ifdef PYTHREE
 	{"send_to_spooler", (PyCFunction) py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
@@ -2434,7 +2377,6 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"get_logvar", py_uwsgi_get_logvar, METH_VARARGS, ""},
 	{"alarm", py_uwsgi_alarm, METH_VARARGS, ""},
 	{"disconnect", py_uwsgi_disconnect, METH_VARARGS, ""},
-	{"grunt", py_uwsgi_grunt, METH_VARARGS, ""},
 	{"lock", py_uwsgi_lock, METH_VARARGS, ""},
 	{"is_locked", py_uwsgi_is_locked, METH_VARARGS, ""},
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},

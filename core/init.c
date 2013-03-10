@@ -296,7 +296,7 @@ void uwsgi_commandline_config() {
 void uwsgi_setup_workers() {
 	int i, j;
 	// allocate shared memory for workers + master
-	uwsgi.workers = (struct uwsgi_worker *) uwsgi_calloc_shared(sizeof(struct uwsgi_worker) * (uwsgi.numproc + 1 + uwsgi.grunt));
+	uwsgi.workers = (struct uwsgi_worker *) uwsgi_calloc_shared(sizeof(struct uwsgi_worker) * (uwsgi.numproc + 1));
 
 	for (i = 0; i <= uwsgi.numproc; i++) {
 		// allocate memory for apps
