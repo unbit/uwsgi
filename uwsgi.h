@@ -565,8 +565,8 @@ union uwsgi_sockaddr_ptr {
 		uint64_t valor;
 		char uuid[37];
 		char *scroll;
-		uint64_t checksum;
 		uint16_t scroll_len;
+		uint64_t checksum;
 		uint64_t lord_valor;
 		char lord_uuid[36];
 		time_t last_seen;
@@ -589,6 +589,12 @@ union uwsgi_sockaddr_ptr {
 
 		uint64_t checksum;
 
+		char *scroll;
+		uint16_t scroll_len;
+
+		char *lord_scroll;
+		uint16_t lord_scroll_len;
+		uint16_t lord_scroll_size;
 
 		char lord_uuid[36];
 		uint64_t lord_valor;
@@ -3735,18 +3741,19 @@ void uwsgi_user_unlock(int);
 	char *uwsgi_strip(char *);
 
 #ifdef UWSGI_SSL
-	void uwsgi_opt_legion(char *, char *, void *);
-	void uwsgi_opt_legion_node(char *, char *, void *);
-	void uwsgi_opt_legion_quorum(char *, char *, void *);
-	void uwsgi_opt_legion_hook(char *, char *, void *);
-	void uwsgi_legion_add(struct uwsgi_legion *);
-	char *uwsgi_ssl_rand(size_t);
-	void uwsgi_start_legions(void);
-	int uwsgi_legion_announce(struct uwsgi_legion *);
-	struct uwsgi_legion_action *uwsgi_legion_action_get(char *);
-	void uwsgi_legion_action_register(char *, int (*)(struct uwsgi_legion *, char *));
-	int uwsgi_legion_action_call(char *, struct uwsgi_legion *, struct uwsgi_string_list *);
-	void uwsgi_legion_atexit(void);
+void uwsgi_opt_legion(char *, char *, void *);
+void uwsgi_opt_legion_node(char *, char *, void *);
+void uwsgi_opt_legion_quorum(char *, char *, void *);
+void uwsgi_opt_legion_hook(char *, char *, void *);
+void uwsgi_opt_legion_scroll(char *, char *, void *);
+void uwsgi_legion_add(struct uwsgi_legion *);
+char *uwsgi_ssl_rand(size_t);
+void uwsgi_start_legions(void);
+int uwsgi_legion_announce(struct uwsgi_legion *);
+struct uwsgi_legion_action *uwsgi_legion_action_get(char *);
+void uwsgi_legion_action_register(char *, int (*)(struct uwsgi_legion *, char *));
+int uwsgi_legion_action_call(char *, struct uwsgi_legion *, struct uwsgi_string_list *);
+void uwsgi_legion_atexit(void);
 #endif
 
 	struct uwsgi_option *uwsgi_opt_get(char *);

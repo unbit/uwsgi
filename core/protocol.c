@@ -588,14 +588,12 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 
 	// has the protocol already parsed the request ?
 	if (wsgi_req->uri_len > 0) {
-		wsgi_req->parsed = 1;
 		i = uwsgi_simple_parse_vars(wsgi_req, ptrbuf, bufferend);
 		if (i == 0)
 			goto next;
 		return i;
 	}
 
-	wsgi_req->parsed = 1;
 	wsgi_req->script_name_pos = -1;
 	wsgi_req->path_info_pos = -1;
 
@@ -671,8 +669,13 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 		}
 	}
 
+	// do not continue, we are still routing
+	if (wsgi_req->is_routing) return 0;
+
 next:
 
+	// we can be here one time for request
+	wsgi_req->parsed = 1;
 
 	// manage post buffering (if needed as post_file could be created before)
 	if (uwsgi.post_buffering > 0 && !wsgi_req->post_file) {

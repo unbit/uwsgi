@@ -75,6 +75,10 @@ void uwsgi_parse_legion(char *key, uint16_t keylen, char *value, uint16_t vallen
 			memcpy(ul->lord_uuid, value, 36);
 		}
 	}
+	else if (!uwsgi_strncmp(key, keylen, "scroll", 6)) {
+		ul->scroll = value;
+		ul->scroll_len = vallen;
+	}
 }
 
 // critical section (remember to lock when you use it)
@@ -289,6 +293,11 @@ static void legions_check_nodes_step2() {
 			else {
 				if (ul->i_am_the_lord) {
 					uwsgi_log("[uwsgi-legion] a new Lord (valor: %llu uuid: %.*s) raised for Legion %s...\n", ul->lord_valor, 36, ul->lord_uuid, ul->legion);
+					if (ul->lord_scroll_len > 0) {
+						uwsgi_log("*********** The New Lord Scroll ***********\n\n");
+						uwsgi_log("%.*s\n", ul->lord_scroll_len, ul->lord_scroll);
+						uwsgi_log("*********** End of the New Lord Scroll ***********\n\n");
+					}
 					// no more lord, trigger unlord hooks
 					struct uwsgi_string_list *usl = ul->unlord_hooks;
 					while (usl) {
@@ -353,6 +362,25 @@ struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *ul) {
 
 	ul->lord_valor = best_valor;
 	memcpy(ul->lord_uuid, best_uuid, 36);
+
+	if (!best_node) return NULL;
+
+	if (best_node->scroll_len > 0) {
+		if (best_node->scroll_len > ul->lord_scroll_size) {
+			char *tmp_buf = realloc(ul->lord_scroll, best_node->scroll_len);
+			if (!tmp_buf) {
+				uwsgi_error("uwsgi_legion_get_lord()/realloc()");
+				return NULL;
+			}
+			ul->lord_scroll_size = best_node->scroll_len;
+			ul->lord_scroll = tmp_buf;
+		}
+		ul->lord_scroll_len = best_node->scroll_len;
+		memcpy(ul->lord_scroll, best_node->scroll, ul->lord_scroll_len);
+	}
+	else {
+		ul->lord_scroll_len = 0;
+	}
 
 	return best_node;
 }
@@ -485,6 +513,12 @@ static void *legion_loop(void *foobar) {
 				// add the new node
 				pthread_mutex_lock(&ul->lock);
 				node = uwsgi_legion_add_node(ul, legion_msg.valor, legion_msg.name, legion_msg.name_len, legion_msg.uuid);
+				if (!node) continue;
+				if (node->scroll_len > 0) {
+					char *scroll = node->scroll;
+					node->scroll = uwsgi_malloc(node->scroll_len);
+					memcpy(node->scroll, scroll, node->scroll_len);
+				}
 				pthread_mutex_unlock(&ul->lock);
 				uwsgi_log("[uwsgi-legion] node: %.*s valor: %llu uuid: %.*s joined Legion %s\n", node->name_len, node->name, node->valor, 36, node->uuid, ul->legion);
 			}
@@ -624,6 +658,11 @@ int uwsgi_legion_announce(struct uwsgi_legion *ul) {
 		goto err;
 	if (uwsgi_buffer_append_keyval(ub, "lord_uuid", 9, ul->lord_uuid, 36))
 		goto err;
+
+	if (ul->scroll_len > 0) {
+		if (uwsgi_buffer_append_keyval(ub, "scroll", 6, ul->scroll, ul->scroll_len))
+                	goto err;
+	}
 #ifdef UWSGI_UUID
 #endif
 
@@ -718,6 +757,29 @@ void uwsgi_opt_legion_quorum(char *opt, char *value, void *foobar) {
 	ul->quorum = atoi(space+1);
 	free(legion);
 }
+
+void uwsgi_opt_legion_scroll(char *opt, char *value, void *foobar) {
+
+        char *legion = uwsgi_str(value);
+
+        char *space = strchr(legion, ' ');
+        if (!space) {
+                uwsgi_log("invalid legion-scroll syntax, must be <legion> <scroll>\n");
+                exit(1);
+        }
+        *space = 0;
+
+        struct uwsgi_legion *ul = uwsgi_legion_get_by_name(legion);
+        if (!ul) {
+                uwsgi_log("unknown legion: %s\n", legion);
+                exit(1);
+        }
+
+        ul->scroll = space+1;
+	ul->scroll_len = strlen(ul->scroll);
+        free(legion);
+}
+
 
 
 void uwsgi_opt_legion_hook(char *opt, char *value, void *foobar) {
