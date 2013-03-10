@@ -582,6 +582,16 @@ safe:
 
 	if (!uwsgi_static_stat(real_filename, &real_filename_len, &st)) {
 
+		// skip methods other than GET and HEAD
+        	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "GET", 3) && uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
+#ifdef UWSGI_ROUTING
+			if (uwsgi_apply_routes_fast(wsgi_req, real_filename, real_filename_len) == UWSGI_ROUTE_BREAK)
+				return 0;
+#endif
+			return -1;
+        	}
+
+
 		// check for skippable ext
 		struct uwsgi_string_list *sse = uwsgi.static_skip_ext;
 		while (sse) {
