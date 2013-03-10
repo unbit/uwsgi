@@ -1504,7 +1504,7 @@ void add_exported_option(char *key, char *value, int configured) {
 
 	while (blacklist) {
 		if (!strcmp(key, blacklist->value)) {
-			uwsgi_log("uWSGI error: forbidden option \"%s\"\n", key);
+			uwsgi_log("uWSGI error: forbidden option \"%s\" (by blacklist)\n", key);
 			exit(1);
 		}
 		blacklist = blacklist->next;
@@ -1520,10 +1520,24 @@ void add_exported_option(char *key, char *value, int configured) {
 			whitelist = whitelist->next;
 		}
 		if (!allowed) {
-			uwsgi_log("uWSGI error: forbidden option \"%s\"\n", key);
+			uwsgi_log("uWSGI error: forbidden option \"%s\" (by whitelist)\n", key);
 			exit(1);
 		}
 	}
+
+	if (uwsgi.blacklist_context) {
+		if (uwsgi_list_has_str(uwsgi.blacklist_context, key)) {
+			uwsgi_log("uWSGI error: forbidden option \"%s\" (by blacklist)\n", key);
+			exit(1);
+		}
+	}
+
+	if (uwsgi.whitelist_context) {
+                if (!uwsgi_list_has_str(uwsgi.whitelist_context, key)) {
+                        uwsgi_log("uWSGI error: forbidden option \"%s\" (by whitelist)\n", key);
+                        exit(1);
+                }
+        }
 
 	if (uwsgi.logic_opt_running)
 		goto add;
@@ -1839,7 +1853,7 @@ int uwsgi_list_has_num(char *list, int num) {
 
 int uwsgi_list_has_str(char *list, char *str) {
 
-	char *list2 = uwsgi_concat2(list + 1, "");
+	char *list2 = uwsgi_str(list);
 
 	char *p = strtok(list2, " ");
 	while (p != NULL) {

@@ -109,6 +109,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"endif", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
 
+	{"blacklist", required_argument, 0, "set options blacklist context", uwsgi_opt_set_str, &uwsgi.blacklist_context, UWSGI_OPT_IMMEDIATE},
+	{"end-blacklist", no_argument, 0, "clear options blacklist context", uwsgi_opt_set_null, &uwsgi.blacklist_context, UWSGI_OPT_IMMEDIATE},
+
+	{"whitelist", required_argument, 0, "set options whitelist context", uwsgi_opt_set_str, &uwsgi.whitelist_context, UWSGI_OPT_IMMEDIATE},
+	{"end-whitelist", no_argument, 0, "clear options whitelist context", uwsgi_opt_set_null, &uwsgi.whitelist_context, UWSGI_OPT_IMMEDIATE},
+
 	{"ignore-sigpipe", no_argument, 0, "do not report (annoying) SIGPIPE", uwsgi_opt_true, &uwsgi.ignore_sigpipe, 0},
 	{"ignore-write-errors", no_argument, 0, "do not report (annoying) write()/writev() errors", uwsgi_opt_true, &uwsgi.ignore_write_errors, 0},
 	{"write-errors-tolerance", required_argument, 0, "set the maximum number of allowed write errors (default: no tolerance)", uwsgi_opt_set_64bit, &uwsgi.write_errors_tolerance, 0},
@@ -3224,6 +3230,12 @@ void uwsgi_opt_set_str(char *opt, char *value, void *key) {
 	}
 	*ptr = (char *) value;
 }
+
+void uwsgi_opt_set_null(char *opt, char *value, void *key) {
+        char **ptr = (char **) key;
+        *ptr = NULL;
+}
+
 
 void uwsgi_opt_set_logger(char *opt, char *value, void *prefix) {
 
