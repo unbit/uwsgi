@@ -578,7 +578,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 	ptrbuf = buffer;
 	bufferend = ptrbuf + wsgi_req->uh->pktsize;
 	int i;
-	
+
 	/* set an HTTP 500 status as default */
 	wsgi_req->status = 500;
 
@@ -588,12 +588,14 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 
 	// has the protocol already parsed the request ?
 	if (wsgi_req->uri_len > 0) {
+		wsgi_req->parsed = 1;
 		i = uwsgi_simple_parse_vars(wsgi_req, ptrbuf, bufferend);
 		if (i == 0)
 			goto next;
 		return i;
 	}
 
+	wsgi_req->parsed = 1;
 	wsgi_req->script_name_pos = -1;
 	wsgi_req->path_info_pos = -1;
 
@@ -669,13 +671,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 		}
 	}
 
-	// do not continue, we are still routing
-	if (wsgi_req->is_routing) return 0;
-
 next:
-
-	// we can be here one time for request
-	wsgi_req->parsed = 1;
 
 	// manage post buffering (if needed as post_file could be created before)
 	if (uwsgi.post_buffering > 0 && !wsgi_req->post_file) {
@@ -1002,4 +998,58 @@ char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen
 	wsgi_req->uh->pktsize += (2 + keylen + 2 + vallen);
 
 	return ptr;
+}
+
+int uwsgi_req_append_path_info_with_index(struct wsgi_request *wsgi_req, char *index, uint16_t index_len) {
+	uint8_t need_slash = 0;
+	if (wsgi_req->path_info_len > 0) {
+		if (wsgi_req->path_info[wsgi_req->path_info_len-1] != '/') {
+			need_slash = 1;
+		}
+	}
+
+	wsgi_req->path_info_len += need_slash + index_len;
+
+	// 2 + 9 + 2
+	if ((wsgi_req->uh->pktsize + (13 + wsgi_req->path_info_len)) > uwsgi.buffer_size) {
+                uwsgi_log("not enough buffer space to transform the PATH_INFO variable, consider increasing it with the --buffer-size option\n");
+                return -1;
+        }
+
+	if (wsgi_req->var_cnt >= uwsgi.vec_size - (4 + 2)) {
+                uwsgi_log("max vec size reached for PATH_INFO + index. skip this request.\n");
+                return -1;
+        }
+
+	uint16_t keylen = 9;
+	char *ptr = wsgi_req->buffer + wsgi_req->uh->pktsize;
+	*ptr++ = (uint8_t) (keylen & 0xff);
+        *ptr++ = (uint8_t) ((keylen >> 8) & 0xff);
+
+	memcpy(ptr, "PATH_INFO", keylen);
+	wsgi_req->hvec[wsgi_req->var_cnt].iov_base = ptr;
+	wsgi_req->hvec[wsgi_req->var_cnt].iov_len = keylen;
+	wsgi_req->var_cnt++;
+        ptr += keylen;
+
+	*ptr++ = (uint8_t) (wsgi_req->path_info_len & 0xff);
+        *ptr++ = (uint8_t) ((wsgi_req->path_info_len >> 8) & 0xff);
+
+	char *new_path_info = ptr;
+
+	memcpy(ptr, wsgi_req->path_info, wsgi_req->path_info_len - (need_slash + index_len));
+	ptr+=wsgi_req->path_info_len - (need_slash + index_len);
+	if (need_slash) {
+		*ptr ++= '/';
+	}
+	memcpy(ptr, index, index_len);
+	
+	wsgi_req->hvec[wsgi_req->var_cnt].iov_base = new_path_info;
+        wsgi_req->hvec[wsgi_req->var_cnt].iov_len = wsgi_req->path_info_len;
+        wsgi_req->var_cnt++;
+
+	wsgi_req->uh->pktsize += 13 + wsgi_req->path_info_len;
+	wsgi_req->path_info = new_path_info;
+	
+	return 0;
 }

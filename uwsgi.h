@@ -2764,8 +2764,8 @@ void uwsgi_rpc_init(void);
 	char *magic_sub(char *, size_t, size_t *, char *[]);
 	void init_magic_table(char *[]);
 
-	char *uwsgi_req_append(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
-
+char *uwsgi_req_append(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+int uwsgi_req_append_path_info_with_index(struct wsgi_request *, char *, uint16_t);
 	int is_unix(char *, int);
 	int is_a_number(char *);
 
@@ -3309,6 +3309,7 @@ struct uwsgi_router *uwsgi_register_router(char *, int (*)(struct uwsgi_route *,
 void uwsgi_opt_add_route(char *, char *, void *);
 int uwsgi_apply_routes(struct wsgi_request *);
 int uwsgi_apply_routes_fast(struct wsgi_request *, char *, uint16_t);
+int uwsgi_apply_routes_do(struct wsgi_request *, char *, uint16_t);
 void uwsgi_register_embedded_routers(void);
 void uwsgi_routing_dump();
 struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *, struct uwsgi_route *, char *, uint16_t, char *, size_t);
@@ -3363,6 +3364,7 @@ void uwsgi_reload(char **);
 
 uint64_t uwsgi_micros(void);
 int uwsgi_is_file(char *);
+int uwsgi_is_file2(char *, struct stat *);
 int uwsgi_is_dir(char *);
 int uwsgi_is_link(char *);
 

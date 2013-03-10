@@ -1248,6 +1248,16 @@ int uwsgi_is_file(char *filename) {
 	return 0;
 }
 
+int uwsgi_is_file2(char *filename, struct stat *st) {
+        if (stat(filename, st)) {
+                return 0;
+        }
+        if (S_ISREG(st->st_mode))
+                return 1;
+        return 0;
+}
+
+
 int uwsgi_is_dir(char *filename) {
 	struct stat st;
 	if (stat(filename, &st)) {
