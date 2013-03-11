@@ -72,8 +72,9 @@ struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *wsgi_req, stru
 	}
 
 	// add the final NULL byte (to simplify plugin work)
-	
 	if (uwsgi_buffer_append(ub, "\0", 1)) goto error;
+	// .. but came back of 1 position to avoid accounting it
+	ub->pos--;
 
 	if (pass1 != data) {
 		free(pass1);
@@ -91,11 +92,15 @@ int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req, char *subject, uint16_t
         void *goon_func = NULL;
 	int n = -1;
 
+	char *orig_subject = subject;
+	uint16_t orig_subject_len = subject_len;
+
 	while (routes) {
 
 		if (wsgi_req->route_goto > 0 && wsgi_req->route_pc < wsgi_req->route_goto) {
 			goto next;
 		}
+
 		if (goon_func && goon_func == routes->func) {
 			goto next;
 		}
@@ -149,6 +154,8 @@ int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req, char *subject, uint16_t
 			}
 		}
 next:
+		subject = orig_subject;
+		subject_len = orig_subject_len;
 		routes = routes->next;
 		if (routes) wsgi_req->route_pc++;
 	}
