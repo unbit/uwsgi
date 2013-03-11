@@ -608,9 +608,6 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"allowed-modifiers", required_argument, 0, "comma separated list of allowed modifiers", uwsgi_opt_set_str, &uwsgi.allowed_modifiers, 0},
 	{"remap-modifier", required_argument, 0, "remap request modifier from one id to another", uwsgi_opt_set_str, &uwsgi.remap_modifier, 0},
 
-	{"app", required_argument, 0, "*** deprecated ***", uwsgi_opt_deprecated, (void *) "use the more advanced \"mount\" option", 0},
-	{"static-offload-to-thread", required_argument, 0, "*** deprecated ***", uwsgi_opt_deprecated, (void *) "use the more advanced \"offload-threads\" option", 0},
-
 	{"dump-options", no_argument, 0, "dump the full list of available options", uwsgi_opt_true, &uwsgi.dump_options, 0},
 	{"show-config", no_argument, 0, "show the current config reformatted as ini", uwsgi_opt_true, &uwsgi.show_config, 0},
 	{"print", required_argument, 0, "simple print", uwsgi_opt_print, NULL, 0},
