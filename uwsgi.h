@@ -605,7 +605,7 @@ union uwsgi_sockaddr_ptr {
 
 		time_t last_warning;
 
-		pthread_mutex_t lock;
+		struct uwsgi_lock_item *lock;
 
 		EVP_CIPHER_CTX *encrypt_ctx;
 		EVP_CIPHER_CTX *decrypt_ctx;
@@ -2224,6 +2224,7 @@ struct uwsgi_server {
 		int legion_freq;
 		int legion_tolerance;
 		int legion_skew_tolerance;
+		uint16_t legion_scroll_max_size;
 #endif
 
 #ifdef __linux__
@@ -3767,6 +3768,7 @@ void uwsgi_uuid(char *);
 int uwsgi_uuid_cmp(char *, char *);
 
 int uwsgi_legion_i_am_the_lord(char *);
+char *uwsgi_legion_lord_scroll(char *, uint16_t *);
 void uwsgi_additional_header_add(struct wsgi_request *, char *, uint16_t);
 void uwsgi_remove_header(struct wsgi_request *, char *, uint16_t);
 

@@ -373,6 +373,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"legion-death", required_argument, 0, "action to call on legion death (shutdown of the instance)", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-quorum", required_argument, 0, "set the quorum of a legion", uwsgi_opt_legion_quorum, NULL, UWSGI_OPT_MASTER},
 	{"legion-scroll", required_argument, 0, "set the scroll of a legion", uwsgi_opt_legion_scroll, NULL, UWSGI_OPT_MASTER},
+	{"legion-scroll", required_argument, 0, "set the scroll of a legion", uwsgi_opt_legion_scroll, NULL, UWSGI_OPT_MASTER},
+	{"legion-scroll-max-size", required_argument, 0, "set max size of legion scroll buffer", uwsgi_opt_set_16bit, &uwsgi.legion_scroll_max_size, 0},
 	{"subscriptions-sign-check", required_argument, 0, "set digest algorithm and certificate directory for secured subscription system", uwsgi_opt_scd, NULL, UWSGI_OPT_MASTER},
 	{"subscriptions-sign-check-tolerance", required_argument, 0, "set the maximum tolerance (in seconds) of clock skew for secured subscription system", uwsgi_opt_set_int, &uwsgi.subscriptions_sign_check_tolerance, UWSGI_OPT_MASTER},
 #endif

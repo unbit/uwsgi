@@ -641,6 +641,15 @@ ready:
 	}
 
 	uwsgi.rpc_table_lock = uwsgi_lock_init("rpc");
+
+#ifdef UWSGI_SSL
+	// register locking for legions
+	struct uwsgi_legion *ul = uwsgi.legions;
+	while(ul) {
+		ul->lock = uwsgi_lock_init(uwsgi_concat2("legion_", ul->legion));
+		ul = ul->next;
+	}
+#endif
 	uwsgi.locking_setup = 1;
 }
 

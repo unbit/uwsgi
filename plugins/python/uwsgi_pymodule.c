@@ -454,6 +454,26 @@ PyObject *py_uwsgi_i_am_the_lord(PyObject * self, PyObject * args) {
         Py_INCREF(Py_False);
         return Py_False;
 }
+
+PyObject *py_uwsgi_lord_scroll(PyObject * self, PyObject * args) {
+        char *legion_name = NULL;
+
+        if (!PyArg_ParseTuple(args, "s:lord_scroll", &legion_name)) {
+                return NULL;
+        }
+
+	uint16_t rlen = 0;
+	char *buf = uwsgi_legion_lord_scroll(legion_name, &rlen);
+	if (!buf) {
+        	Py_INCREF(Py_None);
+        	return Py_None;
+	}
+
+	PyObject *ret = PyString_FromStringAndSize(buf, rlen);
+	free(buf);
+        return ret;
+}
+
 #endif
 
 PyObject *py_uwsgi_register_signal(PyObject * self, PyObject * args) {
@@ -2413,6 +2433,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"logsize", py_uwsgi_logsize, METH_VARARGS, ""},
 #ifdef UWSGI_SSL
 	{"i_am_the_lord", py_uwsgi_i_am_the_lord, METH_VARARGS, ""},
+	{"lord_scroll", py_uwsgi_lord_scroll, METH_VARARGS, ""},
 #endif
 	{"async_sleep", py_uwsgi_async_sleep, METH_VARARGS, ""},
 	{"async_connect", py_uwsgi_async_connect, METH_VARARGS, ""},
