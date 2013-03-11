@@ -166,7 +166,6 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 		return UWSGI_ROUTE_CONTINUE;
 
 	if (uwsgi_parse_vars(wsgi_req)) {
-		wsgi_req->is_routing = 0;
 		return UWSGI_ROUTE_BREAK;
 	}
 

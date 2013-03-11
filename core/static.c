@@ -585,10 +585,7 @@ safe:
 	if (!uwsgi_static_stat(wsgi_req, real_filename, &real_filename_len, &st, &index)) {
 
 		if (index) {
-			// if we are here the PATH_INFO need to be changed, so ensure some rule does not apply to it
-			if (uwsgi_apply_routes_do(wsgi_req, NULL, 0) == UWSGI_ROUTE_BREAK) {
-				return 0;
-			}
+			// if we are here the PATH_INFO need to be changed
 			if (uwsgi_req_append_path_info_with_index(wsgi_req, index->value, index->len)) {
                         	return -1;
                         }
@@ -608,6 +605,11 @@ safe:
 				}
 			}
 			sse = sse->next;
+		}
+
+		// before sending the file, we need to check if some rule applies
+		if (uwsgi_apply_routes_do(wsgi_req, NULL, 0) == UWSGI_ROUTE_BREAK) {
+			return 0;
 		}
 
 		return uwsgi_real_file_serve(wsgi_req, real_filename, real_filename_len, &st);
