@@ -190,6 +190,7 @@ static void *uwsgi_route_get_condition_func(char *name) {
 		if (!strcmp(urc->name, name)) {
 			return urc->func;
 		}
+		urc = urc->next;
 	}
 	return NULL;
 }
