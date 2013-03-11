@@ -607,10 +607,13 @@ safe:
 			sse = sse->next;
 		}
 
+#ifdef UWSGI_ROUTING
 		// before sending the file, we need to check if some rule applies
 		if (uwsgi_apply_routes_do(wsgi_req, NULL, 0) == UWSGI_ROUTE_BREAK) {
 			return 0;
 		}
+		wsgi_req->routes_applied = 1;
+#endif
 
 		return uwsgi_real_file_serve(wsgi_req, real_filename, real_filename_len, &st);
 	}

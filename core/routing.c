@@ -169,20 +169,12 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 		return UWSGI_ROUTE_BREAK;
 	}
 
+	// in case ogf static files serving previous rules could be applied
+	if (wsgi_req->routes_applied) {
+		return UWSGI_ROUTE_CONTINUE;
+	}
+
 	return uwsgi_apply_routes_do(wsgi_req, NULL, 0);
-}
-
-
-int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req, char *subject, uint16_t subject_len) {
-
-	if (!uwsgi.routes)
-		return UWSGI_ROUTE_CONTINUE;
-
-	// avoid loops
-	if (wsgi_req->is_routing)
-		return UWSGI_ROUTE_CONTINUE;
-
-	return uwsgi_apply_routes_do(wsgi_req, subject, subject_len);
 }
 
 static void *uwsgi_route_get_condition_func(char *name) {

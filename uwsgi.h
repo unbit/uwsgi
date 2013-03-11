@@ -1363,6 +1363,7 @@ struct uwsgi_router {
 
 		// avoid routing loops
 		int is_routing;
+		int routes_applied;
 		// internal routing vm program counter
 		uint32_t route_pc;
 		// internal routing goto instruction
@@ -3308,7 +3309,6 @@ char *uwsgi_tmpname(char *, char *);
 struct uwsgi_router *uwsgi_register_router(char *, int (*)(struct uwsgi_route *, char *));
 void uwsgi_opt_add_route(char *, char *, void *);
 int uwsgi_apply_routes(struct wsgi_request *);
-int uwsgi_apply_routes_fast(struct wsgi_request *, char *, uint16_t);
 int uwsgi_apply_routes_do(struct wsgi_request *, char *, uint16_t);
 void uwsgi_register_embedded_routers(void);
 void uwsgi_routing_dump();
