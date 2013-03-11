@@ -34,6 +34,9 @@ namespace uwsgi {
 
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		extern public static void Signal(int signum);
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+                extern public static byte[] CacheGet(string key, string cache=null);
 	}
 
 	class uWSGIRequest: HttpWorkerRequest {

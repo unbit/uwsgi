@@ -62,6 +62,8 @@ struct uwsgi_mono {
 	MonoClass *application_class;
 	MonoClass *api_class;
 
+	MonoClass *byte_class;
+
 	MonoClassField *filepath;
 
 	// thunk
@@ -257,6 +259,26 @@ static int uwsgi_mono_method_api_WorkerId() {
 	return uwsgi.mywid;
 }
 
+static MonoArray *uwsgi_mono_method_api_CacheGet(MonoString *key, MonoString *cache) {
+	char *c_key = mono_string_to_utf8(key);
+	uint16_t c_keylen = mono_string_length(key);
+	char *c_cache = NULL;
+	if (cache) {
+		c_cache = mono_string_to_utf8(cache);
+	}
+	uint64_t vallen = 0 ;
+	char *value = uwsgi_cache_magic_get(c_key, c_keylen, &vallen, c_cache);
+        if (value) {
+		MonoArray *ret = mono_array_new(mono_domain_get(), umono.byte_class, vallen);
+		char *buf = mono_array_addr(ret, char, 0);
+		memcpy(buf, value, vallen);
+		free(value);
+                return ret;
+        }
+
+	return NULL;
+}
+
 static void uwsgi_mono_add_internal_calls() {
 	// uWSGIRequest
 	mono_add_internal_call("uwsgi.uWSGIRequest::SendResponseFromMemory", uwsgi_mono_method_SendResponseFromMemory);
@@ -282,6 +304,7 @@ static void uwsgi_mono_add_internal_calls() {
 	mono_add_internal_call("uwsgi.api::Signal", uwsgi_mono_method_api_Signal);
 	mono_add_internal_call("uwsgi.api::WorkerId", uwsgi_mono_method_api_WorkerId);
 	mono_add_internal_call("uwsgi.api::RegisterSignal", uwsgi_mono_method_api_RegisterSignal);
+	mono_add_internal_call("uwsgi.api::CacheGet", uwsgi_mono_method_api_CacheGet);
 }
 
 static int uwsgi_mono_init() {
@@ -343,6 +366,12 @@ static void uwsgi_mono_create_jit() {
 		uwsgi_log("unable to get reference to class uwsgi.uWSGIApplication\n");
 		exit(1);
 	}
+
+	umono.byte_class = mono_class_from_name(mono_get_corlib(), "System", "Byte");
+        if (!umono.byte_class) {
+                uwsgi_log("unable to get reference to class System.Byte\n");
+                exit(1);
+        }
 
 	MonoClass *urequest = mono_class_from_name(image, "uwsgi", "uWSGIRequest");
 	if (!urequest) {
