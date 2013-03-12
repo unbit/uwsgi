@@ -2,6 +2,23 @@
 
 extern struct uwsgi_server uwsgi;
 
+static int uwsgi_socket_strcmp(char *sock1, char *sock2) {
+	size_t sock1_len = strlen(sock1);
+	size_t sock2_len = strlen(sock2);
+
+	if (!uwsgi_starts_with(sock1, sock1_len, "0.0.0.0:", 8)) {
+		sock1 += 7;
+		sock1_len = strlen(sock1);
+	}
+
+	if (!uwsgi_starts_with(sock2, sock2_len, "0.0.0.0:", 8)) {
+                sock2 += 7;
+                sock2_len = strlen(sock2);
+        }
+
+	return uwsgi_strncmp(sock1, sock1_len, sock2, sock2_len);
+}
+
 char *uwsgi_getsockname(int fd) {
 
 	socklen_t socket_type_len = sizeof(struct sockaddr_un);
@@ -1476,7 +1493,7 @@ void uwsgi_setup_shared_sockets() {
 			for (i = 3; i < (int) uwsgi.max_fd; i++) {
 				char *sock = uwsgi_getsockname(i);
 				if (sock) {
-					if (!strcmp(sock, shared_sock->name)) {
+					if (!uwsgi_socket_strcmp(sock, shared_sock->name)) {
 						if (strchr(sock, ':')) {
 							uwsgi_log("uwsgi shared socket %d inherited TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), sock, i);
 							shared_sock->family = AF_INET;
