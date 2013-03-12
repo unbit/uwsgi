@@ -5,3 +5,5 @@
 
 /uwsgi
 /uwsgibuild.*
+
+/t/ring/target
