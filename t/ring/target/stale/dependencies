@@ -1,1 +1,0 @@
-([:dependencies [[org.clojure/clojure "1.4.0"] [compojure "1.1.3"] [ring/ring "1.1.0"]]])
