@@ -616,11 +616,10 @@ int uwsgi_jvm_consume_input_stream(struct wsgi_request *wsgi_req, size_t chunk, 
 			break;
 		}
 		// get the body of the array
-		size_t buf_len = uwsgi_jvm_array_len(byte_buffer);
 		char *buf = (char *) (*ujvm_env)->GetByteArrayElements(ujvm_env, byte_buffer, JNI_FALSE);
 		if (!buf) { ret = -1; break; }
 		//send
-		if (uwsgi_response_write_body_do(wsgi_req, buf, buf_len)) {
+		if (uwsgi_response_write_body_do(wsgi_req, buf, len)) {
 			(*ujvm_env)->ReleaseByteArrayElements(ujvm_env, byte_buffer, (jbyte *) buf, 0);
 			ret = -1; break;
 		}

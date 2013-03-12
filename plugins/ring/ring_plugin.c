@@ -244,7 +244,7 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 	// *** REQUEST GENERATION ***
 
 	if (uwsgi_ring_request_item_add_keyword(hm, "request-method", 14, wsgi_req->method, wsgi_req->method_len)) goto end;
-	if (uwsgi_ring_request_item_add(hm, "uri", 3, wsgi_req->uri, wsgi_req->uri_len)) goto end;
+	if (uwsgi_ring_request_item_add(hm, "uri", 3, wsgi_req->path_info, wsgi_req->path_info_len)) goto end;
 	if (uwsgi_ring_request_item_add(hm, "server-name", 11, wsgi_req->host, wsgi_req->host_len)) goto end;
 
 	// server-port is required !!!
@@ -450,10 +450,13 @@ static int uwsgi_ring_setup() {
 	}
 
 	char *namespace = uwsgi_str(uring.app);
-	char *colon = strchr(namespace, ':');
+	char *colon = strchr(namespace, '/');
 	if (!colon) {
-		uwsgi_log("invalid ring application namespace/handler\n");
-		exit(1);
+		colon = strchr(namespace, ':');
+		if (!colon) {
+			uwsgi_log("invalid ring application namespace/handler\n");
+			exit(1);
+		}
 	}
 	*colon = 0;
 	uring.handler = uwsgi_jvm_call_object_static(clojure, clojure_var, uwsgi_jvm_str(namespace, 0), uwsgi_jvm_str(colon+1, 0));

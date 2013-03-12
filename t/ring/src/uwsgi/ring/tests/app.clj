@@ -15,7 +15,7 @@
 (defn app-routes [req]
   (if (= (get req :uri) "/")
     (basic/index-page req)
-    ((routes simple/app-routes body/app-routes upload/app-routes) req)))
+    ((routes simple/app-routes body/app-routes upload/app-routes (route/not-found "<h1>Page not found</h1>")) req)))
 
 (def app
   (-> app-routes

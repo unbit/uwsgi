@@ -8,13 +8,13 @@
         (lazy-seq (sieve (filter #(not= 0 (mod % (first s)))
                                  (rest s))))))
 
-(defn sequence [] (take 20 (sieve (iterate inc 2))))
+(defn numsequence [] (take 20 (sieve (iterate inc 2))))
 
 (defn file [] (java.io.File. "CONTRIBUTORS"))
 
 (defn stream [] (java.io.FileInputStream. (java.io.File. "CONTRIBUTORS")))
 
 (defroutes app-routes
-  (GET "/sequence" [] (sequence))
+  (GET "/sequence" [] (numsequence))
   (GET "/file" [] (file))
   (GET "/stream" [] (stream)))
