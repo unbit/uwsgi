@@ -108,3 +108,5 @@ int uwsgi_jvm_object_to_response_body(struct wsgi_request *, jobject);
 jobject uwsgi_jvm_bytearray(char *, size_t);
 char *uwsgi_jvm_bytearray2c(jobject);
 void uwsgi_jvm_release_bytearray(jobject, char *);
+
+jobject uwsgi_jvm_to_string(jobject);

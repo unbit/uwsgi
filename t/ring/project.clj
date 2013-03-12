@@ -5,6 +5,3 @@
                  [ring/ring "1.1.0"]]
 
   :source-paths ["src"]
-
-  :plugins [[lein-ring "0.7.5"]]
-  :ring {:handler uwsgi.ring.tests.app/app})

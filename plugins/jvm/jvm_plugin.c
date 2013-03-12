@@ -243,6 +243,15 @@ jobject uwsgi_jvm_entryset(jobject o) {
         return uwsgi_jvm_call_object(o, mid);
 }
 
+jobject uwsgi_jvm_to_string(jobject o) {
+	jclass c = uwsgi_jvm_class_from_object(o);
+        if (!c) return NULL;
+        jmethodID mid = uwsgi_jvm_get_method_id_quiet(c, "toString", "()Ljava/lang/String;");
+        uwsgi_jvm_local_unref(c);
+        if (!mid) return NULL;
+        return uwsgi_jvm_call_object(o, mid);
+}
+
 int uwsgi_jvm_object_to_response_body(struct wsgi_request *wsgi_req, jobject body) {
 
 	// check for string
@@ -297,20 +306,35 @@ int uwsgi_jvm_object_to_response_body(struct wsgi_request *wsgi_req, jobject bod
                         	ret = uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
                         	uwsgi_jvm_release_chars(chunk, c_body);
                         	uwsgi_jvm_local_unref(chunk);
+				if (ret) goto done;
+				continue;
 			}
-			else if (uwsgi_jvm_object_is_instance(chunk, ujvm.bytearray_class)) {
+
+			if (uwsgi_jvm_object_is_instance(chunk, ujvm.bytearray_class)) {
                         	char *c_body = uwsgi_jvm_bytearray2c(chunk);
                         	size_t c_body_len = uwsgi_jvm_array_len(chunk);
                         	ret = uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
                         	uwsgi_jvm_release_bytearray(chunk, c_body);
                         	uwsgi_jvm_local_unref(chunk);
+				if (ret) goto done;
+				continue;
 			}
-			else {
-				uwsgi_log("body iterable item must be java/lang/String or array of bytes!!!\n");
-                                uwsgi_jvm_local_unref(chunk);
-                                goto done;
+
+			jobject str_o = uwsgi_jvm_to_string(chunk);
+			if (str_o) {
+				char *c_body = uwsgi_jvm_str2c(str_o);
+                                size_t c_body_len = uwsgi_jvm_strlen(str_o);
+                                ret = uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
+                                uwsgi_jvm_release_chars(str_o, c_body);
+				uwsgi_jvm_local_unref(str_o);
+				uwsgi_jvm_local_unref(chunk);
+                                if (ret) goto done;
+				continue;
 			}
-                        if (ret) goto done;
+
+			uwsgi_log("body iterable item must be java/lang/String or array of bytes!!!\n");
+                        uwsgi_jvm_local_unref(chunk);
+                        goto done;
                 }
 done:
                 uwsgi_jvm_local_unref(chunks);
