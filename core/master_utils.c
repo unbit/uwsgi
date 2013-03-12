@@ -444,11 +444,6 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 
 	int i;
 
-	// close the cache server
-	if (uwsgi.cache_server_fd != -1) {
-		close(uwsgi.cache_server_fd);
-	}
-
 	if (uwsgi.master_process) {
 		if (uwsgi.master_queue > -1)
 			close(uwsgi.master_queue);

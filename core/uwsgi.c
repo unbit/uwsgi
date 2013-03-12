@@ -201,8 +201,6 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cache-blocksize", required_argument, 0, "set cache blocksize", uwsgi_opt_set_64bit, &uwsgi.cache_blocksize, 0},
 	{"cache-store", required_argument, 0, "enable persistent cache to disk", uwsgi_opt_set_str, &uwsgi.cache_store, UWSGI_OPT_MASTER},
 	{"cache-store-sync", required_argument, 0, "set frequency of sync for persistent cache", uwsgi_opt_set_int, &uwsgi.cache_store_sync, 0},
-	{"cache-server", required_argument, 0, "enable the threaded cache server", uwsgi_opt_set_str, &uwsgi.cache_server, 0},
-	{"cache-server-threads", required_argument, 0, "set the number of threads for the cache server", uwsgi_opt_set_int, &uwsgi.cache_server_threads, 0},
 	{"cache-no-expire", no_argument, 0, "disable auto sweep of expired items", uwsgi_opt_true, &uwsgi.cache_no_expire, 0},
 	{"cache-expire-freq", required_argument, 0, "set the frequency of cache sweeper scans (default 3 seconds)", uwsgi_opt_set_int, &uwsgi.cache_expire_freq, 0},
 	{"cache-report-freed-items", no_argument, 0, "constantly report the cache item freed by the sweeper (use only for debug)", uwsgi_opt_true, &uwsgi.cache_report_freed_items, 0},
@@ -2541,6 +2539,9 @@ next:
 #endif
 
 	if (uwsgi.master_process) {
+		// initialize threads with shared state
+		uwsgi_alarm_thread_start();
+        	uwsgi_exceptions_handler_thread_start();
 		// initialize a mutex to avoid glibc problem with pthread+fork()
 		if (uwsgi.threaded_logger) {
 			pthread_mutex_init(&uwsgi.threaded_logger_lock, NULL);

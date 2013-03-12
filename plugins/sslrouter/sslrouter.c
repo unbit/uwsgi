@@ -15,7 +15,9 @@ extern struct uwsgi_server uwsgi;
 static struct uwsgi_sslrouter {
 	struct uwsgi_corerouter cr;
 	char *ssl_session_context;
+#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
 	int sni;
+#endif
 } usr;
 
 struct sslrouter_session {
@@ -150,7 +152,9 @@ static struct uwsgi_option sslrouter_options[] = {
 	{"sslrouter-ss", required_argument, 0, "run the sslrouter stats server", uwsgi_opt_set_str, &usr.cr.stats_server, 0},
 	{"sslrouter-harakiri", required_argument, 0, "enable sslrouter harakiri", uwsgi_opt_set_int, &usr.cr.harakiri, 0},
 
+#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
 	{"sslrouter-sni", no_argument, 0, "use SNI to route requests", uwsgi_opt_true, &usr.sni, 0},
+#endif
 
 	{0, 0, 0, 0, 0, 0, 0},
 };
@@ -285,6 +289,7 @@ static ssize_t sr_read(struct corerouter_peer *main_peer) {
         		peer->key = cs->ugs->name;
         		peer->key_len = cs->ugs->name_len;
 
+#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
 			if (usr.sni) {
 				const char *servername = SSL_get_servername(sr->ssl, TLSEXT_NAMETYPE_host_name);
 				if (servername) {
@@ -292,6 +297,7 @@ static ssize_t sr_read(struct corerouter_peer *main_peer) {
         				peer->key_len = strlen(servername);
 				}
 			}
+#endif
         		// the mapper hook
         		if (cs->corerouter->mapper(cs->corerouter, peer)) {
                 		return -1;
@@ -335,6 +341,8 @@ static ssize_t sr_read(struct corerouter_peer *main_peer) {
 
 static void sr_session_close(struct corerouter_session *cs) {
 	struct sslrouter_session *sr = (struct sslrouter_session *) cs;
+	// clear the errors (otherwise they could be propagated)
+        ERR_clear_error();
         SSL_free(sr->ssl);
 }
 

@@ -14,17 +14,26 @@ int uwsgi_register_rpc(char *name, uint8_t modifier1, uint8_t args, void *func) 
 
 	uwsgi_lock(uwsgi.rpc_table_lock);
 
+	// first check if a function is already registered
+	size_t i;
+	for(i=0;i<uwsgi.shared->rpc_count[uwsgi.mywid];i++) {
+		int pos = (uwsgi.mywid * uwsgi.rpc_max) + i;
+		urpc = &uwsgi.rpc_table[pos];
+		if (!strcmp(name, urpc->name)) {
+			goto already;
+		}
+	}
+
 	if (uwsgi.shared->rpc_count[uwsgi.mywid] < uwsgi.rpc_max) {
 		int pos = (uwsgi.mywid * uwsgi.rpc_max) + uwsgi.shared->rpc_count[uwsgi.mywid];
 		urpc = &uwsgi.rpc_table[pos];
-
+		uwsgi.shared->rpc_count[uwsgi.mywid]++;
+already:
 		memcpy(urpc->name, name, strlen(name));
 		urpc->modifier1 = modifier1;
 		urpc->args = args;
 		urpc->func = func;
 		urpc->shared = uwsgi.mywid == 0 ? 1 : 0;
-
-		uwsgi.shared->rpc_count[uwsgi.mywid]++;
 
 		ret = 0;
 		if (uwsgi.mywid == 0) {
@@ -102,6 +111,7 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 	// wait for connection;
 	int ret = uwsgi.wait_write_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 	if (ret <= 0) {
+		close(fd);
 		return NULL;
 	}
 

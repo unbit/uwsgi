@@ -53,7 +53,7 @@
         }\
         peer->in->pos += len;\
 
-#define cr_read_exact(peer, l, f) read(peer->fd, peer->in->buf + peer->in->pos,l - peer->in->pos);\
+#define cr_read_exact(peer, l, f) read(peer->fd, peer->in->buf + peer->in->pos, (l - peer->in->pos));\
         if (len < 0) {\
                 cr_try_again;\
                 uwsgi_cr_error(peer, f);\
@@ -298,7 +298,8 @@ struct corerouter_session {
 	char client_address[INET_ADDRLEN];
 #endif
 
-	char client_port[6];
+	// use 11 bytes to be snprintf friendly
+	char client_port[11];
 };
 
 void uwsgi_opt_corerouter(char *, char *, void *);

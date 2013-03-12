@@ -128,11 +128,6 @@ void uwsgi_setup_inherited_sockets() {
 				continue;
 		}
 
-		if (uwsgi.cache_server && uwsgi.cache_server_fd != -1) {
-			if (j == uwsgi.cache_server_fd)
-				continue;
-		}
-
 		struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 		int found = 0;
 		while (ugs) {

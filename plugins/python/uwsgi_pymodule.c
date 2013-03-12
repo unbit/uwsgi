@@ -2983,31 +2983,21 @@ PyObject *py_uwsgi_queue_last(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 
 	char *key;
-	uint64_t valsize;
 	Py_ssize_t keylen = 0;
-	char *value = NULL;
-	PyObject *ret;
+	char *cache = NULL;
 
-	if (!PyArg_ParseTuple(args, "s#:cache_get", &key, &keylen)) {
+	if (!PyArg_ParseTuple(args, "s#|s:cache_get", &key, &keylen, &cache)) {
 		return NULL;
 	}
 
-	if (uwsgi.caches) {
-		UWSGI_RELEASE_GIL
-		uwsgi_rlock(uwsgi.caches->lock);
-		value = uwsgi_cache_get(key, keylen, &valsize);
-		if (!value) {
-			uwsgi_rwunlock(uwsgi.caches->lock);
-			UWSGI_GET_GIL
-			Py_INCREF(Py_None);
-			return Py_None;
-		}
-		char *storage = uwsgi_malloc(valsize);
-		memcpy(storage, value, valsize);
-		uwsgi_rwunlock(uwsgi.caches->lock);
-		UWSGI_GET_GIL
-		ret = PyString_FromStringAndSize(storage, valsize);
-		free(storage);
+	uint64_t vallen = 0;
+	UWSGI_RELEASE_GIL
+	char *value = uwsgi_cache_magic_get(key, keylen, &vallen, cache);
+	UWSGI_GET_GIL
+	if (value) {
+		// in python 3.x we return bytes
+		PyObject *ret = PyString_FromStringAndSize(value, vallen);
+		free(value);
 		return ret;
 	}
 

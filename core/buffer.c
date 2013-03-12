@@ -319,3 +319,12 @@ int uwsgi_buffer_send(struct uwsgi_buffer *ub, int fd) {
 
 	return 0;
 }
+
+int uwsgi_buffer_set_uh(struct uwsgi_buffer *ub, uint8_t modifier1, uint8_t modifier2) {
+	if (ub->pos < 4) return -1;
+	ub->buf[0] = modifier1;
+	ub->buf[1] = (uint8_t) ((ub->pos - 4) & 0xff);
+	ub->buf[2] = (uint8_t) (((ub->pos - 4) >> 8) & 0xff);
+	ub->buf[3] = modifier2;
+	return 0;
+}

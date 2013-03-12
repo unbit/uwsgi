@@ -113,6 +113,36 @@ error:
 
 }
 
+static int uwsgi_api_cache_update(lua_State *L) {
+
+	int args = lua_gettop(L);
+        const char *key ;
+        const char *value ;
+        uint64_t expires = 0;
+	size_t vallen;
+
+
+	if (args > 1) {
+
+		key = lua_tolstring(L, 1, NULL);
+		value = lua_tolstring(L, 2, &vallen);
+		if (args > 2) {
+			expires = lua_tonumber(L, 3);
+		}
+
+		uwsgi_wlock(uwsgi.caches->lock);
+        	uwsgi_cache_set((char *)key, strlen(key), (char *)value,
+				(uint16_t) vallen, expires,
+				UWSGI_CACHE_FLAG_UPDATE);
+		uwsgi_rwunlock(uwsgi.caches->lock);
+		
+	}
+
+	lua_pushnil(L);
+	return 1;
+
+}
+
 static int uwsgi_api_register_signal(lua_State *L) {
 
 	int args = lua_gettop(L);
@@ -227,6 +257,7 @@ static const luaL_reg uwsgi_api[] = {
   {"connection_fd", uwsgi_api_req_fd},
   {"cache_get", uwsgi_api_cache_get},
   {"cache_set", uwsgi_api_cache_set},
+  {"cache_update", uwsgi_api_cache_update},
   {"register_signal", uwsgi_api_register_signal},
   {"register_rpc", uwsgi_api_register_rpc},
   {"lock", uwsgi_api_lock},

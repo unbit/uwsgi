@@ -832,9 +832,7 @@ void init_uwsgi_embedded_module() {
 		init_uwsgi_module_sharedarea(new_uwsgi_module);
 	}
 
-	if (uwsgi.caches) {
-		init_uwsgi_module_cache(new_uwsgi_module);
-	}
+	init_uwsgi_module_cache(new_uwsgi_module);
 
 	if (uwsgi.queue_size > 0) {
 		init_uwsgi_module_queue(new_uwsgi_module);

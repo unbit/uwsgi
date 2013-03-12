@@ -304,8 +304,9 @@ def build_uwsgi(uc, print_only=False):
                 try:
                     execfile('%s/uwsgiplugin.py' % path, up)
                 except:
-                    with open('%s/uwsgiplugin.py' % path) as f:
-                        exec(f.read(), up)
+                    f = open('%s/uwsgiplugin.py' % path)
+                    exec(f.read(), up)
+                    f.close()
 
                 p_cflags = cflags[:]
                 p_cflags += up['CFLAGS']
@@ -353,7 +354,7 @@ def build_uwsgi(uc, print_only=False):
                 if uwsgi_os == 'Darwin':
                     found_arch = False
                     sanitized_ldflags = []
-                    for flag in up.LDFLAGS:
+                    for flag in up['LDFLAGS']:
                         if flag == '-arch':
                             found_arch = True
                             continue
