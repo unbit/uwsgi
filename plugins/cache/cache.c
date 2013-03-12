@@ -97,6 +97,93 @@ static void manage_magic_context(struct wsgi_request *wsgi_req, struct uwsgi_cac
 		return;	
 	}
 
+	// cache exists
+	if (!uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "exists", 6)) {
+                uwsgi_rlock(uc->lock);
+                if (!uwsgi_cache_exists2(uc, ucmc->key, ucmc->key_len)) {
+                        uwsgi_rwunlock(uc->lock);
+                        return;
+                }
+                // we are still locked !!!
+                ub = uwsgi_buffer_new(uwsgi.page_size);
+                ub->pos = 4;
+                if (uwsgi_buffer_append_keyval(ub, "status", 6, "ok", 2)) goto error;
+                if (uwsgi_buffer_set_uh(ub, 111, 17)) goto error;
+                // unlock !!!
+                uwsgi_rwunlock(uc->lock);
+                uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+                uwsgi_buffer_destroy(ub);
+                return;
+        }
+
+	// cache del
+        if (!uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "del", 3)) {
+                uwsgi_wlock(uc->lock);
+                if (uwsgi_cache_del2(uc, ucmc->key, ucmc->key_len, 0, 0)) {
+                        uwsgi_rwunlock(uc->lock);
+                        return;
+                }
+                // we are still locked !!!
+                ub = uwsgi_buffer_new(uwsgi.page_size);
+                ub->pos = 4;
+                if (uwsgi_buffer_append_keyval(ub, "status", 6, "ok", 2)) goto error;
+                if (uwsgi_buffer_set_uh(ub, 111, 17)) goto error;
+                // unlock !!!
+                uwsgi_rwunlock(uc->lock);
+                uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+                uwsgi_buffer_destroy(ub);
+                return;
+        }
+
+	// cache clear
+        if (!uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "clear", 5)) {
+		uint64_t i;
+		uwsgi_wlock(uc->lock);
+		for (i = 1; i < uwsgi.caches->max_items; i++) {
+			if (uwsgi_cache_del2(uc, NULL, 0, i, 0)) {
+                                uwsgi_rwunlock(uc->lock);
+                                return;
+                        }	
+		}
+                // we are still locked !!!
+                ub = uwsgi_buffer_new(uwsgi.page_size);
+                ub->pos = 4;
+                if (uwsgi_buffer_append_keyval(ub, "status", 6, "ok", 2)) goto error;
+                if (uwsgi_buffer_set_uh(ub, 111, 17)) goto error;
+                // unlock !!!
+                uwsgi_rwunlock(uc->lock);
+                uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+                uwsgi_buffer_destroy(ub);
+                return;
+        }
+
+	// cache set
+	if (!uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "set", 3) || !uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "update", 6)) {
+		if (ucmc->size == 0 || ucmc->size > uc->max_item_size) return;
+		wsgi_req->post_cl = ucmc->size;
+		// read the value
+		ssize_t rlen = 0;
+		char *value = uwsgi_request_body_read(wsgi_req, ucmc->size, &rlen);
+		if (rlen != (ssize_t) ucmc->size) return;
+		// ok let's lock
+		uwsgi_wlock(uc->lock);
+		if (uwsgi_cache_set2(uc, ucmc->key, ucmc->key_len, value, ucmc->size, ucmc->expires, ucmc->cmd_len > 3 ? UWSGI_CACHE_FLAG_UPDATE : 0)) {
+			uwsgi_rwunlock(uc->lock);
+			return;
+		}
+		// we are still locked !!!
+		ub = uwsgi_buffer_new(uwsgi.page_size);
+		ub->pos = 4;
+                if (uwsgi_buffer_append_keyval(ub, "status", 6, "ok", 2)) goto error;
+		if (uwsgi_buffer_set_uh(ub, 111, 17)) goto error;
+		// unlock !!!
+		uwsgi_rwunlock(uc->lock);
+		uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+                uwsgi_buffer_destroy(ub);
+                return;
+	}
+
+	return;
 error:
 	uwsgi_rwunlock(uc->lock);
 	uwsgi_buffer_destroy(ub);
@@ -112,6 +199,7 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 
 	// used for modifier2 17
 	struct uwsgi_cache_magic_context ucmc;
+	struct uwsgi_cache *uc = NULL;
 
         switch(wsgi_req->uh->modifier2) {
                 case 0:
@@ -172,32 +260,39 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                         break;
 		case 6:
 			// dump
-			wsgi_req->uh->modifier2 = 7;
-			struct uwsgi_buffer *cache_dump = uwsgi_buffer_new(4096);
-			if (uwsgi_buffer_append_keynum(cache_dump, "items", 5, uwsgi.cache_max_items)) {
+			uc = uwsgi.caches;
+			if (wsgi_req->uh->pktsize > 0) {
+				uc = uwsgi_cache_by_namelen(wsgi_req->buffer, wsgi_req->uh->pktsize);
+			}
+
+			if (!uc) break;
+
+			uwsgi_wlock(uc->lock);
+			struct uwsgi_buffer *cache_dump = uwsgi_buffer_new(uwsgi.page_size + uc->filesize);
+			cache_dump->pos = 4;
+			if (uwsgi_buffer_append_keynum(cache_dump, "items", 5, uc->max_items)) {
 				uwsgi_buffer_destroy(cache_dump);
 				break;
 			}
-			if (uwsgi_buffer_append_keynum(cache_dump, "blocksize", 9, uwsgi.cache_blocksize)) {
+			if (uwsgi_buffer_append_keynum(cache_dump, "blocksize", 9, uc->blocksize)) {
 				uwsgi_buffer_destroy(cache_dump);
 				break;
 			}
 
-                        wsgi_req->uh->pktsize = cache_dump->pos;
-			if (uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4)) {
+			if (uwsgi_buffer_set_uh(cache_dump, 111, 7)) {
 				uwsgi_buffer_destroy(cache_dump);
-				return -1;
+				break;
 			}
+
+			if (uwsgi_buffer_append(cache_dump, (char *)uc->items, uc->filesize)) {
+				uwsgi_buffer_destroy(cache_dump);
+				break;
+			}
+
+			uwsgi_rwunlock(uc->lock);
+
 			uwsgi_response_write_body_do(wsgi_req, cache_dump->buf, cache_dump->pos);
 			uwsgi_buffer_destroy(cache_dump);
-			uwsgi_wlock(uwsgi.caches->lock);
-			// make a copy of the whole cache
-			char *buf = uwsgi_malloc(uwsgi.caches->filesize);
-			memcpy(buf, uwsgi.caches->items, uwsgi.caches->filesize);
-			uwsgi_rwunlock(uwsgi.caches->lock);
-			// write the whole cache
-			uwsgi_response_write_body_do(wsgi_req, buf, uwsgi.caches->filesize);
-			free(buf);
 			break;
 		case 17:
 			if (wsgi_req->uh->pktsize == 0) break;

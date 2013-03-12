@@ -305,7 +305,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 	// cache most used values
 	wi->error = PyFile_FromFile(stderr, "wsgi_errors", "w", NULL);
-	Py_INCREF(wi->error);
+	Py_INCREF((PyObject *)wi->error);
 
 	wi->gateway_version = PyTuple_New(2);
         PyTuple_SetItem(wi->gateway_version, 0, PyInt_FromLong(1));
@@ -563,7 +563,9 @@ PyObject *uwsgi_file_loader(void *arg1) {
 	char *callable = up.callable;
 	if (!callable) callable = "application";
 
-	char *py_filename = uwsgi_concat2("uwsgi_file_", uwsgi_pythonize(filename));
+	char *pythonized_filename = uwsgi_pythonize(filename);
+	char *py_filename = uwsgi_concat2("uwsgi_file_", pythonized_filename);
+	free(pythonized_filename);
 
 	wsgi_file_module = uwsgi_pyimport_by_filename(py_filename, filename);
 	if (!wsgi_file_module) {

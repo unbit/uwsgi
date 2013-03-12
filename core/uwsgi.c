@@ -109,6 +109,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"endif", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
 
+	{"blacklist", required_argument, 0, "set options blacklist context", uwsgi_opt_set_str, &uwsgi.blacklist_context, UWSGI_OPT_IMMEDIATE},
+	{"end-blacklist", no_argument, 0, "clear options blacklist context", uwsgi_opt_set_null, &uwsgi.blacklist_context, UWSGI_OPT_IMMEDIATE},
+
+	{"whitelist", required_argument, 0, "set options whitelist context", uwsgi_opt_set_str, &uwsgi.whitelist_context, UWSGI_OPT_IMMEDIATE},
+	{"end-whitelist", no_argument, 0, "clear options whitelist context", uwsgi_opt_set_null, &uwsgi.whitelist_context, UWSGI_OPT_IMMEDIATE},
+
 	{"ignore-sigpipe", no_argument, 0, "do not report (annoying) SIGPIPE", uwsgi_opt_true, &uwsgi.ignore_sigpipe, 0},
 	{"ignore-write-errors", no_argument, 0, "do not report (annoying) write()/writev() errors", uwsgi_opt_true, &uwsgi.ignore_write_errors, 0},
 	{"write-errors-tolerance", required_argument, 0, "set the maximum number of allowed write errors (default: no tolerance)", uwsgi_opt_set_64bit, &uwsgi.write_errors_tolerance, 0},
@@ -366,6 +372,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"legion-setup", required_argument, 0, "action to call on legion setup", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-death", required_argument, 0, "action to call on legion death (shutdown of the instance)", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-quorum", required_argument, 0, "set the quorum of a legion", uwsgi_opt_legion_quorum, NULL, UWSGI_OPT_MASTER},
+	{"legion-scroll", required_argument, 0, "set the scroll of a legion", uwsgi_opt_legion_scroll, NULL, UWSGI_OPT_MASTER},
+	{"legion-scroll", required_argument, 0, "set the scroll of a legion", uwsgi_opt_legion_scroll, NULL, UWSGI_OPT_MASTER},
+	{"legion-scroll-max-size", required_argument, 0, "set max size of legion scroll buffer", uwsgi_opt_set_16bit, &uwsgi.legion_scroll_max_size, 0},
 	{"subscriptions-sign-check", required_argument, 0, "set digest algorithm and certificate directory for secured subscription system", uwsgi_opt_scd, NULL, UWSGI_OPT_MASTER},
 	{"subscriptions-sign-check-tolerance", required_argument, 0, "set the maximum tolerance (in seconds) of clock skew for secured subscription system", uwsgi_opt_set_int, &uwsgi.subscriptions_sign_check_tolerance, UWSGI_OPT_MASTER},
 #endif
@@ -476,7 +485,6 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"die-on-idle", no_argument, 0, "shutdown uWSGI when idle", uwsgi_opt_true, &uwsgi.die_on_idle, 0},
 	{"mount", required_argument, 0, "load application under mountpoint", uwsgi_opt_add_string_list, &uwsgi.mounts, 0},
 	{"worker-mount", required_argument, 0, "load application under mountpoint in the specified worker or after workers spawn", uwsgi_opt_add_string_list, &uwsgi.mounts, 0},
-	{"grunt", no_argument, 0, "enable grunt mode (in-request fork)", uwsgi_opt_true, &uwsgi.grunt, 0},
 
 	{"threads", required_argument, 0, "run each worker in prethreaded mode with the specified number of threads", uwsgi_opt_set_int, &uwsgi.threads, UWSGI_OPT_THREADS},
 	{"thread-stacksize", required_argument, 0, "set threads stacksize", uwsgi_opt_set_int, &uwsgi.threads_stacksize, UWSGI_OPT_THREADS},
@@ -601,9 +609,6 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"dlopen", required_argument, 0, "blindly load a shared library", uwsgi_opt_load_dl, NULL, UWSGI_OPT_IMMEDIATE},
 	{"allowed-modifiers", required_argument, 0, "comma separated list of allowed modifiers", uwsgi_opt_set_str, &uwsgi.allowed_modifiers, 0},
 	{"remap-modifier", required_argument, 0, "remap request modifier from one id to another", uwsgi_opt_set_str, &uwsgi.remap_modifier, 0},
-
-	{"app", required_argument, 0, "*** deprecated ***", uwsgi_opt_deprecated, (void *) "use the more advanced \"mount\" option", 0},
-	{"static-offload-to-thread", required_argument, 0, "*** deprecated ***", uwsgi_opt_deprecated, (void *) "use the more advanced \"offload-threads\" option", 0},
 
 	{"dump-options", no_argument, 0, "dump the full list of available options", uwsgi_opt_true, &uwsgi.dump_options, 0},
 	{"show-config", no_argument, 0, "show the current config reformatted as ini", uwsgi_opt_true, &uwsgi.show_config, 0},
@@ -1264,6 +1269,7 @@ void signal_pidfile(int sig, char *filename) {
 	else {
 		uwsgi_log("error: invalid pidfile\n");
 	}
+	free(buffer);
 }
 
 /*static*/ void uwsgi_command_signal(char *opt) {
@@ -3224,6 +3230,12 @@ void uwsgi_opt_set_str(char *opt, char *value, void *key) {
 	*ptr = (char *) value;
 }
 
+void uwsgi_opt_set_null(char *opt, char *value, void *key) {
+        char **ptr = (char **) key;
+        *ptr = NULL;
+}
+
+
 void uwsgi_opt_set_logger(char *opt, char *value, void *prefix) {
 
 	if (!value)
@@ -3457,7 +3469,8 @@ void uwsgi_opt_load_dl(char *opt, char *value, void *none) {
 
 void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 
-	char *p = strtok(uwsgi_concat2(value, ""), ",");
+	char *plugins_list = uwsgi_concat2(value, "");
+	char *p = strtok(plugins_list, ",");
 	while (p != NULL) {
 #ifdef UWSGI_DEBUG
 		uwsgi_debug("loading plugin %s\n", p);
@@ -3467,6 +3480,8 @@ void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 		}
 		p = strtok(NULL, ",");
 	}
+	free(p);
+	free(plugins_list);
 }
 
 void uwsgi_opt_check_static(char *opt, char *value, void *foobar) {
@@ -3824,7 +3839,6 @@ void uwsgi_opt_flock(char *opt, char *filename, void *none) {
 		uwsgi_log("uWSGI ERROR: %s is locked by another instance\n", filename);
 		exit(1);
 	}
-
 }
 
 void uwsgi_opt_flock_wait(char *opt, char *filename, void *none) {
@@ -3838,7 +3852,6 @@ void uwsgi_opt_flock_wait(char *opt, char *filename, void *none) {
 	if (uwsgi_fcntl_lock(fd)) {
 		exit(1);
 	}
-
 }
 
 // report CFLAGS used for compiling the server

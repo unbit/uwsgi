@@ -454,6 +454,26 @@ PyObject *py_uwsgi_i_am_the_lord(PyObject * self, PyObject * args) {
         Py_INCREF(Py_False);
         return Py_False;
 }
+
+PyObject *py_uwsgi_lord_scroll(PyObject * self, PyObject * args) {
+        char *legion_name = NULL;
+
+        if (!PyArg_ParseTuple(args, "s:lord_scroll", &legion_name)) {
+                return NULL;
+        }
+
+	uint16_t rlen = 0;
+	char *buf = uwsgi_legion_lord_scroll(legion_name, &rlen);
+	if (!buf) {
+        	Py_INCREF(Py_None);
+        	return Py_None;
+	}
+
+	PyObject *ret = PyString_FromStringAndSize(buf, rlen);
+	free(buf);
+        return ret;
+}
+
 #endif
 
 PyObject *py_uwsgi_register_signal(PyObject * self, PyObject * args) {
@@ -717,7 +737,7 @@ static PyObject *py_uwsgi_route(PyObject * self, PyObject * args) {
                 return NULL;
         }
 
-	int ret = uwsgi_route_api_func(wsgi_req, uwsgi_str(router_name), uwsgi_str(router_args));
+	int ret = uwsgi_route_api_func(wsgi_req, router_name, uwsgi_str(router_args));
 	return PyInt_FromLong(ret);
 }
 #endif
@@ -2331,63 +2351,6 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 
 }
 
-PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
-
-	pid_t grunt_pid;
-	struct wsgi_request *wsgi_req = py_current_wsgi_req();
-
-	if (uwsgi.grunt) {
-		uwsgi_log("spawning a grunt from worker %d (pid :%d)...\n", uwsgi.mywid, uwsgi.mypid);
-	}
-	else {
-		uwsgi_log("grunt support is disabled !!!\n");
-		goto clear;
-	}
-
-	// use a normal fork here
-	grunt_pid = fork();
-	if (grunt_pid < 0) {
-		uwsgi_error("fork()");
-		goto clear;
-	}
-	// now i am a grunt, avoid it making mess
-	else if (grunt_pid == 0) {
-		// it will no more accepts requests
-		uwsgi_close_all_sockets();
-		// create a new session
-		setsid();
-		// exit on SIGPIPE
-		signal(SIGPIPE, (void *) &end_me);
-		// here we create a new worker. Each grunt will race on this datas, so do not rely on them
-		uwsgi.mywid = uwsgi.numproc + 1;
-		uwsgi.mypid = getpid();
-		memset(&uwsgi.workers[uwsgi.mywid], 0, sizeof(struct uwsgi_worker));
-		// this is pratically useless...
-		uwsgi.workers[uwsgi.mywid].id = uwsgi.mywid;
-		// this field will be overwrite after each call
-		uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
-
-		// reset the random seed
-		uwsgi_python_reset_random_seed();
-		// TODO
-		// manage thread in grunt processes
-		Py_INCREF(Py_True);
-		return Py_True;
-	}
-
-	// close connection on the original worker
-	if (PyTuple_Size(args) == 0) {
-		if (wsgi_req->socket) {
-			wsgi_req->socket->proto_close(wsgi_req);
-		}
-		wsgi_req->fd_closed = 1;
-	}
-
-      clear:
-	Py_INCREF(Py_None);
-	return Py_None;
-}
-
 static PyMethodDef uwsgi_spooler_methods[] = {
 #ifdef PYTHREE
 	{"send_to_spooler", (PyCFunction) py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
@@ -2434,7 +2397,6 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"get_logvar", py_uwsgi_get_logvar, METH_VARARGS, ""},
 	{"alarm", py_uwsgi_alarm, METH_VARARGS, ""},
 	{"disconnect", py_uwsgi_disconnect, METH_VARARGS, ""},
-	{"grunt", py_uwsgi_grunt, METH_VARARGS, ""},
 	{"lock", py_uwsgi_lock, METH_VARARGS, ""},
 	{"is_locked", py_uwsgi_is_locked, METH_VARARGS, ""},
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
@@ -2471,6 +2433,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"logsize", py_uwsgi_logsize, METH_VARARGS, ""},
 #ifdef UWSGI_SSL
 	{"i_am_the_lord", py_uwsgi_i_am_the_lord, METH_VARARGS, ""},
+	{"lord_scroll", py_uwsgi_lord_scroll, METH_VARARGS, ""},
 #endif
 	{"async_sleep", py_uwsgi_async_sleep, METH_VARARGS, ""},
 	{"async_connect", py_uwsgi_async_connect, METH_VARARGS, ""},
@@ -2526,51 +2489,46 @@ static PyMethodDef uwsgi_sa_methods[] = {
 
 PyObject *py_uwsgi_cache_clear(PyObject * self, PyObject * args) {
 
-	uint64_t i;
-        // skip the first slot
-        for (i = 1; i < uwsgi.caches->max_items; i++) {
-		UWSGI_RELEASE_GIL
-                uwsgi_wlock(uwsgi.caches->lock);
-                uwsgi_cache_del(NULL, 0, i, 0);
-                uwsgi_rwunlock(uwsgi.caches->lock);
-		UWSGI_GET_GIL
-	}
+        char *cache = NULL;
 
-	Py_INCREF(Py_None);
-	return Py_None;
+        if (!PyArg_ParseTuple(args, "|s:cache_clear", &cache)) {
+                return NULL;
+        }
+
+        UWSGI_RELEASE_GIL
+        if (!uwsgi_cache_magic_clear(cache)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_True);
+                return Py_True;
+        }
+        UWSGI_GET_GIL
+
+        Py_INCREF(Py_None);
+        return Py_None;
 }
 
 
 PyObject *py_uwsgi_cache_del(PyObject * self, PyObject * args) {
 
 	char *key;
-	Py_ssize_t keylen = 0;
-	char *remote = NULL;
+        Py_ssize_t keylen = 0;
+        char *cache = NULL;
 
-	if (!PyArg_ParseTuple(args, "s#|s:cache_del", &key, &keylen, &remote)) {
-		return NULL;
-	}
+        if (!PyArg_ParseTuple(args, "s#|s:cache_del", &key, &keylen, &cache)) {
+                return NULL;
+        }
 
-	if (remote && strlen(remote) > 0) {
-		UWSGI_RELEASE_GIL
-		//uwsgi_simple_send_string(remote, 111, 2, key, keylen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);	
-		UWSGI_GET_GIL
-	}
-	else if (uwsgi.caches) {
-		UWSGI_RELEASE_GIL
-		uwsgi_wlock(uwsgi.caches->lock);
-		if (uwsgi_cache_del(key, keylen, 0, 0)) {
-			uwsgi_rwunlock(uwsgi.caches->lock);
-			UWSGI_GET_GIL
-			Py_INCREF(Py_None);
-			return Py_None;
-		}
-		uwsgi_rwunlock(uwsgi.caches->lock);
-		UWSGI_GET_GIL
-	}
+        UWSGI_RELEASE_GIL
+        if (!uwsgi_cache_magic_del(key, keylen, cache)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_True);
+                return Py_True;
+        }
+        UWSGI_GET_GIL
 
-	Py_INCREF(Py_True);
-	return Py_True;
+        Py_INCREF(Py_None);
+        return Py_None;
+
 
 }
 
@@ -2581,25 +2539,21 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 	char *value;
 	Py_ssize_t vallen = 0;
 	Py_ssize_t keylen = 0;
+	char *remote = NULL;
 
 	uint64_t expires = 0;
 
-	if (!PyArg_ParseTuple(args, "s#s#|i:cache_set", &key, &keylen, &value, &vallen, &expires)) {
+	if (!PyArg_ParseTuple(args, "s#s#|is:cache_set", &key, &keylen, &value, &vallen, &expires, &remote)) {
 		return NULL;
 	}
 
-	if (uwsgi.caches) {
-		UWSGI_RELEASE_GIL
-		uwsgi_wlock(uwsgi.caches->lock);
-		if (uwsgi_cache_set(key, keylen, value, vallen, expires, 0)) {
-			uwsgi_rwunlock(uwsgi.caches->lock);
-			UWSGI_GET_GIL
-			Py_INCREF(Py_None);
-			return Py_None;
-		}
-		uwsgi_rwunlock(uwsgi.caches->lock);
+	UWSGI_RELEASE_GIL
+	if (uwsgi_cache_magic_set(key, keylen, value, vallen, expires, 0, remote)) {
 		UWSGI_GET_GIL
+		Py_INCREF(Py_None);
+		return Py_None;
 	}
+	UWSGI_GET_GIL
 
 	Py_INCREF(Py_True);
 	return Py_True;
@@ -2608,7 +2562,7 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_cache_update(PyObject * self, PyObject * args) {
 
-        char *key;
+	char *key;
         char *value;
         Py_ssize_t vallen = 0;
         Py_ssize_t keylen = 0;
@@ -2620,27 +2574,13 @@ PyObject *py_uwsgi_cache_update(PyObject * self, PyObject * args) {
                 return NULL;
         }
 
-        if ((uint64_t)vallen > uwsgi.caches->blocksize) {
-                return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < %llu, requested %llu bytes", (unsigned long long)uwsgi.caches->blocksize, (unsigned long long) vallen);
+        UWSGI_RELEASE_GIL
+        if (uwsgi_cache_magic_set(key, keylen, value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE, remote)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_None);
+                return Py_None;
         }
-
-        if (remote && strlen(remote) > 0) {
-		UWSGI_RELEASE_GIL
-                //uwsgi_simple_send_string2(remote, 111, 1, key, keylen, value, vallen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		UWSGI_GET_GIL
-        }
-        else if (uwsgi.caches) {
-		UWSGI_RELEASE_GIL
-                uwsgi_wlock(uwsgi.caches->lock);
-                if (uwsgi_cache_set(key, keylen, value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE)) {
-                        uwsgi_rwunlock(uwsgi.caches->lock);
-			UWSGI_GET_GIL
-                        Py_INCREF(Py_None);
-                        return Py_None;
-                }
-                uwsgi_rwunlock(uwsgi.caches->lock);
-		UWSGI_GET_GIL
-        }
+        UWSGI_GET_GIL
 
         Py_INCREF(Py_True);
         return Py_True;
@@ -2652,41 +2592,23 @@ PyObject *py_uwsgi_cache_update(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_cache_exists(PyObject * self, PyObject * args) {
 
 	char *key;
-	Py_ssize_t keylen = 0;
-	char *remote = NULL;
+        Py_ssize_t keylen = 0;
+        char *cache = NULL;
 
-	if (!PyArg_ParseTuple(args, "s#|s:cache_exists", &key, &keylen, &remote)) {
-		return NULL;
-	}
-	
-	if (remote && strlen(remote) > 0) {
-		// TODO FIX THIS !!!
-		UWSGI_RELEASE_GIL
-		//uwsgi_simple_message_string(remote, 111, 0, key, keylen, buffer, &valsize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		UWSGI_GET_GIL
-/*
-		if (valsize > 0) {
-			Py_INCREF(Py_True);
-			return Py_True;
-		}	
-*/
+        if (!PyArg_ParseTuple(args, "s#|s:cache_exists", &key, &keylen, &cache)) {
+                return NULL;
         }
-	else if (uwsgi.caches) {
-		UWSGI_RELEASE_GIL
-		uwsgi_rlock(uwsgi.caches->lock);
-		if (uwsgi_cache_exists(key, keylen)) {
-			uwsgi_rwunlock(uwsgi.caches->lock);
-			UWSGI_GET_GIL
-			Py_INCREF(Py_True);
-			return Py_True;
-		}
-		uwsgi_rwunlock(uwsgi.caches->lock);
+
+        UWSGI_RELEASE_GIL
+        if (uwsgi_cache_magic_exists(key, keylen, cache)) {
 		UWSGI_GET_GIL
+		Py_INCREF(Py_True);
+		return Py_True;
 	}
+        UWSGI_GET_GIL
 
-	Py_INCREF(Py_None);
-	return Py_None;
-
+        Py_INCREF(Py_None);
+        return Py_None;
 }
 
 PyObject *py_uwsgi_queue_push(PyObject * self, PyObject * args) {

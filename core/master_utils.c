@@ -1312,7 +1312,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_list_open(us))
 				goto end;
 
-			pthread_mutex_lock(&legion->lock);
+			uwsgi_rlock(legion->lock);
 			struct uwsgi_legion_node *node = legion->nodes_head;
 			while (node) {
 				if (uwsgi_stats_object_open(us))
@@ -1342,7 +1342,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 						goto unlock_legion_mutex;
 				}
 			}
-			pthread_mutex_unlock(&legion->lock);
+			uwsgi_rwunlock(legion->lock);
 
 			if (uwsgi_stats_list_close(us))
 				goto end;
@@ -1371,7 +1371,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 #ifdef UWSGI_SSL
 unlock_legion_mutex:
 	if (legion)
-		pthread_mutex_unlock(&legion->lock);
+		uwsgi_rwunlock(legion->lock);
 #endif
 end:
 	free(us->base);

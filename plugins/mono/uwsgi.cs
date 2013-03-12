@@ -6,6 +6,8 @@ using System.Web.Hosting;
 using System.Text;
 using System.Runtime.CompilerServices;
 
+[assembly: System.Reflection.AssemblyVersion ("0.0.0.1")]
+
 namespace uwsgi {
 
 	public delegate void uWSGIHook();
@@ -32,9 +34,14 @@ namespace uwsgi {
 
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		extern public static void Signal(int signum);
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+                extern public static byte[] CacheGet(string key, string cache=null);
 	}
 
 	class uWSGIRequest: HttpWorkerRequest {
+
+		private String filepath = null;
 
 		public override string GetAppPath() {
 			return "/";
@@ -135,6 +142,9 @@ namespace uwsgi {
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		extern public override void SendUnknownResponseHeader (string name, string value);
 
+		public string hack_current_filename() {
+			return filepath;
+		}
 	}
 
 	public class uWSGIApplicationHost: MarshalByRefObject {

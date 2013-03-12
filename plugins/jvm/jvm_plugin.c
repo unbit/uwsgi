@@ -78,20 +78,38 @@ JNIEXPORT jobject JNICALL uwsgi_jvm_api_cache_get(JNIEnv *env, jclass c, jstring
 
 	size_t keylen = uwsgi_jvm_strlen(jkey);
 	char *key = uwsgi_jvm_str2c(jkey);
-	uwsgi_rlock(uwsgi.caches->lock);
 	uint64_t vallen = 0;
-	char *value = uwsgi_cache_get(key, keylen, &vallen);
+	char *value = uwsgi_cache_magic_get(key, keylen, &vallen, NULL);
 	uwsgi_jvm_release_chars(jkey, key);
-
 	if (value) {
-		uwsgi_rwunlock(uwsgi.caches->lock);
 		jobject o = uwsgi_jvm_bytearray(value, vallen);
-		uwsgi_rwunlock(uwsgi.caches->lock);
+		free(value);
 		return o;
 	}
-	uwsgi_rwunlock(uwsgi.caches->lock);
 	return NULL;
 }
+
+JNIEXPORT jobject JNICALL uwsgi_jvm_api_cache_get_name(JNIEnv *env, jclass c, jstring jkey, jstring jcache) {
+        if (!uwsgi.caches) {
+                uwsgi_jvm_throw("cache not available");
+                return NULL;
+        }
+
+        size_t keylen = uwsgi_jvm_strlen(jkey);
+        char *key = uwsgi_jvm_str2c(jkey);
+        char *cache = uwsgi_jvm_str2c(jcache);
+        uint64_t vallen = 0;
+        char *value = uwsgi_cache_magic_get(key, keylen, &vallen, cache);
+        uwsgi_jvm_release_chars(jkey, key);
+        uwsgi_jvm_release_chars(jcache, cache);
+        if (value) {
+                jobject o = uwsgi_jvm_bytearray(value, vallen);
+                free(value);
+                return o;
+        }
+        return NULL;
+}
+
 
 JNIEXPORT void JNICALL uwsgi_jvm_api_alarm(JNIEnv *env, jclass c, jstring alarm, jstring msg) {
 
@@ -104,6 +122,51 @@ JNIEXPORT void JNICALL uwsgi_jvm_api_alarm(JNIEnv *env, jclass c, jstring alarm,
 
 }
 
+JNIEXPORT jobject JNICALL uwsgi_jvm_api_rpc(JNIEnv *env, jclass c, jobject j_args) {
+
+	char *argv[256];
+        uint16_t argvs[256];
+	jobject argvj[256];
+	uint16_t size = 0;
+
+	size_t args = uwsgi_jvm_array_len(j_args);
+	if (args < 2) return NULL;
+
+	jobject server = uwsgi_jvm_array_get(j_args, 0);
+	jobject func = uwsgi_jvm_array_get(j_args, 1);
+	
+	size_t i;
+	for(i=0;i<(args-2);i++) {
+		jobject j_arg = uwsgi_jvm_array_get(j_args, i + 2);	
+		argvs[i] = uwsgi_jvm_strlen(j_arg);
+		argv[i] = uwsgi_jvm_str2c(j_arg);
+		// need this value to unref later
+		argvj[i] = j_arg;
+	}
+
+	char *c_server = uwsgi_jvm_str2c(server);
+	char *c_func = uwsgi_jvm_str2c(func);
+	char *response = uwsgi_do_rpc(c_server, c_func, args-2, argv, argvs, &size);
+	uwsgi_jvm_release_chars(func, c_func);
+	uwsgi_jvm_release_chars(server, c_server);
+	uwsgi_jvm_local_unref(server);
+	uwsgi_jvm_local_unref(func);
+	for(i=0;i<(args-2);i++) {
+		uwsgi_jvm_release_chars(argvj[i], argv[i]);
+		uwsgi_jvm_local_unref(argvj[i]);
+	}
+	
+	if (response) {
+		jobject o = uwsgi_jvm_str(response, size);
+		free(response);
+		return o;
+	}
+	
+	return NULL;
+
+}
+
+
 static JNINativeMethod uwsgi_jvm_api_methods[] = {
 	{"register_signal", "(ILjava/lang/String;Luwsgi$SignalHandler;)V", (void *) &uwsgi_jvm_api_register_signal},
 	{"register_rpc", "(Ljava/lang/String;Luwsgi$RpcFunction;)V", (void *) &uwsgi_jvm_api_register_rpc},
@@ -113,7 +176,9 @@ static JNINativeMethod uwsgi_jvm_api_methods[] = {
 	{"lock", "(I)V", (void *) &uwsgi_jvm_api_lock},
 	{"unlock", "(I)V", (void *) &uwsgi_jvm_api_unlock},
 	{"cache_get", "(Ljava/lang/String;)[B", (void *) &uwsgi_jvm_api_cache_get},
+	{"cache_get", "(Ljava/lang/String;Ljava/lang/String;)[B", (void *) &uwsgi_jvm_api_cache_get_name},
 	{"alarm", "(Ljava/lang/String;Ljava/lang/String;)V", (void *) &uwsgi_jvm_api_alarm},
+	{"rpc", "([Ljava/lang/String;)Ljava/lang/String;", (void *) &uwsgi_jvm_api_rpc},
 };
 
 JNIEXPORT jint JNICALL uwsgi_jvm_request_body_read(JNIEnv *env, jobject o) {

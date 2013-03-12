@@ -104,18 +104,23 @@ struct zergpool_socket *add_zergpool_socket(char *name, char *sockets) {
 	p = strtok(sock_list, ",");
 	while(p) {
 		char *port = strchr(p, ':');
+		char *sockname;
 		if (!port) {
 			z_sock->sockets[pos] = bind_to_unix(p, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
-			uwsgi_log("zergpool %s bound to UNIX socket %s (fd: %d)\n", name, uwsgi_getsockname(z_sock->sockets[pos]), z_sock->sockets[pos]);
+			sockname = uwsgi_getsockname(z_sock->sockets[pos]);
+			uwsgi_log("zergpool %s bound to UNIX socket %s (fd: %d)\n", name, sockname, z_sock->sockets[pos]);
 		}
 		else {
 			char *gsn = generate_socket_name(p);
 			z_sock->sockets[pos] = bind_to_tcp(gsn, uwsgi.listen_queue, strchr(gsn, ':'));
-			uwsgi_log("zergpool %s bound to TCP socket %s (fd: %d)\n", name, uwsgi_getsockname(z_sock->sockets[pos]), z_sock->sockets[pos]);
+			sockname = uwsgi_getsockname(z_sock->sockets[pos]);
+			uwsgi_log("zergpool %s bound to TCP socket %s (fd: %d)\n", name, sockname, z_sock->sockets[pos]);
 		}
 		pos++;
 		p = strtok(NULL, ",");
+		free(sockname);
 	}
+	free(sock_list);
 
 	return z_sock;
 }

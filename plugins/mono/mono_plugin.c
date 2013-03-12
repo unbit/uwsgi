@@ -48,6 +48,7 @@ struct uwsgi_mono {
 	char *assembly_name ;
 
 	struct uwsgi_string_list *key;
+	struct uwsgi_string_list *index;
 
 	// GC frequency
 	uint64_t gc_freq;
@@ -60,6 +61,10 @@ struct uwsgi_mono {
 
 	MonoClass *application_class;
 	MonoClass *api_class;
+
+	MonoClass *byte_class;
+
+	MonoClassField *filepath;
 
 	// thunk
 	void (*process_request)(MonoObject *, MonoException **);
@@ -78,15 +83,53 @@ struct uwsgi_option uwsgi_mono_options[] = {
         {"mono-config", required_argument, 0, "set the Mono config file", uwsgi_opt_set_str, &umono.config, 0},
         {"mono-assembly", required_argument, 0, "load the specified main assembly (default: uwsgi.dll)", uwsgi_opt_set_str, &umono.assembly_name, 0},
         {"mono-exec", required_argument, 0, "exec the specified assembly just before app loading", uwsgi_opt_add_string_list, &umono.exec, 0},
+        {"mono-index", required_argument, 0, "add an asp.net index file", uwsgi_opt_add_string_list, &umono.index, 0},
 };
 
 static MonoString *uwsgi_mono_method_GetFilePath(MonoObject *this) {
+	MonoString *ret = NULL;
+	// cache it !!!
+	MonoObject *filepath = mono_field_get_value_object(mono_domain_get(), umono.filepath, this);
+	if (filepath) {
+		return (MonoString *) filepath;
+	}
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	return mono_string_new_len(mono_domain_get(), wsgi_req->path_info, wsgi_req->path_info_len);
+	struct uwsgi_app *app = &uwsgi_apps[wsgi_req->app_id];
+	char *path = uwsgi_concat3n(app->interpreter, strlen(app->interpreter), "/", 1, wsgi_req->path_info, wsgi_req->path_info_len);
+	size_t path_len = strlen(app->interpreter) + 1 + wsgi_req->path_info_len;
+
+	if (!uwsgi_file_exists(path)) {
+		free(path);
+		goto simple;
+	}
+
+	if (uwsgi_is_dir(path)) {
+		struct uwsgi_string_list *usl = umono.index;
+		while(usl) {
+			char *index = uwsgi_concat3n(path, path_len, "/", 1 , usl->value, usl->len);
+			if (uwsgi_file_exists(index)) {
+				ret = mono_string_new(mono_domain_get(), index + strlen(app->interpreter));
+				free(path);
+				free(index);
+				mono_field_set_value(this, umono.filepath, ret);
+				return ret;	
+			}
+			free(index);
+			usl = usl->next;
+		}
+	}
+	free(path);
+simple:
+	ret = mono_string_new_len(mono_domain_get(), wsgi_req->path_info, wsgi_req->path_info_len);
+	mono_field_set_value(this, umono.filepath, ret);
+	return ret;
+}
+
+static MonoString *uwsgi_mono_method_GetUriPath(MonoObject *this) {
+	return uwsgi_mono_method_GetFilePath(this);
 }
 
 static MonoString *uwsgi_mono_method_MapPath(MonoObject *this, MonoString *virtualPath) {
-	// first we need to get the physical path and append the virtualPath to it
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	struct uwsgi_app *app = &uwsgi_apps[wsgi_req->app_id];
 	char *path = uwsgi_concat3n(app->interpreter, strlen(app->interpreter), "/", 1, mono_string_to_utf8(virtualPath), mono_string_length(virtualPath));
@@ -113,11 +156,6 @@ static MonoString *uwsgi_mono_method_GetRawUrl(MonoObject *this) {
 static MonoString *uwsgi_mono_method_GetHttpVersion(MonoObject *this) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	return mono_string_new_len(mono_domain_get(), wsgi_req->protocol, wsgi_req->protocol_len);
-}
-
-static MonoString *uwsgi_mono_method_GetUriPath(MonoObject *this) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
-	return mono_string_new_len(mono_domain_get(), wsgi_req->path_info, wsgi_req->path_info_len);
 }
 
 static MonoString *uwsgi_mono_method_GetRemoteAddress(MonoObject *this) {
@@ -221,6 +259,26 @@ static int uwsgi_mono_method_api_WorkerId() {
 	return uwsgi.mywid;
 }
 
+static MonoArray *uwsgi_mono_method_api_CacheGet(MonoString *key, MonoString *cache) {
+	char *c_key = mono_string_to_utf8(key);
+	uint16_t c_keylen = mono_string_length(key);
+	char *c_cache = NULL;
+	if (cache) {
+		c_cache = mono_string_to_utf8(cache);
+	}
+	uint64_t vallen = 0 ;
+	char *value = uwsgi_cache_magic_get(c_key, c_keylen, &vallen, c_cache);
+        if (value) {
+		MonoArray *ret = mono_array_new(mono_domain_get(), umono.byte_class, vallen);
+		char *buf = mono_array_addr(ret, char, 0);
+		memcpy(buf, value, vallen);
+		free(value);
+                return ret;
+        }
+
+	return NULL;
+}
+
 static void uwsgi_mono_add_internal_calls() {
 	// uWSGIRequest
 	mono_add_internal_call("uwsgi.uWSGIRequest::SendResponseFromMemory", uwsgi_mono_method_SendResponseFromMemory);
@@ -246,6 +304,7 @@ static void uwsgi_mono_add_internal_calls() {
 	mono_add_internal_call("uwsgi.api::Signal", uwsgi_mono_method_api_Signal);
 	mono_add_internal_call("uwsgi.api::WorkerId", uwsgi_mono_method_api_WorkerId);
 	mono_add_internal_call("uwsgi.api::RegisterSignal", uwsgi_mono_method_api_RegisterSignal);
+	mono_add_internal_call("uwsgi.api::CacheGet", uwsgi_mono_method_api_CacheGet);
 }
 
 static int uwsgi_mono_init() {
@@ -281,6 +340,16 @@ static void uwsgi_mono_create_jit() {
 
 	MonoAssembly *assembly = mono_domain_assembly_open(umono.main_domain, umono.assembly_name);
 	if (!assembly) {
+		uwsgi_log("%s not found trying in global gac...\n", umono.assembly_name);
+		assembly = mono_assembly_load_with_partial_name(umono.assembly_name, NULL);
+		if (!assembly) {
+			if (!strcmp("uwsgi.dll", umono.assembly_name)) {
+				assembly = mono_assembly_load_with_partial_name("uwsgi", NULL);
+			}	
+		}
+	}
+
+	if (!assembly) {
 		uwsgi_log("unable to load \"%s\" in the Mono domain\n", umono.assembly_name);
 		exit(1);
 	}
@@ -296,6 +365,23 @@ static void uwsgi_mono_create_jit() {
 	if (!umono.application_class) {
 		uwsgi_log("unable to get reference to class uwsgi.uWSGIApplication\n");
 		exit(1);
+	}
+
+	umono.byte_class = mono_class_from_name(mono_get_corlib(), "System", "Byte");
+        if (!umono.byte_class) {
+                uwsgi_log("unable to get reference to class System.Byte\n");
+                exit(1);
+        }
+
+	MonoClass *urequest = mono_class_from_name(image, "uwsgi", "uWSGIRequest");
+	if (!urequest) {
+		uwsgi_log("unable to get reference to class uwsgi.uWSGIRequest\n");
+                exit(1);
+	}
+
+	umono.filepath = mono_class_get_field_from_name(urequest, "filepath");
+	if (!umono.filepath) {
+		uwsgi_log("unable to get reference to field uwsgi.uWSGIRequest.filepath\n");
 	}
 
 	umono.api_class = mono_class_from_name(image, "uwsgi", "api");
@@ -483,6 +569,17 @@ static int uwsgi_mono_request(struct wsgi_request *wsgi_req) {
 
         struct uwsgi_app *app = &uwsgi_apps[wsgi_req->app_id];
         app->requests++;
+
+	// check for directory without slash
+	char *path = uwsgi_concat3n(app->interpreter, strlen(app->interpreter), "/", 1, wsgi_req->path_info, wsgi_req->path_info_len);
+        size_t path_len = strlen(app->interpreter) + 1 + wsgi_req->path_info_len;
+
+        if (uwsgi_is_dir(path) && path[path_len-1] != '/') {
+		free(path);
+		uwsgi_redirect_to_slash(wsgi_req);
+        	return UWSGI_OK;
+	}
+	free(path);
 
 	MonoException *exc = NULL;
 

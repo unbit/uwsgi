@@ -393,7 +393,7 @@ ssize_t uwsgi_append_static_path(char *dir, size_t dir_len, char *file, size_t f
 	return len;
 }
 
-int uwsgi_static_stat(char *filename, size_t *filename_len, struct stat *st) {
+static int uwsgi_static_stat(struct wsgi_request *wsgi_req, char *filename, size_t *filename_len, struct stat *st, struct uwsgi_string_list **index) {
 
 	int ret = stat(filename, st);
 	// if non-existant return -1
@@ -412,7 +412,8 @@ int uwsgi_static_stat(char *filename, size_t *filename_len, struct stat *st) {
 #ifdef UWSGI_DEBUG
 				uwsgi_log("checking for %s\n", filename);
 #endif
-				if (!uwsgi_static_stat(filename, filename_len, st)) {
+				if (uwsgi_is_file2(filename, st)) {
+					*index = usl;
 					*filename_len = new_len;
 					return 0;
 				}
@@ -521,6 +522,7 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 	char *filename = NULL;
 	size_t filename_len = 0;
 
+	struct uwsgi_string_list *index = NULL;
 
 	if (!is_a_file) {
 		filename = uwsgi_concat3n(document_root, document_root_len, "/", 1, path_info, path_info_len);
@@ -580,22 +582,38 @@ found:
 
 safe:
 
-	if (!uwsgi_static_stat(real_filename, &real_filename_len, &st)) {
+	if (!uwsgi_static_stat(wsgi_req, real_filename, &real_filename_len, &st, &index)) {
+
+		if (index) {
+			// if we are here the PATH_INFO need to be changed
+			if (uwsgi_req_append_path_info_with_index(wsgi_req, index->value, index->len)) {
+                        	return -1;
+                        }
+		}
+
+		// skip methods other than GET and HEAD
+        	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "GET", 3) && uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
+			return -1;
+        	}
 
 		// check for skippable ext
 		struct uwsgi_string_list *sse = uwsgi.static_skip_ext;
 		while (sse) {
 			if (real_filename_len >= sse->len) {
 				if (!uwsgi_strncmp(real_filename + (real_filename_len - sse->len), sse->len, sse->value, sse->len)) {
-#ifdef UWSGI_ROUTING
-					if (uwsgi_apply_routes_fast(wsgi_req, real_filename, real_filename_len) == UWSGI_ROUTE_BREAK)
-						return 0;
-#endif
 					return -1;
 				}
 			}
 			sse = sse->next;
 		}
+
+#ifdef UWSGI_ROUTING
+		// before sending the file, we need to check if some rule applies
+		if (uwsgi_apply_routes_do(wsgi_req, NULL, 0) == UWSGI_ROUTE_BREAK) {
+			return 0;
+		}
+		wsgi_req->routes_applied = 1;
+#endif
 
 		return uwsgi_real_file_serve(wsgi_req, real_filename, real_filename_len, &st);
 	}

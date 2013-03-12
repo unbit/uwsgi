@@ -99,50 +99,118 @@ XS(XS_cache_set) {
 	char *key, *val;
 	STRLEN keylen;
 	STRLEN vallen;
+	uint64_t expires = 0;
+	char *cache = NULL;
 
-	if (!uwsgi.caches) goto clear;
-	
 	psgi_check_args(2);
 
 	key = SvPV(ST(0), keylen);
 	val = SvPV(ST(1), vallen);
 
-	uwsgi_wlock(uwsgi.caches->lock);
-	uwsgi_cache_set(key, (uint16_t) keylen, val, (uint64_t) vallen, 0, 0);
-	uwsgi_rwunlock(uwsgi.caches->lock);
+	if (items > 2) {
+		expires = SvIV(ST(2));
+		if (items > 3) {
+			cache = SvPV_nolen(ST(1));
+		}
+	}
 
-clear:
+	if (!uwsgi_cache_magic_set(key, (uint16_t) keylen, val, (uint64_t) vallen, expires, 0, cache)) {
+		XSRETURN_YES;
+	}
 	XSRETURN_UNDEF;
 }
 
 XS(XS_cache_get) {
 	dXSARGS;
 
-	char *key, *val;
+	char *key;
+	char *cache = NULL;
 	STRLEN keylen;
-	uint64_t vallen;
+	uint64_t vallen = 0;
 
-	if (!uwsgi.caches) goto clear;
-	
 	psgi_check_args(1);
 
 	key = SvPV(ST(0), keylen);
 
-	uwsgi_rlock(uwsgi.caches->lock);
-	val = uwsgi_cache_get(key, (uint16_t) keylen, &vallen);
+	if (items > 1) {
+		cache = SvPV_nolen(ST(1));
+	}
 
-	if (!val)
-		uwsgi_rwunlock(uwsgi.caches->lock);
-clear:
-		XSRETURN_UNDEF;
+	char *value = uwsgi_cache_magic_get(key, (uint16_t) keylen, &vallen, cache);
+	if (value) {
+		ST(0) = newSVpv(value, vallen);
+		free(value);
+		sv_2mortal(ST(0));
+		XSRETURN(1);
+	}
 
-	ST(0) = newSVpv(val, vallen);
-	uwsgi_rwunlock(uwsgi.caches->lock);
-	sv_2mortal(ST(0));
-	
-	XSRETURN(1);
-	
+	XSRETURN_UNDEF;
 }
+
+XS(XS_cache_exists) {
+        dXSARGS;
+
+        char *key;
+        char *cache = NULL;
+        STRLEN keylen;
+
+        psgi_check_args(1);
+
+        key = SvPV(ST(0), keylen);
+
+        if (items > 1) {
+                cache = SvPV_nolen(ST(1));
+        }
+
+        if (uwsgi_cache_magic_exists(key, (uint16_t) keylen, cache)) {
+                XSRETURN_YES;
+        }
+
+        XSRETURN_UNDEF;
+
+}
+
+XS(XS_cache_del) {
+        dXSARGS;
+
+        char *key;
+        char *cache = NULL;
+        STRLEN keylen;
+
+        psgi_check_args(1);
+
+        key = SvPV(ST(0), keylen);
+
+        if (items > 1) {
+                cache = SvPV_nolen(ST(1));
+        }
+
+        if (!uwsgi_cache_magic_del(key, (uint16_t) keylen, cache)) {
+                XSRETURN_YES;
+        }
+
+        XSRETURN_UNDEF;
+
+}
+
+XS(XS_cache_clear) {
+        dXSARGS;
+
+        char *cache = NULL;
+        psgi_check_args(1);
+
+        cache = SvPV_nolen(ST(1));
+
+        if (!uwsgi_cache_magic_clear(cache)) {
+                XSRETURN_YES;
+        }
+
+        XSRETURN_UNDEF;
+
+}
+
+
+
 
 XS(XS_register_signal) {
 	dXSARGS;
@@ -435,8 +503,13 @@ XS(XS_add_rb_timer) {
 
 void init_perl_embedded_module() {
 	psgi_xs(reload);
-	psgi_xs(cache_set);
+
 	psgi_xs(cache_get);
+	psgi_xs(cache_exists);
+	psgi_xs(cache_set);
+	psgi_xs(cache_del);
+	psgi_xs(cache_clear);
+
 	psgi_xs(call);
 	psgi_xs(wait_fd_read);
 	psgi_xs(wait_fd_write);

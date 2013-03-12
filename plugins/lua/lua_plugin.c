@@ -27,10 +27,10 @@ static void ulua_check_args(lua_State *L, const char *func, int n) {
 	char error[1024];
 	if (args != n) {
 		if (n == 1) {
-			snprintf(error, 4096, "uwsgi.%s takes 1 parameter", func+10);
+			snprintf(error, 1024, "uwsgi.%s takes 1 parameter", func+10);
 		}
 		else {
-			snprintf(error, 4096, "uwsgi.%s takes %d parameters", func+10, n);
+			snprintf(error, 1024, "uwsgi.%s takes %d parameters", func+10, n);
 		}
 		lua_pushstring(L, error);
         	lua_error(L);
@@ -84,28 +84,29 @@ static int uwsgi_api_register_rpc(lua_State *L) {
 
 static int uwsgi_api_cache_set(lua_State *L) {
 
-	int args = lua_gettop(L);
+	uint8_t argc = lua_gettop(L);
         const char *key ;
         const char *value ;
         uint64_t expires = 0;
 	size_t vallen;
+	size_t keylen;
+	const char *cache = NULL;
 
-	if (!uwsgi.caches) goto error;
+	if (argc < 2) goto error;
 
-
-	if (args > 1) {
-
-		key = lua_tolstring(L, 1, NULL);
-		value = lua_tolstring(L, 2, &vallen);
-		if (args > 2) {
-			expires = lua_tonumber(L, 3);
+	key = lua_tolstring(L, 1, &keylen);
+	value = lua_tolstring(L, 2, &vallen);
+	if (argc > 2) {
+		expires = lua_tonumber(L, 3);
+		if (argc > 3) {
+			cache = lua_tolstring(L, 4, NULL);
 		}
-
-		uwsgi_wlock(uwsgi.caches->lock);
-        	uwsgi_cache_set((char *)key, strlen(key), (char *)value, (uint16_t) vallen, expires, 0);
-		uwsgi_rwunlock(uwsgi.caches->lock);
 	}
 
+        if (!uwsgi_cache_magic_set((char *)key, keylen, (char *)value, vallen, expires, 0, (char *) cache)) {
+		lua_pushboolean(L, 1);
+		return 1;
+	}
 error:
 
 	lua_pushnil(L);
@@ -115,33 +116,36 @@ error:
 
 static int uwsgi_api_cache_update(lua_State *L) {
 
-	int args = lua_gettop(L);
+        uint8_t argc = lua_gettop(L);
         const char *key ;
         const char *value ;
         uint64_t expires = 0;
-	size_t vallen;
+        size_t vallen;
+        size_t keylen;
+        const char *cache = NULL;
 
+        if (argc < 2) goto error;
 
-	if (args > 1) {
+        key = lua_tolstring(L, 1, &keylen);
+        value = lua_tolstring(L, 2, &vallen);
+        if (argc > 2) {
+                expires = lua_tonumber(L, 3);
+                if (argc > 3) {
+                        cache = lua_tolstring(L, 4, NULL);
+                }
+        }       
 
-		key = lua_tolstring(L, 1, NULL);
-		value = lua_tolstring(L, 2, &vallen);
-		if (args > 2) {
-			expires = lua_tonumber(L, 3);
-		}
+        if (!uwsgi_cache_magic_set((char *)key, keylen, (char *)value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE, (char *)cache)) {
+                lua_pushboolean(L, 1);
+                return 1;
+        }
+error:
 
-		uwsgi_wlock(uwsgi.caches->lock);
-        	uwsgi_cache_set((char *)key, strlen(key), (char *)value,
-				(uint16_t) vallen, expires,
-				UWSGI_CACHE_FLAG_UPDATE);
-		uwsgi_rwunlock(uwsgi.caches->lock);
-		
-	}
-
-	lua_pushnil(L);
-	return 1;
+        lua_pushnil(L);
+        return 1;
 
 }
+
 
 static int uwsgi_api_register_signal(lua_State *L) {
 
@@ -164,35 +168,108 @@ static int uwsgi_api_register_signal(lua_State *L) {
         return 1;
 }
 
+static int uwsgi_api_cache_clear(lua_State *L) {
+
+        const char *cache = NULL;
+        uint8_t argc = lua_gettop(L);
+
+        if (argc > 0) {
+        	cache = lua_tolstring(L, 2, NULL);
+        }
+        if (!uwsgi_cache_magic_clear((char *)cache)) {
+        	lua_pushboolean(L, 1);
+                return 1;
+        }
+
+        lua_pushnil(L);
+        return 1;
+
+}
+
+
+static int uwsgi_api_cache_del(lua_State *L) {
+
+        size_t keylen;
+        const char *key ;
+        const char *cache = NULL;
+        uint8_t argc = lua_gettop(L);
+
+        if (argc == 0) goto error;
+
+        if (lua_isstring(L, 1)) {
+                // get the key
+                key = lua_tolstring(L, 1, &keylen);
+                if (argc > 1) {
+                        cache = lua_tolstring(L, 2, NULL);
+                }
+                if (!uwsgi_cache_magic_del((char *)key, keylen, (char *)cache)) {
+                        lua_pushboolean(L, 1);
+                        return 1;
+                }
+        }
+
+error:
+        lua_pushnil(L);
+        return 1;
+
+}
+
+
+static int uwsgi_api_cache_exists(lua_State *L) {
+
+        size_t keylen;
+        const char *key ;
+        const char *cache = NULL;
+        uint8_t argc = lua_gettop(L);
+
+        if (argc == 0) goto error;
+
+        if (lua_isstring(L, 1)) {
+                // get the key
+                key = lua_tolstring(L, 1, &keylen);
+                if (argc > 1) {
+                        cache = lua_tolstring(L, 2, NULL);
+                }
+                if (uwsgi_cache_magic_exists((char *)key, keylen,(char *)cache)) {
+			lua_pushboolean(L, 1);
+                	return 1;
+                }
+        }
+
+error:
+        lua_pushnil(L);
+        return 1;
+
+}
+
 
 static int uwsgi_api_cache_get(lua_State *L) {
 
         char *value ;
         uint64_t valsize;
+	size_t keylen;
 	const char *key ;
+	const char *cache = NULL;
+	uint8_t argc = lua_gettop(L);
 
-        lca(L, 1);
-
-	if (!uwsgi.caches) goto error;
+	if (argc == 0) goto error;
 
 	if (lua_isstring(L, 1)) {
 		// get the key
-		key = lua_tolstring(L, 1, NULL);
-		uwsgi_rlock(uwsgi.caches->lock);
-        	value = uwsgi_cache_get((char *)key, strlen(key), &valsize);
+		key = lua_tolstring(L, 1, &keylen);
+		if (argc > 1) {
+			cache = lua_tolstring(L, 2, NULL);
+		}
+        	value = uwsgi_cache_magic_get((char *)key, keylen, &valsize, (char *)cache);
         	if (value) {
                 	lua_pushlstring(L, value, valsize);
-			uwsgi_rwunlock(uwsgi.caches->lock);
+			free(value);
 			return 1;
         	}
-		uwsgi_rwunlock(uwsgi.caches->lock);
-
 	}
 
 error:
-
 	lua_pushnil(L);
-
         return 1;
 
 }
@@ -255,11 +332,17 @@ static int uwsgi_api_unlock(lua_State *L) {
 static const luaL_reg uwsgi_api[] = {
   {"log", uwsgi_api_log},
   {"connection_fd", uwsgi_api_req_fd},
+
   {"cache_get", uwsgi_api_cache_get},
   {"cache_set", uwsgi_api_cache_set},
   {"cache_update", uwsgi_api_cache_update},
+  {"cache_del", uwsgi_api_cache_del},
+  {"cache_exists", uwsgi_api_cache_exists},
+  {"cache_clear", uwsgi_api_cache_clear},
+
   {"register_signal", uwsgi_api_register_signal},
   {"register_rpc", uwsgi_api_register_rpc},
+
   {"lock", uwsgi_api_lock},
   {"unlock", uwsgi_api_unlock},
   {NULL, NULL}

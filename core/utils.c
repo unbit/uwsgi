@@ -659,7 +659,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// defunct process reaper
-	if (uwsgi.shared->options[UWSGI_OPTION_REAPER] == 1 || uwsgi.grunt) {
+	if (uwsgi.shared->options[UWSGI_OPTION_REAPER] == 1) {
 		while (waitpid(WAIT_ANY, &waitpid_status, WNOHANG) > 0);
 	}
 
@@ -1248,6 +1248,16 @@ int uwsgi_is_file(char *filename) {
 	return 0;
 }
 
+int uwsgi_is_file2(char *filename, struct stat *st) {
+        if (stat(filename, st)) {
+                return 0;
+        }
+        if (S_ISREG(st->st_mode))
+                return 1;
+        return 0;
+}
+
+
 int uwsgi_is_dir(char *filename) {
 	struct stat st;
 	if (stat(filename, &st)) {
@@ -1504,7 +1514,7 @@ void add_exported_option(char *key, char *value, int configured) {
 
 	while (blacklist) {
 		if (!strcmp(key, blacklist->value)) {
-			uwsgi_log("uWSGI error: forbidden option \"%s\"\n", key);
+			uwsgi_log("uWSGI error: forbidden option \"%s\" (by blacklist)\n", key);
 			exit(1);
 		}
 		blacklist = blacklist->next;
@@ -1520,10 +1530,24 @@ void add_exported_option(char *key, char *value, int configured) {
 			whitelist = whitelist->next;
 		}
 		if (!allowed) {
-			uwsgi_log("uWSGI error: forbidden option \"%s\"\n", key);
+			uwsgi_log("uWSGI error: forbidden option \"%s\" (by whitelist)\n", key);
 			exit(1);
 		}
 	}
+
+	if (uwsgi.blacklist_context) {
+		if (uwsgi_list_has_str(uwsgi.blacklist_context, key)) {
+			uwsgi_log("uWSGI error: forbidden option \"%s\" (by blacklist)\n", key);
+			exit(1);
+		}
+	}
+
+	if (uwsgi.whitelist_context) {
+                if (!uwsgi_list_has_str(uwsgi.whitelist_context, key)) {
+                        uwsgi_log("uWSGI error: forbidden option \"%s\" (by whitelist)\n", key);
+                        exit(1);
+                }
+        }
 
 	if (uwsgi.logic_opt_running)
 		goto add;
@@ -1839,7 +1863,7 @@ int uwsgi_list_has_num(char *list, int num) {
 
 int uwsgi_list_has_str(char *list, char *str) {
 
-	char *list2 = uwsgi_concat2(list + 1, "");
+	char *list2 = uwsgi_str(list);
 
 	char *p = strtok(list2, " ");
 	while (p != NULL) {
