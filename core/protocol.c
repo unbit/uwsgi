@@ -963,9 +963,9 @@ int uwsgi_hooked_parse_array(char *buffer, size_t len, void (*hook) (uint16_t, c
 
 /*
 
-the followign functions need to take in account that POST data could be already available in wsgi_req->buffer (generally when uwsgi protocol is in use)
+the following functions need to take in account that POST data could be already available in wsgi_req->buffer (generally when uwsgi protocol is in use)
 
-In such a case, allocate a proto purser_buf and move data there
+In such a case, allocate a proto_parser_buf and move data there
 
 */
 
