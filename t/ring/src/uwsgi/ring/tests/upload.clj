@@ -1,13 +1,20 @@
 (ns uwsgi.ring.tests.upload
   (:use [compojure.core]))
 
-(defn hello-world [])
-
-(defn echo [])
-
-(defn palindrome [])
+(defn upload-file [fname fsize fbody] {
+  :status 200
+  :headers { "Content-Type" "text/html" , "Server" "uWSGI" }
+  :body (str "<h1>Uploaded file</h1>"
+           "<ul>"
+             "<li>" fname "<li>"
+             "<li>" fsize "<li>"
+           "</ul>")})
 
 (defroutes app-routes
-  (GET "/helloworld" [] hello-world)
-  (GET "/echo" [] echo)
-  (GET "/palindrome" [] palindrome))
+ (POST "/file" {params :params}
+   (let [file (get params "file")
+         file-name (file :filename)
+         file-size (file :size)
+         file-body (file :tempfile)]
+    (upload-file file-name file-size file-body))))
+
