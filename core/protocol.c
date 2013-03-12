@@ -961,8 +961,23 @@ int uwsgi_hooked_parse_array(char *buffer, size_t len, void (*hook) (uint16_t, c
 
 }
 
+/*
+
+the followign functions need to take in account that POST data could be already available in wsgi_req->buffer (generally when uwsgi protocol is in use)
+
+In such a case, allocate a proto purser_buf and move data there
+
+*/
 
 char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
+
+	if (!wsgi_req->proto_parser_buf) {
+		if (wsgi_req->proto_parser_remains > 0) {
+			wsgi_req->proto_parser_buf = uwsgi_malloc(wsgi_req->proto_parser_remains);
+			memcpy(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_remains_buf, wsgi_req->proto_parser_remains);
+			wsgi_req->proto_parser_remains_buf = wsgi_req->proto_parser_buf;
+		}
+	}
 
 	if ((wsgi_req->uh->pktsize + (2 + keylen + 2 + vallen)) > uwsgi.buffer_size) {
 		uwsgi_log("not enough buffer space to add %.*s variable, consider increasing it with the --buffer-size option\n", keylen, key);
@@ -1001,6 +1016,15 @@ char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen
 }
 
 int uwsgi_req_append_path_info_with_index(struct wsgi_request *wsgi_req, char *index, uint16_t index_len) {
+
+	if (!wsgi_req->proto_parser_buf) {
+                if (wsgi_req->proto_parser_remains > 0) {
+                        wsgi_req->proto_parser_buf = uwsgi_malloc(wsgi_req->proto_parser_remains);
+                        memcpy(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_remains_buf, wsgi_req->proto_parser_remains);
+                        wsgi_req->proto_parser_remains_buf = wsgi_req->proto_parser_buf;
+                }
+        }
+
 	uint8_t need_slash = 0;
 	if (wsgi_req->path_info_len > 0) {
 		if (wsgi_req->path_info[wsgi_req->path_info_len-1] != '/') {
