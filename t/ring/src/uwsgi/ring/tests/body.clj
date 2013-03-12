@@ -10,9 +10,9 @@
 
 (defn sequence [] (take 20 (sieve (iterate inc 2))))
 
-(defn file [] (.java.io.File "CONTRIBUTORS"))
+(defn file [] (java.io.File. "CONTRIBUTORS"))
 
-(defn stream [] (.java.io.FileInputStream (.java.io.File "CONTRIBUTORS")))
+(defn stream [] (java.io.FileInputStream. (java.io.File. "CONTRIBUTORS")))
 
 (defroutes app-routes
   (GET "/sequence" [] (sequence))

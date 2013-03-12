@@ -1,5 +1,12 @@
+Ring Test Suite
+================
 
-how to build
-------------
+how to build and run
+---------------------
 
-lein uberjar
+* cd UWSGIROOT
+* cd t/ring
+* lein uberjar
+* cd ../..
+* uwsgi t/ring/config.ini
+* open http://localhost:9090 in your browser
