@@ -2,6 +2,113 @@
 
 extern struct uwsgi_server uwsgi;
 
+#ifdef UWSGI_EVENT_USE_POLL
+#define UWSGI_EVENT_IN POLLIN
+#define UWSGI_EVENT_OUT POLLOUT
+
+int uwsgi_poll_event_queue_max = 0;
+struct uwsgi_poll_event {
+	int nevents;
+	int max_events;
+	struct pollfd *poll;
+};
+struct uwsgi_poll_event *uwsgi_poll_event_queue[2048];
+
+static int uwsgi_poll_fd_is_registered(struct uwsgi_poll_event *upe, int fd) {
+	int i;
+	for(i=0;i<upe->nevents;i++) {
+		if (upe->poll[i].fd == fd) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int uwsgi_poll_fd_add(struct uwsgi_poll_event *upe, int fd, int event) {
+	int pos = upe->nevents;
+	if (pos > upe->max_events) return -1;
+	upe->poll[pos].fd = fd;
+	upe->poll[pos].events = event;
+	upe->nevents++;
+	return 0;
+}
+
+static void uwsgi_poll_queue_rebuild(struct uwsgi_poll_event *upe) {
+}
+
+int event_queue_wait(int eq, int timeout, int *interesting_fd) {
+	struct uwsgi_poll_event *upe = uwsgi_poll_event_queue[eq];
+	uwsgi_poll_queue_rebuild(upe);
+	int ret = poll(upe->poll, upe->nevents, timeout * 1000);
+	if (ret > 0) {
+		int i;
+		for(i=0;i<upe->nevents;i++) {
+			if (upe->poll[i].revents & upe->poll[i].events) {
+				*interesting_fd = upe->poll[i].fd;
+				return 1;
+			}
+		}
+	}
+	return ret;
+}
+
+int event_queue_init() {
+	int eq = uwsgi_poll_event_queue_max;
+	uwsgi_poll_event_queue[eq] = uwsgi_calloc(sizeof(struct uwsgi_poll_event));
+	uwsgi_poll_event_queue_max++;
+	uwsgi_poll_event_queue[eq]->poll = uwsgi_malloc(sizeof(struct pollfd) * uwsgi.max_fd);
+	return eq;
+}
+
+void *event_queue_alloc(int nevents) {
+	return uwsgi_malloc(sizeof(struct pollfd) * nevents);
+}
+
+int event_queue_interesting_fd_is_read(void *events, int id) {
+	return -1;
+}
+
+int event_queue_fd_write_to_readwrite(int eq, int fd) {
+	return -1;
+}
+
+int event_queue_fd_read_to_readwrite(int eq, int fd) {
+	return -1;
+}
+
+int event_queue_interesting_fd_is_write(void *events, int id) {
+	return -1;
+}
+
+int event_queue_add_fd_read(int eq, int fd) {
+	struct uwsgi_poll_event *upe = uwsgi_poll_event_queue[eq];
+	if (uwsgi_poll_fd_is_registered(upe, fd)) return 0;	
+	return uwsgi_poll_fd_add(upe, fd, POLLIN);
+}
+int event_queue_add_fd_write(int eq, int fd) {
+	return -1;
+}
+int event_queue_del_fd(int eq, int fd, int event) {
+	return -1;
+}
+int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
+	uwsgi_log("ciao\n");
+	return -1;
+}
+int event_queue_interesting_fd_has_error(void *events, int id) {
+	return -1;
+}
+int event_queue_interesting_fd(void *events, int id) {
+	return -1;
+}
+int event_queue_fd_write_to_read(int eq, int fd) {
+	return -1;
+}
+int event_queue_fd_read_to_write(int eq, int fd) {
+	return -1;
+}
+#endif
+
 #ifdef UWSGI_EVENT_USE_PORT
 
 #include <port.h>

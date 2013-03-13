@@ -314,7 +314,7 @@ static struct uwsgi_logger *setup_choosen_logger(struct uwsgi_string_list *usl) 
                         int is_id = 1;
                         int i;
                         for (i = 0; i < (space - name); i++) {
-                                if (!isalnum(name[i])) {
+                                if (!isalnum((int)name[i])) {
                                         is_id = 0;
                                         break;
                                 }
@@ -686,6 +686,18 @@ void get_memusage(uint64_t * rss, uint64_t * vsz) {
 		fclose(procfile);
 	}
 	*rss = *rss * uwsgi.page_size;
+#elif defined(__CYGWIN__)
+	// same as Linux but rss is not in pages...
+	FILE *procfile;
+        int i;
+        procfile = fopen("/proc/self/stat", "r");
+        if (procfile) {
+                i = fscanf(procfile, "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %llu %lld", (unsigned long long *) vsz, (unsigned long long *) rss);
+                if (i != 2) {
+                        uwsgi_log("warning: invalid record in /proc/self/stat\n");
+                }
+                fclose(procfile);
+        }
 #elif defined (__sun__)
 	psinfo_t info;
 	int procfd;

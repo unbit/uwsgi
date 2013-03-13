@@ -228,7 +228,7 @@ def build_uwsgi(uc, print_only=False):
                 continue
             p = p.strip()
             if p == 'ugreen':
-                if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku':
+                if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku' or uwsgi_os.startswith('CYGWIN'):
                     continue
             epc += "UDEP(%s);" % p
             eplc += "ULEP(%s);" % p
@@ -291,7 +291,7 @@ def build_uwsgi(uc, print_only=False):
                 p = p.strip()
 
                 if p == 'ugreen':
-                    if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku':
+                    if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku' or uwsgi_os.startswith('CYGWIN'):
                         continue
                 path = 'plugins/%s' % p
                 path = path.rstrip('/')
@@ -640,6 +640,8 @@ class uConf(object):
                      pass
             elif uwsgi_os == 'Darwin':
                 locking_mode = 'osx_spinlock'
+            elif uwsgi_os.startswith('CYGWIN'):
+                locking_mode = 'windows_mutex'
 
         if locking_mode == 'pthread_mutex':
             self.cflags.append('-DUWSGI_LOCK_USE_MUTEX')
@@ -648,6 +650,8 @@ class uConf(object):
             self.cflags.append('-DUWSGI_LOCK_USE_POSIX_SEM')
         elif locking_mode == 'osx_spinlock':
             self.cflags.append('-DUWSGI_LOCK_USE_OSX_SPINLOCK')
+        elif locking_mode == 'windows_mutex':
+            self.cflags.append('-DUWSGI_LOCK_USE_WINDOWS_MUTEX')
 
         if locking_mode == 'auto':
             report['locking'] = 'sysv semaphores'
@@ -668,6 +672,8 @@ class uConf(object):
                         event_mode = 'port'
             elif uwsgi_os in ('Darwin', 'FreeBSD', 'OpenBSD', 'NetBSD'):
                 event_mode = 'kqueue'
+            elif uwsgi_os.startswith('CYGWIN'):
+                event_mode = 'poll'
 
         if event_mode == 'epoll':
             self.cflags.append('-DUWSGI_EVENT_USE_EPOLL')
@@ -677,6 +683,8 @@ class uConf(object):
             self.cflags.append('-DUWSGI_EVENT_USE_DEVPOLL')
         elif event_mode == 'port':
             self.cflags.append('-DUWSGI_EVENT_USE_PORT')
+        elif event_mode == 'poll':
+            self.cflags.append('-DUWSGI_EVENT_USE_POLL')
 
         report['event'] = event_mode
 

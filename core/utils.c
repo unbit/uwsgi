@@ -2941,11 +2941,13 @@ pid_t uwsgi_fork(char *name) {
 	pid_t pid = fork();
 	if (pid == 0) {
 
+#ifndef __CYGWIN__
 		if (uwsgi.never_swap) {
 			if (mlockall(MCL_CURRENT | MCL_FUTURE)) {
 				uwsgi_error("mlockall()");
 			}
 		}
+#endif
 
 #if defined(__linux__) || defined(__sun__)
 		int i;

@@ -1785,12 +1785,14 @@ int main(int argc, char *argv[], char *envp[]) {
 	// initial log setup (files and daemonization)
 	uwsgi_setup_log();
 
+#ifndef __CYGWIN__
 	// enable never-swap mode
 	if (uwsgi.never_swap) {
 		if (mlockall(MCL_CURRENT | MCL_FUTURE)) {
 			uwsgi_error("mlockall()");
 		}
 	}
+#endif
 
 	if (uwsgi.flock2)
 		uwsgi_opt_flock(NULL, uwsgi.flock2, NULL);

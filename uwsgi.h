@@ -274,14 +274,15 @@ extern "C" {
 #ifdef _POSIX_C_SOURCE
 #undef _POSIX_C_SOURCE
 #endif
-#ifdef __sun__
+#if defined(__sun__)
 #define WAIT_ANY (-1)
 #include <sys/filio.h>
 #define PRIO_MAX  20
 #endif
 
-#ifdef __HAIKU__
+#if defined(__HAIKU__) || defined(__CYGWIN__)
 #define WAIT_ANY (-1)
+#define PRIO_MAX  20
 #endif
 
 #include <sys/ioctl.h>
@@ -293,6 +294,7 @@ extern "C" {
 #include <sys/sendfile.h>
 #include <sys/devpoll.h>
 #elif defined(__HAIKU__)
+#elif defined(__CYGWIN__)
 #else
 #include <sys/event.h>
 #endif
