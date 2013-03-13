@@ -4,6 +4,9 @@
 
 #ifdef __linux__
 #include <crypt.h>
+#elif defined(__CYGWIN__)
+#include <crypt.h>
+pthread_mutex_t ur_basicauth_crypt_mutex;
 #else
 pthread_mutex_t ur_basicauth_crypt_mutex;
 #endif
