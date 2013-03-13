@@ -311,7 +311,7 @@ def build_uwsgi(uc, print_only=False):
                 p_cflags = cflags[:]
                 p_cflags += up['CFLAGS']
 
-		if uwsgi_os.startswith('CYGWIN'):
+                if uwsgi_os.startswith('CYGWIN'):
                     try:
                         p_cflags.remove('-fstack-protector')
                     except:
