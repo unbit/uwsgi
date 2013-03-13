@@ -411,22 +411,27 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) {
 struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
 
         struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
-	uli->lock_ptr = CreateMutex(NULL, FALSE, id);
+	struct _SECURITY_ATTRIBUTES sa;
+	memset(&sa, 0, sizeof(struct _SECURITY_ATTRIBUTES));
+	sa.bInheritHandle = 1;
+	uli->lock_ptr = CreateMutex(&sa, FALSE, NULL);
         return uli;
 }
 
 void uwsgi_lock_fast(struct uwsgi_lock_item *uli) {
-
-	
+	WaitForSingleObject(uli->lock_ptr, INFINITE);
         uli->pid = uwsgi.mypid;
 }
 
 void uwsgi_unlock_fast(struct uwsgi_lock_item *uli) {
-
+	ReleaseMutex(uli->lock_ptr);
         uli->pid = 0;
 }
 
 pid_t uwsgi_lock_fast_check(struct uwsgi_lock_item *uli) {
+	if (WaitForSingleObject(uli->lock_ptr, 0) == WAIT_TIMEOUT) {
+		return 0;
+	}
         return uli->pid;
 }
 
@@ -435,15 +440,18 @@ struct uwsgi_lock_item *uwsgi_rwlock_fast_init(char *id) {
 }
 
 void uwsgi_rlock_fast(struct uwsgi_lock_item *uli) {
+	uwsgi_lock_fast(uli);
 }
 void uwsgi_wlock_fast(struct uwsgi_lock_item *uli) {
+	uwsgi_lock_fast(uli);
 }
 
 pid_t uwsgi_rwlock_fast_check(struct uwsgi_lock_item *uli) {
-	return uli->pid;
+	return uwsgi_lock_fast_check(uli);
 }
 
 void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) {
+	uwsgi_unlock_fast(uli);
 }
 
 
