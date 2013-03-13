@@ -772,8 +772,10 @@ class uConf(object):
 
         if self.get('as_shared_library'):
             self.ldflags.append('-shared')
-            self.ldflags.append('-fPIC')
-            self.cflags.append('-fPIC')
+            # on cygwin we do not need PIC (it is implicit)
+            if not uwsgi_os.startswith('CYGWIN'):
+                self.ldflags.append('-fPIC')
+                self.cflags.append('-fPIC')
             self.cflags.append('-DUWSGI_AS_SHARED_LIBRARY')
             if uwsgi_os == 'Darwin':
                 self.ldflags.append('-dynamiclib')
@@ -1173,10 +1175,22 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     except:
         pass
 
+    if uwsgi_os.startswith('CYGWIN'):
+        try:
+            p_cflags.remove('-fstack-protector')
+            p_ldflags.remove('-fstack-protector')
+        except:
+            pass
+
     #for ofile in up.OBJ_LIST:
     #    gcc_list.insert(0,ofile)
 
-    gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(uniq_warnings(p_cflags)), ' '.join(gcc_list), ' '.join(uniq_warnings(p_ldflags)), ' '.join(uniq_warnings(p_libs)) )
+    need_pic = ' -fPIC'
+    # on cygwin we do not need PIC
+    if uwsgi_os.startswith('CYGWIN'):
+        need_pic = ' -L. -luwsgi'
+
+    gccline = "%s%s %s -o %s.so %s %s %s %s" % (GCC, need_pic, shared_flag, plugin_dest, ' '.join(uniq_warnings(p_cflags)), ' '.join(gcc_list), ' '.join(uniq_warnings(p_ldflags)), ' '.join(uniq_warnings(p_libs)) )
     print("[%s] %s.so" % (GCC, plugin_dest))
 
     ret = os.system(gccline)
