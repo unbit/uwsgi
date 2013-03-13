@@ -20,6 +20,9 @@ if operating_system == 'darwin':
         if os.path.exists(jvm):
             JVM_INCPATH = ["-Wno-deprecated-declarations", "-I%s" % jvm]
             JVM_LIBPATH = ["-framework JavaVM"]
+elif operating_system.startswith('cygwin'):
+    JVM_INCPATH = ['-I"/cygdrive/c/Program Files/Java/jdk1.7.0_17/include"', '-I"/cygdrive/c/Program Files/Java/jdk1.7.0_17/include/win32"']
+    JVM_LIBPATH = ['-L"/cygdrive/c/Program Files/Java/jdk1.7.0_17/jre/bin/server"']
 else:
     known_jvms = ('/usr/lib/jvm/java-7-openjdk', '/usr/local/openjdk7', '/usr/lib/jvm/java-6-openjdk', '/usr/local/openjdk', '/usr/java', '/usr/lib/jvm/java/')
     for jvm in known_jvms:
@@ -34,12 +37,12 @@ else:
            break
 
 try: 
-    JVM_INCPATH = os.environ['UWSGICONFIG_JVM_INCPATH'] 
+    JVM_INCPATH = ['-I"' + os.environ['UWSGICONFIG_JVM_INCPATH'] + '"']
 except: 
     pass 
 
 try: 
-    JVM_LIBPATH = os.environ['UWSGICONFIG_JVM_LIBPATH'] 
+    JVM_LIBPATH = ['-L"' + os.environ['UWSGICONFIG_JVM_LIBPATH'] + '"']
 except: 
     pass 
 
