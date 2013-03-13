@@ -92,7 +92,6 @@ int event_queue_del_fd(int eq, int fd, int event) {
 	return -1;
 }
 int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
-	uwsgi_log("ciao\n");
 	return -1;
 }
 int event_queue_interesting_fd_has_error(void *events, int id) {
