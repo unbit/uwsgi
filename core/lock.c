@@ -403,8 +403,6 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) {
 
 #elif defined(UWSGI_LOCK_USE_WINDOWS_MUTEX)
 
-#include <windows.h>
-
 #define UWSGI_LOCK_ENGINE_NAME "windows mutexes"
 #define UWSGI_LOCK_SIZE         sizeof(HANDLE)
 #define UWSGI_RWLOCK_SIZE       sizeof(HANDLE)

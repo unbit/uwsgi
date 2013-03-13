@@ -12,7 +12,8 @@ struct uwsgi_poll_event {
 	int max_events;
 	struct pollfd *poll;
 };
-struct uwsgi_poll_event *uwsgi_poll_event_queue[2048];
+
+struct uwsgi_poll_event **uwsgi_poll_event_queue;
 
 static int uwsgi_poll_fd_is_registered(struct uwsgi_poll_event *upe, int fd) {
 	int i;
@@ -33,7 +34,28 @@ static int uwsgi_poll_fd_add(struct uwsgi_poll_event *upe, int fd, int event) {
 	return 0;
 }
 
+static int uwsgi_poll_fd_del(struct uwsgi_poll_event *upe, int fd) {
+	int i;
+	for(i=0;i<upe->nevents;i++) {
+		if (upe->poll[i].fd == fd) {
+			if (i < upe->nevents-1) {
+				memcpy(&upe->poll[i], &upe->poll[i+1], sizeof(struct uwsgi_poll_event) * (upe->nevents - (i+1))); 
+			}
+			upe->nevents--;
+			return 0;
+		}
+	}
+	return -1;
+}
+
 static void uwsgi_poll_queue_rebuild(struct uwsgi_poll_event *upe) {
+	// we need to check if some file descriptor is no more valid
+	int i;
+	for(i=0;i<upe->nevents;i++) {
+		if (!uwsgi_valid_fd(upe->poll[i].fd)) {
+			uwsgi_poll_fd_del(upe, upe->poll[i].fd);
+		}
+	}
 }
 
 int event_queue_wait(int eq, int timeout, int *interesting_fd) {
@@ -53,31 +75,53 @@ int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 }
 
 int event_queue_init() {
+	if (!uwsgi_poll_event_queue) {
+		uwsgi_poll_event_queue = uwsgi_calloc(sizeof(struct uwsgi_poll_event *) * uwsgi.max_fd);
+	}
 	int eq = uwsgi_poll_event_queue_max;
 	uwsgi_poll_event_queue[eq] = uwsgi_calloc(sizeof(struct uwsgi_poll_event));
 	uwsgi_poll_event_queue_max++;
 	uwsgi_poll_event_queue[eq]->poll = uwsgi_malloc(sizeof(struct pollfd) * uwsgi.max_fd);
+	uwsgi_poll_event_queue[eq]->max_events = uwsgi.max_fd;
 	return eq;
 }
 
 void *event_queue_alloc(int nevents) {
-	return uwsgi_malloc(sizeof(struct pollfd) * nevents);
+	return uwsgi_calloc(sizeof(struct pollfd) * nevents);
 }
 
 int event_queue_interesting_fd_is_read(void *events, int id) {
-	return -1;
+	struct pollfd *pevents = (struct pollfd *)events;
+        struct pollfd *upoll = &pevents[id];
+        if (upoll->revents & POLLIN) {
+		return 1;
+	}	
+	return 0;
 }
 
 int event_queue_fd_write_to_readwrite(int eq, int fd) {
+	struct uwsgi_poll_event *upe = uwsgi_poll_event_queue[eq];
+	int i;
+	for(i=0;i<upe->nevents;i++) {
+		if (upe->poll[i].fd == fd) {
+			upe->poll[i].events = POLLIN|POLLOUT;
+			return 0;
+		}
+	}	
 	return -1;
 }
 
 int event_queue_fd_read_to_readwrite(int eq, int fd) {
-	return -1;
+	return event_queue_fd_write_to_readwrite(eq, fd);
 }
 
 int event_queue_interesting_fd_is_write(void *events, int id) {
-	return -1;
+	struct pollfd *pevents = (struct pollfd *)events;
+        struct pollfd *upoll = &pevents[id];
+        if (upoll->revents & POLLOUT) {
+                return 1;
+        }
+        return 0;
 }
 
 int event_queue_add_fd_read(int eq, int fd) {
@@ -86,24 +130,69 @@ int event_queue_add_fd_read(int eq, int fd) {
 	return uwsgi_poll_fd_add(upe, fd, POLLIN);
 }
 int event_queue_add_fd_write(int eq, int fd) {
-	return -1;
+        struct uwsgi_poll_event *upe = uwsgi_poll_event_queue[eq];
+        if (uwsgi_poll_fd_is_registered(upe, fd)) return 0;
+        return uwsgi_poll_fd_add(upe, fd, POLLOUT);
 }
 int event_queue_del_fd(int eq, int fd, int event) {
-	return -1;
+	struct uwsgi_poll_event *upe = uwsgi_poll_event_queue[eq];
+	return uwsgi_poll_fd_del(upe, fd);
 }
 int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
-	return -1;
+	struct uwsgi_poll_event *upe = uwsgi_poll_event_queue[eq];
+        uwsgi_poll_queue_rebuild(upe);
+        int ret = poll(upe->poll, upe->nevents, timeout * 1000);
+	int cnt = 0;
+        if (ret > 0) {
+                int i;
+                for(i=0;i<upe->nevents;i++) {
+			// it is safe to check for only POLLIN and POLLOUT events
+                        if (upe->poll[i].revents & POLLIN || upe->poll[i].revents & POLLOUT) {
+				struct pollfd *pevents = (struct pollfd *)events;	
+				struct pollfd *upoll = &pevents[cnt];
+				upoll->fd = upe->poll[i].fd;
+				upoll->revents = upe->poll[i].revents;
+				upoll->events = upe->poll[i].events;
+				cnt++;
+                        }
+                }
+        }
+	if (ret <= 0) return ret;
+        return cnt;
 }
 int event_queue_interesting_fd_has_error(void *events, int id) {
-	return -1;
+	struct pollfd *pevents = (struct pollfd *)events;
+	struct pollfd *upoll = &pevents[id];
+	if (upoll->revents & POLLERR || upoll->revents & POLLHUP || upoll->revents & POLLNVAL) {
+		return 1;
+	}
+	return 0;
 }
 int event_queue_interesting_fd(void *events, int id) {
-	return -1;
+	struct pollfd *pevents = (struct pollfd *)events;
+        struct pollfd *upoll = &pevents[id];
+	return upoll->fd;
 }
 int event_queue_fd_write_to_read(int eq, int fd) {
+	struct uwsgi_poll_event *upe = uwsgi_poll_event_queue[eq];
+	int i;
+	for(i=0;i<upe->nevents;i++) {
+		if (upe->poll[i].fd == fd) {
+			upe->poll[i].events = POLLIN;
+			return 0;
+		}
+	}	
 	return -1;
 }
 int event_queue_fd_read_to_write(int eq, int fd) {
+	struct uwsgi_poll_event *upe = uwsgi_poll_event_queue[eq];
+	int i;
+	for(i=0;i<upe->nevents;i++) {
+		if (upe->poll[i].fd == fd) {
+			upe->poll[i].events = POLLOUT;
+			return 0;
+		}
+	}	
 	return -1;
 }
 #endif

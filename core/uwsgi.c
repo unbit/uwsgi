@@ -1701,7 +1701,13 @@ int main(int argc, char *argv[], char *envp[]) {
 	// count/set the current reload status
 	uwsgi_setup_reload();
 
+#ifdef __CYGWIN__
+	SYSTEM_INFO si;
+	GetSystemInfo(&si);
+	uwsgi.page_size = si.dwPageSize;
+#else
 	uwsgi.page_size = getpagesize();
+#endif
 	uwsgi.binary_path = uwsgi_get_binary_path(argv[0]);
 
 	// ok we can now safely play with argv and environ

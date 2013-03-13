@@ -770,10 +770,10 @@ timeout:
 // check if an fd is valid
 int uwsgi_valid_fd(int fd) {
 	int ret = fcntl(fd, F_GETFL);
-	if (ret == 0) {
-		return 1;
+	if (ret == -1) {
+		return 0;
 	}
-	return 0;
+	return 1;
 }
 
 void uwsgi_close_all_fds(void) {

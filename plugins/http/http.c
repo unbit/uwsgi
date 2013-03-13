@@ -587,6 +587,8 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 	size_t len = main_peer->in->pos;
 	char *ptr = main_peer->in->buf;
 
+	hr->rnrn = 0;
+	
 	for (j = 0; j < len; j++) {
 		if (*ptr == '\r' && (hr->rnrn == 0 || hr->rnrn == 2)) {
 			hr->rnrn++;
@@ -769,8 +771,6 @@ int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket
 		}
 
 	}
-
-	hr->rnrn = 0;
 
 	hr->port = ugs->port;
 	hr->port_len = ugs->port_len;

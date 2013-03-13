@@ -329,6 +329,15 @@ extern "C" {
 
 #include <glob.h>
 
+#ifdef __CYGWIN__
+#define __WINCRYPT_H__
+#include <windows.h>
+#undef CMSG_DATA
+#define CMSG_DATA(cmsg)         \
+        ((unsigned char *) ((struct cmsghdr *)(cmsg) + 1))
+#endif
+
+
 
 
 struct uwsgi_buffer {
