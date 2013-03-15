@@ -332,6 +332,9 @@ extern "C" {
 #ifdef __CYGWIN__
 #define __WINCRYPT_H__
 #include <windows.h>
+#ifdef UWSGI_UUID
+#undef uuid_t
+#endif
 #undef CMSG_DATA
 #define CMSG_DATA(cmsg)         \
         ((unsigned char *) ((struct cmsghdr *)(cmsg) + 1))
