@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 void stats_pusher_mongodb(struct uwsgi_stats_pusher_instance *, time_t, char *, size_t);
 

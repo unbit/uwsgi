@@ -383,7 +383,8 @@ struct uwsgi_stats_pusher_instance *uwsgi_stats_pusher_add(struct uwsgi_stats_pu
 
 	uspi = uwsgi_calloc(sizeof(struct uwsgi_stats_pusher_instance));
 	uspi->pusher = pusher;
-	uspi->arg = arg;
+	uspi->arg = uwsgi_str(arg);
+	uspi->raw = pusher->raw;
 	if (old_uspi) {
 		old_uspi->next = uspi;
 	}

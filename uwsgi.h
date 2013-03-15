@@ -1469,9 +1469,9 @@ struct uwsgi_router {
 		struct uwsgi_clock *next;
 	};
 
-	struct uwsgi_subscribe_slot;
-	struct uwsgi_stats_pusher;
-	struct uwsgi_stats_pusher_instance;
+struct uwsgi_subscribe_slot;
+struct uwsgi_stats_pusher;
+struct uwsgi_stats_pusher_instance;
 
 #define UWSGI_PROTO_MIN_CHECK 4
 #define UWSGI_PROTO_MAX_CHECK 23
@@ -3401,6 +3401,7 @@ struct uwsgi_stats_pusher_instance;
 struct uwsgi_stats_pusher {
 	char *name;
 	void (*func) (struct uwsgi_stats_pusher_instance *, time_t, char *, size_t);
+	int raw;
 	struct uwsgi_stats_pusher *next;
 };
 
