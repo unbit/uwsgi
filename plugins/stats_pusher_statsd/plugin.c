@@ -1,7 +1,22 @@
 #include <uwsgi.h>
 
+/*
+
+this is a stats pusher plugin for the statsd server:
+
+--stats-push statsd:address[,prefix]
+
+example:
+
+--stats-push statsd:127.0.0.1:8125,myinstance
+
+it is pretty minimal, but will be extended after the 2.0 metric subsystem will be released
+
+*/
+
 extern struct uwsgi_server uwsgi;
 
+// configuration of a statsd node
 struct statsd_node {
 	int fd;
 	union uwsgi_sockaddr addr;
