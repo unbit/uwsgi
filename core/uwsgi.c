@@ -976,9 +976,18 @@ void grace_them_all(int signum) {
 	if (uwsgi_instance_is_reloading || uwsgi_instance_is_dying)
 		return;
 
+	int i;
+
+	if (uwsgi.lazy) {
+		for (i = 1; i <= uwsgi.numproc; i++) {
+			uwsgi_curse(i, SIGHUP);
+		}
+		return;
+	}
+	
+
 	uwsgi.status.gracefully_reloading = 1;
 
-	int i;
 	int waitpid_status;
 
 
@@ -1011,8 +1020,6 @@ void grace_them_all(int signum) {
 			}
 		}
 		else if (uwsgi.workers[i].pid > 0) {
-			if (uwsgi.lazy)
-				uwsgi.workers[i].destroy = 1;
 			uwsgi_curse(i, SIGHUP);
 		}
 	}
