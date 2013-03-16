@@ -2470,10 +2470,16 @@ void uwsgi_chown(char *filename, char *owner) {
 
 char *uwsgi_get_binary_path(char *argvzero) {
 
-#if defined(__linux__)
+#if defined(__linux__) || defined(__CYGWIN__)
 	char *buf = uwsgi_calloc(PATH_MAX + 1);
 	ssize_t len = readlink("/proc/self/exe", buf, PATH_MAX);
 	if (len > 0) {
+		return buf;
+	}
+	free(buf);
+#elif defined(_WIN32)
+	char *buf = uwsgi_calloc(PATH_MAX + 1);
+	if (GetModuleFileName(NULL, buf, PATH_MAX) > 0) {
 		return buf;
 	}
 	free(buf);
