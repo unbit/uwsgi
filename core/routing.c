@@ -176,7 +176,7 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 		return UWSGI_ROUTE_BREAK;
 	}
 
-	// in case ogf static files serving previous rules could be applied
+	// in case of static files serving previous rules could be applied
 	if (wsgi_req->routes_applied) {
 		return UWSGI_ROUTE_CONTINUE;
 	}
