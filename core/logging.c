@@ -1,9 +1,9 @@
-#define _NO_UWSGI_RB
-#include "uwsgi.h"
-
+#ifndef __DragonFly__
+#include <uwsgi.h>
+#endif
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__OpenBSD__)
-#include <kvm.h>
 #include <sys/user.h>
+#include <kvm.h>
 #elif defined(__sun__)
 /* Terrible Hack !!! */
 #ifndef _LP64
@@ -15,6 +15,10 @@
 
 #if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
 #include <sys/sysctl.h>
+#endif
+
+#ifdef __DragonFly__
+#include <uwsgi.h>
 #endif
 
 extern struct uwsgi_server uwsgi;
@@ -737,8 +741,13 @@ void get_memusage(uint64_t * rss, uint64_t * vsz) {
 		struct kinfo_proc *kproc;
 		kproc = kvm_getprocs(kv, KERN_PROC_PID, uwsgi.mypid, &cnt);
 		if (kproc && cnt > 0) {
+#if defined(__FreeBSD__)
 			*vsz = kproc->ki_size;
 			*rss = kproc->ki_rssize * uwsgi.page_size;
+#elif defined(__DragonFly__)
+			*vsz = kproc->kp_vm_map_size;
+			*rss = kproc->kp_vm_rssize * uwsgi.page_size;
+#endif
 		}
 #elif defined(UWSGI_NEW_OPENBSD)
 		struct kinfo_proc *kproc;
