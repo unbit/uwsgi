@@ -528,40 +528,39 @@ int uwsgi_proto_zeromq_write(struct wsgi_request *wsgi_req, char *buf, size_t le
 	return UWSGI_OK;
 }
 
+/*
+
+	we have a problem... recent Mongrel2 releases introduced a ring buffer that limit the amount of messages we can send (or better, the amount of
+	messages mongrel2 is able to manage). If we send a big static file we can fill that buffer immediately. How to deal with this ? We know that the
+	message ring can contains a fixed amount of messages. We could try to split the file in chunks (upto the maximum number supported by a specific mongrel2 instance).
+	This is suboptimal, but there are no better solutions for now. Before you ask: do you really think that sending a single message with a 2GB file is a good approach ?????
+	By the way, for now, waiting for a better approach, we use a 2MB buffer. Should support flawlessly files up to 32MB without being rejected by mongrel2. For bigger files you
+	can tune it to higher values (or increase the mongrel2 ring buffer)
+
+*/
+
+#define UWSGI_MONGREL2_MAX_MSGSIZE 2*1024*1024
 int uwsgi_proto_zeromq_sendfile(struct wsgi_request *wsgi_req, int fd, size_t pos, size_t len) {
 
-/*
-	ssize_t len;
-	char buf[65536];
-	size_t remains = wsgi_req->sendfile_fd_size - wsgi_req->sendfile_fd_pos;
-
-	wsgi_req->sendfile_fd_chunk = 65536;
-
-	if (uwsgi.async > 1) {
-		len = read(wsgi_req->sendfile_fd, buf, UMIN(remains, wsgi_req->sendfile_fd_chunk));
-		if (len != (int) UMIN(remains, wsgi_req->sendfile_fd_chunk)) {
-			uwsgi_error("read()");
-			return -1;
-		}
-		wsgi_req->sendfile_fd_pos += len;
-		return uwsgi_proto_zeromq_write(wsgi_req, buf, len);
+	size_t chunk_size = UMIN( len - wsgi_req->write_pos, UWSGI_MONGREL2_MAX_MSGSIZE);
+	char *tmp_buf = uwsgi_malloc(chunk_size);
+	ssize_t rlen = read(fd, tmp_buf, chunk_size);
+	if (rlen <= 0) {
+		free(tmp_buf);
+		return -1;
+	}
+	wsgi_req->write_pos += rlen;
+	if (uwsgi_proto_zeromq_write(wsgi_req, tmp_buf, rlen) < 0) {
+		free(tmp_buf);
+		return -1;
 	}
 
-	while (remains) {
-		len = read(wsgi_req->sendfile_fd, buf, UMIN(remains, wsgi_req->sendfile_fd_chunk));
-		if (len != (int) UMIN(remains, wsgi_req->sendfile_fd_chunk)) {
-			uwsgi_error("read()");
-			return -1;
-		}
-		wsgi_req->sendfile_fd_pos += len;
-		len = uwsgi_proto_zeromq_write(wsgi_req, buf, len);
-		remains = wsgi_req->sendfile_fd_size - wsgi_req->sendfile_fd_pos;
+	free(tmp_buf);
+
+	if (wsgi_req->write_pos == len) {
+		return UWSGI_OK;
 	}
-
-	return wsgi_req->sendfile_fd_pos;
-*/
-	return -1;
-
+	return UWSGI_AGAIN;
 }
 
 void uwsgi_proto_zeromq_setup(struct uwsgi_socket *uwsgi_sock) {
