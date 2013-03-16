@@ -2943,18 +2943,10 @@ int uwsgi_proto_scgi_parser(struct wsgi_request *);
 	uint16_t proto_base_add_uwsgi_var(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
 #ifdef UWSGI_ZEROMQ
-	void uwsgi_proto_zeromq_setup(struct uwsgi_socket *);
-	ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *, char *, size_t len);
-	int uwsgi_proto_zeromq_accept(struct wsgi_request *, int);
-	void uwsgi_proto_zeromq_close(struct wsgi_request *);
-	ssize_t uwsgi_proto_zeromq_writev_header(struct wsgi_request *, struct iovec *, size_t);
-	ssize_t uwsgi_proto_zeromq_writev(struct wsgi_request *, struct iovec *, size_t);
-	ssize_t uwsgi_proto_zeromq_write(struct wsgi_request *, char *, size_t);
-	ssize_t uwsgi_proto_zeromq_write_header(struct wsgi_request *, char *, size_t);
-	ssize_t uwsgi_proto_zeromq_sendfile(struct wsgi_request *);
-	int uwsgi_proto_zeromq_parser(struct wsgi_request *);
-	void *uwsgi_zeromq_init(void);
-	void uwsgi_zeromq_init_sockets(void);
+void uwsgi_proto_zeromq_setup(struct uwsgi_socket *);
+ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *, char *, size_t len);
+void *uwsgi_zeromq_init(void);
+void uwsgi_zeromq_init_sockets(void);
 #endif
 
 	int uwsgi_num2str2(int, char *);
