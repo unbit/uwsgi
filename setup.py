@@ -91,8 +91,6 @@ setup(name='uWSGI',
       description='The uWSGI server',
       author='Unbit',
       author_email='info@unbit.it',
-      download_url='http://projects.unbit.it/downloads/uwsgi-%s.tar.gz'
-          % (uc.uwsgi_version),
       license='GPL2',
       py_modules=['uwsgidecorators'],
       distclass=uWSGIDistribution,
