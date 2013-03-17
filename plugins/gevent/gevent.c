@@ -18,6 +18,7 @@ static void uwsgi_opt_setup_gevent(char *opt, char *value, void *null) {
 
 static struct uwsgi_option gevent_options[] = {
         {"gevent", required_argument, 0, "a shortcut enabling gevent loop engine with the specified number of async cores and optimal parameters", uwsgi_opt_setup_gevent, NULL, UWSGI_OPT_THREADS},
+        {"gevent-monkey-patch", no_argument, 0, "call gevent.monkey.patch_all() automatically on startup", uwsgi_opt_true, &ugevent.monkey, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -317,6 +318,16 @@ static void gevent_loop() {
 		exit(1);
 	}
 
+	// call gevent.monkey.patch_all() if requested
+	if (ugevent.monkey) {
+		PyObject *gevent_monkey_dict = get_uwsgi_pydict("gevent.monkey");
+		if (!gevent_monkey_dict) uwsgi_pyexit;
+		PyObject *gevent_monkey_patch_all = PyDict_GetItemString(gevent_monkey_dict, "patch_all");
+        	if (!gevent_monkey_patch_all) uwsgi_pyexit;
+		PyObject *ret = python_call(gevent_monkey_patch_all, PyTuple_New(0), 0, NULL);
+		if (!ret) uwsgi_pyexit;
+	}
+
 	ugevent.spawn = PyDict_GetItemString(gevent_dict, "spawn");
 	if (!ugevent.spawn) uwsgi_pyexit;
 
@@ -329,7 +340,6 @@ static void gevent_loop() {
 	ugevent.greenlet_switch_args = PyTuple_New(0);
 	Py_INCREF(ugevent.greenlet_switch_args);
 	
-
 	PyObject *gevent_get_hub = PyDict_GetItemString(gevent_dict, "get_hub");
 
 	ugevent.hub = python_call(gevent_get_hub, PyTuple_New(0), 0, NULL);
