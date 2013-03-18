@@ -270,6 +270,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exec-as-user", required_argument, 0, "run the specified command after privileges drop", uwsgi_opt_add_string_list, &uwsgi.exec_as_user, 0},
 	{"exec-as-user-atexit", required_argument, 0, "run the specified command before app exit and reload", uwsgi_opt_add_string_list, &uwsgi.exec_as_user_atexit, 0},
 	{"exec-pre-app", required_argument, 0, "run the specified command before app loading", uwsgi_opt_add_string_list, &uwsgi.exec_pre_app, 0},
+	{"exec-post-app", required_argument, 0, "run the specified command after app loading", uwsgi_opt_add_string_list, &uwsgi.exec_post_app, 0},
 #ifdef UWSGI_INI
 	{"ini", required_argument, 0, "load config from ini file", uwsgi_opt_load_ini, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
@@ -375,6 +376,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"legion-scroll", required_argument, 0, "set the scroll of a legion", uwsgi_opt_legion_scroll, NULL, UWSGI_OPT_MASTER},
 	{"legion-scroll", required_argument, 0, "set the scroll of a legion", uwsgi_opt_legion_scroll, NULL, UWSGI_OPT_MASTER},
 	{"legion-scroll-max-size", required_argument, 0, "set max size of legion scroll buffer", uwsgi_opt_set_16bit, &uwsgi.legion_scroll_max_size, 0},
+	{"legion-scroll-list-max-size", required_argument, 0, "set max size of legion scroll list buffer", uwsgi_opt_set_64bit, &uwsgi.legion_scroll_list_max_size, 0},
 	{"subscriptions-sign-check", required_argument, 0, "set digest algorithm and certificate directory for secured subscription system", uwsgi_opt_scd, NULL, UWSGI_OPT_MASTER},
 	{"subscriptions-sign-check-tolerance", required_argument, 0, "set the maximum tolerance (in seconds) of clock skew for secured subscription system", uwsgi_opt_set_int, &uwsgi.subscriptions_sign_check_tolerance, UWSGI_OPT_MASTER},
 #endif
@@ -3118,6 +3120,18 @@ void uwsgi_init_all_apps() {
 			uwsgi_log("*** no app loaded. going in full dynamic mode ***\n");
 		}
 	}
+
+	usl = uwsgi.exec_post_app;
+        while (usl) {
+                uwsgi_log("running \"%s\" (post app)...\n", usl->value);
+                int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+                if (ret != 0) {
+                        uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+                        exit(1);
+                }
+                usl = usl->next;
+        }
+
 
 }
 

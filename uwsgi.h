@@ -1795,6 +1795,7 @@ struct uwsgi_server {
 		struct uwsgi_string_list *exec_as_user;
 		struct uwsgi_string_list *exec_as_user_atexit;
 		struct uwsgi_string_list *exec_pre_app;
+		struct uwsgi_string_list *exec_post_app;
 
 		char *privileged_binary_patch;
 		char *unprivileged_binary_patch;
