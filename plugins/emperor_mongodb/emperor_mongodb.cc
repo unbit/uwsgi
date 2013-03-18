@@ -60,7 +60,9 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 				vassal_gid = tmp_gid;
 			} 
 
-			uwsgi_emperor_simple_do(ues, (char *) name, (char *) config, vassal_ts/1000, vassal_uid, vassal_gid);
+			const char *socket_name = p.getStringField("socket");
+
+			uwsgi_emperor_simple_do(ues, (char *) name, (char *) config, vassal_ts/1000, vassal_uid, vassal_gid, (char *) socket_name);
 		}
 
 

@@ -3517,79 +3517,81 @@ struct uwsgi_stats_pusher * uwsgi_register_stats_pusher(char *, void (*)(struct 
 // an instance (called vassal) is a uWSGI stack running
 // it is identified by the name of its config file
 // a vassal is 'loyal' as soon as it manages a request
-	struct uwsgi_instance {
-		struct uwsgi_instance *ui_prev;
-		struct uwsgi_instance *ui_next;
+struct uwsgi_instance {
+	struct uwsgi_instance *ui_prev;
+	struct uwsgi_instance *ui_next;
 
-		char name[0xff];
-		pid_t pid;
+	char name[0xff];
+	pid_t pid;
 
-		int status;
-		time_t born;
-		time_t last_mod;
-		time_t last_loyal;
+	int status;
+	time_t born;
+	time_t last_mod;
+	time_t last_loyal;
 
-		time_t last_run;
-		time_t first_run;
+	time_t last_run;
+	time_t first_run;
 
-		time_t last_heartbeat;
+	time_t last_heartbeat;
 
-		uint64_t respawns;
-		int use_config;
+	uint64_t respawns;
+	int use_config;
 
-		int pipe[2];
-		int pipe_config[2];
+	int pipe[2];
+	int pipe_config[2];
 
-		char *config;
-		uint32_t config_len;
+	char *config;
+	uint32_t config_len;
 
-		int loyal;
+	int loyal;
 
-		int zerg;
+	int zerg;
 
-		struct uwsgi_emperor_scanner *scanner;
+	struct uwsgi_emperor_scanner *scanner;
 
-		uid_t uid;
-		gid_t gid;
-	};
+	uid_t uid;
+	gid_t gid;
 
-	struct uwsgi_instance *emperor_get_by_fd(int);
-	struct uwsgi_instance *emperor_get(char *);
-	void emperor_stop(struct uwsgi_instance *);
-	void emperor_respawn(struct uwsgi_instance *, time_t);
-	void emperor_add(struct uwsgi_emperor_scanner *, char *, time_t, char *, uint32_t, uid_t, gid_t);
+	int on_demand_fd;
+};
 
-	void uwsgi_exec_command_with_args(char *);
+struct uwsgi_instance *emperor_get_by_fd(int);
+struct uwsgi_instance *emperor_get(char *);
+void emperor_stop(struct uwsgi_instance *);
+void emperor_respawn(struct uwsgi_instance *, time_t);
+void emperor_add(struct uwsgi_emperor_scanner *, char *, time_t, char *, uint32_t, uid_t, gid_t, char *);
 
-	void uwsgi_imperial_monitor_glob_init(struct uwsgi_emperor_scanner *);
-	void uwsgi_imperial_monitor_directory_init(struct uwsgi_emperor_scanner *);
-	void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *);
-	void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *);
+void uwsgi_exec_command_with_args(char *);
 
-	void uwsgi_register_clock(struct uwsgi_clock *);
-	void uwsgi_set_clock(char *name);
+void uwsgi_imperial_monitor_glob_init(struct uwsgi_emperor_scanner *);
+void uwsgi_imperial_monitor_directory_init(struct uwsgi_emperor_scanner *);
+void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *);
+void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *);
 
-	void uwsgi_init_default(void);
-	void uwsgi_setup_reload(void);
-	void uwsgi_autoload_plugins_by_name(char *);
-	void uwsgi_commandline_config(void);
+void uwsgi_register_clock(struct uwsgi_clock *);
+void uwsgi_set_clock(char *name);
 
-	void uwsgi_setup_log(void);
-	void uwsgi_setup_log_master(void);
+void uwsgi_init_default(void);
+void uwsgi_setup_reload(void);
+void uwsgi_autoload_plugins_by_name(char *);
+void uwsgi_commandline_config(void);
 
-	void uwsgi_setup_shared_sockets(void);
+void uwsgi_setup_log(void);
+void uwsgi_setup_log_master(void);
 
-	void uwsgi_setup_mules_and_farms(void);
+void uwsgi_setup_shared_sockets(void);
 
-	void uwsgi_setup_workers(void);
-	void uwsgi_map_sockets(void);
+void uwsgi_setup_mules_and_farms(void);
 
-	void uwsgi_set_cpu_affinity(void);
+void uwsgi_setup_workers(void);
+void uwsgi_map_sockets(void);
 
-	void uwsgi_emperor_start(void);
+void uwsgi_set_cpu_affinity(void);
 
-	void uwsgi_bind_sockets(void);
-	void uwsgi_set_sockets_protocols(void);
+void uwsgi_emperor_start(void);
+
+void uwsgi_bind_sockets(void);
+void uwsgi_set_sockets_protocols(void);
 
 struct uwsgi_buffer *uwsgi_buffer_new(size_t);
 int uwsgi_buffer_append(struct uwsgi_buffer *, char *, size_t);
@@ -3631,7 +3633,7 @@ void uwsgi_master_cleanup_hooks(void);
 
 pid_t uwsgi_daemonize2();
 
-void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *, char *, char *, time_t, uid_t, gid_t);
+void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *, char *, char *, time_t, uid_t, gid_t, char *);
 
 #if defined(__linux__)
 #define UWSGI_ELF
@@ -3928,6 +3930,7 @@ int uwsgi_cache_magic_clear(char *);
 void uwsgi_cache_magic_context_hook(char *, uint16_t, char *, uint16_t, void *);
 
 char *uwsgi_legion_scrolls(char *, uint64_t *);
+int uwsgi_emperor_vassal_start(struct uwsgi_instance *);
 
 #ifdef UWSGI_ZLIB
 #include <zlib.h>

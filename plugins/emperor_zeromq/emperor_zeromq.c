@@ -64,15 +64,16 @@ static void uwsgi_imperial_monitor_zeromq_cmd(struct uwsgi_emperor_scanner *ues)
 	int64_t more = 0;
 	size_t more_size = sizeof(more);
 	int i;
-        zmq_msg_t msg[5];
+        zmq_msg_t msg[6];
 
         zmq_msg_init(&msg[0]);
         zmq_msg_init(&msg[1]);
         zmq_msg_init(&msg[2]);
         zmq_msg_init(&msg[3]);
         zmq_msg_init(&msg[4]);
+        zmq_msg_init(&msg[5]);
 
-        for(i=0;i<5;i++) {
+        for(i=0;i<6;i++) {
 #if ZMQ_VERSION >= ZMQ_MAKE_VERSION(3,0,0)
         	zmq_recvmsg(ues->data, &msg[i], ZMQ_DONTWAIT);
 #else
@@ -105,6 +106,11 @@ static void uwsgi_imperial_monitor_zeromq_cmd(struct uwsgi_emperor_scanner *ues)
 	char *ez_gid = NULL;
         size_t ez_gid_len = 0;
 
+	char *ez_socket_name = NULL;
+        size_t ez_socket_name_len = 0;
+
+	char *socket_name = NULL;
+
 	// config
 	if (i > 1) {
 		ez_config = zmq_msg_data(&msg[2]);	
@@ -121,6 +127,12 @@ static void uwsgi_imperial_monitor_zeromq_cmd(struct uwsgi_emperor_scanner *ues)
 	if (i > 3) {
 		ez_gid = zmq_msg_data(&msg[4]);	
 		ez_gid_len = zmq_msg_size(&msg[4]);
+	}
+
+	// gid
+	if (i > 4) {
+		ez_socket_name = zmq_msg_data(&msg[5]);	
+		ez_socket_name_len = zmq_msg_size(&msg[5]);
 	}
 
 	char *name = uwsgi_concat2n(ez_name, ez_name_len, "", 0);
@@ -142,9 +154,15 @@ static void uwsgi_imperial_monitor_zeromq_cmd(struct uwsgi_emperor_scanner *ues)
 			vassal_gid = uwsgi_str_num(ez_gid, ez_gid_len);
 		}	
 
-		uwsgi_emperor_simple_do(ues, name, config, uwsgi_now(), vassal_uid, vassal_gid);
+		if (ez_socket_name) {
+			socket_name = uwsgi_concat2n(ez_socket_name, ez_socket_name_len, "", 0);
+		}
+		uwsgi_emperor_simple_do(ues, name, config, uwsgi_now(), vassal_uid, vassal_gid, socket_name);
 		if (config) {
 			free(config);
+		}
+		if (socket_name) {
+			free(socket_name);
 		}
 	}
 	// destroy an instance
@@ -158,7 +176,7 @@ static void uwsgi_imperial_monitor_zeromq_cmd(struct uwsgi_emperor_scanner *ues)
 		}
 	}
 	else {
-		uwsgi_log("[emperor-zeromq] unkonwn command \"%.*s\"\n", (int)ez_cmd_len, ez_cmd);
+		uwsgi_log("[emperor-zeromq] unknown command \"%.*s\"\n", (int)ez_cmd_len, ez_cmd);
 	}
 
 	free(name);
@@ -168,6 +186,7 @@ static void uwsgi_imperial_monitor_zeromq_cmd(struct uwsgi_emperor_scanner *ues)
         zmq_msg_close(&msg[2]);
         zmq_msg_close(&msg[3]);
         zmq_msg_close(&msg[4]);
+        zmq_msg_close(&msg[5]);
 }
 
 // this is the event manager
