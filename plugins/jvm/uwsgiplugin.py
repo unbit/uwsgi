@@ -36,15 +36,15 @@ else:
            JVM_LIBPATH = ["-L%s/jre/lib/%s/server" % (jvm, arch)]
            break
 
-try: 
+try:
     JVM_INCPATH = ['-I"' + os.environ['UWSGICONFIG_JVM_INCPATH'] + '"']
-except: 
-    pass 
+except:
+    pass
 
-try: 
+try:
     JVM_LIBPATH = ['-L"' + os.environ['UWSGICONFIG_JVM_LIBPATH'] + '"']
-except: 
-    pass 
+except:
+    pass
 
 if not JVM_INCPATH or not JVM_LIBPATH:
     print("unable to autodetect the JVM path, please specify UWSGICONFIG_JVM_INCPATH and UWSGICONFIG_JVM_LIBPATH environment vars")
@@ -69,3 +69,17 @@ def post_build(config):
     if os.system("cd %s/plugins/jvm ; jar cvf uwsgi.jar *.class" % os.getcwd()) != 0:
         os._exit(1)
     print("*** uwsgi.jar available in %s/plugins/jvm/uwsgi.jar ***" % os.getcwd())
+
+    env = os.environ.get('VIRTUAL_ENV')
+    if env:
+        src = "%s/plugins/jvm/uwsgi.jar" % os.getcwd()
+        tgt = "%s/lib/uwsgi.jar" % env
+        shutil.copyfile(src, tgt)
+        print("*** uwsgi.jar had been copied to %s" % tgt)
+
+        plugin = "%s/jvm_plugin.so" % os.getcwd()
+        if os.path.exists(plugin):
+            tgt = "%s/bin/jvm_plugin.so" % env
+            shutil.copyfile(plugin, tgt)
+            print("*** jvm_plugin.so had been copied to %s" % tgt)
+
