@@ -123,6 +123,16 @@ void uwsgi_setup_inherited_sockets() {
 				continue;
 		}
 
+		if (uwsgi.shared->worker_req_log_pipe[0] > -1) {
+			if (j == uwsgi.shared->worker_req_log_pipe[0])
+				continue;
+		}
+
+		if (uwsgi.shared->worker_req_log_pipe[1] > -1) {
+			if (j == uwsgi.shared->worker_req_log_pipe[1])
+				continue;
+		}
+
 		if (uwsgi.original_log_fd > -1) {
 			if (j == uwsgi.original_log_fd)
 				continue;
