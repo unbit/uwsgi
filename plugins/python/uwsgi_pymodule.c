@@ -474,6 +474,37 @@ PyObject *py_uwsgi_lord_scroll(PyObject * self, PyObject * args) {
         return ret;
 }
 
+static void scrolls_items(uint16_t pos, char *key, uint16_t keylen, void *data) {
+	PyObject *list = (PyObject *) data;
+	PyObject *zero = PyString_FromStringAndSize(key, keylen);
+	PyList_Append(list, zero);
+	Py_DECREF(zero);
+}
+
+PyObject *py_uwsgi_scrolls(PyObject * self, PyObject * args) {
+        char *legion_name = NULL;
+
+        if (!PyArg_ParseTuple(args, "s:scrolls", &legion_name)) {
+                return NULL;
+        }
+
+	uint64_t rlen = 0;
+        char *buf = uwsgi_legion_scrolls(legion_name, &rlen);
+	if (!buf) goto end;
+	PyObject *list = PyList_New(0);
+	if (uwsgi_hooked_parse_array(buf, rlen, scrolls_items, list)) {
+		goto error;
+	}
+	free(buf);
+	return list;
+error:
+	free(buf);
+end:
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+
 #endif
 
 PyObject *py_uwsgi_register_signal(PyObject * self, PyObject * args) {
@@ -2434,6 +2465,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 #ifdef UWSGI_SSL
 	{"i_am_the_lord", py_uwsgi_i_am_the_lord, METH_VARARGS, ""},
 	{"lord_scroll", py_uwsgi_lord_scroll, METH_VARARGS, ""},
+	{"scrolls", py_uwsgi_scrolls, METH_VARARGS, ""},
 #endif
 	{"async_sleep", py_uwsgi_async_sleep, METH_VARARGS, ""},
 	{"async_connect", py_uwsgi_async_connect, METH_VARARGS, ""},

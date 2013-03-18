@@ -81,6 +81,37 @@ void uwsgi_parse_legion(char *key, uint16_t keylen, char *value, uint16_t vallen
 	}
 }
 
+// this function is called when a node is added or removed (heavy locking is needed)
+static void legion_rebuild_scrolls(struct uwsgi_legion *ul) {
+	uint64_t max_size = ul->scrolls_max_size;
+
+	// first, try to add myself
+	if (ul->scroll_len + (uint64_t) 2 > max_size) {
+		uwsgi_log("[DANGER] you have configured a too much tiny buffer for the scrolls list !!! tune it with --legion-scroll-list-max-size\n");
+		ul->scroll_len = 0;
+		return;
+	}
+
+	char *ptr = ul->scrolls;
+	*ptr ++= (uint8_t) (ul->scroll_len & 0xff);
+	*ptr ++= (uint8_t) ((ul->scroll_len >> 8) &0xff);
+	memcpy(ptr, ul->scroll, ul->scroll_len); ptr += ul->scroll_len;
+	ul->scrolls_len = 2 + ul->scroll_len;
+	// ok start adding nodes;
+	struct uwsgi_legion_node *uln = ul->nodes_head;
+	while(uln) {
+		if (ul->scrolls_len + 2 + uln->scroll_len > max_size) {
+			uwsgi_log("[DANGER] you have configured a too much tiny buffer for the scrolls list !!! tune it with --legion-scroll-list-max-size\n");
+			return;
+		}
+		*ptr ++= (uint8_t) (uln->scroll_len & 0xff);
+        	*ptr ++= (uint8_t) ((uln->scroll_len >> 8) &0xff);
+        	memcpy(ptr, uln->scroll, uln->scroll_len); ptr += uln->scroll_len;
+        	ul->scrolls_len += 2 + uln->scroll_len;
+		uln = uln->next;
+	}
+}
+
 // critical section (remember to lock when you use it)
 struct uwsgi_legion_node *uwsgi_legion_add_node(struct uwsgi_legion *ul, uint16_t valor, char *name, uint16_t name_len, char *uuid) {
 
@@ -103,6 +134,8 @@ struct uwsgi_legion_node *uwsgi_legion_add_node(struct uwsgi_legion *ul, uint16_
 	if (!ul->nodes_head) {
 		ul->nodes_head = node;
 	}
+
+	legion_rebuild_scrolls(ul);
 
 	return node;
 
@@ -141,6 +174,8 @@ void uwsgi_legion_remove_node(struct uwsgi_legion *ul, struct uwsgi_legion_node 
 	}
 
 	free(node);
+
+	legion_rebuild_scrolls(ul);
 }
 
 struct uwsgi_legion_node *uwsgi_legion_get_node(struct uwsgi_legion *ul, uint64_t valor, char *name, uint16_t name_len, char *uuid) {
@@ -937,8 +972,14 @@ void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 		uwsgi.legion_scroll_max_size = 4096;
 	}
 
+	if (!uwsgi.legion_scroll_list_max_size) {
+		uwsgi.legion_scroll_list_max_size = 32768;
+	}
+
 	ul->lord_scroll_size = uwsgi.legion_scroll_max_size;
 	ul->lord_scroll = uwsgi_calloc_shared(ul->lord_scroll_size);
+	ul->scrolls_max_size = uwsgi.legion_scroll_list_max_size;
+	ul->scrolls = uwsgi_calloc_shared(ul->scrolls_max_size);
 
 	uwsgi_legion_add(ul);
 }
@@ -1017,6 +1058,18 @@ char *uwsgi_legion_lord_scroll(char *name, uint16_t *rlen) {
 		memcpy(buf, legion->lord_scroll, legion->lord_scroll_len);
 		*rlen = legion->lord_scroll_len;
 	}
+	uwsgi_rwunlock(legion->lock);
+	return buf;
+}
+
+char *uwsgi_legion_scrolls(char *name, uint64_t *rlen) {
+	char *buf = NULL;
+        struct uwsgi_legion *legion = uwsgi_legion_get_by_name(name);
+        if (!legion) return NULL;
+	uwsgi_rlock(legion->lock);
+	buf = uwsgi_malloc(legion->scrolls_len);
+	memcpy(buf, legion->scrolls, legion->scrolls_len);
+	*rlen = legion->scrolls_len;
 	uwsgi_rwunlock(legion->lock);
 	return buf;
 }

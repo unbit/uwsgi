@@ -624,6 +624,10 @@ union uwsgi_sockaddr_ptr {
 		EVP_CIPHER_CTX *encrypt_ctx;
 		EVP_CIPHER_CTX *decrypt_ctx;
 
+		char *scrolls;
+		uint64_t scrolls_len;
+		uint64_t scrolls_max_size;
+
 		// found nodes dynamic lists
 		struct uwsgi_legion_node *nodes_head;
 		struct uwsgi_legion_node *nodes_tail;
@@ -2239,6 +2243,7 @@ struct uwsgi_server {
 		int legion_tolerance;
 		int legion_skew_tolerance;
 		uint16_t legion_scroll_max_size;
+		uint64_t legion_scroll_list_max_size;
 #endif
 
 #ifdef __linux__
@@ -3920,6 +3925,8 @@ int uwsgi_cache_magic_del(char *, uint16_t, char *);
 int uwsgi_cache_magic_exists(char *, uint16_t, char *);
 int uwsgi_cache_magic_clear(char *);
 void uwsgi_cache_magic_context_hook(char *, uint16_t, char *, uint16_t, void *);
+
+char *uwsgi_legion_scrolls(char *, uint64_t *);
 
 #ifdef UWSGI_ZLIB
 #include <zlib.h>
