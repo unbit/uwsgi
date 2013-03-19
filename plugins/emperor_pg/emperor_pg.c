@@ -68,7 +68,11 @@ void uwsgi_imperial_monitor_pg(struct uwsgi_emperor_scanner *ues) {
 				vassal_uid = uwsgi_str_num(q_uid, strlen(q_uid));
 				vassal_gid = uwsgi_str_num(q_gid, strlen(q_gid));
 			}
-			uwsgi_emperor_simple_do(ues, name, config, uwsgi_str_num(ts, len), vassal_uid, vassal_gid);
+			char *socket_name = NULL;
+			if (PQnfields(res) > 5) {
+				socket_name = PQgetvalue(res, i, 5);	
+			}
+			uwsgi_emperor_simple_do(ues, name, config, uwsgi_str_num(ts, len), vassal_uid, vassal_gid, socket_name);
 		}
 	}
 

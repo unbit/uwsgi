@@ -49,7 +49,7 @@ void uwsgi_imperial_monitor_amqp_event(struct uwsgi_emperor_scanner *ues) {
                 }
 
 		if (msgsize > 0) {
-                	emperor_add(ues, amqp_routing_key, uwsgi_now(), config, msgsize, 0, 0);
+                	emperor_add(ues, amqp_routing_key, uwsgi_now(), config, msgsize, 0, 0, NULL);
 		}
 
 end0:
@@ -88,7 +88,7 @@ end0:
 		emperor_respawn(ui_current, uwsgi_now());
 	}
 	else {
-		emperor_add(ues, config_file, uwsgi_now(), NULL, 0, 0, 0);
+		emperor_add(ues, config_file, uwsgi_now(), NULL, 0, 0, 0, NULL);
 	}
 
 	free(config_file);
