@@ -20,7 +20,7 @@ extern "C" {
 #define uwsgi_fatal_error(x) uwsgi_error(x); exit(1);
 #define uwsgi_error_open(x)  uwsgi_log("open(\"%s\"): %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_req_error(x)  if (wsgi_req->uri_len > 0 && wsgi_req->method_len > 0 && wsgi_req->remote_addr_len > 0) uwsgi_log_verbose("%s: %s [%s line %d] during %.*s %.*s (%.*s)\n", x, strerror(errno), __FILE__, __LINE__,\
-				wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, wsgi_req->remote_addr_len, wsgi_req->remote_addr); else uwsgi_log_verbose("%s %s [%s line %d] \n",x, strerror(errno), __FILE__, __LINE__);
+		wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, wsgi_req->remote_addr_len, wsgi_req->remote_addr); else uwsgi_log_verbose("%s %s [%s line %d] \n",x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_debug(x, ...) uwsgi_log("[uWSGI DEBUG] " x, __VA_ARGS__);
 #define uwsgi_rawlog(x) if (write(2, x, strlen(x)) != strlen(x)) uwsgi_error("write()")
 #define uwsgi_str(x) uwsgi_concat2(x, (char *)"")
@@ -58,20 +58,20 @@ extern "C" {
 
 #define ushared uwsgi.shared
 
-#define UWSGI_OPT_IMMEDIATE		(1 << 0)
-#define UWSGI_OPT_MASTER		(1 << 1)
-#define UWSGI_OPT_LOG_MASTER		(1 << 2)
-#define UWSGI_OPT_THREADS		(1 << 3)
-#define UWSGI_OPT_CHEAPER		(1 << 4)
-#define UWSGI_OPT_VHOST			(1 << 5)
-#define UWSGI_OPT_MEMORY		(1 << 6)
-#define UWSGI_OPT_PROCNAME		(1 << 7)
-#define UWSGI_OPT_LAZY			(1 << 8)
-#define UWSGI_OPT_NO_INITIAL		(1 << 9)
-#define UWSGI_OPT_NO_SERVER		(1 << 10)
+#define UWSGI_OPT_IMMEDIATE	(1 << 0)
+#define UWSGI_OPT_MASTER	(1 << 1)
+#define UWSGI_OPT_LOG_MASTER	(1 << 2)
+#define UWSGI_OPT_THREADS	(1 << 3)
+#define UWSGI_OPT_CHEAPER	(1 << 4)
+#define UWSGI_OPT_VHOST		(1 << 5)
+#define UWSGI_OPT_MEMORY	(1 << 6)
+#define UWSGI_OPT_PROCNAME	(1 << 7)
+#define UWSGI_OPT_LAZY		(1 << 8)
+#define UWSGI_OPT_NO_INITIAL	(1 << 9)
+#define UWSGI_OPT_NO_SERVER	(1 << 10)
 #define UWSGI_OPT_POST_BUFFERING	(1 << 11)
-#define UWSGI_OPT_CLUSTER		(1 << 12)
-#define UWSGI_OPT_MIME			(1 << 13)
+#define UWSGI_OPT_CLUSTER	(1 << 12)
+#define UWSGI_OPT_MIME		(1 << 13)
 #define UWSGI_OPT_REQ_LOG_MASTER	(1 << 14)
 
 #define MAX_GENERIC_PLUGINS 64
@@ -82,7 +82,7 @@ extern "C" {
 #define MAX_CRONS 64
 
 #define UWSGI_VIA_SENDFILE	1
-#define UWSGI_VIA_ROUTE		2
+#define UWSGI_VIA_ROUTE	2
 #define UWSGI_VIA_OFFLOAD	3
 
 #ifndef UWSGI_LOAD_EMBEDDED_PLUGINS
@@ -102,33 +102,33 @@ extern "C" {
 
 #define ULEP(pname)\
 	if (pname##_plugin.request) {\
-		uwsgi.p[pname##_plugin.modifier1] = &pname##_plugin;\
-		if (uwsgi.p[pname##_plugin.modifier1]->on_load)\
-			uwsgi.p[pname##_plugin.modifier1]->on_load();\
+	uwsgi.p[pname##_plugin.modifier1] = &pname##_plugin;\
+	if (uwsgi.p[pname##_plugin.modifier1]->on_load)\
+		uwsgi.p[pname##_plugin.modifier1]->on_load();\
 	}\
 	else {\
-		if (uwsgi.gp_cnt >= MAX_GENERIC_PLUGINS) {\
-			uwsgi_log("you have embedded too much generic plugins !!!\n");\
-			exit(1);\
-		}\
-		uwsgi.gp[uwsgi.gp_cnt] = &pname##_plugin;\
-		if (uwsgi.gp[uwsgi.gp_cnt]->on_load)\
-			uwsgi.gp[uwsgi.gp_cnt]->on_load();\
-		uwsgi.gp_cnt++;\
+	if (uwsgi.gp_cnt >= MAX_GENERIC_PLUGINS) {\
+		uwsgi_log("you have embedded too much generic plugins !!!\n");\
+		exit(1);\
+	}\
+	uwsgi.gp[uwsgi.gp_cnt] = &pname##_plugin;\
+	if (uwsgi.gp[uwsgi.gp_cnt]->on_load)\
+		uwsgi.gp[uwsgi.gp_cnt]->on_load();\
+	uwsgi.gp_cnt++;\
 	}\
 
 
 #define fill_plugin_table(x, up)\
 	if (up->request) {\
-		uwsgi.p[x] = up;\
+	uwsgi.p[x] = up;\
 	}\
 	else {\
-		if (uwsgi.gp_cnt >= MAX_GENERIC_PLUGINS) {\
-			uwsgi_log("you have embedded to much generic plugins !!!\n");\
-			exit(1);\
-		}\
-		uwsgi.gp[uwsgi.gp_cnt] = up;\
-		uwsgi.gp_cnt++;\
+	if (uwsgi.gp_cnt >= MAX_GENERIC_PLUGINS) {\
+		uwsgi_log("you have embedded to much generic plugins !!!\n");\
+		exit(1);\
+	}\
+	uwsgi.gp[uwsgi.gp_cnt] = up;\
+	uwsgi.gp_cnt++;\
 	}\
 
 
@@ -317,8 +317,8 @@ extern "C" {
 #endif
 
 #define UWSGI_CACHE_FLAG_UNGETTABLE	0x01
-#define UWSGI_CACHE_FLAG_UPDATE		0x02
-#define UWSGI_CACHE_FLAG_LOCAL		0x04
+#define UWSGI_CACHE_FLAG_UPDATE	0x02
+#define UWSGI_CACHE_FLAG_LOCAL	0x04
 #define UWSGI_CACHE_FLAG_ABSEXPIRE	0x08
 
 #ifdef UWSGI_SSL
@@ -415,21 +415,21 @@ struct uwsgi_lock_ops {
 
 	struct uwsgi_dyn_dict {
 
-		char *key;
-		int keylen;
-		char *value;
-		int vallen;
+	char *key;
+	int keylen;
+	char *value;
+	int vallen;
 
-		uint64_t hits;
-		int status;
+	uint64_t hits;
+	int status;
 
 #ifdef UWSGI_PCRE
-		pcre *pattern;
-		pcre_extra *pattern_extra;
+	pcre *pattern;
+	pcre_extra *pattern_extra;
 #endif
 
-		struct uwsgi_dyn_dict *prev;
-		struct uwsgi_dyn_dict *next;
+	struct uwsgi_dyn_dict *prev;
+	struct uwsgi_dyn_dict *next;
 	};
 
 #ifdef UWSGI_PCRE
@@ -489,44 +489,44 @@ union uwsgi_sockaddr_ptr {
 
 	struct uwsgi_gateway {
 
-		char *name;
-		char *fullname;
-		void (*loop) (int, void *);
-		pid_t pid;
-		int num;
-		int use_signals;
+	char *name;
+	char *fullname;
+	void (*loop) (int, void *);
+	pid_t pid;
+	int num;
+	int use_signals;
 
-		int internal_subscription_pipe[2];
-		uint64_t respawns;
+	int internal_subscription_pipe[2];
+	uint64_t respawns;
 
-		void *data;
+	void *data;
 	};
 
 	struct uwsgi_gateway_socket {
 
-		char *name;
-		size_t name_len;
-		int fd;
-		char *zerg;
+	char *name;
+	size_t name_len;
+	int fd;
+	char *zerg;
 
-		char *port;
-		int port_len;
+	char *port;
+	int port_len;
 
-		int no_defer;
+	int no_defer;
 
-		void *data;
-		int subscription;
-		int shared;
+	void *data;
+	int subscription;
+	int shared;
 
-		char *owner;
-		struct uwsgi_gateway *gateway;
+	char *owner;
+	struct uwsgi_gateway *gateway;
 
-		struct uwsgi_gateway_socket *next;
+	struct uwsgi_gateway_socket *next;
 
-		// could be useful for ssl
-		void *ctx;
-		// could be useful ofr plugins
-		int mode;
+	// could be useful for ssl
+	void *ctx;
+	// could be useful ofr plugins
+	int mode;
 
 	};
 
@@ -535,133 +535,133 @@ union uwsgi_sockaddr_ptr {
 // Daemons are external processes maintained by the master
 
 	struct uwsgi_daemon {
-		char *command;
-		pid_t pid;
-		uint64_t respawns;
-		time_t born;
-		time_t last_spawn;
-		int status;
-		int registered;
+	char *command;
+	pid_t pid;
+	uint64_t respawns;
+	time_t born;
+	time_t last_spawn;
+	int status;
+	int registered;
 
 
-		char *pidfile;
-		int daemonize;
+	char *pidfile;
+	int daemonize;
 
-		// this is incremented every time a pidfile is not found
-		uint64_t pidfile_checks;
-		// frequency of pidfile checks (default 10 secs)
-		int freq;
+	// this is incremented every time a pidfile is not found
+	uint64_t pidfile_checks;
+	// frequency of pidfile checks (default 10 secs)
+	int freq;
 
-		struct uwsgi_daemon *next;
+	struct uwsgi_daemon *next;
 	};
 
 	struct uwsgi_logger {
-		char *name;
-		char *id;
-		 ssize_t(*func) (struct uwsgi_logger *, char *, size_t);
-		int configured;
-		int fd;
-		void *data;
-		union uwsgi_sockaddr addr;
-		socklen_t addr_len;
-		int count;
-		struct msghdr msg;
-		char *buf;
-		// used by choosen logger
-		char *arg;
-		struct uwsgi_logger *next;
+	char *name;
+	char *id;
+	 ssize_t(*func) (struct uwsgi_logger *, char *, size_t);
+	int configured;
+	int fd;
+	void *data;
+	union uwsgi_sockaddr addr;
+	socklen_t addr_len;
+	int count;
+	struct msghdr msg;
+	char *buf;
+	// used by choosen logger
+	char *arg;
+	struct uwsgi_logger *next;
 	};
 
 #ifdef UWSGI_SSL
 	struct uwsgi_legion_node {
-		char *name;
-		uint16_t name_len;
-		uint64_t valor;
-		char uuid[37];
-		char *scroll;
-		uint16_t scroll_len;
-		uint64_t checksum;
-		uint64_t lord_valor;
-		char lord_uuid[36];
-		time_t last_seen;
-		struct uwsgi_legion_node *prev;
-		struct uwsgi_legion_node *next;
+	char *name;
+	uint16_t name_len;
+	uint64_t valor;
+	char uuid[37];
+	char *scroll;
+	uint16_t scroll_len;
+	uint64_t checksum;
+	uint64_t lord_valor;
+	char lord_uuid[36];
+	time_t last_seen;
+	struct uwsgi_legion_node *prev;
+	struct uwsgi_legion_node *next;
 	};
 	struct uwsgi_legion {
-		char *legion;
-		uint16_t legion_len;
-		uint64_t valor;
-		char *addr;
-		char *name;
-		uint16_t name_len;
-		pid_t pid;
-		char uuid[37];
-		int socket;
+	char *legion;
+	uint16_t legion_len;
+	uint64_t valor;
+	char *addr;
+	char *name;
+	uint16_t name_len;
+	pid_t pid;
+	char uuid[37];
+	int socket;
 
-		int quorum;
-		int changed;
+	int quorum;
+	int changed;
 
-		uint64_t checksum;
+	uint64_t checksum;
 
-		char *scroll;
-		uint16_t scroll_len;
+	char *scroll;
+	uint16_t scroll_len;
 
-		char *lord_scroll;
-		uint16_t lord_scroll_len;
-		uint16_t lord_scroll_size;
+	char *lord_scroll;
+	uint16_t lord_scroll_len;
+	uint16_t lord_scroll_size;
 
-		char lord_uuid[36];
-		uint64_t lord_valor;
+	char lord_uuid[36];
+	uint64_t lord_valor;
 
-		time_t i_am_the_lord;
+	time_t i_am_the_lord;
 
-		time_t unix_check;
+	time_t unix_check;
 
-		time_t last_warning;
+	time_t last_warning;
 
-		struct uwsgi_lock_item *lock;
+	struct uwsgi_lock_item *lock;
 
-		EVP_CIPHER_CTX *encrypt_ctx;
-		EVP_CIPHER_CTX *decrypt_ctx;
+	EVP_CIPHER_CTX *encrypt_ctx;
+	EVP_CIPHER_CTX *decrypt_ctx;
 
-		char *scrolls;
-		uint64_t scrolls_len;
-		uint64_t scrolls_max_size;
+	char *scrolls;
+	uint64_t scrolls_len;
+	uint64_t scrolls_max_size;
 
-		// found nodes dynamic lists
-		struct uwsgi_legion_node *nodes_head;
-		struct uwsgi_legion_node *nodes_tail;
+	// found nodes dynamic lists
+	struct uwsgi_legion_node *nodes_head;
+	struct uwsgi_legion_node *nodes_tail;
 
-		// static list of nodes to send announces to
-		struct uwsgi_string_list *nodes;
-		struct uwsgi_string_list *lord_hooks;
-		struct uwsgi_string_list *unlord_hooks;
-		struct uwsgi_string_list *setup_hooks;
-		struct uwsgi_string_list *death_hooks;
-		struct uwsgi_legion *next;
+	// static list of nodes to send announces to
+	struct uwsgi_string_list *nodes;
+	struct uwsgi_string_list *lord_hooks;
+	struct uwsgi_string_list *unlord_hooks;
+	struct uwsgi_string_list *setup_hooks;
+	struct uwsgi_string_list *death_hooks;
+	struct uwsgi_legion *next;
 	};
 
 	struct uwsgi_legion_action {
-		char *name;
-		int (*func) (struct uwsgi_legion *, char *);
-		struct uwsgi_legion_action *next;
+	char *name;
+	int (*func) (struct uwsgi_legion *, char *);
+	struct uwsgi_legion_action *next;
 	};
 #endif
 
 	struct uwsgi_queue_header {
-		uint64_t pos;
-		uint64_t pull_pos;
+	uint64_t pos;
+	uint64_t pull_pos;
 	};
 
 	struct uwsgi_queue_item {
-		uint64_t size;
-		time_t ts;
+	uint64_t size;
+	time_t ts;
 	};
 
 	struct uwsgi_hash_algo {
-		char *name;
-		 uint32_t(*func) (char *, uint64_t);
-		struct uwsgi_hash_algo *next;
+	char *name;
+	 uint32_t(*func) (char *, uint64_t);
+	struct uwsgi_hash_algo *next;
 	};
 
 	struct uwsgi_hash_algo *uwsgi_hash_algo_get(char *);
@@ -742,22 +742,22 @@ struct uwsgi_cache {
 };
 
 	struct uwsgi_option {
-		char *name;
-		int type;
-		int shortcut;
-		char *help;
-		void (*func) (char *, char *, void *);
-		void *data;
-		uint64_t flags;
+	char *name;
+	int type;
+	int shortcut;
+	char *help;
+	void (*func) (char *, char *, void *);
+	void *data;
+	uint64_t flags;
 	};
 
 	struct uwsgi_opt {
-		char *key;
-		char *value;
-		int configured;
+	char *key;
+	char *value;
+	int configured;
 	};
 
-#define UWSGI_NODE_OK		0
+#define UWSGI_NODE_OK	0
 #define UWSGI_NODE_FAILED	1
 
 #define UWSGI_OK	0
@@ -779,43 +779,43 @@ struct uwsgi_cache {
 #include <machine/endian.h>
 #endif
 
-#define UWSGI_OPTION_LOGGING			0
-#define UWSGI_OPTION_MAX_REQUESTS		1
-#define UWSGI_OPTION_SOCKET_TIMEOUT		2
-#define UWSGI_OPTION_MEMORY_DEBUG		3
-#define UWSGI_OPTION_MASTER_INTERVAL		4
-#define UWSGI_OPTION_HARAKIRI			5
-#define UWSGI_OPTION_CGI_MODE			6
-#define UWSGI_OPTION_THREADS			7
-#define UWSGI_OPTION_REAPER			8
-#define UWSGI_OPTION_LOG_ZERO			9
-#define UWSGI_OPTION_LOG_SLOW			10
-#define UWSGI_OPTION_LOG_4xx			11
-#define UWSGI_OPTION_LOG_5xx			12
-#define UWSGI_OPTION_LOG_BIG			13
-#define UWSGI_OPTION_LOG_SENDFILE		14
-#define UWSGI_OPTION_BACKLOG_STATUS		15
-#define UWSGI_OPTION_BACKLOG_ERRORS		16
-#define UWSGI_OPTION_SPOOLER_HARAKIRI		17
-#define UWSGI_OPTION_MULE_HARAKIRI		18
+#define UWSGI_OPTION_LOGGING		0
+#define UWSGI_OPTION_MAX_REQUESTS	1
+#define UWSGI_OPTION_SOCKET_TIMEOUT	2
+#define UWSGI_OPTION_MEMORY_DEBUG	3
+#define UWSGI_OPTION_MASTER_INTERVAL	4
+#define UWSGI_OPTION_HARAKIRI		5
+#define UWSGI_OPTION_CGI_MODE		6
+#define UWSGI_OPTION_THREADS		7
+#define UWSGI_OPTION_REAPER		8
+#define UWSGI_OPTION_LOG_ZERO		9
+#define UWSGI_OPTION_LOG_SLOW		10
+#define UWSGI_OPTION_LOG_4xx		11
+#define UWSGI_OPTION_LOG_5xx		12
+#define UWSGI_OPTION_LOG_BIG		13
+#define UWSGI_OPTION_LOG_SENDFILE	14
+#define UWSGI_OPTION_BACKLOG_STATUS	15
+#define UWSGI_OPTION_BACKLOG_ERRORS	16
+#define UWSGI_OPTION_SPOOLER_HARAKIRI	17
+#define UWSGI_OPTION_MULE_HARAKIRI	18
 #define UWSGI_OPTION_MAX_WORKER_LIFETIME	19
 #define UWSGI_OPTION_MIN_WORKER_LIFETIME	20
 
-#define UWSGI_SPOOLER_EXTERNAL			1
+#define UWSGI_SPOOLER_EXTERNAL		1
 
-#define UWSGI_MODIFIER_ADMIN_REQUEST		10
-#define UWSGI_MODIFIER_SPOOL_REQUEST		17
-#define UWSGI_MODIFIER_EVAL			22
-#define UWSGI_MODIFIER_FASTFUNC			26
-#define UWSGI_MODIFIER_MANAGE_PATH_INFO		30
-#define UWSGI_MODIFIER_MESSAGE			31
-#define UWSGI_MODIFIER_MESSAGE_ARRAY		32
-#define UWSGI_MODIFIER_MESSAGE_MARSHAL		33
+#define UWSGI_MODIFIER_ADMIN_REQUEST	10
+#define UWSGI_MODIFIER_SPOOL_REQUEST	17
+#define UWSGI_MODIFIER_EVAL		22
+#define UWSGI_MODIFIER_FASTFUNC		26
+#define UWSGI_MODIFIER_MANAGE_PATH_INFO	30
+#define UWSGI_MODIFIER_MESSAGE		31
+#define UWSGI_MODIFIER_MESSAGE_ARRAY	32
+#define UWSGI_MODIFIER_MESSAGE_MARSHAL	33
 #define UWSGI_MODIFIER_MULTICAST_ANNOUNCE	73
-#define UWSGI_MODIFIER_MULTICAST		74
-#define UWSGI_MODIFIER_PING			100
+#define UWSGI_MODIFIER_MULTICAST	74
+#define UWSGI_MODIFIER_PING		100
 
-#define UWSGI_MODIFIER_RESPONSE			255
+#define UWSGI_MODIFIER_RESPONSE		255
 
 #define NL_SIZE 2
 #define H_SEP_SIZE 2
@@ -831,140 +831,140 @@ struct uwsgi_cache {
 #define MAX_VARS 64
 
 	struct uwsgi_loop {
-		char *name;
-		void (*loop) (void);
-		struct uwsgi_loop *next;
+	char *name;
+	void (*loop) (void);
+	struct uwsgi_loop *next;
 	};
 
 	struct wsgi_request;
 
 	struct uwsgi_socket {
-		int fd;
-		char *name;
-		int name_len;
-		int family;
-		int bound;
-		int arg;
-		void *ctx;
+	int fd;
+	char *name;
+	int name_len;
+	int family;
+	int bound;
+	int arg;
+	void *ctx;
 
-		int queue;
-		int no_defer;
+	int queue;
+	int no_defer;
 
-		int auto_port;
-		// true if connection must be initialized for each core
-		int per_core;
+	int auto_port;
+	// true if connection must be initialized for each core
+	int per_core;
 
-		// this is the protocol internal name
-		char *proto_name;
+	// this is the protocol internal name
+	char *proto_name;
 
-		// call that when a request is accepted
-		int (*proto_accept) (struct wsgi_request *, int);
-		// call that to parse the request (without the body)
-		int (*proto) (struct wsgi_request *);
-		// call that to write reponse
-		int (*proto_write) (struct wsgi_request *, char *, size_t);
-		// call that to write headers (if a special case is needed for them)
-		int (*proto_write_headers) (struct wsgi_request *, char *, size_t);
-		// call that when sendfile() is invoked
-		int (*proto_sendfile) (struct wsgi_request *, int, size_t, size_t);
-		// call that to read the body of a request (could map to a simple read())
-		ssize_t(*proto_read_body) (struct wsgi_request *, char *, size_t);
-		// hook to call when a new series of response headers is created
-		struct uwsgi_buffer *(*proto_prepare_headers) (struct wsgi_request *, char *, uint16_t);
-		// hook to call when a header must be added
-		struct uwsgi_buffer *(*proto_add_header) (struct wsgi_request *, char *, uint16_t, char *, uint16_t);
-		// last function to call before sending headers to the client
-		int (*proto_fix_headers) (struct wsgi_request *);
-		// hook to call when a request is closed
-		void (*proto_close) (struct wsgi_request *);
-		// special hook to call (if needed) in multithread mode
-		void (*proto_thread_fixup) (struct uwsgi_socket *, int);
+	// call that when a request is accepted
+	int (*proto_accept) (struct wsgi_request *, int);
+	// call that to parse the request (without the body)
+	int (*proto) (struct wsgi_request *);
+	// call that to write reponse
+	int (*proto_write) (struct wsgi_request *, char *, size_t);
+	// call that to write headers (if a special case is needed for them)
+	int (*proto_write_headers) (struct wsgi_request *, char *, size_t);
+	// call that when sendfile() is invoked
+	int (*proto_sendfile) (struct wsgi_request *, int, size_t, size_t);
+	// call that to read the body of a request (could map to a simple read())
+	ssize_t(*proto_read_body) (struct wsgi_request *, char *, size_t);
+	// hook to call when a new series of response headers is created
+	struct uwsgi_buffer *(*proto_prepare_headers) (struct wsgi_request *, char *, uint16_t);
+	// hook to call when a header must be added
+	struct uwsgi_buffer *(*proto_add_header) (struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+	// last function to call before sending headers to the client
+	int (*proto_fix_headers) (struct wsgi_request *);
+	// hook to call when a request is closed
+	void (*proto_close) (struct wsgi_request *);
+	// special hook to call (if needed) in multithread mode
+	void (*proto_thread_fixup) (struct uwsgi_socket *, int);
 
-		int edge_trigger;
-		int *retry;
+	int edge_trigger;
+	int *retry;
 
-		int can_offload;
+	int can_offload;
 
-		// this is a special map for having socket->thread mapping
-		int *fd_threads;
+	// this is a special map for having socket->thread mapping
+	int *fd_threads;
 
 #ifdef UWSGI_UUID
-		char uuid[37];
+	char uuid[37];
 #endif
 
-		// currently used by zeromq handlers
-		void *pub;
-		void *pull;
-		pthread_key_t key;
+	// currently used by zeromq handlers
+	void *pub;
+	void *pull;
+	pthread_key_t key;
 
-		pthread_mutex_t lock;
+	pthread_mutex_t lock;
 
-		char *receiver;
+	char *receiver;
 
-		int disabled;
-		int recv_flag;
+	int disabled;
+	int recv_flag;
 
-		struct uwsgi_socket *next;
-		int lazy;
-		int shared;
-		int from_shared;
+	struct uwsgi_socket *next;
+	int lazy;
+	int shared;
+	int from_shared;
 	};
 
 	struct uwsgi_server;
 
 	struct uwsgi_plugin {
 
-		const char *name;
-		const char *alias;
-		uint8_t modifier1;
-		void *data;
-		void (*on_load) (void);
-		int (*init) (void);
-		void (*post_init) (void);
-		void (*post_fork) (void);
-		struct uwsgi_option *options;
-		void (*enable_threads) (void);
-		void (*init_thread) (int);
-		int (*request) (struct wsgi_request *);
-		void (*after_request) (struct wsgi_request *);
-		void (*preinit_apps) (void);
-		void (*init_apps) (void);
-		void (*postinit_apps) (void);
-		void (*fixup) (void);
-		void (*master_fixup) (int);
-		void (*master_cycle) (void);
-		int (*mount_app) (char *, char *);
-		int (*manage_udp) (char *, int, char *, int);
-		void (*suspend) (struct wsgi_request *);
-		void (*resume) (struct wsgi_request *);
+	const char *name;
+	const char *alias;
+	uint8_t modifier1;
+	void *data;
+	void (*on_load) (void);
+	int (*init) (void);
+	void (*post_init) (void);
+	void (*post_fork) (void);
+	struct uwsgi_option *options;
+	void (*enable_threads) (void);
+	void (*init_thread) (int);
+	int (*request) (struct wsgi_request *);
+	void (*after_request) (struct wsgi_request *);
+	void (*preinit_apps) (void);
+	void (*init_apps) (void);
+	void (*postinit_apps) (void);
+	void (*fixup) (void);
+	void (*master_fixup) (int);
+	void (*master_cycle) (void);
+	int (*mount_app) (char *, char *);
+	int (*manage_udp) (char *, int, char *, int);
+	void (*suspend) (struct wsgi_request *);
+	void (*resume) (struct wsgi_request *);
 
-		void (*harakiri) (int);
+	void (*harakiri) (int);
 
-		void (*hijack_worker) (void);
-		void (*spooler_init) (void);
-		void (*atexit) (void);
+	void (*hijack_worker) (void);
+	void (*spooler_init) (void);
+	void (*atexit) (void);
 
-		int (*magic) (char *, char *);
+	int (*magic) (char *, char *);
 
-		void *(*encode_string) (char *);
-		char *(*decode_string) (void *);
-		int (*signal_handler) (uint8_t, void *);
-		char *(*code_string) (char *, char *, char *, char *, uint16_t);
+	void *(*encode_string) (char *);
+	char *(*decode_string) (void *);
+	int (*signal_handler) (uint8_t, void *);
+	char *(*code_string) (char *, char *, char *, char *, uint16_t);
 
-		int (*spooler) (char *, char *, uint16_t, char *, size_t);
+	int (*spooler) (char *, char *, uint16_t, char *, size_t);
 
-		 uint16_t(*rpc) (void *, uint8_t, char **, uint16_t *, char *);
+	 uint16_t(*rpc) (void *, uint8_t, char **, uint16_t *, char *);
 
-		void (*jail) (int (*)(void *), char **);
-		void (*before_privileges_drop) (void);
+	void (*jail) (int (*)(void *), char **);
+	void (*before_privileges_drop) (void);
 
-		int (*mule) (char *);
-		int (*mule_msg) (char *, size_t);
+	int (*mule) (char *);
+	int (*mule_msg) (char *, size_t);
 
-		void (*master_cleanup) (void);
+	void (*master_cleanup) (void);
 
 
-		struct uwsgi_buffer* (*backtrace)(struct wsgi_request *);
+	struct uwsgi_buffer* (*backtrace)(struct wsgi_request *);
                 struct uwsgi_buffer* (*exception_class)(struct wsgi_request *);
                 struct uwsgi_buffer* (*exception_msg)(struct wsgi_request *);
                 struct uwsgi_buffer* (*exception_repr)(struct wsgi_request *);
@@ -983,68 +983,68 @@ char *uwsgi_regexp_apply_ovec(char *, int, char *, int, int *, int);
 
 	struct uwsgi_app {
 
-		uint8_t modifier1;
+	uint8_t modifier1;
 
-		char mountpoint[0xff];
-		uint8_t mountpoint_len;
+	char mountpoint[0xff];
+	uint8_t mountpoint_len;
 
-		void *interpreter;
-		void *callable;
+	void *interpreter;
+	void *callable;
 
-		void **args;
-		void **environ;
+	void **args;
+	void **environ;
 
-		void *sendfile;
-		void *input;
-		void *error;
-		void *stream;
+	void *sendfile;
+	void *input;
+	void *error;
+	void *stream;
 
-		// custom values you can use for internal purpose
-		void *responder0;
-		void *responder1;
-		void *responder2;
+	// custom values you can use for internal purpose
+	void *responder0;
+	void *responder1;
+	void *responder2;
 
-		void *eventfd_read;
-		void *eventfd_write;
+	void *eventfd_read;
+	void *eventfd_write;
 
-		void *(*request_subhandler) (struct wsgi_request *, struct uwsgi_app *);
-		int (*response_subhandler) (struct wsgi_request *);
+	void *(*request_subhandler) (struct wsgi_request *, struct uwsgi_app *);
+	int (*response_subhandler) (struct wsgi_request *);
 
-		int argc;
-		uint64_t requests;
-		uint64_t exceptions;
+	int argc;
+	uint64_t requests;
+	uint64_t exceptions;
 
-		char chdir[0xff];
-		char touch_reload[0xff];
+	char chdir[0xff];
+	char touch_reload[0xff];
 
-		time_t touch_reload_mtime;
+	time_t touch_reload_mtime;
 
-		void *gateway_version;
-		void *uwsgi_version;
-		void *uwsgi_node;
+	void *gateway_version;
+	void *uwsgi_version;
+	void *uwsgi_node;
 
-		time_t started_at;
-		time_t startup_time;
+	time_t started_at;
+	time_t startup_time;
 
-		uint64_t avg_response_time;
+	uint64_t avg_response_time;
 	};
 
 	struct uwsgi_spooler {
 
-		char dir[PATH_MAX];
-		pid_t pid;
-		uint64_t respawned;
-		uint64_t tasks;
-		struct uwsgi_lock_item *lock;
-		time_t harakiri;
+	char dir[PATH_MAX];
+	pid_t pid;
+	uint64_t respawned;
+	uint64_t tasks;
+	struct uwsgi_lock_item *lock;
+	time_t harakiri;
 
-		int mode;
+	int mode;
 
-		int running;
+	int running;
 
-		int signal_pipe[2];
+	int signal_pipe[2];
 
-		struct uwsgi_spooler *next;
+	struct uwsgi_spooler *next;
 	};
 
 #ifdef UWSGI_ROUTING
@@ -1120,357 +1120,357 @@ struct uwsgi_router {
 
 	struct uwsgi_alarm;
 	struct uwsgi_alarm_instance {
-		char *name;
-		char *arg;
-		void *data_ptr;
-		uint8_t data8;
-		uint16_t data16;
-		uint32_t data32;
-		uint64_t data64;
+	char *name;
+	char *arg;
+	void *data_ptr;
+	uint8_t data8;
+	uint16_t data16;
+	uint32_t data32;
+	uint64_t data64;
 
-		time_t last_run;
+	time_t last_run;
 
-		char *last_msg;
-		size_t last_msg_size;
+	char *last_msg;
+	size_t last_msg_size;
 
-		struct uwsgi_alarm *alarm;
-		struct uwsgi_alarm_instance *next;
+	struct uwsgi_alarm *alarm;
+	struct uwsgi_alarm_instance *next;
 	};
 
 	struct uwsgi_alarm {
-		char *name;
-		void (*init) (struct uwsgi_alarm_instance *);
-		void (*func) (struct uwsgi_alarm_instance *, char *, size_t);
-		struct uwsgi_alarm *next;
+	char *name;
+	void (*init) (struct uwsgi_alarm_instance *);
+	void (*func) (struct uwsgi_alarm_instance *, char *, size_t);
+	struct uwsgi_alarm *next;
 	};
 
 #ifdef UWSGI_PCRE
 	struct uwsgi_alarm_ll {
-		struct uwsgi_alarm_instance *alarm;
-		struct uwsgi_alarm_ll *next;
+	struct uwsgi_alarm_instance *alarm;
+	struct uwsgi_alarm_ll *next;
 	};
 
 	struct uwsgi_alarm_log {
-		pcre *pattern;
-		pcre_extra *pattern_extra;
-		int negate;
-		struct uwsgi_alarm_ll *alarms;
-		struct uwsgi_alarm_log *next;
+	pcre *pattern;
+	pcre_extra *pattern_extra;
+	int negate;
+	struct uwsgi_alarm_ll *alarms;
+	struct uwsgi_alarm_log *next;
 	};
 #endif
 
 	struct __attribute__ ((packed)) uwsgi_header {
-		uint8_t modifier1;
-		uint16_t pktsize;
-		uint8_t modifier2;
+	uint8_t modifier1;
+	uint16_t pktsize;
+	uint8_t modifier2;
 	};
 
 	struct uwsgi_async_fd {
-		int fd;
-		int event;
-		struct uwsgi_async_fd *prev;
-		struct uwsgi_async_fd *next;
+	int fd;
+	int event;
+	struct uwsgi_async_fd *prev;
+	struct uwsgi_async_fd *next;
 	};
 
 	struct uwsgi_logvar {
-		char key[256];
-		uint8_t keylen;
-		char val[256];
-		uint8_t vallen;
-		struct uwsgi_logvar *next;
+	char key[256];
+	uint8_t keylen;
+	char val[256];
+	uint8_t vallen;
+	struct uwsgi_logvar *next;
 	};
 
 	struct wsgi_request {
-		int fd;
-		struct uwsgi_header *uh;
+	int fd;
+	struct uwsgi_header *uh;
 
-		int app_id;
-		int dynamic;
-		int parsed;
+	int app_id;
+	int dynamic;
+	int parsed;
 
-		char *appid;
-		uint16_t appid_len;
+	char *appid;
+	uint16_t appid_len;
 
-		//this is big enough to contain sockaddr_in
-		struct sockaddr_un c_addr;
-		int c_len;
+	//this is big enough to contain sockaddr_in
+	struct sockaddr_un c_addr;
+	int c_len;
 
-		//iovec
-		struct iovec *hvec;
+	//iovec
+	struct iovec *hvec;
 
-		uint64_t start_of_request;
-		uint64_t start_of_request_in_sec;
-		uint64_t end_of_request;
+	uint64_t start_of_request;
+	uint64_t start_of_request_in_sec;
+	uint64_t end_of_request;
 
-		char *uri;
-		uint16_t uri_len;
-		char *remote_addr;
-		uint16_t remote_addr_len;
-		char *remote_user;
-		uint16_t remote_user_len;
-		char *query_string;
-		uint16_t query_string_len;
-		char *protocol;
-		uint16_t protocol_len;
-		char *method;
-		uint16_t method_len;
-		char *scheme;
-		uint16_t scheme_len;
-		char *https;
-		uint16_t https_len;
-		char *script_name;
-		uint16_t script_name_len;
-		int script_name_pos;
+	char *uri;
+	uint16_t uri_len;
+	char *remote_addr;
+	uint16_t remote_addr_len;
+	char *remote_user;
+	uint16_t remote_user_len;
+	char *query_string;
+	uint16_t query_string_len;
+	char *protocol;
+	uint16_t protocol_len;
+	char *method;
+	uint16_t method_len;
+	char *scheme;
+	uint16_t scheme_len;
+	char *https;
+	uint16_t https_len;
+	char *script_name;
+	uint16_t script_name_len;
+	int script_name_pos;
 
-		char *host;
-		uint16_t host_len;
+	char *host;
+	uint16_t host_len;
 
-		char *content_type;
-		uint16_t content_type_len;
+	char *content_type;
+	uint16_t content_type_len;
 
-		char *document_root;
-		uint16_t document_root_len;
+	char *document_root;
+	uint16_t document_root_len;
 
-		char *user_agent;
-		uint16_t user_agent_len;
+	char *user_agent;
+	uint16_t user_agent_len;
 
-		char *encoding;
-		uint16_t encoding_len;
+	char *encoding;
+	uint16_t encoding_len;
 
-		char *referer;
-		uint16_t referer_len;
+	char *referer;
+	uint16_t referer_len;
 
-		char *path_info;
-		uint16_t path_info_len;
-		int path_info_pos;
+	char *path_info;
+	uint16_t path_info_len;
+	int path_info_pos;
 
-		char *authorization;
-		uint16_t authorization_len;
+	char *authorization;
+	uint16_t authorization_len;
 
-		uint16_t via;
+	uint16_t via;
 
-		char *script;
-		uint16_t script_len;
-		char *module;
-		uint16_t module_len;
-		char *callable;
-		uint16_t callable_len;
-		char *pyhome;
-		uint16_t pyhome_len;
+	char *script;
+	uint16_t script_len;
+	char *module;
+	uint16_t module_len;
+	char *callable;
+	uint16_t callable_len;
+	char *pyhome;
+	uint16_t pyhome_len;
 
-		char *file;
-		uint16_t file_len;
+	char *file;
+	uint16_t file_len;
 
-		char *paste;
-		uint16_t paste_len;
+	char *paste;
+	uint16_t paste_len;
 
-		char *chdir;
-		uint16_t chdir_len;
+	char *chdir;
+	uint16_t chdir_len;
 
-		char *touch_reload;
-		uint16_t touch_reload_len;
+	char *touch_reload;
+	uint16_t touch_reload_len;
 
-		char *cache_get;
-		uint16_t cache_get_len;
+	char *cache_get;
+	uint16_t cache_get_len;
 
-		char *if_modified_since;
-		uint16_t if_modified_since_len;
+	char *if_modified_since;
+	uint16_t if_modified_since_len;
 
-		int fd_closed;
+	int fd_closed;
 
-		int sendfile_fd;
-		size_t sendfile_fd_chunk;
-		size_t sendfile_fd_size;
-		off_t sendfile_fd_pos;
-		void *sendfile_obj;
+	int sendfile_fd;
+	size_t sendfile_fd_chunk;
+	size_t sendfile_fd_size;
+	off_t sendfile_fd_pos;
+	void *sendfile_obj;
 
-		uint16_t var_cnt;
-		uint16_t header_cnt;
+	uint16_t var_cnt;
+	uint16_t header_cnt;
 
-		int do_not_log;
+	int do_not_log;
 
-		int do_not_add_to_async_queue;
+	int do_not_add_to_async_queue;
 
-		int do_not_account;
+	int do_not_account;
 
-		int status;
-		struct uwsgi_buffer *headers;
+	int status;
+	struct uwsgi_buffer *headers;
 
-		size_t response_size;
-		size_t headers_size;
+	size_t response_size;
+	size_t headers_size;
 
-		int async_id;
-		int async_status;
+	int async_id;
+	int async_status;
 
-		int switches;
-		size_t write_pos;
+	int switches;
+	size_t write_pos;
 
-		int async_timed_out;
-		int async_ready_fd;
-		int async_last_ready_fd;
-		struct uwsgi_rb_timer *async_timeout;
-		struct uwsgi_async_fd *waiting_fds;
+	int async_timed_out;
+	int async_ready_fd;
+	int async_last_ready_fd;
+	struct uwsgi_rb_timer *async_timeout;
+	struct uwsgi_async_fd *waiting_fds;
 
-		void *async_app;
-		void *async_result;
-		void *async_placeholder;
-		void *async_args;
-		void *async_environ;
-		void *async_input;
-		void *async_sendfile;
+	void *async_app;
+	void *async_result;
+	void *async_placeholder;
+	void *async_args;
+	void *async_environ;
+	void *async_input;
+	void *async_sendfile;
 
-		int async_force_again;
+	int async_force_again;
 
-		int async_plagued;
+	int async_plagued;
 
-		int suspended;
-		uint64_t write_errors;
+	int suspended;
+	uint64_t write_errors;
 
-		int *ovector;
-		size_t post_cl;
-		size_t post_pos;
-		size_t post_readline_size;
-		size_t post_readline_pos;
-		size_t post_readline_watermark;
-		FILE *post_file;
-		char *post_readline_buf;
-		// this is used when no post buffering is in place
-		char *post_read_buf;
-		size_t post_read_buf_size;
-		char *post_buffering_buf;
-		// when set, do not send warnings about bad behaviours
-		int post_warning;
+	int *ovector;
+	size_t post_cl;
+	size_t post_pos;
+	size_t post_readline_size;
+	size_t post_readline_pos;
+	size_t post_readline_watermark;
+	FILE *post_file;
+	char *post_readline_buf;
+	// this is used when no post buffering is in place
+	char *post_read_buf;
+	size_t post_read_buf_size;
+	char *post_buffering_buf;
+	// when set, do not send warnings about bad behaviours
+	int post_warning;
 
-		// current socket mapped to request
-		struct uwsgi_socket *socket;
+	// current socket mapped to request
+	struct uwsgi_socket *socket;
 
-		// check if headers are already sent
-		int headers_sent;
-		int headers_hvec;
+	// check if headers are already sent
+	int headers_sent;
+	int headers_hvec;
 
-		uint64_t proto_parser_pos;
-		int64_t proto_parser_status;
-		void *proto_parser_buf;
-		uint64_t proto_parser_buf_size;
-		void *proto_parser_remains_buf;
-		size_t proto_parser_remains;
+	uint64_t proto_parser_pos;
+	int64_t proto_parser_status;
+	void *proto_parser_buf;
+	uint64_t proto_parser_buf_size;
+	void *proto_parser_remains_buf;
+	size_t proto_parser_remains;
 
-		char *buffer;
+	char *buffer;
 
-		int log_this;
+	int log_this;
 
-		int sigwait;
-		int signal_received;
+	int sigwait;
+	int signal_received;
 
-		struct uwsgi_logvar *logvars;
-		struct uwsgi_string_list *additional_headers;
-		struct uwsgi_string_list *remove_headers;
+	struct uwsgi_logvar *logvars;
+	struct uwsgi_string_list *additional_headers;
+	struct uwsgi_string_list *remove_headers;
 
-		struct uwsgi_buffer *websocket_buf;
-		size_t websocket_need;
-		int websocket_phase;
-		uint8_t websocket_opcode;
-		size_t websocket_has_mask;
-		size_t websocket_size;
-		size_t websocket_pktsize;
-		time_t websocket_last_ping;
-		time_t websocket_last_pong;
-		int websocket_closed;
+	struct uwsgi_buffer *websocket_buf;
+	size_t websocket_need;
+	int websocket_phase;
+	uint8_t websocket_opcode;
+	size_t websocket_has_mask;
+	size_t websocket_size;
+	size_t websocket_pktsize;
+	time_t websocket_last_ping;
+	time_t websocket_last_pong;
+	int websocket_closed;
 
-		uint64_t stream_id;
+	uint64_t stream_id;
 
-		// avoid routing loops
-		int is_routing;
-		int routes_applied;
-		// internal routing vm program counter
-		uint32_t route_pc;
-		// internal routing goto instruction
-		uint32_t route_goto;
+	// avoid routing loops
+	int is_routing;
+	int routes_applied;
+	// internal routing vm program counter
+	uint32_t route_pc;
+	// internal routing goto instruction
+	uint32_t route_goto;
 
-		struct msghdr msg;
-		union {
-			struct cmsghdr cmsg;
-			// should be enough...
-			char control[64];
-		} msg_control;
+	struct msghdr msg;
+	union {
+		struct cmsghdr cmsg;
+		// should be enough...
+		char control[64];
+	} msg_control;
 
 
 	};
 
 
 	struct uwsgi_fmon {
-		char filename[0xff];
-		int fd;
-		int id;
-		int registered;
-		uint8_t sig;
+	char filename[0xff];
+	int fd;
+	int id;
+	int registered;
+	uint8_t sig;
 	};
 
 	struct uwsgi_timer {
-		int value;
-		int fd;
-		int id;
-		int registered;
-		uint8_t sig;
+	int value;
+	int fd;
+	int id;
+	int registered;
+	uint8_t sig;
 	};
 
 	struct uwsgi_signal_rb_timer {
-		int value;
-		int registered;
-		int iterations;
-		int iterations_done;
-		uint8_t sig;
-		struct uwsgi_rb_timer *uwsgi_rb_timer;
+	int value;
+	int registered;
+	int iterations;
+	int iterations_done;
+	uint8_t sig;
+	struct uwsgi_rb_timer *uwsgi_rb_timer;
 	};
 
 	struct uwsgi_signal_probe {
 
-		int (*func) (int, struct uwsgi_signal_probe *);
-		char args[1024];
+	int (*func) (int, struct uwsgi_signal_probe *);
+	char args[1024];
 
-		int fd;
-		int state;
-		int bad;
-		int last_event;
-		void *data;
-		uint64_t cycles;
+	int fd;
+	int state;
+	int bad;
+	int last_event;
+	void *data;
+	uint64_t cycles;
 
-		int timeout;
-		int freq;
+	int timeout;
+	int freq;
 
-		int registered;
-		uint8_t sig;
+	int registered;
+	uint8_t sig;
 	};
 
 	struct uwsgi_probe {
 
-		char *name;
-		int (*func) (int, struct uwsgi_signal_probe *);
+	char *name;
+	int (*func) (int, struct uwsgi_signal_probe *);
 
-		struct uwsgi_probe *next;
+	struct uwsgi_probe *next;
 	};
 
 	struct uwsgi_cheaper_algo {
 
-		char *name;
-		int (*func) (void);
-		struct uwsgi_cheaper_algo *next;
+	char *name;
+	int (*func) (void);
+	struct uwsgi_cheaper_algo *next;
 	};
 
 	struct uwsgi_emperor_scanner;
 
 	struct uwsgi_imperial_monitor {
-		char *scheme;
-		void (*init) (struct uwsgi_emperor_scanner *);
-		void (*func) (struct uwsgi_emperor_scanner *);
-		struct uwsgi_imperial_monitor *next;
+	char *scheme;
+	void (*init) (struct uwsgi_emperor_scanner *);
+	void (*func) (struct uwsgi_emperor_scanner *);
+	struct uwsgi_imperial_monitor *next;
 	};
 
 	struct uwsgi_clock {
-		char *name;
-		 time_t(*seconds) (void);
-		 uint64_t(*microseconds) (void);
-		struct uwsgi_clock *next;
+	char *name;
+	 time_t(*seconds) (void);
+	 uint64_t(*microseconds) (void);
+	struct uwsgi_clock *next;
 	};
 
 struct uwsgi_subscribe_slot;
@@ -1577,695 +1577,695 @@ struct uwsgi_server {
 	uint64_t master_cycles;
 
 	int reuse_port;
-		int tcp_fast_open;
-		int tcp_fast_open_client;
+	int tcp_fast_open;
+	int tcp_fast_open_client;
 
-		uint64_t fastcgi_modifier1;
-		uint64_t fastcgi_modifier2;
-		uint64_t http_modifier1;
-		uint64_t http_modifier2;
-		uint64_t scgi_modifier1;
-		uint64_t scgi_modifier2;
+	uint64_t fastcgi_modifier1;
+	uint64_t fastcgi_modifier2;
+	uint64_t http_modifier1;
+	uint64_t http_modifier2;
+	uint64_t scgi_modifier1;
+	uint64_t scgi_modifier2;
 
-		// enable lazy mode
-		int lazy;
-		// enable lazy-apps mode
-		int lazy_apps;
-		// enable cheaper mode
-		int cheaper;
-		char *requested_cheaper_algo;
-		struct uwsgi_cheaper_algo *cheaper_algos;
-		int (*cheaper_algo) (void);
-		int cheaper_step;
-		uint64_t cheaper_overload;
-		// minimal number of running workers in cheaper mode
-		int cheaper_count;
-		int cheaper_initial;
-		// enable idle mode
-		int idle;
+	// enable lazy mode
+	int lazy;
+	// enable lazy-apps mode
+	int lazy_apps;
+	// enable cheaper mode
+	int cheaper;
+	char *requested_cheaper_algo;
+	struct uwsgi_cheaper_algo *cheaper_algos;
+	int (*cheaper_algo) (void);
+	int cheaper_step;
+	uint64_t cheaper_overload;
+	// minimal number of running workers in cheaper mode
+	int cheaper_count;
+	int cheaper_initial;
+	// enable idle mode
+	int idle;
 
-		// destroy the stack when idle
-		int die_on_idle;
+	// destroy the stack when idle
+	int die_on_idle;
 
-		// store the screen session
-		char *screen_session;
+	// store the screen session
+	char *screen_session;
 
-		// true if run under the emperor
-		int has_emperor;
-		char *emperor_procname;
-		int emperor_fd;
-		int emperor_queue;
-		int emperor_tyrant;
-		int emperor_fd_config;
-		int early_emperor;
-		int emperor_throttle;
-		int emperor_freq;
-		int emperor_max_throttle;
-		int emperor_magic_exec;
-		int emperor_heartbeat;
-		time_t next_heartbeat;
-		int heartbeat;
-		struct uwsgi_string_list *emperor;
-		struct uwsgi_imperial_monitor *emperor_monitors;
-		char *emperor_absolute_dir;
-		char *emperor_pidfile;
-		pid_t emperor_pid;
-		int emperor_broodlord;
-		int emperor_broodlord_count;
-		uint64_t emperor_broodlord_num;
-		char *emperor_stats;
-		int emperor_stats_fd;
-		struct uwsgi_string_list *vassals_templates;
-		// true if loyal to the emperor
-		int loyal;
+	// true if run under the emperor
+	int has_emperor;
+	char *emperor_procname;
+	int emperor_fd;
+	int emperor_queue;
+	int emperor_tyrant;
+	int emperor_fd_config;
+	int early_emperor;
+	int emperor_throttle;
+	int emperor_freq;
+	int emperor_max_throttle;
+	int emperor_magic_exec;
+	int emperor_heartbeat;
+	time_t next_heartbeat;
+	int heartbeat;
+	struct uwsgi_string_list *emperor;
+	struct uwsgi_imperial_monitor *emperor_monitors;
+	char *emperor_absolute_dir;
+	char *emperor_pidfile;
+	pid_t emperor_pid;
+	int emperor_broodlord;
+	int emperor_broodlord_count;
+	uint64_t emperor_broodlord_num;
+	char *emperor_stats;
+	int emperor_stats_fd;
+	struct uwsgi_string_list *vassals_templates;
+	// true if loyal to the emperor
+	int loyal;
 
-		// emperor hook (still in development)
-		char *vassals_start_hook;
-		char *vassals_stop_hook;
+	// emperor hook (still in development)
+	char *vassals_start_hook;
+	char *vassals_stop_hook;
 
-		struct uwsgi_string_list *additional_headers;
-		struct uwsgi_string_list *remove_headers;
+	struct uwsgi_string_list *additional_headers;
+	struct uwsgi_string_list *remove_headers;
 
-		// set cpu affinity
-		int cpu_affinity;
+	// set cpu affinity
+	int cpu_affinity;
 
-		int reload_mercy;
-		int worker_reload_mercy;
-		// map reloads to death
-		int exit_on_reload;
+	int reload_mercy;
+	int worker_reload_mercy;
+	// map reloads to death
+	int exit_on_reload;
 
-		// store options
-		int dirty_config;
-		int option_index;
-		int (*logic_opt) (char *, char *);
-		char *logic_opt_arg;
-		char *logic_opt_data;
-		int logic_opt_running;
-		int logic_opt_cycles;
-		struct uwsgi_option *options;
-		struct option *long_options;
-		char *short_options;
-		struct uwsgi_opt **exported_opts;
-		int exported_opts_cnt;
-		struct uwsgi_custom_option *custom_options;
+	// store options
+	int dirty_config;
+	int option_index;
+	int (*logic_opt) (char *, char *);
+	char *logic_opt_arg;
+	char *logic_opt_data;
+	int logic_opt_running;
+	int logic_opt_cycles;
+	struct uwsgi_option *options;
+	struct option *long_options;
+	char *short_options;
+	struct uwsgi_opt **exported_opts;
+	int exported_opts_cnt;
+	struct uwsgi_custom_option *custom_options;
 
-		// dump the whole set of options
-		int dump_options;
-		// show ini representation of the current config
-		int show_config;
+	// dump the whole set of options
+	int dump_options;
+	// show ini representation of the current config
+	int show_config;
 
-		// list loaded features
-		int cheaper_algo_list;
+	// list loaded features
+	int cheaper_algo_list;
 #ifdef UWSGI_ROUTING
-		int router_list;
+	int router_list;
 #endif
-		int imperial_monitor_list;
-		int plugins_list;
-		int loggers_list;
-		int loop_list;
-		int clock_list;
-		int alarms_list;
+	int imperial_monitor_list;
+	int plugins_list;
+	int loggers_list;
+	int loop_list;
+	int clock_list;
+	int alarms_list;
 
-		struct wsgi_request *wsgi_req;
+	struct wsgi_request *wsgi_req;
 
-		char *remap_modifier;
+	char *remap_modifier;
 
-		// enable zerg mode
-		int *zerg;
-		char *zerg_server;
-		struct uwsgi_string_list *zerg_node;
-		int zerg_fallback;
-		int zerg_server_fd;
+	// enable zerg mode
+	int *zerg;
+	char *zerg_server;
+	struct uwsgi_string_list *zerg_node;
+	int zerg_fallback;
+	int zerg_server_fd;
 
-		// security
-		char *chroot;
-		gid_t gid;
-		uid_t uid;
-		char *uidname;
-		char *gidname;
-		int no_initgroups;
+	// security
+	char *chroot;
+	gid_t gid;
+	uid_t uid;
+	char *uidname;
+	char *gidname;
+	int no_initgroups;
 
 #ifdef UWSGI_CAP
-		cap_value_t *cap;
-		int cap_count;
+	cap_value_t *cap;
+	int cap_count;
 #endif
 
 #ifdef __linux__
-		int unshare;
+	int unshare;
 #endif
 
-		int ignore_sigpipe;
-		int ignore_write_errors;
-		uint64_t write_errors_tolerance;
-		int write_errors_exception_only;
-		int disable_write_exception;
+	int ignore_sigpipe;
+	int ignore_write_errors;
+	uint64_t write_errors_tolerance;
+	int write_errors_exception_only;
+	int disable_write_exception;
 
-		// still working on it
-		char *profiler;
+	// still working on it
+	char *profiler;
 
-		// the weight of the instance, used by various cluster/lb components
-		uint64_t weight;
-		int auto_weight;
+	// the weight of the instance, used by various cluster/lb components
+	uint64_t weight;
+	int auto_weight;
 
-		// mostly useless
-		char *mode;
+	// mostly useless
+	char *mode;
 
-		// binary path the worker image
-		char *worker_exec;
+	// binary path the worker image
+	char *worker_exec;
 
-		// this must be UN-shared
-		struct uwsgi_gateway_socket *gateway_sockets;
-
-
-		int ignore_script_name;
-		int manage_script_name;
-		int reload_on_exception;
-		int catch_exceptions;
-		struct uwsgi_string_list *reload_on_exception_type;
-		struct uwsgi_string_list *reload_on_exception_value;
-		struct uwsgi_string_list *reload_on_exception_repr;
-
-		struct uwsgi_exception_handler *exception_handlers;
-		struct uwsgi_string_list *exception_handlers_instance;
-		struct uwsgi_thread *exception_handler_thread;
-		uint64_t exception_handler_msg_size;
+	// this must be UN-shared
+	struct uwsgi_gateway_socket *gateway_sockets;
 
 
-		int no_default_app;
-		// exit if no-app is loaded
-		int need_app;
+	int ignore_script_name;
+	int manage_script_name;
+	int reload_on_exception;
+	int catch_exceptions;
+	struct uwsgi_string_list *reload_on_exception_type;
+	struct uwsgi_string_list *reload_on_exception_value;
+	struct uwsgi_string_list *reload_on_exception_repr;
 
-		int forkbomb_delay;
+	struct uwsgi_exception_handler *exception_handlers;
+	struct uwsgi_string_list *exception_handlers_instance;
+	struct uwsgi_thread *exception_handler_thread;
+	uint64_t exception_handler_msg_size;
 
-		int logdate;
-		int log_micros;
-		char *log_strftime;
-		int log_x_forwarded_for;
 
-		int honour_stdin;
-		struct termios termios;
-		int restore_tc;
+	int no_default_app;
+	// exit if no-app is loaded
+	int need_app;
 
-		// route all of the logs to the master process
-		int req_log_master;
-		int log_master;
-		char *log_master_buf;
-		size_t log_master_bufsize;
+	int forkbomb_delay;
 
-		int log_reopen;
-		int log_truncate;
-		off_t log_maxsize;
-		char *log_backupname;
+	int logdate;
+	int log_micros;
+	char *log_strftime;
+	int log_x_forwarded_for;
 
-		int original_log_fd;
-		int req_log_fd;
+	int honour_stdin;
+	struct termios termios;
+	int restore_tc;
 
-		// static file serving
-		int file_serve_mode;
-		int build_mime_dict;
+	// route all of the logs to the master process
+	int req_log_master;
+	int log_master;
+	char *log_master_buf;
+	size_t log_master_bufsize;
 
-		struct uwsgi_string_list *mime_file;
+	int log_reopen;
+	int log_truncate;
+	off_t log_maxsize;
+	char *log_backupname;
 
-		struct uwsgi_probe *probes;
+	int original_log_fd;
+	int req_log_fd;
 
-		struct uwsgi_string_list *exec_pre_jail;
-		struct uwsgi_string_list *exec_post_jail;
-		struct uwsgi_string_list *exec_in_jail;
-		struct uwsgi_string_list *exec_as_root;
-		struct uwsgi_string_list *exec_as_user;
-		struct uwsgi_string_list *exec_as_user_atexit;
-		struct uwsgi_string_list *exec_pre_app;
-		struct uwsgi_string_list *exec_post_app;
+	// static file serving
+	int file_serve_mode;
+	int build_mime_dict;
 
-		char *privileged_binary_patch;
-		char *unprivileged_binary_patch;
-		char *privileged_binary_patch_arg;
-		char *unprivileged_binary_patch_arg;
+	struct uwsgi_string_list *mime_file;
 
-		struct uwsgi_logger *loggers;
-		struct uwsgi_logger *choosen_logger;
-		struct uwsgi_logger *choosen_req_logger;
-		struct uwsgi_string_list *requested_logger;
-		struct uwsgi_string_list *requested_req_logger;
+	struct uwsgi_probe *probes;
+
+	struct uwsgi_string_list *exec_pre_jail;
+	struct uwsgi_string_list *exec_post_jail;
+	struct uwsgi_string_list *exec_in_jail;
+	struct uwsgi_string_list *exec_as_root;
+	struct uwsgi_string_list *exec_as_user;
+	struct uwsgi_string_list *exec_as_user_atexit;
+	struct uwsgi_string_list *exec_pre_app;
+	struct uwsgi_string_list *exec_post_app;
+
+	char *privileged_binary_patch;
+	char *unprivileged_binary_patch;
+	char *privileged_binary_patch_arg;
+	char *unprivileged_binary_patch_arg;
+
+	struct uwsgi_logger *loggers;
+	struct uwsgi_logger *choosen_logger;
+	struct uwsgi_logger *choosen_req_logger;
+	struct uwsgi_string_list *requested_logger;
+	struct uwsgi_string_list *requested_req_logger;
 
 #ifdef UWSGI_PCRE
-		int pcre_jit;
-		struct uwsgi_regexp_list *log_drain_rules;
-		struct uwsgi_regexp_list *log_filter_rules;
-		struct uwsgi_regexp_list *log_route;
-		struct uwsgi_regexp_list *log_req_route;
+	int pcre_jit;
+	struct uwsgi_regexp_list *log_drain_rules;
+	struct uwsgi_regexp_list *log_filter_rules;
+	struct uwsgi_regexp_list *log_route;
+	struct uwsgi_regexp_list *log_req_route;
 #endif
 
-		int alarm_freq;
-		uint64_t alarm_msg_size;
-		struct uwsgi_string_list *alarm_list;
-		struct uwsgi_string_list *alarm_logs_list;
-		struct uwsgi_alarm *alarms;
-		struct uwsgi_alarm_instance *alarm_instances;
-		struct uwsgi_alarm_log *alarm_logs;
-		struct uwsgi_thread *alarm_thread;
+	int alarm_freq;
+	uint64_t alarm_msg_size;
+	struct uwsgi_string_list *alarm_list;
+	struct uwsgi_string_list *alarm_logs_list;
+	struct uwsgi_alarm *alarms;
+	struct uwsgi_alarm_instance *alarm_instances;
+	struct uwsgi_alarm_log *alarm_logs;
+	struct uwsgi_thread *alarm_thread;
 
-		int threaded_logger;
-		pthread_mutex_t threaded_logger_lock;
+	int threaded_logger;
+	pthread_mutex_t threaded_logger_lock;
 
-		struct uwsgi_daemon *daemons;
-		int daemons_cnt;
+	struct uwsgi_daemon *daemons;
+	int daemons_cnt;
 
 #ifdef UWSGI_SSL
-		char *subscriptions_sign_check_dir;
-		int subscriptions_sign_check_tolerance;
-		const EVP_MD *subscriptions_sign_check_md;
+	char *subscriptions_sign_check_dir;
+	int subscriptions_sign_check_tolerance;
+	const EVP_MD *subscriptions_sign_check_md;
 #endif
 
-		struct uwsgi_dyn_dict *static_maps;
-		struct uwsgi_dyn_dict *static_maps2;
-		struct uwsgi_dyn_dict *check_static;
-		struct uwsgi_dyn_dict *mimetypes;
-		struct uwsgi_string_list *static_skip_ext;
-		struct uwsgi_string_list *static_index;
-		struct uwsgi_string_list *static_safe;
+	struct uwsgi_dyn_dict *static_maps;
+	struct uwsgi_dyn_dict *static_maps2;
+	struct uwsgi_dyn_dict *check_static;
+	struct uwsgi_dyn_dict *mimetypes;
+	struct uwsgi_string_list *static_skip_ext;
+	struct uwsgi_string_list *static_index;
+	struct uwsgi_string_list *static_safe;
 
-		struct uwsgi_hash_algo *hash_algos;
-		int use_static_cache_paths;
-		char *static_cache_paths_name;
-		struct uwsgi_cache *static_cache_paths;
-		int cache_expire_freq;
-		int cache_report_freed_items;
-		int cache_no_expire;
-		uint64_t cache_max_items;
-		uint64_t cache_blocksize;
-		char *cache_store;
-		int cache_store_sync;
-		struct uwsgi_string_list *cache2;
-		int cache_setup;
-		int locking_setup;
+	struct uwsgi_hash_algo *hash_algos;
+	int use_static_cache_paths;
+	char *static_cache_paths_name;
+	struct uwsgi_cache *static_cache_paths;
+	int cache_expire_freq;
+	int cache_report_freed_items;
+	int cache_no_expire;
+	uint64_t cache_max_items;
+	uint64_t cache_blocksize;
+	char *cache_store;
+	int cache_store_sync;
+	struct uwsgi_string_list *cache2;
+	int cache_setup;
+	int locking_setup;
 
-		struct uwsgi_dyn_dict *static_expires_type;
-		struct uwsgi_dyn_dict *static_expires_type_mtime;
+	struct uwsgi_dyn_dict *static_expires_type;
+	struct uwsgi_dyn_dict *static_expires_type_mtime;
 
-		struct uwsgi_dyn_dict *static_expires;
-		struct uwsgi_dyn_dict *static_expires_mtime;
+	struct uwsgi_dyn_dict *static_expires;
+	struct uwsgi_dyn_dict *static_expires_mtime;
 
-		struct uwsgi_dyn_dict *static_expires_uri;
-		struct uwsgi_dyn_dict *static_expires_uri_mtime;
+	struct uwsgi_dyn_dict *static_expires_uri;
+	struct uwsgi_dyn_dict *static_expires_uri_mtime;
 
-		struct uwsgi_dyn_dict *static_expires_path_info;
-		struct uwsgi_dyn_dict *static_expires_path_info_mtime;
+	struct uwsgi_dyn_dict *static_expires_path_info;
+	struct uwsgi_dyn_dict *static_expires_path_info_mtime;
 
-		int static_gzip_all;
-		struct uwsgi_string_list *static_gzip_dir;
-		struct uwsgi_string_list *static_gzip_ext;
+	int static_gzip_all;
+	struct uwsgi_string_list *static_gzip_dir;
+	struct uwsgi_string_list *static_gzip_ext;
 #ifdef UWSGI_PCRE
-		struct uwsgi_regexp_list *static_gzip;
+	struct uwsgi_regexp_list *static_gzip;
 #endif
 
-		struct uwsgi_offload_engine *offload_engines;
-		struct uwsgi_offload_engine *offload_engine_sendfile;
-		struct uwsgi_offload_engine *offload_engine_transfer;
-		int offload_threads;
-		int offload_threads_events;
-		struct uwsgi_thread **offload_thread;
+	struct uwsgi_offload_engine *offload_engines;
+	struct uwsgi_offload_engine *offload_engine_sendfile;
+	struct uwsgi_offload_engine *offload_engine_transfer;
+	int offload_threads;
+	int offload_threads_events;
+	struct uwsgi_thread **offload_thread;
 
-		int check_static_docroot;
+	int check_static_docroot;
 
-		char *daemonize;
-		char *daemonize2;
-		int do_not_change_umask;
-		char *logfile;
-		int logfile_chown;
+	char *daemonize;
+	char *daemonize2;
+	int do_not_change_umask;
+	char *logfile;
+	int logfile_chown;
 
-		// enable vhost mode
-		int vhost;
-		int vhost_host;
+	// enable vhost mode
+	int vhost;
+	int vhost_host;
 
-		// async commodity
-		struct wsgi_request **async_waiting_fd_table;
-		struct wsgi_request **async_proto_fd_table;
-		struct uwsgi_async_request *async_runqueue;
-		struct uwsgi_async_request *async_runqueue_last;
-		int async_runqueue_cnt;
+	// async commodity
+	struct wsgi_request **async_waiting_fd_table;
+	struct wsgi_request **async_proto_fd_table;
+	struct uwsgi_async_request *async_runqueue;
+	struct uwsgi_async_request *async_runqueue_last;
+	int async_runqueue_cnt;
 
-		struct uwsgi_rbtree *rb_async_timeouts;
+	struct uwsgi_rbtree *rb_async_timeouts;
 
-		int async_queue_unused_ptr;
-		struct wsgi_request **async_queue_unused;
-
-
-		// store rlimit
-		struct rlimit rl;
-		struct rlimit rl_nproc;
-		size_t limit_post;
-
-		// set process priority
-		int prio;
-
-		// funny reload systems
-		int force_get_memusage;
-		rlim_t reload_on_as;
-		rlim_t reload_on_rss;
-		rlim_t evil_reload_on_as;
-		rlim_t evil_reload_on_rss;
-
-		struct uwsgi_string_list *touch_reload;
-		struct uwsgi_string_list *touch_chain_reload;
-		struct uwsgi_string_list *touch_workers_reload;
-		struct uwsgi_string_list *touch_gracefully_stop;
-		struct uwsgi_string_list *touch_logrotate;
-		struct uwsgi_string_list *touch_logreopen;
-
-		int propagate_touch;
-
-		// enable grunt mode
-		int grunt;
-
-		// store the binary path
-		char *binary_path;
-
-		int is_a_reload;
+	int async_queue_unused_ptr;
+	struct wsgi_request **async_queue_unused;
 
 
-		char *udp_socket;
+	// store rlimit
+	struct rlimit rl;
+	struct rlimit rl_nproc;
+	size_t limit_post;
 
-		int multicast_ttl;
-		int multicast_loop;
-		char *multicast_group;
+	// set process priority
+	int prio;
 
-		struct uwsgi_spooler *spoolers;
-		int spooler_numproc;
-		struct uwsgi_spooler *i_am_a_spooler;
-		char *spooler_chdir;
-		int spooler_max_tasks;
-		int spooler_ordered;
-		int spooler_quiet;
+	// funny reload systems
+	int force_get_memusage;
+	rlim_t reload_on_as;
+	rlim_t reload_on_rss;
+	rlim_t evil_reload_on_as;
+	rlim_t evil_reload_on_rss;
 
-		int snmp;
-		char *snmp_addr;
-		char *snmp_community;
-		struct uwsgi_lock_item *snmp_lock;
-		int snmp_fd;
+	struct uwsgi_string_list *touch_reload;
+	struct uwsgi_string_list *touch_chain_reload;
+	struct uwsgi_string_list *touch_workers_reload;
+	struct uwsgi_string_list *touch_gracefully_stop;
+	struct uwsgi_string_list *touch_logrotate;
+	struct uwsgi_string_list *touch_logreopen;
 
-		int udp_fd;
+	int propagate_touch;
 
-		uint16_t buffer_size;
-		int signal_bufsize;
+	// enable grunt mode
+	int grunt;
 
-		// post buffering
-		size_t post_buffering;
-		int post_buffering_harakiri;
-		size_t post_buffering_bufsize;
-		size_t body_read_warning;
+	// store the binary path
+	char *binary_path;
 
-		int master_process;
-		int master_queue;
+	int is_a_reload;
 
-		// mainly iseful for broodlord mode
-		int vassal_sos_backlog;
 
-		int no_defer_accept;
-		int so_keepalive;
-		int so_send_timeout;
+	char *udp_socket;
 
-		int page_size;
-		int cpus;
+	int multicast_ttl;
+	int multicast_loop;
+	char *multicast_group;
 
-		char *pidfile;
-		char *pidfile2;
+	struct uwsgi_spooler *spoolers;
+	int spooler_numproc;
+	struct uwsgi_spooler *i_am_a_spooler;
+	char *spooler_chdir;
+	int spooler_max_tasks;
+	int spooler_ordered;
+	int spooler_quiet;
 
-		char *flock2;
-		char *flock_wait2;
+	int snmp;
+	char *snmp_addr;
+	char *snmp_community;
+	struct uwsgi_lock_item *snmp_lock;
+	int snmp_fd;
 
-		int backtrace_depth;
+	int udp_fd;
 
-		int harakiri_verbose;
-		int harakiri_no_arh;
+	uint16_t buffer_size;
+	int signal_bufsize;
 
-		char *magic_table[256];
+	// post buffering
+	size_t post_buffering;
+	int post_buffering_harakiri;
+	size_t post_buffering_bufsize;
+	size_t body_read_warning;
 
-		int numproc;
-		int async;
-		int async_running;
-		int async_queue;
-		int async_nevents;
+	int master_process;
+	int master_queue;
 
-		time_t async_queue_is_full;
+	// mainly iseful for broodlord mode
+	int vassal_sos_backlog;
 
-		int max_vars;
-		int vec_size;
+	int no_defer_accept;
+	int so_keepalive;
+	int so_send_timeout;
 
-		// shared area
-		char *sharedarea;
-		uint64_t sharedareasize;
+	int page_size;
+	int cpus;
 
-		// avoid thundering herd in threaded modes
-		pthread_mutex_t thunder_mutex;
-		pthread_mutex_t six_feet_under_lock;
-		pthread_mutex_t lock_static;
+	char *pidfile;
+	char *pidfile2;
 
-		int use_thunder_lock;
-		struct uwsgi_lock_item *the_thunder_lock;
+	char *flock2;
+	char *flock_wait2;
 
-		/* the list of workers */
-		struct uwsgi_worker *workers;
-		int max_apps;
+	int backtrace_depth;
 
-		/* the list of mules */
-		struct uwsgi_string_list *mules_patches;
-		struct uwsgi_mule *mules;
-		struct uwsgi_string_list *farms_list;
-		struct uwsgi_farm *farms;
+	int harakiri_verbose;
+	int harakiri_no_arh;
 
-		pid_t mypid;
-		int mywid;
+	char *magic_table[256];
 
-		int muleid;
-		int mules_cnt;
-		int farms_cnt;
+	int numproc;
+	int async;
+	int async_running;
+	int async_queue;
+	int async_nevents;
 
-		rlim_t requested_max_fd;
-		rlim_t max_fd;
+	time_t async_queue_is_full;
 
-		struct timeval start_tv;
+	int max_vars;
+	int vec_size;
 
-		int abstract_socket;
+	// shared area
+	char *sharedarea;
+	uint64_t sharedareasize;
+
+	// avoid thundering herd in threaded modes
+	pthread_mutex_t thunder_mutex;
+	pthread_mutex_t six_feet_under_lock;
+	pthread_mutex_t lock_static;
+
+	int use_thunder_lock;
+	struct uwsgi_lock_item *the_thunder_lock;
+
+	/* the list of workers */
+	struct uwsgi_worker *workers;
+	int max_apps;
+
+	/* the list of mules */
+	struct uwsgi_string_list *mules_patches;
+	struct uwsgi_mule *mules;
+	struct uwsgi_string_list *farms_list;
+	struct uwsgi_farm *farms;
+
+	pid_t mypid;
+	int mywid;
+
+	int muleid;
+	int mules_cnt;
+	int farms_cnt;
+
+	rlim_t requested_max_fd;
+	rlim_t max_fd;
+
+	struct timeval start_tv;
+
+	int abstract_socket;
 #ifdef __linux__
-		int freebind;
+	int freebind;
 #endif
 
-		int chmod_socket;
-		char *chown_socket;
-		mode_t chmod_socket_value;
-		mode_t chmod_logfile_value;
-		int listen_queue;
+	int chmod_socket;
+	char *chown_socket;
+	mode_t chmod_socket_value;
+	mode_t chmod_logfile_value;
+	int listen_queue;
 
-		char *file_config;
+	char *file_config;
 
 #ifdef UWSGI_ROUTING
-		struct uwsgi_router *routers;
-		struct uwsgi_route *routes;
-		struct uwsgi_route_condition *route_conditions;
+	struct uwsgi_router *routers;
+	struct uwsgi_route *routes;
+	struct uwsgi_route_condition *route_conditions;
 #endif
 
-		int single_interpreter;
+	int single_interpreter;
 
-		struct uwsgi_shared *shared;
+	struct uwsgi_shared *shared;
 
 
-		int no_orphans;
-		int skip_zero;
+	int no_orphans;
+	int skip_zero;
 
-		char *chdir;
-		char *chdir2;
+	char *chdir;
+	char *chdir2;
 
-		int vacuum;
-		int no_server;
-		int command_mode;
+	int vacuum;
+	int no_server;
+	int command_mode;
 
-		int xml_round2;
+	int xml_round2;
 
-		char *cwd;
+	char *cwd;
 
-		// conditional logging
-		int log_slow_requests;
-		int log_zero_headers;
-		int log_empty_body;
-		int log_high_memory;
+	// conditional logging
+	int log_slow_requests;
+	int log_zero_headers;
+	int log_empty_body;
+	int log_high_memory;
 
 #ifdef __linux__
-		struct uwsgi_string_list *cgroup;
-		struct uwsgi_string_list *cgroup_opt;
-		char *ns;
-		char *ns_net;
-		struct uwsgi_string_list *ns_keep_mount;
+	struct uwsgi_string_list *cgroup;
+	struct uwsgi_string_list *cgroup_opt;
+	char *ns;
+	char *ns_net;
+	struct uwsgi_string_list *ns_keep_mount;
 #endif
 
-		char *protocol;
+	char *protocol;
 
-		int signal_socket;
-		int my_signal_socket;
+	int signal_socket;
+	int my_signal_socket;
 
 #ifdef UWSGI_ZEROMQ
-		int zeromq;
-		void *zmq_context;
+	int zeromq;
+	void *zmq_context;
 #endif
-		struct uwsgi_socket *sockets;
-		struct uwsgi_socket *shared_sockets;
-		int is_et;
+	struct uwsgi_socket *sockets;
+	struct uwsgi_socket *shared_sockets;
+	int is_et;
 
-		struct uwsgi_string_list *map_socket;
+	struct uwsgi_string_list *map_socket;
 
-		struct uwsgi_cron *crons;
+	struct uwsgi_cron *crons;
 
-		time_t respawn_delta;
+	time_t respawn_delta;
 
-		struct uwsgi_string_list *mounts;
+	struct uwsgi_string_list *mounts;
 
-		int cores;
+	int cores;
 
-		int threads;
-		pthread_attr_t threads_attr;
-		size_t threads_stacksize;
+	int threads;
+	pthread_attr_t threads_attr;
+	size_t threads_stacksize;
 
-		//this key old the u_request structure per core / thread
-		pthread_key_t tur_key;
-
-
-		struct wsgi_request *(*current_wsgi_req) (void);
-
-		void (*notify) (char *);
-		void (*notify_ready) (void);
-		int notification_fd;
-		void *notification_object;
-
-		// usedby suspend/resume loops
-		void (*schedule_to_main) (struct wsgi_request *);
-		void (*schedule_to_req) (void);
-
-		void (*gbcw_hook) (void);
-
-		int close_on_exec;
-		int tcp_nodelay;
-
-		char *loop;
-		struct uwsgi_loop *loops;
-
-		struct uwsgi_plugin *p[256];
-		struct uwsgi_plugin *gp[MAX_GENERIC_PLUGINS];
-		int gp_cnt;
-
-		char *allowed_modifiers;
-
-		char *upload_progress;
-
-		struct uwsgi_lock_item *registered_locks;
-		struct uwsgi_lock_ops lock_ops;
-		char *lock_engine;
-		char *ftok;
-		char *lock_id;
-		size_t lock_size;
-		size_t rwlock_size;
-
-		struct uwsgi_string_list *load_file_in_cache;
-		char *use_check_cache;
-		struct uwsgi_cache *check_cache;
-		struct uwsgi_cache *caches;
-
-		struct uwsgi_string_list *cache_udp_server;
-		struct uwsgi_string_list *cache_udp_node;
-
-		char *cache_sync;
-
-		// the stats server
-		char *stats;
-		int stats_fd;
-		int stats_http;
-		int stats_minified;
-		struct uwsgi_string_list *requested_stats_pushers;
-		struct uwsgi_stats_pusher *stats_pushers;
-		struct uwsgi_stats_pusher_instance *stats_pusher_instances;
-		int stats_pusher_default_freq;
-
-		uint64_t queue_size;
-		uint64_t queue_blocksize;
-		void *queue;
-		struct uwsgi_queue_header *queue_header;
-		char *queue_store;
-		size_t queue_filesize;
-		int queue_store_sync;
+	//this key old the u_request structure per core / thread
+	pthread_key_t tur_key;
 
 
-		int locks;
+	struct wsgi_request *(*current_wsgi_req) (void);
 
-		struct uwsgi_lock_item *queue_lock;
-		struct uwsgi_lock_item **user_lock;
-		struct uwsgi_lock_item *signal_table_lock;
-		struct uwsgi_lock_item *fmon_table_lock;
-		struct uwsgi_lock_item *timer_table_lock;
-		struct uwsgi_lock_item *probe_table_lock;
-		struct uwsgi_lock_item *rb_timer_table_lock;
-		struct uwsgi_lock_item *cron_table_lock;
-		struct uwsgi_lock_item *rpc_table_lock;
-		struct uwsgi_lock_item *sa_lock;
+	void (*notify) (char *);
+	void (*notify_ready) (void);
+	int notification_fd;
+	void *notification_object;
 
-		// rpc
-		uint64_t rpc_max;
-		struct uwsgi_rpc *rpc_table;	
+	// usedby suspend/resume loops
+	void (*schedule_to_main) (struct wsgi_request *);
+	void (*schedule_to_req) (void);
 
-		// subscription client
-		int subscribe_freq;
-		int subscription_tolerance;
-		int unsubscribe_on_graceful_reload;
-		struct uwsgi_string_list *subscriptions;
-		struct uwsgi_string_list *subscriptions2;
+	void (*gbcw_hook) (void);
 
-		struct uwsgi_subscribe_node *(*subscription_algo) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *);
-		int subscription_dotsplit;
+	int close_on_exec;
+	int tcp_nodelay;
 
-		int never_swap;
+	char *loop;
+	struct uwsgi_loop *loops;
+
+	struct uwsgi_plugin *p[256];
+	struct uwsgi_plugin *gp[MAX_GENERIC_PLUGINS];
+	int gp_cnt;
+
+	char *allowed_modifiers;
+
+	char *upload_progress;
+
+	struct uwsgi_lock_item *registered_locks;
+	struct uwsgi_lock_ops lock_ops;
+	char *lock_engine;
+	char *ftok;
+	char *lock_id;
+	size_t lock_size;
+	size_t rwlock_size;
+
+	struct uwsgi_string_list *load_file_in_cache;
+	char *use_check_cache;
+	struct uwsgi_cache *check_cache;
+	struct uwsgi_cache *caches;
+
+	struct uwsgi_string_list *cache_udp_server;
+	struct uwsgi_string_list *cache_udp_node;
+
+	char *cache_sync;
+
+	// the stats server
+	char *stats;
+	int stats_fd;
+	int stats_http;
+	int stats_minified;
+	struct uwsgi_string_list *requested_stats_pushers;
+	struct uwsgi_stats_pusher *stats_pushers;
+	struct uwsgi_stats_pusher_instance *stats_pusher_instances;
+	int stats_pusher_default_freq;
+
+	uint64_t queue_size;
+	uint64_t queue_blocksize;
+	void *queue;
+	struct uwsgi_queue_header *queue_header;
+	char *queue_store;
+	size_t queue_filesize;
+	int queue_store_sync;
+
+
+	int locks;
+
+	struct uwsgi_lock_item *queue_lock;
+	struct uwsgi_lock_item **user_lock;
+	struct uwsgi_lock_item *signal_table_lock;
+	struct uwsgi_lock_item *fmon_table_lock;
+	struct uwsgi_lock_item *timer_table_lock;
+	struct uwsgi_lock_item *probe_table_lock;
+	struct uwsgi_lock_item *rb_timer_table_lock;
+	struct uwsgi_lock_item *cron_table_lock;
+	struct uwsgi_lock_item *rpc_table_lock;
+	struct uwsgi_lock_item *sa_lock;
+
+	// rpc
+	uint64_t rpc_max;
+	struct uwsgi_rpc *rpc_table;	
+
+	// subscription client
+	int subscribe_freq;
+	int subscription_tolerance;
+	int unsubscribe_on_graceful_reload;
+	struct uwsgi_string_list *subscriptions;
+	struct uwsgi_string_list *subscriptions2;
+
+	struct uwsgi_subscribe_node *(*subscription_algo) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *);
+	int subscription_dotsplit;
+
+	int never_swap;
 
 #ifdef UWSGI_SSL
-		int ssl_initialized;
-		int ssl_verbose;
-		char *ssl_sessions_use_cache;
-		int ssl_sessions_timeout;
-		struct uwsgi_cache *ssl_sessions_cache;
+	int ssl_initialized;
+	int ssl_verbose;
+	char *ssl_sessions_use_cache;
+	int ssl_sessions_timeout;
+	struct uwsgi_cache *ssl_sessions_cache;
 #ifdef UWSGI_PCRE
-		struct uwsgi_regexp_list *sni_regexp;
+	struct uwsgi_regexp_list *sni_regexp;
 #endif
-		struct uwsgi_string_list *sni;
-		char *sni_dir;
-		char *sni_dir_ciphers;
+	struct uwsgi_string_list *sni;
+	char *sni_dir;
+	char *sni_dir_ciphers;
 #endif
 
 #ifdef UWSGI_SSL
-		struct uwsgi_legion *legions;
-		struct uwsgi_legion_action *legion_actions;
-		int legion_queue;
-		int legion_freq;
-		int legion_tolerance;
-		int legion_skew_tolerance;
-		uint16_t legion_scroll_max_size;
-		uint64_t legion_scroll_list_max_size;
+	struct uwsgi_legion *legions;
+	struct uwsgi_legion_action *legion_actions;
+	int legion_queue;
+	int legion_freq;
+	int legion_tolerance;
+	int legion_skew_tolerance;
+	uint16_t legion_scroll_max_size;
+	uint64_t legion_scroll_list_max_size;
 #endif
 
 #ifdef __linux__
 #ifdef MADV_MERGEABLE
-		int linux_ksm;
-		int ksm_buffer_size;
-		char *ksm_mappings_last;
-		char *ksm_mappings_current;
-		size_t ksm_mappings_last_size;
-		size_t ksm_mappings_current_size;
+	int linux_ksm;
+	int ksm_buffer_size;
+	char *ksm_mappings_last;
+	char *ksm_mappings_current;
+	size_t ksm_mappings_last_size;
+	size_t ksm_mappings_current_size;
 #endif
 #endif
 
-		struct uwsgi_buffer *websockets_ping;
-		struct uwsgi_buffer *websockets_pong;
-		int websockets_ping_freq;
-		int websockets_pong_tolerance;
-		uint64_t websockets_max_size;
+	struct uwsgi_buffer *websockets_ping;
+	struct uwsgi_buffer *websockets_pong;
+	int websockets_ping_freq;
+	int websockets_pong_tolerance;
+	uint64_t websockets_max_size;
 
-		int (*wait_write_hook) (int, int);
-		int (*wait_read_hook) (int, int);
+	int (*wait_write_hook) (int, int);
+	int (*wait_read_hook) (int, int);
 
 	};
 
@@ -2285,220 +2285,220 @@ struct uwsgi_signal_entry {
 };
 
 	struct uwsgi_snmp_custom_value {
-		uint8_t type;
-		uint64_t val;
+	uint8_t type;
+	uint64_t val;
 	};
 
 	int uwsgi_setup_snmp(void);
 
 	struct uwsgi_snmp_server_value {
-		uint8_t type;
-		uint64_t *val;
+	uint8_t type;
+	uint64_t *val;
 	};
 
 	struct uwsgi_cron {
 
-		int minute;
-		int hour;
-		int day;
-		int month;
-		int week;
+	int minute;
+	int hour;
+	int day;
+	int month;
+	int week;
 
-		time_t last_job;
-		uint8_t sig;
+	time_t last_job;
+	uint8_t sig;
 
-		char *command;
+	char *command;
 
-		struct uwsgi_cron *next;
+	struct uwsgi_cron *next;
 	};
 
 	struct uwsgi_shared {
 
-		//vga 80 x25 specific !
-		char warning_message[81];
+	//vga 80 x25 specific !
+	char warning_message[81];
 
-		uint32_t options[256];
+	uint32_t options[256];
 
-		off_t logsize;
+	off_t logsize;
 
-		char snmp_community[72 + 1];
-		struct uwsgi_snmp_server_value snmp_gvalue[100];
-		struct uwsgi_snmp_custom_value snmp_value[100];
+	char snmp_community[72 + 1];
+	struct uwsgi_snmp_server_value snmp_gvalue[100];
+	struct uwsgi_snmp_custom_value snmp_value[100];
 
 #define SNMP_COUNTER32 0x41
 #define SNMP_GAUGE 0x42
 #define SNMP_COUNTER64 0x46
 
-		int worker_signal_pipe[2];
-		int spooler_frequency;
-		int spooler_signal_pipe[2];
-		int mule_signal_pipe[2];
-		int mule_queue_pipe[2];
+	int worker_signal_pipe[2];
+	int spooler_frequency;
+	int spooler_signal_pipe[2];
+	int mule_signal_pipe[2];
+	int mule_queue_pipe[2];
 
-		// 256 items * (uwsgi.numproc + 1)
-		struct uwsgi_signal_entry *signal_table;
+	// 256 items * (uwsgi.numproc + 1)
+	struct uwsgi_signal_entry *signal_table;
 
-		struct uwsgi_fmon files_monitored[64];
-		int files_monitored_cnt;
+	struct uwsgi_fmon files_monitored[64];
+	int files_monitored_cnt;
 
-		struct uwsgi_signal_probe probes[MAX_PROBES];
-		int probes_cnt;
+	struct uwsgi_signal_probe probes[MAX_PROBES];
+	int probes_cnt;
 
-		struct uwsgi_timer timers[MAX_TIMERS];
-		int timers_cnt;
+	struct uwsgi_timer timers[MAX_TIMERS];
+	int timers_cnt;
 
-		struct uwsgi_signal_rb_timer rb_timers[MAX_TIMERS];
-		int rb_timers_cnt;
+	struct uwsgi_signal_rb_timer rb_timers[MAX_TIMERS];
+	int rb_timers_cnt;
 
-		uint64_t *rpc_count;
+	uint64_t *rpc_count;
 
-		int worker_log_pipe[2];
-		// used for request logging
-		int worker_req_log_pipe[2];
+	int worker_log_pipe[2];
+	// used for request logging
+	int worker_req_log_pipe[2];
 
 #if defined(__linux__) || defined(__FreeBSD__)
-		struct tcp_info ti;
+	struct tcp_info ti;
 #endif
-		uint64_t load;
-		uint64_t max_load;
-		struct uwsgi_cron cron[MAX_CRONS];
-		int cron_cnt;
+	uint64_t load;
+	uint64_t max_load;
+	struct uwsgi_cron cron[MAX_CRONS];
+	int cron_cnt;
 
-		// gateways
-		struct uwsgi_gateway gateways[MAX_GATEWAYS];
-		int gateways_cnt;
-		time_t gateways_harakiri[MAX_GATEWAYS];
+	// gateways
+	struct uwsgi_gateway gateways[MAX_GATEWAYS];
+	int gateways_cnt;
+	time_t gateways_harakiri[MAX_GATEWAYS];
 
-		int ready;
+	int ready;
 	};
 
 	struct uwsgi_core {
 
-		//time_t harakiri;
+	//time_t harakiri;
 
-		uint64_t requests;
-		uint64_t failed_requests;
-		uint64_t static_requests;
-		uint64_t routed_requests;
-		uint64_t offloaded_requests;
+	uint64_t requests;
+	uint64_t failed_requests;
+	uint64_t static_requests;
+	uint64_t routed_requests;
+	uint64_t offloaded_requests;
 
-		uint64_t write_errors;
-		uint64_t exceptions;
+	uint64_t write_errors;
+	uint64_t exceptions;
 
-		pthread_t thread_id;
+	pthread_t thread_id;
 
-		int offload_rr;
+	int offload_rr;
 
-		// one ts-perapp
-		void **ts;
+	// one ts-perapp
+	void **ts;
 
-		int in_request;
+	int in_request;
 
-		char *buffer;
-		struct iovec *hvec;
-		char *post_buf;
+	char *buffer;
+	struct iovec *hvec;
+	char *post_buf;
 
-		struct wsgi_request req;
+	struct wsgi_request req;
 	};
 
 	struct uwsgi_snapshot {
-		char *name;
-		pid_t pid;
-		time_t timestamp;
+	char *name;
+	pid_t pid;
+	time_t timestamp;
 	};
 
 	struct uwsgi_worker {
-		int id;
-		pid_t pid;
+	int id;
+	pid_t pid;
 
-		pid_t snapshot;
-		uint64_t status;
+	pid_t snapshot;
+	uint64_t status;
 
-		time_t last_spawn;
-		uint64_t respawn_count;
+	time_t last_spawn;
+	uint64_t respawn_count;
 
-		uint64_t requests;
-		uint64_t delta_requests;
-		uint64_t failed_requests;
+	uint64_t requests;
+	uint64_t delta_requests;
+	uint64_t failed_requests;
 
-		time_t harakiri;
-		time_t user_harakiri;
-		uint64_t harakiri_count;
-		int pending_harakiri;
+	time_t harakiri;
+	time_t user_harakiri;
+	uint64_t harakiri_count;
+	int pending_harakiri;
 
-		uint64_t vsz_size;
-		uint64_t rss_size;
+	uint64_t vsz_size;
+	uint64_t rss_size;
 
-		uint64_t running_time;
+	uint64_t running_time;
 
-		int manage_next_request;
+	int manage_next_request;
 
-		int destroy;
+	int destroy;
 
-		int apps_cnt;
-		struct uwsgi_app *apps;
+	int apps_cnt;
+	struct uwsgi_app *apps;
 
-		uint64_t tx;
+	uint64_t tx;
 
-		int hijacked;
-		uint64_t hijacked_count;
-		int cheaped;
-		int suspended;
-		int sig;
-		uint8_t signum;
+	int hijacked;
+	uint64_t hijacked_count;
+	int cheaped;
+	int suspended;
+	int sig;
+	uint8_t signum;
 
-		time_t cursed_at;
-		time_t no_mercy_at;
+	time_t cursed_at;
+	time_t no_mercy_at;
 
-		// signals managed by this worker
-		uint64_t signals;
+	// signals managed by this worker
+	uint64_t signals;
 
-		int signal_pipe[2];
+	int signal_pipe[2];
 
-		uint64_t avg_response_time;
+	uint64_t avg_response_time;
 
-		struct uwsgi_core *cores;
+	struct uwsgi_core *cores;
 
-		char name[0xff];
-		char snapshot_name[0xff];
+	char name[0xff];
+	char snapshot_name[0xff];
 	};
 
 
 	struct uwsgi_mule {
-		int id;
-		pid_t pid;
+	int id;
+	pid_t pid;
 
-		int signal_pipe[2];
-		int queue_pipe[2];
+	int signal_pipe[2];
+	int queue_pipe[2];
 
-		time_t last_spawn;
-		uint64_t respawn_count;
+	time_t last_spawn;
+	uint64_t respawn_count;
 
-		char *patch;
+	char *patch;
 
-		// signals managed by this mule
-		uint64_t signals;
-		int sig;
-		uint8_t signum;
+	// signals managed by this mule
+	uint64_t signals;
+	int sig;
+	uint8_t signum;
 
-		time_t harakiri;
+	time_t harakiri;
 
-		char name[0xff];
+	char name[0xff];
 	};
 
 	struct uwsgi_mule_farm {
-		struct uwsgi_mule *mule;
-		struct uwsgi_mule_farm *next;
+	struct uwsgi_mule *mule;
+	struct uwsgi_mule_farm *next;
 	};
 
 	struct uwsgi_farm {
-		int id;
-		char name[0xff];
+	int id;
+	char name[0xff];
 
-		int signal_pipe[2];
-		int queue_pipe[2];
+	int signal_pipe[2];
+	int queue_pipe[2];
 
-		struct uwsgi_mule_farm *mules;
+	struct uwsgi_mule_farm *mules;
 
 	};
 
@@ -2749,143 +2749,104 @@ int event_queue_add_fd_read(int, int);
 	struct uwsgi_fmon *event_queue_ack_file_monitor(int, int);
 
 
-	int uwsgi_register_signal(uint8_t, char *, void *, uint8_t);
-	int uwsgi_add_file_monitor(uint8_t, char *);
-	int uwsgi_add_timer(uint8_t, int);
-	int uwsgi_signal_add_rb_timer(uint8_t, int, int);
-	int uwsgi_signal_handler(uint8_t);
+int uwsgi_register_signal(uint8_t, char *, void *, uint8_t);
+int uwsgi_add_file_monitor(uint8_t, char *);
+int uwsgi_add_timer(uint8_t, int);
+int uwsgi_signal_add_rb_timer(uint8_t, int, int);
+int uwsgi_signal_handler(uint8_t);
 
-	void uwsgi_route_signal(uint8_t);
+void uwsgi_route_signal(uint8_t);
 
-	int uwsgi_start(void *);
+int uwsgi_start(void *);
 
 int uwsgi_register_rpc(char *, uint8_t, uint8_t, void *);
 uint16_t uwsgi_rpc(char *, uint8_t, char **, uint16_t *, char *);
 char *uwsgi_do_rpc(char *, char *, uint8_t, char **, uint16_t *, uint16_t *);
 void uwsgi_rpc_init(void);
 
-	char *uwsgi_cheap_string(char *, int);
+char *uwsgi_cheap_string(char *, int);
 
-	int uwsgi_parse_array(char *, uint16_t, char **, uint16_t *, uint8_t *);
+int uwsgi_parse_array(char *, uint16_t, char **, uint16_t *, uint8_t *);
 
 
-	struct uwsgi_gateway *register_gateway(char *, void (*)(int, void *), void *);
-	void gateway_respawn(int);
+struct uwsgi_gateway *register_gateway(char *, void (*)(int, void *), void *);
+void gateway_respawn(int);
 
-	void uwsgi_gateway_go_cheap(char *, int, int *);
+void uwsgi_gateway_go_cheap(char *, int, int *);
 
-	char *uwsgi_open_and_read(char *, size_t *, int, char *[]);
-	char *uwsgi_get_last_char(char *, char);
+char *uwsgi_open_and_read(char *, size_t *, int, char *[]);
+char *uwsgi_get_last_char(char *, char);
 
-	void uwsgi_spawn_daemon(struct uwsgi_daemon *);
-	void uwsgi_detach_daemons();
+void uwsgi_spawn_daemon(struct uwsgi_daemon *);
+void uwsgi_detach_daemons();
 
-	void emperor_loop(void);
-	char *uwsgi_num2str(int);
+void emperor_loop(void);
+char *uwsgi_num2str(int);
 
-	char *magic_sub(char *, size_t, size_t *, char *[]);
-	void init_magic_table(char *[]);
+char *magic_sub(char *, size_t, size_t *, char *[]);
+void init_magic_table(char *[]);
 
 char *uwsgi_req_append(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 int uwsgi_req_append_path_info_with_index(struct wsgi_request *, char *, uint16_t);
-	int is_unix(char *, int);
-	int is_a_number(char *);
+int is_unix(char *, int);
+int is_a_number(char *);
 
-	char *uwsgi_resolve_ip(char *);
+char *uwsgi_resolve_ip(char *);
 
-	void uwsgi_init_queue(void);
-	char *uwsgi_queue_get(uint64_t, uint64_t *);
-	char *uwsgi_queue_pull(uint64_t *);
-	int uwsgi_queue_push(char *, uint64_t);
-	char *uwsgi_queue_pop(uint64_t *);
-	int uwsgi_queue_set(uint64_t, char *, uint64_t);
-
-/*
-// maintain alignment here !!!
-struct uwsgi_dict_item {
-	// size of the value (64bit)
-	uint64_t valsize;
-	// 64bit hits
-	uint64_t hits;
-	// previous same-hash item
-	uint64_t prev;
-	// next same-hash item
-	uint64_t next;
-	// djb hash of the key
-	uint32_t djbhash;
-	// size of the key
-	uint16_t keysize;
-	// key chracters follows...
-	char key[UWSGI_CACHE_MAX_KEY_SIZE];
-} __attribute__ ((__packed__));
-
-struct uwsgi_dict {
-	uint64_t blocksize;
-	uint64_t max_items;
-
-	uint64_t *hashtable;
-	uint64_t *unused_stack;
+void uwsgi_init_queue(void);
+char *uwsgi_queue_get(uint64_t, uint64_t *);
+char *uwsgi_queue_pull(uint64_t *);
+int uwsgi_queue_push(char *, uint64_t);
+char *uwsgi_queue_pop(uint64_t *);
+int uwsgi_queue_set(uint64_t, char *, uint64_t);
 
 
-	uint64_t first_available_item;
-	uint64_t unused_stack_ptr;
+struct uwsgi_subscribe_req {
+	char *key;
+	uint16_t keylen;
 
-	void *data;
-	void *lock;
+	char *address;
+	uint16_t address_len;
 
-	uint64_t count;
+	char *auth;
+	uint16_t auth_len;
 
-	struct uwsgi_dict_item *items;
+	uint8_t modifier1;
+	uint8_t modifier2;
+
+	uint64_t cores;
+	uint64_t load;
+	uint64_t weight;
+	char *sign;
+	uint16_t sign_len;
+
+	time_t unix_check;
+
+	char *base;
+	uint16_t base_len;
 };
-*/
 
+void uwsgi_nuclear_blast();
 
-	struct uwsgi_subscribe_req {
-		char *key;
-		uint16_t keylen;
+void uwsgi_unix_signal(int, void (*)(int));
 
-		char *address;
-		uint16_t address_len;
+char *uwsgi_get_exported_opt(char *);
 
-		char *auth;
-		uint16_t auth_len;
+int uwsgi_signal_add_cron(uint8_t, int, int, int, int, int);
 
-		uint8_t modifier1;
-		uint8_t modifier2;
+char *uwsgi_get_optname_by_index(int);
 
-		uint64_t cores;
-		uint64_t load;
-		uint64_t weight;
-		char *sign;
-		uint16_t sign_len;
+int uwsgi_list_has_num(char *, int);
 
-		time_t unix_check;
-
-		char *base;
-		uint16_t base_len;
-	};
-
-	void uwsgi_nuclear_blast();
-
-	void uwsgi_unix_signal(int, void (*)(int));
-
-	char *uwsgi_get_exported_opt(char *);
-
-	int uwsgi_signal_add_cron(uint8_t, int, int, int, int, int);
-
-	char *uwsgi_get_optname_by_index(int);
-
-	int uwsgi_list_has_num(char *, int);
-
-	int uwsgi_list_has_str(char *, char *);
+int uwsgi_list_has_str(char *, char *);
 
 	void uwsgi_cache_fix(struct uwsgi_cache *);
 
 	struct uwsgi_async_request {
 
-		struct wsgi_request *wsgi_req;
-		struct uwsgi_async_request *prev;
-		struct uwsgi_async_request *next;
+	struct wsgi_request *wsgi_req;
+	struct uwsgi_async_request *prev;
+	struct uwsgi_async_request *next;
 	};
 
 	int event_queue_read(void);
@@ -3080,55 +3041,55 @@ void uwsgi_set_processname(char *);
 
 	struct uwsgi_subscribe_node {
 
-		char name[0xff];
-		uint16_t len;
-		uint8_t modifier1;
-		uint8_t modifier2;
+	char name[0xff];
+	uint16_t len;
+	uint8_t modifier1;
+	uint8_t modifier2;
 
-		time_t last_check;
+	time_t last_check;
 
-		// absolute number of requests
-		uint64_t requests;
-		// number of requests since last subscription ping
-		uint64_t last_requests;
+	// absolute number of requests
+	uint64_t requests;
+	// number of requests since last subscription ping
+	uint64_t last_requests;
 
-		uint64_t transferred;
+	uint64_t transferred;
 
-		int death_mark;
-		uint64_t reference;
-		uint64_t cores;
-		uint64_t load;
-		uint64_t failcnt;
+	int death_mark;
+	uint64_t reference;
+	uint64_t cores;
+	uint64_t load;
+	uint64_t failcnt;
 
-		uint64_t weight;
-		uint64_t wrr;
+	uint64_t weight;
+	uint64_t wrr;
 
-		time_t unix_check;
+	time_t unix_check;
 
-		struct uwsgi_subscribe_slot *slot;
+	struct uwsgi_subscribe_slot *slot;
 
-		struct uwsgi_subscribe_node *next;
+	struct uwsgi_subscribe_node *next;
 	};
 
 	struct uwsgi_subscribe_slot {
 
-		char key[0xff];
-		uint16_t keylen;
+	char key[0xff];
+	uint16_t keylen;
 
-		uint32_t hash;
+	uint32_t hash;
 
-		uint64_t hits;
+	uint64_t hits;
 
 #ifdef UWSGI_SSL
-		EVP_PKEY *sign_public_key;
-		EVP_MD_CTX *sign_ctx;
+	EVP_PKEY *sign_public_key;
+	EVP_MD_CTX *sign_ctx;
 #endif
 
 
-		struct uwsgi_subscribe_node *nodes;
+	struct uwsgi_subscribe_node *nodes;
 
-		struct uwsgi_subscribe_slot *prev;
-		struct uwsgi_subscribe_slot *next;
+	struct uwsgi_subscribe_slot *prev;
+	struct uwsgi_subscribe_slot *next;
 	};
 
 	void mule_send_msg(int, char *, size_t);
@@ -3424,95 +3385,95 @@ void uwsgi_send_stats(int, struct uwsgi_stats *(*func) (void));
 struct uwsgi_stats *uwsgi_master_generate_stats(void);
 struct uwsgi_stats_pusher * uwsgi_register_stats_pusher(char *, void (*)(struct uwsgi_stats_pusher_instance *, time_t, char *, size_t));
 
-	struct uwsgi_stats *uwsgi_stats_new(size_t);
-	int uwsgi_stats_symbol(struct uwsgi_stats *, char);
-	int uwsgi_stats_comma(struct uwsgi_stats *);
-	int uwsgi_stats_object_open(struct uwsgi_stats *);
-	int uwsgi_stats_object_close(struct uwsgi_stats *);
-	int uwsgi_stats_list_open(struct uwsgi_stats *);
-	int uwsgi_stats_list_close(struct uwsgi_stats *);
-	int uwsgi_stats_keyval(struct uwsgi_stats *, char *, char *);
-	int uwsgi_stats_keyval_comma(struct uwsgi_stats *, char *, char *);
-	int uwsgi_stats_keyvalnum(struct uwsgi_stats *, char *, char *, unsigned long long);
-	int uwsgi_stats_keyvalnum_comma(struct uwsgi_stats *, char *, char *, unsigned long long);
-	int uwsgi_stats_keyvaln(struct uwsgi_stats *, char *, char *, int);
-	int uwsgi_stats_keyvaln_comma(struct uwsgi_stats *, char *, char *, int);
-	int uwsgi_stats_key(struct uwsgi_stats *, char *);
-	int uwsgi_stats_keylong(struct uwsgi_stats *, char *, unsigned long long);
-	int uwsgi_stats_keylong_comma(struct uwsgi_stats *, char *, unsigned long long);
-	int uwsgi_stats_str(struct uwsgi_stats *, char *);
+struct uwsgi_stats *uwsgi_stats_new(size_t);
+int uwsgi_stats_symbol(struct uwsgi_stats *, char);
+int uwsgi_stats_comma(struct uwsgi_stats *);
+int uwsgi_stats_object_open(struct uwsgi_stats *);
+int uwsgi_stats_object_close(struct uwsgi_stats *);
+int uwsgi_stats_list_open(struct uwsgi_stats *);
+int uwsgi_stats_list_close(struct uwsgi_stats *);
+int uwsgi_stats_keyval(struct uwsgi_stats *, char *, char *);
+int uwsgi_stats_keyval_comma(struct uwsgi_stats *, char *, char *);
+int uwsgi_stats_keyvalnum(struct uwsgi_stats *, char *, char *, unsigned long long);
+int uwsgi_stats_keyvalnum_comma(struct uwsgi_stats *, char *, char *, unsigned long long);
+int uwsgi_stats_keyvaln(struct uwsgi_stats *, char *, char *, int);
+int uwsgi_stats_keyvaln_comma(struct uwsgi_stats *, char *, char *, int);
+int uwsgi_stats_key(struct uwsgi_stats *, char *);
+int uwsgi_stats_keylong(struct uwsgi_stats *, char *, unsigned long long);
+int uwsgi_stats_keylong_comma(struct uwsgi_stats *, char *, unsigned long long);
+int uwsgi_stats_str(struct uwsgi_stats *, char *);
 
-	char *uwsgi_substitute(char *, char *, char *);
+char *uwsgi_substitute(char *, char *, char *);
 
-	void uwsgi_opt_add_custom_option(char *, char *, void *);
-	void uwsgi_opt_cflags(char *, char *, void *);
-	void uwsgi_opt_connect_and_read(char *, char *, void *);
-	void uwsgi_opt_extract(char *, char *, void *);
+void uwsgi_opt_add_custom_option(char *, char *, void *);
+void uwsgi_opt_cflags(char *, char *, void *);
+void uwsgi_opt_connect_and_read(char *, char *, void *);
+void uwsgi_opt_extract(char *, char *, void *);
 
-	struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *, char *, size_t);
+struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *, char *, size_t);
 
-	void trigger_harakiri(int);
+void trigger_harakiri(int);
 
-	void uwsgi_setup_systemd();
-	void uwsgi_setup_upstart();
-	void uwsgi_setup_zerg();
-	void uwsgi_setup_inherited_sockets();
+void uwsgi_setup_systemd();
+void uwsgi_setup_upstart();
+void uwsgi_setup_zerg();
+void uwsgi_setup_inherited_sockets();
 
 #ifdef UWSGI_SSL
-	void uwsgi_ssl_init(void);
-	SSL_CTX *uwsgi_ssl_new_server_context(char *, char *, char *, char *, char *);
-	char *uwsgi_rsa_sign(char *, char *, size_t, unsigned int *);
-	char *uwsgi_sanitize_cert_filename(char *, char *, uint16_t);
-	void uwsgi_opt_scd(char *, char *, void *);
-	int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_req *);
+void uwsgi_ssl_init(void);
+SSL_CTX *uwsgi_ssl_new_server_context(char *, char *, char *, char *, char *);
+char *uwsgi_rsa_sign(char *, char *, size_t, unsigned int *);
+char *uwsgi_sanitize_cert_filename(char *, char *, uint16_t);
+void uwsgi_opt_scd(char *, char *, void *);
+int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_req *);
 
-	char *uwsgi_sha1(char *, size_t, char *);
-	char *uwsgi_sha1_2n(char *, size_t, char *, size_t, char *);
+char *uwsgi_sha1(char *, size_t, char *);
+char *uwsgi_sha1_2n(char *, size_t, char *, size_t, char *);
 #endif
 
-	void uwsgi_opt_ssa(char *, char *, void *);
+void uwsgi_opt_ssa(char *, char *, void *);
 
-	int uwsgi_no_subscriptions(struct uwsgi_subscribe_slot **);
-	void uwsgi_deadlock_check(pid_t);
+int uwsgi_no_subscriptions(struct uwsgi_subscribe_slot **);
+void uwsgi_deadlock_check(pid_t);
 
 
-	struct uwsgi_logchunk {
-		char *ptr;
-		size_t len;
-		int vec;
-		long pos;
-		long pos_len;
-		int type;
-		int free;
-		 ssize_t(*func) (struct wsgi_request *, char **);
-		struct uwsgi_logchunk *next;
-	};
+struct uwsgi_logchunk {
+	char *ptr;
+	size_t len;
+	int vec;
+	long pos;
+	long pos_len;
+	int type;
+	int free;
+	ssize_t(*func) (struct wsgi_request *, char **);
+	struct uwsgi_logchunk *next;
+};
 
-	void uwsgi_build_log_format(char *);
+void uwsgi_build_log_format(char *);
 
-	void uwsgi_add_logchunk(int, int, char *, size_t);
+void uwsgi_add_logchunk(int, int, char *, size_t);
 
-	void uwsgi_logit_simple(struct wsgi_request *);
-	void uwsgi_logit_lf(struct wsgi_request *);
-	void uwsgi_logit_lf_strftime(struct wsgi_request *);
+void uwsgi_logit_simple(struct wsgi_request *);
+void uwsgi_logit_lf(struct wsgi_request *);
+void uwsgi_logit_lf_strftime(struct wsgi_request *);
 
-	struct uwsgi_logvar *uwsgi_logvar_get(struct wsgi_request *, char *, uint8_t);
-	void uwsgi_logvar_add(struct wsgi_request *, char *, uint8_t, char *, uint8_t);
+struct uwsgi_logvar *uwsgi_logvar_get(struct wsgi_request *, char *, uint8_t);
+void uwsgi_logvar_add(struct wsgi_request *, char *, uint8_t, char *, uint8_t);
 
 // scanners are instances of 'imperial_monitor'
-	struct uwsgi_emperor_scanner {
-		char *arg;
-		int fd;
-		void *data;
-		void (*event_func) (struct uwsgi_emperor_scanner *);
-		struct uwsgi_imperial_monitor *monitor;
-		struct uwsgi_emperor_scanner *next;
-	};
+struct uwsgi_emperor_scanner {
+	char *arg;
+	int fd;
+	void *data;
+	void (*event_func) (struct uwsgi_emperor_scanner *);
+	struct uwsgi_imperial_monitor *monitor;
+	struct uwsgi_emperor_scanner *next;
+};
 
 
 
-	void uwsgi_register_imperial_monitor(char *, void (*)(struct uwsgi_emperor_scanner *), void (*)(struct uwsgi_emperor_scanner *));
-	int uwsgi_emperor_is_valid(char *);
+void uwsgi_register_imperial_monitor(char *, void (*)(struct uwsgi_emperor_scanner *), void (*)(struct uwsgi_emperor_scanner *));
+int uwsgi_emperor_is_valid(char *);
 
 // an instance (called vassal) is a uWSGI stack running
 // it is identified by the name of its config file
