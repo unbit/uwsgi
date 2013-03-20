@@ -573,7 +573,7 @@ union uwsgi_sockaddr_ptr {
 	};
 
 #ifdef UWSGI_SSL
-	struct uwsgi_legion_node {
+struct uwsgi_legion_node {
 	char *name;
 	uint16_t name_len;
 	uint64_t valor;
@@ -645,7 +645,7 @@ union uwsgi_sockaddr_ptr {
 	char *name;
 	int (*func) (struct uwsgi_legion *, char *);
 	struct uwsgi_legion_action *next;
-	};
+};
 #endif
 
 	struct uwsgi_queue_header {
