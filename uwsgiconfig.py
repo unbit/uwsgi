@@ -422,6 +422,20 @@ def build_uwsgi(uc, print_only=False):
     for pb in post_build:
         pb(uc)
 
+def open_profile(filename):
+    if filename.startswith('http://') or filename.startswith('https://') or filename.startswith('ftp://'):
+        wrapped = False
+        try:
+            import urllib2
+        except:
+            import urllib.request
+            wrapped = True
+
+        if wrapped:
+            import io
+            return io.TextIOWrapper(urllib.request.urlopen(filename), encoding='utf-8')
+        return urllib2.urlopen(filename)
+    return open(filename)
 
 class uConf(object):
 
@@ -429,8 +443,6 @@ class uConf(object):
         self.config = ConfigParser.ConfigParser()
         if not mute:
             print("using profile: %s" % filename)
-        if not os.path.exists(filename):
-            raise Exception("profile not found !!!")
 
         if os.path.exists('uwsgibuild.lastprofile'):
             ulp = open('uwsgibuild.lastprofile','r')
@@ -443,7 +455,7 @@ class uConf(object):
         ulp.write(filename)
         ulp.close()
 
-        self.config.read(filename)
+        self.config.readfp(open_profile(filename))
         self.gcc_list = ['core/utils', 'core/protocol', 'core/socket', 'core/logging', 'core/master', 'core/master_utils', 'core/emperor',
             'core/notify', 'core/mule', 'core/subscription', 'core/stats', 'core/sendfile', 'core/async', 'core/master_checks',
             'core/offload', 'core/io', 'core/static', 'core/websockets', 'core/spooler', 'core/snmp', 'core/exceptions',
@@ -532,7 +544,8 @@ class uConf(object):
             for option in self.config.options('uwsgi'):
                 interpolations[option] = self.get(option)
             iconfig = ConfigParser.ConfigParser(interpolations)
-            iconfig.read(inherit)
+            iconfig.readfp(open_profile(inherit))
+
             for opt in iconfig.options('uwsgi'):
                 if not self.config.has_option('uwsgi', opt):
                     self.set(opt, iconfig.get('uwsgi', opt))
@@ -1081,38 +1094,41 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         print("Error: unable to find directory '%s'" % path)
         sys.exit(1)
 
-    sys.path.insert(0, path)
-    import uwsgiplugin as up
-    if sys.argv[1] != '--plugin':
-        reload(up)
+    up = {}
+    try:
+        execfile('%s/uwsgiplugin.py' % path, up)
+    except:
+        f = open('%s/uwsgiplugin.py' % path)
+        exec(f.read(), up)
+        f.close()
 
     requires = []
 
     p_cflags = cflags[:]
     p_ldflags = ldflags[:]
 
-    p_cflags += up.CFLAGS
-    p_ldflags += up.LDFLAGS
-    p_libs = up.LIBS
+    p_cflags += up['CFLAGS']
+    p_ldflags += up['LDFLAGS']
+    p_libs = up['LIBS']
 
     post_build = None
 
     try:
-        requires = up.REQUIRES
+        requires = up['REQUIRES']
     except:
         pass
 
     try:
-        post_build = up.post_build
+        post_build = up['post_build']
     except:
         pass
 
     p_cflags.insert(0, '-I.')
 
     if name is None:
-        name = up.NAME
+        name = up['NAME']
     else:
-        p_cflags.append("-D%s_plugin=%s_plugin" % (up.NAME, name))
+        p_cflags.append("-D%s_plugin=%s_plugin" % (up['NAME'], name))
 
     try:
         for opt in uc.config.options(name):
@@ -1132,7 +1148,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     if uwsgi_os == 'Darwin':
         shared_flag = '-dynamiclib -undefined dynamic_lookup'
 
-    for cfile in up.GCC_LIST:
+    for cfile in up['GCC_LIST']:
         if cfile.endswith('.a'): 
             gcc_list.append(cfile)
         elif not cfile.endswith('.c') and not cfile.endswith('.cc') and not cfile.endswith('.m'):
@@ -1181,9 +1197,6 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
             p_ldflags.remove('-fstack-protector')
         except:
             pass
-
-    #for ofile in up.OBJ_LIST:
-    #    gcc_list.insert(0,ofile)
 
     need_pic = ' -fPIC'
     # on cygwin we do not need PIC
