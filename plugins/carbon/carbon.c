@@ -9,9 +9,10 @@
 extern struct uwsgi_server uwsgi;
 
 struct carbon_server_list {
-	char *value; // server address
 	int healthy;
 	int errors;
+	char *hostname;
+	char *port;
 	struct carbon_server_list *next;
 };
 
@@ -33,6 +34,7 @@ struct uwsgi_carbon {
 	char *root_node;
 	char *hostname_dot_replacement;
 	char *hostname;
+	int resolve_hostname;
 	struct uwsgi_stats_pusher *pusher;
 } u_carbon;
 
@@ -46,6 +48,8 @@ static struct uwsgi_option carbon_options[] = {
 	{"carbon-retry-delay", required_argument, 0, "set connection retry delay in seconds (default 7)", uwsgi_opt_set_int, &u_carbon.retry_delay, 0},
 	{"carbon-root", required_argument, 0, "set carbon metrics root node (default 'uwsgi')", uwsgi_opt_set_str, &u_carbon.root_node, 0},
 	{"carbon-hostname-dots", required_argument, 0, "set char to use as a replacement for dots in hostname (dots are not replaced by default)", uwsgi_opt_set_str, &u_carbon.hostname_dot_replacement, 0},
+	{"carbon-name-resolve", no_argument, 0, "allow using hostname as carbon server address (default disabled)", uwsgi_opt_true, &u_carbon.resolve_hostname, 0},
+	{"carbon-resolve-names", no_argument, 0, "allow using hostname as carbon server address (default disabled)", uwsgi_opt_true, &u_carbon.resolve_hostname, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -59,15 +63,32 @@ static void carbon_post_init() {
 
 	while(usl) {
 		struct carbon_server_list *u_server = uwsgi_calloc(sizeof(struct carbon_server_list));
-		u_server->value = usl->value;
 		u_server->healthy = 1;
 		u_server->errors = 0;
+
+		char *p = strtok(usl->value, ":");
+		while (p) {
+			if (!u_server->hostname) {
+				u_server->hostname = uwsgi_str(p);
+			}
+			else if (!u_server->port) {
+				u_server->port = uwsgi_str(p);
+			}
+			else break;
+			p = strtok(NULL, ":");
+		}
+		if (!u_server->hostname || !u_server->port) {
+			uwsgi_log("[carbon] invalid carbon server address (%s)\n", usl->value);
+			usl = usl->next;
+			continue;
+		}
+
 		if (u_carbon.servers_data) {
 			u_server->next = u_carbon.servers_data;
 		}
 		u_carbon.servers_data = u_server;
 
-		uwsgi_log("[carbon] added server %s\n", usl->value);
+		uwsgi_log("[carbon] added server %s:%s\n", u_server->hostname, u_server->port);
 		usl = usl->next;
 	}
 
@@ -80,7 +101,7 @@ static void carbon_post_init() {
 	if (u_carbon.timeout < 1) u_carbon.timeout = 3;
 	if (u_carbon.max_retries <= 0) u_carbon.max_retries = 1;
 	if (u_carbon.retry_delay <= 0) u_carbon.retry_delay = 7;
-	if (!u_carbon.id) { 
+	if (!u_carbon.id) {
 		u_carbon.id = uwsgi_str(uwsgi.sockets->name);
 
 		for(i=0;i<(int)strlen(u_carbon.id);i++) {
@@ -145,6 +166,8 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 	int i;
 	int fd;
 	int wok;
+	char *ip;
+	char *carbon_address;
 
 	for (i = 0; i < uwsgi.numproc; i++) {
 		u_carbon.current_busyness_values[i] = uwsgi.workers[i+1].running_time - u_carbon.last_busyness_values[i];
@@ -157,24 +180,35 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 		if (retry_cycle && usl->healthy)
 			// skip healthy servers during retry cycle
 			goto nxt;
-	  
+
 		if (retry_cycle && usl->healthy == 0)
-			uwsgi_log("[carbon] Retrying failed server at %s (%d)\n", usl->value, usl->errors);
+			uwsgi_log("[carbon] Retrying failed server at %s (%d)\n", usl->hostname, usl->errors);
 
 		if (!retry_cycle) {
 			usl->healthy = 1;
 			usl->errors = 0;
 		}
-		
-		fd = uwsgi_connect(usl->value, u_carbon.timeout, 0);
+
+		if (u_carbon.resolve_hostname) {
+			ip = uwsgi_resolve_ip(usl->hostname);
+			if (!ip) {
+				uwsgi_log("[carbon] Could not resolve hostname %s\n", usl->hostname);
+				goto nxt;
+			}
+			carbon_address = uwsgi_concat3(ip, ":", usl->port);
+		}
+		else {
+			carbon_address = uwsgi_concat3(usl->hostname, ":", usl->port);
+		}
+		fd = uwsgi_connect(carbon_address, u_carbon.timeout, 0);
 		if (fd < 0) {
-			uwsgi_log("[carbon] Could not connect to carbon server at %s\n", usl->value);
+			uwsgi_log("[carbon] Could not connect to carbon server at %s\n", carbon_address);
 			if (usl->errors < u_carbon.max_retries) {
 				u_carbon.need_retry = 1;
 				u_carbon.next_retry = uwsgi_now() + u_carbon.retry_delay;
 			} else {
 				uwsgi_log("[carbon] Maximum number of retries for %s (%d)\n",
-					usl->value, u_carbon.max_retries);
+					carbon_address, u_carbon.max_retries);
 				usl->healthy = 0;
 				usl->errors = 0;
 			}
