@@ -167,7 +167,7 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 	int fd;
 	int wok;
 	char *ip;
-	char *carbon_address;
+	char *carbon_address = NULL;
 
 	for (i = 0; i < uwsgi.numproc; i++) {
 		u_carbon.current_busyness_values[i] = uwsgi.workers[i+1].running_time - u_carbon.last_busyness_values[i];
@@ -214,8 +214,10 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 			}
 			usl->healthy = 0;
 			usl->errors++;
+			free(carbon_address);
 			goto nxt;
 		}
+		free(carbon_address);
 		// put the socket in non-blocking mode
 		uwsgi_socket_nb(fd);
 
