@@ -1605,10 +1605,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	int i;
 
-#ifdef UNBIT
-	//struct uidsec_struct us;
-#endif
-
 	struct utsname uuts;
 
 	// signal mask is inherited, and sme process manager could make a real mess...

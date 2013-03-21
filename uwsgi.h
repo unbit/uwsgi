@@ -267,10 +267,6 @@ extern "C" {
 #include <mach/mach_init.h>
 #endif
 
-#ifdef UNBIT
-#include "unbit.h"
-#endif
-
 #ifdef _POSIX_C_SOURCE
 #undef _POSIX_C_SOURCE
 #endif
