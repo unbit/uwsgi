@@ -135,6 +135,32 @@ int uwsgi_emperor_is_valid(char *name) {
 	return 0;
 }
 
+static char *emperor_check_on_demand_socket(char *filename) {
+	if (uwsgi.emperor_on_demand_extension) {
+		char *tmp = uwsgi_concat2(filename, uwsgi.emperor_on_demand_extension);
+		int fd = open(tmp, O_RDONLY);
+		free(tmp);
+		if (fd < 0) return NULL;
+		size_t len = 0;
+		char *ret = uwsgi_read_fd(fd, &len, 1);
+		close(fd);
+		// change the first non prinabel character to 0
+		size_t i;
+		for(i=0;i<len;i++) {
+			if (ret[i] < 32) {
+				ret[i] = 0;
+				break;
+			}
+		}
+		return ret;
+	}
+	else if (uwsgi.emperor_on_demand_directory) {
+	}
+	else if (uwsgi.emperor_on_demand_exec) {
+	}
+	return NULL;
+}
+
 // this is the monitor for non-glob directories
 void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 	struct uwsgi_instance *ui_current;
@@ -175,7 +201,9 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 			}
 		}
 		else {
-			emperor_add(ues, de->d_name, st.st_mtime, NULL, 0, st.st_uid, st.st_gid, NULL);
+			char *socket_name = emperor_check_on_demand_socket(de->d_name);
+			emperor_add(ues, de->d_name, st.st_mtime, NULL, 0, st.st_uid, st.st_gid, socket_name);
+			if (socket_name) free(socket_name);
 		}
 	}
 	closedir(dir);
@@ -250,7 +278,9 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 			}
 		}
 		else {
-			emperor_add(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, st.st_uid, st.st_gid, NULL);
+			char *socket_name = emperor_check_on_demand_socket(g.gl_pathv[i]);
+			emperor_add(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, st.st_uid, st.st_gid, socket_name);
+			if (socket_name) free(socket_name);
 		}
 
 	}
@@ -609,7 +639,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 		}
 
                 event_queue_add_fd_read(uwsgi.emperor_queue, n_ui->on_demand_fd);
-		uwsgi_log("[uwsgi-emperor] %s -> \"on demand\" instance detected, waiting for connections on socket \"%s\"...\n", name, socket_name);
+		uwsgi_log("[uwsgi-emperor] %s -> \"on demand\" instance detected, waiting for connections on socket \"%s\" ...\n", name, socket_name);
 		return;
 	}
 	

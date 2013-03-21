@@ -1619,6 +1619,13 @@ struct uwsgi_server {
 	int emperor_max_throttle;
 	int emperor_magic_exec;
 	int emperor_heartbeat;
+	// search for a file with the specified extension at the same level of the vassal file
+	char *emperor_on_demand_extension;
+	// bind to a unix socket on the specified directory named directory/vassal.socket
+	char *emperor_on_demand_directory;
+	// run a shell script passing the vassal as the only argument, the stdout is used as the socket
+	char *emperor_on_demand_exec;
+
 	time_t next_heartbeat;
 	int heartbeat;
 	struct uwsgi_string_list *emperor;
