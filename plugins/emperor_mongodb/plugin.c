@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *);
 void uwsgi_imperial_monitor_mongodb_init(struct uwsgi_emperor_scanner *);
