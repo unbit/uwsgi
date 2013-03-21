@@ -136,12 +136,12 @@ int uwsgi_emperor_is_valid(char *name) {
 }
 
 static char *emperor_check_on_demand_socket(char *filename) {
+	size_t len = 0;
 	if (uwsgi.emperor_on_demand_extension) {
 		char *tmp = uwsgi_concat2(filename, uwsgi.emperor_on_demand_extension);
 		int fd = open(tmp, O_RDONLY);
 		free(tmp);
 		if (fd < 0) return NULL;
-		size_t len = 0;
 		char *ret = uwsgi_read_fd(fd, &len, 1);
 		close(fd);
 		// change the first non prinabel character to 0
@@ -152,11 +152,44 @@ static char *emperor_check_on_demand_socket(char *filename) {
 				break;
 			}
 		}
+		if (ret[0] == 0) {
+			free(ret);
+			return NULL;
+		}
 		return ret;
 	}
 	else if (uwsgi.emperor_on_demand_directory) {
 	}
 	else if (uwsgi.emperor_on_demand_exec) {
+		int cpipe[2];
+                if (pipe(cpipe)) {
+                        uwsgi_error("emperor_check_on_demand_socket()pipe()");
+			return NULL;
+                }
+		char *cmd = uwsgi_concat4(uwsgi.emperor_on_demand_exec, " \"", filename, "\"");
+                int r = uwsgi_run_command(cmd, NULL, cpipe[1]);
+		free(cmd);
+		if (r < 0) {
+                	close(cpipe[0]);
+                	close(cpipe[1]);
+			return NULL;
+		}
+                char *ret = uwsgi_read_fd(cpipe[0], &len, 1);
+                close(cpipe[0]);
+                close(cpipe[1]);
+		// change the first non prinabel character to 0
+                size_t i;
+                for(i=0;i<len;i++) {
+                        if (ret[i] < 32) {
+                                ret[i] = 0;
+                                break;
+                        }
+                }
+		if (ret[0] == 0) {
+			free(ret);
+			return NULL;
+		}
+		return ret;
 	}
 	return NULL;
 }
