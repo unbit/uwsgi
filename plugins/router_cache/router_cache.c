@@ -10,25 +10,21 @@ extern struct uwsgi_server uwsgi;
 
 	syntax:
 
-	route = /^foobar1(.*)/ cache:key=foo$1poo,type=body
-	route = /^foobar1 cache:var=PATH_INFO,type=body
-	route = /^foobar2 cache:var=REQUEST_URI,type=full
-	route = /^foobar3 cache:var=REQUEST_URI,type=body,content_type=text/html
+	route = /^foobar1(.*)/ cache:key=foo$1poo,type=body,content_type=text/html,name=foobar
 
 */
 
 struct uwsgi_router_cache_conf {
 
+	// the name of the cache
+	char *name;
+
 	char *key;
 	size_t key_len;
-	char *var;
+
 	char *type;
 
-	long var_offset;
-	long var_offset_len;
-
 	char *content_type;
-	char *name;
 	size_t content_type_len;
 
 	// 0 -> full, 1 -> body
@@ -41,29 +37,14 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	struct uwsgi_router_cache_conf *urcc = (struct uwsgi_router_cache_conf *) ur->data2;
 
-	if (!uwsgi.cache_max_items) return UWSGI_ROUTE_NEXT;
-
-	char *c_k = NULL;
-	uint16_t c_k_len = 0;
-	int k_need_free = 0;
-
-	if (urcc->key) {
-		char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        	uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        	c_k = uwsgi_regexp_apply_ovec(*subject, *subject_len, urcc->key, urcc->key_len, ur->ovector, ur->ovn);
-		c_k_len = strlen(c_k);
-		k_need_free = 1;
-	}
-	else {
-		char **key = (char **) (((char *) wsgi_req) + urcc->var_offset);
-        	uint16_t *keylen = (uint16_t *) (((char *) wsgi_req) + urcc->var_offset_len);
-		c_k = *key;
-		c_k_len = *keylen;
-	}
+	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urcc->key, urcc->key_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
 
 	uint64_t valsize = 0;
-	char *value = uwsgi_cache_magic_get(c_k, c_k_len, &valsize, urcc->name);
+	char *value = uwsgi_cache_magic_get(ub->buf, ub->pos, &valsize, urcc->name);
+	uwsgi_buffer_destroy(ub);
 	if (value) {
 		if (urcc->type_num == 1) {
 			if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto error;
@@ -73,17 +54,14 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 		// body only
 		uwsgi_response_write_body_do(wsgi_req, value, valsize);
 		free(value);
-		if (k_need_free) free(c_k);
 		if (ur->custom)
 			return UWSGI_ROUTE_NEXT;
 		return UWSGI_ROUTE_BREAK;
 	}
-	if (k_need_free) free(c_k);
 	
 	return UWSGI_ROUTE_NEXT;
 error:
 	free(value);
-	if (k_need_free) free(c_k);
 	return UWSGI_ROUTE_BREAK;
 }
 
@@ -94,7 +72,6 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
 	struct uwsgi_router_cache_conf *urcc = uwsgi_calloc(sizeof(struct uwsgi_router_cache_conf));
                 if (uwsgi_kvlist_parse(ur->data, ur->data_len, ',', '=',
                         "key", &urcc->key,
-                        "var", &urcc->var,
                         "content_type", &urcc->content_type,
                         "name", &urcc->name,
                         "type", &urcc->type, NULL)) {
@@ -106,8 +83,8 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
 			urcc->key_len = strlen(urcc->key);
 		}
 
-		if (!urcc->key && !urcc->var) {
-			uwsgi_log("invalid route syntax: you need to specify a cache key or var\n");
+		if (!urcc->key) {
+			uwsgi_log("invalid route syntax: you need to specify a cache key\n");
 			exit(1);
 		}
 
@@ -115,21 +92,6 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
                 if (!urcc->content_type) urcc->content_type = "text/html";
 
                 urcc->content_type_len = strlen(urcc->content_type);
-
-		if (urcc->var) {
-                if (!strcmp(urcc->var, "REQUEST_URI")) {
-                        urcc->var_offset = offsetof(struct wsgi_request, uri);
-                        urcc->var_offset_len = offsetof(struct wsgi_request, uri_len);
-                }
-                else if (!strcmp(urcc->var, "PATH_INFO")) {
-                        urcc->var_offset = offsetof(struct wsgi_request, path_info);
-                        urcc->var_offset_len = offsetof(struct wsgi_request, path_info_len);
-                }
-                else {
-                        urcc->var_offset = offsetof(struct wsgi_request, uri);
-                        urcc->var_offset_len = offsetof(struct wsgi_request, uri_len);
-                }
-		}
 
                 if (!strcmp(urcc->type, "body")) {
                         urcc->type_num = 1;
