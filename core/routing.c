@@ -628,6 +628,29 @@ static int uwsgi_route_condition_isfile(struct wsgi_request *wsgi_req, struct uw
         return 0;
 }
 
+static int uwsgi_route_condition_equal(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
+	if (!semicolon) return 0;
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
+        if (!ub) return -1;
+
+	struct uwsgi_buffer *ub2 = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str));
+        if (!ub2) {
+		uwsgi_buffer_destroy(ub);
+		return -1;
+	}
+
+	if(!uwsgi_strncmp(ub->buf, ub->pos, ub2->buf, ub2->pos)) {
+		uwsgi_buffer_destroy(ub);
+		uwsgi_buffer_destroy(ub2);
+		return 1;
+	}
+        uwsgi_buffer_destroy(ub);
+        uwsgi_buffer_destroy(ub2);
+        return 0;
+}
+
 static int uwsgi_route_condition_isdir(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
         struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, ur->subject_str_len);
         if (!ub) return -1;
@@ -685,6 +708,10 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_route_condition("isdir", uwsgi_route_condition_isdir);
         uwsgi_register_route_condition("islink", uwsgi_route_condition_islink);
         uwsgi_register_route_condition("isexec", uwsgi_route_condition_isexec);
+        uwsgi_register_route_condition("equal", uwsgi_route_condition_equal);
+        uwsgi_register_route_condition("isequal", uwsgi_route_condition_equal);
+        uwsgi_register_route_condition("eq", uwsgi_route_condition_equal);
+        uwsgi_register_route_condition("==", uwsgi_route_condition_equal);
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {
