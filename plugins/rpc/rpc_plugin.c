@@ -40,6 +40,7 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 	return UWSGI_OK;
 }
 
+#ifdef UWSGI_ROUTING
 static int uwsgi_routing_func_rpc(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 	int ret = -1;
 	// this is the list of args
@@ -137,6 +138,7 @@ static void router_rpc_register() {
         uwsgi_register_router("call", uwsgi_router_rpc);
         uwsgi_register_router("rpc", uwsgi_router_rpc);
 }
+#endif
 
 struct uwsgi_plugin rpc_plugin = {
 
@@ -144,5 +146,7 @@ struct uwsgi_plugin rpc_plugin = {
 	.modifier1 = 173,
 	
 	.request = uwsgi_rpc_request,
+#ifdef UWSGI_ROUTING
 	.on_load = router_rpc_register,
+#endif
 };
