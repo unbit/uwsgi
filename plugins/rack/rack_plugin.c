@@ -320,7 +320,7 @@ uint16_t uwsgi_ruby_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[],
 	ret = rb_protect(rack_call_rpc_handler, rb_args, &error);
 
         if (error) {
-		uwsgi_manage_exception(NULL, 0);
+		uwsgi_ruby_exception_log(NULL);
 		return 0;
 	}
 
@@ -489,7 +489,7 @@ void uwsgi_rack_preinit_apps() {
                 int error = 0;
                 rb_protect( uwsgi_require_file, rb_str_new2(usl->value), &error ) ;
                 if (error) {
-                        uwsgi_manage_exception(NULL, 0);
+			uwsgi_ruby_exception_log(NULL);
                 }
                 usl = usl->next;
         }
@@ -519,7 +519,7 @@ void uwsgi_rack_init_apps(void) {
 		error = 0;
 		rb_protect( uwsgi_require_file, rb_str_new2(usl->value), &error ) ;
                 if (error) {
-                        uwsgi_manage_exception(NULL, 0);
+			uwsgi_ruby_exception_log(NULL);
 		}
 		usl = usl->next;
 	}
@@ -527,7 +527,7 @@ void uwsgi_rack_init_apps(void) {
 	if (ur.rack) {
 		ur.dispatcher = rb_protect(init_rack_app, rb_str_new2(ur.rack), &error);
 		if (error) {
-                        uwsgi_manage_exception(NULL, 0);
+			uwsgi_ruby_exception_log(NULL);
                         exit(1);
                 }
 		if (ur.dispatcher == Qnil) {
@@ -551,7 +551,7 @@ void uwsgi_rack_init_apps(void) {
 		uwsgi_log("loading rails app %s\n", ur.rails);
 		rb_protect( require_rails, 0, &error ) ;
 		if (error) {
-                	uwsgi_manage_exception(NULL, 0);
+			uwsgi_ruby_exception_log(NULL);
 			exit(1);
                 }
 		uwsgi_log("rails app %s ready\n", ur.rails);
@@ -573,7 +573,7 @@ void uwsgi_rack_init_apps(void) {
 			if (acim_call == Qtrue) {
                         	ur.dispatcher = rb_protect(uwsgi_rb_call_new, ac_dispatcher, &error);
 				if (error) {
-                        		uwsgi_manage_exception(NULL, 0);
+					uwsgi_ruby_exception_log(NULL);
                         		exit(1);
 				}
 			}
@@ -583,7 +583,7 @@ void uwsgi_rack_init_apps(void) {
                         uwsgi_log("non-rack rails version detected...loading thin adapter...\n");
 			rb_protect( require_thin, 0, &error ) ;
                 	if (error) {
-                        	uwsgi_manage_exception(NULL, 0);
+				uwsgi_ruby_exception_log(NULL);
                         	exit(1);
                 	}
 			VALUE thin_rack = rb_const_get(rb_cObject, rb_intern("Rack"));
@@ -591,7 +591,7 @@ void uwsgi_rack_init_apps(void) {
 			VALUE thin_rack_adapter_rails = rb_const_get(thin_rack_adapter, rb_intern("Rails"));
 			ur.dispatcher = rb_protect( uwsgi_rb_call_new, thin_rack_adapter_rails, &error);
 			if (error) {
-                        	uwsgi_manage_exception(NULL, 0);
+				uwsgi_ruby_exception_log(NULL);
                         	exit(1);
 			}
                 }
@@ -963,7 +963,7 @@ VALUE init_rack_app( VALUE script ) {
 #endif
         rb_protect( require_rack, 0, &error ) ;
         if (error) {
-		uwsgi_manage_exception(NULL, 0);
+		uwsgi_ruby_exception_log(NULL);
 		return Qnil;
         }
 
@@ -1038,7 +1038,7 @@ int uwsgi_rack_mule(char *opt) {
         if (uwsgi_endswith(opt, (char *)".rb")) {
 		rb_protect( uwsgi_require_file, rb_str_new2(opt), &error ) ;
                 if (error) {
-			uwsgi_manage_exception(NULL, 0);
+			uwsgi_ruby_exception_log(NULL);
 			return 0;
                 }
                 return 1;
@@ -1063,7 +1063,7 @@ void uwsgi_rb_post_fork() {
         // call the post_fork_hook
 	rb_protect(uwsgi_rb_pfh, 0, &error);
 	if (error) {
-		uwsgi_manage_exception(NULL, 0);
+		uwsgi_ruby_exception_log(NULL);
 	}
 }
 
@@ -1081,7 +1081,7 @@ int uwsgi_rack_mule_msg(char *message, size_t len) {
 		VALUE arg = rb_str_new(message, len);
 		rb_protect(uwsgi_rb_mmh, arg, &error);
 		if (error) {
-			uwsgi_manage_exception(NULL, 0);
+			uwsgi_ruby_exception_log(NULL);
 		}
         	return 1;
 	}
@@ -1107,7 +1107,7 @@ int uwsgi_rack_signal_handler(uint8_t sig, void *handler) {
         rb_ary_store(args, 1, rbsig);
         rb_protect(rack_call_signal_handler, args, &error);
         if (error) {
-		uwsgi_manage_exception(NULL, 0);
+		uwsgi_ruby_exception_log(NULL);
                 rb_gc();
                 return -1;
         }
@@ -1155,7 +1155,7 @@ int uwsgi_rack_spooler(char *filename, char *buf, uint16_t len, char *body, size
 
         VALUE ret = rb_protect(uwsgi_rb_do_spooler, spool_dict, &error);
 	if (error) {
-		uwsgi_manage_exception(NULL, 0);
+		uwsgi_ruby_exception_log(NULL);
 		rb_gc();
 		return -1;
 	}
