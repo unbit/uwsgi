@@ -628,6 +628,37 @@ static int uwsgi_route_condition_isfile(struct wsgi_request *wsgi_req, struct uw
         return 0;
 }
 
+static int uwsgi_route_condition_regexp(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
+        if (!semicolon) return 0;
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
+        if (!ub) return -1;
+
+	pcre *pattern;
+	pcre_extra *pattern_extra;
+	char *re = uwsgi_concat2n(semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str), "", 0);
+	if (uwsgi_regexp_build(re, &pattern, &pattern_extra)) {
+		free(re);
+		uwsgi_buffer_destroy(ub);
+		return -1;
+	}
+	free(re);
+
+	if (uwsgi_regexp_match(pattern, pattern_extra, ub->buf, ub->pos) >= 0) {
+		uwsgi_buffer_destroy(ub);
+		pcre_free(pattern);
+		pcre_free_study(pattern_extra);
+		return 1;
+	}
+
+        uwsgi_buffer_destroy(ub);
+	pcre_free(pattern);
+	pcre_free_study(pattern_extra);
+        return 0;
+}
+
+
 static int uwsgi_route_condition_equal(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 	char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
 	if (!semicolon) return 0;
@@ -650,6 +681,57 @@ static int uwsgi_route_condition_equal(struct wsgi_request *wsgi_req, struct uws
         uwsgi_buffer_destroy(ub2);
         return 0;
 }
+
+static int uwsgi_route_condition_startswith(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
+        if (!semicolon) return 0;
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
+        if (!ub) return -1;
+
+        struct uwsgi_buffer *ub2 = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str));
+        if (!ub2) {
+                uwsgi_buffer_destroy(ub);
+                return -1;
+        }
+
+        if(!uwsgi_starts_with(ub->buf, ub->pos, ub2->buf, ub2->pos)) {
+                uwsgi_buffer_destroy(ub);
+                uwsgi_buffer_destroy(ub2);
+                return 1;
+        }
+        uwsgi_buffer_destroy(ub);
+        uwsgi_buffer_destroy(ub2);
+        return 0;
+}
+
+static int uwsgi_route_condition_endswith(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
+        if (!semicolon) return 0;
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
+        if (!ub) return -1;
+
+        struct uwsgi_buffer *ub2 = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str));
+        if (!ub2) {
+                uwsgi_buffer_destroy(ub);
+                return -1;
+        }
+
+	if (ub2->pos < ub->pos) goto zero;
+        if(!uwsgi_strncmp(ub->buf + (ub->pos - ub2->pos), ub2->pos, ub2->buf, ub2->pos)) {
+                uwsgi_buffer_destroy(ub);
+                uwsgi_buffer_destroy(ub2);
+                return 1;
+        }
+
+zero:
+        uwsgi_buffer_destroy(ub);
+        uwsgi_buffer_destroy(ub2);
+        return 0;
+}
+
+
 
 static int uwsgi_route_condition_isdir(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
         struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, ur->subject_str_len);
@@ -712,6 +794,10 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_route_condition("isequal", uwsgi_route_condition_equal);
         uwsgi_register_route_condition("eq", uwsgi_route_condition_equal);
         uwsgi_register_route_condition("==", uwsgi_route_condition_equal);
+        uwsgi_register_route_condition("startswith", uwsgi_route_condition_startswith);
+        uwsgi_register_route_condition("endswith", uwsgi_route_condition_endswith);
+        uwsgi_register_route_condition("regexp", uwsgi_route_condition_regexp);
+        uwsgi_register_route_condition("re", uwsgi_route_condition_regexp);
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {
