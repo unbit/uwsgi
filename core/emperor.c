@@ -509,6 +509,10 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 		uwsgi.emperor_broodlord_count--;
 	}
 
+	if (c_ui->socket_name) {
+		free(c_ui->socket_name);
+	}
+
 	free(c_ui);
 
 }
@@ -648,6 +652,9 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 	n_ui->first_run = uwsgi_now();
 	n_ui->last_run = n_ui->first_run;
 	n_ui->on_demand_fd = -1;
+	if (socket_name) {
+		n_ui->socket_name = uwsgi_str(socket_name);
+	}
 
 	n_ui->pid = -1;
 
@@ -669,6 +676,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 			uwsgi_error("emperor_add()/bind()");
 			free(n_ui);
 			c_ui->ui_next = NULL;
+			return;
 		}
 
                 event_queue_add_fd_read(uwsgi.emperor_queue, n_ui->on_demand_fd);
@@ -1104,6 +1112,8 @@ void emperor_loop() {
 	char notification_message[64];
 	struct rlimit rl;
 
+	uwsgi.disable_nuclear_blast = 1;
+
 	uwsgi.emperor_stats_fd = -1;
 
 	if (uwsgi.emperor_pidfile) {
@@ -1216,6 +1226,7 @@ void emperor_loop() {
 					else if (byte == 30 && uwsgi.emperor_broodlord > 0 && uwsgi.emperor_broodlord_count < uwsgi.emperor_broodlord) {
 						uwsgi_log("[emperor] going in broodlord mode: launching zergs for %s\n", ui_current->name);
 						char *zerg_name = uwsgi_concat3(ui_current->name, ":", "zerg");
+						// here we discard socket name as broodlord/zerg cannot be on demand
 						emperor_add(ui_current->scanner, zerg_name, uwsgi_now(), NULL, 0, ui_current->uid, ui_current->gid, NULL);
 						free(zerg_name);
 					}
@@ -1312,7 +1323,7 @@ void emperor_loop() {
 					}
 					else {
 						// UNSAFE
-						emperor_add(ui_current->scanner, ui_current->name, ui_current->last_mod, ui_current->config, ui_current->config_len, ui_current->uid, ui_current->gid, NULL);
+						emperor_add(ui_current->scanner, ui_current->name, ui_current->last_mod, ui_current->config, ui_current->config_len, ui_current->uid, ui_current->gid, ui_current->socket_name);
 						emperor_del(ui_current);
 					}
 					break;
@@ -1406,7 +1417,7 @@ void emperor_send_stats(int fd) {
 		if (uwsgi_stats_keyval_comma(us, "id", c_ui->name))
 			goto end0;
 
-		if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) c_ui->pid))
+		if (uwsgi_stats_keyslong_comma(us, "pid", (long long) c_ui->pid))
 			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "born", (unsigned long long) c_ui->born))
 			goto end0;
@@ -1423,6 +1434,9 @@ void emperor_send_stats(int fd) {
 		if (uwsgi_stats_keylong_comma(us, "last_run", (unsigned long long) c_ui->last_run))
 			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "zerg", (unsigned long long) c_ui->zerg))
+			goto end0;
+
+		if (uwsgi_stats_keyval_comma(us, "on_demand", c_ui->socket_name ? c_ui->socket_name : ""))
 			goto end0;
 
 		if (uwsgi_stats_keylong_comma(us, "uid", (unsigned long long) c_ui->uid))
@@ -1543,6 +1557,7 @@ void uwsgi_emperor_start() {
 	else {
 		uwsgi.emperor_pid = uwsgi_fork("uWSGI Emperor");
 	}
+
 	if (uwsgi.emperor_pid < 0) {
 		uwsgi_error("pid()");
 		exit(1);

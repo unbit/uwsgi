@@ -66,6 +66,7 @@ int bind_to_unix_dgram(char *socket_name) {
 	if (serverfd < 0) {
 		uwsgi_error("socket()");
 		uwsgi_nuclear_blast();
+		return -1;
 	}
 
 	if (unlink(socket_name) != 0 && errno != ENOENT) {
@@ -85,6 +86,7 @@ int bind_to_unix_dgram(char *socket_name) {
 #endif
 		uwsgi_error("bind()");
 		uwsgi_nuclear_blast();
+		return -1;
 	}
 
 	return serverfd;
@@ -100,6 +102,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	if (strlen(socket_name) > 102) {
 		uwsgi_log("invalid socket name\n");
 		uwsgi_nuclear_blast();
+		return -1;
 	}
 
 	if (socket_name[0] == '@') {
@@ -113,6 +116,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	if (uws_addr == NULL) {
 		uwsgi_error("malloc()");
 		uwsgi_nuclear_blast();
+		return -1;
 	}
 
 	memset(uws_addr, 0, sizeof(struct sockaddr_un));
@@ -120,6 +124,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	if (serverfd < 0) {
 		uwsgi_error("socket()");
 		uwsgi_nuclear_blast();
+		return -1;
 	}
 	if (abstract_socket == 0) {
 		if (unlink(socket_name) != 0 && errno != ENOENT) {
@@ -157,12 +162,14 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 #endif
 		uwsgi_error("bind()");
 		uwsgi_nuclear_blast();
+		return -1;
 	}
 
 
 	if (listen(serverfd, listen_queue) != 0) {
 		uwsgi_error("listen()");
 		uwsgi_nuclear_blast();
+		return -1;
 	}
 
 	// chmod unix socket for lazy users
@@ -578,11 +585,13 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	if (serverfd < 0) {
 		uwsgi_error("socket()");
 		uwsgi_nuclear_blast();
+		return -1;
 	}
 
 	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
 		uwsgi_error("SO_REUSEADDR setsockopt()");
 		uwsgi_nuclear_blast();
+		return -1;
 	}
 
 #ifdef __linux__
@@ -593,6 +602,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		if (setsockopt(serverfd, SOL_IP, IP_FREEBIND, (const void *) &uwsgi.freebind, sizeof(int)) < 0) {
 			uwsgi_error("IP_FREEBIND setsockopt()");
 			uwsgi_nuclear_blast();
+			return -1;
 		}
 	}
 #endif
@@ -602,6 +612,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEPORT, (const void *) &uwsgi.reuse_port, sizeof(int)) < 0) {
 			uwsgi_error("SO_REUSEPORT setsockopt()");
 			uwsgi_nuclear_blast();
+			return -1;
 		}
 #else
 		uwsgi_log("!!! your system does not support SO_REUSEPORT !!!\n");
@@ -628,6 +639,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		if (setsockopt(serverfd, SOL_SOCKET, SO_SNDTIMEO, (const void *) &tv, sizeof(struct timeval)) < 0) {
 			uwsgi_error("SO_SNDTIMEO setsockopt()");
 			uwsgi_nuclear_blast();
+			return -1;
 		}
 	}
 
@@ -662,6 +674,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		}
 		uwsgi_error("bind()");
 		uwsgi_nuclear_blast();
+		return -1;
 	}
 
 #ifdef __linux__
@@ -669,12 +682,14 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	if (somaxconn > 0 && uwsgi.listen_queue > somaxconn) {
 		uwsgi_log("Listen queue size is greater than the system max net.core.somaxconn (%li).\n", somaxconn);
 		uwsgi_nuclear_blast();
+		return -1;
 	}
 #endif
 
 	if (listen(serverfd, listen_queue) != 0) {
 		uwsgi_error("listen()");
 		uwsgi_nuclear_blast();
+		return -1;
 	}
 
 

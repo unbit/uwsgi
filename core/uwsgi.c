@@ -1041,6 +1041,9 @@ void grace_them_all(int signum) {
 
 void uwsgi_nuclear_blast() {
 
+	// the Emperor (as an example) cannot nuke itself
+	if (uwsgi.disable_nuclear_blast) return;
+
 	if (!uwsgi.workers) {
 		reap_them_all(0);
 	}
