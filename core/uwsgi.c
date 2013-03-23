@@ -276,9 +276,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exec-as-user-atexit", required_argument, 0, "run the specified command before app exit and reload", uwsgi_opt_add_string_list, &uwsgi.exec_as_user_atexit, 0},
 	{"exec-pre-app", required_argument, 0, "run the specified command before app loading", uwsgi_opt_add_string_list, &uwsgi.exec_pre_app, 0},
 	{"exec-post-app", required_argument, 0, "run the specified command after app loading", uwsgi_opt_add_string_list, &uwsgi.exec_post_app, 0},
-#ifdef UWSGI_INI
 	{"ini", required_argument, 0, "load config from ini file", uwsgi_opt_load_ini, NULL, UWSGI_OPT_IMMEDIATE},
-#endif
 #ifdef UWSGI_YAML
 	{"yaml", required_argument, 'y', "load config from yaml file", uwsgi_opt_load_yml, NULL, UWSGI_OPT_IMMEDIATE},
 	{"yal", required_argument, 'y', "load config from yaml file", uwsgi_opt_load_yml, NULL, UWSGI_OPT_IMMEDIATE},
@@ -3729,12 +3727,10 @@ void uwsgi_opt_deprecated(char *opt, char *value, void *message) {
 
 void uwsgi_opt_load(char *opt, char *filename, void *none) {
 
-#ifdef UWSGI_INI
 	if (uwsgi_endswith(filename, ".ini")) {
 		uwsgi_opt_load_ini(opt, filename, none);
 		return;
 	}
-#endif
 #ifdef UWSGI_XML
 	if (uwsgi_endswith(filename, ".xml")) {
 		uwsgi_opt_load_xml(opt, filename, none);
@@ -3782,12 +3778,10 @@ void uwsgi_opt_logic(char *opt, char *arg, void *func) {
 void uwsgi_opt_noop(char *opt, char *foo, void *bar) {
 }
 
-#ifdef UWSGI_INI
 void uwsgi_opt_load_ini(char *opt, char *filename, void *none) {
 	config_magic_table_fill(filename, uwsgi.magic_table);
 	uwsgi_ini_config(filename, uwsgi.magic_table);
 }
-#endif
 
 #ifdef UWSGI_XML
 void uwsgi_opt_load_xml(char *opt, char *filename, void *none) {

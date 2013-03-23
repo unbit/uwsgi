@@ -64,7 +64,6 @@ report['pcre'] = False
 report['matheval'] = False
 report['routing'] = False
 report['capabilities'] = False
-report['ini'] = False
 report['yaml'] = False
 report['json'] = False
 report['ldap'] = False
@@ -461,7 +460,7 @@ class uConf(object):
             'core/offload', 'core/io', 'core/static', 'core/websockets', 'core/spooler', 'core/snmp', 'core/exceptions',
             'core/setup_utils', 'core/clock', 'core/init', 'core/buffer', 'core/reader', 'core/writer', 'core/alarm',
             'core/plugins', 'core/lock', 'core/cache', 'core/daemons', 'core/errors', 'core/hash', 'core/master_events',
-            'core/queue', 'core/event', 'core/signal', 'core/strings', 'core/progress', 'core/timebomb',
+            'core/queue', 'core/event', 'core/signal', 'core/strings', 'core/progress', 'core/timebomb', 'core/ini',
             'core/rpc', 'core/gateway', 'core/loop', 'core/rb_timers', 'core/uwsgi']
         # add protocols
         self.gcc_list.append('proto/base')
@@ -628,7 +627,6 @@ class uConf(object):
             self.libs.append('-lkvm')
 
         if uwsgi_os == 'Haiku':
-            self.set('async', 'false')
             self.libs.remove('-rdynamic')
             self.libs.remove('-lpthread')
             self.libs.append('-lroot')
@@ -935,11 +933,6 @@ class uConf(object):
         self.cflags.append('-DUWSGI_VERSION_MINOR="' + uver_min + '"')
         self.cflags.append('-DUWSGI_VERSION_REVISION="' + uver_rev + '"')
         self.cflags.append('-DUWSGI_VERSION_CUSTOM="\\"' + uver_custom + '\\""')
-
-        if self.get('ini'):
-            self.cflags.append("-DUWSGI_INI")
-            self.gcc_list.append('core/ini')
-            report['ini'] = True
 
         if self.get('yaml'):
             self.cflags.append("-DUWSGI_YAML")

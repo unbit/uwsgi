@@ -2597,34 +2597,32 @@ struct wsgi_request *next_wsgi_req(struct wsgi_request *);
 
 void async_add_timeout(struct wsgi_request *, int);
 
-	void uwsgi_as_root(void);
+void uwsgi_as_root(void);
 
-	void uwsgi_close_request(struct wsgi_request *);
+void uwsgi_close_request(struct wsgi_request *);
 
-	void wsgi_req_setup(struct wsgi_request *, int, struct uwsgi_socket *);
-	int wsgi_req_recv(int, struct wsgi_request *);
-	int wsgi_req_async_recv(struct wsgi_request *);
-	int wsgi_req_accept(int, struct wsgi_request *);
-	int wsgi_req_simple_accept(struct wsgi_request *, int);
+void wsgi_req_setup(struct wsgi_request *, int, struct uwsgi_socket *);
+int wsgi_req_recv(int, struct wsgi_request *);
+int wsgi_req_async_recv(struct wsgi_request *);
+int wsgi_req_accept(int, struct wsgi_request *);
+int wsgi_req_simple_accept(struct wsgi_request *, int);
 
 #define current_wsgi_req() (*uwsgi.current_wsgi_req)()
 
-	void sanitize_args(void);
+void sanitize_args(void);
 
-	void env_to_arg(char *, char *);
-	void parse_sys_envs(char **);
+void env_to_arg(char *, char *);
+void parse_sys_envs(char **);
 
-	void uwsgi_log(const char *, ...);
-	void uwsgi_log_verbose(const char *, ...);
+void uwsgi_log(const char *, ...);
+void uwsgi_log_verbose(const char *, ...);
 
 
-	void *uwsgi_load_plugin(int, char *, char *);
+void *uwsgi_load_plugin(int, char *, char *);
 
-	int unconfigured_hook(struct wsgi_request *);
+int unconfigured_hook(struct wsgi_request *);
 
-#ifdef UWSGI_INI
-	void uwsgi_ini_config(char *, char *[]);
-#endif
+void uwsgi_ini_config(char *, char *[]);
 
 #ifdef UWSGI_YAML
 	void uwsgi_yaml_config(char *, char *[]);
@@ -3205,9 +3203,7 @@ struct uwsgi_string_list *uwsgi_ssl_add_sni_item(char *, char *, char *, char *,
 #endif
 void uwsgi_opt_flock(char *, char *, void *);
 void uwsgi_opt_flock_wait(char *, char *, void *);
-#ifdef UWSGI_INI
 void uwsgi_opt_load_ini(char *, char *, void *);
-#endif
 #ifdef UWSGI_XML
 void uwsgi_opt_load_xml(char *, char *, void *);
 #endif

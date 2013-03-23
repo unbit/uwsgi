@@ -55,7 +55,6 @@ void uwsgi_opt_pyver(char *opt, char *foo, void *bar) {
 }
 
 
-#ifdef UWSGI_INI
 void uwsgi_opt_ini_paste(char *opt, char *value, void *foobar) {
 
 	uwsgi_opt_load_ini(opt, value, NULL);
@@ -72,7 +71,6 @@ void uwsgi_opt_ini_paste(char *opt, char *value, void *foobar) {
 	}
 	
 }
-#endif
 
 struct uwsgi_option uwsgi_python_options[] = {
 	{"wsgi-file", required_argument, 0, "load .wsgi file", uwsgi_opt_set_str, &up.file_config, 0},
@@ -121,10 +119,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"web3", required_argument, 0, "load a web3 app", uwsgi_opt_set_str, &up.web3, 0},
 	{"pump", required_argument, 0, "load a pump app", uwsgi_opt_set_str, &up.pump, 0},
 	{"wsgi-lite", required_argument, 0, "load a wsgi-lite app", uwsgi_opt_set_str, &up.wsgi_lite, 0},
-#ifdef UWSGI_INI
 	{"ini-paste", required_argument, 0, "load a paste.deploy config file containing uwsgi section", uwsgi_opt_ini_paste, NULL, UWSGI_OPT_IMMEDIATE},
 	{"ini-paste-logged", required_argument, 0, "load a paste.deploy config file containing uwsgi section (load loggers too)", uwsgi_opt_ini_paste, NULL, UWSGI_OPT_IMMEDIATE},
-#endif
 	{"reload-os-env", no_argument, 0, "force reload of os.environ at each request", uwsgi_opt_true, &up.reload_os_env, 0},
 #ifndef __CYGWIN__
 #ifndef UWSGI_PYPY

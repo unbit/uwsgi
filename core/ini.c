@@ -1,6 +1,4 @@
-#ifdef UWSGI_INI
-
-#include "uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
@@ -157,5 +155,3 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 
 
 }
-
-#endif
