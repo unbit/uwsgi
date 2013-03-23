@@ -642,12 +642,8 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 	}
 
 	if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1) {
-#ifndef UNBIT
-		rlen = snprintf(mempkt, 4096, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size, (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024, (unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size, (unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size / 1024 / 1024);
-#else
-		rlen = snprintf(mempkt, 4096, "{address space usage: %lld bytes/%lluMB} ", (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size, (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024);
-#endif
-
+		rlen = snprintf(mempkt, 4096, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size, (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024,
+			(unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size, (unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size / 1024 / 1024);
 		logvec[logvecpos].iov_base = mempkt;
 		logvec[logvecpos].iov_len = rlen;
 		logvecpos++;
@@ -677,7 +673,11 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 void get_memusage(uint64_t * rss, uint64_t * vsz) {
 
 #ifdef UNBIT
-	*vsz = syscall(356);
+	long ret[2];
+	ret[0] = 0; ret[1] = 0;
+	syscall(358, ret);
+	*vsz = ret[0];
+	*rss = ret[1];
 #elif defined(__linux__)
 	FILE *procfile;
 	int i;
