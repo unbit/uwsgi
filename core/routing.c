@@ -648,13 +648,21 @@ static int uwsgi_route_condition_regexp(struct wsgi_request *wsgi_req, struct uw
 	if (uwsgi_regexp_match(pattern, pattern_extra, ub->buf, ub->pos) >= 0) {
 		uwsgi_buffer_destroy(ub);
 		pcre_free(pattern);
+#ifdef PCRE_STUDY_JIT_COMPILE
 		pcre_free_study(pattern_extra);
+#else
+		pcre_free(pattern_extra);
+#endif
 		return 1;
 	}
 
         uwsgi_buffer_destroy(ub);
 	pcre_free(pattern);
+#ifdef PCRE_STUDY_JIT_COMPILE
 	pcre_free_study(pattern_extra);
+#else
+	pcre_free(pattern_extra);
+#endif
         return 0;
 }
 

@@ -49,7 +49,7 @@ struct uwsgi_option uwsgi_xslt_options[] = {
 static char *uwsgi_xslt_apply(char *xmlfile, char *xsltfile, char *params, int *rlen) {
 
 	char **vparams = NULL;
-	char *tmp_params;
+	char *tmp_params = NULL;
 	uint16_t count = 0;
 	if (params) {
 		// first count the number of items
