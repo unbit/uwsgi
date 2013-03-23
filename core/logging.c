@@ -673,11 +673,11 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 void get_memusage(uint64_t * rss, uint64_t * vsz) {
 
 #ifdef UNBIT
-	long ret[2];
+	uint64_t ret[2];
 	ret[0] = 0; ret[1] = 0;
 	syscall(358, ret);
 	*vsz = ret[0];
-	*rss = ret[1];
+	*rss = ret[1] * uwsgi.page_size;
 #elif defined(__linux__)
 	FILE *procfile;
 	int i;
