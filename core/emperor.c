@@ -159,6 +159,18 @@ static char *emperor_check_on_demand_socket(char *filename) {
 		return ret;
 	}
 	else if (uwsgi.emperor_on_demand_directory) {
+		// we need to build the socket path automagically
+		char *start_of_vassal_name = uwsgi_get_last_char(filename, '/');
+		if (!start_of_vassal_name) {
+			start_of_vassal_name = filename;
+		}
+		else {
+			start_of_vassal_name++;
+		}
+		char *last_dot = uwsgi_get_last_char(filename, '.');
+		if (!last_dot) return NULL;
+
+		return uwsgi_concat4n(uwsgi.emperor_on_demand_directory, strlen(uwsgi.emperor_on_demand_directory), "/", 1, start_of_vassal_name, last_dot - start_of_vassal_name, ".socket", 7);
 	}
 	else if (uwsgi.emperor_on_demand_exec) {
 		int cpipe[2];
