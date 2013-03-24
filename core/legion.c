@@ -135,7 +135,6 @@ struct uwsgi_legion_node *uwsgi_legion_add_node(struct uwsgi_legion *ul, uint16_
 		ul->nodes_head = node;
 	}
 
-	legion_rebuild_scrolls(ul);
 
 	return node;
 
@@ -556,6 +555,8 @@ static void *legion_loop(void *foobar) {
 					node->scroll_len = legion_msg.scroll_len;
 					memcpy(node->scroll, legion_msg.scroll, node->scroll_len);
 				}
+				// we are still locked (and safe), let's rebuild the scrolls list
+				legion_rebuild_scrolls(ul);
 				uwsgi_rwunlock(ul->lock);
 				uwsgi_log("[uwsgi-legion] node: %.*s valor: %llu uuid: %.*s joined Legion %s\n", node->name_len, node->name, node->valor, 36, node->uuid, ul->legion);
 			}
