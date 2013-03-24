@@ -1236,6 +1236,9 @@ struct uwsgi_router {
 	char *referer;
 	uint16_t referer_len;
 
+	char *cookie;
+	uint16_t cookie_len;
+
 	char *path_info;
 	uint16_t path_info_len;
 	int path_info_pos;

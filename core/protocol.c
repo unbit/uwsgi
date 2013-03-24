@@ -354,6 +354,13 @@ static int uwsgi_proto_check_11(struct wsgi_request *wsgi_req, char *key, char *
 		return 0;
 	}
 
+	if (!uwsgi_proto_key("HTTP_COOKIE", 11)) {
+		wsgi_req->cookie = buf;
+		wsgi_req->cookie_len = len;
+		return 0;
+	}
+
+
 	if (!uwsgi_proto_key("UWSGI_APPID", 11)) {
 		wsgi_req->appid = buf;
 		wsgi_req->appid_len = len;
