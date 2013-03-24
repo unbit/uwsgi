@@ -10,7 +10,7 @@ extern struct uwsgi_server uwsgi;
 
 	syntax:
 
-	route = /^foobar1(.*)/ cache:key=foo$1poo,type=body,content_type=text/html,name=foobar
+	route = /^foobar1(.*)/ cache:key=foo$1poo,content_type=text/html,name=foobar
 
 */
 
@@ -23,13 +23,9 @@ struct uwsgi_router_cache_conf {
 	char *key;
 	size_t key_len;
 
-	char *type;
-
 	char *content_type;
 	size_t content_type_len;
 
-	// 0 -> full, 1 -> body
-	int type_num;
 	struct uwsgi_cache *cache;
 
 	char *expires_str;
@@ -86,12 +82,9 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 	char *value = uwsgi_cache_magic_get(ub->buf, ub->pos, &valsize, urcc->name);
 	uwsgi_buffer_destroy(ub);
 	if (value) {
-		if (urcc->type_num == 1) {
-			if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto error;
-			if (uwsgi_response_add_content_type(wsgi_req, urcc->content_type, urcc->content_type_len)) goto error;
-			if (uwsgi_response_add_content_length(wsgi_req, valsize)) goto error;
-		}
-		// body only
+		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto error;
+		if (uwsgi_response_add_content_type(wsgi_req, urcc->content_type, urcc->content_type_len)) goto error;
+		if (uwsgi_response_add_content_length(wsgi_req, valsize)) goto error;
 		uwsgi_response_write_body_do(wsgi_req, value, valsize);
 		free(value);
 		if (ur->custom)
@@ -153,7 +146,7 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
                         "key", &urcc->key,
                         "content_type", &urcc->content_type,
                         "name", &urcc->name,
-                        "type", &urcc->type, NULL)) {
+                        NULL)) {
 			uwsgi_log("invalid route syntax: %s\n", args);
 			exit(1);
                 }
@@ -167,14 +160,9 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
 			exit(1);
 		}
 
-                if (!urcc->type) urcc->type = "full";
                 if (!urcc->content_type) urcc->content_type = "text/html";
 
                 urcc->content_type_len = strlen(urcc->content_type);
-
-                if (!strcmp(urcc->type, "body")) {
-                        urcc->type_num = 1;
-                }
 
                 ur->data2 = urcc;
 	return 0;
