@@ -624,11 +624,17 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 	// do we need to store the response in the cache
 	if (wsgi_req->cache_it) {
-		if (wsgi_req->cached_response) {
+		// only response with a body and a status code of 200 can be cached (TODO allows it to be configurable)
+		if (wsgi_req->cached_response && wsgi_req->status == 200 && wsgi_req->response_size > 0) {
 			uwsgi_cache_magic_set(wsgi_req->cache_it->buf, wsgi_req->cache_it->pos,
-				wsgi_req->cached_response->buf, wsgi_req->cached_response->pos, wsgi_req->cache_it_expires, UWSGI_CACHE_FLAG_UPDATE, wsgi_req->cache_it_to);
+				wsgi_req->cached_response->buf, wsgi_req->cached_response->pos, wsgi_req->cache_it_expires, UWSGI_CACHE_FLAG_UPDATE, wsgi_req->cache_it_to ? wsgi_req->cache_it_to->buf : NULL);
 		}
 		uwsgi_buffer_destroy(wsgi_req->cache_it);
+			
+	}
+
+	if (wsgi_req->cache_it_to) {
+		uwsgi_buffer_destroy(wsgi_req->cache_it_to);
 	}
 
 	if (wsgi_req->cached_response) {
