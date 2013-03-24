@@ -1383,6 +1383,11 @@ struct uwsgi_router {
 	// internal routing goto instruction
 	uint32_t route_goto;
 
+	struct uwsgi_buffer *cache_it;
+	char *cache_it_to;
+	uint64_t cache_it_expires;
+	struct uwsgi_buffer *cached_response;
+
 	struct msghdr msg;
 	union {
 		struct cmsghdr cmsg;

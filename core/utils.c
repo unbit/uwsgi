@@ -622,6 +622,19 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		free(wsgi_req->proto_parser_buf);
 	}
 
+	// do we need to store the response in the cache
+	if (wsgi_req->cache_it) {
+		if (wsgi_req->cached_response) {
+			uwsgi_cache_magic_set(wsgi_req->cache_it->buf, wsgi_req->cache_it->pos,
+				wsgi_req->cached_response->buf, wsgi_req->cached_response->pos, wsgi_req->cache_it_expires, UWSGI_CACHE_FLAG_UPDATE, wsgi_req->cache_it_to);
+		}
+		uwsgi_buffer_destroy(wsgi_req->cache_it);
+	}
+
+	if (wsgi_req->cached_response) {
+		uwsgi_buffer_destroy(wsgi_req->cached_response);
+	}
+
 	if (!wsgi_req->do_not_account) {
 		uwsgi.workers[0].requests++;
 		uwsgi.workers[uwsgi.mywid].requests++;

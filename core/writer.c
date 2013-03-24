@@ -141,6 +141,7 @@ int uwsgi_response_write_headers_do(struct wsgi_request *wsgi_req) {
         return UWSGI_OK;
 }
 
+// this is the function called by all request plugins to send chunks to the client
 int uwsgi_response_write_body_do(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 
 	if (wsgi_req->write_errors) return -1;
@@ -181,6 +182,18 @@ sendbody:
 	wsgi_req->response_size += wsgi_req->write_pos;
 	// reset for the next write
         wsgi_req->write_pos = 0;
+
+	// now we need to check if the chunk must be stored
+	if (wsgi_req->cache_it) {
+		if (!wsgi_req->cached_response) {
+			wsgi_req->cached_response = uwsgi_buffer_new(len);
+		}
+		// if we are unable to append the buffer, we just stop caching it
+		if (uwsgi_buffer_append(wsgi_req->cached_response, buf, len)) {
+			uwsgi_buffer_destroy(wsgi_req->cache_it);
+			wsgi_req->cache_it = NULL;
+		}
+	}
 
 	return UWSGI_OK;	
 }
