@@ -137,7 +137,7 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
 		int i;
                 for(i=1;i<=uwsgi.numproc;i++) {
                         int pos = (i * 256);
-                        memcpy(&uwsgi.shared->signal_table[pos], use, sizeof(struct uwsgi_signal_entry) * 256);
+                        memcpy(&uwsgi.shared->signal_table[pos], &uwsgi.shared->signal_table[0], sizeof(struct uwsgi_signal_entry) * 256);
                 }
 	}
 
