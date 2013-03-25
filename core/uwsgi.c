@@ -80,6 +80,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"for", required_argument, 0, "(opt logic) for cycle", uwsgi_opt_logic, (void *) uwsgi_logic_opt_for, UWSGI_OPT_IMMEDIATE},
 	{"for-glob", required_argument, 0, "(opt logic) for cycle (expand glob)", uwsgi_opt_logic, (void *) uwsgi_logic_opt_for_glob, UWSGI_OPT_IMMEDIATE},
 	{"endfor", optional_argument, 0, "(opt logic) end for cycle", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
+	{"end-for", optional_argument, 0, "(opt logic) end for cycle", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{"if-opt", required_argument, 0, "(opt logic) check for option", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_opt, UWSGI_OPT_IMMEDIATE},
 	{"if-not-opt", required_argument, 0, "(opt logic) check for option", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_opt, UWSGI_OPT_IMMEDIATE},
@@ -108,6 +109,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"if-directory", required_argument, 0, "(opt logic) check for directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_dir, UWSGI_OPT_IMMEDIATE},
 
 	{"endif", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
+	{"end-if", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{"blacklist", required_argument, 0, "set options blacklist context", uwsgi_opt_set_str, &uwsgi.blacklist_context, UWSGI_OPT_IMMEDIATE},
 	{"end-blacklist", no_argument, 0, "clear options blacklist context", uwsgi_opt_set_null, &uwsgi.blacklist_context, UWSGI_OPT_IMMEDIATE},
