@@ -666,6 +666,20 @@ static int uwsgi_route_condition_regexp(struct wsgi_request *wsgi_req, struct uw
         return 0;
 }
 
+static int uwsgi_route_condition_empty(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, ur->subject_str_len);
+        if (!ub) return -1;
+
+	if (ub->pos == 0) {
+        	uwsgi_buffer_destroy(ub);
+        	return 1;
+	}
+
+        uwsgi_buffer_destroy(ub);
+        return 0;
+}
+
 
 static int uwsgi_route_condition_equal(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 	char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
@@ -806,6 +820,8 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_route_condition("endswith", uwsgi_route_condition_endswith);
         uwsgi_register_route_condition("regexp", uwsgi_route_condition_regexp);
         uwsgi_register_route_condition("re", uwsgi_route_condition_regexp);
+
+        uwsgi_register_route_condition("empty", uwsgi_route_condition_empty);
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {
