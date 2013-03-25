@@ -86,7 +86,7 @@ struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *wsgi_req, stru
 					if (bracket && keylen > 0 && key[keylen-1] == ']') {
 						struct uwsgi_route_var *urv = uwsgi_get_route_var(key, bracket - key);
 						if (urv) {
-							value = urv->func(wsgi_req, bracket + 1, keylen - (urv->name_len+1), &vallen); 
+							value = urv->func(wsgi_req, bracket + 1, keylen - (urv->name_len+2), &vallen); 
 						}
 						else {
 							value = uwsgi_get_var(wsgi_req, key, keylen, &vallen);
