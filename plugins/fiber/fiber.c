@@ -2,6 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_rack ur;
+extern struct uwsgi_plugin rack_plugin;
 
 struct ufib {
 	int enabled;
@@ -45,7 +46,7 @@ static void fiber_schedule_to_req() {
 	int error = 0;
 	rb_protect(rb_fiber_schedule_to_req, 0, &error);
 	if (error) {
-                uwsgi_ruby_exception();
+		rack_plugin.exception_log(NULL);
 		rb_gc_unregister_address(&ufiber.fib[id]);
 		uwsgi.wsgi_req->async_status = UWSGI_OK;
 	}
