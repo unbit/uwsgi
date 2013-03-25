@@ -3913,6 +3913,7 @@ void uwsgi_crc32(uint32_t *, char *, size_t);
 #endif
 
 char *uwsgi_get_cookie(struct wsgi_request *, char *, uint16_t, uint16_t *);
+char *uwsgi_get_qs(struct wsgi_request *, char *, uint16_t, uint16_t *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

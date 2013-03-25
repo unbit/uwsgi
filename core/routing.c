@@ -50,6 +50,12 @@ struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *wsgi_req, stru
                                                         if (uwsgi_buffer_append(ub, value, vallen)) goto error;
                                                 }
 					}
+					else if (!uwsgi_starts_with(key, keylen, "qs[", 3) && keylen > 0 && key[keylen-1] == ']') {
+						char *value = uwsgi_get_qs(wsgi_req, key + 3, keylen -4, &vallen);
+                                                if (value) {
+                                                        if (uwsgi_buffer_append(ub, value, vallen)) goto error;
+                                                }
+					}
 					else {
 						char *value = uwsgi_get_var(wsgi_req, key, keylen, &vallen);
 						if (value) {
