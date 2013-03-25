@@ -7,6 +7,8 @@ extern struct uwsgi_server uwsgi;
    This memory must not be freed for all the server lifecycle
    */
 
+static char *last_file = NULL;
+
 void ini_rstrip(char *line) {
 
 	off_t i;
@@ -104,13 +106,23 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 		if (colon[1] != 0) {
 			section_asked = colon + 1;
 		}
+
+		if (colon == file) {
+			file = last_file;
+		}
 	}
 
-	if (file[0] != 0) {
+	if (file[0] != 0 && file != last_file) {
 		uwsgi_log_initial("[uWSGI] getting INI configuration from %s\n", file);
 	}
 
 	ini = uwsgi_open_and_read(file, &len, 1, magic_table);
+	if (file != last_file) {
+		if (last_file) {
+			free(last_file);
+		}
+		last_file = uwsgi_str(file);
+	}
 
 	while (len) {
 		ini_line = ini_get_line(ini, len);

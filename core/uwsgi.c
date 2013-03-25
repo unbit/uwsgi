@@ -786,7 +786,11 @@ void config_magic_table_fill(char *filename, char **magic_table) {
         char *section = uwsgi_get_last_char(filename, ':');
         if (section) {
                 *section = 0;
+		if (section == filename) {
+			goto reuse;
+		}
 	}
+
 
 	// we have a special case for symlinks
 	if (uwsgi_is_link(filename)) {
@@ -841,6 +845,7 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 	if (uwsgi_get_last_char(magic_table['s'], '.'))
 		magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.') - magic_table['s'], "", 0);
 
+reuse:
 	if (section) {
 		magic_table['x'] = section+1;
 		*section = ':';
