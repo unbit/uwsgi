@@ -3912,6 +3912,8 @@ char *uwsgi_deflate(z_stream *, char *, size_t, size_t *);
 void uwsgi_crc32(uint32_t *, char *, size_t);
 #endif
 
+char *uwsgi_get_cookie(struct wsgi_request *, char *, uint16_t, uint16_t *);
+
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

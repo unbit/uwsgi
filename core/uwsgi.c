@@ -513,6 +513,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"route-label", required_argument, 0, "add a routing label (for use with goto)", uwsgi_opt_add_route, NULL, 0},
 	{"route-if", required_argument, 0, "add a route based on condition", uwsgi_opt_add_route, "if", 0},
 	{"route-if-not", required_argument, 0, "add a route based on condition (negate version)", uwsgi_opt_add_route, "if-not", 0},
+	{"route-run", required_argument, 0, "always run the specified route action", uwsgi_opt_add_route, "run", 0},
 	{"router-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 	{"routers-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 #endif

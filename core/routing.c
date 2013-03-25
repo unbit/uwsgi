@@ -44,9 +44,17 @@ struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *wsgi_req, stru
 			case 2:
 				if (pass1[i] == '}') {
 					uint16_t vallen = 0;
-					char *value = uwsgi_get_var(wsgi_req, key, keylen, &vallen);
-					if (value) {
-						if (uwsgi_buffer_append(ub, value, vallen)) goto error;
+					if (!uwsgi_starts_with(key, keylen, "cookie[", 7) && keylen > 0 && key[keylen-1] == ']') {
+						char *value = uwsgi_get_cookie(wsgi_req, key + 7, keylen -8, &vallen);	
+						if (value) {
+                                                        if (uwsgi_buffer_append(ub, value, vallen)) goto error;
+                                                }
+					}
+					else {
+						char *value = uwsgi_get_var(wsgi_req, key, keylen, &vallen);
+						if (value) {
+							if (uwsgi_buffer_append(ub, value, vallen)) goto error;
+						}
 					}
                                         status = 0;
 					key = NULL;
@@ -108,6 +116,11 @@ int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req, char *subject, uint16_t
 		wsgi_req->route_goto = 0;
 
 		if (!routes->if_func) {
+			// could be a "run"
+			if (!routes->subject) {
+				n = 0;
+				goto run;
+			}
 			if (!subject) {
 				char **subject2 = (char **) (((char *) (wsgi_req)) + routes->subject);
 				uint16_t *subject_len2 = (uint16_t *) (((char *) (wsgi_req)) + routes->subject_len);
@@ -137,6 +150,7 @@ int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req, char *subject, uint16_t
 			}
 		}
 
+run:
 		if (n >= 0) {
 			wsgi_req->is_routing = 1;
 			int ret = routes->func(wsgi_req, routes);
@@ -197,6 +211,8 @@ static void *uwsgi_route_get_condition_func(char *name) {
 
 void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 
+	char *space = NULL;
+	char *command = NULL;
 	struct uwsgi_route *old_ur = NULL,*ur = uwsgi.routes;
 	uint64_t pos = 0;
 	while(ur) {
@@ -223,7 +239,12 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 
 	char *route = uwsgi_str(value);
 
-	char *space = strchr(route, ' ');
+	if (!strcmp(foobar, "run")) {
+		command = route;	
+		goto done;
+	}
+
+	space = strchr(route, ' ');
 	if (!space) {
 		uwsgi_log("invalid route syntax\n");
 		exit(1);
@@ -299,7 +320,8 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 		}
 	}
 
-	char *command = space + 1;
+	command = space + 1;
+done:
 	ur->action = uwsgi_str(command);
 
 	char *colon = strchr(command, ':');
@@ -879,6 +901,9 @@ void uwsgi_routing_dump() {
 	while(routes) {
 		if (routes->label) {
 			uwsgi_log("[rule: %llu] label: %s\n", (unsigned long long ) routes->pos, routes->label);
+		}
+		else if (!routes->subject_str && !routes->if_func) {
+			uwsgi_log("[rule: %llu] action: %s\n", (unsigned long long ) routes->pos, routes->action);
 		}
 		else {
 			uwsgi_log("[rule: %llu] subject: %s %s: %s%s action: %s\n", (unsigned long long ) routes->pos, routes->subject_str, routes->if_func ? "func" : "regexp", routes->if_negate ? "!" : "", routes->regexp, routes->action);
