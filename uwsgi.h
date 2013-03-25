@@ -1106,6 +1106,13 @@ struct uwsgi_route_condition {
 	struct uwsgi_route_condition *next;
 };
 
+struct uwsgi_route_var {
+	char *name;
+	uint16_t name_len;
+	char *(*func)(struct wsgi_request *, char *, uint16_t, uint16_t *);
+	struct uwsgi_route_var *next;
+};
+
 struct uwsgi_router {
 	char *name;
 	int (*func) (struct uwsgi_route *, char *);
@@ -2076,6 +2083,7 @@ struct uwsgi_server {
 	struct uwsgi_router *routers;
 	struct uwsgi_route *routes;
 	struct uwsgi_route_condition *route_conditions;
+	struct uwsgi_route_var *route_vars;
 #endif
 
 	int single_interpreter;
@@ -3914,6 +3922,9 @@ void uwsgi_crc32(uint32_t *, char *, size_t);
 
 char *uwsgi_get_cookie(struct wsgi_request *, char *, uint16_t, uint16_t *);
 char *uwsgi_get_qs(struct wsgi_request *, char *, uint16_t, uint16_t *);
+
+struct uwsgi_route_var *uwsgi_get_route_var(char *, uint16_t);
+struct uwsgi_route_var *uwsgi_register_route_var(char *, char *(*)(struct wsgi_request *, char *, uint16_t, uint16_t *));
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

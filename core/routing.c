@@ -3,6 +3,43 @@
 
 extern struct uwsgi_server uwsgi;
 
+struct uwsgi_route_var *uwsgi_register_route_var(char *name, char *(*func)(struct wsgi_request *, char *, uint16_t, uint16_t *)) {
+
+	struct uwsgi_route_var *old_urv = NULL,*urv = uwsgi.route_vars;
+        while(urv) {
+                if (!strcmp(urv->name, name)) {
+                        return urv;
+                }
+                old_urv = urv;
+                urv = urv->next;
+        }
+
+        urv = uwsgi_calloc(sizeof(struct uwsgi_route_var));
+        urv->name = name;
+	urv->name_len = strlen(name);
+        urv->func = func;
+
+        if (old_urv) {
+                old_urv->next = urv;
+        }
+        else {
+                uwsgi.route_vars = urv;
+        }
+
+        return urv;
+}
+
+struct uwsgi_route_var *uwsgi_get_route_var(char *name, uint16_t name_len) {
+	struct uwsgi_route_var *urv = uwsgi.route_vars;
+	while(urv) {
+		if (!uwsgi_strncmp(urv->name, urv->name_len, name, name_len)) {
+			return urv;
+		}
+		urv = urv->next;
+	}
+	return NULL;
+}
+
 struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *wsgi_req, struct uwsgi_route *ur, char *subject, uint16_t subject_len, char *data, size_t data_len) {
 
 	char *pass1 = data;
@@ -44,23 +81,22 @@ struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *wsgi_req, stru
 			case 2:
 				if (pass1[i] == '}') {
 					uint16_t vallen = 0;
-					if (!uwsgi_starts_with(key, keylen, "cookie[", 7) && keylen > 0 && key[keylen-1] == ']') {
-						char *value = uwsgi_get_cookie(wsgi_req, key + 7, keylen -8, &vallen);	
-						if (value) {
-                                                        if (uwsgi_buffer_append(ub, value, vallen)) goto error;
-                                                }
-					}
-					else if (!uwsgi_starts_with(key, keylen, "qs[", 3) && keylen > 0 && key[keylen-1] == ']') {
-						char *value = uwsgi_get_qs(wsgi_req, key + 3, keylen -4, &vallen);
-                                                if (value) {
-                                                        if (uwsgi_buffer_append(ub, value, vallen)) goto error;
-                                                }
+					char *value = NULL;
+					char *bracket = memchr(key, '[', keylen);
+					if (bracket && keylen > 0 && key[keylen-1] == ']') {
+						struct uwsgi_route_var *urv = uwsgi_get_route_var(key, bracket - key);
+						if (urv) {
+							value = urv->func(wsgi_req, bracket + 1, keylen - (urv->name_len+1), &vallen); 
+						}
+						else {
+							value = uwsgi_get_var(wsgi_req, key, keylen, &vallen);
+						}
 					}
 					else {
-						char *value = uwsgi_get_var(wsgi_req, key, keylen, &vallen);
-						if (value) {
-							if (uwsgi_buffer_append(ub, value, vallen)) goto error;
-						}
+						value = uwsgi_get_var(wsgi_req, key, keylen, &vallen);
+					}
+					if (value) {
+						if (uwsgi_buffer_append(ub, value, vallen)) goto error;
 					}
                                         status = 0;
 					key = NULL;
@@ -850,6 +886,9 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_route_condition("re", uwsgi_route_condition_regexp);
 
         uwsgi_register_route_condition("empty", uwsgi_route_condition_empty);
+
+        uwsgi_register_route_var("cookie", uwsgi_get_cookie);
+        uwsgi_register_route_var("qs", uwsgi_get_qs);
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {
