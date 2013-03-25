@@ -1110,6 +1110,7 @@ struct uwsgi_route_var {
 	char *name;
 	uint16_t name_len;
 	char *(*func)(struct wsgi_request *, char *, uint16_t, uint16_t *);
+	int need_free;
 	struct uwsgi_route_var *next;
 };
 

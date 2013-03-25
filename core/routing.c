@@ -81,11 +81,13 @@ struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *wsgi_req, stru
 			case 2:
 				if (pass1[i] == '}') {
 					uint16_t vallen = 0;
+					int need_free = 0;
 					char *value = NULL;
 					char *bracket = memchr(key, '[', keylen);
 					if (bracket && keylen > 0 && key[keylen-1] == ']') {
 						struct uwsgi_route_var *urv = uwsgi_get_route_var(key, bracket - key);
 						if (urv) {
+							need_free = urv->need_free;
 							value = urv->func(wsgi_req, bracket + 1, keylen - (urv->name_len+2), &vallen); 
 						}
 						else {
@@ -96,7 +98,15 @@ struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *wsgi_req, stru
 						value = uwsgi_get_var(wsgi_req, key, keylen, &vallen);
 					}
 					if (value) {
-						if (uwsgi_buffer_append(ub, value, vallen)) goto error;
+						if (uwsgi_buffer_append(ub, value, vallen)) {
+							if (need_free) {
+								free(value);
+							}
+							goto error;
+						}
+						if (need_free) {
+							free(value);
+						}
 					}
                                         status = 0;
 					key = NULL;
