@@ -61,7 +61,7 @@ static struct uwsgi_ssi_cmd *uwsgi_register_ssi_command(char *name, struct uwsgi
         return usc;
 }
 
-static void uwsgi_ssi_parse_args(struct wsgi_request *wsgi_req, char *buf, size_t len, struct uwsgi_ssi_arg *argv, int *argc) {
+static int uwsgi_ssi_parse_args(struct wsgi_request *wsgi_req, char *buf, size_t len, struct uwsgi_ssi_arg *argv, int *argc) {
 	// status [0]null/= [1]" [2]" [3]\s
 	size_t i;
 	uint8_t status = 0;
@@ -84,7 +84,7 @@ static void uwsgi_ssi_parse_args(struct wsgi_request *wsgi_req, char *buf, size_
 					status = 2;
 				}
 				else {
-					return;
+					return -1;
 				}
 				break;
 			case 2:
@@ -94,7 +94,7 @@ static void uwsgi_ssi_parse_args(struct wsgi_request *wsgi_req, char *buf, size_
 					argv[*argc].value = value; argv[*argc].val_len = val_len;
 					*argc = *argc+1;
 					if (*argc >= UWSGI_SSI_MAX_ARGS) {
-						return;
+						return -1;
 					}
 					key = NULL;
 					key_len = 0;
@@ -116,12 +116,13 @@ static void uwsgi_ssi_parse_args(struct wsgi_request *wsgi_req, char *buf, size_
 				}
 				break;
 			default:
-				return;
+				return -1;
 		}
 	}
+	return 0;
 }
 
-static void uwsgi_ssi_parse_command(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+static struct uwsgi_buffer *uwsgi_ssi_parse_command(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 	// first remove white spaces from the begin and the end
 	char *cmd = buf;
 	size_t cmd_len = len;
@@ -162,13 +163,13 @@ static void uwsgi_ssi_parse_command(struct wsgi_request *wsgi_req, char *buf, si
 	}
 
 	if (!found) {
-		return;
+		return NULL;
 	}
 
 	uwsgi_log("SSI cmd = ^%.*s^\n", ssi_cmd_len, ssi_cmd);
 
 	struct uwsgi_ssi_cmd *usc = uwsgi_ssi_get_cmd(ssi_cmd, ssi_cmd_len);
-	if (!usc) return ;
+	if (!usc) return NULL ;
 
 	// now split the args
 	struct uwsgi_ssi_arg argv[UWSGI_SSI_MAX_ARGS];
@@ -189,21 +190,19 @@ static void uwsgi_ssi_parse_command(struct wsgi_request *wsgi_req, char *buf, si
 
 	uwsgi_log("SSI args = #%.*s#\n", cmd_args_len, cmd_args);
 
-	uwsgi_ssi_parse_args(wsgi_req, cmd_args, cmd_args_len, argv, &argc);
-
-	struct uwsgi_buffer *ub = usc->func(wsgi_req, argv, argc);
-	if (ub) {
-		uwsgi_log("RETURN = %.*s\n", ub->pos, ub->buf);
-		uwsgi_buffer_destroy(ub);
+	if (uwsgi_ssi_parse_args(wsgi_req, cmd_args, cmd_args_len, argv, &argc)) {
+		return NULL;
 	}
-	
+
+	return usc->func(wsgi_req, argv, argc);
 }
 
-static void uwsgi_ssi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+static struct uwsgi_buffer *uwsgi_ssi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 	size_t i;
 	uint8_t status = 0;
 	char *cmd = NULL;
 	size_t cmd_len = 0;
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(len);
 	// parsing status 0[null] 1[<] 2[!] 3[-] 4[-] 5[#/-] 6[-] 7[>]
         // on status 6-7-8 the reset action come back to 5 instead of 0 
 	for(i=0;i<len;i++) {
@@ -212,11 +211,18 @@ static void uwsgi_ssi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len
 				if (buf[i] == '<') {
 					status = 1;
 				}
+				else {
+					if (uwsgi_buffer_append(ub, &buf[i], 1)) goto error;
+				}
 				break;
 			case 1:
 				status = 0;
 				if (buf[i] == '!') {
 					status = 2;
+				}
+				else {
+					if (uwsgi_buffer_append(ub, "<", 1)) goto error;
+					if (uwsgi_buffer_append(ub, &buf[i], 1)) goto error;
 				}
 				break;
 			case 2:
@@ -224,17 +230,29 @@ static void uwsgi_ssi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len
 				if (buf[i] == '-') {
 					status = 3;
 				}
+				else {
+					if (uwsgi_buffer_append(ub, "<!", 2)) goto error;
+					if (uwsgi_buffer_append(ub, &buf[i], 1)) goto error;
+				}
 				break;
 			case 3:
 				status = 0;
 				if (buf[i] == '-') {
 					status = 4;
 				}
+				else {
+					if (uwsgi_buffer_append(ub, "<!-", 3)) goto error;
+					if (uwsgi_buffer_append(ub, &buf[i], 1)) goto error;
+				}
 				break;
 			case 4:
 				status = 0;
 				if (buf[i] == '#') {
 					status = 5;
+				}
+				else {
+					if (uwsgi_buffer_append(ub, "<!--", 4)) goto error;
+					if (uwsgi_buffer_append(ub, &buf[i], 1)) goto error;
 				}
 				break;
 			case 5:
@@ -260,7 +278,14 @@ static void uwsgi_ssi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len
 				status = 5;
 				if (buf[i] == '>') {
 					status = 0;
-					uwsgi_ssi_parse_command(wsgi_req, cmd, cmd_len);
+					struct uwsgi_buffer *ub_cmd = uwsgi_ssi_parse_command(wsgi_req, cmd, cmd_len);
+					if (ub_cmd) {
+						if (uwsgi_buffer_append(ub, ub_cmd->buf, ub_cmd->pos)) {
+							uwsgi_buffer_destroy(ub_cmd);
+							goto error;
+						}
+						uwsgi_buffer_destroy(ub_cmd);
+					}
 					cmd = NULL;
 					cmd_len = 0;	
                                 }
@@ -269,12 +294,19 @@ static void uwsgi_ssi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len
                                 }
 				break;
 			default:
-				return;
+				goto error;
 		}
 	}
+
+	return ub;
+
+error:
+	uwsgi_buffer_destroy(ub);
+	return NULL;
 }
 
 static int uwsgi_ssi_request(struct wsgi_request *wsgi_req) {
+	struct uwsgi_buffer *ub = NULL;
 
 	if (uwsgi_parse_vars(wsgi_req)) {
                 return -1;
@@ -284,11 +316,35 @@ static int uwsgi_ssi_request(struct wsgi_request *wsgi_req) {
 	int fd = open("foo.shtml", O_RDONLY);
 
 	ssize_t len = read(fd, buf, 32768);
+	close(fd);
 	uwsgi_log("LEN = %d\n", len);
 
-	uwsgi_ssi_parse(wsgi_req, buf, len);
+	ub = uwsgi_ssi_parse(wsgi_req, buf, len);
+	if (!ub) {
+               	uwsgi_500(wsgi_req);
+		return UWSGI_OK;
+	}
+	// prepare headers
+       	if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) {
+               	uwsgi_500(wsgi_req);
+               	goto end;
+       	}
+       	// content_length
+       	if (uwsgi_response_add_content_length(wsgi_req, ub->pos)) {
+               	uwsgi_500(wsgi_req);
+               	goto end;
+       	}
+       	// content_type
+       	if (uwsgi_response_add_content_type(wsgi_req, "text/html", 9)) {
+               	uwsgi_500(wsgi_req);
+               	goto end;
+       	}
 
-	close(fd);
+	uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+end:
+	if (ub) {
+		uwsgi_buffer_destroy(ub);
+	}
 	return UWSGI_OK;
 }
 
