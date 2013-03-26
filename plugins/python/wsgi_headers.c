@@ -58,11 +58,12 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	char *status_line = NULL;
 	size_t status_line_len = 0;
 #ifdef PYTHREE
+	PyObject *zero = NULL;
+	PyObject *zero2 = NULL;
 		if (self != Py_None) {
-			PyObject *zero = PyUnicode_AsASCIIString(head);
+			zero = PyUnicode_AsASCIIString(head);
 			status_line = PyBytes_AsString(zero);
 			status_line_len = PyBytes_Size(zero);
-			Py_DECREF(zero);
 		}
 		else {
 			status_line = PyBytes_AsString(head);
@@ -73,9 +74,15 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		status_line_len = PyString_Size(head);
 #endif
 	if (uwsgi_response_prepare_headers(wsgi_req, status_line, status_line_len)) {
+#ifdef PYTHREE
+		Py_DECREF(zero);
+#endif
 		return PyErr_Format(PyExc_TypeError, "unable to set HTTP status line");
 	}
 
+#ifdef PYTHREE
+	Py_DECREF(zero);
+#endif
 
 	headers = PyTuple_GetItem(args, 1);
 	if (!headers) {
@@ -125,10 +132,9 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 #ifdef PYTHREE
 		if (self != Py_None) {
-			PyObject *zero = PyUnicode_AsASCIIString(h_key);
+			zero = PyUnicode_AsASCIIString(h_key);
 			k = PyBytes_AsString(zero);
 			kl = PyBytes_Size(zero);
-                        Py_DECREF(zero);
 		}
 		else {
 			k = PyBytes_AsString(h_key);
@@ -141,10 +147,9 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 #ifdef PYTHREE
 		if (self != Py_None) {
-			PyObject *zero = PyUnicode_AsASCIIString(h_value);
-			v = PyBytes_AsString(zero);
-			vl = PyBytes_Size(zero);
-                        Py_DECREF(zero);
+			zero2 = PyUnicode_AsASCIIString(h_value);
+			v = PyBytes_AsString(zero2);
+			vl = PyBytes_Size(zero2);
 		}
 		else {
 			v = PyBytes_AsString(h_value);
@@ -156,8 +161,17 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 #endif
 
 		if (uwsgi_response_add_header(wsgi_req, k, kl, v, vl)) {
+#ifdef PYTHREE
+			Py_DECREF(zero);
+			Py_DECREF(zero2);
+#endif
 			return PyErr_Format(PyExc_TypeError, "unable to add header to the response");
 		}
+
+#ifdef PYTHREE
+		Py_DECREF(zero);
+		Py_DECREF(zero2);
+#endif
 
 	}
 

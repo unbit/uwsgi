@@ -124,8 +124,8 @@ static int consume_body_for_readline(struct wsgi_request *wsgi_req) {
 
 	// read from post_buffering memory
 	if (uwsgi.post_buffering) {
-		wsgi_req->post_pos += wsgi_req->post_readline_size - wsgi_req->post_readline_watermark;
 		memcpy(wsgi_req->post_readline_buf + wsgi_req->post_readline_watermark, wsgi_req->post_buffering_buf + wsgi_req->post_pos, wsgi_req->post_readline_size - wsgi_req->post_readline_watermark);
+		wsgi_req->post_pos += wsgi_req->post_readline_size - wsgi_req->post_readline_watermark;
 		wsgi_req->post_readline_watermark += wsgi_req->post_readline_size - wsgi_req->post_readline_watermark;
 		return 0;
 	}
@@ -347,7 +347,6 @@ char *uwsgi_request_body_read(struct wsgi_request *wsgi_req, ssize_t hint, ssize
 	if (wsgi_req->post_file) {
 		if (fread(wsgi_req->post_read_buf + *rlen, remains, 1, wsgi_req->post_file) != 1) {
 			*rlen = -1;
-			uwsgi_log("%llu\n", remains);
 			uwsgi_error("uwsgi_request_body_read()/fread()");
 			return NULL;
 		}
