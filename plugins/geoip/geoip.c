@@ -44,6 +44,7 @@ static char *uwsgi_route_var_geoip(struct wsgi_request *wsgi_req, char *key, uin
 	if (inet_pton(AF_INET, ip_str, &ip) <= 0) {
 		return NULL;
 	}
+	ip = htonl(ip);
 	char *value = NULL;
 	// always prefer the city database;
 	GeoIP *g = ugeoip.city;
@@ -96,12 +97,16 @@ static char *uwsgi_route_var_geoip(struct wsgi_request *wsgi_req, char *key, uin
 	else if (!uwsgi_strncmp(key, keylen, "postal_code", 11)) {
 		value = gr->postal_code;
 	}
+
 	
 	if (value) {
 		*vallen = strlen(value);
-                return uwsgi_str(value);
+                char *ret = uwsgi_str(value);
+		GeoIPRecord_delete(gr);
+		return ret;
 	}
 
+	GeoIPRecord_delete(gr);
 	return NULL;
 }
 
