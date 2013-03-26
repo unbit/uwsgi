@@ -3602,6 +3602,7 @@ int uwsgi_buffer_insert_chunked(struct uwsgi_buffer *, size_t, size_t);
 int uwsgi_buffer_append_chunked(struct uwsgi_buffer *, size_t);
 int uwsgi_buffer_append_json(struct uwsgi_buffer *, char *, size_t);
 int uwsgi_buffer_set_uh(struct uwsgi_buffer *, uint8_t, uint8_t);
+struct uwsgi_buffer *uwsgi_buffer_from_file(char *);
 
 ssize_t uwsgi_buffer_write_simple(struct wsgi_request *, struct uwsgi_buffer *);
 

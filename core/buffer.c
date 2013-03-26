@@ -328,3 +328,29 @@ int uwsgi_buffer_set_uh(struct uwsgi_buffer *ub, uint8_t modifier1, uint8_t modi
 	ub->buf[3] = modifier2;
 	return 0;
 }
+
+struct uwsgi_buffer *uwsgi_buffer_from_file(char *filename) {
+	struct stat st;
+        int fd = open(filename, O_RDONLY);
+        if (fd < 0) {
+		return NULL;
+        }
+
+        if (fstat(fd, &st)) {
+                close(fd);
+		return NULL;
+        }
+
+        struct uwsgi_buffer *ub = uwsgi_buffer_new(st.st_size);
+
+        ssize_t len = read(fd, ub->buf, st.st_size);
+	close(fd);
+        if (len != st.st_size) {
+		uwsgi_buffer_destroy(ub);
+		return NULL;
+        }
+
+	ub->pos = len;
+	return ub;
+}
+

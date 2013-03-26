@@ -154,8 +154,6 @@ static struct uwsgi_buffer *uwsgi_ssi_parse_command(struct wsgi_request *wsgi_re
                 }
         }
 
-	uwsgi_log("CMD = |%.*s|\n", cmd_len, cmd);
-
 	// now get the command
 	char *ssi_cmd = cmd;
 	size_t ssi_cmd_len = 0;
@@ -168,8 +166,6 @@ static struct uwsgi_buffer *uwsgi_ssi_parse_command(struct wsgi_request *wsgi_re
 		}
 		ssi_cmd_len++;
 	}
-
-	uwsgi_log("SSI cmd = ^%.*s^\n", ssi_cmd_len, ssi_cmd);
 
 	struct uwsgi_ssi_cmd *usc = uwsgi_ssi_get_cmd(ssi_cmd, ssi_cmd_len);
 	if (!usc) return NULL ;
@@ -190,14 +186,11 @@ static struct uwsgi_buffer *uwsgi_ssi_parse_command(struct wsgi_request *wsgi_re
 		}
 	}
 
-	uwsgi_log("SSI args = #%.*s#\n", cmd_args_len, cmd_args);
-
 	if (uwsgi_ssi_parse_args(wsgi_req, cmd_args, cmd_args_len, argv, &argc)) {
 		return NULL;
 	}
 
 run:
-	uwsgi_log("ready to call...\n");
 	return usc->func(wsgi_req, argv, argc);
 }
 
@@ -316,14 +309,32 @@ static int uwsgi_ssi_request(struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
-	char buf[32768];
-	int fd = open("foo.shtml", O_RDONLY);
+	if (!wsgi_req->document_root_len || !wsgi_req->path_info_len) {
+		uwsgi_log("[uwsgi-ssi] DOCUMENT_ROOT and PATH_INFO must be defined !!!\n");
+		uwsgi_500(wsgi_req);
+		return UWSGI_OK;
+	}
 
-	ssize_t len = read(fd, buf, 32768);
-	close(fd);
-	uwsgi_log("LEN = %d\n", len);
+	char *filename = uwsgi_concat3n(wsgi_req->document_root, wsgi_req->document_root_len, "/", 1, wsgi_req->path_info, wsgi_req->path_info_len);
+	size_t filename_len = wsgi_req->document_root_len + 1 + wsgi_req->path_info_len;
+	
+	// we expand the path for future security implementations
+	char *real_filename = uwsgi_expand_path(filename, filename_len, NULL);
+	free(filename);
+	if (!real_filename) {
+		uwsgi_404(wsgi_req);
+		return UWSGI_OK;
+	}
 
-	ub = uwsgi_ssi_parse(wsgi_req, buf, len);
+	struct uwsgi_buffer *ub_ssi = uwsgi_buffer_from_file(real_filename);
+	free(real_filename);
+	if (!ub_ssi) {
+		uwsgi_500(wsgi_req);
+		return UWSGI_OK;
+	}
+
+	ub = uwsgi_ssi_parse(wsgi_req, ub_ssi->buf, ub_ssi->pos);
+	uwsgi_buffer_destroy(ub_ssi);
 	if (!ub) {
                	uwsgi_500(wsgi_req);
 		return UWSGI_OK;
@@ -403,11 +414,30 @@ error:
 	return NULL;
 };
 
+// include command
+static struct uwsgi_buffer *ssi_cmd_include(struct wsgi_request *wsgi_req, struct uwsgi_ssi_arg *argv, int argc) {
+	size_t var_len = 0;
+        char *var = uwsgi_ssi_get_arg(argv, argc, "file", 4, &var_len);
+	if (!var || var_len == 0) return NULL;
+
+	char *filename = uwsgi_concat2n(var, var_len, "", 0);
+
+	struct uwsgi_buffer *ub = uwsgi_buffer_from_file(filename);
+
+	free(filename);
+
+	return ub;
+}
 
 static int uwsgi_ssi_init() {
 	uwsgi_register_ssi_command("echo", ssi_cmd_echo);
 	uwsgi_register_ssi_command("printenv", ssi_cmd_printenv);
+	uwsgi_register_ssi_command("include", ssi_cmd_include);
 	return 0;
+}
+
+static void uwsgi_ssi_log(struct wsgi_request *wsgi_req) {
+	log_request(wsgi_req);
 }
 
 struct uwsgi_plugin ssi_plugin = {
@@ -415,4 +445,5 @@ struct uwsgi_plugin ssi_plugin = {
 	.modifier1 = 19,
 	.init = uwsgi_ssi_init,
 	.request = uwsgi_ssi_request,
+	.after_request = uwsgi_ssi_log,
 };
