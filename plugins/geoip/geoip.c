@@ -96,9 +96,6 @@ static char *uwsgi_route_var_geoip(struct wsgi_request *wsgi_req, char *key, uin
 	else if (!uwsgi_strncmp(key, keylen, "city", 4)) {
 		value = gr->city;
 	}
-	else if (!uwsgi_strncmp(key, keylen, "city", 4)) {
-		value = gr->city;
-	}
 	else if (!uwsgi_strncmp(key, keylen, "postal_code", 11)) {
 		value = gr->postal_code;
 	}
