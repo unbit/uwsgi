@@ -1,5 +1,7 @@
 #include <uwsgi.h>
 
+extern struct uwsgi_server uwsgi;
+
 #define UWSGI_SSI_MAX_ARGS 8
 
 /*
@@ -123,6 +125,11 @@ static int uwsgi_ssi_parse_args(struct wsgi_request *wsgi_req, char *buf, size_t
 }
 
 static struct uwsgi_buffer *uwsgi_ssi_parse_command(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+
+	// storage for arguments
+	struct uwsgi_ssi_arg argv[UWSGI_SSI_MAX_ARGS];
+	int argc = 0;
+
 	// first remove white spaces from the begin and the end
 	char *cmd = buf;
 	size_t cmd_len = len;
@@ -162,19 +169,14 @@ static struct uwsgi_buffer *uwsgi_ssi_parse_command(struct wsgi_request *wsgi_re
 		ssi_cmd_len++;
 	}
 
-	if (!found) {
-		return NULL;
-	}
-
 	uwsgi_log("SSI cmd = ^%.*s^\n", ssi_cmd_len, ssi_cmd);
 
 	struct uwsgi_ssi_cmd *usc = uwsgi_ssi_get_cmd(ssi_cmd, ssi_cmd_len);
 	if (!usc) return NULL ;
 
-	// now split the args
-	struct uwsgi_ssi_arg argv[UWSGI_SSI_MAX_ARGS];
-	int argc = 0;
+	if (!found) goto run;
 
+	// now split the args
 	char *cmd_args = cmd + ssi_cmd_len + 1;
 	size_t cmd_args_len = cmd_len - (ssi_cmd_len + 1);
 
@@ -194,6 +196,8 @@ static struct uwsgi_buffer *uwsgi_ssi_parse_command(struct wsgi_request *wsgi_re
 		return NULL;
 	}
 
+run:
+	uwsgi_log("ready to call...\n");
 	return usc->func(wsgi_req, argv, argc);
 }
 
@@ -363,13 +367,10 @@ static char *uwsgi_ssi_get_arg(struct uwsgi_ssi_arg *argv, int argc, char *key, 
 
 // echo command
 static struct uwsgi_buffer *ssi_cmd_echo(struct wsgi_request *wsgi_req, struct uwsgi_ssi_arg *argv, int argc) {
-	uwsgi_log("CALLING ECHo !!!\n");
 	size_t var_len = 0;
 	char *var = uwsgi_ssi_get_arg(argv, argc, "var", 3, &var_len);
 
 	if (!var || var_len == 0) return NULL;
-
-	uwsgi_log("CHECKING VAR = %.*s\n", var_len, var);
 
 	uint16_t rlen = 0;
 	char *value = uwsgi_get_var(wsgi_req, var, var_len, &rlen);
@@ -382,12 +383,30 @@ static struct uwsgi_buffer *ssi_cmd_echo(struct wsgi_request *wsgi_req, struct u
 		return NULL;
 	}
 
-	uwsgi_log("returning BUF\n");
 	return ub;
 };
 
+// printenv command
+static struct uwsgi_buffer *ssi_cmd_printenv(struct wsgi_request *wsgi_req, struct uwsgi_ssi_arg *argv, int argc) {
+        struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	int i;
+	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
+        	if (uwsgi_buffer_append(ub, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len)) goto error;
+		if (uwsgi_buffer_append(ub, "=", 1)) goto error;
+        	if (uwsgi_buffer_append(ub, wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len)) goto error;
+		if (uwsgi_buffer_append(ub, "\n", 1)) goto error;
+	}
+
+        return ub;
+error:
+	uwsgi_buffer_destroy(ub);
+	return NULL;
+};
+
+
 static int uwsgi_ssi_init() {
 	uwsgi_register_ssi_command("echo", ssi_cmd_echo);
+	uwsgi_register_ssi_command("printenv", ssi_cmd_printenv);
 	return 0;
 }
 
