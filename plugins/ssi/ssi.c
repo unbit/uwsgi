@@ -429,11 +429,54 @@ static struct uwsgi_buffer *ssi_cmd_include(struct wsgi_request *wsgi_req, struc
 	return ub;
 }
 
+static int uwsgi_routing_func_ssi(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
+
+	struct uwsgi_buffer *ub = NULL;
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *) (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub_filename = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        if (!ub_filename) goto end;
+
+	struct uwsgi_buffer *ub_ssi = uwsgi_buffer_from_file(ub_filename->buf);
+	uwsgi_buffer_destroy(ub_filename);
+	if (!ub_ssi) goto end;
+
+	ub = uwsgi_ssi_parse(wsgi_req, ub_ssi->buf, ub_ssi->pos);
+	uwsgi_buffer_destroy(ub_ssi);
+	if (!ub) goto end;
+
+        if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto end;
+        if (uwsgi_response_add_content_length(wsgi_req, ub->pos)) goto end;
+        if (uwsgi_response_add_content_type(wsgi_req, "text/html", 9)) goto end;
+
+        uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+	
+end:
+	if (ub) uwsgi_buffer_destroy(ub);
+        return UWSGI_ROUTE_BREAK;
+}
+
+
+static int uwsgi_router_ssi(struct uwsgi_route *ur, char *args) {
+        ur->func = uwsgi_routing_func_ssi;
+        ur->data = args;
+        ur->data_len = strlen(args);
+        return 0;
+}
+
+
 static int uwsgi_ssi_init() {
 	uwsgi_register_ssi_command("echo", ssi_cmd_echo);
 	uwsgi_register_ssi_command("printenv", ssi_cmd_printenv);
 	uwsgi_register_ssi_command("include", ssi_cmd_include);
 	return 0;
+}
+
+
+static void uwsgi_ssi_register_router() {
+	uwsgi_register_router("ssi", uwsgi_router_ssi);
 }
 
 static void uwsgi_ssi_log(struct wsgi_request *wsgi_req) {
@@ -446,4 +489,5 @@ struct uwsgi_plugin ssi_plugin = {
 	.init = uwsgi_ssi_init,
 	.request = uwsgi_ssi_request,
 	.after_request = uwsgi_ssi_log,
+	.on_load = uwsgi_ssi_register_router,
 };
