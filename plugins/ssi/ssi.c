@@ -429,6 +429,38 @@ static struct uwsgi_buffer *ssi_cmd_include(struct wsgi_request *wsgi_req, struc
 	return ub;
 }
 
+// cache command (uWSGI specific)
+static struct uwsgi_buffer *ssi_cmd_cache(struct wsgi_request *wsgi_req, struct uwsgi_ssi_arg *argv, int argc) {
+        size_t var_len = 0;
+        char *var = uwsgi_ssi_get_arg(argv, argc, "key", 3, &var_len);
+        if (!var || var_len == 0) return NULL;
+
+	size_t cache_len = 0;
+	char *cache = uwsgi_ssi_get_arg(argv, argc, "name", 4, &cache_len);
+        char *cache_name = NULL;
+
+	if (cache && cache_len) {
+		cache_name = uwsgi_concat2n(cache, cache_len, "", 0);
+	}
+
+	uint64_t rlen = 0;
+	char *value = uwsgi_cache_magic_get(var, var_len, &rlen, cache_name);
+	if (cache_name) free(cache_name);
+	struct uwsgi_buffer *ub = NULL;
+	if (value) {
+        	ub = uwsgi_buffer_new(rlen);
+		if (uwsgi_buffer_append(ub, value, rlen)) {
+			free(value);
+			uwsgi_buffer_destroy(ub);
+			return NULL;
+		}
+		free(value);
+	}
+
+        return ub;
+}
+
+
 static int uwsgi_routing_func_ssi(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
 
 	struct uwsgi_buffer *ub = NULL;
@@ -471,6 +503,7 @@ static int uwsgi_ssi_init() {
 	uwsgi_register_ssi_command("echo", ssi_cmd_echo);
 	uwsgi_register_ssi_command("printenv", ssi_cmd_printenv);
 	uwsgi_register_ssi_command("include", ssi_cmd_include);
+	uwsgi_register_ssi_command("cache", ssi_cmd_cache);
 	return 0;
 }
 
