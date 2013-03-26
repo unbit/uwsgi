@@ -108,64 +108,65 @@ static int consume_body_for_readline(struct wsgi_request *wsgi_req) {
 		}
         }
 
+	remains = UMIN(wsgi_req->post_readline_size - wsgi_req->post_readline_watermark, wsgi_req->post_cl - wsgi_req->post_pos);
 
 	// read from a file
 	if (wsgi_req->post_file) {
-		size_t ret = fread(wsgi_req->post_readline_buf + wsgi_req->post_readline_watermark, wsgi_req->post_readline_size - wsgi_req->post_readline_watermark, 1, wsgi_req->post_file);	
+		size_t ret = fread(wsgi_req->post_readline_buf + wsgi_req->post_readline_watermark, remains, 1, wsgi_req->post_file);	
 		if (ret == 0) {
 			uwsgi_error("consume_body_for_readline()/fread()");
 			return -1;
 		}
-		wsgi_req->post_pos += wsgi_req->post_readline_size - wsgi_req->post_readline_watermark;
-		wsgi_req->post_readline_watermark += wsgi_req->post_readline_size - wsgi_req->post_readline_watermark;
+		wsgi_req->post_pos += remains;
+		wsgi_req->post_readline_watermark += remains;
 		return 0;
 	}
 
 
 	// read from post_buffering memory
 	if (uwsgi.post_buffering) {
-		memcpy(wsgi_req->post_readline_buf + wsgi_req->post_readline_watermark, wsgi_req->post_buffering_buf + wsgi_req->post_pos, wsgi_req->post_readline_size - wsgi_req->post_readline_watermark);
-		wsgi_req->post_pos += wsgi_req->post_readline_size - wsgi_req->post_readline_watermark;
-		wsgi_req->post_readline_watermark += wsgi_req->post_readline_size - wsgi_req->post_readline_watermark;
+		memcpy(wsgi_req->post_readline_buf + wsgi_req->post_readline_watermark, wsgi_req->post_buffering_buf + wsgi_req->post_pos, remains);
+		wsgi_req->post_pos += remains;
+		wsgi_req->post_readline_watermark += remains;
 		return 0;
 	}
 
 	// read from socket
-	ssize_t len = wsgi_req->socket->proto_read_body(wsgi_req, wsgi_req->post_readline_buf + wsgi_req->post_readline_watermark , wsgi_req->post_readline_size - wsgi_req->post_readline_watermark);
+	ssize_t len = wsgi_req->socket->proto_read_body(wsgi_req, wsgi_req->post_readline_buf + wsgi_req->post_readline_watermark , remains);
 	if (len > 0) {
 		wsgi_req->post_pos += len;
 		wsgi_req->post_readline_watermark += len;
 		return 0;
 	}
 	if (len == 0) {
-		uwsgi_read_error(wsgi_req->post_readline_size - wsgi_req->post_readline_watermark);
+		uwsgi_read_error(remains);
 		return -1;	
 	}
 	if (len < 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
 			goto wait;
 		}
-		uwsgi_read_error(wsgi_req->post_readline_size - wsgi_req->post_readline_watermark);
+		uwsgi_read_error(remains);
 		return -1;
 	}
 wait:
 	ret = uwsgi_wait_read_req(wsgi_req);
         if (ret > 0) {
-        	len = wsgi_req->socket->proto_read_body(wsgi_req, wsgi_req->post_readline_buf + wsgi_req->post_readline_watermark , wsgi_req->post_readline_size - wsgi_req->post_readline_watermark);
+        	len = wsgi_req->socket->proto_read_body(wsgi_req, wsgi_req->post_readline_buf + wsgi_req->post_readline_watermark , remains);
                 if (len > 0) {
 			wsgi_req->post_pos += len;
 			wsgi_req->post_readline_watermark += len;
 			return 0;
 		}
-		uwsgi_read_error(wsgi_req->post_readline_size - wsgi_req->post_readline_watermark);
+		uwsgi_read_error(remains);
                 return -1;
 	}
         // 0 means timeout
         else if (ret == 0) {
-		uwsgi_read_timeout(wsgi_req->post_readline_size - wsgi_req->post_readline_watermark);
+		uwsgi_read_timeout(remains);
 		return -1;
         }
-	uwsgi_read_error(wsgi_req->post_readline_size - wsgi_req->post_readline_watermark);
+	uwsgi_read_error(remains);
         return -1;
 }
 
