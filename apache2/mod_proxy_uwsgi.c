@@ -217,6 +217,45 @@ static int uwsgi_send_body(request_rec *r, proxy_conn_rec *conn)
     return OK;
 }
 
+#if AP_MODULE_MAGIC_AT_LEAST(20111130,0)
+static request_rec *ap_proxy_make_fake_req(conn_rec *c, request_rec *r)
+{
+    apr_pool_t *pool;
+    request_rec *rp;
+
+    apr_pool_create(&pool, c->pool);
+
+    rp = apr_pcalloc(pool, sizeof(*r));
+
+    rp->pool            = pool;
+    rp->status          = HTTP_OK;
+
+    rp->headers_in      = apr_table_make(pool, 50);
+    rp->subprocess_env  = apr_table_make(pool, 50);
+    rp->headers_out     = apr_table_make(pool, 12);
+    rp->err_headers_out = apr_table_make(pool, 5);
+    rp->notes           = apr_table_make(pool, 5);
+
+    rp->server = r->server;
+    rp->log = r->log;
+    rp->proxyreq = r->proxyreq;
+    rp->request_time = r->request_time;
+    rp->connection      = c;
+    rp->output_filters  = c->output_filters;
+    rp->input_filters   = c->input_filters;
+    rp->proto_output_filters  = c->output_filters;
+    rp->proto_input_filters   = c->input_filters;
+    rp->useragent_ip = c->client_ip;
+    rp->useragent_addr = c->client_addr;
+
+    rp->request_config  = ap_create_request_config(pool);
+    proxy_run_create_req(r, rp);
+
+    return rp;
+}
+#endif
+
+
 static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_conf *conf)
 {
 
@@ -337,7 +376,11 @@ static int uwsgi_handler(request_rec *r, proxy_worker *worker,
     }
 
     // ADD PATH_INFO
+#if AP_MODULE_MAGIC_AT_LEAST(20111130,0)
+    size_t w_len = strlen(worker->s->name);
+#else
     size_t w_len = strlen(worker->name);
+#endif
     char *u_path_info = r->filename + 6 + w_len;
     int delta = 0;
     if (u_path_info[0] != '/') {
