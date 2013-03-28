@@ -157,6 +157,8 @@ int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req, char *subject, uint16_t
 
 	while (routes) {
 
+		if (routes->label) goto next;
+
 		if (wsgi_req->route_goto > 0 && wsgi_req->route_pc < wsgi_req->route_goto) {
 			goto next;
 		}
