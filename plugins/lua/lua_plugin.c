@@ -10,6 +10,7 @@ struct uwsgi_lua {
 	struct lua_State **L;
 
 	char *filename;
+	struct uwsgi_string_list *load;
 } ulua;
 
 #define lca(L, n)		ulua_check_args(L, __FUNCTION__, n)
@@ -17,6 +18,7 @@ struct uwsgi_lua {
 static struct uwsgi_option uwsgi_lua_options[] = {
 
 	{"lua", required_argument, 0, "load lua wsapi app", uwsgi_opt_set_str, &ulua.filename, 0},
+	{"lua-load", required_argument, 0, "load a lua file", uwsgi_opt_add_string_list, &ulua.load, 0},
 
 	{0, 0, 0, 0},
 
@@ -69,7 +71,7 @@ static int uwsgi_api_register_rpc(lua_State *L) {
 	lua_pushvalue(L, 2);
         func = luaL_ref(L, LUA_REGISTRYINDEX);
 
-	uwsgi_log("registered function %d in global table\n", func);
+	uwsgi_log("registered function %d in Lua global table\n", func);
 	lfunc = func;
 
         if (uwsgi_register_rpc((char *)name, 6, 0, (void *) lfunc)) {
@@ -387,36 +389,48 @@ static int uwsgi_lua_init(){
 static void uwsgi_lua_app() {
 	int i;
 
-	if (ulua.filename) {
+	if (!ulua.filename && !ulua.load) return;
+
 		for(i=0;i<uwsgi.cores;i++) {
 			ulua.L[i] = luaL_newstate();
 			luaL_openlibs(ulua.L[i]);
 			luaL_register(ulua.L[i], "uwsgi", uwsgi_api);
-			if (luaL_loadfile(ulua.L[i], ulua.filename)) {
-				uwsgi_log("unable to load file %s: %s\n", ulua.filename, lua_tostring(ulua.L[i], -1));
-				exit(1);
+
+			struct uwsgi_string_list *usl = ulua.load;
+			while(usl) {
+				if (luaL_dofile(ulua.L[i], usl->value)) {
+                                        uwsgi_log("unable to load Lua file %s: %s\n", usl->value, lua_tostring(ulua.L[i], -1));
+                                        exit(1);
+                                }
+				usl = usl->next;
 			}
+
+			if (ulua.filename) {
+				if (luaL_loadfile(ulua.L[i], ulua.filename)) {
+					uwsgi_log("unable to load Lua file %s: %s\n", ulua.filename, lua_tostring(ulua.L[i], -1));
+					exit(1);
+				}
 			
-			// use a pcall
-			//lua_call(ulua.L[i], 0, 1);
-			if (lua_pcall(ulua.L[i], 0, 1, 0) != 0) {
-				uwsgi_log("%s\n", lua_tostring(ulua.L[i], -1));
-				exit(1);
-			}
+				// use a pcall
+				//lua_call(ulua.L[i], 0, 1);
+				if (lua_pcall(ulua.L[i], 0, 1, 0) != 0) {
+					uwsgi_log("%s\n", lua_tostring(ulua.L[i], -1));
+					exit(1);
+				}
 			
-			// if the loaded lua app returns as a table, fetch the
-			// run function.
-			if (lua_istable(ulua.L[i], 2)) {
-				lua_pushstring(ulua.L[i], "run" );
-				lua_gettable(ulua.L[i], 2);
-				lua_replace(ulua.L[i], 2);
-			}
+				// if the loaded lua app returns as a table, fetch the
+				// run function.
+				if (lua_istable(ulua.L[i], 2)) {
+					lua_pushstring(ulua.L[i], "run" );
+					lua_gettable(ulua.L[i], 2);
+					lua_replace(ulua.L[i], 2);
+				}
 					
-			if (! lua_isfunction(ulua.L[i], 2))	{
-				uwsgi_log("Can't find WSAPI entry point (no function, nor a table with function'run').\n");
-				exit(1);
+				if (! lua_isfunction(ulua.L[i], 2))	{
+					uwsgi_log("Can't find WSAPI entry point (no function, nor a table with function'run').\n");
+					exit(1);
+				}
 			}
-		}
 
 	}
 }
@@ -665,9 +679,11 @@ static uint16_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t a
 #endif
 	if (sl <= 0xffff) {
 		memcpy(buffer, sv, sl);
+		lua_pop(L, 1);
 		return sl;
 	}
 
+	lua_pop(L, 1);
         return 0;
 
 }
