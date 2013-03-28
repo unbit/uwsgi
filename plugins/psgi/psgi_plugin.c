@@ -513,6 +513,10 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 
 	log_request(wsgi_req);
 
+	// We may be called after an early exit in XS_coroae_accept_request, 
+	// before the environ is set up.
+	if (!wsgi_req->async_environ) return;
+
 	// dereference %env
 	SV *env = SvRV((SV *) wsgi_req->async_environ);
 
