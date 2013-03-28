@@ -242,10 +242,27 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 
 		ui_current = emperor_get(de->d_name);
 
+		uid_t t_uid = st.st_uid;
+		gid_t t_gid = st.st_gid;
+
+		if (uwsgi.emperor_tyrant && uwsgi.emperor_tyrant_nofollow) {
+			struct stat lst;
+			if (lstat(de->d_name, &lst)) {
+				uwsgi_error("[emperor-tyrant]/lstat()");
+				if (ui_current) {
+					uwsgi_log("!!! availability of file %s changed. stopping the instance... !!!\n", de->d_name);
+					emperor_stop(ui_current);
+				}
+				continue;
+			}
+			t_uid = lst.st_uid;
+			t_gid = lst.st_gid;
+		}
+
 		if (ui_current) {
 			// check if uid or gid are changed, in such case, stop the instance
 			if (uwsgi.emperor_tyrant) {
-				if (st.st_uid != ui_current->uid || st.st_gid != ui_current->gid) {
+				if (t_uid != ui_current->uid || t_gid != ui_current->gid) {
 					uwsgi_log("!!! permissions of file %s changed. stopping the instance... !!!\n", de->d_name);
 					emperor_stop(ui_current);
 					continue;
@@ -258,7 +275,7 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 		}
 		else {
 			char *socket_name = emperor_check_on_demand_socket(de->d_name);
-			emperor_add(ues, de->d_name, st.st_mtime, NULL, 0, st.st_uid, st.st_gid, socket_name);
+			emperor_add(ues, de->d_name, st.st_mtime, NULL, 0, t_uid, t_gid, socket_name);
 			if (socket_name) free(socket_name);
 		}
 	}
@@ -319,10 +336,27 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 
 		ui_current = emperor_get(g.gl_pathv[i]);
 
+		uid_t t_uid = st.st_uid;
+                gid_t t_gid = st.st_gid;
+
+                if (uwsgi.emperor_tyrant && uwsgi.emperor_tyrant_nofollow) {
+                        struct stat lst;
+                        if (lstat(g.gl_pathv[i], &lst)) {
+                                uwsgi_error("[emperor-tyrant]/lstat()");
+                                if (ui_current) {
+                                        uwsgi_log("!!! availability of file %s changed. stopping the instance... !!!\n", g.gl_pathv[i]);
+                                        emperor_stop(ui_current);
+                                }
+                                continue;
+                        }
+                        t_uid = lst.st_uid;
+                        t_gid = lst.st_gid;
+                }
+
 		if (ui_current) {
 			// check if uid or gid are changed, in such case, stop the instance
 			if (uwsgi.emperor_tyrant) {
-				if (st.st_uid != ui_current->uid || st.st_gid != ui_current->gid) {
+				if (t_uid != ui_current->uid || t_gid != ui_current->gid) {
 					uwsgi_log("!!! permissions of file %s changed. stopping the instance... !!!\n", g.gl_pathv[i]);
 					emperor_stop(ui_current);
 					continue;
@@ -335,7 +369,7 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 		}
 		else {
 			char *socket_name = emperor_check_on_demand_socket(g.gl_pathv[i]);
-			emperor_add(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, st.st_uid, st.st_gid, socket_name);
+			emperor_add(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, t_uid, t_gid, socket_name);
 			if (socket_name) free(socket_name);
 		}
 
