@@ -533,7 +533,8 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 		}
 	}
 
-	uwsgi_log("[uwsgi-cache] restored %llu items\n", restored);
+	uc->n_items = restored;
+	uwsgi_log("[uwsgi-cache] restored %llu items\n", uc->n_items);
 }
 
 int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *val, uint64_t vallen, uint64_t expires, uint64_t flags) {
