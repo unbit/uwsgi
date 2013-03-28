@@ -70,6 +70,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"xmlconfig", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
 	{"xml", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
+	{"config", required_argument, 0, "load configuration using the pluggable system", uwsgi_opt_load_config, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{"skip-zero", no_argument, 0, "skip check of file descriptor 0", uwsgi_opt_true, &uwsgi.skip_zero, 0},
 
@@ -3764,6 +3765,9 @@ void uwsgi_opt_load(char *opt, char *filename, void *none) {
 		return;
 	}
 #endif
+
+	// fallback to pluggable system
+	uwsgi_opt_load_config(opt, filename, none);
 }
 
 void uwsgi_opt_logic(char *opt, char *arg, void *func) {
@@ -3788,6 +3792,18 @@ void uwsgi_opt_noop(char *opt, char *foo, void *bar) {
 void uwsgi_opt_load_ini(char *opt, char *filename, void *none) {
 	config_magic_table_fill(filename, uwsgi.magic_table);
 	uwsgi_ini_config(filename, uwsgi.magic_table);
+}
+
+void uwsgi_opt_load_config(char *opt, char *filename, void *none) {
+        struct uwsgi_configurator *uc = uwsgi.configurators;
+        while(uc) {
+                if (uwsgi_endswith(filename, uc->name)) {
+                        config_magic_table_fill(filename, uwsgi.magic_table);
+                        uc->func(filename, uwsgi.magic_table);
+                        return;
+                }
+                uc = uc->next;
+        }
 }
 
 #ifdef UWSGI_XML

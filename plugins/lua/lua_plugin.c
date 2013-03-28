@@ -672,6 +672,54 @@ static uint16_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t a
 
 }
 
+static void uwsgi_lua_configurator(char *filename, char *magic_table[]) {
+	size_t len = 0;
+	uwsgi_log_initial("[uWSGI] getting Lua configuration from %s\n", filename);
+	char *code = uwsgi_open_and_read(filename, &len, 1, magic_table);
+	lua_State *L = luaL_newstate();
+	if (!L) {
+		uwsgi_log("unable to initialize Lua state for configuration\n");
+		exit(1);
+	}
+        luaL_openlibs(L);
+	if (luaL_dostring(L, code) != 0) {
+		uwsgi_log("error running Lua configurator: %s\n", lua_tostring(L, -1));
+		exit(1);
+	}
+
+	if (!lua_istable(L, -1)) {
+		uwsgi_log("Lua configurator has to return a table !!!\n");
+		exit(1);
+	}
+
+	lua_pushnil(L);
+	// we always use uwsgi_str to avoid GC destroying our strings
+	// and to be able to call lua_close at the end
+	while (lua_next(L, -2) != 0) {
+		char *key = uwsgi_str((char *)lua_tostring(L, -2));
+		if (lua_istable(L, -1)) {
+			lua_pushnil(L);
+			while (lua_next(L, -2) != 0) {
+				char *value = uwsgi_str((char *)lua_tostring(L, -1));
+				add_exported_option(key, value, 0);
+				lua_pop(L, 1);
+			}	
+		}
+		else {
+			char *value = uwsgi_str((char *)lua_tostring(L, -1));
+			add_exported_option(key, value, 0);
+		}
+		lua_pop(L, 1);
+	}
+
+	// this will destroy the whole Lua state
+	lua_close(L);
+}
+
+static void uwsgi_register_lua_features() {
+	uwsgi_register_configurator(".lua", uwsgi_lua_configurator);
+}
+
 
 struct uwsgi_plugin lua_plugin = {
 
@@ -688,5 +736,6 @@ struct uwsgi_plugin lua_plugin = {
 	.code_string = uwsgi_lua_code_string,
 	.rpc = uwsgi_lua_rpc,
 
+	.on_load = uwsgi_register_lua_features,
 };
 

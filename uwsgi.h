@@ -1506,6 +1506,14 @@ struct uwsgi_instance_status {
 	int is_cleaning;
 };
 
+struct uwsgi_configurator {
+	char *name;
+	void (*func)(char *, char **);
+	struct uwsgi_configurator *next;
+};
+struct uwsgi_configurator *uwsgi_register_configurator(char *, void (*)(char *, char **));
+void uwsgi_opt_load_config(char *, char *, void *);
+
 #define uwsgi_instance_is_dying (uwsgi.status.gracefully_destroying || uwsgi.status.brutally_destroying)
 #define uwsgi_instance_is_reloading (uwsgi.status.gracefully_reloading || uwsgi.status.brutally_reloading)
 
@@ -1517,6 +1525,7 @@ struct uwsgi_server {
 	int hostname_len;
 
 	int (*proto_hooks[UWSGI_PROTO_MAX_CHECK]) (struct wsgi_request *, char *, char *, uint16_t);
+	struct uwsgi_configurator *configurators;
 
 	char **orig_argv;
 	char **argv;
