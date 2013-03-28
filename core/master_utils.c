@@ -957,6 +957,9 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			uc = uc->next;
 		}
 
+		if (uwsgi_stats_list_close(us))
+		goto end;
+
 		if (uwsgi_stats_comma(us))
 		goto end;
 	}
