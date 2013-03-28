@@ -3862,6 +3862,9 @@ void uwsgi_opt_load_config(char *opt, char *filename, void *none) {
                 }
                 uc = uc->next;
         }
+
+	uwsgi_log("unable to load configuration from %s\n", filename);
+	exit(1);
 }
 
 #ifdef UWSGI_XML

@@ -122,15 +122,26 @@ void uwsgi_emperor_blacklist_remove(char *id) {
 
 struct uwsgi_emperor_scanner *emperor_scanners;
 
+static int has_extra_extension(char *name) {
+	struct uwsgi_string_list *usl = uwsgi.emperor_extra_extension;
+	while(usl) {
+		if (uwsgi_endswith(name, usl->value)) {
+			return 1;
+		}
+		usl = usl->next;	
+	}
+	return 0;
+}
+
 int uwsgi_emperor_is_valid(char *name) {
 
-	if (uwsgi_endswith(name, ".xml") || uwsgi_endswith(name, ".ini") || uwsgi_endswith(name, ".yml") || uwsgi_endswith(name, ".yaml") || uwsgi_endswith(name, ".js") || uwsgi_endswith(name, ".json")) {
-
+	if (uwsgi_endswith(name, ".xml") || uwsgi_endswith(name, ".ini") || uwsgi_endswith(name, ".yml") || uwsgi_endswith(name, ".yaml") || uwsgi_endswith(name, ".js") || uwsgi_endswith(name, ".json") || has_extra_extension(name)) {
 
 		if (strlen(name) < 0xff) {
 			return 1;
 		}
 	}
+
 
 	return 0;
 }
@@ -882,6 +893,15 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 			vassal_argv[1] = "--json";
 		if (!strcmp(n_ui->name + (strlen(n_ui->name) - 5), ".json"))
 			vassal_argv[1] = "--json";
+	
+		struct uwsgi_string_list *usl = uwsgi.emperor_extra_extension;
+		while(usl) {
+			if (uwsgi_endswith(n_ui->name, usl->value)) {
+				vassal_argv[1] = "--config";
+				break;
+			}
+			usl = usl->next;
+		}
 
 		if (colon) {
 			colon[0] = ':';
