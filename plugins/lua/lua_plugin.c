@@ -672,6 +672,26 @@ static uint16_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t a
 
 }
 
+static void uwsgi_lua_configurator_array(lua_State *L) { 
+
+	int i;
+	int n = luaL_getn(L, -3);
+
+	for(i=1;i<=n;i++) {
+		lua_rawgeti(L, 1, i);
+		if (lua_istable(L, -1)) {
+                	lua_pushnil(L);
+                        while (lua_next(L, -2) != 0) {
+                        	char *key = uwsgi_str((char *)lua_tostring(L, -2));
+                                char *value = uwsgi_str((char *)lua_tostring(L, -1));
+                                add_exported_option(key, value, 0);
+                                lua_pop(L, 1);
+                        }
+                }
+	}
+}
+
+
 static void uwsgi_lua_configurator(char *filename, char *magic_table[]) {
 	size_t len = 0;
 	uwsgi_log_initial("[uWSGI] getting Lua configuration from %s\n", filename);
@@ -696,18 +716,26 @@ static void uwsgi_lua_configurator(char *filename, char *magic_table[]) {
 	// we always use uwsgi_str to avoid GC destroying our strings
 	// and to be able to call lua_close at the end
 	while (lua_next(L, -2) != 0) {
-		char *key = uwsgi_str((char *)lua_tostring(L, -2));
-		if (lua_istable(L, -1)) {
-			lua_pushnil(L);
-			while (lua_next(L, -2) != 0) {
+		// array ?
+		if (lua_isnumber(L, -2)) {
+			uwsgi_lua_configurator_array(L);
+			break;
+		}
+		// dictionary
+		else {
+			char *key = uwsgi_str((char *)lua_tostring(L, -2));
+			if (lua_istable(L, -1)) {
+				lua_pushnil(L);
+				while (lua_next(L, -2) != 0) {
+					char *value = uwsgi_str((char *)lua_tostring(L, -1));
+					add_exported_option(key, value, 0);
+					lua_pop(L, 1);
+				}	
+			}
+			else {
 				char *value = uwsgi_str((char *)lua_tostring(L, -1));
 				add_exported_option(key, value, 0);
-				lua_pop(L, 1);
-			}	
-		}
-		else {
-			char *value = uwsgi_str((char *)lua_tostring(L, -1));
-			add_exported_option(key, value, 0);
+			}
 		}
 		lua_pop(L, 1);
 	}

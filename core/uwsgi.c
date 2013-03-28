@@ -172,6 +172,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-required-heartbeat", required_argument, 0, "set the Emperor tolerance about heartbeats", uwsgi_opt_set_int, &uwsgi.emperor_heartbeat, 0},
 	{"emperor-pidfile", required_argument, 0, "write the Emperor pid in the specified file", uwsgi_opt_set_str, &uwsgi.emperor_pidfile, 0},
 	{"emperor-tyrant", no_argument, 0, "put the Emperor in Tyrant mode", uwsgi_opt_true, &uwsgi.emperor_tyrant, 0},
+	{"emperor-tyrant-nofollow", no_argument, 0, "do not follow symlinks when checking for uid/gid in Tyrant mode", uwsgi_opt_true, &uwsgi.emperor_tyrant_nofollow, 0},
 	{"emperor-stats", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
 	{"emperor-stats-server", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
 	{"early-emperor", no_argument, 0, "spawn the emperor as soon as possibile", uwsgi_opt_true, &uwsgi.early_emperor, 0},
@@ -184,6 +185,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-on-demand-directory", required_argument, 0, "enable on demand mode binding to the unix socket in the specified directory named like the vassal + .socket", uwsgi_opt_set_str, &uwsgi.emperor_on_demand_directory, 0},
 	{"emperor-on-demand-dir", required_argument, 0, "enable on demand mode binding to the unix socket in the specified directory named like the vassal + .socket", uwsgi_opt_set_str, &uwsgi.emperor_on_demand_directory, 0},
 	{"emperor-on-demand-exec", required_argument, 0, "use the output of the specified command as on demand socket name (the vassal name is passed as the only argument)", uwsgi_opt_set_str, &uwsgi.emperor_on_demand_exec, 0},
+	{"emperor-extra-extension", required_argument, 0, "allows the specified extension in the Emperor (vassal will be called with --config)", uwsgi_opt_add_string_list, &uwsgi.emperor_extra_extension, 0},
+	{"emperor-extra-ext", required_argument, 0, "allows the specified extension in the Emperor (vassal will be called with --config)", uwsgi_opt_add_string_list, &uwsgi.emperor_extra_extension, 0},
 	{"imperial-monitor-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"imperial-monitors-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"vassals-inherit", required_argument, 0, "add config templates to vassals config", uwsgi_opt_add_string_list, &uwsgi.vassals_templates, 0},
@@ -264,6 +267,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"chroot", required_argument, 0, "chroot() to the specified directory", uwsgi_opt_set_str, &uwsgi.chroot, 0},
 	{"uid", required_argument, 0, "setuid to the specified user/uid", uwsgi_opt_set_uid, NULL, 0},
 	{"gid", required_argument, 0, "setgid to the specified group/gid", uwsgi_opt_set_gid, NULL, 0},
+	{"immediate-uid", required_argument, 0, "setuid to the specified user/uid IMMEDIATELY", uwsgi_opt_set_immediate_uid, NULL, UWSGI_OPT_IMMEDIATE},
+	{"immediate-gid", required_argument, 0, "setgid to the specified group/gid IMMEDIATELY", uwsgi_opt_set_immediate_gid, NULL, UWSGI_OPT_IMMEDIATE},
 	{"no-initgroups", no_argument, 0, "disable additional groups set via initgroups()", uwsgi_opt_true, &uwsgi.no_initgroups, 0},
 #ifdef UWSGI_CAP
 	{"cap", required_argument, 0, "set process capability", uwsgi_opt_set_cap, NULL, 0},
@@ -3185,6 +3190,59 @@ void uwsgi_opt_true(char *opt, char *value, void *key) {
 		}
 	}
 }
+
+void uwsgi_opt_set_immediate_gid(char *opt, char *value, void *none) {
+        gid_t gid = atoi(value);
+	if (gid == 0) {
+		struct group *ugroup = getgrnam(value);
+                if (ugroup)
+                	gid = ugroup->gr_gid;
+	}
+        if (gid <= 0) {
+                uwsgi_log("uwsgi_opt_set_immediate_gid(): invalid gid %d\n", (int) gid);
+                exit(1);
+        }
+        if (setgid(gid)) {
+                uwsgi_error("uwsgi_opt_set_immediate_gid()/setgid()");
+                exit(1);
+        }
+
+	if (setgroups(0, NULL)) {
+        	uwsgi_error("uwsgi_opt_set_immediate_gid()/setgroups()");
+                exit(1);
+        }
+
+	gid = getgid();
+	if (!gid) {
+		exit(1);
+	}
+	uwsgi_log("immediate gid: %d\n", (int) gid);
+}
+
+
+void uwsgi_opt_set_immediate_uid(char *opt, char *value, void *none) {
+	uid_t uid = atoi(value);
+	if (uid == 0) {
+		struct passwd *upasswd = getpwnam(value);
+                if (upasswd)
+                        uid = upasswd->pw_uid;
+	}
+	if (uid <= 0) {
+		uwsgi_log("uwsgi_opt_set_immediate_uid(): invalid uid %d\n", uid);
+		exit(1);
+	}
+	if (setuid(uid)) {
+		uwsgi_error("uwsgi_opt_set_immediate_uid()/setuid()");
+		exit(1);
+	}
+
+	uid = getuid();
+	if (!uid) {
+		exit(1);
+	}
+	uwsgi_log("immediate uid: %d\n", (int) uid);
+}
+
 
 void uwsgi_opt_set_int(char *opt, char *value, void *key) {
 	int *ptr = (int *) key;

@@ -1637,6 +1637,7 @@ struct uwsgi_server {
 	int emperor_fd;
 	int emperor_queue;
 	int emperor_tyrant;
+	int emperor_tyrant_nofollow;
 	int emperor_fd_config;
 	int early_emperor;
 	int emperor_throttle;
@@ -1644,6 +1645,7 @@ struct uwsgi_server {
 	int emperor_max_throttle;
 	int emperor_magic_exec;
 	int emperor_heartbeat;
+	struct uwsgi_string_list *emperor_extra_extension;
 	// search for a file with the specified extension at the same level of the vassal file
 	char *emperor_on_demand_extension;
 	// bind to a unix socket on the specified directory named directory/vassal.socket
@@ -3251,6 +3253,8 @@ void uwsgi_opt_add_spooler(char *, char *, void *);
 void uwsgi_opt_add_daemon(char *, char *, void *);
 void uwsgi_opt_set_uid(char *, char *, void *);
 void uwsgi_opt_set_gid(char *, char *, void *);
+void uwsgi_opt_set_immediate_uid(char *, char *, void *);
+void uwsgi_opt_set_immediate_gid(char *, char *, void *);
 void uwsgi_opt_set_env(char *, char *, void *);
 void uwsgi_opt_unset_env(char *, char *, void *);
 void uwsgi_opt_pidfile_signal(char *, char *, void *);
