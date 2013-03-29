@@ -774,15 +774,20 @@ void uwsgi_opt_legion_node(char *opt, char *value, void *foobar) {
 		exit(1);
 	}
 
-	struct uwsgi_string_list *usl = uwsgi_string_new_list(&ul->nodes, space + 1);
-	char *port = strchr(usl->value, ':');
+	uwsgi_legion_register_node(ul, space + 1);
+	
+}
+
+void uwsgi_legion_register_node(struct uwsgi_legion *ul, char *addr) {
+	struct uwsgi_string_list *usl = uwsgi_string_new_list(&ul->nodes, addr);
+	char *port = strchr(addr, ':');
 	if (!port) {
-		uwsgi_log("[uwsgi-legion] invalid udp address: %s\n", usl->value);
+		uwsgi_log("[uwsgi-legion] invalid udp address: %s\n", addr);
 		exit(1);
 	}
 	// no need to zero the memory, socket_to_in_addr will do that
 	struct sockaddr_in *sin = uwsgi_malloc(sizeof(struct sockaddr_in));
-	usl->custom = socket_to_in_addr(usl->value, port, 0, sin);
+	usl->custom = socket_to_in_addr(addr, port, 0, sin);
 	usl->custom_ptr = sin;
 }
 
@@ -834,54 +839,69 @@ void uwsgi_opt_legion_scroll(char *opt, char *value, void *foobar) {
 
 void uwsgi_opt_legion_hook(char *opt, char *value, void *foobar) {
 
+	char *event = strchr(opt, '-');
+	if (!event) {
+		uwsgi_log("[uwsgi-legion] invalid option name (%s), this should not happen (possible bug)\n", opt);
+		exit(1);
+	}
+  
 	char *legion = uwsgi_str(value);
-
+	
 	char *space = strchr(legion, ' ');
 	if (!space) {
-		uwsgi_log("invalid %s syntax, must be <legion> <action>\n", opt);
+		uwsgi_log("[uwsgi-legion] invalid %s syntax, must be <legion> <action>\n", opt);
 		exit(1);
 	}
 	*space = 0;
 
 	struct uwsgi_legion *ul = uwsgi_legion_get_by_name(legion);
 	if (!ul) {
-		uwsgi_log("unknown legion: %s\n", legion);
+		uwsgi_log("[uwsgi-legion] unknown legion: %s\n", legion);
 		exit(1);
 	}
 
+	uwsgi_legion_register_hook(ul, event + 1, space + 1);
+}
+
+void uwsgi_legion_register_hook(struct uwsgi_legion *ul, char *event, char *action) {
+
 	struct uwsgi_string_list *usl = NULL;
 
-	if (!strcmp(opt, "legion-lord")) {
-		usl = uwsgi_string_new_list(&ul->lord_hooks, space + 1);
+	if (!strcmp(event, "lord")) {
+		usl = uwsgi_string_new_list(&ul->lord_hooks, action);
 	}
-	else if (!strcmp(opt, "legion-unlord")) {
-		usl = uwsgi_string_new_list(&ul->unlord_hooks, space + 1);
+	else if (!strcmp(event, "unlord")) {
+		usl = uwsgi_string_new_list(&ul->unlord_hooks, action);
 	}
-	else if (!strcmp(opt, "legion-setup")) {
-		usl = uwsgi_string_new_list(&ul->setup_hooks, space + 1);
+	else if (!strcmp(event, "setup")) {
+		usl = uwsgi_string_new_list(&ul->setup_hooks, action);
 	}
-	else if (!strcmp(opt, "legion-death")) {
-		usl = uwsgi_string_new_list(&ul->death_hooks, space + 1);
+	else if (!strcmp(event, "death")) {
+		usl = uwsgi_string_new_list(&ul->death_hooks, action);
 	}
-	else if (!strcmp(opt, "legion-join")) {
-		usl = uwsgi_string_new_list(&ul->join_hooks, space + 1);
+	else if (!strcmp(event, "join")) {
+		usl = uwsgi_string_new_list(&ul->join_hooks, action);
+	}
+	else {
+		uwsgi_log("[uwsgi-legion] invalid event: %s\n", event);
+		exit(1);
 	}
 
 	if (!usl)
 		return;
 
-	char *port = strchr(usl->value, ':');
-	if (!port) {
-		uwsgi_log("[uwsgi-legion] invalid %s action: %s\n", opt, usl->value);
+	char *hook = strchr(action, ':');
+	if (!hook) {
+		uwsgi_log("[uwsgi-legion] invalid %s action: %s\n", event, action);
 		exit(1);
 	}
 
 	// pointer to action plugin
-	usl->custom_ptr = uwsgi_concat2n(usl->value, port - usl->value, "", 0);
+	usl->custom_ptr = uwsgi_concat2n(action, hook - action, "", 0);;
 	// add that to check the plugin value
-	usl->custom = port - usl->value + 1;
-}
+	usl->custom = hook - action + 1;
 
+}
 
 void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 
@@ -919,6 +939,10 @@ void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 	*colon = 0;
 	char *secret = colon + 1;
 
+	uwsgi_legion_register(legion, addr, valor, algo_secret, secret);
+}
+
+struct uwsgi_legion *uwsgi_legion_register(char *legion, char *addr, char *valor, char *algo, char *secret) {
 	char *iv = strchr(secret, ' ');
 	if (iv) {
 		*iv = 0;
@@ -932,9 +956,9 @@ void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 	EVP_CIPHER_CTX *ctx = uwsgi_malloc(sizeof(EVP_CIPHER_CTX));
 	EVP_CIPHER_CTX_init(ctx);
 
-	const EVP_CIPHER *cipher = EVP_get_cipherbyname(algo_secret);
+	const EVP_CIPHER *cipher = EVP_get_cipherbyname(algo);
 	if (!cipher) {
-		uwsgi_log("[uwsgi-legion] unable to find algorithm/cipher %s\n", algo_secret);
+		uwsgi_log("[uwsgi-legion] unable to find algorithm/cipher %s\n", algo);
 		exit(1);
 	}
 
@@ -997,6 +1021,8 @@ void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 	ul->scrolls = uwsgi_calloc_shared(ul->scrolls_max_size);
 
 	uwsgi_legion_add(ul);
+
+	return ul;
 }
 
 struct uwsgi_legion_action *uwsgi_legion_action_get(char *name) {
