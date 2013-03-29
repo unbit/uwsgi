@@ -184,6 +184,7 @@ void uwsgi_mule_handler() {
 		if (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket || farm_has_signaled(interesting_fd)) {
 			len = read(interesting_fd, &uwsgi_signal, 1);
 			if (len <= 0) {
+				if (len < 0 && (errno == EAGAIN || errno == EINTR || errno == EWOULDBLOCK)) continue;
 				uwsgi_log_verbose("uWSGI mule %d braying: my master died, i will follow him...\n", uwsgi.muleid);
 				end_me(0);
 			}
@@ -343,6 +344,7 @@ next:
 				if (interesting_fd > -1) {
 					len = read(interesting_fd, &uwsgi_signal, 1);
 					if (len <= 0) {
+						if (len < 0 && (errno == EAGAIN || errno == EINTR || errno == EWOULDBLOCK)) goto clear;
 						uwsgi_log_verbose("uWSGI mule %d braying: my master died, i will follow him...\n", uwsgi.muleid);
 						end_me(0);
 					}

@@ -595,7 +595,7 @@ void uwsgi_receive_signal(int fd, char *name, int id) {
 	if (ret == 0) {
 		goto destroy;
 	}
-	else if (ret < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+	else if (ret < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
 		uwsgi_error("[uwsgi-signal] read()");
 		goto destroy;
 	}
