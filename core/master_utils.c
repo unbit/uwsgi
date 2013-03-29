@@ -413,9 +413,6 @@ void uwsgi_reload(char **argv) {
 #endif
 	}
 
-#ifdef UWSGI_AS_SHARED_LIBRARY
-	return;
-#else
 	uwsgi_log("running %s\n", uwsgi.binary_path);
 	uwsgi_flush_logs();
 	argv[0] = uwsgi.binary_path;
