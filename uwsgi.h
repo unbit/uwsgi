@@ -597,6 +597,9 @@ struct uwsgi_legion_node {
 	int quorum;
 	int changed;
 
+	// set to 1 first time when quorum is reached
+	int joined;
+
 	uint64_t checksum;
 
 	char *scroll;
@@ -634,6 +637,7 @@ struct uwsgi_legion_node {
 	struct uwsgi_string_list *unlord_hooks;
 	struct uwsgi_string_list *setup_hooks;
 	struct uwsgi_string_list *death_hooks;
+	struct uwsgi_string_list *join_hooks;
 	struct uwsgi_legion *next;
 	};
 

@@ -383,6 +383,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"legion-unlord", required_argument, 0, "action to call on Lord dismiss", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-setup", required_argument, 0, "action to call on legion setup", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-death", required_argument, 0, "action to call on legion death (shutdown of the instance)", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
+	{"legion-join", required_argument, 0, "action to call on legion join (first time quorum is reached)", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-quorum", required_argument, 0, "set the quorum of a legion", uwsgi_opt_legion_quorum, NULL, UWSGI_OPT_MASTER},
 	{"legion-scroll", required_argument, 0, "set the scroll of a legion", uwsgi_opt_legion_scroll, NULL, UWSGI_OPT_MASTER},
 	{"legion-scroll-max-size", required_argument, 0, "set max size of legion scroll buffer", uwsgi_opt_set_16bit, &uwsgi.legion_scroll_max_size, 0},
