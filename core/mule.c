@@ -198,7 +198,9 @@ void uwsgi_mule_handler() {
 		else if (interesting_fd == uwsgi.mules[uwsgi.muleid - 1].queue_pipe[1] || interesting_fd == uwsgi.shared->mule_queue_pipe[1] || farm_has_msg(interesting_fd)) {
 			len = read(interesting_fd, message, 65536);
 			if (len < 0) {
-				uwsgi_error("read()");
+				if (errno != EAGAIN && errno != EINTR && errno != EWOULDBLOCK) {
+					uwsgi_error("uwsgi_mule_handler/read()");
+				}
 			}
 			else {
 				int i, found = 0;

@@ -722,6 +722,7 @@ static void uwsgi_lua_configurator(char *filename, char *magic_table[]) {
 		uwsgi_log("error running Lua configurator: %s\n", lua_tostring(L, -1));
 		exit(1);
 	}
+	free(code);
 
 	if (!lua_istable(L, -1)) {
 		uwsgi_log("Lua configurator has to return a table !!!\n");
