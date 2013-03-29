@@ -203,7 +203,6 @@ static void legions_check_nodes() {
 
 		struct uwsgi_legion_node *node = legion->nodes_head;
 		while (node) {
-
 			if (now - node->last_seen > uwsgi.legion_tolerance) {
 				struct uwsgi_legion_node *tmp_node = node;
 				node = node->next;
@@ -302,6 +301,18 @@ static void legions_check_nodes_step2() {
 
 		// we have quorum !!!
 		if (votes > 0 && votes >= ul->quorum) {
+			if (!ul->joined) {
+				// triggering join hooks
+				struct uwsgi_string_list *usl = ul->join_hooks;
+				while (usl) {
+					int ret = uwsgi_legion_action_call("join", ul, usl);
+					if (ret) {
+						uwsgi_log("[uwsgi-legion] ERROR, join hook returned: %d\n", ret);
+					}
+					usl = usl->next;
+				}
+				ul->joined = 1;
+			}
 			// something changed ???
 			if (ul->changed) {
 				legions_report_quorum(ul, best_valor, best_uuid, votes);
@@ -851,6 +862,9 @@ void uwsgi_opt_legion_hook(char *opt, char *value, void *foobar) {
 	}
 	else if (!strcmp(opt, "legion-death")) {
 		usl = uwsgi_string_new_list(&ul->death_hooks, space + 1);
+	}
+	else if (!strcmp(opt, "legion-join")) {
+		usl = uwsgi_string_new_list(&ul->join_hooks, space + 1);
 	}
 
 	if (!usl)
