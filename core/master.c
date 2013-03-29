@@ -798,8 +798,8 @@ int master_loop(char **argv, char **environ) {
 
 		 */
 
-		uwsgi.mywid = find_worker_id(diedpid);
-		if (uwsgi.mywid <= 0) {
+		int thewid = find_worker_id(diedpid);
+		if (thewid <= 0) {
 			// check spooler, mules, gateways and daemons
 			struct uwsgi_spooler *uspool = uwsgi.spoolers;
 			while (uspool) {
@@ -842,50 +842,50 @@ next:
 
 
 		// ok a worker died...
-		uwsgi.workers[uwsgi.mywid].pid = 0;
+		uwsgi.workers[thewid].pid = 0;
 		// only to be safe :P
-		uwsgi.workers[uwsgi.mywid].harakiri = 0;
+		uwsgi.workers[thewid].harakiri = 0;
 
 		// ok, if we are reloading or dying, just continue the master loop
 		// as soon as all of the workers have pid == 0, the action (exit, or reload) is triggered
 		if (uwsgi_instance_is_reloading || uwsgi_instance_is_dying) {
-			uwsgi_log("worker %d buried after %d seconds\n", uwsgi.mywid, (int) (uwsgi_now()-uwsgi.workers[uwsgi.mywid].cursed_at));
-			uwsgi.workers[uwsgi.mywid].cursed_at = 0;
+			uwsgi_log("worker %d buried after %d seconds\n", thewid, (int) (uwsgi_now()-uwsgi.workers[thewid].cursed_at));
+			uwsgi.workers[thewid].cursed_at = 0;
 			continue;
 		}
 
 		// if we are stopping workers, just end here
 
 		if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_FAILED_APP_CODE) {
-			uwsgi_log("OOPS ! failed loading app in worker %d (pid %d) :( trying again...\n", uwsgi.mywid, (int) diedpid);
+			uwsgi_log("OOPS ! failed loading app in worker %d (pid %d) :( trying again...\n", thewid, (int) diedpid);
 		}
 		else if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_DE_HIJACKED_CODE) {
-			uwsgi_log("...restoring worker %d (pid: %d)...\n", uwsgi.mywid, (int) diedpid);
+			uwsgi_log("...restoring worker %d (pid: %d)...\n", thewid, (int) diedpid);
 		}
 		else if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_EXCEPTION_CODE) {
-			uwsgi_log("... monitored exception detected, respawning worker %d (pid: %d)...\n", uwsgi.mywid, (int) diedpid);
+			uwsgi_log("... monitored exception detected, respawning worker %d (pid: %d)...\n", thewid, (int) diedpid);
 		}
 		else if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_QUIET_CODE) {
 			// noop
 		}
-		else if (uwsgi.workers[uwsgi.mywid].manage_next_request) {
+		else if (uwsgi.workers[thewid].manage_next_request) {
 			if (WIFSIGNALED(waitpid_status)) {
-				uwsgi_log("DAMN ! worker %d (pid: %d) died, killed by signal %d :( trying respawn ...\n", uwsgi.mywid, (int) diedpid, (int) WTERMSIG(waitpid_status));
+				uwsgi_log("DAMN ! worker %d (pid: %d) died, killed by signal %d :( trying respawn ...\n", thewid, (int) diedpid, (int) WTERMSIG(waitpid_status));
 			}
 			else {
-				uwsgi_log("DAMN ! worker %d (pid: %d) died :( trying respawn ...\n", uwsgi.mywid, (int) diedpid);
+				uwsgi_log("DAMN ! worker %d (pid: %d) died :( trying respawn ...\n", thewid, (int) diedpid);
 			}
 		}
-		else if (uwsgi.workers[uwsgi.mywid].cursed_at > 0) {
-			uwsgi_log("worker %d killed successfully (pid: %d)\n", uwsgi.mywid, (int) diedpid);
+		else if (uwsgi.workers[thewid].cursed_at > 0) {
+			uwsgi_log("worker %d killed successfully (pid: %d)\n", thewid, (int) diedpid);
 		}
 		// manage_next_request is zero, but killed by signal...
 		else if (WIFSIGNALED(waitpid_status)) {
-			uwsgi_log("DAMN ! worker %d (pid: %d) MISTERIOUSLY killed by signal %d :( trying respawn ...\n", uwsgi.mywid, (int) diedpid, (int) WTERMSIG(waitpid_status));
+			uwsgi_log("DAMN ! worker %d (pid: %d) MISTERIOUSLY killed by signal %d :( trying respawn ...\n", thewid, (int) diedpid, (int) WTERMSIG(waitpid_status));
 		}
 
-		if (uwsgi.workers[uwsgi.mywid].cheaped == 1) {
-			uwsgi_log("uWSGI worker %d cheaped.\n", uwsgi.mywid);
+		if (uwsgi.workers[thewid].cheaped == 1) {
+			uwsgi_log("uWSGI worker %d cheaped.\n", thewid);
 			continue;
 		}
 
@@ -909,12 +909,12 @@ next:
 		uwsgi.respawn_delta = last_respawn.tv_sec;
 
 		// are we chain reloading it ?
-		if (uwsgi.status.chain_reloading == uwsgi.mywid) {
+		if (uwsgi.status.chain_reloading == thewid) {
 			uwsgi.status.chain_reloading++;
 		}
 
 		// respawn the worker (if needed)
-		if (uwsgi_respawn_worker(uwsgi.mywid))
+		if (uwsgi_respawn_worker(thewid))
 			return 0;
 
 		// end of the loop
