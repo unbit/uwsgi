@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
@@ -13,8 +13,9 @@ class FakeClass {
 
 void FakeClass::hello_world(struct wsgi_request *wsgi_req) {
 
-	wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, (char *) "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n", 44);
-	wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, foobar, foobar_len);
+	uwsgi_response_prepare_headers(wsgi_req, (char *)"200 OK", 6);
+	uwsgi_response_add_content_type(wsgi_req, (char *)"text/html", 9);
+	uwsgi_response_write_body_do(wsgi_req, foobar, foobar_len);
 }
 
 extern "C" int uwsgi_cplusplus_init(){
@@ -27,7 +28,7 @@ extern "C" int uwsgi_cplusplus_request(struct wsgi_request *wsgi_req) {
 	FakeClass *fc;
 
 	// empty request ?
-	if (!wsgi_req->uh.pktsize) {
+	if (!wsgi_req->uh->pktsize) {
                 uwsgi_log( "Invalid request. skip.\n");
 		goto clear;
         }
@@ -55,6 +56,7 @@ clear:
 
 
 extern "C" void uwsgi_cplusplus_after_request(struct wsgi_request *wsgi_req) {
+	// call log_request(wsgi_req) if you want a standard logline
         uwsgi_log("logging c++ request\n");
 }
 

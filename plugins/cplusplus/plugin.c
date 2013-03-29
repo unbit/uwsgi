@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 
 int uwsgi_cplusplus_init(void);
