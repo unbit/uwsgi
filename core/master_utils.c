@@ -433,7 +433,6 @@ void uwsgi_reload(char **argv) {
 	uwsgi_error("execvp()");
 	// never here
 	exit(1);
-#endif
 
 }
 
