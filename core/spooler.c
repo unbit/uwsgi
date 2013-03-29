@@ -108,7 +108,6 @@ pid_t spooler_start(struct uwsgi_spooler * uspool) {
                 signal(SIGSTOP, SIG_IGN);
                 signal(SIGTSTP, SIG_IGN);
 
-		uwsgi.mywid = -1;
 		uwsgi.mypid = getpid();
 		uspool->pid = uwsgi.mypid;
 		// avoid race conditions !!!

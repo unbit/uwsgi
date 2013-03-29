@@ -350,7 +350,7 @@ next:
 					uwsgi_log_verbose("master sent signal %d to mule %d\n", uwsgi_signal, uwsgi.muleid);
 #endif
 					if (uwsgi_signal_handler(uwsgi_signal)) {
-						uwsgi_log_verbose("error managing signal %d on mule %d\n", uwsgi_signal, uwsgi.mywid);
+						uwsgi_log_verbose("error managing signal %d on mule %d\n", uwsgi_signal, uwsgi.muleid);
 					}
 					// set the error condition
 					len = -1;

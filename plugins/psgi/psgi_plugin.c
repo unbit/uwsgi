@@ -668,7 +668,7 @@ void uwsgi_perl_run_hook(SV *hook) {
 }
 
 static void uwsgi_perl_atexit() {
-	if (uwsgi.mywid == -1) goto realstuff;
+	if (uwsgi.mywid == 0) goto realstuff;
 
         // if hijacked do not run atexit hooks
         if (uwsgi.workers[uwsgi.mywid].hijacked)
