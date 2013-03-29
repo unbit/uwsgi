@@ -260,7 +260,7 @@ int event_queue_del_fd(int eq, int fd, int event) {
 
 int event_queue_fd_write_to_read(int eq, int fd) {
 
-	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN, NULL)) {
+	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN, (void *)((long) eq))) {
 		uwsgi_error("port_associate");
 		return -1;
 	}
@@ -271,7 +271,7 @@ int event_queue_fd_write_to_read(int eq, int fd) {
 
 int event_queue_fd_read_to_write(int eq, int fd) {
 
-	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLOUT, NULL)) {
+	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLOUT, (void *)((long) eq))) {
 		uwsgi_error("port_associate");
 		return -1;
 	}
@@ -282,7 +282,7 @@ int event_queue_fd_read_to_write(int eq, int fd) {
 
 int event_queue_fd_readwrite_to_read(int eq, int fd) {
 
-	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN, NULL)) {
+	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN, (void *)((long) eq))) {
 		uwsgi_error("port_associate");
 		return -1;
 	}
@@ -293,7 +293,7 @@ int event_queue_fd_readwrite_to_read(int eq, int fd) {
 
 int event_queue_fd_readwrite_to_write(int eq, int fd) {
 
-	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLOUT, NULL)) {
+	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLOUT, (void *)((long) eq))) {
 		uwsgi_error("port_associate");
 		return -1;
 	}
@@ -304,7 +304,7 @@ int event_queue_fd_readwrite_to_write(int eq, int fd) {
 
 int event_queue_fd_write_to_readwrite(int eq, int fd) {
 
-	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN | POLLOUT, NULL)) {
+	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN | POLLOUT, (void *)((long) eq))) {
 		uwsgi_error("port_associate");
 		return -1;
 	}
@@ -315,7 +315,7 @@ int event_queue_fd_write_to_readwrite(int eq, int fd) {
 
 int event_queue_fd_read_to_readwrite(int eq, int fd) {
 
-	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN | POLLOUT, NULL)) {
+	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN | POLLOUT, (void *)((long) eq))) {
 		uwsgi_error("port_associate");
 		return -1;
 	}
@@ -351,7 +351,7 @@ int event_queue_interesting_fd_is_write(void *events, int id) {
 
 int event_queue_add_fd_read(int eq, int fd) {
 
-	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN, NULL)) {
+	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN, (void *)((long) eq))) {
 		uwsgi_error("port_associate");
 		return -1;
 	}
@@ -361,7 +361,7 @@ int event_queue_add_fd_read(int eq, int fd) {
 
 int event_queue_add_fd_write(int eq, int fd) {
 
-	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLOUT, NULL)) {
+	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLOUT, (void *)((long) eq))) {
 		uwsgi_error("port_associate");
 		return -1;
 	}
@@ -381,7 +381,7 @@ int event_queue_interesting_fd(void *events, int id) {
 	}
 
 	int fd = (int) pe[id].portev_object;
-	int eq = (int) pe[id].portev_user;
+	int eq = (long) pe[id].portev_user;
 
 	if (pe[id].portev_events == POLLOUT) {
 		event_queue_add_fd_write(eq, fd);
@@ -423,7 +423,7 @@ int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
 		port_event_t *pe_i = &pe[i];
 		if (pe_i->portev_source == PORT_SOURCE_FD) {
                 	// event must be readded (damn Oracle/Sun why the fu*k you made such a horrible choice ???? why not adding a ONESHOT flag ???)
-                	if (port_associate(eq, pe_i->portev_source, pe_i->portev_object, pe_i->portev_events, NULL)) {
+                	if (port_associate(eq, pe_i->portev_source, pe_i->portev_object, pe_i->portev_events, (void *)((long) eq))) {
                         	uwsgi_error("port_associate");
                 	}
         	}
@@ -449,16 +449,16 @@ int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 		ret = port_get(eq, &pe, NULL);
 	}
 	if (ret < 0) {
-		if (errno != ETIME) {
+		if (errno == ETIME) return 0;
+		if (errno != EINTR) {
 			uwsgi_error("port_get()");
-			return -1;
 		}
-		return 0;
+		return -1;
 	}
 
 	if (pe.portev_source == PORT_SOURCE_FD) {
 		// event must be readded (damn Oracle/Sun why the fu*k you made such a horrible choice ???? why not adding a ONESHOT flag ???)
-		if (port_associate(eq, pe.portev_source, pe.portev_object, pe.portev_events, NULL)) {
+		if (port_associate(eq, pe.portev_source, pe.portev_object, pe.portev_events, (void *)((long) eq))) {
 			uwsgi_error("port_associate");
 		}
 	}
