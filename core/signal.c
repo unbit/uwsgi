@@ -6,8 +6,6 @@ int uwsgi_signal_handler(uint8_t sig) {
 
 	struct uwsgi_signal_entry *use = NULL;
 
-	uwsgi_log("WID = %d\n", uwsgi.mywid);
-
 	int pos = (uwsgi.mywid * 256) + sig;
 
 	use = &uwsgi.shared->signal_table[pos];
