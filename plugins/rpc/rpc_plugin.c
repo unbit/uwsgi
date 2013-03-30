@@ -93,6 +93,62 @@ end:
 	return ret;
 }
 
+static int uwsgi_routing_func_rpc_blob(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        int ret = -1;
+        // this is the list of args
+        char *argv[UMAX8];
+        // this is the size of each argument
+        uint16_t argvs[UMAX8];
+        // this is a placeholder for tmp uwsgi_buffers
+        struct uwsgi_buffer *ubs[UMAX8];
+
+        char **r_argv = (char **) ur->data2;
+        uint16_t *r_argvs = (uint16_t *) ur->data3;
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        uint64_t i;
+        for(i=0;i<ur->custom;i++) {
+                ubs[i] = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, r_argv[i], r_argvs[i]);
+                if (!ubs[i]) goto end;
+                argv[i] = ubs[i]->buf;
+                argvs[i] = ubs[i]->pos;
+        }
+
+        // ok we now need to check it it is a local call or a remote one
+        char *func = uwsgi_str(ur->data);
+        char *remote = NULL;
+        char *at = strchr(func, '@');
+        if (at) {
+                *at = 0;
+                remote = at+1;
+        }
+        uint16_t size;
+        char *response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
+        free(func);
+        if (!response) goto end;
+
+        ret = UWSGI_ROUTE_NEXT;
+
+	// optimization
+	if (!wsgi_req->headers_sent) {
+        	if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) {free(response) ; goto end;}
+        	if (uwsgi_response_add_connection_close(wsgi_req)) {free(response) ; goto end;}
+	}
+        uwsgi_response_write_body_do(wsgi_req, response, size);
+        free(response);
+
+end:
+        for(i=0;i<ur->custom;i++) {
+                if (ubs[i] != NULL) {
+                        uwsgi_buffer_destroy(ubs[i]);
+                }
+        }
+        return ret;
+}
+
+
 // "next" || "continue" || "break(.*)" || "goon" || "goto .+"
 static int uwsgi_routing_func_rpc_ret(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
         int ret = -1;
@@ -238,10 +294,18 @@ static int uwsgi_router_rpc_ret(struct uwsgi_route *ur, char *args) {
 	return uwsgi_router_rpc_base(ur, args);
 }
 
+static int uwsgi_router_rpc_blob(struct uwsgi_route *ur, char *args) {
+        ur->func = uwsgi_routing_func_rpc_blob;
+        return uwsgi_router_rpc_base(ur, args);
+}
+
+
 static void router_rpc_register() {
         uwsgi_register_router("call", uwsgi_router_rpc);
         uwsgi_register_router("rpc", uwsgi_router_rpc);
         uwsgi_register_router("rpcret", uwsgi_router_rpc_ret);
+        uwsgi_register_router("rpcblob", uwsgi_router_rpc_blob);
+        uwsgi_register_router("rpcnext", uwsgi_router_rpc_blob);
 }
 #endif
 
