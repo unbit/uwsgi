@@ -260,6 +260,8 @@ int uwsgi_add_probe(uint8_t sig, char *kind, char *args, int timeout, int freq) 
 
 int uwsgi_add_timer(uint8_t sig, int secs) {
 
+	if (!uwsgi.master_process) return -1;
+
 	uwsgi_lock(uwsgi.timer_table_lock);
 
 	if (ushared->timers_cnt < 64) {

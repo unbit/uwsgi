@@ -14,6 +14,25 @@ struct uwsgi_option uwsgi_v8_options[] = {
         {0, 0, 0, 0},
 };
 
+static v8::Handle<v8::Value> uwsgi_v8_api_register_signal(const v8::Arguments& args) {
+
+        if (args.Length() > 2) {
+		uint8_t uwsgi_signal = args[0]->Uint32Value();
+		v8::String::Utf8Value signal_kind(args[1]->ToString());
+
+		v8::Persistent<v8::Function> func = v8::Persistent<v8::Function>::New(v8::Handle<v8::Function>::Cast(args[2]));
+
+		if (uwsgi_register_signal(uwsgi_signal, *signal_kind, *func, v8_plugin.modifier1)) {
+			uwsgi_log("[uwsgi-v8] unable to register signal %d\n", uwsgi_signal);
+			return v8::Undefined();
+		}
+		
+		return v8::True();
+        }
+
+        return v8::Undefined();
+}
+
 static v8::Handle<v8::Value> uwsgi_v8_api_register_rpc(const v8::Arguments& args) {
 
         if (args.Length() > 1) {
@@ -29,13 +48,12 @@ static v8::Handle<v8::Value> uwsgi_v8_api_register_rpc(const v8::Arguments& args
 			uwsgi_log("[uwsgi-v8] unable to register RPC function \"%s\"\n", *name);
 			return v8::Undefined();
 		}
-		
+
 		return v8::True();
         }
 
         return v8::Undefined();
 }
-
 
 static void uwsgi_v8_load_file(v8::Persistent<v8::Context> context, char *filename) {
 
@@ -94,6 +112,7 @@ static v8::Persistent<v8::Context> uwsgi_v8_new_isolate(int core) {
 	// print alias is always handy
 	global->Set(v8::String::New("uwsgi_log"), v8::FunctionTemplate::New(uwsgi_v8_api_log));
 	global->Set(v8::String::New("uwsgi_register_rpc"), v8::FunctionTemplate::New(uwsgi_v8_api_register_rpc));
+	global->Set(v8::String::New("uwsgi_register_signal"), v8::FunctionTemplate::New(uwsgi_v8_api_register_signal));
 
         // create a new context
         v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
@@ -203,3 +222,16 @@ extern "C" uint16_t uwsgi_v8_rpc(void * func, uint8_t argc, char **argv, uint16_
 
 }
 
+extern "C" int uwsgi_v8_signal_handler(uint8_t sig, void *handler) {
+	int ret = 0;
+	v8::HandleScope handle_scope;
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	v8::Context::Scope context_scope(uv8.contexts[wsgi_req->async_id]);
+	v8::Persistent<v8::Function> l_func = static_cast<v8::Function*> (handler);
+	v8::Handle<v8::Value> argj[1];
+	argj[0] = v8::Number::New(sig);
+	v8::Handle<v8::Value> result = l_func->Call(l_func, 1, argj);
+	if (result.IsEmpty()) ret = -1;
+	while(!v8::V8::IdleNotification()) {};
+	return ret;
+}
