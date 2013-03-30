@@ -3760,9 +3760,12 @@ void uwsgi_user_unlock(int);
 
 #ifdef UWSGI_SSL
 void uwsgi_opt_legion(char *, char *, void *);
+struct uwsgi_legion *uwsgi_legion_register(char *, char *, char *, char *, char *);
 void uwsgi_opt_legion_node(char *, char *, void *);
+void uwsgi_legion_register_node(struct uwsgi_legion *, char *);
 void uwsgi_opt_legion_quorum(char *, char *, void *);
 void uwsgi_opt_legion_hook(char *, char *, void *);
+void uwsgi_legion_register_hook(struct uwsgi_legion *, char *, char *);
 void uwsgi_opt_legion_scroll(char *, char *, void *);
 void uwsgi_legion_add(struct uwsgi_legion *);
 char *uwsgi_ssl_rand(size_t);
