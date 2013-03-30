@@ -836,9 +836,9 @@ struct uwsgi_cache {
 	struct uwsgi_loop *next;
 	};
 
-	struct wsgi_request;
+struct wsgi_request;
 
-	struct uwsgi_socket {
+struct uwsgi_socket {
 	int fd;
 	char *name;
 	int name_len;
@@ -908,11 +908,11 @@ struct uwsgi_cache {
 	int lazy;
 	int shared;
 	int from_shared;
-	};
+};
 
-	struct uwsgi_server;
+struct uwsgi_server;
 
-	struct uwsgi_plugin {
+struct uwsgi_plugin {
 
 	const char *name;
 	const char *alias;
@@ -953,7 +953,7 @@ struct uwsgi_cache {
 
 	int (*spooler) (char *, char *, uint16_t, char *, size_t);
 
-	 uint16_t(*rpc) (void *, uint8_t, char **, uint16_t *, char *);
+	uint16_t(*rpc) (void *, uint8_t, char **, uint16_t *, char *);
 
 	void (*jail) (int (*)(void *), char **);
 	void (*before_privileges_drop) (void);
@@ -963,13 +963,12 @@ struct uwsgi_cache {
 
 	void (*master_cleanup) (void);
 
-
 	struct uwsgi_buffer* (*backtrace)(struct wsgi_request *);
-                struct uwsgi_buffer* (*exception_class)(struct wsgi_request *);
-                struct uwsgi_buffer* (*exception_msg)(struct wsgi_request *);
-                struct uwsgi_buffer* (*exception_repr)(struct wsgi_request *);
-                void (*exception_log)(struct wsgi_request *);
-	};
+        struct uwsgi_buffer* (*exception_class)(struct wsgi_request *);
+        struct uwsgi_buffer* (*exception_msg)(struct wsgi_request *);
+        struct uwsgi_buffer* (*exception_repr)(struct wsgi_request *);
+        void (*exception_log)(struct wsgi_request *);
+};
 
 #ifdef UWSGI_PCRE
 int uwsgi_regexp_build(char *, pcre **, pcre_extra **);
