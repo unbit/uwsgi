@@ -837,9 +837,8 @@ clear2:
 				escape_shell_arg(arg_copy, arg_copy_len, argv[i]);	
 				i++;
 				p = strtok(NULL, "+");
-			}	
-		}
-		else {
+			}
+			free(qs);
 		}
 	}
 
