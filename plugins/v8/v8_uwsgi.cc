@@ -1,15 +1,27 @@
 #include <uwsgi.h>
 #include <v8.h>
 
-struct uwsgi_v8_signal_handler_table {
+// as we have isolates in multithread modes, we need to maintain
+// special tables for the handlers (mules and spooler just run on the core 0)
+struct uwsgi_v8_signal_table {
+	void *func;
 };
 
 struct uwsgi_v8_rpc_table {
+	char *name;
+	v8::Persistent<v8::Function> *func;
 };
+
+v8::Persistent<v8::Function> handler1;
 
 struct uwsgi_v8 {
         v8::Persistent<v8::Context> *contexts;
+	v8::Isolate **isolates;
         struct uwsgi_string_list *load;
+	struct uwsgi_v8_signal_table **sigtable;
+	struct uwsgi_v8_rpc_table *rpctable;
+	int current_core;
+	int preemptive;
 } uv8;
 
 extern struct uwsgi_server uwsgi;
@@ -17,6 +29,7 @@ extern struct uwsgi_plugin v8_plugin;
 
 struct uwsgi_option uwsgi_v8_options[] = {
         {(char *)"v8-load", required_argument, 0, (char *)"load a javascript file", uwsgi_opt_add_string_list, &uv8.load, 0},
+        {(char *)"v8-preemptive", required_argument, 0, (char *)"put v8 in preemptive move (single isolate) with the specified frequency", uwsgi_opt_set_int, &uv8.preemptive, 0},
         {0, 0, 0, 0},
 };
 
@@ -48,9 +61,47 @@ static v8::Handle<v8::Value> uwsgi_v8_api_register_rpc(const v8::Arguments& args
 			j_argc = args[2]->Uint32Value();
 		}
 
-		v8::Persistent<v8::Function> func = v8::Persistent<v8::Function>::New(v8::Handle<v8::Function>::Cast(args[1]));
+	
+		//v8::Persistent<v8::Function> func = v8::Persistent<v8::Function>::New(v8::Handle<v8::Function>::Cast(args[1]));
+		v8::Local<v8::Function> l_func = v8::Local<v8::Function>::Cast(args[1]);
+		v8::Persistent<v8::Function> func = v8::Persistent<v8::Function>::New(l_func);
 
-		if (uwsgi_register_rpc(*name, v8_plugin.modifier1, j_argc, *func)) {
+		int core_id = uv8.current_core;
+		if (core_id < 0) {
+			struct wsgi_request *wsgi_req = current_wsgi_req();
+			core_id = wsgi_req->async_id;
+		}
+
+		if (core_id == 1) {
+			uwsgi_log("OOOOps\n");
+			handler1 = v8::Persistent<v8::Function>::New(l_func);
+		}
+
+		// get the rpc slot
+		int i;
+		int found = 0;
+		struct uwsgi_v8_rpc_table *uvrt = NULL;
+		for(i=0;i<(int)uwsgi.rpc_max;i++) {
+			uvrt = &uv8.rpctable[i];
+			if (uvrt->name == NULL) {
+				found = 1;
+				break;
+			}
+			// skip already registered funcs
+			else if (!strcmp(uvrt->name, *name)) {
+				uvrt->func[core_id] = func;
+				return v8::True();
+			}
+		}
+		if (!found || !uvrt) {
+			uwsgi_log("[uwsgi-v8] unable to register RPC function \"%s\"\n", *name);
+                        return v8::Undefined();
+		}
+		uvrt->name = uwsgi_str(*name);
+		uvrt->func[core_id] = func;
+
+		// we can safely call register_rpc here as it will check for already registered funcs
+		if (uwsgi_register_rpc(*name, v8_plugin.modifier1, j_argc, uvrt)) {
 			uwsgi_log("[uwsgi-v8] unable to register RPC function \"%s\"\n", *name);
 			return v8::Undefined();
 		}
@@ -61,11 +112,11 @@ static v8::Handle<v8::Value> uwsgi_v8_api_register_rpc(const v8::Arguments& args
         return v8::Undefined();
 }
 
-static void uwsgi_v8_load_file(v8::Persistent<v8::Context> context, char *filename) {
+static void uwsgi_v8_load_file(int core_id, char *filename) {
 
+	uv8.isolates[core_id]->Enter();
+	uv8.contexts[core_id]->Enter();
 	v8::HandleScope handle_scope;
-
-	v8::Context::Scope context_scope(context);
 	
 	size_t len = 0;
 	char *code = uwsgi_open_and_read(filename, &len, 1, NULL);
@@ -84,45 +135,69 @@ static void uwsgi_v8_load_file(v8::Persistent<v8::Context> context, char *filena
 
 }
 
-extern "C" int uwsgi_v8_init(){
-        uwsgi_log("Initializing V8 %s environment... (%d Isolates)\n", v8::V8::GetVersion(), uwsgi.cores);
-        uv8.contexts = (v8::Persistent<v8::Context> *) uwsgi_malloc( sizeof(v8::Persistent<v8::Context>*) * uwsgi.cores );
-        return 0;
+static v8::Handle<v8::Value> uwsgi_v8_api_log(const v8::Arguments& args) {
+
+        if (args.Length() > 0) {
+                v8::String::Utf8Value str(args[0]->ToString());
+                size_t slen = strlen(*str);
+                if ((*str)[slen-1] == '\n') {
+                        uwsgi_log("%s", *str);
+                }
+                else {
+                        uwsgi_log("%s\n", *str);
+                }
+        }
+        return v8::Undefined();
 }
 
-static v8::Handle<v8::Value> uwsgi_v8_api_log(const v8::Arguments& args) {
- 
-	if (args.Length() > 0) {
-		v8::String::Utf8Value str(args[0]->ToString());
-		size_t slen = strlen(*str);
-		if ((*str)[slen-1] == '\n') {
-			uwsgi_log("%s", *str);
-		}
-		else {
-			uwsgi_log("%s\n", *str);
-		}
-	}
-	return v8::Undefined();
-}
 
 static v8::Persistent<v8::Context> uwsgi_v8_new_isolate(int core) {
+        if (core > 0) {
+                // create a new isolate
+                v8::Isolate *isolate = v8::Isolate::New();
+                // set as the current isolate
+		isolate->Enter();
+        }
+
+	uv8.isolates[core] = v8::Isolate::GetCurrent();
+
 	v8::HandleScope handle_scope;
-	if (core > 0) {
-        	// create a new isolate
-        	v8::Isolate *isolate = v8::Isolate::New();
-        	// set as the current isolate
-        	v8::Isolate::Scope iscope(isolate);
-	}
+
+	// uWSGI api
+        v8::Handle<v8::ObjectTemplate> uwsgi_api = v8::ObjectTemplate::New();
+        uwsgi_api->Set(v8::String::New("log"), v8::FunctionTemplate::New(uwsgi_v8_api_log));
+        uwsgi_api->Set(v8::String::New("register_rpc"), v8::FunctionTemplate::New(uwsgi_v8_api_register_rpc));
+        uwsgi_api->Set(v8::String::New("register_signal"), v8::FunctionTemplate::New(uwsgi_v8_api_register_signal));
 
 	v8::Handle<v8::ObjectTemplate> global = v8::ObjectTemplate::New();
-	// print alias is always handy
-	global->Set(v8::String::New("uwsgi_log"), v8::FunctionTemplate::New(uwsgi_v8_api_log));
-	global->Set(v8::String::New("uwsgi_register_rpc"), v8::FunctionTemplate::New(uwsgi_v8_api_register_rpc));
-	global->Set(v8::String::New("uwsgi_register_signal"), v8::FunctionTemplate::New(uwsgi_v8_api_register_signal));
+	global->Set(v8::String::New("uwsgi"), uwsgi_api);
 
         // create a new context
         v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
-	return context;
+        return context;
+}
+
+extern "C" int uwsgi_v8_init(){
+	int i;
+        uwsgi_log("Initializing V8 %s environment... (%d Isolates)\n", v8::V8::GetVersion(), uwsgi.cores);
+	uv8.isolates = (v8::Isolate **) uwsgi_malloc( sizeof(v8::Isolate *) * uwsgi.cores );
+        uv8.contexts = (v8::Persistent<v8::Context> *) uwsgi_malloc( sizeof(v8::Persistent<v8::Context>) * uwsgi.cores );
+	for(i=0;i<uwsgi.cores;i++) {
+                uv8.contexts[i] = uwsgi_v8_new_isolate(i);
+	}
+	// allocates rpc and signal tables
+	uv8.rpctable = (struct uwsgi_v8_rpc_table *) uwsgi_calloc(sizeof(struct uwsgi_v8_rpc_table) * uwsgi.rpc_max);
+	for(i=0;i<(int)uwsgi.rpc_max;i++) {
+		uv8.rpctable[i].func = (v8::Persistent<v8::Function>*) uwsgi_calloc(sizeof(v8::Persistent<v8::Function>) * uwsgi.cores);
+	}
+/*
+	uv8.sigtable = (struct uwsgi_v8_signal_table **) uwsgi_calloc(sizeof(struct uwsgi_v8_signal_table *) * 256);
+	for(i=0;i<256;i++) {
+                uv8.sigtable[i] = (struct uwsgi_v8_signal_table *) uwsgi_calloc(sizeof(struct uwsgi_v8_signal_table) * uwsgi.cores);
+        }
+*/
+
+        return 0;
 }
 
 extern "C" void uwsgi_v8_apps() {
@@ -131,13 +206,15 @@ extern "C" void uwsgi_v8_apps() {
 
         int i;
         for(i=0;i<uwsgi.cores;i++) {
-                uv8.contexts[i] = uwsgi_v8_new_isolate(i);
+		uv8.current_core = i;
                 struct uwsgi_string_list *usl = uv8.load;
                 while(usl) {
-                        uwsgi_v8_load_file(uv8.contexts[i], usl->value);
+                        uwsgi_v8_load_file(i, usl->value);
                         usl = usl->next;
                 }
         }
+	// inform the system to use current_wsgi_req
+	uv8.current_core = -1;
 }
 
 extern "C" void uwsgi_v8_configurator(char *filename, char *magic_table[]) {
@@ -197,29 +274,42 @@ extern "C" void uwsgi_v8_configurator(char *filename, char *magic_table[]) {
 
 extern "C" uint16_t uwsgi_v8_rpc(void * func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
 
+	int core_id = 0;
+	if (uwsgi.mywid > 0) {
+        	struct wsgi_request *wsgi_req = current_wsgi_req();
+		core_id = wsgi_req->async_id;
+	}
+
+	uv8.isolates[core_id]->Enter();
+	uv8.contexts[core_id]->Enter();
 	v8::HandleScope handle_scope;
-	
 	v8::Handle<v8::Value> argj[256];
 
-        struct wsgi_request *wsgi_req = current_wsgi_req();
-
-        v8::Context::Scope context_scope(uv8.contexts[wsgi_req->async_id]);
-
-
-	v8::Persistent<v8::Function> l_func = static_cast<v8::Function*> (func);
-
+	struct uwsgi_v8_rpc_table *uvrt = (struct uwsgi_v8_rpc_table *) func;
+	
 	uint8_t i;
 	for(i=0;i<argc;i++) {
 		argj[i] = v8::String::New(argv[i], argvs[i]);
 	}
 
-	v8::Handle<v8::Value> result = l_func->Call(l_func, argc, argj);
-	if (result.IsEmpty()) return 0;
+	v8::Persistent<v8::Function> l_func = uvrt->func[core_id];
+
+	if (core_id == 1) {
+		uwsgi_log("111111\n");
+		l_func = handler1;
+	}
+
+	v8::Handle<v8::Value> result = l_func->Call(uv8.contexts[core_id]->Global(), argc, argj);
+	if (result.IsEmpty()) {
+		return 0;
+	}
 
 	v8::Handle<v8::String> robj = result->ToString();
 	
 	v8::String::Utf8Value r_value(robj);
-	if (!*robj) return 0;
+	if (!*robj) {
+		return 0;
+	}
 	uint16_t rlen = robj->Length();
 	memcpy(buffer, *r_value, rlen);
 	// call GC every time, could be overkill, we should allow to tune that choice
