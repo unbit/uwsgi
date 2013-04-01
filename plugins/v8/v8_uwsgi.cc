@@ -1,6 +1,12 @@
 #include <uwsgi.h>
 #include <v8.h>
 
+struct uwsgi_v8_signal_handler_table {
+};
+
+struct uwsgi_v8_rpc_table {
+};
+
 struct uwsgi_v8 {
         v8::Persistent<v8::Context> *contexts;
         struct uwsgi_string_list *load;

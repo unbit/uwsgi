@@ -166,6 +166,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"single-interpreter", no_argument, 'i', "do not use multiple interpreters (where available)", uwsgi_opt_true, &uwsgi.single_interpreter, 0},
 	{"need-app", no_argument, 0, "exit if no app can be loaded", uwsgi_opt_true, &uwsgi.need_app, 0},
 	{"master", no_argument, 'M', "enable master process", uwsgi_opt_true, &uwsgi.master_process, 0},
+	{"honour-stdin", no_argument, 0, "do not remap stdin to /dev/null", uwsgi_opt_true, &uwsgi.honour_stdin, 0},
 	{"emperor", required_argument, 0, "run the Emperor", uwsgi_opt_add_string_list, &uwsgi.emperor, 0},
 	{"emperor-procname", required_argument, 0, "set the Emperor process name", uwsgi_opt_set_str, &uwsgi.emperor_procname, 0},
 	{"emperor-freq", required_argument, 0, "set the Emperor scan frequency (default 3 seconds)", uwsgi_opt_set_int, &uwsgi.emperor_freq, 0},
