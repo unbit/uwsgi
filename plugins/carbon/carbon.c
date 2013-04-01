@@ -74,12 +74,17 @@ static void carbon_post_init() {
 			else if (!u_server->port) {
 				u_server->port = uwsgi_str(p);
 			}
-			else break;
+			else
+				break;
 			p = strtok(NULL, ":");
 		}
 		if (!u_server->hostname || !u_server->port) {
 			uwsgi_log("[carbon] invalid carbon server address (%s)\n", usl->value);
 			usl = usl->next;
+
+			if (u_server->hostname) free(u_server->hostname);
+			if (u_server->port) free(u_server->port);
+			free(u_server);
 			continue;
 		}
 

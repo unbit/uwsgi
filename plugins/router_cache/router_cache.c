@@ -134,6 +134,7 @@ error:
 	if (urcc->key) free(urcc->key);
 	if (urcc->name) free(urcc->name);
 	if (urcc->expires_str) free(urcc->expires_str);
+	free(urcc);
 	return -1;
 }
 
