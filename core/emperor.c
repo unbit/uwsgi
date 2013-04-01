@@ -866,14 +866,15 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		uenvs = environ;
 		while (*uenvs) {
 			if (!strncmp(*uenvs, "UWSGI_VASSAL_", 13)) {
-				char *ne = uwsgi_concat2("UWSGI_", *uenvs + 13);
-				char *oe = uwsgi_concat2n(*uenvs, strchr(*uenvs, '=') - *uenvs, "", 0);
+				char *oe = uwsgi_concat2n(*uenvs, strchr(*uenvs, '=') - *uenvs, "", 0), *ne;
 				if (unsetenv(oe)) {
 					uwsgi_error("unsetenv()");
 					free(oe);
 					break;
 				}
 				free(oe);
+
+				ne = uwsgi_concat2("UWSGI_", *uenvs + 13);
 #ifdef UWSGI_DEBUG
 				uwsgi_log("putenv %s\n", ne);
 #endif
