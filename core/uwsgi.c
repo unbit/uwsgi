@@ -2127,6 +2127,20 @@ int uwsgi_start(void *v_argv) {
 	// automatically fix options
 	sanitize_args();
 
+
+	if (uwsgi.requested_max_fd) {
+		uwsgi.rl.rlim_cur = uwsgi.requested_max_fd;
+		uwsgi.rl.rlim_max = uwsgi.requested_max_fd;
+		if (setrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
+			uwsgi_error("setrlimit()");
+		}
+	}
+
+	if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
+		uwsgi.max_fd = uwsgi.rl.rlim_cur;
+		uwsgi_log_initial("detected max file descriptor number: %lu\n", (unsigned long) uwsgi.max_fd);
+	}
+
 	// start the Emperor if needed
 	if (!uwsgi.early_emperor && uwsgi.emperor) {
 		uwsgi_emperor_start();
@@ -2149,19 +2163,6 @@ int uwsgi_start(void *v_argv) {
 			}
 			umd = umd->next;
 		}
-	}
-
-	if (uwsgi.requested_max_fd) {
-		uwsgi.rl.rlim_cur = uwsgi.requested_max_fd;
-		uwsgi.rl.rlim_max = uwsgi.requested_max_fd;
-		if (setrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
-			uwsgi_error("setrlimit()");
-		}
-	}
-
-	if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
-		uwsgi.max_fd = uwsgi.rl.rlim_cur;
-		uwsgi_log_initial("detected max file descriptor number: %lu\n", (unsigned long) uwsgi.max_fd);
 	}
 
 	if (uwsgi.async > 1) {
