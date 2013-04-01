@@ -1863,6 +1863,7 @@ struct uwsgi_server {
 	int threaded_logger;
 	pthread_mutex_t threaded_logger_lock;
 
+	int daemons_honour_stdin;
 	struct uwsgi_daemon *daemons;
 	int daemons_cnt;
 
