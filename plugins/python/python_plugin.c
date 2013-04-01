@@ -1063,9 +1063,7 @@ void uwsgi_python_init_apps() {
 #endif
 
         // setup app loaders
-#ifdef UWSGI_MINTERPRETERS
         up.loaders[LOADER_DYN] = uwsgi_dyn_loader;
-#endif
         up.loaders[LOADER_UWSGI] = uwsgi_uwsgi_loader;
         up.loaders[LOADER_FILE] = uwsgi_file_loader;
         up.loaders[LOADER_PASTE] = uwsgi_paste_loader;

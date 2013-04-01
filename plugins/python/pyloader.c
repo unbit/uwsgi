@@ -196,8 +196,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		goto doh;
 	}
 
-
-	
 	// the module contains multiple apps
 	if (PyDict_Check((PyObject *)wi->callable)) {
 		applications = wi->callable;

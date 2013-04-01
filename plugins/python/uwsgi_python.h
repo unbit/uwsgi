@@ -268,10 +268,6 @@ struct uwsgi_buffer *uwsgi_python_exception_repr(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *);
 void uwsgi_python_exception_log(struct wsgi_request *);
 
-#ifdef UWSGI_PYPY
-#undef UWSGI_MINTERPRETERS
-#endif
-
 #define py_current_wsgi_req() current_wsgi_req();\
 			if (!wsgi_req) {\
 				return PyErr_Format(PyExc_SystemError, "you can call uwsgi api function only from the main callable");\
