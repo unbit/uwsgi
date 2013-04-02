@@ -18,6 +18,19 @@ static v8::Handle<v8::Value> uwsgi_v8_jsgi_body_chunk(const v8::Arguments& args)
         return v8::Undefined();
 }
 
+static void uwsgi_v8_jsgi_fill_request(struct wsgi_request *wsgi_req, v8::Handle<v8::Object> o) {
+	o->Set(v8::String::New("method"), v8::String::New(wsgi_req->method, wsgi_req->method_len));	
+	o->Set(v8::String::New("scriptName"), v8::String::New(wsgi_req->script_name, wsgi_req->script_name_len));	
+	o->Set(v8::String::New("pathInfo"), v8::String::New(wsgi_req->path_info, wsgi_req->path_info_len));	
+	o->Set(v8::String::New("queryString"), v8::String::New(wsgi_req->query_string, wsgi_req->query_string_len));	
+	o->Set(v8::String::New("host"), v8::String::New(wsgi_req->host, wsgi_req->host_len));	
+	if (wsgi_req->scheme_len) {
+		o->Set(v8::String::New("scheme"), v8::String::New(wsgi_req->scheme, wsgi_req->scheme_len));	
+	}
+	else {
+		o->Set(v8::String::New("scheme"), v8::String::New("http"));	
+	}
+}
 
 extern "C" int uwsgi_v8_request(struct wsgi_request *wsgi_req) {
 	char status_str[11];
@@ -44,6 +57,7 @@ extern "C" int uwsgi_v8_request(struct wsgi_request *wsgi_req) {
         v8::HandleScope handle_scope;
         v8::Handle<v8::Value> argj[1];
         argj[0] = v8::Object::New();
+	uwsgi_v8_jsgi_fill_request(wsgi_req, argj[0]->ToObject());
         v8::Handle<v8::Value> result = uv8.jsgi_func[core_id]->Call(uv8.contexts[core_id]->Global(), 1, argj);
         if (result.IsEmpty()) goto end;
 	if (!result->IsObject()) goto end;
