@@ -30,6 +30,7 @@ extern struct uwsgi_plugin v8_plugin;
 struct uwsgi_option uwsgi_v8_options[] = {
         {(char *)"v8-load", required_argument, 0, (char *)"load a javascript file", uwsgi_opt_add_string_list, &uv8.load, 0},
         {(char *)"v8-preemptive", required_argument, 0, (char *)"put v8 in preemptive move (single isolate) with the specified frequency", uwsgi_opt_set_int, &uv8.preemptive, 0},
+        {(char *)"v8-gc-freq", required_argument, 0, (char *)"set the v8 garbage collection frequency", uwsgi_opt_set_64bit, &uv8.gc_freq, 0},
         {0, 0, 0, 0},
 };
 
@@ -329,4 +330,15 @@ extern "C" int uwsgi_v8_signal_handler(uint8_t sig, void *handler) {
 	if (result.IsEmpty()) ret = -1;
 	while(!v8::V8::IdleNotification()) {};
 	return ret;
+}
+
+extern "C" int uwsgi_v8_mule(char *opt) {
+
+        if (uwsgi_endswith(opt, (char *)".js")) {
+		uwsgi_v8_load_file(0, opt);
+                return 1;
+        }
+
+        return 0;
+
 }
