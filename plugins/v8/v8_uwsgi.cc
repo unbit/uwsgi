@@ -10,6 +10,7 @@ struct uwsgi_option uwsgi_v8_options[] = {
         {(char *)"v8-preemptive", required_argument, 0, (char *)"put v8 in preemptive move (single isolate) with the specified frequency", uwsgi_opt_set_int, &uv8.preemptive, 0},
         {(char *)"v8-gc-freq", required_argument, 0, (char *)"set the v8 garbage collection frequency", uwsgi_opt_set_64bit, &uv8.gc_freq, 0},
         {(char *)"v8-module-path", required_argument, 0, (char *)"set the v8 modules search path", uwsgi_opt_add_string_list, &uv8.module_paths, 0},
+        {(char *)"v8-jsgi", required_argument, 0, (char *)"load the specified JSGI 3.0 application", uwsgi_opt_set_str, &uv8.jsgi, 0},
         {0, 0, 0, 0},
 };
 
@@ -175,6 +176,7 @@ extern "C" int uwsgi_v8_init(){
 	for(i=0;i<256;i++) {
                 uv8.sigtable[i].func = (v8::Persistent<v8::Function>*) uwsgi_calloc(sizeof(v8::Persistent<v8::Function>) * uwsgi.cores);
         }
+	uv8.jsgi_func = (v8::Persistent<v8::Function> *) uwsgi_calloc( sizeof(v8::Persistent<v8::Function>) * uwsgi.cores );
 
 	pthread_key_create(&uv8.current_core, NULL);
 	pthread_setspecific(uv8.current_core, (void *) 0);
@@ -184,12 +186,15 @@ extern "C" int uwsgi_v8_init(){
 }
 
 static void uwsgi_v8_apps_do(int core_id) {
-        if (!uv8.load) return;
 	struct uwsgi_string_list *usl = uv8.load;
         while(usl) {
                 uwsgi_v8_load_file(core_id, usl->value);
                 usl = usl->next;
         }
+
+	if (uv8.jsgi) {
+		uv8.jsgi_func[core_id] = uwsgi_v8_load_jsgi(core_id, uv8.jsgi);
+	}
 }
 
 extern "C" void uwsgi_v8_apps() {

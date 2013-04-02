@@ -15,9 +15,7 @@ static void uwsgi_v8_register(void) {
 
 extern struct uwsgi_option uwsgi_v8_options[];
 
-static int uwsgi_v8_request(struct wsgi_request *wsgi_req) {
-	return UWSGI_OK;
-}
+int uwsgi_v8_request(struct wsgi_request *);
 
 struct uwsgi_plugin v8_plugin = {
 	.name = "v8",
