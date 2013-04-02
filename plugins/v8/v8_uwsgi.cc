@@ -1,28 +1,6 @@
-#include <uwsgi.h>
-#include <v8.h>
+#include "v8_uwsgi.h"
 
-// as we have isolates in multithread modes, we need to maintain
-// special tables for the handlers (mules and spooler just run on the core 0)
-struct uwsgi_v8_signal_table {
-	v8::Persistent<v8::Function> *func;
-	uint8_t registered;
-};
-
-struct uwsgi_v8_rpc_table {
-	char *name;
-	v8::Persistent<v8::Function> *func;
-};
-
-struct uwsgi_v8 {
-        v8::Persistent<v8::Context> *contexts;
-	v8::Isolate **isolates;
-        struct uwsgi_string_list *load;
-	struct uwsgi_v8_signal_table *sigtable;
-	struct uwsgi_v8_rpc_table *rpctable;
-	pthread_key_t current_core;
-	int preemptive;
-	uint64_t gc_freq;
-} uv8;
+struct uwsgi_v8 uv8;
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_plugin v8_plugin;
@@ -31,6 +9,7 @@ struct uwsgi_option uwsgi_v8_options[] = {
         {(char *)"v8-load", required_argument, 0, (char *)"load a javascript file", uwsgi_opt_add_string_list, &uv8.load, 0},
         {(char *)"v8-preemptive", required_argument, 0, (char *)"put v8 in preemptive move (single isolate) with the specified frequency", uwsgi_opt_set_int, &uv8.preemptive, 0},
         {(char *)"v8-gc-freq", required_argument, 0, (char *)"set the v8 garbage collection frequency", uwsgi_opt_set_64bit, &uv8.gc_freq, 0},
+        {(char *)"v8-module-path", required_argument, 0, (char *)"set the v8 modules search path", uwsgi_opt_add_string_list, &uv8.module_paths, 0},
         {0, 0, 0, 0},
 };
 
@@ -154,6 +133,7 @@ static v8::Handle<v8::Value> uwsgi_v8_api_log(const v8::Arguments& args) {
         return v8::Undefined();
 }
 
+void uwsgi_v8_add_commonjs(v8::Handle<v8::ObjectTemplate>);
 
 static v8::Persistent<v8::Context> uwsgi_v8_new_isolate(int core_id) {
         // create a new isolate
@@ -173,6 +153,8 @@ static v8::Persistent<v8::Context> uwsgi_v8_new_isolate(int core_id) {
 
 	v8::Handle<v8::ObjectTemplate> global = v8::ObjectTemplate::New();
 	global->Set(v8::String::New("uwsgi"), uwsgi_api);
+
+	uwsgi_v8_add_commonjs(global);
 
         // create a new context
         v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
