@@ -17,6 +17,10 @@ extern struct uwsgi_option uwsgi_v8_options[];
 
 int uwsgi_v8_request(struct wsgi_request *);
 
+static void uwsgi_v8_after_request(struct wsgi_request *wsgi_req) {
+	log_request(wsgi_req);
+}
+
 struct uwsgi_plugin v8_plugin = {
 	.name = "v8",
 	.modifier1 = 24,
@@ -26,6 +30,7 @@ struct uwsgi_plugin v8_plugin = {
 	.on_load = uwsgi_v8_register,
 	.rpc = uwsgi_v8_rpc,
 	.request = uwsgi_v8_request,
+	.after_request = uwsgi_v8_after_request,
 	.signal_handler = uwsgi_v8_signal_handler,
 	.enable_threads = uwsgi_v8_enable_threads,
 	.init_thread = uwsgi_v8_init_thread,

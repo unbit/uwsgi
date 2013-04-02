@@ -30,6 +30,27 @@ static void uwsgi_v8_jsgi_fill_request(struct wsgi_request *wsgi_req, v8::Handle
 	else {
 		o->Set(v8::String::New("scheme"), v8::String::New("http"));	
 	}
+	o->Set(v8::String::New("remoteAddr"), v8::String::New(wsgi_req->remote_addr, wsgi_req->remote_addr_len));
+	if (wsgi_req->remote_user_len) {
+		o->Set(v8::String::New("remoteUser"), v8::String::New(wsgi_req->remote_user, wsgi_req->remote_user_len));
+	}
+	o->Set(v8::String::New("serverSoftware"), v8::String::New("uWSGI " UWSGI_VERSION));
+
+	v8::Handle<v8::Value> jsgi = v8::Object::New();
+	if (uwsgi.threads > 1) {
+		jsgi->ToObject()->Set(v8::String::New("multithread"), v8::True());
+	}
+	else {
+		jsgi->ToObject()->Set(v8::String::New("multithread"), v8::False());
+	}
+
+	if (uwsgi.numproc > 1) {
+		jsgi->ToObject()->Set(v8::String::New("multiprocess"), v8::True());
+	}
+	else {
+		jsgi->ToObject()->Set(v8::String::New("multiprocess"), v8::False());
+	}
+	o->Set(v8::String::New("jsgi"), jsgi);
 }
 
 extern "C" int uwsgi_v8_request(struct wsgi_request *wsgi_req) {
