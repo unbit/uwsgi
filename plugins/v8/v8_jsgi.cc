@@ -1,6 +1,23 @@
 #include "v8_uwsgi.h"
 
 extern struct uwsgi_v8 uv8;
+extern struct uwsgi_server uwsgi;
+
+static v8::Handle<v8::Value> uwsgi_v8_jsgi_body_chunk(const v8::Arguments& args) {
+
+        if (args.Length() > 1) {
+                v8::String::Utf8Value chunk(args[0]->ToString());
+
+		struct wsgi_request *wsgi_req = current_wsgi_req();
+
+		if (uwsgi_response_write_body_do(wsgi_req, *chunk, args[0]->ToString()->Length())) {
+			return v8::ThrowException(v8::Exception::Error(v8::String::New("unable to send JSGI body")));
+                }
+        }
+
+        return v8::Undefined();
+}
+
 
 extern "C" int uwsgi_v8_request(struct wsgi_request *wsgi_req) {
 	char status_str[11];
@@ -8,6 +25,7 @@ extern "C" int uwsgi_v8_request(struct wsgi_request *wsgi_req) {
 	v8::Handle<v8::Value> status, headers, body;
 	v8::Local<v8::Array> props;
 	v8::Local<v8::Value> key, value;
+	v8::Handle<v8::Function> forEach;
 
 	/* Standard JSGI 3.0 request */
         if (!wsgi_req->uh->pktsize) {
@@ -73,6 +91,11 @@ extern "C" int uwsgi_v8_request(struct wsgi_request *wsgi_req) {
                 }
         }
 
+	// call forEach 
+	forEach = v8::Handle<v8::Function>::Cast(body->ToObject()->Get(v8::String::New("forEach")));
+	argj[0] = uv8.jsgi_writer_func[core_id];
+	forEach->Call(body->ToObject(), 1, argj);	
+
 end:
         while(!v8::V8::IdleNotification()) {};
 	return UWSGI_OK;
@@ -101,6 +124,8 @@ v8::Persistent<v8::Function> uwsgi_v8_load_jsgi(int core_id, char *filename) {
         if (result.IsEmpty()) {
 		exit(1);
         }
+
+	uv8.jsgi_writer_func[core_id] = v8::Persistent<v8::Function>::New(v8::FunctionTemplate::New(uwsgi_v8_jsgi_body_chunk)->GetFunction());
 
 	v8::Handle<v8::Value> app = exports->Get(v8::String::New("app"));
 	if (!app.IsEmpty() && !app->IsNull() && !app->IsUndefined()) {

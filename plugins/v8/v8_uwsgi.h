@@ -18,6 +18,7 @@ struct uwsgi_v8 {
         v8::Isolate **isolates;
 	char *jsgi;
 	v8::Persistent<v8::Function> *jsgi_func;
+	v8::Persistent<v8::Function> *jsgi_writer_func;
 	int jsgi_announced;
         struct uwsgi_string_list *load;
         struct uwsgi_v8_signal_table *sigtable;

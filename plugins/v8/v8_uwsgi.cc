@@ -177,6 +177,7 @@ extern "C" int uwsgi_v8_init(){
                 uv8.sigtable[i].func = (v8::Persistent<v8::Function>*) uwsgi_calloc(sizeof(v8::Persistent<v8::Function>) * uwsgi.cores);
         }
 	uv8.jsgi_func = (v8::Persistent<v8::Function> *) uwsgi_calloc( sizeof(v8::Persistent<v8::Function>) * uwsgi.cores );
+	uv8.jsgi_writer_func = (v8::Persistent<v8::Function> *) uwsgi_calloc( sizeof(v8::Persistent<v8::Function>) * uwsgi.cores );
 
 	pthread_key_create(&uv8.current_core, NULL);
 	pthread_setspecific(uv8.current_core, (void *) 0);
