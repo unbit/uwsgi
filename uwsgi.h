@@ -3948,6 +3948,8 @@ char *uwsgi_get_qs(struct wsgi_request *, char *, uint16_t, uint16_t *);
 struct uwsgi_route_var *uwsgi_get_route_var(char *, uint16_t);
 struct uwsgi_route_var *uwsgi_register_route_var(char *, char *(*)(struct wsgi_request *, char *, uint16_t, uint16_t *));
 
+char *uwsgi_get_mime_type(char *, int, size_t *);
+
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

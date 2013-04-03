@@ -315,7 +315,7 @@ int uwsgi_add_expires_uri(struct wsgi_request *wsgi_req, struct stat *st) {
 #endif
 
 
-char *uwsgi_get_mime_type(char *name, int namelen, int *size) {
+char *uwsgi_get_mime_type(char *name, int namelen, size_t *size) {
 
 	int i;
 	int count = 0;
@@ -429,7 +429,7 @@ static int uwsgi_static_stat(struct wsgi_request *wsgi_req, char *filename, size
 
 int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, size_t real_filename_len, struct stat *st) {
 
-	int mime_type_size = 0;
+	size_t mime_type_size = 0;
 	char http_last_modified[49];
 
 	if (uwsgi.threads > 1)

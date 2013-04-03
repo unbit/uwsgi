@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
@@ -29,7 +29,7 @@ struct uwsgi_mongodb_state {
 	struct iovec iovec[13];
 };
 
-ssize_t uwsgi_mongodb_logger(struct uwsgi_logger *ul, char *message, size_t len) {
+static ssize_t uwsgi_mongodb_logger(struct uwsgi_logger *ul, char *message, size_t len) {
 	
 	struct uwsgi_mongodb_state *ums = NULL;
 
@@ -151,7 +151,7 @@ done:
 	return ret;
 }
 
-void uwsgi_mongodblog_register() {
+static void uwsgi_mongodblog_register() {
 	uwsgi_register_logger("mongodblog", uwsgi_mongodb_logger);
 }
 
