@@ -3480,6 +3480,7 @@ int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, char kv_separ
 			escaped = 1;
 		}
 		else if (escaped) {
+			*ptr++ = src[i];
 			escaped = 0;
 		}
 		else {
