@@ -291,7 +291,7 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 	SV *pi = uwsgi_perl_obj_new("uwsgi::input", 12);
         if (!hv_store(env, "psgi.input", 10, pi, 0)) goto clear;
 	
-	if (!hv_store(env, "psgix.input.buffered", 20, newSViv(uwsgi.post_buffering), 0)) goto clear;
+	if (!hv_store(env, "psgix.input.buffered", 20, newSViv(0), 0)) goto clear;
 
 	if (uwsgi.threads > 1) {
 		if (!hv_store(env, "psgix.logger", 12,newRV((SV*) ((SV **)wi->responder1)[wsgi_req->async_id]) ,0)) goto clear;
