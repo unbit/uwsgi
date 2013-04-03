@@ -15,6 +15,8 @@ struct uwsgi_gridfs_mountpoint {
 	char *md5;
 	char *etag;
 	char *prefix;
+	char *itemname;
+	uint16_t itemname_len;
 	char *skip_slash;
 	uint16_t prefix_len;
 };
@@ -33,63 +35,21 @@ struct uwsgi_option uwsgi_gridfs_options[] = {
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_plugin gridfs_plugin;
 
-extern "C" int uwsgi_gridfs_request(struct wsgi_request *wsgi_req) {
-	// this is the gridfs file
-	char *itemname = NULL;
-
-	/* Standard GridFS request */
-        if (!wsgi_req->uh->pktsize) {
-                uwsgi_log( "Empty GridFS request. skip.\n");
-                return -1;
-        }
-
-        if (uwsgi_parse_vars(wsgi_req)) {
-                return -1;
-        }
-
-	if (wsgi_req->appid_len == 0) {
-                if (!uwsgi.ignore_script_name) {
-                        wsgi_req->appid = wsgi_req->script_name;
-                        wsgi_req->appid_len = wsgi_req->script_name_len;
-                }
-	}
-
-	wsgi_req->app_id = uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, gridfs_plugin.modifier1);
-	if (ugridfs.debug) {
-		uwsgi_log("[uwsgi-gridfs-debug] app_id = %d\n", wsgi_req->app_id);
-	}
-
-	if (wsgi_req->app_id == -1) {
-		uwsgi_404(wsgi_req);
-		return UWSGI_OK;
-	}
-
-	struct uwsgi_app *ua = &uwsgi_apps[wsgi_req->app_id];
-
-	struct uwsgi_gridfs_mountpoint *ugm = (struct uwsgi_gridfs_mountpoint *) ua->interpreter;
-
-	if (ugm->skip_slash && (wsgi_req->path_info_len > 0 && wsgi_req->path_info[0] == '/')) {
-		itemname = uwsgi_concat2n(ugm->prefix, ugm->prefix_len, wsgi_req->path_info+1, wsgi_req->path_info_len-1);
-	}
-	else {
-		itemname = uwsgi_concat2n(ugm->prefix, ugm->prefix_len, wsgi_req->path_info, wsgi_req->path_info_len);
-	}
-
-	if (ugridfs.debug) {
-		uwsgi_log("[uwsgi-gridfs-debug] itemname = %s\n", itemname);
-	}
+static void uwsgi_gridfs_do(struct wsgi_request *wsgi_req, struct uwsgi_gridfs_mountpoint *ugm, char *itemname, int need_free) {
 
 	try {
 		mongo::scoped_ptr<mongo::ScopedDbConnection> conn( mongo::ScopedDbConnection::getScopedDbConnection(ugm->server, ugm->timeout) );
 		try {
 			mongo::GridFS gridfs((*conn).conn(), ugm->db);
 			mongo::GridFile gfile = gridfs.findFile(itemname);
-			free(itemname);
-			itemname = NULL;
+			if (need_free) {
+				free(itemname);
+				itemname = NULL;
+			}
 			if (!gfile.exists()) {
 				(*conn).done();
 				uwsgi_404(wsgi_req);
-				return UWSGI_OK;
+				return;
 			}
 			uwsgi_response_prepare_headers(wsgi_req, (char *)"200 OK", 6);
 			// first get the content_type (if possibile)
@@ -140,7 +100,7 @@ extern "C" int uwsgi_gridfs_request(struct wsgi_request *wsgi_req) {
 		catch ( mongo::DBException &e ) {
 			uwsgi_log("[uwsgi-gridfs]: %s\n", e.what());
 			(*conn).done();
-			if (itemname) {
+			if (need_free && itemname) {
 				free(itemname);
 				itemname = NULL;
 			}
@@ -148,15 +108,13 @@ extern "C" int uwsgi_gridfs_request(struct wsgi_request *wsgi_req) {
 	}	
 	catch ( mongo::DBException &e ) {
 		uwsgi_log("[uwsgi-gridfs]: %s\n", e.what());
-		if (itemname) {
+		if (need_free && itemname) {
 			free(itemname);
 			itemname = NULL;
 		}
 	}
-
-	return UWSGI_OK;
-
 }
+
 
 static struct uwsgi_gridfs_mountpoint *uwsgi_gridfs_add_mountpoint(char *arg, size_t arg_len) {
 	struct uwsgi_gridfs_mountpoint *ugm = (struct uwsgi_gridfs_mountpoint *) uwsgi_calloc(sizeof(struct uwsgi_gridfs_mountpoint));
@@ -171,6 +129,8 @@ static struct uwsgi_gridfs_mountpoint *uwsgi_gridfs_add_mountpoint(char *arg, si
                         "skip_slash", &ugm->skip_slash,
                         "md5", &ugm->md5,
                         "etag", &ugm->etag,
+                        "itemname", &ugm->itemname,
+                        "item", &ugm->itemname,
                         NULL)) {
                         uwsgi_log("invalid gridfs mountpoint syntax\n");
 			free(ugm);
@@ -203,8 +163,66 @@ static struct uwsgi_gridfs_mountpoint *uwsgi_gridfs_add_mountpoint(char *arg, si
 		ugm->prefix_len = strlen(ugm->prefix);
 	}
 
+	if (ugm->itemname) {
+		ugm->itemname_len = strlen(ugm->itemname);
+	}
+
 	return ugm;
 }
+
+extern "C" int uwsgi_gridfs_request(struct wsgi_request *wsgi_req) {
+        // this is the gridfs file
+        char *itemname = NULL;
+
+        /* Standard GridFS request */
+        if (!wsgi_req->uh->pktsize) {
+                uwsgi_log( "Empty GridFS request. skip.\n");
+                return -1;
+        }
+
+        if (uwsgi_parse_vars(wsgi_req)) {
+                return -1;
+        }
+
+        if (wsgi_req->appid_len == 0) {
+                if (!uwsgi.ignore_script_name) {
+                        wsgi_req->appid = wsgi_req->script_name;
+                        wsgi_req->appid_len = wsgi_req->script_name_len;
+                }
+        }
+
+        wsgi_req->app_id = uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, gridfs_plugin.modifier1);
+        if (ugridfs.debug) {
+                uwsgi_log("[uwsgi-gridfs-debug] app_id = %d\n", wsgi_req->app_id);
+        }
+
+        if (wsgi_req->app_id == -1) {
+                uwsgi_404(wsgi_req);
+                return UWSGI_OK;
+        }
+
+        struct uwsgi_app *ua = &uwsgi_apps[wsgi_req->app_id];
+
+        struct uwsgi_gridfs_mountpoint *ugm = (struct uwsgi_gridfs_mountpoint *) ua->interpreter;
+
+        if (ugm->skip_slash && (wsgi_req->path_info_len > 0 && wsgi_req->path_info[0] == '/')) {
+                itemname = uwsgi_concat2n(ugm->prefix, ugm->prefix_len, wsgi_req->path_info+1, wsgi_req->path_info_len-1);
+        }
+        else {
+                itemname = uwsgi_concat2n(ugm->prefix, ugm->prefix_len, wsgi_req->path_info, wsgi_req->path_info_len);
+        }
+
+        if (ugridfs.debug) {
+                uwsgi_log("[uwsgi-gridfs-debug] itemname = %s\n", itemname);
+        }
+
+        // itemname will be freed here
+        uwsgi_gridfs_do(wsgi_req, ugm, itemname, 1);
+
+        return UWSGI_OK;
+
+}
+
 
 extern "C" void uwsgi_gridfs_mount() {
 	struct uwsgi_string_list *usl = ugridfs.mountpoints;
@@ -222,3 +240,33 @@ extern "C" void uwsgi_gridfs_mount() {
 		usl = usl->next;
 	}
 }
+
+#ifdef UWSGI_ROUTING
+static int uwsgi_routing_func_gridfs(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
+
+        struct uwsgi_gridfs_mountpoint *ugm = (struct uwsgi_gridfs_mountpoint *) ur->data2;
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *) (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub_itemname = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ugm->itemname, ugm->itemname_len);
+        if (!ub_itemname) return UWSGI_ROUTE_BREAK;
+	if (ugridfs.debug) {
+		 uwsgi_log("[uwsgi-gridfs-debug] itemname = %s\n", ub_itemname->buf);
+	}
+	uwsgi_gridfs_do(wsgi_req, ugm, ub_itemname->buf, 0);
+	uwsgi_buffer_destroy(ub_itemname);
+        return UWSGI_ROUTE_BREAK;
+}
+
+extern "C" int uwsgi_router_gridfs(struct uwsgi_route *ur, char *args) {
+	ur->func = uwsgi_routing_func_gridfs;
+        ur->data = args;
+        ur->data_len = strlen(args);
+        ur->data2 = uwsgi_gridfs_add_mountpoint((char *)ur->data, ur->data_len);
+	if (!ur->data2) {
+		exit(1);
+	}
+        return 0;
+}
+#endif

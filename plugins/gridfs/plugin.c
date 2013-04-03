@@ -8,6 +8,14 @@ static void uwsgi_gridfs_log(struct wsgi_request *wsgi_req) {
 	log_request(wsgi_req);
 }
 
+#ifdef UWSGI_ROUTING
+int uwsgi_router_gridfs(struct uwsgi_route *, char *);
+static void uwsgi_gridfs_register_router() {
+        uwsgi_register_router("gridfs", uwsgi_router_gridfs);
+}
+#endif
+
+
 struct uwsgi_plugin gridfs_plugin = {
 
 	.name = "gridfs",
@@ -17,4 +25,7 @@ struct uwsgi_plugin gridfs_plugin = {
 	.options = uwsgi_gridfs_options,
 	.request = uwsgi_gridfs_request,
 	.after_request = uwsgi_gridfs_log,
+#ifdef UWSGI_ROUTING
+	.on_load = uwsgi_gridfs_register_router,
+#endif
 };
