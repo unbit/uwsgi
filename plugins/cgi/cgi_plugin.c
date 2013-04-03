@@ -893,6 +893,19 @@ static int uwsgi_routing_func_cgi(struct wsgi_request *wsgi_req, struct uwsgi_ro
         		return UWSGI_ROUTE_BREAK;
 		}
 	}
+	else {
+		if (!uwsgi_is_file(ub_command->buf)) {
+			uwsgi_404(wsgi_req);
+			uwsgi_buffer_destroy(ub_command);
+			return UWSGI_ROUTE_BREAK;
+		}
+
+		if (access(ub_command->buf, X_OK)) {
+			uwsgi_403(wsgi_req);
+			uwsgi_buffer_destroy(ub_command);
+			return UWSGI_ROUTE_BREAK;
+		}
+	}
 	// we need a NULL suffix-ed copy of the docroot
 	char *docroot = uwsgi_concat2n(wsgi_req->document_root, wsgi_req->document_root_len, "", 0);
         uwsgi_cgi_run(wsgi_req, wsgi_req->document_root, wsgi_req->document_root_len, ub_command->buf, ub_helper ? ub_helper->buf : NULL, NULL, NULL, 0, 0 );
