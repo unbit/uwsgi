@@ -9,8 +9,11 @@ extern struct uwsgi_plugin psgi_plugin;
 XS(XS_input_seek) {
 
         dXSARGS;
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 
         psgi_check_args(1);
+	uwsgi_request_body_seek(wsgi_req, SvIV(ST(0)));
+
         XSRETURN(0);
 }
 
