@@ -18,7 +18,7 @@ struct uwsgi_cgi {
 	int path_info;
 } uc ;
 
-void uwsgi_opt_add_cgi(char *opt, char *value, void *foobar) {
+static void uwsgi_opt_add_cgi(char *opt, char *value, void *foobar) {
 
 	char *val = strchr(value, '=');
         if (!val) {
@@ -30,7 +30,7 @@ void uwsgi_opt_add_cgi(char *opt, char *value, void *foobar) {
 
 }
 
-void uwsgi_opt_add_cgi_maphelper(char *opt, char *value, void *foobar) {
+static void uwsgi_opt_add_cgi_maphelper(char *opt, char *value, void *foobar) {
 	char *val = strchr(value, '=');
         if (!val) {
         	uwsgi_log("invalid CGI helper syntax, must be ext=command\n");
@@ -66,7 +66,7 @@ struct uwsgi_option uwsgi_cgi_options[] = {
 
 };
 
-void uwsgi_cgi_apps() {
+static void uwsgi_cgi_apps() {
 
 	struct uwsgi_dyn_dict *udd = uc.mountpoint;
 	struct stat st;
@@ -123,7 +123,7 @@ void uwsgi_cgi_apps() {
 
 }
 
-int uwsgi_cgi_init(){
+static int uwsgi_cgi_init(){
 
 	void (*cgi_sym)(void);
 
@@ -161,7 +161,7 @@ int uwsgi_cgi_init(){
 
 }
 
-char *uwsgi_cgi_get_helper(char *filename) {
+static char *uwsgi_cgi_get_helper(char *filename) {
 
 	struct uwsgi_dyn_dict *helpers = uc.helpers;
 	size_t len = strlen(filename);
@@ -179,7 +179,7 @@ char *uwsgi_cgi_get_helper(char *filename) {
 	
 }
 
-int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+static int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 
 	size_t i;
 	char *key = buf, *value = NULL;
@@ -266,7 +266,7 @@ send_body:
 	return 0;	
 }
 
-char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int *need_free, int *is_a_file, int *discard_base, char **script_name) {
+static char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int *need_free, int *is_a_file, int *discard_base, char **script_name) {
 
 	struct uwsgi_dyn_dict *udd = uc.mountpoint, *choosen_udd = NULL;
 	int best_found = 0;
@@ -323,7 +323,7 @@ char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int *need_f
 	return path;
 }
 
-int uwsgi_cgi_walk(struct wsgi_request *wsgi_req, char *full_path, char *docroot, size_t docroot_len, int discard_base, char **path_info) {
+static int uwsgi_cgi_walk(struct wsgi_request *wsgi_req, char *full_path, char *docroot, size_t docroot_len, int discard_base, char **path_info) {
 
 	// and now start walking...
         uint16_t i;
@@ -380,18 +380,12 @@ int uwsgi_cgi_walk(struct wsgi_request *wsgi_req, char *full_path, char *docroot
 
 }
 
-int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
+static int uwsgi_cgi_run(struct wsgi_request *, char *, size_t, char *, char *, char *, char *, int, int);
 
-	int i;
-	pid_t cgi_pid;
-	int waitpid_status;
-	char **argv;
-	int nargs = 0;
+static int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
+
 	char full_path[PATH_MAX];
 	char tmp_path[PATH_MAX];
-	int cgi_pipe[2];
-	int post_pipe[2];
-	ssize_t len;
 	struct stat cgi_stat;
 	int need_free = 0;
 	int is_a_file = 0;
@@ -399,7 +393,6 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	size_t docroot_len = 0;
 	size_t full_path_len = 0;
 	char *helper = NULL;
-	char *command = NULL;
 	char *path_info = NULL;
 	char *script_name = NULL;
 
@@ -533,11 +526,8 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		return UWSGI_OK;
 	}
 
-	if (is_a_file) {
-		command = docroot;
-	}
-	else {
-		command = full_path;
+	// get the helper
+	if (!is_a_file) {
 		helper = uwsgi_cgi_get_helper(full_path);
 
 		if (helper == NULL) {
@@ -551,28 +541,43 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		}
 	}
 
+	int ret = uwsgi_cgi_run(wsgi_req, docroot, docroot_len, full_path, helper, path_info, script_name, is_a_file, discard_base);
+	if (need_free) free(docroot);
+	return ret;
+}
+
+static int uwsgi_cgi_run(struct wsgi_request *wsgi_req, char *docroot, size_t docroot_len, char *full_path, char *helper, char *path_info, char *script_name, int is_a_file, int discard_base) {
+
+	int cgi_pipe[2];
+	int post_pipe[2];
+	int nargs = 0;
+	int waitpid_status;
+	ssize_t len;
+	int i;
+	char **argv;
+
+	char *command = full_path;
+
+	if (is_a_file) {
+                command = docroot;
+        }
+
 	if (pipe(cgi_pipe)) {
-		if (need_free)
-			free(docroot);
-		uwsgi_error("pipe()");
+		uwsgi_error("uwsgi_cgi_run()/pipe()");
 		return UWSGI_OK;
 	}
 
 	if (pipe(post_pipe)) {
-		if (need_free)
-			free(docroot);
 		close(cgi_pipe[0]);
 		close(cgi_pipe[1]);
-		uwsgi_error("pipe()");
+		uwsgi_error("uwsgi_cgi_run()/pipe()");
 		return UWSGI_OK;
 	}
 
-	cgi_pid = fork();
+	pid_t cgi_pid = fork();
 
 	if (cgi_pid < 0) {
-		uwsgi_error("fork()");
-		if (need_free)
-			free(docroot);
+		uwsgi_error("uwsgi_cgi_run()/fork()");
 		close(cgi_pipe[0]);
 		close(cgi_pipe[1]);
 		close(post_pipe[0]);
@@ -581,9 +586,6 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	}
 
 	if (cgi_pid > 0) {
-
-		if (need_free)
-			free(docroot);
 
 		close(cgi_pipe[1]);
 		close(post_pipe[0]);
@@ -795,7 +797,7 @@ clear2:
                         }
 			*base = '/';
 		}
-		else {
+		else if (docroot_len > 0) {
 			if (chdir(docroot)) {
 				uwsgi_error("chdir()");
 			}
@@ -863,7 +865,7 @@ clear2:
 	}
 
 	if (execvp(argv[0], argv)) {
-		uwsgi_error("execvp()");
+		uwsgi_error("uwsgi_cgi_run()/execvp()");
 	}
 
 	// never here
@@ -871,11 +873,60 @@ clear2:
 }
 
 
-void uwsgi_cgi_after_request(struct wsgi_request *wsgi_req) {
-
+static void uwsgi_cgi_after_request(struct wsgi_request *wsgi_req) {
 	log_request(wsgi_req);
 }
 
+#ifdef UWSGI_ROUTING
+static int uwsgi_routing_func_cgi(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *) (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub_command = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        if (!ub_command) return UWSGI_ROUTE_BREAK;
+	struct uwsgi_buffer *ub_helper = NULL;
+	if (ur->data2_len) {
+		ub_helper = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data2, ur->data2_len);
+		if (!ub_helper) {
+			uwsgi_buffer_destroy(ub_command);
+        		return UWSGI_ROUTE_BREAK;
+		}
+	}
+	// we need a NULL suffix-ed copy of the docroot
+	char *docroot = uwsgi_concat2n(wsgi_req->document_root, wsgi_req->document_root_len, "", 0);
+        uwsgi_cgi_run(wsgi_req, wsgi_req->document_root, wsgi_req->document_root_len, ub_command->buf, ub_helper ? ub_helper->buf : NULL, NULL, NULL, 0, 0 );
+	free(docroot);
+        uwsgi_buffer_destroy(ub_command);
+	if (ub_helper) uwsgi_buffer_destroy(ub_helper);
+        return UWSGI_ROUTE_BREAK;
+}
+
+static int uwsgi_router_cgi_helper(struct uwsgi_route *ur, char *args) {
+        ur->func = uwsgi_routing_func_cgi;
+	char *space = strchr(args, ' ');
+	if (!space) {
+		uwsgi_log("invalid cgihelper syntax, must be \"cgihelper:helper command\"\n");
+		return -1;
+	}
+	*space = 0;
+        ur->data = space+1;
+        ur->data_len = strlen(space+1);
+	ur->data2 = args;
+	ur->data2_len = strlen(args);
+        return 0;
+}
+static int uwsgi_router_cgi(struct uwsgi_route *ur, char *args) {
+        ur->func = uwsgi_routing_func_cgi;
+	ur->data = args;
+	ur->data_len = strlen(args);
+        return 0;
+}
+static void uwsgi_cgi_register_router() {
+        uwsgi_register_router("cgi", uwsgi_router_cgi);
+        uwsgi_register_router("cgihelper", uwsgi_router_cgi_helper);
+}
+#endif
 
 struct uwsgi_plugin cgi_plugin = {
 
@@ -886,5 +937,8 @@ struct uwsgi_plugin cgi_plugin = {
 	.options = uwsgi_cgi_options,
 	.request = uwsgi_cgi_request,
 	.after_request = uwsgi_cgi_after_request,
+#ifdef UWSGI_ROUTING
+        .on_load = uwsgi_cgi_register_router,
+#endif
 
 };
