@@ -317,7 +317,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		}
 	}
 
-
 	if ( (wsgi_req->app_id = uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, 0))  == -1) {
 		wsgi_req->app_id = uwsgi.default_app;
 		if (uwsgi.no_default_app) {

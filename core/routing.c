@@ -661,6 +661,77 @@ static int uwsgi_router_signal(struct uwsgi_route *ur, char *arg) {
         return 0;
 }
 
+// chdir route
+static int uwsgi_router_chdir_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+	if (!ub) return UWSGI_ROUTE_BREAK;
+	if (chdir(ub->buf)) {
+		uwsgi_error("uwsgi_router_chdir_func()/chdir()");
+		uwsgi_buffer_destroy(ub);
+		return UWSGI_ROUTE_BREAK;
+	}
+	uwsgi_buffer_destroy(ub);
+        return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_chdir(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_chdir_func;
+        ur->data = arg;
+	ur->data_len = strlen(arg);
+        return 0;
+}
+
+// setapp route
+static int uwsgi_router_setapp_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
+	char *ptr = uwsgi_req_append(wsgi_req, "UWSGI_APPID", 11, ub->buf, ub->pos);
+	if (!ptr) {
+                uwsgi_buffer_destroy(ub);
+                return UWSGI_ROUTE_BREAK;
+        }
+	wsgi_req->appid = ptr;
+	wsgi_req->appid_len = ub->pos;
+        uwsgi_buffer_destroy(ub);
+        return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_setapp(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_setapp_func;
+        ur->data = arg;
+        ur->data_len = strlen(arg);
+        return 0;
+}
+
+// sethome route
+static int uwsgi_router_sethome_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
+        char *ptr = uwsgi_req_append(wsgi_req, "UWSGI_HOME", 10, ub->buf, ub->pos);
+        if (!ptr) {
+                uwsgi_buffer_destroy(ub);
+                return UWSGI_ROUTE_BREAK;
+        }
+        wsgi_req->home = ptr;
+        wsgi_req->home_len = ub->pos;
+        uwsgi_buffer_destroy(ub);
+        return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_sethome(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_sethome_func;
+        ur->data = arg;
+        ur->data_len = strlen(arg);
+        return 0;
+}
+
+
 
 // send route
 static int uwsgi_router_send_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
@@ -882,6 +953,9 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("signal", uwsgi_router_signal);
         uwsgi_register_router("send", uwsgi_router_send);
         uwsgi_register_router("send-crnl", uwsgi_router_send_crnl);
+        uwsgi_register_router("chdir", uwsgi_router_chdir);
+        uwsgi_register_router("setapp", uwsgi_router_setapp);
+        uwsgi_register_router("sethome", uwsgi_router_sethome);
 
         uwsgi_register_route_condition("exists", uwsgi_route_condition_exists);
         uwsgi_register_route_condition("isfile", uwsgi_route_condition_isfile);
