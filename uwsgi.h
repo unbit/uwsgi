@@ -1265,8 +1265,8 @@ struct uwsgi_router {
 	uint16_t module_len;
 	char *callable;
 	uint16_t callable_len;
-	char *pyhome;
-	uint16_t pyhome_len;
+	char *home;
+	uint16_t home_len;
 
 	char *file;
 	uint16_t file_len;

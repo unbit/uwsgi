@@ -312,6 +312,12 @@ static int uwsgi_proto_check_10(struct wsgi_request *wsgi_req, char *key, char *
 		return 0;
 	}
 
+	if (!uwsgi_proto_key("UWSGI_HOME", 10)) {
+		wsgi_req->home = buf;
+		wsgi_req->home_len = len;
+		return 0;
+	}
+
 	return 0;
 }
 
@@ -416,8 +422,8 @@ static int uwsgi_proto_check_12(struct wsgi_request *wsgi_req, char *key, char *
 	}
 
 	if (!uwsgi_proto_key("UWSGI_PYHOME", 12)) {
-		wsgi_req->pyhome = buf;
-		wsgi_req->pyhome_len = len;
+		wsgi_req->home = buf;
+		wsgi_req->home_len = len;
 		return 0;
 	}
 

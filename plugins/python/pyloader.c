@@ -33,12 +33,12 @@ void set_dyn_pyhome(char *home, uint16_t pyhome_len) {
 	}
 
         // simulate a pythonhome directive
-        if (uwsgi.wsgi_req->pyhome_len > 0) {
+        if (uwsgi.wsgi_req->home_len > 0) {
 
-                PyObject *venv_path = UWSGI_PYFROMSTRINGSIZE(uwsgi.wsgi_req->pyhome, uwsgi.wsgi_req->pyhome_len);
+                PyObject *venv_path = UWSGI_PYFROMSTRINGSIZE(uwsgi.wsgi_req->home, uwsgi.wsgi_req->home_len);
 
 #ifdef UWSGI_DEBUG
-                uwsgi_debug("setting dynamic virtualenv to %.*s\n", uwsgi.wsgi_req->pyhome_len, uwsgi.wsgi_req->pyhome);
+                uwsgi_debug("setting dynamic virtualenv to %.*s\n", uwsgi.wsgi_req->home_len, uwsgi.wsgi_req->home);
 #endif
 
                 PyDict_SetItemString(pysys_dict, "prefix", venv_path);
@@ -177,8 +177,8 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		wi->interpreter = up.main_thread;
 	}
 
-	if (wsgi_req->pyhome_len) {
-		set_dyn_pyhome(wsgi_req->pyhome, wsgi_req->pyhome_len);
+	if (wsgi_req->home_len) {
+		set_dyn_pyhome(wsgi_req->home, wsgi_req->home_len);
 	}
 
 	if (wsgi_req->touch_reload_len > 0 && wsgi_req->touch_reload_len < 0xff) {
