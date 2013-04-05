@@ -35,6 +35,10 @@ struct uwsgi_carbon {
 	char *hostname_dot_replacement;
 	char *hostname;
 	int resolve_hostname;
+	char *idle_avg;
+	int push_avg;
+	int zero_avg;
+	uint64_t last_requests;
 	struct uwsgi_stats_pusher *pusher;
 } u_carbon;
 
@@ -50,6 +54,7 @@ static struct uwsgi_option carbon_options[] = {
 	{"carbon-hostname-dots", required_argument, 0, "set char to use as a replacement for dots in hostname (dots are not replaced by default)", uwsgi_opt_set_str, &u_carbon.hostname_dot_replacement, 0},
 	{"carbon-name-resolve", no_argument, 0, "allow using hostname as carbon server address (default disabled)", uwsgi_opt_true, &u_carbon.resolve_hostname, 0},
 	{"carbon-resolve-names", no_argument, 0, "allow using hostname as carbon server address (default disabled)", uwsgi_opt_true, &u_carbon.resolve_hostname, 0},
+	{"carbon-idle-avg", required_argument, 0, "average values source during idle period (no requests), can be \"last\", \"zero\", \"none\" (default is last)", uwsgi_opt_set_str, &u_carbon.idle_avg, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -119,6 +124,22 @@ static void carbon_post_init() {
 		for(i=0;i<(int)strlen(u_carbon.hostname);i++) {
 			if (u_carbon.hostname[i] == '.') u_carbon.hostname[i] = u_carbon.hostname_dot_replacement[0];
 		}
+	}
+
+	u_carbon.push_avg = 1;
+	u_carbon.zero_avg = 0;
+	if (!u_carbon.idle_avg) {
+		u_carbon.idle_avg = "last";
+	}
+	else if (!strcmp(u_carbon.idle_avg, "zero")) {
+		u_carbon.zero_avg = 1;
+	} 
+	else if (!strcmp(u_carbon.idle_avg, "none")) {
+		u_carbon.push_avg = 0;
+	}
+	else if (strcmp(u_carbon.idle_avg, "last")) {
+		uwsgi_log("[carbon] invalid value for carbon-idle-avg: \"%s\"\n", u_carbon.idle_avg);
+		exit(1);
 	}
 
 	if (!u_carbon.last_busyness_values) {
@@ -237,6 +258,8 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 		unsigned long long worker_busyness = 0;
 		unsigned long long total_harakiri = 0;
 
+		int do_avg_push;
+
 		wok = carbon_write(fd, "%s%s.%s.requests %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) uwsgi.workers[0].requests, (unsigned long long) now);
 		if (!wok) goto clear;
 
@@ -287,8 +310,19 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 				if (!wok) goto clear;
 			}
 
-			wok = carbon_write(fd, "%s%s.%s.worker%d.avg_rt %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, i, (unsigned long long) avg_rt, (unsigned long long) now);
-			if (!wok) goto clear;
+			do_avg_push = 1;
+			if (!u_carbon.last_requests || u_carbon.last_requests == uwsgi.workers[0].requests) {
+				if (!u_carbon.push_avg) {
+					do_avg_push = 0;
+				}
+				else if (u_carbon.zero_avg) {
+					avg_rt = 0;
+				}
+			}
+			if (do_avg_push) {
+				wok = carbon_write(fd, "%s%s.%s.worker%d.avg_rt %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, i, (unsigned long long) avg_rt, (unsigned long long) now);
+				if (!wok) goto clear;
+			}
 
 			wok = carbon_write(fd, "%s%s.%s.worker%d.tx %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, i, (unsigned long long) uwsgi.workers[i].tx, (unsigned long long) now);
 			if (!wok) goto clear;
@@ -309,8 +343,20 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 			if (!wok) goto clear;
 		}
 
-		wok = carbon_write(fd, "%s%s.%s.avg_rt %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) (active_workers ? total_avg_rt / active_workers : 0), (unsigned long long) now);
-		if (!wok) goto clear;
+		do_avg_push = 1;
+		uint64_t c_total_avg_rt = (active_workers ? total_avg_rt / active_workers : 0);
+		if (!u_carbon.last_requests || u_carbon.last_requests == uwsgi.workers[0].requests) {
+			if (!u_carbon.push_avg) {
+				do_avg_push = 0;
+			}
+			else if (u_carbon.zero_avg) {
+				c_total_avg_rt = 0;
+			}
+		}
+		if (do_avg_push) {
+			wok = carbon_write(fd, "%s%s.%s.avg_rt %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) c_total_avg_rt, (unsigned long long) now);
+			if (!wok) goto clear;
+		}
 
 		wok = carbon_write(fd, "%s%s.%s.tx %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) total_tx, (unsigned long long) now);
 		if (!wok) goto clear;
@@ -337,6 +383,8 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 
 		usl->healthy = 1;
 		usl->errors = 0;
+
+		u_carbon.last_requests = uwsgi.workers[0].requests;
 
 clear:
 		close(fd);
