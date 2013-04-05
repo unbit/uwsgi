@@ -876,6 +876,109 @@ static int uwsgi_route_condition_equal(struct wsgi_request *wsgi_req, struct uws
         return 0;
 }
 
+static int uwsgi_route_condition_higher(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
+        if (!semicolon) return 0;
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
+        if (!ub) return -1;
+
+        struct uwsgi_buffer *ub2 = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str));
+        if (!ub2) {
+                uwsgi_buffer_destroy(ub);
+                return -1;
+        }
+
+	long num1 = strtol(ub->buf, NULL, 10);
+	long num2 = strtol(ub2->buf, NULL, 10);
+        if(num1 > num2) {
+                uwsgi_buffer_destroy(ub);
+                uwsgi_buffer_destroy(ub2);
+                return 1;
+        }
+        uwsgi_buffer_destroy(ub);
+        uwsgi_buffer_destroy(ub2);
+        return 0;
+}
+
+static int uwsgi_route_condition_higherequal(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
+        if (!semicolon) return 0;
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
+        if (!ub) return -1;
+
+        struct uwsgi_buffer *ub2 = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str));
+        if (!ub2) {
+                uwsgi_buffer_destroy(ub);
+                return -1;
+        }
+
+        long num1 = strtol(ub->buf, NULL, 10);
+        long num2 = strtol(ub2->buf, NULL, 10);
+        if(num1 >= num2) {
+                uwsgi_buffer_destroy(ub);
+                uwsgi_buffer_destroy(ub2);
+                return 1;
+        }
+        uwsgi_buffer_destroy(ub);
+        uwsgi_buffer_destroy(ub2);
+        return 0;
+}
+
+
+static int uwsgi_route_condition_lower(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
+        if (!semicolon) return 0;
+        
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
+        if (!ub) return -1;
+
+        struct uwsgi_buffer *ub2 = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str));
+        if (!ub2) {
+                uwsgi_buffer_destroy(ub);
+                return -1;
+        }
+
+        long num1 = strtol(ub->buf, NULL, 10);
+        long num2 = strtol(ub2->buf, NULL, 10);
+        if(num1 < num2) {
+                uwsgi_buffer_destroy(ub);
+                uwsgi_buffer_destroy(ub2);
+                return 1;
+        }
+        uwsgi_buffer_destroy(ub);
+        uwsgi_buffer_destroy(ub2);
+        return 0;
+}
+
+static int uwsgi_route_condition_lowerequal(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
+        if (!semicolon) return 0;
+        
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
+        if (!ub) return -1;
+
+        struct uwsgi_buffer *ub2 = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str));
+        if (!ub2) {
+                uwsgi_buffer_destroy(ub);
+                return -1;
+        }
+
+        long num1 = strtol(ub->buf, NULL, 10);
+        long num2 = strtol(ub2->buf, NULL, 10);
+        if(num1 <= num2) {
+                uwsgi_buffer_destroy(ub);
+                uwsgi_buffer_destroy(ub2);
+                return 1;
+        }
+        uwsgi_buffer_destroy(ub);
+        uwsgi_buffer_destroy(ub2);
+        return 0;
+}
+
+
+
 static int uwsgi_route_condition_startswith(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
         char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
         if (!semicolon) return 0;
@@ -996,6 +1099,14 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_route_condition("endswith", uwsgi_route_condition_endswith);
         uwsgi_register_route_condition("regexp", uwsgi_route_condition_regexp);
         uwsgi_register_route_condition("re", uwsgi_route_condition_regexp);
+        uwsgi_register_route_condition("ishigher", uwsgi_route_condition_higher);
+        uwsgi_register_route_condition(">", uwsgi_route_condition_higher);
+        uwsgi_register_route_condition("islower", uwsgi_route_condition_lower);
+        uwsgi_register_route_condition("<", uwsgi_route_condition_lower);
+        uwsgi_register_route_condition("ishigherequal", uwsgi_route_condition_higherequal);
+        uwsgi_register_route_condition(">=", uwsgi_route_condition_higherequal);
+        uwsgi_register_route_condition("islowerequal", uwsgi_route_condition_lowerequal);
+        uwsgi_register_route_condition("<=", uwsgi_route_condition_lowerequal);
 
         uwsgi_register_route_condition("empty", uwsgi_route_condition_empty);
 
