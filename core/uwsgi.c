@@ -294,10 +294,6 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"json", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL, UWSGI_OPT_IMMEDIATE},
 	{"js", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
-#ifdef UWSGI_SQLITE3
-	{"sqlite3", required_argument, 0, "load config from sqlite3 db", uwsgi_opt_load_sqlite3, NULL, UWSGI_OPT_IMMEDIATE},
-	{"sqlite", required_argument, 0, "load config from sqlite3 db", uwsgi_opt_load_sqlite3, NULL, UWSGI_OPT_IMMEDIATE},
-#endif
 #ifdef UWSGI_ZEROMQ
 	{"zeromq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
 	{"zmq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
@@ -3880,13 +3876,6 @@ void uwsgi_opt_load_xml(char *opt, char *filename, void *none) {
 void uwsgi_opt_load_yml(char *opt, char *filename, void *none) {
 	config_magic_table_fill(filename, uwsgi.magic_table);
 	uwsgi_yaml_config(filename, uwsgi.magic_table);
-}
-#endif
-
-#ifdef UWSGI_SQLITE3
-void uwsgi_opt_load_sqlite3(char *opt, char *filename, void *none) {
-	config_magic_table_fill(filename, uwsgi.magic_table);
-	uwsgi_sqlite3_config(filename, uwsgi.magic_table);
 }
 #endif
 

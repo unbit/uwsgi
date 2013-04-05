@@ -2664,11 +2664,6 @@ void uwsgi_ini_config(char *, char *[]);
 	void uwsgi_json_config(char *, char *[]);
 #endif
 
-#ifdef UWSGI_SQLITE3
-	void uwsgi_sqlite3_config(char *, char *[]);
-#endif
-
-
 #ifdef UWSGI_LDAP
 	void uwsgi_opt_ldap_dump(char *, char *, void *);
 	void uwsgi_opt_ldap_dump_ldif(char *, char *, void *);
@@ -3241,9 +3236,6 @@ void uwsgi_opt_load_xml(char *, char *, void *);
 #endif
 #ifdef UWSGI_YAML
 void uwsgi_opt_load_yml(char *, char *, void *);
-#endif
-#ifdef UWSGI_SQLITE3
-void uwsgi_opt_load_sqlite3(char *, char *, void *);
 #endif
 #ifdef UWSGI_JSON
 void uwsgi_opt_load_json(char *, char *, void *);

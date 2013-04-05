@@ -70,7 +70,6 @@ report['ldap'] = False
 report['ssl'] = False
 report['zeromq'] = False
 report['xml'] = False
-report['sqlite3'] = False
 report['debug'] = False
 report['plugin_dir'] = False
 report['zlib'] = False
@@ -1051,20 +1050,6 @@ class uConf(object):
                 self.libs.append('-lexpat')
                 self.gcc_list.append('core/xmlconf')
                 report['xml'] = 'expat'
-
-        if self.get('sqlite3'):
-            if self.get('sqlite3') == 'auto':
-                if self.has_include('sqlite3.h'):
-                    self.cflags.append("-DUWSGI_SQLITE3")
-                    self.libs.append('-lsqlite3')
-                    self.gcc_list.append('core/sqlite3')
-                    report['sqlite3'] = True
-            else:
-                self.cflags.append("-DUWSGI_SQLITE3")
-                self.libs.append('-lsqlite3')
-                self.gcc_list.append('core/sqlite3')
-                report['sqlite3'] = True
-
 
         if self.get('plugin_dir'):
             self.cflags.append('-DUWSGI_PLUGIN_DIR=\\"%s\\"' % self.get('plugin_dir'))
