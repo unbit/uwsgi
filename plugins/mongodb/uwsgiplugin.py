@@ -2,7 +2,7 @@ NAME='mongodb'
 
 CFLAGS = []
 LDFLAGS = []
-LIBS = ['-lmongoclient', '-lboost_thread','-lboost_filesystem']
+LIBS = ['-Wl,-whole-archive', '-lmongoclient', '-Wl,-no-whole-archive', '-lboost_thread', '-lboost_system', '-lboost_filesystem']
 
-GCC_LIST = ['plugin', 'foobar.cc']
+GCC_LIST = ['plugin']
 
