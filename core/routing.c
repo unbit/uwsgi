@@ -1064,6 +1064,19 @@ static int uwsgi_route_condition_isexec(struct wsgi_request *wsgi_req, struct uw
         return 0;
 }
 
+#ifdef UWSGI_MATHEVAL
+static char *uwsgi_route_var_math(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
+	// we only supports variables (not regexp group as we have no context)
+	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, NULL, NULL, 0, key, keylen);
+        if (!ub) return NULL;
+	char *value = ub->buf;
+	*vallen = ub->pos;
+	// trick to avoid destroying the buffer
+	ub->buf = NULL;
+	uwsgi_buffer_destroy(ub);
+	return value;
+}
+#endif
 
 // register embedded routers
 void uwsgi_register_embedded_routers() {
@@ -1112,6 +1125,10 @@ void uwsgi_register_embedded_routers() {
 
         uwsgi_register_route_var("cookie", uwsgi_get_cookie);
         uwsgi_register_route_var("qs", uwsgi_get_qs);
+#ifdef UWSGI_MATHEVAL
+        struct uwsgi_route_var *urv = uwsgi_register_route_var("math", uwsgi_route_var_math);
+	urv->need_free = 1;
+#endif
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {
