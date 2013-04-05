@@ -1,6 +1,6 @@
 NAME='mongodb'
 
-CFLAGS = ['-I/usr/include/mongo','-I/usr/local/include/mongo']
+CFLAGS = []
 LDFLAGS = []
 LIBS = ['-lmongoclient', '-lboost_thread','-lboost_filesystem']
 
