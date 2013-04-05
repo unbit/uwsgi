@@ -3054,18 +3054,22 @@ void http_url_decode(char *buf, uint16_t * len, char *dst) {
 
 }
 
+/*
+	we have to scan the whole table as new vars could be added during the request
+*/
 char *uwsgi_get_var(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t * len) {
 
 	int i;
+	char *found_ptr = NULL;
 
 	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
 		if (!uwsgi_strncmp(key, keylen, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len)) {
 			*len = wsgi_req->hvec[i + 1].iov_len;
-			return wsgi_req->hvec[i + 1].iov_base;
+			found_ptr = wsgi_req->hvec[i + 1].iov_base;
 		}
 	}
 
-	return NULL;
+	return found_ptr;
 }
 
 struct uwsgi_app *uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int mountpoint_len, void *interpreter, void *callable) {
