@@ -3942,6 +3942,8 @@ struct uwsgi_route_var *uwsgi_register_route_var(char *, char *(*)(struct wsgi_r
 
 char *uwsgi_get_mime_type(char *, int, size_t *);
 
+void config_magic_table_fill(char *, char *[]);
+
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
