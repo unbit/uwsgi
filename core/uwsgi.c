@@ -572,6 +572,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"static-gzip-ext", required_argument, 0, "check for a gzip version of all requested static files with the specified ext/suffix", uwsgi_opt_add_string_list, &uwsgi.static_gzip_ext, UWSGI_OPT_MIME},
 	{"static-gzip-suffix", required_argument, 0, "check for a gzip version of all requested static files with the specified ext/suffix", uwsgi_opt_add_string_list, &uwsgi.static_gzip_ext, UWSGI_OPT_MIME},
 
+	{"honour-range", no_argument, 0, "enable support for the HTTP Range header", uwsgi_opt_true, &uwsgi.honour_range, 0},
+
 	{"offload-threads", required_argument, 0, "set the number of offload threads to spawn (per-worker, default 0)", uwsgi_opt_set_int, &uwsgi.offload_threads, 0},
 	{"offload-thread", required_argument, 0, "set the number of offload threads to spawn (per-worker, default 0)", uwsgi_opt_set_int, &uwsgi.offload_threads, 0},
 

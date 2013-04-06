@@ -1351,6 +1351,9 @@ struct uwsgi_router {
 	// when set, do not send warnings about bad behaviours
 	int post_warning;
 
+	size_t range_from;
+	size_t range_to;
+
 	// current socket mapped to request
 	struct uwsgi_socket *socket;
 
@@ -1800,6 +1803,9 @@ struct uwsgi_server {
 	int honour_stdin;
 	struct termios termios;
 	int restore_tc;
+
+	// honour the HTTP Range header
+	int honour_range;
 
 	// route all of the logs to the master process
 	int req_log_master;
@@ -3824,6 +3830,7 @@ int uwsgi_proto_base_sendfile(struct wsgi_request *, int, size_t, size_t);
 ssize_t uwsgi_sendfile_do(int, int, size_t, size_t);
 int uwsgi_proto_base_fix_headers(struct wsgi_request *);
 int uwsgi_response_add_content_length(struct wsgi_request *, uint64_t);
+int uwsgi_response_add_content_range(struct wsgi_request *, uint64_t, uint64_t, uint64_t);
 
 const char *uwsgi_http_status_msg(char *, uint16_t *);
 int uwsgi_stats_dump_vars(struct uwsgi_stats *, struct uwsgi_core *);

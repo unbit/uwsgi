@@ -303,7 +303,40 @@ static int uwsgi_proto_check_9(struct wsgi_request *wsgi_req, char *key, char *b
 	return 0;
 }
 
+static void uwsgi_parse_http_range(char *buf, uint16_t len, size_t *from, size_t *to) {
+	*from = 0;
+	*to = 0;
+	uint16_t rlen = 0;
+	uint16_t i;
+	for(i=0;i<len;i++) {
+		if (buf[i] == ',') break;
+		rlen++;
+	}
+
+	// bytes=X-
+	if (rlen < 8) return;
+	char *equal = memchr(buf, '=', rlen);
+	if (!equal) return;
+	if (equal-buf != 5) return;
+	if (memcmp(buf, "bytes", 5)) return;
+	char *range = equal+1;
+	rlen -= 6;
+	char *dash = memchr(range, '-', rlen);
+	if (!dash) return;
+	*from = uwsgi_str_num(range, dash-range);
+	*to = uwsgi_str_num(dash+1, rlen - ((dash+1)-range));
+	if (*to > 0 && *from > *to) {
+		*from = 0;
+		*to = 0;
+	}
+}
+
 static int uwsgi_proto_check_10(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
+
+	if (uwsgi.honour_range && !uwsgi_proto_key("HTTP_RANGE", 10)) {
+		uwsgi_parse_http_range(buf, len, &wsgi_req->range_from, &wsgi_req->range_to);
+		return 0;
+	}
 
 	if (!uwsgi_proto_key("UWSGI_FILE", 10)) {
 		wsgi_req->file = buf;

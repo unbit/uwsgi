@@ -451,8 +451,31 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	uwsgi_log("[uwsgi-fileserve] file %s found\n", real_filename);
 #endif
 
+	size_t fsize = st->st_size;
+        if (wsgi_req->range_to) {
+        	fsize = wsgi_req->range_to - wsgi_req->range_from;
+                if (fsize > (size_t)st->st_size) {
+                	fsize = st->st_size;
+                }
+        }
+	else {
+        	// reset in case of inconsistent size
+        	if (wsgi_req->range_from > fsize) {
+        		wsgi_req->range_from = 0;
+                	fsize = 0 ;
+        	}
+		else {
+			fsize -= wsgi_req->range_from;
+		}
+	}
+
 	// HTTP status
-	if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) return -1;
+	if (fsize > 0 && (wsgi_req->range_from || wsgi_req->range_to)) {
+		if (uwsgi_response_prepare_headers(wsgi_req, "206 Partial Content", 19)) return -1;
+	}
+	else {
+		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) return -1;
+	}
 
 #ifdef UWSGI_PCRE
 	uwsgi_add_expires(wsgi_req, real_filename, real_filename_len, st);
@@ -490,8 +513,12 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 		if (uwsgi_static_want_gzip(wsgi_req, real_filename, real_filename_len, st)) {
 			if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4)) return -1;
 		}
-		// set Content-Length
-		if (uwsgi_response_add_content_length(wsgi_req, st->st_size)) return -1;
+		// set Content-Length (to fsize NOT st->st_size)
+		if (uwsgi_response_add_content_length(wsgi_req, fsize)) return -1;
+		if (fsize > 0 && (wsgi_req->range_from || wsgi_req->range_to)) {
+			// here use teh original size !!!
+			if (uwsgi_response_add_content_range(wsgi_req, wsgi_req->range_from, wsgi_req->range_to, st->st_size)) return -1;
+		}
 		int size = set_http_date(st->st_mtime, http_last_modified);
 		if (uwsgi_response_add_header(wsgi_req, "Last-Modified", 13, http_last_modified, size)) return -1;
 
@@ -506,7 +533,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 		int fd = open(real_filename, O_RDONLY);
 		if (fd < 0) return -1;
 		// fd will be closed in the following function
-		uwsgi_response_sendfile_do(wsgi_req, fd, 0, st->st_size);
+		uwsgi_response_sendfile_do(wsgi_req, fd, wsgi_req->range_from, fsize);
 	}
 
 	wsgi_req->status = 200;

@@ -12,6 +12,19 @@ int uwsgi_response_add_content_length(struct wsgi_request *wsgi_req, uint64_t cl
 	return uwsgi_response_add_header(wsgi_req, "Content-Length", 14, buf, ret); 
 }
 
+int uwsgi_response_add_content_range(struct wsgi_request *wsgi_req, uint64_t start, uint64_t end, uint64_t cl) {
+        char buf[6+(sizeof(UMAX64_STR)*3)+4];
+	if (end == 0) {
+		end = cl-1;
+	}
+        int ret = snprintf(buf, 6+(sizeof(UMAX64_STR)*3)+4, "bytes %llu-%llu/%llu", (unsigned long long) start, (unsigned long long) end, (unsigned long long) cl);
+        if (ret <= 0 || ret > (int) (6+(sizeof(UMAX64_STR)*3)+4)) {
+                wsgi_req->write_errors++;
+                return -1;
+        }
+        return uwsgi_response_add_header(wsgi_req, "Content-Range", 13, buf, ret);
+}
+
 // status could be NNN or NNN message
 int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, uint16_t status_len) {
 
@@ -225,6 +238,7 @@ sendfile:
 			if (can_close) close(fd);
 			return -1;
 		}
+		if (pos >= (size_t)st.st_size) return UWSGI_OK;
 		len = st.st_size;
 	}
 
