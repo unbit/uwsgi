@@ -981,6 +981,16 @@ static int uwsgi_route_condition_lowerequal(struct wsgi_request *wsgi_req, struc
         return 0;
 }
 
+#ifdef UWSGI_SSL
+static int uwsgi_route_condition_lord(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, ur->subject_str_len);
+        if (!ub) return -1;
+        int ret = uwsgi_legion_i_am_the_lord(ub->buf);
+        uwsgi_buffer_destroy(ub);
+        return ret;
+}
+#endif
+
 
 
 static int uwsgi_route_condition_startswith(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
@@ -1152,6 +1162,9 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_route_condition(">=", uwsgi_route_condition_higherequal);
         uwsgi_register_route_condition("islowerequal", uwsgi_route_condition_lowerequal);
         uwsgi_register_route_condition("<=", uwsgi_route_condition_lowerequal);
+#ifdef UWSGI_SSL
+        uwsgi_register_route_condition("lord", uwsgi_route_condition_lord);
+#endif
 
         uwsgi_register_route_condition("empty", uwsgi_route_condition_empty);
 
