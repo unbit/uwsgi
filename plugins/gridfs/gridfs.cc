@@ -19,6 +19,8 @@ struct uwsgi_gridfs_mountpoint {
 	uint16_t itemname_len;
 	char *skip_slash;
 	uint16_t prefix_len;
+	char *username;
+	char *password;
 };
 
 struct uwsgi_gridfs {
@@ -40,6 +42,15 @@ static void uwsgi_gridfs_do(struct wsgi_request *wsgi_req, struct uwsgi_gridfs_m
 	try {
 		mongo::scoped_ptr<mongo::ScopedDbConnection> conn( mongo::ScopedDbConnection::getScopedDbConnection(ugm->server, ugm->timeout) );
 		try {
+			if (ugm->username && ugm->password) {
+				std::string errmsg;
+				if ((*conn).conn().auth(ugm->db, ugm->username, ugm->password, errmsg)) {
+					uwsgi_log("[uwsgi-gridfs]: %s\n", errmsg.c_str());
+					(*conn).done();
+					uwsgi_403(wsgi_req);
+					return;
+				}
+			}
 			mongo::GridFS gridfs((*conn).conn(), ugm->db);
 			mongo::GridFile gfile = gridfs.findFile(itemname);
 			if (need_free) {
@@ -131,6 +142,8 @@ static struct uwsgi_gridfs_mountpoint *uwsgi_gridfs_add_mountpoint(char *arg, si
                         "etag", &ugm->etag,
                         "itemname", &ugm->itemname,
                         "item", &ugm->itemname,
+                        "username", &ugm->username,
+                        "password", &ugm->password,
                         NULL)) {
                         uwsgi_log("invalid gridfs mountpoint syntax\n");
 			free(ugm);
