@@ -2,7 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-// this is line uwsgi_str_num but with security checks
+// this is like uwsgi_str_num but with security checks
 static size_t get_content_length(char *buf, uint16_t size) {
         int i;
         size_t val = 0;
@@ -80,7 +80,7 @@ ssize_t send_udp_message(uint8_t modifier1, uint8_t modifier2, char *host, char 
 		ret = sendto(fd, (char *) uh, message_size + 4, 0, (struct sockaddr *) &un_addr, sizeof(un_addr));
 	}
 	if (ret < 0) {
-		uwsgi_error("sendto()");
+		uwsgi_error("send_udp_message()/sendto()");
 	}
 	close(fd);
 
@@ -972,6 +972,60 @@ int uwsgi_hooked_parse_array(char *buffer, size_t len, void (*hook) (uint16_t, c
 
         return 0;
 
+}
+
+
+// this functions transform a raw HTTP response to a uWSGI-managed response
+int uwsgi_blob_to_response(struct wsgi_request *wsgi_req, char *body, size_t len) {
+	char *line = body;
+	size_t line_len = 0;
+	size_t i;
+	int status_managed = 0;
+	for(i=0;i<len;i++) {
+		if (body[i] == '\n') {
+			// invalid line
+			if (line_len < 1) {
+				return -1;
+			}
+			if (line[line_len-1] != '\r') {
+				return -1;
+			}
+			// end of the headers
+			if (line_len == 1) {
+				break;
+			}
+
+			if (status_managed) {
+				char *colon = memchr(line, ':', line_len-1);
+				if (!colon) return -1;
+				if (colon[1] != ' ') return -1;
+				if (uwsgi_response_add_header(wsgi_req, line, colon-line, colon+2, (line_len-1) - ((colon+2)-line))) return -1;
+			}
+			else {
+				char *space = memchr(line, ' ', line_len-1);
+				if (!space) return -1;
+				if ((line_len-1) - ((space+1)-line) < 3) return -1;
+				if (uwsgi_response_prepare_headers(wsgi_req, space+1, (line_len-1) - ((space+1)-line))) return -1;
+				status_managed = 1;
+			}
+			line = NULL;
+			line_len = 0;
+		}
+		else {
+			if (!line) {
+				line = body + i;
+			}
+			line_len++;
+		}
+	}
+
+	if ((i+1) < len) {
+		if (uwsgi_response_write_body_do(wsgi_req, body + (i + 1), len-(i+1))) {
+			return -1;
+		}
+	}
+
+	return 0;
 }
 
 /*

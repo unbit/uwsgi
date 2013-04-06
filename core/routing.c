@@ -220,6 +220,10 @@ run:
 			if (ret == UWSGI_ROUTE_GOON) {
 				goon_func = routes->func;
 			}
+
+			if (ret == -1) {
+				return UWSGI_ROUTE_BREAK;
+			}
 		}
 next:
 		subject = orig_subject;
