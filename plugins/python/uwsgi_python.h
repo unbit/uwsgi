@@ -106,7 +106,7 @@ struct uwsgi_python {
 
 	char *test_module;
 
-	int pyshell;
+	char *pyshell;
 	int pyshell_oneshot;
 
 	

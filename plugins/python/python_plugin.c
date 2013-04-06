@@ -25,7 +25,12 @@ void uwsgi_opt_pythonpath(char *opt, char *value, void *foobar) {
 void uwsgi_opt_pyshell(char *opt, char *value, void *foobar) {
 
 	uwsgi.honour_stdin = 1;
-	up.pyshell = 1;
+	if (value) {
+		up.pyshell = value;
+	}
+	else {
+		up.pyshell = "";
+	}
 
 	if (!strcmp("pyshell-oneshot", opt)) {
 		up.pyshell_oneshot = 1;
@@ -127,8 +132,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"no-site", no_argument, 0, "do not import site module", uwsgi_opt_true, &Py_NoSiteFlag, 0},
 #endif
 #endif
-	{"pyshell", no_argument, 0, "run an interactive python shell in the uWSGI environment", uwsgi_opt_pyshell, NULL, 0},
-	{"pyshell-oneshot", no_argument, 0, "run an interactive python shell in the uWSGI environment (one-shot variant)", uwsgi_opt_pyshell, NULL, 0},
+	{"pyshell", optional_argument, 0, "run an interactive python shell in the uWSGI environment", uwsgi_opt_pyshell, NULL, 0},
+	{"pyshell-oneshot", optional_argument, 0, "run an interactive python shell in the uWSGI environment (one-shot variant)", uwsgi_opt_pyshell, NULL, 0},
 
 	{"python", required_argument, 0, "run a python script in the uWSGI environment", uwsgi_opt_pyrun, NULL, 0},
 	{"py", required_argument, 0, "run a python script in the uWSGI environment", uwsgi_opt_pyrun, NULL, 0},
@@ -1688,11 +1693,17 @@ void uwsgi_python_hijack(void) {
 			}
 		}
 		UWSGI_GET_GIL;
-		PyImport_ImportModule("readline");
+		int ret = -1;
+		if (up.pyshell[0] != 0) {
+			ret = PyRun_SimpleString(up.pyshell);
+		}
+		else {
+			PyImport_ImportModule("readline");
 
 #ifndef UWSGI_PYPY
-		int ret = PyRun_InteractiveLoop(stdin, "uwsgi");
-
+			ret = PyRun_InteractiveLoop(stdin, "uwsgi");
+#endif
+		}
 		if (up.pyshell_oneshot) {
 			exit(UWSGI_DE_HIJACKED_CODE);
 		}
@@ -1700,7 +1711,6 @@ void uwsgi_python_hijack(void) {
 		if (ret == 0) {
 			exit(UWSGI_QUIET_CODE);
 		}
-#endif
 		exit(0);
 	}
 }
