@@ -135,11 +135,34 @@ static PyObject *uwsgi_Input_close(uwsgi_Input *self, PyObject *args) {
 
 static PyObject *uwsgi_Input_seek(uwsgi_Input *self, PyObject *args) {
 	long pos = 0;
+	int whence = 0;
 
-	if (!PyArg_ParseTuple(args, "l:seek", &pos)) {
+	if (!uwsgi.post_buffering) {
+		return PyErr_Format(PyExc_IOError, "seeking wsgi.input without post_buffering is IMPOSSIBLE !!!");
+	}
+
+	if (!PyArg_ParseTuple(args, "l|i:seek", &pos, &whence)) {
                 return NULL;
         }
 
+	/*
+		uwsgi_request_body_seek() uses SEEK_SET for positive value and SEEK_CUR for negative
+		yous hould always try to transform the "pos" value to an absolute position.
+	*/
+
+	// current
+	if (whence == 1) {
+		pos += self->wsgi_req->post_pos;
+	}
+	// end of stream
+	if (whence == 2) {
+		pos += self->wsgi_req->post_cl;
+	}
+	
+	if (pos < 0 || pos > (off_t)self->wsgi_req->post_cl) {
+		return PyErr_Format(PyExc_IOError, "invalid seek position for wsgi.input");
+	}
+	
 	uwsgi_request_body_seek(self->wsgi_req, pos);
 
 	Py_INCREF(Py_None);
@@ -151,6 +174,12 @@ static PyObject *uwsgi_Input_fileno(uwsgi_Input *self, PyObject *args) {
 	return PyInt_FromLong(self->wsgi_req->fd);
 }
 
+static PyObject *uwsgi_Input_tell(uwsgi_Input *self, PyObject *args) {
+
+        return PyLong_FromLong(self->wsgi_req->post_pos);
+}
+
+
 static PyMethodDef uwsgi_Input_methods[] = {
 	{ "read",      (PyCFunction)uwsgi_Input_read,      METH_VARARGS, 0 },
 	{ "readline",  (PyCFunction)uwsgi_Input_readline,  METH_VARARGS, 0 },
@@ -158,6 +187,7 @@ static PyMethodDef uwsgi_Input_methods[] = {
 // add close to allow mod_wsgi compatibility
 	{ "close",     (PyCFunction)uwsgi_Input_close,     METH_VARARGS, 0 },
 	{ "seek",     (PyCFunction)uwsgi_Input_seek,     METH_VARARGS, 0 },
+	{ "tell",     (PyCFunction)uwsgi_Input_tell,     METH_VARARGS, 0 },
 	{ "fileno",     (PyCFunction)uwsgi_Input_fileno,     METH_VARARGS, 0 },
 	{ NULL, NULL}
 };
