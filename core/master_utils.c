@@ -828,6 +828,16 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 
 	if (uwsgi_stats_keylong_comma(us, "load", (unsigned long long) uwsgi.shared->load))
 		goto end;
+
+	double load[3];
+	char loadavg[128] = "N/A";
+	if (getloadavg(load, 3) != -1) {
+		if (sprintf(loadavg, "%.2f, %.2f, %.2f", load[0], load[1], load[2]) < 0)
+			uwsgi_error("getloadavg()\n");
+	}
+	if (uwsgi_stats_keyval_comma(us, "system_loadavg", loadavg))
+		goto end;
+
 	if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) getpid()))
 		goto end;
 	if (uwsgi_stats_keylong_comma(us, "uid", (unsigned long long) getuid()))
