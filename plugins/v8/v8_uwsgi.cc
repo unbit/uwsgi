@@ -134,8 +134,7 @@ static v8::Handle<v8::Value> uwsgi_v8_api_log(const v8::Arguments& args) {
         return v8::Undefined();
 }
 
-void uwsgi_v8_add_commonjs(v8::Handle<v8::ObjectTemplate>);
-void uwsgi_v8_fill_commonjs(v8::Persistent<v8::Context>);
+v8::Persistent<v8::Context> uwsgi_v8_setup_context();
 
 static v8::Persistent<v8::Context> uwsgi_v8_new_isolate(int core_id) {
         // create a new isolate
@@ -145,23 +144,19 @@ static v8::Persistent<v8::Context> uwsgi_v8_new_isolate(int core_id) {
 
 	uv8.isolates[core_id] = v8::Isolate::GetCurrent();
 
+	v8::Persistent<v8::Context> context = uwsgi_v8_setup_context();
+	uwsgi_log("context at %p\n", context);
+	context->Enter();
+
 	v8::HandleScope handle_scope;
 
 	// uWSGI api
-        v8::Handle<v8::ObjectTemplate> uwsgi_api = v8::ObjectTemplate::New();
-        uwsgi_api->Set(v8::String::New("log"), v8::FunctionTemplate::New(uwsgi_v8_api_log));
-        uwsgi_api->Set(v8::String::New("register_rpc"), v8::FunctionTemplate::New(uwsgi_v8_api_register_rpc));
-        uwsgi_api->Set(v8::String::New("register_signal"), v8::FunctionTemplate::New(uwsgi_v8_api_register_signal));
+        v8::Handle<v8::Object> uwsgi_api = v8::Object::New();
+        uwsgi_api->Set(v8::String::New("log"), v8::FunctionTemplate::New(uwsgi_v8_api_log)->GetFunction());
+        uwsgi_api->Set(v8::String::New("register_rpc"), v8::FunctionTemplate::New(uwsgi_v8_api_register_rpc)->GetFunction());
+        uwsgi_api->Set(v8::String::New("register_signal"), v8::FunctionTemplate::New(uwsgi_v8_api_register_signal)->GetFunction());
 
-	v8::Handle<v8::ObjectTemplate> global = v8::ObjectTemplate::New();
-	global->Set(v8::String::New("uwsgi"), uwsgi_api);
-
-	uwsgi_v8_add_commonjs(global);
-
-        // create a new context
-        v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
-
-	uwsgi_v8_fill_commonjs(context);
+        context->Global()->Set(v8::String::New("uwsgi"), uwsgi_api);
 
         return context;
 }
