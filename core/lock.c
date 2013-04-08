@@ -679,9 +679,6 @@ ready:
 		// timer table lock
 		uwsgi.timer_table_lock = uwsgi_lock_init("timer");
 
-		// probe table lock
-		uwsgi.probe_table_lock = uwsgi_lock_init("probe");
-
 		// rb_timer table lock
 		uwsgi.rb_timer_table_lock = uwsgi_lock_init("rbtimer");
 

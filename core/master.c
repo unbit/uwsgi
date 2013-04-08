@@ -638,22 +638,6 @@ int master_loop(char **argv, char **environ) {
 				uwsgi_manage_command_cron(uwsgi_now());
 			}
 
-
-			// check for probes
-			if (ushared->probes_cnt > 0) {
-				uwsgi_lock(uwsgi.probe_table_lock);
-				for (i = 0; i < ushared->probes_cnt; i++) {
-					if (interesting_fd == -1) {
-						// increment cycles
-						ushared->probes[i].cycles++;
-					}
-					if (ushared->probes[i].func(interesting_fd, &ushared->probes[i])) {
-						uwsgi_route_signal(ushared->probes[i].sig);
-					}
-				}
-				uwsgi_unlock(uwsgi.probe_table_lock);
-			}
-
 			// some event returned
 			if (rlen > 0) {
 				// if the following function returns -1, a new worker has just spawned

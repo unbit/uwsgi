@@ -135,6 +135,7 @@ static v8::Handle<v8::Value> uwsgi_v8_api_log(const v8::Arguments& args) {
 }
 
 void uwsgi_v8_add_commonjs(v8::Handle<v8::ObjectTemplate>);
+void uwsgi_v8_fill_commonjs(v8::Persistent<v8::Context>);
 
 static v8::Persistent<v8::Context> uwsgi_v8_new_isolate(int core_id) {
         // create a new isolate
@@ -159,6 +160,9 @@ static v8::Persistent<v8::Context> uwsgi_v8_new_isolate(int core_id) {
 
         // create a new context
         v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
+
+	uwsgi_v8_fill_commonjs(context);
+
         return context;
 }
 

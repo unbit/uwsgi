@@ -1444,33 +1444,6 @@ struct uwsgi_router {
 	struct uwsgi_rb_timer *uwsgi_rb_timer;
 	};
 
-	struct uwsgi_signal_probe {
-
-	int (*func) (int, struct uwsgi_signal_probe *);
-	char args[1024];
-
-	int fd;
-	int state;
-	int bad;
-	int last_event;
-	void *data;
-	uint64_t cycles;
-
-	int timeout;
-	int freq;
-
-	int registered;
-	uint8_t sig;
-	};
-
-	struct uwsgi_probe {
-
-	char *name;
-	int (*func) (int, struct uwsgi_signal_probe *);
-
-	struct uwsgi_probe *next;
-	};
-
 	struct uwsgi_cheaper_algo {
 
 	char *name;
@@ -1829,8 +1802,6 @@ struct uwsgi_server {
 	int build_mime_dict;
 
 	struct uwsgi_string_list *mime_file;
-
-	struct uwsgi_probe *probes;
 
 	struct uwsgi_string_list *exec_pre_jail;
 	struct uwsgi_string_list *exec_post_jail;
@@ -2246,7 +2217,6 @@ struct uwsgi_server {
 	struct uwsgi_lock_item *signal_table_lock;
 	struct uwsgi_lock_item *fmon_table_lock;
 	struct uwsgi_lock_item *timer_table_lock;
-	struct uwsgi_lock_item *probe_table_lock;
 	struct uwsgi_lock_item *rb_timer_table_lock;
 	struct uwsgi_lock_item *cron_table_lock;
 	struct uwsgi_lock_item *rpc_table_lock;
@@ -2386,9 +2356,6 @@ struct uwsgi_signal_entry {
 
 	struct uwsgi_fmon files_monitored[64];
 	int files_monitored_cnt;
-
-	struct uwsgi_signal_probe probes[MAX_PROBES];
-	int probes_cnt;
 
 	struct uwsgi_timer timers[MAX_TIMERS];
 	int timers_cnt;
@@ -3131,74 +3098,71 @@ void uwsgi_set_processname(char *);
 	struct uwsgi_subscribe_slot *next;
 	};
 
-	void mule_send_msg(int, char *, size_t);
+void mule_send_msg(int, char *, size_t);
 
-	uint32_t djb33x_hash(char *, uint64_t);
-	void create_signal_pipe(int *);
-	struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **, char *, uint16_t);
-	struct uwsgi_subscribe_node *uwsgi_get_subscribe_node_by_name(struct uwsgi_subscribe_slot **, char *, uint16_t, char *, uint16_t);
-	struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slot **, char *, uint16_t);
-	int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **, struct uwsgi_subscribe_node *);
-	struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slot **, struct uwsgi_subscribe_req *);
+uint32_t djb33x_hash(char *, uint64_t);
+void create_signal_pipe(int *);
+struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **, char *, uint16_t);
+struct uwsgi_subscribe_node *uwsgi_get_subscribe_node_by_name(struct uwsgi_subscribe_slot **, char *, uint16_t, char *, uint16_t);
+struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slot **, char *, uint16_t);
+int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **, struct uwsgi_subscribe_node *);
+struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slot **, struct uwsgi_subscribe_req *);
 
-	ssize_t uwsgi_mule_get_msg(int, int, char *, size_t, int);
+ssize_t uwsgi_mule_get_msg(int, int, char *, size_t, int);
 
-	int uwsgi_signal_wait(int);
-	struct uwsgi_app *uwsgi_add_app(int, uint8_t, char *, int, void *, void *);
-	int uwsgi_signal_send(int, uint8_t);
-	int uwsgi_remote_signal_send(char *, uint8_t);
+int uwsgi_signal_wait(int);
+struct uwsgi_app *uwsgi_add_app(int, uint8_t, char *, int, void *, void *);
+int uwsgi_signal_send(int, uint8_t);
+int uwsgi_remote_signal_send(char *, uint8_t);
 
-	void uwsgi_configure();
+void uwsgi_configure();
 
-	int uwsgi_read_response(int, struct uwsgi_header *, int, char **);
-	char *uwsgi_simple_file_read(char *);
+int uwsgi_read_response(int, struct uwsgi_header *, int, char **);
+char *uwsgi_simple_file_read(char *);
 
-	void uwsgi_send_subscription(char *, char *, size_t, uint8_t, uint8_t, uint8_t, char *, char *);
+void uwsgi_send_subscription(char *, char *, size_t, uint8_t, uint8_t, uint8_t, char *, char *);
 
-	void uwsgi_subscribe(char *, uint8_t);
-	void uwsgi_subscribe2(char *, uint8_t);
+void uwsgi_subscribe(char *, uint8_t);
+void uwsgi_subscribe2(char *, uint8_t);
 
-	struct uwsgi_probe *uwsgi_probe_register(struct uwsgi_probe **, char *, int (*)(int, struct uwsgi_signal_probe *));
-	int uwsgi_add_probe(uint8_t sig, char *, char *, int, int);
-
-	int uwsgi_is_bad_connection(int);
-	int uwsgi_long2str2n(unsigned long long, char *, int);
+int uwsgi_is_bad_connection(int);
+int uwsgi_long2str2n(unsigned long long, char *, int);
 
 #ifdef __linux__
-	void uwsgi_build_unshare(char *);
+void uwsgi_build_unshare(char *);
 #ifdef MADV_MERGEABLE
-	void uwsgi_linux_ksm_map(void);
+void uwsgi_linux_ksm_map(void);
 #endif
 #endif
 
 #ifdef UWSGI_CAP
-	void uwsgi_build_cap(char *);
+void uwsgi_build_cap(char *);
 #endif
 
-	void uwsgi_register_logger(char *, ssize_t(*func) (struct uwsgi_logger *, char *, size_t));
-	void uwsgi_append_logger(struct uwsgi_logger *);
-	void uwsgi_append_req_logger(struct uwsgi_logger *);
-	struct uwsgi_logger *uwsgi_get_logger(char *);
-	struct uwsgi_logger *uwsgi_get_logger_from_id(char *);
+void uwsgi_register_logger(char *, ssize_t(*func) (struct uwsgi_logger *, char *, size_t));
+void uwsgi_append_logger(struct uwsgi_logger *);
+void uwsgi_append_req_logger(struct uwsgi_logger *);
+struct uwsgi_logger *uwsgi_get_logger(char *);
+struct uwsgi_logger *uwsgi_get_logger_from_id(char *);
 
-	char *uwsgi_getsockname(int);
-	char *uwsgi_get_var(struct wsgi_request *, char *, uint16_t, uint16_t *);
+char *uwsgi_getsockname(int);
+char *uwsgi_get_var(struct wsgi_request *, char *, uint16_t, uint16_t *);
 
-	struct uwsgi_gateway_socket *uwsgi_new_gateway_socket(char *, char *);
-	struct uwsgi_gateway_socket *uwsgi_new_gateway_socket_from_fd(int, char *);
+struct uwsgi_gateway_socket *uwsgi_new_gateway_socket(char *, char *);
+struct uwsgi_gateway_socket *uwsgi_new_gateway_socket_from_fd(int, char *);
 
-	void escape_shell_arg(char *, size_t, char *);
+void escape_shell_arg(char *, size_t, char *);
 
-	void *uwsgi_malloc_shared(size_t);
-	void *uwsgi_calloc_shared(size_t);
+void *uwsgi_malloc_shared(size_t);
+void *uwsgi_calloc_shared(size_t);
 
-	struct uwsgi_spooler *uwsgi_new_spooler(char *);
+struct uwsgi_spooler *uwsgi_new_spooler(char *);
 
-	struct uwsgi_spooler *uwsgi_get_spooler_by_name(char *);
+struct uwsgi_spooler *uwsgi_get_spooler_by_name(char *);
 
-	int uwsgi_zerg_attach(char *);
+int uwsgi_zerg_attach(char *);
 
-	int uwsgi_manage_opt(char *, char *);
+int uwsgi_manage_opt(char *, char *);
 
 void uwsgi_opt_print(char *, char *, void *);
 void uwsgi_opt_true(char *, char *, void *);
