@@ -45,7 +45,8 @@ struct uwsgi_rack {
 
         pthread_mutex_t gvl;
 
-	int rb_shell;
+	char *rbshell;
+	int rb_shell_oneshot;
 	int app_id;
 
 	int unprotected;

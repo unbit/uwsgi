@@ -5,6 +5,22 @@ extern struct uwsgi_server uwsgi;
 struct uwsgi_rack ur;
 struct uwsgi_plugin rack_plugin;
 
+static void uwsgi_opt_rbshell(char *opt, char *value, void *foobar) {
+
+        uwsgi.honour_stdin = 1;
+        if (value) {
+                ur.rbshell = value;
+        }
+        else {
+                ur.rbshell = "";
+        }
+
+        if (!strcmp("rbshell-oneshot", opt)) {
+                ur.rb_shell_oneshot = 1;
+        }
+}
+
+
 struct uwsgi_option uwsgi_rack_options[] = {
 
         {"rails", required_argument, 0, "load a rails <= 2.x app", uwsgi_opt_set_str, &ur.rails, UWSGI_OPT_POST_BUFFERING},
@@ -29,7 +45,8 @@ struct uwsgi_option uwsgi_rack_options[] = {
 
         {"rvm-path", required_argument, 0, "search for rvm in the specified directory", uwsgi_opt_add_string_list, &ur.rvm_path, 0},
 
-        {"rbshell", optional_argument, 0, "run  a ruby/irb shell", uwsgi_opt_true, &ur.rb_shell, 0},
+        {"rbshell", optional_argument, 0, "run  a ruby/irb shell", uwsgi_opt_rbshell, NULL, 0},
+        {"rbshell-oneshot", no_argument, 0, "set ruby/irb shell (one shot)", uwsgi_opt_rbshell, NULL, 0},
 
 #ifdef RUBY19
         {"rb-threads", required_argument, 0, "set the number of ruby threads to run", uwsgi_opt_set_int, &ur.rb_threads, 0},
@@ -1029,7 +1046,51 @@ int uwsgi_rack_mount_app(char *mountpoint, char *app) {
         return -1;
 }
 
+VALUE run_irb(VALUE arg) {
+ 	rb_funcall(rb_cObject, rb_intern("require"), 1, rb_str_new2("irb"));
+	VALUE irb = rb_const_get(rb_cObject, rb_intern("IRB"));
+        return rb_funcall(irb, rb_intern("start"), 0);	
+}
+
 void uwsgi_rack_hijack(void) {
+	if (ur.rb_shell_oneshot && uwsgi.workers[uwsgi.mywid].hijacked_count > 0) {
+                uwsgi.workers[uwsgi.mywid].hijacked = 0;
+                return;
+        }
+        if (ur.rbshell && uwsgi.mywid == 1) {
+                uwsgi.workers[uwsgi.mywid].hijacked = 1;
+                uwsgi.workers[uwsgi.mywid].hijacked_count++;
+                // re-map stdin to stdout and stderr if we are logging to a file
+                if (uwsgi.logfile) {
+                        if (dup2(0, 1) < 0) {
+                                uwsgi_error("dup2()");
+                        }
+                        if (dup2(0, 2) < 0) {
+                                uwsgi_error("dup2()");
+                        }
+                }
+                int ret = -1;
+		int error = 0;
+                if (ur.rbshell[0] != 0) {
+			rb_eval_string(ur.rbshell);
+                }
+                else {
+			rb_protect( run_irb, 0, &error ) ;
+                	if (error) {
+                        	uwsgi_ruby_exception_log(NULL);
+                        	exit(1);
+                	}
+                }
+                if (ur.rb_shell_oneshot) {
+                        exit(UWSGI_DE_HIJACKED_CODE);
+                }
+
+                if (ret == 0) {
+                        exit(UWSGI_QUIET_CODE);
+                }
+                exit(0);
+        }
+
 }
 
 int uwsgi_rack_mule(char *opt) {
