@@ -8,17 +8,31 @@ extern struct uwsgi_server uwsgi;
 
 struct uwsgi_lua {
 	struct lua_State **L;
-
+	char *shell;
 	char *filename;
 	struct uwsgi_string_list *load;
 } ulua;
 
 #define lca(L, n)		ulua_check_args(L, __FUNCTION__, n)
 
+static void uwsgi_opt_luashell(char *opt, char *value, void *foobar) {
+
+        uwsgi.honour_stdin = 1;
+        if (value) {
+                ulua.shell = value;
+        }
+        else {
+                ulua.shell = "";
+        }
+}
+
+
 static struct uwsgi_option uwsgi_lua_options[] = {
 
 	{"lua", required_argument, 0, "load lua wsapi app", uwsgi_opt_set_str, &ulua.filename, 0},
 	{"lua-load", required_argument, 0, "load a lua file", uwsgi_opt_add_string_list, &ulua.load, 0},
+	{"lua-shell", no_argument, 0, "run the lua interactive shell (debug.debug())", uwsgi_opt_luashell, NULL, 0},
+	{"luashell", no_argument, 0, "run the lua interactive shell (debug.debug())", uwsgi_opt_luashell, NULL, 0},
 
 	{0, 0, 0, 0},
 
@@ -347,6 +361,7 @@ static const luaL_reg uwsgi_api[] = {
 
   {"lock", uwsgi_api_lock},
   {"unlock", uwsgi_api_unlock},
+
   {NULL, NULL}
 };
 
@@ -389,12 +404,15 @@ static int uwsgi_lua_init(){
 static void uwsgi_lua_app() {
 	int i;
 
-	if (!ulua.filename && !ulua.load) return;
+	if (!ulua.filename && !ulua.load && !ulua.shell) return;
 
 		for(i=0;i<uwsgi.cores;i++) {
 			ulua.L[i] = luaL_newstate();
 			luaL_openlibs(ulua.L[i]);
 			luaL_register(ulua.L[i], "uwsgi", uwsgi_api);
+
+			lua_pushstring(ulua.L[i], UWSGI_VERSION);
+        		lua_setfield(ulua.L[i], -2, "version");
 
 			struct uwsgi_string_list *usl = ulua.load;
 			while(usl) {
@@ -765,6 +783,33 @@ static void uwsgi_register_lua_features() {
 	uwsgi_register_configurator(".lua", uwsgi_lua_configurator);
 }
 
+static void uwsgi_lua_hijack(void) {
+        if (ulua.shell && uwsgi.mywid == 1) {
+                uwsgi.workers[uwsgi.mywid].hijacked = 1;
+                uwsgi.workers[uwsgi.mywid].hijacked_count++;
+                // re-map stdin to stdout and stderr if we are logging to a file
+                if (uwsgi.logfile) {
+                        if (dup2(0, 1) < 0) {
+                                uwsgi_error("dup2()");
+                        }
+                        if (dup2(0, 2) < 0) {
+                                uwsgi_error("dup2()");
+                        }
+                }
+                int ret = -1;
+		// run in the first state
+		lua_State *L = ulua.L[0];		
+		lua_getglobal(L, "debug");
+		lua_getfield(L, -1, "debug");
+		ret = lua_pcall(L, 0, 0, 0);
+                if (ret == 0) {
+                        exit(UWSGI_QUIET_CODE);
+                }
+                exit(0);
+        }
+
+}
+
 
 struct uwsgi_plugin lua_plugin = {
 
@@ -777,6 +822,8 @@ struct uwsgi_plugin lua_plugin = {
 	.init_apps = uwsgi_lua_app,
 	.magic = uwsgi_lua_magic,
 	.signal_handler = uwsgi_lua_signal_handler,
+
+	.hijack_worker = uwsgi_lua_hijack,
 
 	.code_string = uwsgi_lua_code_string,
 	.rpc = uwsgi_lua_rpc,

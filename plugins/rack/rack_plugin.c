@@ -1052,7 +1052,7 @@ VALUE run_irb(VALUE arg) {
         return rb_funcall(irb, rb_intern("start"), 0);	
 }
 
-void uwsgi_rack_hijack(void) {
+static void uwsgi_rack_hijack(void) {
 	if (ur.rb_shell_oneshot && uwsgi.workers[uwsgi.mywid].hijacked_count > 0) {
                 uwsgi.workers[uwsgi.mywid].hijacked = 0;
                 return;
