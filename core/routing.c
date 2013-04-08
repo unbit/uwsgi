@@ -761,6 +761,57 @@ static int uwsgi_router_setfile(struct uwsgi_route *ur, char *arg) {
 }
 
 
+// setprocname route
+static int uwsgi_router_setprocname_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
+	uwsgi_set_processname(ub->buf);
+        uwsgi_buffer_destroy(ub);
+        return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_setprocname(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_setprocname_func;
+        ur->data = arg;
+        ur->data_len = strlen(arg);
+        return 0;
+}
+
+// alarm route
+static int uwsgi_router_alarm_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub_alarm = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        if (!ub_alarm) return UWSGI_ROUTE_BREAK;
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data2, ur->data2_len);
+        if (!ub) {
+		uwsgi_buffer_destroy(ub_alarm);
+		return UWSGI_ROUTE_BREAK;
+	}
+	uwsgi_alarm_trigger(ub_alarm->buf, ub->buf, ub->pos);	
+        uwsgi_buffer_destroy(ub_alarm);
+        uwsgi_buffer_destroy(ub);
+        return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_alarm(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_alarm_func;
+	char *space = strchr(arg, ' ');
+	if (!space) {
+		return -1;
+	}
+	*space = 0;
+        ur->data = arg;
+        ur->data_len = strlen(arg);
+        ur->data2 = space+1;
+        ur->data2_len = strlen(ur->data2);
+        return 0;
+}
+
+
 
 // send route
 static int uwsgi_router_send_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
@@ -1154,6 +1205,8 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("setapp", uwsgi_router_setapp);
         uwsgi_register_router("sethome", uwsgi_router_sethome);
         uwsgi_register_router("setfile", uwsgi_router_setfile);
+        uwsgi_register_router("setprocname", uwsgi_router_setprocname);
+        uwsgi_register_router("alarm", uwsgi_router_alarm);
 
         uwsgi_register_route_condition("exists", uwsgi_route_condition_exists);
         uwsgi_register_route_condition("isfile", uwsgi_route_condition_isfile);
