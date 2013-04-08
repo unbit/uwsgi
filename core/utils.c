@@ -1525,6 +1525,25 @@ int uwsgi_logic_opt_for_glob(char *key, char *value) {
         return 1;
 }
 
+int uwsgi_logic_opt_for_times(char *key, char *value) {
+
+	int num = atoi(uwsgi.logic_opt_data);
+        int i;
+	char str_num[11];
+
+        for (i = 1; i <= num; i++) {
+		int ret = uwsgi_num2str2(i, str_num);
+		// security check
+		if (ret < 0 || ret > 11) {
+			exit(1);
+		}
+                add_exported_option(key, uwsgi_substitute(value, "%(_)", str_num), 0);
+        }
+
+        return 1;
+}
+
+
 
 void add_exported_option(char *key, char *value, int configured) {
 

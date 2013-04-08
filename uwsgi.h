@@ -3287,6 +3287,7 @@ void uwsgi_opt_noop(char *, char *, void *);
 void uwsgi_opt_logic(char *, char *, void *);
 int uwsgi_logic_opt_for(char *, char *);
 int uwsgi_logic_opt_for_glob(char *, char *);
+int uwsgi_logic_opt_for_times(char *, char *);
 int uwsgi_logic_opt_if_env(char *, char *);
 int uwsgi_logic_opt_if_not_env(char *, char *);
 int uwsgi_logic_opt_if_opt(char *, char *);
