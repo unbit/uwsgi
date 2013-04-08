@@ -582,8 +582,9 @@ struct uwsgi_legion_node {
 	time_t last_seen;
 	struct uwsgi_legion_node *prev;
 	struct uwsgi_legion_node *next;
-	};
-	struct uwsgi_legion {
+};
+
+struct uwsgi_legion {
 	char *legion;
 	uint16_t legion_len;
 	uint64_t valor;
@@ -638,10 +639,12 @@ struct uwsgi_legion_node {
 	struct uwsgi_string_list *setup_hooks;
 	struct uwsgi_string_list *death_hooks;
 	struct uwsgi_string_list *join_hooks;
+	struct uwsgi_string_list *node_joined_hooks;
+	struct uwsgi_string_list *node_left_hooks;
 	struct uwsgi_legion *next;
-	};
+};
 
-	struct uwsgi_legion_action {
+struct uwsgi_legion_action {
 	char *name;
 	int (*func) (struct uwsgi_legion *, char *);
 	struct uwsgi_legion_action *next;

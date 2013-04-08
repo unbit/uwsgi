@@ -210,6 +210,15 @@ static void legions_check_nodes() {
 				uwsgi_wlock(legion->lock);
 				uwsgi_legion_remove_node(legion, tmp_node);
 				uwsgi_rwunlock(legion->lock);
+				// trigger node_left hooks
+				struct uwsgi_string_list *usl = legion->node_left_hooks;
+				while (usl) {
+					int ret = uwsgi_legion_action_call("node_left", legion, usl);
+					if (ret) {
+						uwsgi_log("[uwsgi-legion] ERROR, node_left hook returned: %d\n", ret);
+					}
+					usl = usl->next;
+				}
 				continue;
 			}
 			node = node->next;
@@ -570,6 +579,15 @@ static void *legion_loop(void *foobar) {
 				legion_rebuild_scrolls(ul);
 				uwsgi_rwunlock(ul->lock);
 				uwsgi_log("[uwsgi-legion] node: %.*s valor: %llu uuid: %.*s joined Legion %s\n", node->name_len, node->name, node->valor, 36, node->uuid, ul->legion);
+				// trigger node_joined hooks
+				struct uwsgi_string_list *usl = ul->node_joined_hooks;
+				while (usl) {
+					int ret = uwsgi_legion_action_call("node_joined", ul, usl);
+					if (ret) {
+						uwsgi_log("[uwsgi-legion] ERROR, node_joined hook returned: %d\n", ret);
+					}
+					usl = usl->next;
+				}
 			}
 
 			node->last_seen = uwsgi_now();
@@ -882,6 +900,13 @@ void uwsgi_legion_register_hook(struct uwsgi_legion *ul, char *event, char *acti
 	else if (!strcmp(event, "join")) {
 		usl = uwsgi_string_new_list(&ul->join_hooks, action);
 	}
+	else if (!strcmp(event, "node-joined")) {
+		usl = uwsgi_string_new_list(&ul->node_joined_hooks, action);
+	}
+	else if (!strcmp(event, "node-left")) {
+		usl = uwsgi_string_new_list(&ul->node_left_hooks, action);
+	}
+
 	else {
 		uwsgi_log("[uwsgi-legion] invalid event: %s\n", event);
 		exit(1);
