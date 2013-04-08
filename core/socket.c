@@ -136,6 +136,24 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		uwsgi_log("setting abstract socket mode (warning: only Linux supports this)\n");
 	}
 
+	if (uwsgi.so_sndbuf) {
+                socklen_t sndbuf = (socklen_t) uwsgi.so_sndbuf;
+                if (setsockopt(serverfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(socklen_t)) < 0) {
+                        uwsgi_error("SO_SNDBUF setsockopt()");
+                        uwsgi_nuclear_blast();
+                        return -1;
+                }
+        }
+
+        if (uwsgi.so_rcvbuf) {
+                socklen_t rcvbuf = (socklen_t) uwsgi.so_rcvbuf;
+                if (setsockopt(serverfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(socklen_t)) < 0) {
+                        uwsgi_error("SO_RCVBUF setsockopt()");
+                        uwsgi_nuclear_blast();
+                        return -1;
+                }
+        }
+
 	uws_addr->sun_family = AF_UNIX;
 	if (socket_name[0] == '@') {
 		memcpy(uws_addr->sun_path + abstract_socket, socket_name + 1, UMIN(strlen(socket_name + 1), 101));
@@ -587,6 +605,24 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		uwsgi_nuclear_blast();
 		return -1;
 	}
+	
+	if (uwsgi.so_sndbuf) {
+		socklen_t sndbuf = (socklen_t) uwsgi.so_sndbuf;
+		if (setsockopt(serverfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(socklen_t)) < 0) {
+                	uwsgi_error("SO_SNDBUF setsockopt()");
+                	uwsgi_nuclear_blast();
+                	return -1;
+        	}
+	}
+
+	if (uwsgi.so_rcvbuf) {
+                socklen_t rcvbuf = (socklen_t) uwsgi.so_rcvbuf;
+                if (setsockopt(serverfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(socklen_t)) < 0) {
+                        uwsgi_error("SO_RCVBUF setsockopt()");
+                        uwsgi_nuclear_blast();
+                        return -1;
+                }
+        }
 
 	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
 		uwsgi_error("SO_REUSEADDR setsockopt()");

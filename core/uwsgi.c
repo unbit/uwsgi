@@ -317,6 +317,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"socket-send-timeout", no_argument, 0, "set SO_SNDTIMEO", uwsgi_opt_set_int, &uwsgi.so_send_timeout, 0},
 	{"so-write-timeout", no_argument, 0, "set SO_SNDTIMEO", uwsgi_opt_set_int, &uwsgi.so_send_timeout, 0},
 	{"socket-write-timeout", no_argument, 0, "set SO_SNDTIMEO", uwsgi_opt_set_int, &uwsgi.so_send_timeout, 0},
+	{"socket-sndbuf", required_argument, 0, "set SO_SNDBUF", uwsgi_opt_set_64bit, &uwsgi.so_sndbuf, 0},
+	{"socket-rcvbuf", required_argument, 0, "set SO_RCVBUF", uwsgi_opt_set_64bit, &uwsgi.so_rcvbuf, 0},
 	{"limit-as", required_argument, 0, "limit processes address space/vsz", uwsgi_opt_set_megabytes, &uwsgi.rl.rlim_max, 0},
 	{"limit-nproc", required_argument, 0, "limit the number of spawnable processes", uwsgi_opt_set_int, &uwsgi.rl_nproc.rlim_max, 0},
 	{"reload-on-as", required_argument, 0, "reload if address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_as, UWSGI_OPT_MEMORY},

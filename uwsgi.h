@@ -2000,6 +2000,8 @@ struct uwsgi_server {
 	int no_defer_accept;
 	int so_keepalive;
 	int so_send_timeout;
+	uint64_t so_sndbuf;
+	uint64_t so_rcvbuf;
 
 	int page_size;
 	int cpus;
