@@ -1078,6 +1078,20 @@ static int uwsgi_route_condition_isexec(struct wsgi_request *wsgi_req, struct uw
         return 0;
 }
 
+static char *uwsgi_route_var_uwsgi(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
+	char *ret = NULL;
+	if (!uwsgi_strncmp(key, keylen, "wid", 3)) {
+		ret = uwsgi_num2str(uwsgi.mywid);
+		*vallen = strlen(ret);
+	}
+	else if (!uwsgi_strncmp(key, keylen, "pid", 3)) {
+		ret = uwsgi_num2str(uwsgi.mypid);
+		*vallen = strlen(ret);
+	}
+
+	return ret;
+}
+
 #ifdef UWSGI_MATHEVAL
 static char *uwsgi_route_var_math(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
 	char *ret = NULL;
@@ -1170,8 +1184,10 @@ void uwsgi_register_embedded_routers() {
 
         uwsgi_register_route_var("cookie", uwsgi_get_cookie);
         uwsgi_register_route_var("qs", uwsgi_get_qs);
+        struct uwsgi_route_var *urv = uwsgi_register_route_var("uwsgi", uwsgi_route_var_uwsgi);
+	urv->need_free = 1;
 #ifdef UWSGI_MATHEVAL
-        struct uwsgi_route_var *urv = uwsgi_register_route_var("math", uwsgi_route_var_math);
+        urv = uwsgi_register_route_var("math", uwsgi_route_var_math);
 	urv->need_free = 1;
 #endif
 }
