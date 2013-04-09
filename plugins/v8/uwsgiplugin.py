@@ -4,7 +4,7 @@ NAME='v8'
 CFLAGS = ['-Wno-deprecated-declarations']
 LDFLAGS = []
 LIBS = ['-lv8']
-engine = os.environ.get('UWSGI_V8_ENGINE', '')
+engine = os.environ.get('UWSGICONFIG_V8_ENGINE', '')
 if engine == 'teajs':
     CFLAGS.append('-DUWSGI_V8_TEAJS -fexceptions')
     LIBS.append('-lteajs')

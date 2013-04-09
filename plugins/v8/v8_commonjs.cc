@@ -31,8 +31,13 @@ private:
 
 static v8::Handle < v8::Value > uwsgi_v8_commonjs_require(const v8::Arguments & args) {
         if (args.Length() > 0) {
-		v8::String::Utf8Value module_name(args[0]->ToString());
-		return APP_PTR->require(std::string(*module_name), "");
+		try {
+			v8::String::Utf8Value module_name(args[0]->ToString());
+			return APP_PTR->require(std::string(*module_name), "");
+		}
+		catch (std::string e) {
+			uwsgi_log("%s\n", e.c_str());
+		}
 	}
 	return v8::Undefined();
 }
@@ -44,10 +49,11 @@ static v8::Handle < v8::Value > uwsgi_v8_commonjs_require_do(char *);
 extern struct uwsgi_v8 uv8;
 extern struct uwsgi_server uwsgi;
 
+TeaJS_uWSGI app;
+
 v8::Persistent<v8::Context> uwsgi_v8_setup_context() {
 #ifdef UWSGI_V8_TEAJS
 	v8::HandleScope handle_scope;
-	TeaJS_uWSGI app;
 	try {
 		app.init();
 		app.getContext()->Global()->Set(v8::String::New("require"), v8::FunctionTemplate::New(uwsgi_v8_commonjs_require)->GetFunction());
