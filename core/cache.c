@@ -288,21 +288,7 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 			(unsigned long long) ((sizeof(struct uwsgi_cache_item)+uc->keysize) * uc->max_items), (unsigned long long) (uc->blocksize * uc->max_items),
 			(unsigned long long) uc->blocks_bitmap_size);
 
-
-	struct uwsgi_string_list *usl = uc->nodes;
-	while(usl) {
-		char *port = strchr(usl->value, ':');
-		if (!port) {
-			uwsgi_log("[cache-udp-node] invalid udp address: %s\n", usl->value);
-			exit(1);
-		}
-		// no need to zero the memory, socket_to_in_addr will do that
-		struct sockaddr_in *sin = uwsgi_malloc(sizeof(struct sockaddr_in));
-		usl->custom = socket_to_in_addr(usl->value, port, 0, sin);
-		usl->custom_ptr = sin; 
-		uwsgi_log("added udp node %s for cache \"%s\"\n", usl->value, uc->name);
-		usl = usl->next;
-	}
+	uwsgi_cache_setup_nodes(uc);
 
 	uc->udp_node_socket = socket(AF_INET, SOCK_DGRAM, 0);
 	if (uc->udp_node_socket < 0) {
@@ -311,70 +297,10 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 	}
 	uwsgi_socket_nb(uc->udp_node_socket);
 
-	usl = uc->sync_nodes;
-	while(usl) {
-		uwsgi_log("[cache-sync] getting cache dump from %s ...\n", usl->value);
-		int fd = uwsgi_connect(usl->value, 0, 0);
-		if (fd < 0) {
-			uwsgi_log("[cache-sync] unable to connect to the cache server\n");
-			goto next;
-		}
-
-		struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size + uc->filesize);
-		ub->pos = 4;
-		if (uwsgi_buffer_append(ub, uc->name, uc->name_len)) {
-			uwsgi_buffer_destroy(ub);
-			close(fd);
-			goto next;
-		}
-
-		if (uwsgi_buffer_set_uh(ub, 111, 6)) {
-			uwsgi_buffer_destroy(ub);
-			close(fd);
-			goto next;
-		}
-
-		if (uwsgi_write_nb(fd, ub->buf, ub->pos, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
-			uwsgi_buffer_destroy(ub);
-			uwsgi_log("[cache-sync] unable to write to the cache server\n");
-			close(fd);
-			goto next;
-		}
-
-		size_t rlen = ub->pos;
-        	if (uwsgi_read_with_realloc(fd, &ub->buf, &rlen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
-			uwsgi_buffer_destroy(ub);
-			uwsgi_log("[cache-sync] unable to read from the cache server\n");
-			close(fd);
-			goto next;
-		}
-	
-		uwsgi_hooked_parse(ub->buf, ub->pos, cache_sync_hook, uc);
-
-		if (uwsgi_read_nb(fd, (char *) uc->items, uc->filesize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
-			uwsgi_buffer_destroy(ub);
-			close(fd);
-                        uwsgi_log("[cache-sync] unable to read from the cache server\n");
-			goto next;
-                }
-
-		// reset the hashtable
-		memset(uc->hashtable, 0, sizeof(uint64_t) * UMAX16);
-		// re-fill the hashtable
-                uwsgi_cache_fix(uc);
-
-		uwsgi_buffer_destroy(ub);
-		close(fd);
-		break;
-next:
-		if (!usl->next) {
-			exit(1);
-		}
-		uwsgi_log("[cache-sync] trying with the next sync node...\n");
-		usl = usl->next;
-	}
+	uwsgi_cache_sync_from_nodes(uc);
 
 	uwsgi_cache_load_files(uc);
+
 }
 
 static uint64_t uwsgi_cache_get_index(struct uwsgi_cache *uc, char *key, uint16_t keylen) {
@@ -1694,5 +1620,90 @@ int uwsgi_cache_magic_clear(char *cache) {
 
         return -1 ;
 
+}
+
+
+void uwsgi_cache_sync_from_nodes(struct uwsgi_cache *uc) {
+	struct uwsgi_string_list *usl = uc->sync_nodes;
+	usl = uc->sync_nodes;
+	while(usl) {
+		uwsgi_log("[cache-sync] getting cache dump from %s ...\n", usl->value);
+		int fd = uwsgi_connect(usl->value, 0, 0);
+		if (fd < 0) {
+			uwsgi_log("[cache-sync] unable to connect to the cache server\n");
+			goto next;
+		}
+
+		struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size + uc->filesize);
+		ub->pos = 4;
+		if (uwsgi_buffer_append(ub, uc->name, uc->name_len)) {
+			uwsgi_buffer_destroy(ub);
+			close(fd);
+			goto next;
+		}
+
+		if (uwsgi_buffer_set_uh(ub, 111, 6)) {
+			uwsgi_buffer_destroy(ub);
+			close(fd);
+			goto next;
+		}
+
+		if (uwsgi_write_nb(fd, ub->buf, ub->pos, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+			uwsgi_buffer_destroy(ub);
+			uwsgi_log("[cache-sync] unable to write to the cache server\n");
+			close(fd);
+			goto next;
+		}
+
+		size_t rlen = ub->pos;
+		if (uwsgi_read_with_realloc(fd, &ub->buf, &rlen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+			uwsgi_buffer_destroy(ub);
+			uwsgi_log("[cache-sync] unable to read from the cache server\n");
+			close(fd);
+			goto next;
+		}
+
+		uwsgi_hooked_parse(ub->buf, ub->pos, cache_sync_hook, uc);
+
+		if (uwsgi_read_nb(fd, (char *) uc->items, uc->filesize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+			uwsgi_buffer_destroy(ub);
+			close(fd);
+                        uwsgi_log("[cache-sync] unable to read from the cache server\n");
+			goto next;
+                }
+
+		// reset the hashtable
+		memset(uc->hashtable, 0, sizeof(uint64_t) * UMAX16);
+		// re-fill the hashtable
+                uwsgi_cache_fix(uc);
+
+		uwsgi_buffer_destroy(ub);
+		close(fd);
+		break;
+next:
+		if (!usl->next) {
+			exit(1);
+		}
+		uwsgi_log("[cache-sync] trying with the next sync node...\n");
+		usl = usl->next;
+	}
+}
+
+
+void uwsgi_cache_setup_nodes(struct uwsgi_cache *uc) {
+	struct uwsgi_string_list *usl = uc->nodes;
+	while(usl) {
+		char *port = strchr(usl->value, ':');
+		if (!port) {
+			uwsgi_log("[cache-udp-node] invalid udp address: %s\n", usl->value);
+			exit(1);
+		}
+		// no need to zero the memory, socket_to_in_addr will do that
+		struct sockaddr_in *sin = uwsgi_malloc(sizeof(struct sockaddr_in));
+		usl->custom = socket_to_in_addr(usl->value, port, 0, sin);
+		usl->custom_ptr = sin;
+		uwsgi_log("added udp node %s for cache \"%s\"\n", usl->value, uc->name);
+		usl = usl->next;
+	}
 }
 
