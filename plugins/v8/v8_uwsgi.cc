@@ -145,7 +145,6 @@ static v8::Persistent<v8::Context> uwsgi_v8_new_isolate(int core_id) {
 	uv8.isolates[core_id] = v8::Isolate::GetCurrent();
 
 	v8::Persistent<v8::Context> context = uwsgi_v8_setup_context();
-	uwsgi_log("context at %p\n", context);
 	context->Enter();
 
 	v8::HandleScope handle_scope;

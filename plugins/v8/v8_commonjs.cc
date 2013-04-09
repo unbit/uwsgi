@@ -4,6 +4,7 @@ extern struct uwsgi_server uwsgi;
 
 #ifdef UWSGI_V8_TEAJS
 #include "app.h"
+#include "macros.h"
 class TeaJS_uWSGI : public TeaJS_App {
 public:
 	void init() {
@@ -27,6 +28,14 @@ private:
         }
 
 };
+
+static v8::Handle < v8::Value > uwsgi_v8_commonjs_require(const v8::Arguments & args) {
+        if (args.Length() > 0) {
+		v8::String::Utf8Value module_name(args[0]->ToString());
+		return APP_PTR->require(std::string(*module_name), "");
+	}
+	return v8::Undefined();
+}
 #else
 static v8::Handle < v8::Value > uwsgi_v8_commonjs_require(const v8::Arguments &);
 static v8::Handle < v8::Value > uwsgi_v8_commonjs_require_do(char *);
@@ -37,10 +46,11 @@ extern struct uwsgi_server uwsgi;
 
 v8::Persistent<v8::Context> uwsgi_v8_setup_context() {
 #ifdef UWSGI_V8_TEAJS
+	v8::HandleScope handle_scope;
 	TeaJS_uWSGI app;
 	try {
 		app.init();
-		//app.execute(uwsgi.environ);
+		app.getContext()->Global()->Set(v8::String::New("require"), v8::FunctionTemplate::New(uwsgi_v8_commonjs_require)->GetFunction());
 		return app.getContext();
 	}
 	catch (std::string e) {

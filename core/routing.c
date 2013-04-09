@@ -1143,6 +1143,15 @@ static char *uwsgi_route_var_uwsgi(struct wsgi_request *wsgi_req, char *key, uin
 	return ret;
 }
 
+static char *uwsgi_route_var_time(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
+        char *ret = NULL;
+        if (!uwsgi_strncmp(key, keylen, "unix", 4)) {
+                ret = uwsgi_num2str(uwsgi_now());
+                *vallen = strlen(ret);
+        }
+        return ret;
+}
+
 #ifdef UWSGI_MATHEVAL
 static char *uwsgi_route_var_math(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
 	char *ret = NULL;
@@ -1161,7 +1170,7 @@ static char *uwsgi_route_var_math(struct wsgi_request *wsgi_req, char *key, uint
 		*ptr++=0;
 		char *num = ptr;
 		memcpy(ptr, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
-		ptr += wsgi_req->hvec[i-1].iov_len;
+		ptr += wsgi_req->hvec[i].iov_len;
                 *ptr++=0;
 		values[j] = strtod(num, NULL);
 		j++;
@@ -1238,6 +1247,8 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_route_var("cookie", uwsgi_get_cookie);
         uwsgi_register_route_var("qs", uwsgi_get_qs);
         struct uwsgi_route_var *urv = uwsgi_register_route_var("uwsgi", uwsgi_route_var_uwsgi);
+	urv->need_free = 1;
+        urv = uwsgi_register_route_var("time", uwsgi_route_var_time);
 	urv->need_free = 1;
 #ifdef UWSGI_MATHEVAL
         urv = uwsgi_register_route_var("math", uwsgi_route_var_math);
