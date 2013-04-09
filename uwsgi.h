@@ -2753,6 +2753,8 @@ struct uwsgi_cache *uwsgi_cache_create(char *);
 struct uwsgi_cache *uwsgi_cache_by_name(char *);
 struct uwsgi_cache *uwsgi_cache_by_namelen(char *, uint16_t);
 void uwsgi_cache_create_all(void);
+void uwsgi_cache_sync_from_nodes(struct uwsgi_cache *);
+void uwsgi_cache_setup_nodes(struct uwsgi_cache *);
 
 void uwsgi_cache_sync_all(void);
 void uwsgi_cache_start_sweepers(void);
@@ -3773,6 +3775,7 @@ void uwsgi_legion_add(struct uwsgi_legion *);
 char *uwsgi_ssl_rand(size_t);
 void uwsgi_start_legions(void);
 int uwsgi_legion_announce(struct uwsgi_legion *);
+struct uwsgi_legion *uwsgi_legion_get_by_name(char *);
 struct uwsgi_legion_action *uwsgi_legion_action_get(char *);
 void uwsgi_legion_action_register(char *, int (*)(struct uwsgi_legion *, char *));
 int uwsgi_legion_action_call(char *, struct uwsgi_legion *, struct uwsgi_string_list *);
