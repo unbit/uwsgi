@@ -42,6 +42,9 @@ if not 'UWSGI_PYTHON_NOLIB' in os.environ:
         if not os.path.exists(libpath): 
             libpath = '%s/libpython%s.a' % (libdir, version)
         LIBS.append(libpath)
+        # hack for messy linkers/compilers
+        if '-lutil' in LIBS:
+            LIBS.append('-lutil')
     else:
         try:
             LDFLAGS.append("-L%s" % sysconfig.get_config_var('LIBDIR'))
