@@ -32,7 +32,7 @@
 	prototype: struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_type, uint8_t collect_way, void *ptr, uint32_t freq, void *custom);
 
 	value_type = UWSGI_METRIC_COUNTER/UWSGI_METRIC_GAUGE/UWSGI_METRIC_ABSOLUTE
-	collect_way = UWSGI_METRIC_PTR -> get from a pointer / UWSGI_METRIC_FUNC -> get from a func with the prototype uint64_t func(char *name, char *oid, void *custom); / UWSGI_METRIC_FILE -> get the value from a file, potr is the filename
+	collect_way = UWSGI_METRIC_PTR -> get from a pointer / UWSGI_METRIC_FUNC -> get from a func with the prototype int64_t func(struct uwsgi_metric *); / UWSGI_METRIC_FILE -> get the value from a file, ptr is the filename
 
 	when freq is zero the value is recomputed whenever requested, otherwise the metrics thread compute it every time the frequency is elapsed and caches it
 
@@ -55,6 +55,58 @@
 	uwsgi.metric_get("worker.1.requests", no_cache|force=False)
 	if the second parameter is True, the value is recomputed (but if it is a metric with a cache, the cache value will not be updated accordingly, this is the job of the metric thread)
 
-	Updating metrics from your app MUST BE ATOMIC, for such a reason a uWSGI rwlock is initialized on startup and used for each operation
+	Updating metrics from your app MUST BE ATOMIC, for such a reason a uWSGI rwlock is initialized on startup and used for each operation (simple reading from a metric does not require locking)
+
+	Metrics can be updated from the internal routing subsystem too:
+
+		route-if = equal:${REQUEST_URI};/foobar metricinc:foobar.test 2
+
+	and can be accessed as ${metric[foobar.test]}
+
+	The stats server exports the metrics list in the "metrics" attribute (obviously some info could be redundant)
 
 */
+
+struct uwsgi_metric {
+	char *name;
+	char *oid;
+
+	// pre-computed snmp representation
+	char *asn;
+	size_t asn_size;
+
+	// ABSOLUTE/COUNTER/GAUGE
+	uint8_t type;
+	
+	// the value of the metric
+	int64_t value;
+
+	// a custom blob you can attach to a metric
+	void *custom;
+
+	// the collection frequency
+	uint32_t freq;
+	time_t last_update;
+
+	// run this function to collect the value
+	int64_t (*collector)(struct uwsgi_metric *);
+	// take the value from this pointer to a 64bit value
+	int64_t *ptr;
+	// get the initial value from this file, and store each update in it
+	char *filename;
+
+	struct uwsgi_metric *next;
+};
+
+struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_type, uint8_t collect_way, void *ptr, uint32_t freq, void *custom) {
+	struct uwsgi_metric *old_metric=NULL,*metric=uwsgi.metric;
+
+	while(metric) {
+		metric = metric->next;
+	}
+}
+
+void uwsgi_metric_loop() {
+	// every second scan the whole metrics tree
+	time_t now = uwsgi_now();
+}
