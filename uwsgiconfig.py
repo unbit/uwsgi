@@ -522,6 +522,8 @@ class uConf(object):
         # add -fno-strict-aliasing only on python2 and gcc < 4.3
         if gcc_major >= 4:
             self.cflags = self.cflags + [ '-Wextra', '-Wno-unused-parameter', '-Wno-missing-field-initializers' ]
+        if (gcc_major == 4 and gcc_minor >= 8) or gcc_major > 4:
+            self.cflags.append('-Wno-format')
 
         self.ldflags = os.environ.get("LDFLAGS", "").split()
         self.libs = ['-lpthread', '-lm', '-rdynamic']
