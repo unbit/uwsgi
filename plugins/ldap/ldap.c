@@ -1,6 +1,4 @@
-#ifdef UWSGI_LDAP
-
-#include "uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
@@ -14,7 +12,22 @@ extern struct uwsgi_server uwsgi;
 #define ldap_unbind_ext_s ldap_unbind_ext
 #endif
 
-void ldap2uwsgi(char *ldapname, char *uwsginame) {
+static void uwsgi_opt_ldap_dump(char *, char *, void *);
+static void uwsgi_opt_ldap_dump_ldif(char *, char *, void *);
+static void uwsgi_ldap_config(char *);
+
+static void uwsgi_opt_load_ldap(char *opt, char *url, void *none) {
+        uwsgi_ldap_config(url);
+}
+
+static struct uwsgi_option uwsgi_ldap_options[] = {
+	{"ldap", required_argument, 0, "load configuration from ldap server", uwsgi_opt_load_ldap, NULL, UWSGI_OPT_IMMEDIATE},
+        {"ldap-schema", no_argument, 0, "dump uWSGI ldap schema", uwsgi_opt_ldap_dump, NULL, UWSGI_OPT_IMMEDIATE},
+        {"ldap-schema-ldif", no_argument, 0, "dump uWSGI ldap schema in ldif format", uwsgi_opt_ldap_dump_ldif, NULL, UWSGI_OPT_IMMEDIATE},
+        {0, 0, 0, 0, 0, 0, 0},
+};
+
+static void ldap2uwsgi(char *ldapname, char *uwsginame) {
 	char *ptr = uwsginame;
 
 	int i;
@@ -32,7 +45,7 @@ void ldap2uwsgi(char *ldapname, char *uwsginame) {
 	*ptr++ = 0;
 }
 
-int calc_ldap_name(char *name) {
+static int calc_ldap_name(char *name) {
 	int i;
 	int counter = 0;
 
@@ -52,7 +65,7 @@ struct uwsgi_ldap_entry {
 };
 
 
-void uwsgi_name_to_ldap(char *src, char *dst) {
+static void uwsgi_name_to_ldap(char *src, char *dst) {
 
 	int i;
 	char *ptr = dst;
@@ -77,22 +90,7 @@ void uwsgi_name_to_ldap(char *src, char *dst) {
 
 }
 
-struct uwsgi_ldap_entry *get_ldap_by_num(struct uwsgi_ldap_entry *root, int num, int count) {
-
-	int i;
-	struct uwsgi_ldap_entry *ule;
-
-	for (i = 0; i < count; i++) {
-		ule = &root[i];
-		if (ule->num == num) {
-			return ule;
-		}
-	}
-
-	return NULL;
-}
-
-struct uwsgi_ldap_entry *search_ldap_cache(struct uwsgi_ldap_entry *root, char *name, int count) {
+static struct uwsgi_ldap_entry *search_ldap_cache(struct uwsgi_ldap_entry *root, char *name, int count) {
 	int i;
 	struct uwsgi_ldap_entry *ule;
 
@@ -106,7 +104,7 @@ struct uwsgi_ldap_entry *search_ldap_cache(struct uwsgi_ldap_entry *root, char *
 	return NULL;
 }
 
-struct uwsgi_ldap_entry *get_ldap_names(int *count) {
+static struct uwsgi_ldap_entry *get_ldap_names(int *count) {
 
 	struct uwsgi_option *op = uwsgi.options;
 	struct uwsgi_ldap_entry *ule, *entry;
@@ -139,7 +137,7 @@ next:
 	return ule;
 }
 
-void uwsgi_opt_ldap_dump_ldif(char *opt, char *foo, void *bar) {
+static void uwsgi_opt_ldap_dump_ldif(char *opt, char *foo, void *bar) {
 
 	int i;
 	int items;
@@ -192,7 +190,7 @@ void uwsgi_opt_ldap_dump_ldif(char *opt, char *foo, void *bar) {
 	exit(0);
 }
 
-void uwsgi_opt_ldap_dump(char *opt, char *foo, void *bar) {
+static void uwsgi_opt_ldap_dump(char *opt, char *foo, void *bar) {
 
 	int i;
 	int items;
@@ -240,7 +238,7 @@ void uwsgi_opt_ldap_dump(char *opt, char *foo, void *bar) {
 	exit(0);
 }
 
-void uwsgi_ldap_config(char *url) {
+static void uwsgi_ldap_config(char *url) {
 
 	LDAP *ldp;
 	LDAPMessage *results, *entry;
@@ -367,4 +365,8 @@ void uwsgi_ldap_config(char *url) {
 	ldap_unbind_ext_s(ldp, NULL, NULL);
 
 }
-#endif
+
+struct uwsgi_plugin ldap_plugin = {
+	.name = "ldap",
+	.options = uwsgi_ldap_options,	
+};

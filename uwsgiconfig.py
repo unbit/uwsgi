@@ -66,7 +66,6 @@ report['routing'] = False
 report['capabilities'] = False
 report['yaml'] = False
 report['json'] = False
-report['ldap'] = False
 report['ssl'] = False
 report['zeromq'] = False
 report['xml'] = False
@@ -969,19 +968,6 @@ class uConf(object):
 
         if has_json:
             report['json'] = True
-
-        if self.get('ldap'):
-            if self.get('ldap') == 'auto':
-                if self.has_include('ldap.h'):
-                    self.cflags.append("-DUWSGI_LDAP")
-                    self.gcc_list.append('core/ldap')
-                    self.libs.append('-lldap')
-                    report['ldap'] = True
-            else:
-                self.cflags.append("-DUWSGI_LDAP")
-                self.gcc_list.append('core/ldap')
-                self.libs.append('-lldap')
-                report['ldap'] = True
 
         if self.get('ssl'):
             if self.get('ssl') == 'auto':

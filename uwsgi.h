@@ -2642,12 +2642,6 @@ void uwsgi_ini_config(char *, char *[]);
 	void uwsgi_json_config(char *, char *[]);
 #endif
 
-#ifdef UWSGI_LDAP
-	void uwsgi_opt_ldap_dump(char *, char *, void *);
-	void uwsgi_opt_ldap_dump_ldif(char *, char *, void *);
-	void uwsgi_ldap_config(char *);
-#endif
-
 	int uwsgi_strncmp(char *, int, char *, int);
 	int uwsgi_strnicmp(char *, int, char *, int);
 	int uwsgi_startswith(char *, char *, int);
@@ -3214,9 +3208,6 @@ void uwsgi_opt_load_yml(char *, char *, void *);
 #endif
 #ifdef UWSGI_JSON
 void uwsgi_opt_load_json(char *, char *, void *);
-#endif
-#ifdef UWSGI_LDAP
-void uwsgi_opt_load_ldap(char *, char *, void *);
 #endif
 
 void uwsgi_opt_set_umask(char *, char *, void *);
