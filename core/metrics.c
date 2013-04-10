@@ -77,9 +77,14 @@ struct uwsgi_metric {
 
 	// ABSOLUTE/COUNTER/GAUGE
 	uint8_t type;
-	
-	// the value of the metric
-	int64_t value;
+
+	// MANUAL/PTR/FUNC/FILE
+	uint8_t collect_way
+
+	// this could be taken from a file storage and must laways be added to value when reporting (default 0)
+	int64_t initial_value;
+	// the value of the metric (point to a shared memory area)
+	*int64_t value;
 
 	// a custom blob you can attach to a metric
 	void *custom;
@@ -109,4 +114,25 @@ struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_
 void uwsgi_metric_loop() {
 	// every second scan the whole metrics tree
 	time_t now = uwsgi_now();
+}
+
+int64_t uwsgi_metric_get(char *name, char *oid) {
+	struct uwsgi_metric *um = NULL;
+	if (name) {
+		um = uwsgi_metric_find_by_name(name);
+	}
+	else if (oid) {
+		um = uwsgi_metric_find_by_oid(oid);
+	}
+	if (!um) return 0;
+
+	//
+	switch(um->collect_way) {
+		case UWSGI_METRIC_MANUAL:
+			return um->initial_value+*um->value;
+		case UWSGI_METRIC_PTR:
+			return um->initial_value+*um->ptr;
+		case UWSGI_METRIC_FUNC:
+		case UWSGI_METRIC_FILE:
+	}
 }

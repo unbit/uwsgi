@@ -72,7 +72,7 @@ int u_offload_transfer_prepare(struct wsgi_request *wsgi_req, struct uwsgi_offlo
 		return -1;
 	}
 
-	uor->fd = uwsgi_connect(uor->ubuf->buf, 0, 1);
+	uor->fd = uwsgi_connect(uor->name, 0, 1);
 	if (uor->fd < 0) {
 		uwsgi_error("u_offload_transfer_prepare()/connect()");
 		return -1;
