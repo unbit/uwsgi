@@ -310,13 +310,20 @@ struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *wsgi_req, char *host, ui
         	if (uwsgi_buffer_append(ub, wsgi_req->uri, wsgi_req->uri_len)) goto clear;
 	}
 
-        if (uwsgi_buffer_append(ub, " HTTP/1.0\r\n", 11)) goto clear;
+	if (wsgi_req->protocol_len > 0) {
+        	if (uwsgi_buffer_append(ub, " ", 1)) goto clear;
+        	if (uwsgi_buffer_append(ub, wsgi_req->protocol, wsgi_req->protocol_len)) goto clear;
+        	if (uwsgi_buffer_append(ub, "\r\n", 2)) goto clear;
+	}
+	else {
+        	if (uwsgi_buffer_append(ub, " HTTP/1.0\r\n", 11)) goto clear;
+	}
 
         int i;
 	char *x_forwarded_for = NULL;
 	size_t x_forwarded_for_len = 0;
 
-        // starting adding headers
+        // start adding headers
         for(i=0;i<wsgi_req->var_cnt;i++) {
 		if (!uwsgi_starts_with(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, "HTTP_", 5)) {
 
