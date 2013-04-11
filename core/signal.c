@@ -232,6 +232,29 @@ void uwsgi_opt_add_cron(char *opt, char *value, void *foobar) {
 	uc->command = value + i;
 }
 
+#ifdef UWSGI_SSL
+void uwsgi_opt_add_legion_cron(char *opt, char *value, void *foobar) {
+	char *space = strchr(value, ' ');
+	if (!space) {
+		uwsgi_log("invalid legion-cron syntax, must be prefixed with a legion name\n");
+		exit(1);
+	}
+	char *legion = uwsgi_concat2n(value, space-value, "", 0);
+	uwsgi_opt_add_cron(opt, space+1, foobar);
+	// now get the last added uwsgi_cron structure
+	struct uwsgi_cron *uc = uwsgi.crons;
+	while(uc) {
+		if (!uc->next) {
+			uc->legion = legion;
+			return;
+		}
+	}
+
+	uwsgi_log("error initializing legion-cron\n");
+	exit(1);
+}
+#endif
+
 int uwsgi_signal_add_cron(uint8_t sig, int minute, int hour, int day, int month, int week) {
 
 	if (!uwsgi.master_process)

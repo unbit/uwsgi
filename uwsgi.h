@@ -2314,6 +2314,9 @@ struct uwsgi_cron {
 	uint8_t sig;
 
 	char *command;
+#ifdef UWSGI_SSL
+	char *legion;
+#endif
 
 	struct uwsgi_cron *next;
 };
@@ -3182,6 +3185,7 @@ void uwsgi_opt_load_plugin(char *, char *, void *);
 void uwsgi_opt_load_dl(char *, char *, void *);
 void uwsgi_opt_load(char *, char *, void *);
 #ifdef UWSGI_SSL
+void uwsgi_opt_add_legion_cron(char *, char *, void *);
 void uwsgi_opt_sni(char *, char *, void *);
 struct uwsgi_string_list *uwsgi_ssl_add_sni_item(char *, char *, char *, char *, char *);
 #endif

@@ -677,7 +677,7 @@ void uwsgi_manage_command_cron(time_t now) {
 
 
 	if (!uwsgi_cron_delta) {
-		uwsgi_error("localtime()");
+		uwsgi_error("uwsgi_manage_command_cron()/localtime()");
 		return;
 	}
 
@@ -685,6 +685,16 @@ void uwsgi_manage_command_cron(time_t now) {
 	uwsgi_cron_delta->tm_mon++;
 
 	while (current_cron) {
+
+#ifdef UWSGI_SSL
+		// check for legion cron
+		if (current_cron->legion) {
+			if (!uwsgi_legion_i_am_the_lord(current_cron->legion)) {
+				current_cron = current_cron->next;
+				continue;
+			}
+		}
+#endif
 
 		int run_task = uwsgi_cron_task_needs_execution(uwsgi_cron_delta, current_cron->minute, current_cron->hour, current_cron->day, current_cron->month, current_cron->week);
 
@@ -695,7 +705,7 @@ void uwsgi_manage_command_cron(time_t now) {
 				//call command
 				if (current_cron->command) {
 					if (uwsgi_run_command(current_cron->command, NULL, -1) >= 0) {
-						uwsgi_log_verbose("[uWSGI-cron] running %s\n", current_cron->command);
+						uwsgi_log_verbose("[uwsgi-cron] running %s\n", current_cron->command);
 					}
 				}
 				current_cron->last_job = now;

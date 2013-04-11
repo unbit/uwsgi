@@ -605,6 +605,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"zerg-server", required_argument, 0, "enable the zerg server on the specified UNIX socket", uwsgi_opt_set_str, &uwsgi.zerg_server, UWSGI_OPT_MASTER},
 
 	{"cron", required_argument, 0, "add a cron task", uwsgi_opt_add_cron, NULL, UWSGI_OPT_MASTER},
+#ifdef UWSGI_SSL
+	{"legion-cron", required_argument, 0, "add a cron task runnable only when the instance is a lord of the specified legion", uwsgi_opt_add_legion_cron, NULL, UWSGI_OPT_MASTER},
+	{"cron_cron", required_argument, 0, "add a cron task runnable only when the instance is a lord of the specified legion", uwsgi_opt_add_legion_cron, NULL, UWSGI_OPT_MASTER},
+#endif
 	{"loop", required_argument, 0, "select the uWSGI loop engine", uwsgi_opt_set_str, &uwsgi.loop, 0},
 	{"loop-list", no_argument, 0, "list enabled loop engines", uwsgi_opt_true, &uwsgi.loop_list, 0},
 	{"loops-list", no_argument, 0, "list enabled loop engines", uwsgi_opt_true, &uwsgi.loop_list, 0},
@@ -2415,7 +2419,14 @@ unsafe:
 	if (uwsgi.crons) {
 		struct uwsgi_cron *ucron = uwsgi.crons;
 		while (ucron) {
-			uwsgi_log("command \"%s\" registered as uWSGI-cron task\n", ucron->command);
+#ifdef UWSGI_SSL
+			if (ucron->legion) {
+				uwsgi_log("[uwsgi-cron] command \"%s\" registered as cron task for legion \"%s\"\n", ucron->command, ucron->legion);
+				ucron = ucron->next;
+				continue;
+			}
+#endif
+			uwsgi_log("[uwsgi-cron] command \"%s\" registered as cron task\n", ucron->command);
 			ucron = ucron->next;
 		}
 	}
