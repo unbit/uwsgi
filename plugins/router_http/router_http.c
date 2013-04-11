@@ -36,6 +36,7 @@ static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_r
 	// append remaining body...
 	if (wsgi_req->proto_parser_remains > 0) {
 		if (uwsgi_buffer_append(ub, wsgi_req->proto_parser_remains_buf, wsgi_req->proto_parser_remains)) {
+			uwsgi_buffer_destroy(ub);
 			uwsgi_log("unable to generate http request for %s\n", addr);
                		return UWSGI_ROUTE_NEXT;
 		}
@@ -43,7 +44,15 @@ static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_r
 	}
 
 	// ok now if have offload threads, directly use them
-	if (wsgi_req->socket->can_offload) {
+	if (!wsgi_req->post_file && wsgi_req->socket->can_offload) {
+		// append buffered body
+		if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > 0) {
+			if (uwsgi_buffer_append(ub, wsgi_req->post_buffering_buf, wsgi_req->post_cl)) {
+				uwsgi_buffer_destroy(ub);
+				uwsgi_log("unable to generate http request for %s\n", addr);
+               			return UWSGI_ROUTE_NEXT;
+			}
+		}
         	if (!uwsgi_offload_request_net_do(wsgi_req, addr, ub)) {
                 	wsgi_req->via = UWSGI_VIA_OFFLOAD;
 			return UWSGI_ROUTE_BREAK;
