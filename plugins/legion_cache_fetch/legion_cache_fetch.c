@@ -38,6 +38,7 @@ static int legion_action_cache_fetch_from_legion(struct uwsgi_legion *ul, char *
 	struct uwsgi_string_list *next;
 	while (usl) {
 		next = usl->next;
+		free(usl->value);
 		free(usl);
 		usl = next;
 	}
