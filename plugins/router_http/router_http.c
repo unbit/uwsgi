@@ -55,6 +55,7 @@ static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_r
 		}
         	if (!uwsgi_offload_request_net_do(wsgi_req, addr, ub)) {
                 	wsgi_req->via = UWSGI_VIA_OFFLOAD;
+			wsgi_req->status = 202;
 			return UWSGI_ROUTE_BREAK;
                 }
 	}

@@ -58,9 +58,16 @@ static int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct
         }
 
 	// ok now if have offload threads, directly use them
-        if (wsgi_req->socket->can_offload) {
+        if (!wsgi_req->post_file && wsgi_req->socket->can_offload) {
+		// append buffered body 
+		if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > 0) {
+			if (uwsgi_buffer_append(ub, wsgi_req->post_buffering_buf, wsgi_req->post_cl)) {
+				goto end;
+			}
+		}
                 if (!uwsgi_offload_request_net_do(wsgi_req, addr, ub)) {
                        	wsgi_req->via = UWSGI_VIA_OFFLOAD;
+			wsgi_req->status = 202;
                        	return UWSGI_ROUTE_BREAK;
 		}
         }
