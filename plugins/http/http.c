@@ -90,30 +90,34 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 	if (!keylen)
 		return -1;
 
-	if (!uwsgi_strncmp("HOST", 4, hh, keylen)) {
-		peer->key = val;
-		peer->key_len = vallen;
-	}
-
-	else if (hr->websockets) {
+	if (hr->websockets) {
 		if (!uwsgi_strncmp("UPGRADE", 7, hh, keylen)) {
 			if (!uwsgi_strnicmp(val, vallen, "websocket", 9)) {
 				hr->websockets++;
 			}
+			goto done;
 		}
 		else if (!uwsgi_strncmp("CONNECTION", 10, hh, keylen)) {
 			if (!uwsgi_strnicmp(val, vallen, "Upgrade", 7)) {
 				hr->websockets++;
 			}
+			goto done;
 		}
 		else if (!uwsgi_strncmp("SEC_WEBSOCKET_VERSION", 21, hh, keylen)) {
-				hr->websockets++;
+			hr->websockets++;
+			goto done;
 		}
 		else if (!uwsgi_strncmp("SEC_WEBSOCKET_KEY", 17, hh, keylen)) {
 			hr->websocket_key = val;
 			hr->websocket_key_len = vallen;
+			goto done;
 		}
 	}	
+
+	if (!uwsgi_strncmp("HOST", 4, hh, keylen)) {
+		peer->key = val;
+		peer->key_len = vallen;
+	}
 
 	else if (!uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
 		hr->content_length = uwsgi_str_num(val, vallen);
@@ -144,6 +148,7 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 		prefix = 1;
 	}
 
+done:
 
 	if (uwsgi_buffer_u16le(out, keylen)) return -1;
 
