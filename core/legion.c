@@ -232,12 +232,12 @@ struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *);
 
 static void legions_report_quorum(struct uwsgi_legion *ul, uint64_t best_valor, char *best_uuid, int votes) {
 	struct uwsgi_legion_node *nodes = ul->nodes_head;
-	uwsgi_log("\n[uwsgi-legion] --- WE HAVE QUORUM FOR LEGION %s !!! (valor: %llu uuid: %.*s checksum: %llu votes: %d) ---\n", ul->legion, best_valor, 36, best_uuid, ul->checksum, votes);
+	uwsgi_log("[uwsgi-legion] --- WE HAVE QUORUM FOR LEGION %s !!! (valor: %llu uuid: %.*s checksum: %llu votes: %d) ---\n", ul->legion, best_valor, 36, best_uuid, ul->checksum, votes);
 	while (nodes) {
 		uwsgi_log("[uwsgi-legion-node] node: %.*s valor: %llu uuid: %.*s last_seen: %d vote_valor: %llu vote_uuid: %.*s\n", nodes->name_len, nodes->name, nodes->valor, 36, nodes->uuid, nodes->last_seen, nodes->lord_valor, 36, nodes->lord_uuid);
 		nodes = nodes->next;
 	}
-	uwsgi_log("[uwsgi-legion] --- END OF QUORUM REPORT ---\n\n");
+	uwsgi_log("[uwsgi-legion] --- END OF QUORUM REPORT ---\n");
 }
 
 uint64_t uwsgi_legion_checksum(struct uwsgi_legion *ul) {
@@ -357,9 +357,9 @@ static void legions_check_nodes_step2() {
 				if (ul->i_am_the_lord) {
 					uwsgi_log("[uwsgi-legion] a new Lord (valor: %llu uuid: %.*s) raised for Legion %s...\n", ul->lord_valor, 36, ul->lord_uuid, ul->legion);
 					if (ul->lord_scroll_len > 0) {
-						uwsgi_log("*********** The New Lord Scroll ***********\n\n");
+						uwsgi_log("*********** The New Lord Scroll ***********\n");
 						uwsgi_log("%.*s\n", ul->lord_scroll_len, ul->lord_scroll);
-						uwsgi_log("\n*********** End of the New Lord Scroll ***********\n\n");
+						uwsgi_log("*********** End of the New Lord Scroll ***********\n");
 					}
 					// no more lord, trigger unlord hooks
 					struct uwsgi_string_list *usl = ul->unlord_hooks;
