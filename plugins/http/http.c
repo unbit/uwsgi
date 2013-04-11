@@ -143,12 +143,12 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 	}
 #endif
 
+done:
+
 	if (uwsgi_strncmp("CONTENT_TYPE", 12, hh, keylen) && uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
 		keylen += 5;
 		prefix = 1;
 	}
-
-done:
 
 	if (uwsgi_buffer_u16le(out, keylen)) return -1;
 
