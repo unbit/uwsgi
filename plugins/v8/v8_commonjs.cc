@@ -41,6 +41,7 @@ static v8::Handle < v8::Value > uwsgi_v8_commonjs_require(const v8::Arguments & 
 	}
 	return v8::Undefined();
 }
+TeaJS_uWSGI app;
 #else
 static v8::Handle < v8::Value > uwsgi_v8_commonjs_require(const v8::Arguments &);
 static v8::Handle < v8::Value > uwsgi_v8_commonjs_require_do(char *);
@@ -49,7 +50,6 @@ static v8::Handle < v8::Value > uwsgi_v8_commonjs_require_do(char *);
 extern struct uwsgi_v8 uv8;
 extern struct uwsgi_server uwsgi;
 
-TeaJS_uWSGI app;
 
 v8::Persistent<v8::Context> uwsgi_v8_setup_context() {
 #ifdef UWSGI_V8_TEAJS
