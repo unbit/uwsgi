@@ -610,6 +610,8 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 			via = msg3;
 			break;
 		case UWSGI_VIA_OFFLOAD:
+			// set the status to 202 as it is unavailable
+			wsgi_req->status = 202;
 			via = msg4;
 			break;
 		default:
