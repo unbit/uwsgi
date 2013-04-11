@@ -652,7 +652,7 @@ void uwsgi_manage_signal_cron(time_t now) {
 
 			if (run_task == 1) {
 				// date match, signal it ?
-				if (now - ucron->last_job > 60) {
+				if (now - ucron->last_job >= 60) {
 					uwsgi_route_signal(ucron->sig);
 					ucron->last_job = now;
 				}
@@ -701,7 +701,7 @@ void uwsgi_manage_command_cron(time_t now) {
 		if (run_task == 1) {
 
 			// date match, run command ?
-			if (now - current_cron->last_job > 60) {
+			if (now - current_cron->last_job >= 60) {
 				//call command
 				if (current_cron->command) {
 					if (uwsgi_run_command(current_cron->command, NULL, -1) >= 0) {
