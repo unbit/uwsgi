@@ -701,7 +701,8 @@ void uwsgi_corerouter_loop(int id, void *data) {
 			if (ucr->use_cache) {
 				ucr->cache = uwsgi_cache_by_name(ucr->use_cache);
 				if (!ucr->cache) {
-					uwsgi_log("unable to find cache \"%s\"\n", ucr->use_cache);
+					uwsgi_log("!!! unable to find cache \"%s\" !!!\n", ucr->use_cache);
+					exit(1);
 				}
                         	ucr->mapper = uwsgi_cr_map_use_cache;
                         }
@@ -899,7 +900,7 @@ int uwsgi_corerouter_init(struct uwsgi_corerouter *ucr) {
 
 	if (ucr->has_sockets) {
 
-		if (ucr->use_cache && !uwsgi.cache_max_items) {
+		if (ucr->use_cache && !uwsgi.caches) {
 			uwsgi_log("you need to create a uwsgi cache to use the %s (add --cache <n>)\n", ucr->name);
 			exit(1);
 		}
