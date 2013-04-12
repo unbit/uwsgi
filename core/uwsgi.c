@@ -226,6 +226,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cache-udp-server", required_argument, 0, "bind the cache udp server (used only for set/update/delete) to the specified socket", uwsgi_opt_add_string_list, &uwsgi.cache_udp_server, UWSGI_OPT_MASTER},
 	{"cache-udp-node", required_argument, 0, "send cache update/deletion to the specified cache udp server", uwsgi_opt_add_string_list, &uwsgi.cache_udp_node, UWSGI_OPT_MASTER},
 	{"cache-sync", required_argument, 0, "copy the whole content of another uWSGI cache server on server startup", uwsgi_opt_set_str, &uwsgi.cache_sync, 0},
+	{"cache-use-last-modified", no_argument, 0, "update last_modified_at timestamp on every cache item modification (default is disabled)", uwsgi_opt_true, &uwsgi.cache_use_last_modified, 0},
 
 	{"load-file-in-cache", required_argument, 0, "load a static file in the cache", uwsgi_opt_add_string_list, &uwsgi.load_file_in_cache, 0},
 
