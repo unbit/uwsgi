@@ -156,14 +156,14 @@ static void cache_send_udp_command(struct uwsgi_cache *, char *, uint16_t, char 
 static void cache_sync_hook(char *k, uint16_t kl, char *v, uint16_t vl, void *data) {
 	struct uwsgi_cache *uc = (struct uwsgi_cache *) data;
 	if (!uwsgi_strncmp(k, kl, "items", 5)) {
-		size_t num = uwsgi_str_num(v, vl);		
+		size_t num = uwsgi_str_num(v, vl);
 		if (num != uc->max_items) {
 			uwsgi_log("[cache-sync] invalid cache size, expected %llu received %llu\n", (unsigned long long) uc->max_items, (unsigned long long) num);
 			exit(1);
 		}
 	}
 	if (!uwsgi_strncmp(k, kl, "blocksize", 9)) {
-		size_t num = uwsgi_str_num(v, vl);		
+		size_t num = uwsgi_str_num(v, vl);
 		if (num != uc->blocksize) {
 			uwsgi_log("[cache-sync] invalid cache block size, expected %llu received %llu\n", (unsigned long long) uc->blocksize, (unsigned long long) num);
 			exit(1);
@@ -427,6 +427,10 @@ int uwsgi_cache_del2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_
 		uci->expires = 0;
 
 		uc->n_items--;
+
+		if (uc->use_last_modified) {
+			uc->last_modified_at = uwsgi_now();
+		}
 	}
 
 	if (uc->nodes && ret == 0 && !(flags & UWSGI_CACHE_FLAG_LOCAL)) {
@@ -473,6 +477,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 	uint8_t rollback_mode = 0;
 
 	int ret = -1;
+	time_t now = 0;
 
 	if (!keylen || !vallen)
 		return -1;
@@ -518,13 +523,13 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 					uc->unused_blocks_stack_ptr++;
 				}
 				else if (rollback_mode == 2) {
-					uc->first_available_block--;	
+					uc->first_available_block--;
 				}
                                 goto end;
 			}
 			// mark used blocks;
-			uint64_t needed_blocks = cache_mark_blocks(uc, uci->first_block, vallen);	
-			// optimize teh scan
+			uint64_t needed_blocks = cache_mark_blocks(uc, uci->first_block, vallen);
+			// optimize the scan
 			if (uc->blocks_bitmap_pos + (needed_blocks+1) > uc->blocks) {
                         	uc->blocks_bitmap_pos = 0;
                         }
@@ -532,8 +537,10 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
                         	uc->blocks_bitmap_pos = uci->first_block + needed_blocks + 1;
                         }
 		}
-		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE))
-			expires += uwsgi_now();
+		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
+			now = uwsgi_now();
+			expires += now;
+		}
 		uci->expires = expires;
 		uci->hash = uc->hash->func(key, keylen);
 		uci->hits = 0;
@@ -572,7 +579,8 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 	else if (flags & UWSGI_CACHE_FLAG_UPDATE) {
 		uci = cache_item(index);
 		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
-			expires += uwsgi_now();
+			now = uwsgi_now();
+			expires += now;
 			uci->expires = expires;
 		}
 		if (uc->blocks_bitmap) {
@@ -601,7 +609,11 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		uci->valsize = vallen;
 		ret = 0;
 	}
-	
+
+	if (uc->use_last_modified) {
+		uc->last_modified_at = (now ? now : uwsgi_now());
+	}
+
 	if (uc->nodes && ret == 0 && !(flags & UWSGI_CACHE_FLAG_LOCAL)) {
 		cache_send_udp_command(uc, key, keylen, val, vallen, expires, 10);
 	}
@@ -879,6 +891,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		uc->nodes = uwsgi.cache_udp_node;
 		uc->udp_servers = uwsgi.cache_udp_server;
 		uc->store_sync = uwsgi.cache_store_sync;
+		uc->use_last_modified = (uint8_t) uwsgi.cache_use_last_modified;
 
 		if (uwsgi.cache_sync) {
 			uwsgi_string_new_list(&uc->sync_nodes, uwsgi.cache_sync);
@@ -898,6 +911,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		char *c_sync = NULL;
 		char *c_udp_servers = NULL;
 		char *c_bitmap = NULL;
+		char *c_use_last_modified = NULL;
 
 		if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
                         "name", &c_name,
@@ -923,6 +937,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                         "udpservers", &c_udp_servers,
                         "udpserver", &c_udp_servers,
                         "bitmap", &c_bitmap,
+                        "lastmod", &c_use_last_modified,
                 	NULL)) {
 			uwsgi_log("unable to parse cache definition\n");
 			exit(1);
@@ -967,6 +982,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 			uc->use_blocks_bitmap = 1; 
 			uc->max_item_size = uc->blocksize * uc->blocks;
 		}
+		if (c_use_last_modified) uc->use_last_modified = 1;
 
 		uc->store_sync = uwsgi.cache_store_sync;
 		if (c_store_sync) { uc->store_sync = uwsgi_n64(c_store_sync); }
