@@ -442,7 +442,7 @@ static void uwsgi_exception_handler_thread_loop(struct uwsgi_thread *ut) {
                 int interesting_fd = -1;
                 int ret = event_queue_wait(ut->queue, -1, &interesting_fd);
                 if (ret > 0) {
-                        ssize_t len = read(ut->pipe[1], buf, uwsgi.alarm_msg_size + sizeof(long));
+                        ssize_t len = read(ut->pipe[1], buf, uwsgi.exception_handler_msg_size + sizeof(long));
                         if (len > (ssize_t)(sizeof(long) + 1)) {
                                 size_t msg_size = len - sizeof(long);
                                 char *msg = buf + sizeof(long);
@@ -488,7 +488,7 @@ void uwsgi_exception_setup_handlers() {
 }
 
 void uwsgi_exceptions_handler_thread_start() {
-
+	if (!uwsgi.exception_handlers_instance) return;
 	// start the exception_handler_thread
         uwsgi.exception_handler_thread = uwsgi_thread_new(uwsgi_exception_handler_thread_loop);
         if (!uwsgi.exception_handler_thread) {
