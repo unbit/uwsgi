@@ -713,6 +713,9 @@ struct uwsgi_cache {
 	uint64_t n_items;
 	struct uwsgi_cache_item *items;
 
+	uint8_t use_last_modified;
+	time_t last_modified_at;
+
 	void *data;
 
 	uint8_t no_expire;
@@ -1863,6 +1866,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *cache2;
 	int cache_setup;
 	int locking_setup;
+	int cache_use_last_modified;
 
 	struct uwsgi_dyn_dict *static_expires_type;
 	struct uwsgi_dyn_dict *static_expires_type_mtime;

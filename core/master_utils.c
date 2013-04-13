@@ -858,7 +858,10 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_keylong_comma(us, "miss", (unsigned long long) uc->miss))
 				goto end;
 
-			if (uwsgi_stats_keylong(us, "full", (unsigned long long) uc->full))
+			if (uwsgi_stats_keylong_comma(us, "full", (unsigned long long) uc->full))
+				goto end;
+
+			if (uwsgi_stats_keylong(us, "last_modified_at", (unsigned long long) uc->last_modified_at))
 				goto end;
 
 			if (uwsgi_stats_object_close(us))
