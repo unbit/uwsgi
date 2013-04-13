@@ -608,7 +608,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cron", required_argument, 0, "add a cron task", uwsgi_opt_add_cron, NULL, UWSGI_OPT_MASTER},
 #ifdef UWSGI_SSL
 	{"legion-cron", required_argument, 0, "add a cron task runnable only when the instance is a lord of the specified legion", uwsgi_opt_add_legion_cron, NULL, UWSGI_OPT_MASTER},
-	{"cron_cron", required_argument, 0, "add a cron task runnable only when the instance is a lord of the specified legion", uwsgi_opt_add_legion_cron, NULL, UWSGI_OPT_MASTER},
+	{"cron-legion", required_argument, 0, "add a cron task runnable only when the instance is a lord of the specified legion", uwsgi_opt_add_legion_cron, NULL, UWSGI_OPT_MASTER},
 #endif
 	{"loop", required_argument, 0, "select the uWSGI loop engine", uwsgi_opt_set_str, &uwsgi.loop, 0},
 	{"loop-list", no_argument, 0, "list enabled loop engines", uwsgi_opt_true, &uwsgi.loop_list, 0},
@@ -2357,7 +2357,8 @@ int uwsgi_start(void *v_argv) {
 		!uwsgi.udp_socket &&
 		!uwsgi.emperor &&
 		!uwsgi.command_mode &&
-		!uwsgi.daemons_cnt
+		!uwsgi.daemons_cnt &&
+		!uwsgi.crons
 #ifdef UWSGI_SSL
 && !uwsgi.legions
 #endif

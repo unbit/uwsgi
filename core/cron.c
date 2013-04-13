@@ -38,22 +38,12 @@ void uwsgi_opt_add_cron(char *opt, char *value, void *foobar) {
 void uwsgi_opt_add_legion_cron(char *opt, char *value, void *foobar) {
         char *space = strchr(value, ' ');
         if (!space) {
-                uwsgi_log("invalid legion-cron syntax, must be prefixed with a legion name\n");
+                uwsgi_log("invalid %s syntax, must be prefixed with a legion name\n", opt);
                 exit(1);
         }
         char *legion = uwsgi_concat2n(value, space-value, "", 0);
-        uwsgi_opt_add_cron(opt, space+1, foobar);
-        // now get the last added uwsgi_cron structure
-        struct uwsgi_cron *uc = uwsgi.crons;
-        while(uc) {
-                if (!uc->next) {
-                        uc->legion = legion;
-                        return;
-                }
-        }
-
-        uwsgi_log("error initializing legion-cron\n");
-        exit(1);
+        struct uwsgi_cron *uc = uwsgi_cron_add(space+1);
+        uc->legion = legion;
 }
 #endif
 
