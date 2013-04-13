@@ -2321,6 +2321,7 @@ struct uwsgi_cron {
 #ifdef UWSGI_SSL
 	char *legion;
 #endif
+	void (*func)(struct uwsgi_cron *, time_t);
 
 	struct uwsgi_cron *next;
 };
@@ -3908,6 +3909,7 @@ char *uwsgi_get_mime_type(char *, int, size_t *);
 void config_magic_table_fill(char *, char *[]);
 
 int uwsgi_blob_to_response(struct wsgi_request *, char *, size_t);
+struct uwsgi_cron *uwsgi_cron_add(char *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
