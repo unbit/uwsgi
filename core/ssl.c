@@ -252,8 +252,14 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 
 		uwsgi.ssl_sessions_cache = uwsgi_cache_by_name(uwsgi.ssl_sessions_use_cache);
 		if (!uwsgi.ssl_sessions_cache) {
-			uwsgi_log("unable to find cache \"%s\"\n", uwsgi.ssl_sessions_use_cache ? uwsgi.ssl_sessions_use_cache : "default");
-			exit(1);
+			// check for default cache
+			if (!strcmp(uwsgi.ssl_sessions_use_cache, "true") && uwsgi.caches) {
+				uwsgi.ssl_sessions_cache = uwsgi.caches;
+			}
+			else {
+				uwsgi_log("unable to find cache \"%s\"\n", uwsgi.ssl_sessions_use_cache ? uwsgi.ssl_sessions_use_cache : "default");
+				exit(1);
+			}
 		}
 
                 if (!uwsgi.ssl_sessions_cache->max_items) {
