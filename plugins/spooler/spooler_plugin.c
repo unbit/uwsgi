@@ -36,7 +36,7 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
                         uwsgi_log("disconnected client, remove spool file.\n");
                         /* client disconnect, remove spool file */
                         if (unlink(spool_filename)) {
-                                uwsgi_error("unlink()");
+                                uwsgi_error("uwsgi_request_spooler()/unlink()");
                                 uwsgi_log("something horrible happened !!! check your spooler ASAP !!!\n");
                                 exit(1);
                         }
