@@ -775,6 +775,21 @@ err:
 	return -1;
 }
 
+void uwsgi_opt_legion_mcast(char *opt, char *value, void *foobar) {
+	uwsgi_opt_legion(opt, value, foobar);
+	char *legion = uwsgi_str(value);
+	char *space = strchr(legion, ' ');	
+	// over engineering
+	if (!space) exit(1);
+	*space = 0;
+	struct uwsgi_legion *ul = uwsgi_legion_get_by_name(legion);
+        if (!ul) {
+                uwsgi_log("unknown legion: %s\n", legion);
+                exit(1);
+        }
+	uwsgi_legion_register_node(ul, uwsgi_str(ul->addr));
+}
+
 void uwsgi_opt_legion_node(char *opt, char *value, void *foobar) {
 
 	char *legion = uwsgi_str(value);

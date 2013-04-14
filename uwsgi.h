@@ -3714,6 +3714,7 @@ char *uwsgi_strip(char *);
 
 #ifdef UWSGI_SSL
 void uwsgi_opt_legion(char *, char *, void *);
+void uwsgi_opt_legion_mcast(char *, char *, void *);
 struct uwsgi_legion *uwsgi_legion_register(char *, char *, char *, char *, char *);
 void uwsgi_opt_legion_node(char *, char *, void *);
 void uwsgi_legion_register_node(struct uwsgi_legion *, char *);
