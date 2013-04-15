@@ -26,6 +26,9 @@ struct uwsgi_router_cache_conf {
 	char *content_type;
 	size_t content_type_len;
 
+	char *content_encoding;
+	size_t content_encoding_len;
+
 	struct uwsgi_cache *cache;
 
 	char *expires_str;
@@ -84,6 +87,9 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 	if (value) {
 		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto error;
 		if (uwsgi_response_add_content_type(wsgi_req, urcc->content_type, urcc->content_type_len)) goto error;
+		if (urcc->content_encoding_len) {
+			if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, urcc->content_encoding, urcc->content_encoding_len)) goto error;	
+		}
 		if (uwsgi_response_add_content_length(wsgi_req, valsize)) goto error;
 		uwsgi_response_write_body_do(wsgi_req, value, valsize);
 		free(value);
@@ -146,6 +152,7 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
                 if (uwsgi_kvlist_parse(ur->data, ur->data_len, ',', '=',
                         "key", &urcc->key,
                         "content_type", &urcc->content_type,
+                        "content_encoding", &urcc->content_encoding,
                         "name", &urcc->name,
                         NULL)) {
 			uwsgi_log("invalid route syntax: %s\n", args);
@@ -164,6 +171,10 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
                 if (!urcc->content_type) urcc->content_type = "text/html";
 
                 urcc->content_type_len = strlen(urcc->content_type);
+
+		if (urcc->content_encoding) {
+			urcc->content_encoding_len = strlen(urcc->content_encoding);
+		}
 
                 ur->data2 = urcc;
 	return 0;
