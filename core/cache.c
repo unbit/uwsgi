@@ -1641,7 +1641,6 @@ int uwsgi_cache_magic_clear(char *cache) {
 
 void uwsgi_cache_sync_from_nodes(struct uwsgi_cache *uc) {
 	struct uwsgi_string_list *usl = uc->sync_nodes;
-	usl = uc->sync_nodes;
 	while(usl) {
 		uwsgi_log("[cache-sync] getting cache dump from %s ...\n", usl->value);
 		int fd = uwsgi_connect(usl->value, 0, 0);

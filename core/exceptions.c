@@ -322,7 +322,7 @@ void uwsgi_manage_exception(struct wsgi_request *wsgi_req,int catch) {
 
 	if (do_exit) goto check_catch;
 
-	if (wsgi_req && uwsgi.exception_handlers_instance) {
+	if (uwsgi.exception_handlers_instance) {
 		struct uwsgi_buffer *ehi = uwsgi_exception_handler_object(wsgi_req);
 		if (ehi) {
 			uwsgi_exception_run_handlers(ehi);
