@@ -1,6 +1,9 @@
 #include <uwsgi.h>
 
 
+extern struct uwsgi_server uwsgi;
+
+
 static int legion_action_cache_fetch_from_legion(struct uwsgi_legion *ul, char *arg) {
 	uwsgi_log("[legion-cache-fetch] getting cache '%s' dump from legion '%s' nodes\n", arg, ul->legion);
 
@@ -12,6 +15,7 @@ static int legion_action_cache_fetch_from_legion(struct uwsgi_legion *ul, char *
 
 	struct uwsgi_string_list *dump_from_nodes = NULL;
 
+	uwsgi_rlock(ul->lock);
 	struct uwsgi_legion_node *legion_nodes = ul->nodes_head;
 	while (legion_nodes) {
 		char *dump_socket = NULL;
@@ -42,7 +46,11 @@ static int legion_action_cache_fetch_from_legion(struct uwsgi_legion *ul, char *
 		free(usl);
 		usl = next;
 	}
+	uwsgi_rwunlock(ul->lock);
+
+	uwsgi_rlock(uc->lock);
 	uc->sync_nodes = dump_from_nodes;
+	uwsgi_rwunlock(uc->lock);
 
 	// call sync
 	uwsgi_cache_sync_from_nodes(uc);
