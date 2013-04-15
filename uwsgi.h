@@ -1396,6 +1396,7 @@ struct wsgi_request {
 	uint32_t route_goto;
 
 	struct uwsgi_buffer *cache_it;
+	struct uwsgi_buffer *cache_it_gzip;
 	struct uwsgi_buffer *cache_it_to;
 	uint64_t cache_it_expires;
 	struct uwsgi_buffer *cached_response;
@@ -3897,6 +3898,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *);
 int uwsgi_deflate_init(z_stream *, char *, size_t);
 char *uwsgi_deflate(z_stream *, char *, size_t, size_t *);
 void uwsgi_crc32(uint32_t *, char *, size_t);
+struct uwsgi_buffer *uwsgi_gzip(char *, size_t);
 #endif
 
 char *uwsgi_get_cookie(struct wsgi_request *, char *, uint16_t, uint16_t *);

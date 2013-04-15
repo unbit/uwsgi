@@ -628,9 +628,16 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		if (wsgi_req->cached_response && wsgi_req->status == 200 && wsgi_req->response_size > 0) {
 			uwsgi_cache_magic_set(wsgi_req->cache_it->buf, wsgi_req->cache_it->pos,
 				wsgi_req->cached_response->buf, wsgi_req->cached_response->pos, wsgi_req->cache_it_expires, UWSGI_CACHE_FLAG_UPDATE, wsgi_req->cache_it_to ? wsgi_req->cache_it_to->buf : NULL);
+			if (wsgi_req->cache_it_gzip) {
+				struct uwsgi_buffer *gzipped = uwsgi_gzip(wsgi_req->cached_response->buf, wsgi_req->cached_response->pos);
+				if (gzipped) {
+					uwsgi_cache_magic_set(wsgi_req->cache_it_gzip->buf, wsgi_req->cache_it_gzip->pos,
+                                		gzipped->buf, gzipped->pos, wsgi_req->cache_it_expires, UWSGI_CACHE_FLAG_UPDATE, wsgi_req->cache_it_to ? wsgi_req->cache_it_to->buf : NULL);
+					uwsgi_buffer_destroy(gzipped);
+				}
+			}
 		}
 		uwsgi_buffer_destroy(wsgi_req->cache_it);
-			
 	}
 
 	if (wsgi_req->cache_it_to) {

@@ -1,5 +1,37 @@
 #include <uwsgi.h>
 
+static char gzheader[10] = { 0x1f, 0x8b, Z_DEFLATED, 0, 0, 0, 0, 0, 0, 3 };
+
+struct uwsgi_buffer *uwsgi_gzip(char *buf, size_t len) {
+	z_stream z;
+	struct uwsgi_buffer *ub = NULL;
+	uint32_t gzip_crc32 = 0;
+	char *gzipped = NULL;
+	char *gzipped0 = NULL;
+	size_t dlen = 0;
+	size_t dlen0 = 0;
+
+	uwsgi_crc32(&gzip_crc32, NULL, 0);
+	if (uwsgi_deflate_init(&z, NULL, 0)) return NULL; 
+	uwsgi_crc32(&gzip_crc32, buf, len);
+
+	gzipped = uwsgi_deflate(&z, buf, len, &dlen);
+	if (!gzipped) goto end;
+	gzipped0 = uwsgi_deflate(&z, NULL, 0, &dlen0);
+	if (!gzipped0) goto end;
+
+	ub = uwsgi_buffer_new(10 + dlen + dlen0 + 8);
+	if (uwsgi_buffer_append(ub, gzheader, 10)) goto end;
+	if (uwsgi_buffer_append(ub, gzipped, dlen)) goto end;
+	if (uwsgi_buffer_append(ub, gzipped0, dlen0)) goto end;
+	if (uwsgi_buffer_u32le(ub, gzip_crc32)) goto end;
+        if (uwsgi_buffer_u32le(ub, len)) goto end;
+end:
+	if (gzipped) free(gzipped);
+	if (gzipped0) free(gzipped0);
+	deflateEnd(&z);
+	return ub;
+}
 
 int uwsgi_deflate_init(z_stream *z, char *dict, size_t dict_len) {
         z->zalloc = Z_NULL;

@@ -23,6 +23,9 @@ struct uwsgi_router_cache_conf {
 	char *key;
 	size_t key_len;
 
+	char *gzip;
+	size_t gzip_len;
+
 	char *content_type;
 	size_t content_type_len;
 
@@ -46,6 +49,11 @@ static int uwsgi_routing_func_cache_store(struct wsgi_request *wsgi_req, struct 
 		wsgi_req->cache_it = NULL;		
 	}
 
+	if (wsgi_req->cache_it_gzip) {
+		uwsgi_buffer_destroy(wsgi_req->cache_it_gzip);
+		wsgi_req->cache_it_gzip = NULL;		
+	}
+
 	if (wsgi_req->cache_it_to) {
 		uwsgi_buffer_destroy(wsgi_req->cache_it_to);
 		wsgi_req->cache_it_to = NULL;		
@@ -63,6 +71,20 @@ static int uwsgi_routing_func_cache_store(struct wsgi_request *wsgi_req, struct 
 		if (!wsgi_req->cache_it_to) {
 			uwsgi_buffer_destroy(wsgi_req->cache_it);
 			wsgi_req->cache_it = NULL;
+			return UWSGI_ROUTE_NEXT;
+		}
+	}
+
+	if (urcc->gzip) {
+		wsgi_req->cache_it_gzip = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urcc->gzip, urcc->gzip_len);
+        	if (!wsgi_req->cache_it_gzip) {
+			uwsgi_buffer_destroy(wsgi_req->cache_it);
+			wsgi_req->cache_it = NULL;
+			if (wsgi_req->cache_it_to) {
+				uwsgi_buffer_destroy(wsgi_req->cache_it_to);
+				wsgi_req->cache_it_to = NULL;
+			}
+			return UWSGI_ROUTE_NEXT;	
 		}
 	}
 
@@ -111,6 +133,7 @@ static int uwsgi_router_cache_store(struct uwsgi_route *ur, char *args) {
 	struct uwsgi_router_cache_conf *urcc = uwsgi_calloc(sizeof(struct uwsgi_router_cache_conf));
 	if (uwsgi_kvlist_parse(ur->data, ur->data_len, ',', '=',
                         "key", &urcc->key,
+                        "gzip", &urcc->gzip,
                         "name", &urcc->name,
                         "expires", &urcc->expires_str, NULL)) {
                         uwsgi_log("invalid cachestore route syntax: %s\n", args);
@@ -120,6 +143,10 @@ static int uwsgi_router_cache_store(struct uwsgi_route *ur, char *args) {
                 if (urcc->key) {
                         urcc->key_len = strlen(urcc->key);
                 }
+
+		if (urcc->gzip) {
+			urcc->gzip_len = strlen(urcc->gzip);
+		}
 
 		if (urcc->name) {
                         urcc->name_len = strlen(urcc->name);
