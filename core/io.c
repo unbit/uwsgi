@@ -955,6 +955,8 @@ readok2:
 
 int uwsgi_proxy_nb(struct wsgi_request *wsgi_req, char *addr, struct uwsgi_buffer *ub, size_t remains, int timeout) {
 
+	struct uwsgi_buffer *headers = NULL;
+
         int fd = uwsgi_connect(addr, 0, 1);
         if (fd < 0) {
 		return -1;
@@ -988,21 +990,40 @@ int uwsgi_proxy_nb(struct wsgi_request *wsgi_req, char *addr, struct uwsgi_buffe
         }
 
         // read the response
+	headers = uwsgi_buffer_new(8192);
+	// max 64k headers
+	ub->limit = UMAX16;
         for(;;) {
                 char buf[8192];
                 ssize_t rlen = uwsgi_read_true_nb(fd, buf, 8192, timeout);
                 if (rlen > 0) {
-                        if (uwsgi_response_write_body_do(wsgi_req, buf, rlen)) {
-                                break;
-                        }
+			if (headers) {
+				if (uwsgi_buffer_append(headers, buf, rlen)) {
+					goto end;
+				}
+				// check if we have a full HTTP response
+				if (uwsgi_is_full_http(headers)) {
+					int ret = uwsgi_blob_to_response(wsgi_req, headers->buf, headers->pos);	
+					if (ret) continue;
+					uwsgi_buffer_destroy(headers);
+					headers = NULL;
+				}
+			}
+			else {
+                        	if (uwsgi_response_write_body_do(wsgi_req, buf, rlen)) {
+                                	break;
+                        	}
+			}
                         continue;
                 }
                 break;
         }
+	if (headers) uwsgi_buffer_destroy(headers);
 
 	close(fd);
 	return 0;
 end:
+	if (headers) uwsgi_buffer_destroy(headers);
 	close(fd);
 	return -1;
 }

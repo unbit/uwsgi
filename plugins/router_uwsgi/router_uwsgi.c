@@ -58,7 +58,7 @@ static int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct
         }
 
 	// ok now if have offload threads, directly use them
-        if (!wsgi_req->post_file && wsgi_req->socket->can_offload) {
+        if (!wsgi_req->post_file && !ur->custom && wsgi_req->socket->can_offload) {
 		// append buffered body 
 		if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > 0) {
 			if (uwsgi_buffer_append(ub, wsgi_req->post_buffering_buf, wsgi_req->post_cl)) {
@@ -147,10 +147,15 @@ static int uwsgi_router_uwsgi(struct uwsgi_route *ur, char *args) {
 	return -1;
 }
 
+static int uwsgi_router_proxyuwsgi(struct uwsgi_route *ur, char *args) {
+	ur->custom = 1;
+	return uwsgi_router_uwsgi(ur, args);
+}
 
 static void router_uwsgi_register(void) {
 
 	uwsgi_register_router("uwsgi", uwsgi_router_uwsgi);
+	uwsgi_register_router("proxyuwsgi", uwsgi_router_proxyuwsgi);
 }
 
 struct uwsgi_plugin router_uwsgi_plugin = {

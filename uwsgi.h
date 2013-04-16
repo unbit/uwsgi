@@ -3914,6 +3914,7 @@ void config_magic_table_fill(char *, char *[]);
 
 int uwsgi_blob_to_response(struct wsgi_request *, char *, size_t);
 struct uwsgi_cron *uwsgi_cron_add(char *);
+int uwsgi_is_full_http(struct uwsgi_buffer *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

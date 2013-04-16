@@ -393,3 +393,44 @@ clear:
         return NULL;
 }
 
+int uwsgi_is_full_http(struct uwsgi_buffer *ub) {
+	size_t i;
+	int status = 0;
+	for(i=0;i<ub->pos;i++) {
+		switch(status) {
+			// \r
+			case 0:
+				if (ub->buf[i] == '\r') status = 1;
+				break;
+			// \r\n
+			case 1:
+				if (ub->buf[i] == '\n') {
+					status = 2;
+					break;
+				}
+				status = 0;
+				break;
+			// \r\n\r
+			case 2:
+				if (ub->buf[i] == '\r') {
+					status = 3;
+					break;
+				}
+				status = 0;
+				break;
+			// \r\n\r\n
+			case 3:
+				if (ub->buf[i] == '\n') {
+					return 1;
+				}
+				status = 0;
+				break;
+			default:
+				status = 0;
+				break;
+			
+		}
+	}
+
+	return 0;
+}
