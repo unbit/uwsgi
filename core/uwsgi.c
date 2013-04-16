@@ -24,6 +24,7 @@
 #include <uwsgi.h>
 
 struct uwsgi_server uwsgi;
+pid_t masterpid;
 
 #if defined(__APPLE__) && defined(UWSGI_AS_SHARED_LIBRARY)
 #include <crt_externs.h>
@@ -951,7 +952,7 @@ void gracefully_kill(int signum) {
 }
 
 void end_me(int signum) {
-	if (uwsgi.skip_atexit) {
+	if (getpid() != masterpid && uwsgi.skip_atexit) {
 		_exit(UWSGI_END_CODE);
 		// never here
 	}
@@ -1211,7 +1212,6 @@ void what_i_am_doing() {
 }
 
 
-pid_t masterpid;
 
 int unconfigured_hook(struct wsgi_request *wsgi_req) {
 	uwsgi_log("-- unavailable modifier requested: %d --\n", wsgi_req->uh->modifier1);
