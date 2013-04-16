@@ -2084,6 +2084,7 @@ struct uwsgi_server {
 
 	int no_orphans;
 	int skip_zero;
+	int skip_atexit;
 
 	char *chdir;
 	char *chdir2;

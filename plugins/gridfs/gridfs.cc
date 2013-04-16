@@ -238,6 +238,9 @@ extern "C" int uwsgi_gridfs_request(struct wsgi_request *wsgi_req) {
 
 
 extern "C" void uwsgi_gridfs_mount() {
+	if (!uwsgi.skip_atexit) {
+		uwsgi_log("*** WARNING libmongoclient could have a bug with atexit() hooks, if you get segfault on end/reload, add --skip-atexit ***\n");
+	}
 	struct uwsgi_string_list *usl = ugridfs.mountpoints;
 	while(usl) {
 		if (uwsgi_apps_cnt >= uwsgi.max_apps) {

@@ -73,6 +73,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"config", required_argument, 0, "load configuration using the pluggable system", uwsgi_opt_load_config, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{"skip-zero", no_argument, 0, "skip check of file descriptor 0", uwsgi_opt_true, &uwsgi.skip_zero, 0},
+	{"skip-atexit", no_argument, 0, "skip atexit hooks (ignored by the master)", uwsgi_opt_true, &uwsgi.skip_atexit, 0},
 
 	{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
 	{"get", required_argument, 0, "print the specified option value and exit", uwsgi_opt_add_string_list, &uwsgi.get_list, UWSGI_OPT_NO_INITIAL},
@@ -950,6 +951,10 @@ void gracefully_kill(int signum) {
 }
 
 void end_me(int signum) {
+	if (uwsgi.skip_atexit) {
+		_exit(UWSGI_END_CODE);
+		// never here
+	}
 	exit(UWSGI_END_CODE);
 }
 
