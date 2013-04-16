@@ -331,6 +331,12 @@ struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *wsgi_req, char *host, ui
 			if (!uwsgi_strncmp(header, header_len, "KEEP_ALIVE", 10)) goto next;
 			if (!uwsgi_strncmp(header, header_len, "ACCEPT_ENCODING", 15)) goto next;
 			if (!uwsgi_strncmp(header, header_len, "TE", 2)) goto next;
+			if (!uwsgi_strncmp(header, header_len, "TRAILER", 7)) goto next;
+			if (!uwsgi_strncmp(header, header_len, "IF_MATCH", 8)) goto next;
+			if (!uwsgi_strncmp(header, header_len, "IF_MODIFIED_SINCE", 17)) goto next;
+			if (!uwsgi_strncmp(header, header_len, "IF_RANGE", 8)) goto next;
+			if (!uwsgi_strncmp(header, header_len, "IF_UNMODIFIED_SINCE", 19)) goto next;
+			if (!uwsgi_strncmp(header, header_len, "IF_NONE_MATCH", 13)) goto next;
 			if (!uwsgi_strncmp(header, header_len, "X_FORWARDED_FOR", 15)) {
 				x_forwarded_for = wsgi_req->hvec[i+1].iov_base;
 				x_forwarded_for_len = wsgi_req->hvec[i+1].iov_len;
