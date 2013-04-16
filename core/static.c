@@ -55,7 +55,7 @@ gzip:
 	return 1;
 }
 
-static int set_http_date(time_t t, char *dst) {
+int uwsgi_http_date(time_t t, char *dst) {
 
         static char *week[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
         static char *months[] = {
@@ -179,7 +179,7 @@ int uwsgi_add_expires_type(struct wsgi_request *wsgi_req, char *mime_type, int m
 	while (udd) {
 		if (!uwsgi_strncmp(udd->key, udd->keylen, mime_type, mime_type_len)) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(now + delta, expires);
+			int size = uwsgi_http_date(now + delta, expires);
 			if (size > 0) {
 				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
@@ -192,7 +192,7 @@ int uwsgi_add_expires_type(struct wsgi_request *wsgi_req, char *mime_type, int m
 	while (udd) {
 		if (!uwsgi_strncmp(udd->key, udd->keylen, mime_type, mime_type_len)) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(st->st_mtime + delta, expires);
+			int size = uwsgi_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {
 				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
@@ -215,7 +215,7 @@ int uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filenam
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, filename, filename_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(now + delta, expires);
+			int size = uwsgi_http_date(now + delta, expires);
 			if (size > 0) {
 				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
@@ -228,7 +228,7 @@ int uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filenam
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, filename, filename_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(st->st_mtime + delta, expires);
+			int size = uwsgi_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {
 				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
@@ -250,7 +250,7 @@ int uwsgi_add_expires_path_info(struct wsgi_request *wsgi_req, struct stat *st) 
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(now + delta, expires);
+			int size = uwsgi_http_date(now + delta, expires);
 			if (size > 0) {
 				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
@@ -263,7 +263,7 @@ int uwsgi_add_expires_path_info(struct wsgi_request *wsgi_req, struct stat *st) 
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(st->st_mtime + delta, expires);
+			int size = uwsgi_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {
 				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
@@ -285,7 +285,7 @@ int uwsgi_add_expires_uri(struct wsgi_request *wsgi_req, struct stat *st) {
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(now + delta, expires);
+			int size = uwsgi_http_date(now + delta, expires);
 			if (size > 0) {
 				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
@@ -298,7 +298,7 @@ int uwsgi_add_expires_uri(struct wsgi_request *wsgi_req, struct stat *st) {
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(st->st_mtime + delta, expires);
+			int size = uwsgi_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {
 				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
@@ -497,14 +497,14 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	if (uwsgi.file_serve_mode == 1) {
 		if (uwsgi_response_add_header(wsgi_req, "X-Accel-Redirect", 16, real_filename, real_filename_len)) return -1;
 		// this is the final header (\r\n added)
-		int size = set_http_date(st->st_mtime, http_last_modified);
+		int size = uwsgi_http_date(st->st_mtime, http_last_modified);
 		if (uwsgi_response_add_header(wsgi_req, "Last-Modified", 13, http_last_modified, size)) return -1;
 	}
 	// apache
 	else if (uwsgi.file_serve_mode == 2) {
 		if (uwsgi_response_add_header(wsgi_req, "X-Sendfile", 10, real_filename, real_filename_len)) return -1;
 		// this is the final header (\r\n added)
-		int size = set_http_date(st->st_mtime, http_last_modified);
+		int size = uwsgi_http_date(st->st_mtime, http_last_modified);
 		if (uwsgi_response_add_header(wsgi_req, "Last-Modified", 13, http_last_modified, size)) return -1;
 	}
 	// raw
@@ -519,7 +519,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 			// here use teh original size !!!
 			if (uwsgi_response_add_content_range(wsgi_req, wsgi_req->range_from, wsgi_req->range_to, st->st_size)) return -1;
 		}
-		int size = set_http_date(st->st_mtime, http_last_modified);
+		int size = uwsgi_http_date(st->st_mtime, http_last_modified);
 		if (uwsgi_response_add_header(wsgi_req, "Last-Modified", 13, http_last_modified, size)) return -1;
 
 		// if it is a HEAD request just skip transfer

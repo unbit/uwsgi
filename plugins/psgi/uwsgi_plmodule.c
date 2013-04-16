@@ -136,7 +136,7 @@ XS(XS_cache_get) {
 		cache = SvPV_nolen(ST(1));
 	}
 
-	char *value = uwsgi_cache_magic_get(key, (uint16_t) keylen, &vallen, cache);
+	char *value = uwsgi_cache_magic_get(key, (uint16_t) keylen, &vallen, NULL, cache);
 	if (value) {
 		ST(0) = newSVpv(value, vallen);
 		free(value);

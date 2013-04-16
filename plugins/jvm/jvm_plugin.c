@@ -79,7 +79,7 @@ JNIEXPORT jobject JNICALL uwsgi_jvm_api_cache_get(JNIEnv *env, jclass c, jstring
 	size_t keylen = uwsgi_jvm_strlen(jkey);
 	char *key = uwsgi_jvm_str2c(jkey);
 	uint64_t vallen = 0;
-	char *value = uwsgi_cache_magic_get(key, keylen, &vallen, NULL);
+	char *value = uwsgi_cache_magic_get(key, keylen, &vallen, NULL, NULL);
 	uwsgi_jvm_release_chars(jkey, key);
 	if (value) {
 		jobject o = uwsgi_jvm_bytearray(value, vallen);

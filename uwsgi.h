@@ -2708,6 +2708,7 @@ ssize_t uwsgi_send_message(int, uint8_t, uint8_t, char *, uint16_t, int, ssize_t
 int uwsgi_cache_set2(struct uwsgi_cache *, char *, uint16_t, char *, uint64_t, uint64_t, uint64_t);
 int uwsgi_cache_del2(struct uwsgi_cache *, char *, uint16_t, uint64_t, uint16_t);
 char *uwsgi_cache_get2(struct uwsgi_cache *, char *, uint16_t, uint64_t *);
+char *uwsgi_cache_get3(struct uwsgi_cache *, char *, uint16_t, uint64_t *, uint64_t *);
 uint32_t uwsgi_cache_exists2(struct uwsgi_cache *, char *, uint16_t);
 struct uwsgi_cache *uwsgi_cache_create(char *);
 struct uwsgi_cache *uwsgi_cache_by_name(char *);
@@ -3791,6 +3792,7 @@ ssize_t uwsgi_sendfile_do(int, int, size_t, size_t);
 int uwsgi_proto_base_fix_headers(struct wsgi_request *);
 int uwsgi_response_add_content_length(struct wsgi_request *, uint64_t);
 int uwsgi_response_add_content_range(struct wsgi_request *, uint64_t, uint64_t, uint64_t);
+int uwsgi_response_add_expires(struct wsgi_request *, uint64_t);
 
 const char *uwsgi_http_status_msg(char *, uint16_t *);
 int uwsgi_stats_dump_vars(struct uwsgi_stats *, struct uwsgi_core *);
@@ -3884,7 +3886,7 @@ struct uwsgi_cache_magic_context {
 	uint16_t cache_len;
 };
 
-char *uwsgi_cache_magic_get(char *, uint16_t, uint64_t *, char *);
+char *uwsgi_cache_magic_get(char *, uint16_t, uint64_t *, uint64_t *, char *);
 int uwsgi_cache_magic_set(char *, uint16_t, char *, uint64_t, uint64_t, uint64_t, char *);
 int uwsgi_cache_magic_del(char *, uint16_t, char *);
 int uwsgi_cache_magic_exists(char *, uint16_t, char *);
@@ -3915,6 +3917,8 @@ void config_magic_table_fill(char *, char *[]);
 int uwsgi_blob_to_response(struct wsgi_request *, char *, size_t);
 struct uwsgi_cron *uwsgi_cron_add(char *);
 int uwsgi_is_full_http(struct uwsgi_buffer *);
+
+int uwsgi_http_date(time_t t, char *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

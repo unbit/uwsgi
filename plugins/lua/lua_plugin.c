@@ -276,7 +276,7 @@ static int uwsgi_api_cache_get(lua_State *L) {
 		if (argc > 1) {
 			cache = lua_tolstring(L, 2, NULL);
 		}
-        	value = uwsgi_cache_magic_get((char *)key, keylen, &valsize, (char *)cache);
+        	value = uwsgi_cache_magic_get((char *)key, keylen, &valsize, NULL, (char *)cache);
         	if (value) {
                 	lua_pushlstring(L, value, valsize);
 			free(value);

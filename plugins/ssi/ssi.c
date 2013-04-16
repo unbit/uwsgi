@@ -444,7 +444,7 @@ static struct uwsgi_buffer *ssi_cmd_cache(struct wsgi_request *wsgi_req, struct 
 	}
 
 	uint64_t rlen = 0;
-	char *value = uwsgi_cache_magic_get(var, var_len, &rlen, cache_name);
+	char *value = uwsgi_cache_magic_get(var, var_len, &rlen, NULL, cache_name);
 	if (cache_name) free(cache_name);
 	struct uwsgi_buffer *ub = NULL;
 	if (value) {

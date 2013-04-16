@@ -2925,7 +2925,7 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 
 	uint64_t vallen = 0;
 	UWSGI_RELEASE_GIL
-	char *value = uwsgi_cache_magic_get(key, keylen, &vallen, cache);
+	char *value = uwsgi_cache_magic_get(key, keylen, &vallen, NULL, cache);
 	UWSGI_GET_GIL
 	if (value) {
 		// in python 3.x we return bytes

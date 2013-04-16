@@ -40,7 +40,7 @@ static void cache_simple_command(char *key, uint16_t keylen, char *val, uint16_t
         if (vallen > 0) {
                 if (!uwsgi_strncmp(key, keylen, "key", 3)) {
         		uint64_t vallen = 0;
-                        char *value = uwsgi_cache_magic_get(val, vallen, &vallen, NULL);
+                        char *value = uwsgi_cache_magic_get(val, vallen, &vallen, NULL, NULL);
                         if (value) {
 				uwsgi_response_write_body_do(wsgi_req, value, vallen);
 				free(value);
@@ -49,7 +49,7 @@ static void cache_simple_command(char *key, uint16_t keylen, char *val, uint16_t
                 }
                 else if (!uwsgi_strncmp(key, keylen, "get", 3)) {
         		uint64_t vallen = 0;
-                        char *value = uwsgi_cache_magic_get(val, vallen, &vallen, NULL);
+                        char *value = uwsgi_cache_magic_get(val, vallen, &vallen, NULL, NULL);
                         if (value) {
 				uwsgi_response_write_body_do(wsgi_req, value, vallen);
 				free(value);
@@ -77,8 +77,9 @@ static void manage_magic_context(struct wsgi_request *wsgi_req, struct uwsgi_cac
 	// cache get
 	if (!uwsgi_strncmp(ucmc->cmd, ucmc->cmd_len, "get", 3)) {
 		uint64_t vallen = 0;
+		uint64_t expires = 0;
 		uwsgi_rlock(uc->lock);
-		char *value = uwsgi_cache_get2(uc, ucmc->key, ucmc->key_len, &vallen);
+		char *value = uwsgi_cache_get3(uc, ucmc->key, ucmc->key_len, &vallen, &expires);
 		if (!value) {
 			uwsgi_rwunlock(uc->lock);
 			return;
@@ -88,6 +89,9 @@ static void manage_magic_context(struct wsgi_request *wsgi_req, struct uwsgi_cac
 		ub->pos = 4;
 		if (uwsgi_buffer_append_keyval(ub, "status", 6, "ok", 2)) goto error;
 		if (uwsgi_buffer_append_keynum(ub, "size", 4, vallen)) goto error;
+		if (expires) {
+			if (uwsgi_buffer_append_keynum(ub, "expires", 7, expires)) goto error;
+		}
 		if (uwsgi_buffer_set_uh(ub, 111, 17)) goto error;
 		if (uwsgi_buffer_append(ub, value, vallen)) goto error;
 		// unlock !!!
@@ -205,7 +209,7 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                 case 0:
                         // get
                         if (wsgi_req->uh->pktsize > 0) {
-                                value = uwsgi_cache_magic_get(wsgi_req->buffer, wsgi_req->uh->pktsize, &vallen, NULL);
+                                value = uwsgi_cache_magic_get(wsgi_req->buffer, wsgi_req->uh->pktsize, &vallen, NULL, NULL);
                                 if (value) {
                                         wsgi_req->uh->pktsize = vallen;
 					if (uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4)) { free(value) ; return -1;}
@@ -242,7 +246,7 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                 case 5:
                         // get (uwsgi + stream)
                         if (wsgi_req->uh->pktsize > 0) {
-                                value = uwsgi_cache_magic_get(wsgi_req->buffer, wsgi_req->uh->pktsize, &vallen, NULL);
+                                value = uwsgi_cache_magic_get(wsgi_req->buffer, wsgi_req->uh->pktsize, &vallen, NULL, NULL);
                                 if (value) {
                                         wsgi_req->uh->pktsize = 0;
                                         wsgi_req->uh->modifier2 = 1;

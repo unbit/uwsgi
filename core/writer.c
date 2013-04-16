@@ -12,6 +12,17 @@ int uwsgi_response_add_content_length(struct wsgi_request *wsgi_req, uint64_t cl
 	return uwsgi_response_add_header(wsgi_req, "Content-Length", 14, buf, ret); 
 }
 
+int uwsgi_response_add_expires(struct wsgi_request *wsgi_req, uint64_t t) {
+	// 30+1
+        char expires[31];
+	int len = uwsgi_http_date((time_t) t, expires);
+	if (!len) {
+		wsgi_req->write_errors++;
+                return -1;
+        }
+	return uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, len); 
+}
+
 int uwsgi_response_add_content_range(struct wsgi_request *wsgi_req, uint64_t start, uint64_t end, uint64_t cl) {
         char buf[6+(sizeof(UMAX64_STR)*3)+4];
 	if (end == 0) {

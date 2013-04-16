@@ -382,6 +382,28 @@ char *uwsgi_cache_get2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint6
 	return NULL;
 }
 
+char *uwsgi_cache_get3(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_t * valsize, uint64_t *expires) {
+
+        uint64_t index = uwsgi_cache_get_index(uc, key, keylen);
+
+        if (index) {
+                struct uwsgi_cache_item *uci = cache_item(index);
+                if (uci->flags & UWSGI_CACHE_FLAG_UNGETTABLE)
+                        return NULL;
+                *valsize = uci->valsize;
+		if (expires)
+			*expires = uci->expires;
+                uci->hits++;
+                uc->hits++;
+                return uc->data + (uci->first_block * uc->blocksize);
+        }
+
+        uc->miss++;
+
+        return NULL;
+}
+
+
 int uwsgi_cache_del2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_t index, uint16_t flags) {
 
 	struct uwsgi_cache_item *uci;
@@ -1249,7 +1271,7 @@ static int cache_magic_send_and_manage(int fd, struct uwsgi_buffer *ub, char *st
 	return 0;
 }
 
-char *uwsgi_cache_magic_get(char *key, uint16_t keylen, uint64_t *vallen, char *cache) {
+char *uwsgi_cache_magic_get(char *key, uint16_t keylen, uint64_t *vallen, uint64_t *expires, char *cache) {
 	struct uwsgi_cache_magic_context ucmc;
 	struct uwsgi_cache *uc = NULL;
 	char *cache_server = NULL;
@@ -1274,7 +1296,7 @@ char *uwsgi_cache_magic_get(char *key, uint16_t keylen, uint64_t *vallen, char *
 	// we have a local cache !!!
 	if (uc) {
 		uwsgi_rlock(uc->lock);
-		char *value = uwsgi_cache_get2(uc, key, keylen, vallen);
+		char *value = uwsgi_cache_get3(uc, key, keylen, vallen, expires);
 		if (!value) {
 			uwsgi_rwunlock(uc->lock);
 			return NULL;
@@ -1344,6 +1366,9 @@ char *uwsgi_cache_magic_get(char *key, uint16_t keylen, uint64_t *vallen, char *
 		ub->buf = NULL;
 		uwsgi_buffer_destroy(ub);
 		*vallen = ucmc.size;
+		if (expires) {
+			*expires = ucmc.expires;
+		}
 		return value;
 		
 	}

@@ -109,7 +109,8 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
         if (!ub) return UWSGI_ROUTE_BREAK;
 
 	uint64_t valsize = 0;
-	char *value = uwsgi_cache_magic_get(ub->buf, ub->pos, &valsize, urcc->name);
+	uint64_t expires = 0;
+	char *value = uwsgi_cache_magic_get(ub->buf, ub->pos, &valsize, &expires, urcc->name);
 	if (urcc->mime && value) {
 		mime_type = uwsgi_get_mime_type(ub->buf, ub->pos, &mime_type_len);	
 	}
@@ -124,6 +125,9 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 		}
 		if (urcc->content_encoding_len) {
 			if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, urcc->content_encoding, urcc->content_encoding_len)) goto error;	
+		}
+		if (expires) {
+			if (uwsgi_response_add_expires(wsgi_req, expires)) goto error;	
 		}
 		if (uwsgi_response_add_content_length(wsgi_req, valsize)) goto error;
 		uwsgi_response_write_body_do(wsgi_req, value, valsize);

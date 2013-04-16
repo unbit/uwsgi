@@ -150,7 +150,7 @@ func CacheGet(key string, cache string) []byte {
 
 	var p []byte
 
-	c_value := C.uwsgi_cache_magic_get(k, C.uint16_t(kl), &vl, c)
+	c_value := C.uwsgi_cache_magic_get(k, C.uint16_t(kl), &vl, (*C.uint64_t)(nil), c)
 
 	if c_value != nil {
 		p = C.GoBytes((unsafe.Pointer)(c_value), C.int(vl))

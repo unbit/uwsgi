@@ -309,7 +309,7 @@ PHP_FUNCTION(uwsgi_cache_get) {
                 RETURN_NULL();
         }
 
-	char *value = uwsgi_cache_magic_get(key, keylen, &valsize, cache);
+	char *value = uwsgi_cache_magic_get(key, keylen, &valsize, NULL, cache);
 	if (value) {
 		char *ret = estrndup(value, valsize);
 		free(value);

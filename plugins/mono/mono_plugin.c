@@ -267,7 +267,7 @@ static MonoArray *uwsgi_mono_method_api_CacheGet(MonoString *key, MonoString *ca
 		c_cache = mono_string_to_utf8(cache);
 	}
 	uint64_t vallen = 0 ;
-	char *value = uwsgi_cache_magic_get(c_key, c_keylen, &vallen, c_cache);
+	char *value = uwsgi_cache_magic_get(c_key, c_keylen, &vallen, NULL, c_cache);
         if (value) {
 		MonoArray *ret = mono_array_new(mono_domain_get(), umono.byte_class, vallen);
 		char *buf = mono_array_addr(ret, char, 0);

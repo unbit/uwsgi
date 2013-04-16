@@ -463,7 +463,7 @@ VALUE rack_uwsgi_cache_get(int argc, VALUE *argv, VALUE *class) {
 	}
 
         uint64_t vallen = 0;;
-        char *value = uwsgi_cache_magic_get(key, keylen, &vallen, cache);
+        char *value = uwsgi_cache_magic_get(key, keylen, &vallen, NULL, cache);
 	if (value) {
         	VALUE res = rb_str_new(value, vallen);
 		free(value);
