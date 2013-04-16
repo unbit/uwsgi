@@ -23,6 +23,9 @@ struct uwsgi_router_cache_conf {
 	char *key;
 	size_t key_len;
 
+	// use mime types ?
+	char *mime;
+
 	char *gzip;
 	size_t gzip_len;
 
@@ -96,6 +99,8 @@ static int uwsgi_routing_func_cache_store(struct wsgi_request *wsgi_req, struct 
 
 static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
 
+	char *mime_type = NULL;
+	size_t mime_type_len = 0;
 	struct uwsgi_router_cache_conf *urcc = (struct uwsgi_router_cache_conf *) ur->data2;
 
 	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
@@ -105,10 +110,18 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	uint64_t valsize = 0;
 	char *value = uwsgi_cache_magic_get(ub->buf, ub->pos, &valsize, urcc->name);
+	if (urcc->mime && value) {
+		mime_type = uwsgi_get_mime_type(ub->buf, ub->pos, &mime_type_len);	
+	}
 	uwsgi_buffer_destroy(ub);
 	if (value) {
 		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto error;
-		if (uwsgi_response_add_content_type(wsgi_req, urcc->content_type, urcc->content_type_len)) goto error;
+		if (mime_type) {
+                        uwsgi_response_add_content_type(wsgi_req, mime_type, mime_type_len);
+		}
+		else {
+			if (uwsgi_response_add_content_type(wsgi_req, urcc->content_type, urcc->content_type_len)) goto error;
+		}
 		if (urcc->content_encoding_len) {
 			if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, urcc->content_encoding, urcc->content_encoding_len)) goto error;	
 		}
@@ -180,6 +193,7 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
                         "key", &urcc->key,
                         "content_type", &urcc->content_type,
                         "content_encoding", &urcc->content_encoding,
+                        "mime", &urcc->mime,
                         "name", &urcc->name,
                         NULL)) {
 			uwsgi_log("invalid route syntax: %s\n", args);
