@@ -2178,6 +2178,9 @@ struct uwsgi_server {
 	size_t rwlock_size;
 
 	struct uwsgi_string_list *load_file_in_cache;
+#ifdef UWSGI_ZLIB
+	struct uwsgi_string_list *load_file_in_cache_gzip;
+#endif
 	char *use_check_cache;
 	struct uwsgi_cache *check_cache;
 	struct uwsgi_cache *caches;

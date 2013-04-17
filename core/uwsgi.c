@@ -231,6 +231,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cache-use-last-modified", no_argument, 0, "update last_modified_at timestamp on every cache item modification (default is disabled)", uwsgi_opt_true, &uwsgi.cache_use_last_modified, 0},
 
 	{"load-file-in-cache", required_argument, 0, "load a static file in the cache", uwsgi_opt_add_string_list, &uwsgi.load_file_in_cache, 0},
+#ifdef UWSGI_ZLIB
+	{"load-file-in-cache-gzip", required_argument, 0, "load a static file in the cache with gzip compression", uwsgi_opt_add_string_list, &uwsgi.load_file_in_cache_gzip, 0},
+#endif
 
 	{"cache2", required_argument, 0, "create a new generation shared cache (keyval syntax)", uwsgi_opt_add_string_list, &uwsgi.cache2, 0},
 

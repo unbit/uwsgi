@@ -200,6 +200,40 @@ static void uwsgi_cache_load_files(struct uwsgi_cache *uc) {
 next:
 		usl = usl->next;
 	}
+
+#ifdef UWSGI_ZLIB
+	usl = uwsgi.load_file_in_cache_gzip;
+        while(usl) {
+                size_t len = 0;
+                char *value = NULL;
+                char *key = usl->value;
+                uint16_t key_len = usl->len;
+                char *space = strchr(usl->value, ' ');
+                if (space) {
+                        // need to skip ?
+                        if (uwsgi_strncmp(uc->name, uc->name_len, usl->value, space-usl->value)) {
+                                goto next2;
+                        }
+                        key = space+1;
+                        key_len = usl->len - ((space-usl->value)+1);
+                }
+                value = uwsgi_open_and_read(key, &len, 0, NULL);
+                if (value) {
+			struct uwsgi_buffer *gzipped = uwsgi_gzip(value, len);
+			if (gzipped) {
+                        	uwsgi_wlock(uc->lock);
+                        	if (!uwsgi_cache_set2(uc, key, key_len, gzipped->buf, gzipped->len, 0, 0)) {
+                                	uwsgi_log("[cache-gzip] stored \"%.*s\" in \"%s\"\n", key_len, key, uc->name);
+                        	}
+                        	uwsgi_rwunlock(uc->lock);
+				uwsgi_buffer_destroy(gzipped);
+			}
+                        free(value);
+                }
+next2:
+                usl = usl->next;
+        }
+#endif
 }
 
 
