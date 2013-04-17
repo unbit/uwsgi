@@ -39,6 +39,9 @@ struct uwsgi_carbon {
 	int push_avg;
 	int zero_avg;
 	uint64_t last_requests;
+#ifdef __linux__
+	int push_cgroup;
+#endif
 	struct uwsgi_stats_pusher *pusher;
 } u_carbon;
 
@@ -55,6 +58,10 @@ static struct uwsgi_option carbon_options[] = {
 	{"carbon-name-resolve", no_argument, 0, "allow using hostname as carbon server address (default disabled)", uwsgi_opt_true, &u_carbon.resolve_hostname, 0},
 	{"carbon-resolve-names", no_argument, 0, "allow using hostname as carbon server address (default disabled)", uwsgi_opt_true, &u_carbon.resolve_hostname, 0},
 	{"carbon-idle-avg", required_argument, 0, "average values source during idle period (no requests), can be \"last\", \"zero\", \"none\" (default is last)", uwsgi_opt_set_str, &u_carbon.idle_avg, 0},
+#ifdef __linux__
+	{"carbon-cgroup", no_argument, 0, "push cgroup statistics if cgroups are enabled (default disabled)", uwsgi_opt_true, &u_carbon.push_cgroup, 0},
+	{"carbon-cgroups", no_argument, 0, "push cgroup statistics if cgroups are enabled (default disabled)", uwsgi_opt_true, &u_carbon.push_cgroup, 0},
+#endif
 	{0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -380,6 +387,62 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 
 		wok = carbon_write(fd, "%s%s.%s.harakiri %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) total_harakiri, (unsigned long long) now);
 		if (!wok) goto clear;
+
+#ifdef __linux__
+			if (u_carbon.push_cgroup) {
+			char *label;            // carbon label for cgroup
+			char *path = NULL;      // cgroup file path
+			char buf[512];          // buf for reading lines from cgroup files, 512 chars shoud be enough
+			unsigned long long val; // final value, computed from cgroup file content
+			FILE *fh;               // file handle for reading cgroup files
+
+			struct uwsgi_string_list *ucg = uwsgi.cgroup;
+			while (ucg) {
+
+				label = uwsgi_str(ucg->value);
+				for(i=0; i < (int) strlen(label); i++) {
+					if (label[i] == '.') label[i] = '_';
+				}
+
+				path = uwsgi_concat2(ucg->value, "/cpuacct.usage");
+				fh = fopen(path, "r");
+				if (fh) {
+					// there is only one line there
+					if (fgets(buf, 512, fh)) {
+						val = atol(uwsgi_chomp(buf)) / 1000000; // convert from nano to in milliseconds
+						wok = carbon_write(fd, "%s%s.%s.cgroup.%s.cpuacct.usage %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, label, val, (unsigned long long) now);
+						if (!wok) goto clear;
+					}
+				else 		{
+						uwsgi_error("carbon_push_stats()/cpuacct.usage");
+					}
+					fclose(fh);
+				}
+				free(path);
+
+				path = uwsgi_concat2(ucg->value, "/memory.stat");
+				fh = fopen(path, "r");
+				if (fh) {
+					while (fgets(buf, 512, fh)) {
+						uwsgi_chomp(buf);
+						char *space = strchr(buf, ' ');
+						if (space) {
+							*space = 0;
+							if (uwsgi_starts_with(buf, strlen(buf), "total_", 6) != 0) {
+								val = atol(space + 1);
+								wok = carbon_write(fd, "%s%s.%s.cgroup.%s.memory.stat.%s %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, label, buf, val, (unsigned long long) now);
+								if (!wok) goto clear;
+							}
+						}
+					}
+					fclose(fh);
+				}
+				free(label);
+
+				ucg = ucg->next;
+			}
+		}
+#endif
 
 		usl->healthy = 1;
 		usl->errors = 0;
