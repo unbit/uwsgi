@@ -584,6 +584,21 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		uwsgi_buffer_destroy(wsgi_req->headers);
 	}
 
+	// flush the buf
+	if (wsgi_req->response_buffer) {
+		// send the body only if transformations are successfull
+		struct uwsgi_buffer *ub = wsgi_req->response_buffer;
+		if (uwsgi_apply_transformations(wsgi_req) == 0) {
+			// force true write
+			wsgi_req->response_buffer = NULL;
+			uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+		}
+		else {
+			wsgi_req->write_errors++;
+		}
+		uwsgi_buffer_destroy(ub);
+	}
+
 	uint64_t end_of_request = uwsgi_micros();
 	wsgi_req->end_of_request = end_of_request;
 
@@ -598,7 +613,6 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		uwsgi.workers[uwsgi.mywid].vsz_size = vsz;
 		uwsgi.workers[uwsgi.mywid].rss_size = rss;
 	}
-
 
 	// close the connection with the client
 	if (!wsgi_req->fd_closed) {
@@ -624,8 +638,8 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 	// do we need to store the response in the cache
 	if (wsgi_req->cache_it) {
-		// only response with a body and a status code of 200 can be cached (TODO allows it to be configurable)
-		if (wsgi_req->cached_response && wsgi_req->status == 200 && wsgi_req->response_size > 0) {
+		// only response with a body, 0 write_errors and a status code of 200 can be cached (TODO allows it to be configurable)
+		if (wsgi_req->cached_response && wsgi_req->write_errors == 0 && wsgi_req->status == 200 && wsgi_req->response_size > 0) {
 			uwsgi_cache_magic_set(wsgi_req->cache_it->buf, wsgi_req->cache_it->pos,
 				wsgi_req->cached_response->buf, wsgi_req->cached_response->pos, wsgi_req->cache_it_expires, UWSGI_CACHE_FLAG_UPDATE, wsgi_req->cache_it_to ? wsgi_req->cache_it_to->buf : NULL);
 			if (wsgi_req->cache_it_gzip) {
@@ -637,10 +651,13 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 					uwsgi_buffer_destroy(gzipped);
 				}
 #endif
-				uwsgi_buffer_destroy(wsgi_req->cache_it_gzip);
 			}
 		}
 		uwsgi_buffer_destroy(wsgi_req->cache_it);
+	}
+
+	if (wsgi_req->cache_it_gzip) {
+		uwsgi_buffer_destroy(wsgi_req->cache_it_gzip);
 	}
 
 	if (wsgi_req->cache_it_to) {

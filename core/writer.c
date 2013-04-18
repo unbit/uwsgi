@@ -181,6 +181,14 @@ int uwsgi_response_write_body_do(struct wsgi_request *wsgi_req, char *buf, size_
 sendbody:
 
 	if (len == 0) return UWSGI_OK;
+	
+	if (wsgi_req->response_buffer) {
+		if (uwsgi_buffer_append(wsgi_req->response_buffer, buf, len)) {
+			wsgi_req->write_errors++;
+			return -1;
+		}
+		return UWSGI_OK;
+	}
 
 	for(;;) {
 		int ret = wsgi_req->socket->proto_write(wsgi_req, buf, len);

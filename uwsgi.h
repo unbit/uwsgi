@@ -1182,6 +1182,11 @@ struct uwsgi_logvar {
 	struct uwsgi_logvar *next;
 };
 
+struct uwsgi_transformation {
+	int (*func)(struct wsgi_request *, struct uwsgi_buffer *, struct uwsgi_buffer **);
+	struct uwsgi_transformation *next;
+};
+
 struct wsgi_request {
 	int fd;
 	struct uwsgi_header *uh;
@@ -1395,10 +1400,14 @@ struct wsgi_request {
 	// internal routing goto instruction
 	uint32_t route_goto;
 
+	struct uwsgi_buffer *response_buffer;
+	struct uwsgi_transformation *transformations;
+
 	struct uwsgi_buffer *cache_it;
 	struct uwsgi_buffer *cache_it_gzip;
 	struct uwsgi_buffer *cache_it_to;
 	uint64_t cache_it_expires;
+
 	struct uwsgi_buffer *cached_response;
 
 	struct msghdr msg;
@@ -3922,6 +3931,9 @@ struct uwsgi_cron *uwsgi_cron_add(char *);
 int uwsgi_is_full_http(struct uwsgi_buffer *);
 
 int uwsgi_http_date(time_t t, char *);
+
+int uwsgi_apply_transformations(struct wsgi_request *wsgi_req);
+struct uwsgi_transformation *uwsgi_add_transformation(struct wsgi_request *wsgi_req, int (*func)(struct wsgi_request *, struct uwsgi_buffer *, struct uwsgi_buffer **));
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
