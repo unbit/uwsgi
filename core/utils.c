@@ -589,6 +589,8 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		// send the body only if transformations are successfull
 		struct uwsgi_buffer *ub = wsgi_req->response_buffer;
 		if (uwsgi_apply_transformations(wsgi_req) == 0) {
+			// teh response_buffer could be changed
+			ub = wsgi_req->response_buffer;
 			// force true write
 			wsgi_req->response_buffer = NULL;
 			uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
