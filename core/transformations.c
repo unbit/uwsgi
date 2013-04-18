@@ -4,8 +4,10 @@
 
 	uWSGI transformations
 
-	responses can be buffered in the wsgi-request structure (instead of being sent to the client)
+	responses can be buffered in the wsgi_request structure (instead of being sent to the client)
 	Before closing the request, the transformations are applied in chain to the response buffer
+
+	Finally the resulting buffer is sent to the client
 
 */
 
