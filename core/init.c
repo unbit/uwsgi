@@ -161,6 +161,10 @@ void uwsgi_init_default() {
 
 	uwsgi.empty = "";
 
+#ifdef __linux__
+	uwsgi.cgroup_dir_mode = "0700";
+#endif
+
 	uwsgi.wait_read_hook = uwsgi_simple_wait_read_hook;
 	uwsgi.wait_write_hook = uwsgi_simple_wait_write_hook;
 
