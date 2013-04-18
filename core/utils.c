@@ -576,15 +576,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	int tmp_id;
 	uint64_t tmp_rt, rss = 0, vsz = 0;
 
-	// check if headers should be sent
-	if (wsgi_req->headers) {
-		if (!wsgi_req->headers_sent && !wsgi_req->headers_size && !wsgi_req->response_size) {
-			uwsgi_response_write_headers_do(wsgi_req);
-		}
-		uwsgi_buffer_destroy(wsgi_req->headers);
-	}
-
-	// flush the buf
+	// flush the response buf (if any)
 	if (wsgi_req->response_buffer) {
 		// send the body only if transformations are successfull
 		struct uwsgi_buffer *ub = wsgi_req->response_buffer;
@@ -599,6 +591,14 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 			wsgi_req->write_errors++;
 		}
 		uwsgi_buffer_destroy(ub);
+	}
+
+	// check if headers should be sent
+	if (wsgi_req->headers) {
+		if (!wsgi_req->headers_sent && !wsgi_req->headers_size && !wsgi_req->response_size) {
+			uwsgi_response_write_headers_do(wsgi_req);
+		}
+		uwsgi_buffer_destroy(wsgi_req->headers);
 	}
 
 	uint64_t end_of_request = uwsgi_micros();
