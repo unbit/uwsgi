@@ -222,12 +222,11 @@ void uwsgi_set_cgroup() {
 			uwsgi_error_open(cgroup_taskfile);
 			exit(1);
 		}
-		if (fprintf(cgroup, "%d", (int) getpid()) <= 0) {
-			uwsgi_log("could not set cgroup\n");
+		if (fprintf(cgroup, "%d\n", (int) getpid()) <= 0 || ferror(cgroup) || fclose(cgroup)) {
+			uwsgi_error("could not set cgroup");
 			exit(1);
 		}
 		uwsgi_log("assigned process %d to cgroup %s\n", (int) getpid(), cgroup_taskfile);
-		fclose(cgroup);
 		free(cgroup_taskfile);
 
 
@@ -248,11 +247,10 @@ void uwsgi_set_cgroup() {
 			cgroup_taskfile = uwsgi_concat3(usl->value, "/", uslo->value);
 			cgroup = fopen(cgroup_taskfile, "w");
 			if (cgroup) {
-				if (fprintf(cgroup, "%s\n", cgroup_opt) < 0) {
+				if (fprintf(cgroup, "%s\n", cgroup_opt) <= 0 || ferror(cgroup) || fclose(cgroup)) {
 					uwsgi_log("could not set cgroup option %s to %s\n", uslo->value, cgroup_opt);
 					exit(1);
 				}
-				fclose(cgroup);
 				uwsgi_log("set %s to %s\n", cgroup_opt, cgroup_taskfile);
 			}
 			free(cgroup_taskfile);
@@ -3265,10 +3263,9 @@ void uwsgi_write_pidfile(char *pidfile_name) {
 		uwsgi_error_open(pidfile_name);
 		exit(1);
 	}
-	if (fprintf(pidfile, "%d\n", (int) getpid()) < 0) {
+	if (fprintf(pidfile, "%d\n", (int) getpid()) <= 0 || ferror(pidfile) || fclose(pidfile)) {
 		uwsgi_log("could not write pidfile.\n");
 	}
-	fclose(pidfile);
 }
 
 char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {

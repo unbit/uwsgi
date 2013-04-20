@@ -593,6 +593,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"env", required_argument, 0, "set environment variable", uwsgi_opt_set_env, NULL, 0},
 	{"unenv", required_argument, 0, "unset environment variable", uwsgi_opt_unset_env, NULL, 0},
 	{"vacuum", no_argument, 0, "try to remove all of the generated file/sockets", uwsgi_opt_true, &uwsgi.vacuum, 0},
+	{"file-write", required_argument, 0, "write the specified content to the specified file (syntax: file=value) before privileges drop", uwsgi_opt_add_string_list, &uwsgi.file_write_list, 0},
 #ifdef __linux__
 	{"cgroup", required_argument, 0, "put the processes in the specified cgroup", uwsgi_opt_add_string_list, &uwsgi.cgroup, 0},
 	{"cgroup-opt", required_argument, 0, "set value in specified cgroup option", uwsgi_opt_add_string_list, &uwsgi.cgroup_opt, 0},
@@ -2061,6 +2062,8 @@ int uwsgi_start(void *v_argv) {
 		linux_namespace_jail();
 	}
 #endif
+
+	uwsgi_file_write_do(uwsgi.file_write_list);
 
 	if (!uwsgi.master_as_root && !uwsgi.chown_socket) {
 		uwsgi_as_root();

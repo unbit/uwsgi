@@ -2119,6 +2119,7 @@ struct uwsgi_server {
 	char *ns_net;
 	struct uwsgi_string_list *ns_keep_mount;
 #endif
+	struct uwsgi_string_list *file_write_list;
 
 	char *protocol;
 
@@ -3934,6 +3935,8 @@ int uwsgi_http_date(time_t t, char *);
 
 int uwsgi_apply_transformations(struct wsgi_request *wsgi_req);
 struct uwsgi_transformation *uwsgi_add_transformation(struct wsgi_request *wsgi_req, int (*func)(struct wsgi_request *, struct uwsgi_buffer *, struct uwsgi_buffer **));
+
+void uwsgi_file_write_do(struct uwsgi_string_list *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

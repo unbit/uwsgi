@@ -1027,3 +1027,30 @@ end:
 	close(fd);
 	return -1;
 }
+
+void uwsgi_file_write_do(struct uwsgi_string_list *usl) {
+
+	struct uwsgi_string_list *fl = usl;
+	while(fl) {
+		char *equal = strchr(fl->value, '=');
+		if (equal) {
+			*equal = 0;
+			FILE *f = fopen(fl->value, "w");
+			if (!f) {
+				uwsgi_error_open("uwsgi_file_write_do()");
+				exit(1);
+			}
+			uwsgi_log("writing \"%s\" to \"%s\" ...\n", equal+1, fl->value);
+			if (fprintf(f, "%s\n", equal+1) <= 0 || ferror(f) || fclose(f)) {
+				uwsgi_error("uwsgi_file_write_do()");
+				exit(1);
+			}
+		}
+		else {
+			uwsgi_log("unable to write empty value for \"%s\"\n", fl->value);
+			exit(1);
+		}
+		*equal = '=';	
+		fl = fl->next;
+	}
+}
