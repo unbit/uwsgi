@@ -173,7 +173,7 @@ void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, 
 				continue;
 			if (!strcmp(ushared->gateways[i].name, ucr->name)) {
 				if (send(ushared->gateways[i].internal_subscription_pipe[0], bbuf, len, 0) != len) {
-					uwsgi_error("send()");
+					uwsgi_error("uwsgi_corerouter_manage_subscription()/send()");
 				}
 			}
 		}

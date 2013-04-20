@@ -946,7 +946,7 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 
 	int client_fd = accept(ucr->cr_stats_server, (struct sockaddr *) &client_src, &client_src_len);
 	if (client_fd < 0) {
-		uwsgi_error("accept()");
+		uwsgi_error("corerouter_send_stats()/accept()");
 		return;
 	}
 

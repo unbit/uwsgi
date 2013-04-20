@@ -28,9 +28,16 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop) (int, void *), v
 	ug->fullname = fullname;
 	ug->data = data;
 
+#if defined(SOCK_SEQPACKET) && defined(__linux__)
+	if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, ug->internal_subscription_pipe)) {
+#else
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, ug->internal_subscription_pipe)) {
+#endif
 		uwsgi_error("socketpair()");
 	}
+
+	uwsgi_socket_nb(ug->internal_subscription_pipe[0]);
+	uwsgi_socket_nb(ug->internal_subscription_pipe[1]);
 
 	if (!uwsgi.master_process)
 		gateway_respawn(ushared->gateways_cnt);
