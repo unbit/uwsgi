@@ -1054,3 +1054,27 @@ void uwsgi_file_write_do(struct uwsgi_string_list *usl) {
 		fl = fl->next;
 	}
 }
+
+int uwsgi_fd_is_safe(int fd) {
+	int i;
+	for(i=0;i<uwsgi.safe_fds_cnt;i++) {
+		if (uwsgi.safe_fds[i] == fd) {
+			return 1;
+		}
+	}
+	return 0;
+}
+void uwsgi_add_safe_fd(int fd) {
+	// check if the fd is already safe
+	if (uwsgi_fd_is_safe(fd)) return;
+
+	size_t len = sizeof(int) * (uwsgi.safe_fds_cnt+1);
+	int *tmp = realloc(uwsgi.safe_fds, len);
+	if (!tmp) {
+		uwsgi_error("uwsgi_add_safe_fd()/realloc()");
+		exit(1);
+	}
+	uwsgi.safe_fds = tmp;	
+	uwsgi.safe_fds[uwsgi.safe_fds_cnt] = fd;	
+	uwsgi.safe_fds_cnt++;
+}

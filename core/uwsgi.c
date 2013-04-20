@@ -218,6 +218,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ftok", required_argument, 0, "set the ipcsem key via ftok() for avoiding duplicates", uwsgi_opt_set_str, &uwsgi.ftok, 0},
 	{"sharedarea", required_argument, 'A', "create a raw shared memory area of specified pages", uwsgi_opt_set_int, &uwsgi.sharedareasize, 0},
 
+	{"safe-fd", no_argument, 0, "do not close the specified file descriptor", uwsgi_opt_safe_fd, NULL, 0},
+	{"fd-safe", no_argument, 0, "do not close the specified file descriptor", uwsgi_opt_safe_fd, NULL, 0},
+
 	{"cache", required_argument, 0, "create a shared cache containing given elements", uwsgi_opt_set_64bit, &uwsgi.cache_max_items, 0},
 	{"cache-blocksize", required_argument, 0, "set cache blocksize", uwsgi_opt_set_64bit, &uwsgi.cache_blocksize, 0},
 	{"cache-store", required_argument, 0, "enable persistent cache to disk", uwsgi_opt_set_str, &uwsgi.cache_store, UWSGI_OPT_MASTER},
@@ -453,6 +456,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 	{"alarm", required_argument, 0, "create a new alarm, syntax: <alarm> <plugin:args>", uwsgi_opt_add_string_list, &uwsgi.alarm_list, UWSGI_OPT_MASTER},
 	{"alarm-freq", required_argument, 0, "tune the anti-loop alam system (default 3 seconds)", uwsgi_opt_set_int, &uwsgi.alarm_freq, 0},
+	{"alarm-fd", required_argument, 0, "raise the specified alarm when an fd is read for read (by default it reads 1 byte, set 8 for eventfd)", uwsgi_opt_add_string_list, &uwsgi.alarm_fd_list, UWSGI_OPT_MASTER},
 #ifdef UWSGI_PCRE
 	{"log-alarm", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"alarm-log", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -3269,6 +3273,14 @@ void uwsgi_opt_set_immediate_uid(char *opt, char *value, void *none) {
 	uwsgi_log("immediate uid: %d\n", (int) uid);
 }
 
+void uwsgi_opt_safe_fd(char *opt, char *value, void *foobar) {
+	int fd = atoi(value);
+	if (fd < 0) {
+		uwsgi_log("invalid file descriptor: %d\n", fd);
+		exit(1);
+	}
+	uwsgi_add_safe_fd(fd);
+}
 
 void uwsgi_opt_set_int(char *opt, char *value, void *key) {
 	int *ptr = (int *) key;

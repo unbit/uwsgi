@@ -11,6 +11,29 @@ void uwsgi_alarm_func_signal(struct uwsgi_alarm_instance *uai, char *msg, size_t
 	uwsgi_route_signal(uai->data8);
 }
 
+// simply log an alarm
+void uwsgi_alarm_init_log(struct uwsgi_alarm_instance *uai) {
+}
+
+void uwsgi_alarm_func_log(struct uwsgi_alarm_instance *uai, char *msg, size_t len) {
+	if (msg[len-1] != '\n') {
+		if (uai->arg && strlen(uai->arg) > 0) {
+			uwsgi_log_alarm("] %s %.*s\n", uai->arg, len, msg);
+		}
+		else {
+			uwsgi_log_alarm("] %.*s\n", len, msg);
+		}
+	}
+	else {
+		if (uai->arg && strlen(uai->arg) > 0) {
+			uwsgi_log_alarm("] %s %.*s", uai->arg, len, msg);
+		}
+		else {
+			uwsgi_log_alarm("] %.*s", len, msg);
+		}
+	}
+}
+
 // run a command on alarm
 void uwsgi_alarm_init_cmd(struct uwsgi_alarm_instance *uai) {
 	uai->data_ptr = uai->arg;
@@ -86,6 +109,7 @@ void uwsgi_register_embedded_alarms() {
 	uwsgi_register_alarm("signal", uwsgi_alarm_init_signal, uwsgi_alarm_func_signal);
 	uwsgi_register_alarm("cmd", uwsgi_alarm_init_cmd, uwsgi_alarm_func_cmd);
 	uwsgi_register_alarm("mule", uwsgi_alarm_init_mule, uwsgi_alarm_func_mule);
+	uwsgi_register_alarm("log", uwsgi_alarm_init_log, uwsgi_alarm_func_log);
 }
 
 static int uwsgi_alarm_add(char *name, char *plugin, char *arg) {
@@ -189,21 +213,54 @@ static int uwsgi_alarm_log_add(char *alarms, char *regexp, int negate) {
 #endif
 
 static void uwsgi_alarm_thread_loop(struct uwsgi_thread *ut) {
+	// add uwsgi_alarm_fd;
+	struct uwsgi_alarm_fd *uafd = uwsgi.alarm_fds;
+	while(uafd) {
+		event_queue_add_fd_read(ut->queue, uafd->fd);
+		uafd = uafd->next;
+	}
 	char *buf = uwsgi_malloc(uwsgi.alarm_msg_size + sizeof(long));
 	for (;;) {
 		int interesting_fd = -1;
                 int ret = event_queue_wait(ut->queue, -1, &interesting_fd);
 		if (ret > 0) {
-			ssize_t len = read(ut->pipe[1], buf, uwsgi.alarm_msg_size + sizeof(long));
-			if (len > (ssize_t)(sizeof(long) + 1)) {
-				size_t msg_size = len - sizeof(long);
-				char *msg = buf + sizeof(long);
-				long ptr = 0;
-				memcpy(&ptr, buf, sizeof(long));
-				struct uwsgi_alarm_instance *uai = (struct uwsgi_alarm_instance *) ptr;
-				if (!uai)
-					break;
-				uwsgi_alarm_run(uai, msg, msg_size);
+			if (interesting_fd == ut->pipe[1]) {
+				ssize_t len = read(ut->pipe[1], buf, uwsgi.alarm_msg_size + sizeof(long));
+				if (len > (ssize_t)(sizeof(long) + 1)) {
+					size_t msg_size = len - sizeof(long);
+					char *msg = buf + sizeof(long);
+					long ptr = 0;
+					memcpy(&ptr, buf, sizeof(long));
+					struct uwsgi_alarm_instance *uai = (struct uwsgi_alarm_instance *) ptr;
+					if (!uai)
+						break;
+					uwsgi_alarm_run(uai, msg, msg_size);
+				}
+			}
+			// check for alarm_fd
+			else {
+				uafd = uwsgi.alarm_fds;
+				int fd_read = 0;
+				while(uafd) {
+					if (interesting_fd == uafd->fd) {
+						if (fd_read) goto raise;	
+						size_t remains = uafd->buf_len;
+						while(remains) {
+							ssize_t len = read(uafd->fd, uafd->buf + (uafd->buf_len-remains), remains);
+							if (len <= 0) {
+								uwsgi_error("[uwsgi-alarm-fd]/read()");
+								uwsgi_log("[uwsgi-alarm-fd] i will stop monitoring fd %d\n", uafd->fd);
+								event_queue_del_fd(ut->queue, uafd->fd, event_queue_read());
+								break;
+							}
+							remains-=len;
+						}
+						fd_read = 1;
+raise:
+						uwsgi_alarm_run(uafd->alarm, uafd->msg, uafd->msg_len);
+					}
+					uafd = uafd->next;
+				}
 			}
 		}
 	}
@@ -242,6 +299,37 @@ void uwsgi_alarms_init() {
 	}
 
 	if (!uwsgi.alarm_instances) return;
+
+	// map alarm file descriptors
+	usl = uwsgi.alarm_fd_list;
+	while(usl) {
+		char *space0 = strchr(usl->value, ' ');
+		if (!space0) {
+			uwsgi_log("invalid alarm-fd syntax: %s\n", usl->value);
+			exit(1);
+		}
+		*space0 = 0;
+		size_t buf_len = 1;
+		char *space1 = strchr(space0+1, ' ');
+		if (!space1) {
+			uwsgi_log("invalid alarm-fd syntax: %s\n", usl->value);
+                        exit(1);
+		}
+
+		char *colon = strchr(space0+1, ':');
+		if (colon) {
+			buf_len = strtoul(colon+1, NULL, 10);
+			*colon = 0;
+		}
+		int fd = atoi(space0+1);
+		uwsgi_add_alarm_fd(fd, usl->value, buf_len, space1+1, strlen(space1+1));
+		*space0 = ' ';
+		*space1 = ' ';
+		if (colon) {
+			*colon = ':';
+		}
+		usl = usl->next;
+	}
 
 #ifdef UWSGI_PCRE
 	// then map log-alarm
@@ -339,4 +427,45 @@ void uwsgi_alarm_trigger(char *alarm_instance_name, char *msg, size_t len) {
 	if (writev(uwsgi.alarm_thread->pipe[0], iov, 2) != (ssize_t) (len+sizeof(long))) {
 		uwsgi_error("[uwsgi-alarm-error] uwsgi_alarm_trigger()/writev()");
 	}
+}
+
+struct uwsgi_alarm_fd *uwsgi_add_alarm_fd(int fd, char *alarm, size_t buf_len, char *msg, size_t msg_len) {
+	struct uwsgi_alarm_fd *old_uafd = NULL, *uafd = uwsgi.alarm_fds;
+	struct uwsgi_alarm_instance *uai = uwsgi_alarm_get_instance(alarm);
+	if (!uai) {
+		uwsgi_log("unable to find alarm \"%s\"\n", alarm);
+		exit(1);
+	}
+
+	if (!buf_len) buf_len = 1;	
+
+	while(uafd) {
+		// check if an equal alarm has been added
+		if (uafd->fd == fd && uafd->alarm == uai) {
+			return uafd;
+		}
+		old_uafd = uafd;
+		uafd = uafd->next;
+	}
+
+	uafd = uwsgi_calloc(sizeof(struct uwsgi_alarm_fd));
+	uafd->fd = fd;
+	uafd->buf = uwsgi_malloc(buf_len);
+	uafd->buf_len = buf_len;
+	uafd->msg = msg;
+	uafd->msg_len = msg_len;
+	uafd->alarm = uai;
+
+	if (!old_uafd) {
+		uwsgi.alarm_fds = uafd;
+	}
+	else {
+		old_uafd->next = uafd;
+	}
+
+	// avoid the fd to be closed
+	uwsgi_add_safe_fd(fd);
+	uwsgi_log("[uwsgi-alarm] added fd %d\n", fd);
+
+	return uafd;
 }

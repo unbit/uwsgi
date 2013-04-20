@@ -1146,6 +1146,18 @@ struct uwsgi_alarm {
 	struct uwsgi_alarm *next;
 };
 
+struct uwsgi_alarm_fd {
+	int fd;
+	size_t buf_len;
+	void *buf;
+	char *msg;
+	size_t msg_len;
+	struct uwsgi_alarm_instance *alarm;
+	struct uwsgi_alarm_fd *next;
+};
+
+struct uwsgi_alarm_fd *uwsgi_add_alarm_fd(int, char *, size_t, char *, size_t);
+
 #ifdef UWSGI_PCRE
 struct uwsgi_alarm_ll {
 	struct uwsgi_alarm_instance *alarm;
@@ -1836,6 +1848,8 @@ struct uwsgi_server {
 	uint64_t alarm_msg_size;
 	struct uwsgi_string_list *alarm_list;
 	struct uwsgi_string_list *alarm_logs_list;
+	struct uwsgi_alarm_fd *alarm_fds;
+	struct uwsgi_string_list *alarm_fd_list;
 	struct uwsgi_alarm *alarms;
 	struct uwsgi_alarm_instance *alarm_instances;
 	struct uwsgi_alarm_log *alarm_logs;
@@ -1843,6 +1857,9 @@ struct uwsgi_server {
 
 	int threaded_logger;
 	pthread_mutex_t threaded_logger_lock;
+
+	int *safe_fds;
+	int safe_fds_cnt;
 
 	int daemons_honour_stdin;
 	struct uwsgi_daemon *daemons;
@@ -3205,6 +3222,7 @@ void uwsgi_opt_add_cron(char *, char *, void *);
 void uwsgi_opt_load_plugin(char *, char *, void *);
 void uwsgi_opt_load_dl(char *, char *, void *);
 void uwsgi_opt_load(char *, char *, void *);
+void uwsgi_opt_safe_fd(char *, char *, void *);
 #ifdef UWSGI_SSL
 void uwsgi_opt_add_legion_cron(char *, char *, void *);
 void uwsgi_opt_sni(char *, char *, void *);
@@ -3937,6 +3955,9 @@ int uwsgi_apply_transformations(struct wsgi_request *wsgi_req);
 struct uwsgi_transformation *uwsgi_add_transformation(struct wsgi_request *wsgi_req, int (*func)(struct wsgi_request *, struct uwsgi_buffer *, struct uwsgi_buffer **));
 
 void uwsgi_file_write_do(struct uwsgi_string_list *);
+
+int uwsgi_fd_is_safe(int);
+void uwsgi_add_safe_fd(int);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

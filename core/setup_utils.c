@@ -106,6 +106,9 @@ void uwsgi_setup_inherited_sockets() {
 	//now close all the unbound fd
 	for (j = 3; j < (int) uwsgi.max_fd; j++) {
 		int useless = 1;
+
+		if (uwsgi_fd_is_safe(j)) continue;
+
 		if (uwsgi.has_emperor) {
 			if (j == uwsgi.emperor_fd)
 				continue;
