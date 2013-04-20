@@ -36,6 +36,12 @@ int uwsgi_response_add_content_range(struct wsgi_request *wsgi_req, uint64_t sta
         return uwsgi_response_add_header(wsgi_req, "Content-Range", 13, buf, ret);
 }
 
+int uwsgi_response_prepare_headers_int(struct wsgi_request *wsgi_req, int status) {
+	char status_str[11];
+	uwsgi_num2str2(status, status_str);
+	return uwsgi_response_prepare_headers(wsgi_req, status_str, 3);
+}
+
 // status could be NNN or NNN message
 int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, uint16_t status_len) {
 
@@ -170,7 +176,8 @@ int uwsgi_response_write_body_do(struct wsgi_request *wsgi_req, char *buf, size_
 
 	if (wsgi_req->write_errors) return -1;
 
-	if (!wsgi_req->headers_sent) {
+	// do not commit headers until a response_buffer is available
+	if (!wsgi_req->response_buffer && !wsgi_req->headers_sent) {
 		int ret = uwsgi_response_write_headers_do(wsgi_req);
                 if (ret == UWSGI_OK) goto sendbody;
                 if (ret == UWSGI_AGAIN) return UWSGI_AGAIN;

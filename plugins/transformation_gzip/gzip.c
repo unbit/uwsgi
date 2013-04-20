@@ -1,5 +1,13 @@
 #include <uwsgi.h>
 
+/*
+
+	gzip transformations reset your headers !!!
+
+	remember to re-add the content type via routing rules
+
+*/
+
 static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **new) {
 	struct uwsgi_buffer *gzipped = uwsgi_gzip(ub->buf, ub->pos);
 	if (!gzipped) {
@@ -7,6 +15,9 @@ static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub
 	}
 	// use this new buffer
 	*new = gzipped;	
+	if (uwsgi_response_prepare_headers_int(wsgi_req, wsgi_req->status)) return -1;
+        if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4)) return -1;
+        if (uwsgi_response_add_content_length(wsgi_req, gzipped->pos)) return -1;
 	return 0;
 }
 

@@ -9,6 +9,8 @@
 
 	Finally the resulting buffer is sent to the client
 
+	Transformations (if required) could completely swallow already set headers
+
 */
 
 extern struct uwsgi_server uwsgi;

@@ -3800,6 +3800,7 @@ uint64_t uwsgi_be64(char *);
 int uwsgi_websocket_handshake(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
 int uwsgi_response_prepare_headers(struct wsgi_request *, char *, uint16_t);
+int uwsgi_response_prepare_headers_int(struct wsgi_request *, int);
 int uwsgi_response_add_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 int uwsgi_response_commit_headers(struct wsgi_request *);
 int uwsgi_response_sendfile_do(struct wsgi_request *, int, size_t, size_t);
