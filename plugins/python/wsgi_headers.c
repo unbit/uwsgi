@@ -62,6 +62,9 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	PyObject *zero2 = NULL;
 		if (self != Py_None) {
 			zero = PyUnicode_AsASCIIString(head);
+			if (!zero) {
+				return PyErr_Format(PyExc_TypeError, "http status string must be encodable in latin1");
+			}
 			status_line = PyBytes_AsString(zero);
 			status_line_len = PyBytes_Size(zero);
 		}
@@ -133,6 +136,9 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 #ifdef PYTHREE
 		if (self != Py_None) {
 			zero = PyUnicode_AsASCIIString(h_key);
+			if (!zero) {
+				return PyErr_Format(PyExc_TypeError, "http header must be encodable in latin1");
+			}
 			k = PyBytes_AsString(zero);
 			kl = PyBytes_Size(zero);
 		}
@@ -148,6 +154,9 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 #ifdef PYTHREE
 		if (self != Py_None) {
 			zero2 = PyUnicode_AsASCIIString(h_value);
+			if (!zero2) {
+				return PyErr_Format(PyExc_TypeError, "http header must be encodable in latin1");
+			}
 			v = PyBytes_AsString(zero2);
 			vl = PyBytes_Size(zero2);
 		}
