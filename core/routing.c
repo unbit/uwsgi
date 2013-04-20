@@ -1166,6 +1166,14 @@ static char *uwsgi_route_var_uwsgi(struct wsgi_request *wsgi_req, char *key, uin
 	return ret;
 }
 
+static char *uwsgi_route_var_mime(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
+	size_t mime_type_len = 0;
+        char *ret = uwsgi_get_mime_type(key, keylen, &mime_type_len);
+	if (ret) *vallen = mime_type_len;
+        return ret;
+}
+
+
 static char *uwsgi_route_var_time(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
         char *ret = NULL;
         if (!uwsgi_strncmp(key, keylen, "unix", 4)) {
@@ -1271,6 +1279,7 @@ void uwsgi_register_embedded_routers() {
 
         uwsgi_register_route_var("cookie", uwsgi_get_cookie);
         uwsgi_register_route_var("qs", uwsgi_get_qs);
+        uwsgi_register_route_var("mime", uwsgi_route_var_mime);
         struct uwsgi_route_var *urv = uwsgi_register_route_var("uwsgi", uwsgi_route_var_uwsgi);
 	urv->need_free = 1;
         urv = uwsgi_register_route_var("time", uwsgi_route_var_time);
