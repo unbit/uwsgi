@@ -206,7 +206,7 @@ static void legions_check_nodes() {
 			if (now - node->last_seen > uwsgi.legion_tolerance) {
 				struct uwsgi_legion_node *tmp_node = node;
 				node = node->next;
-				uwsgi_log("[uwsgi-legion] node: %.*s valor: %llu uuid: %.*s left Legion %s\n", tmp_node->name_len, tmp_node->name, tmp_node->valor, 36, tmp_node->uuid, legion->legion);
+				uwsgi_log("[uwsgi-legion] %s: %.*s valor: %llu uuid: %.*s left Legion %s\n", tmp_node->valor > 0 ? "node" : "arbiter", tmp_node->name_len, tmp_node->name, tmp_node->valor, 36, tmp_node->uuid, legion->legion);
 				uwsgi_wlock(legion->lock);
 				uwsgi_legion_remove_node(legion, tmp_node);
 				uwsgi_rwunlock(legion->lock);
@@ -234,7 +234,7 @@ static void legions_report_quorum(struct uwsgi_legion *ul, uint64_t best_valor, 
 	struct uwsgi_legion_node *nodes = ul->nodes_head;
 	uwsgi_log("[uwsgi-legion] --- WE HAVE QUORUM FOR LEGION %s !!! (valor: %llu uuid: %.*s checksum: %llu votes: %d) ---\n", ul->legion, best_valor, 36, best_uuid, ul->checksum, votes);
 	while (nodes) {
-		uwsgi_log("[uwsgi-legion-node] node: %.*s valor: %llu uuid: %.*s last_seen: %d vote_valor: %llu vote_uuid: %.*s\n", nodes->name_len, nodes->name, nodes->valor, 36, nodes->uuid, nodes->last_seen, nodes->lord_valor, 36, nodes->lord_uuid);
+		uwsgi_log("[uwsgi-legion-node] %s: %.*s valor: %llu uuid: %.*s last_seen: %d vote_valor: %llu vote_uuid: %.*s\n", nodes->valor > 0 ? "node" : "arbiter", nodes->name_len, nodes->name, nodes->valor, 36, nodes->uuid, nodes->last_seen, nodes->lord_valor, 36, nodes->lord_uuid);
 		nodes = nodes->next;
 	}
 	uwsgi_log("[uwsgi-legion] --- END OF QUORUM REPORT ---\n");
@@ -273,11 +273,16 @@ static void legions_check_nodes_step2() {
 			best_valor = node->valor;
 			memcpy(best_uuid, node->uuid, 36);
 		}
-		else {
+		// go on if i am not an arbiter
+		else if (ul->valor > 0) {
 			// no potential Lord is available, i will propose myself
 			best_valor = ul->valor;
 			memcpy(best_uuid, ul->uuid, 36);
 			i_am_the_best = 1;
+		}
+		else {
+			// empty lord
+			memset(best_uuid, 0, 36);
 		}
 
 		// calculate the checksum
@@ -376,6 +381,20 @@ static void legions_check_nodes_step2() {
 		}
 		else if (votes > 0 && votes < ul->quorum && (uwsgi_now() - ul->last_warning >= 60)) {
 			uwsgi_log("[uwsgi-legion] no quorum: only %d vote(s) for Legion %s, %d needed to elect a Lord\n", votes, ul->legion, ul->quorum);
+			// no more quorum, leave the Lord state
+			if (ul->i_am_the_lord) {
+				uwsgi_log("[uwsgi-legion] i cannot be The Lord of The Legion %s without a quorum ...\n", ul->legion);
+				// no more lord, trigger unlord hooks
+                                struct uwsgi_string_list *usl = ul->unlord_hooks;
+                                while (usl) {
+                                	int ret = uwsgi_legion_action_call("unlord", ul, usl);
+                                        if (ret) {
+                                        	uwsgi_log("[uwsgi-legion] ERROR, unlord hook returned: %d\n", ret);
+                                        }
+                                        usl = usl->next;
+                                }
+                                ul->i_am_the_lord = 0;
+			}
 			ul->last_warning = uwsgi_now();
 		}
 
@@ -395,6 +414,8 @@ struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *ul) {
 
 	struct uwsgi_legion_node *nodes = ul->nodes_head;
 	while (nodes) {
+		// skip arbiters
+		if (nodes->valor == 0) goto next;
 		if (nodes->valor > best_valor) {
 			best_node = nodes;
 			best_valor = nodes->valor;
@@ -407,11 +428,12 @@ struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *ul) {
 				memcpy(best_uuid, nodes->uuid, 36);
 			}
 		}
+next:
 		nodes = nodes->next;
 	}
 
-	// first round ?
-	if (ul->lord_valor == 0) {
+	// first round ? (skip first round if arbiter)
+	if (ul->valor > 0 && ul->lord_valor == 0) {
 		ul->changed = 1;
 	}
 	else if (best_valor != ul->lord_valor) {
@@ -578,7 +600,7 @@ static void *legion_loop(void *foobar) {
 				// we are still locked (and safe), let's rebuild the scrolls list
 				legion_rebuild_scrolls(ul);
 				uwsgi_rwunlock(ul->lock);
-				uwsgi_log("[uwsgi-legion] node: %.*s valor: %llu uuid: %.*s joined Legion %s\n", node->name_len, node->name, node->valor, 36, node->uuid, ul->legion);
+				uwsgi_log("[uwsgi-legion] %s: %.*s valor: %llu uuid: %.*s joined Legion %s\n", node->valor > 0 ? "node" : "arbiter", node->name_len, node->name, node->valor, 36, node->uuid, ul->legion);
 				// trigger node_joined hooks
 				struct uwsgi_string_list *usl = ul->node_joined_hooks;
 				while (usl) {
