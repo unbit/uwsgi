@@ -8,7 +8,7 @@
 
 */
 
-static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **new) {
+static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **new, void *data) {
 	struct uwsgi_buffer *gzipped = uwsgi_gzip(ub->buf, ub->pos);
 	if (!gzipped) {
 		return -1;
@@ -22,7 +22,7 @@ static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub
 }
 
 static int uwsgi_routing_func_gzip(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-	uwsgi_add_transformation(wsgi_req, transform_gzip);
+	uwsgi_add_transformation(wsgi_req, transform_gzip, NULL);
 	return UWSGI_ROUTE_NEXT;
 }
 
