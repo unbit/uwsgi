@@ -16,11 +16,13 @@
 extern struct uwsgi_server uwsgi;
 
 int uwsgi_apply_transformations(struct wsgi_request *wsgi_req) {
+	int ret = 0;
 	struct uwsgi_transformation *ut = wsgi_req->transformations;
 	while(ut) {
 		struct uwsgi_buffer *new_ub = NULL;
 		if (ut->func(wsgi_req, wsgi_req->response_buffer, &new_ub, ut->data)) {
-			return -1;
+			ret = -1;
+			goto end;
 		}
 		if (new_ub) {
 			uwsgi_buffer_destroy(wsgi_req->response_buffer);
@@ -28,7 +30,15 @@ int uwsgi_apply_transformations(struct wsgi_request *wsgi_req) {
 		}
 		ut = ut->next;
 	}
-	return 0;
+
+end:
+	ut = wsgi_req->transformations;
+	while(ut) {
+		struct uwsgi_transformation *current_ut = ut;
+		ut = ut->next;
+		free(current_ut);
+	}
+	return ret;
 }
 
 struct uwsgi_transformation *uwsgi_add_transformation(struct wsgi_request *wsgi_req, int (*func)(struct wsgi_request *, struct uwsgi_buffer *, struct uwsgi_buffer **, void *), void *data) {
