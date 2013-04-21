@@ -462,7 +462,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
         	// reset in case of inconsistent size
         	if (wsgi_req->range_from > fsize) {
         		wsgi_req->range_from = 0;
-                	fsize = 0 ;
+        		fsize = 0;
         	}
 		else {
 			fsize -= wsgi_req->range_from;
@@ -511,12 +511,13 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	else {
 		// here we need to choose if we want the gzip variant;
 		if (uwsgi_static_want_gzip(wsgi_req, real_filename, real_filename_len, st)) {
+			fsize = st->st_size;
 			if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4)) return -1;
 		}
 		// set Content-Length (to fsize NOT st->st_size)
 		if (uwsgi_response_add_content_length(wsgi_req, fsize)) return -1;
 		if (fsize > 0 && (wsgi_req->range_from || wsgi_req->range_to)) {
-			// here use teh original size !!!
+			// here use the original size !!!
 			if (uwsgi_response_add_content_range(wsgi_req, wsgi_req->range_from, wsgi_req->range_to, st->st_size)) return -1;
 		}
 		int size = uwsgi_http_date(st->st_mtime, http_last_modified);
