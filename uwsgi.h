@@ -1195,7 +1195,8 @@ struct uwsgi_logvar {
 };
 
 struct uwsgi_transformation {
-	int (*func)(struct wsgi_request *, struct uwsgi_buffer *, struct uwsgi_buffer **);
+	int (*func)(struct wsgi_request *, struct uwsgi_buffer *, struct uwsgi_buffer **, void *);
+	void *data;
 	struct uwsgi_transformation *next;
 };
 
@@ -1414,13 +1415,6 @@ struct wsgi_request {
 
 	struct uwsgi_buffer *response_buffer;
 	struct uwsgi_transformation *transformations;
-
-	struct uwsgi_buffer *cache_it;
-	struct uwsgi_buffer *cache_it_gzip;
-	struct uwsgi_buffer *cache_it_to;
-	uint64_t cache_it_expires;
-
-	struct uwsgi_buffer *cached_response;
 
 	struct msghdr msg;
 	union {
@@ -3953,7 +3947,7 @@ int uwsgi_is_full_http(struct uwsgi_buffer *);
 int uwsgi_http_date(time_t t, char *);
 
 int uwsgi_apply_transformations(struct wsgi_request *wsgi_req);
-struct uwsgi_transformation *uwsgi_add_transformation(struct wsgi_request *wsgi_req, int (*func)(struct wsgi_request *, struct uwsgi_buffer *, struct uwsgi_buffer **));
+struct uwsgi_transformation *uwsgi_add_transformation(struct wsgi_request *wsgi_req, int (*func)(struct wsgi_request *, struct uwsgi_buffer *, struct uwsgi_buffer **, void *), void *);
 
 void uwsgi_file_write_do(struct uwsgi_string_list *);
 

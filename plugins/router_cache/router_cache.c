@@ -26,8 +26,10 @@ struct uwsgi_router_cache_conf {
 	// use mime types ?
 	char *mime;
 
+#ifdef UWSGI_ZLIB
 	char *gzip;
 	size_t gzip_len;
+#endif
 
 	char *content_type;
 	size_t content_type_len;
@@ -39,62 +41,89 @@ struct uwsgi_router_cache_conf {
 
 	char *expires_str;
 	uint64_t expires;
-	
 };
+
+// this is allocated for each transformation
+struct uwsgi_transformation_cache_conf {
+	struct uwsgi_buffer *cache_it;
+#ifdef UWSGI_ZLIB
+        struct uwsgi_buffer *cache_it_gzip;
+#endif
+
+        struct uwsgi_buffer *cache_it_to;
+        uint64_t cache_it_expires;
+};
+
+static int transform_cache(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **new, void *data) {
+	struct uwsgi_transformation_cache_conf *utcc = (struct uwsgi_transformation_cache_conf *) data;
+
+	// store only successfull response
+	if (wsgi_req->write_errors == 0 && wsgi_req->status == 200 && wsgi_req->response_size > 0) {
+		if (utcc->cache_it) {
+			uwsgi_cache_magic_set(utcc->cache_it->buf, utcc->cache_it->pos, ub->buf, ub->pos, utcc->cache_it_expires,
+				UWSGI_CACHE_FLAG_UPDATE, utcc->cache_it_to ? utcc->cache_it_to->buf : NULL);
+#ifdef UWSGI_ZLIB
+			if (utcc->cache_it_gzip) {
+				struct uwsgi_buffer *gzipped = uwsgi_gzip(ub->buf, ub->pos);
+				if (gzipped) {
+					uwsgi_cache_magic_set(utcc->cache_it_gzip->buf, utcc->cache_it_gzip->pos, gzipped->buf, gzipped->pos, utcc->cache_it_expires,
+                                		UWSGI_CACHE_FLAG_UPDATE, utcc->cache_it_to ? utcc->cache_it_to->buf : NULL);
+					uwsgi_buffer_destroy(gzipped);
+				}
+			}
+#endif
+		}
+	}
+
+	// free resources
+	if (utcc->cache_it) uwsgi_buffer_destroy(utcc->cache_it);
+#ifdef UWSGI_ZLIB
+	if (utcc->cache_it_gzip) uwsgi_buffer_destroy(utcc->cache_it_gzip);
+#endif
+	if (utcc->cache_it_to) uwsgi_buffer_destroy(utcc->cache_it_to);
+	free(utcc);
+        return 0;
+}
+
 
 // be tolerant on errors
 static int uwsgi_routing_func_cache_store(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
 	struct uwsgi_router_cache_conf *urcc = (struct uwsgi_router_cache_conf *) ur->data2;
 
-	// overwrite previous run
-	if (wsgi_req->cache_it) {
-		uwsgi_buffer_destroy(wsgi_req->cache_it);
-		wsgi_req->cache_it = NULL;		
-	}
-
-	if (wsgi_req->cache_it_gzip) {
-		uwsgi_buffer_destroy(wsgi_req->cache_it_gzip);
-		wsgi_req->cache_it_gzip = NULL;		
-	}
-
-	if (wsgi_req->cache_it_to) {
-		uwsgi_buffer_destroy(wsgi_req->cache_it_to);
-		wsgi_req->cache_it_to = NULL;		
-	}
+	struct uwsgi_transformation_cache_conf *utcc = uwsgi_calloc(sizeof(struct uwsgi_transformation_cache_conf));
 
 	// build key and name
         char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
 
-        wsgi_req->cache_it = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urcc->key, urcc->key_len);
-        if (!wsgi_req->cache_it) return UWSGI_ROUTE_NEXT;
+        utcc->cache_it = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urcc->key, urcc->key_len);
+        if (!utcc->cache_it) goto error;
 	
 	if (urcc->name) {
-		wsgi_req->cache_it_to = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urcc->name, urcc->name_len);
-		if (!wsgi_req->cache_it_to) {
-			uwsgi_buffer_destroy(wsgi_req->cache_it);
-			wsgi_req->cache_it = NULL;
-			return UWSGI_ROUTE_NEXT;
-		}
+		utcc->cache_it_to = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urcc->name, urcc->name_len);
+		if (!utcc->cache_it_to) goto error;
 	}
 
+#ifdef UWSGI_ZLIB
 	if (urcc->gzip) {
-		wsgi_req->cache_it_gzip = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urcc->gzip, urcc->gzip_len);
-        	if (!wsgi_req->cache_it_gzip) {
-			uwsgi_buffer_destroy(wsgi_req->cache_it);
-			wsgi_req->cache_it = NULL;
-			if (wsgi_req->cache_it_to) {
-				uwsgi_buffer_destroy(wsgi_req->cache_it_to);
-				wsgi_req->cache_it_to = NULL;
-			}
-			return UWSGI_ROUTE_NEXT;	
-		}
+		utcc->cache_it_gzip = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urcc->gzip, urcc->gzip_len);
+        	if (!utcc->cache_it_gzip) goto error;
 	}
+#endif
+	utcc->cache_it_expires = urcc->expires;
 
-	wsgi_req->cache_it_expires = urcc->expires;
+	uwsgi_add_transformation(wsgi_req, transform_cache, utcc);
 
 	return UWSGI_ROUTE_NEXT;
-	
+
+error:
+	if (utcc->cache_it) uwsgi_buffer_destroy(utcc->cache_it);
+#ifdef UWSGI_ZLIB
+	if (utcc->cache_it_gzip) uwsgi_buffer_destroy(utcc->cache_it_gzip);
+#endif
+	if (utcc->cache_it_to) uwsgi_buffer_destroy(utcc->cache_it_to);
+	free(utcc);
+	return UWSGI_ROUTE_NEXT;
 }
 
 static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
@@ -150,7 +179,9 @@ static int uwsgi_router_cache_store(struct uwsgi_route *ur, char *args) {
 	struct uwsgi_router_cache_conf *urcc = uwsgi_calloc(sizeof(struct uwsgi_router_cache_conf));
 	if (uwsgi_kvlist_parse(ur->data, ur->data_len, ',', '=',
                         "key", &urcc->key,
+#ifdef UWSGI_ZLIB
                         "gzip", &urcc->gzip,
+#endif
                         "name", &urcc->name,
                         "expires", &urcc->expires_str, NULL)) {
                         uwsgi_log("invalid cachestore route syntax: %s\n", args);
@@ -161,9 +192,11 @@ static int uwsgi_router_cache_store(struct uwsgi_route *ur, char *args) {
                         urcc->key_len = strlen(urcc->key);
                 }
 
+#ifdef UWSGI_ZLIB
 		if (urcc->gzip) {
 			urcc->gzip_len = strlen(urcc->gzip);
 		}
+#endif
 
 		if (urcc->name) {
                         urcc->name_len = strlen(urcc->name);

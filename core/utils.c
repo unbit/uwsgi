@@ -636,38 +636,6 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		free(wsgi_req->proto_parser_buf);
 	}
 
-	// do we need to store the response in the cache
-	if (wsgi_req->cache_it) {
-		// only response with a body, 0 write_errors and a status code of 200 can be cached (TODO allows it to be configurable)
-		if (wsgi_req->cached_response && wsgi_req->write_errors == 0 && wsgi_req->status == 200 && wsgi_req->response_size > 0) {
-			uwsgi_cache_magic_set(wsgi_req->cache_it->buf, wsgi_req->cache_it->pos,
-				wsgi_req->cached_response->buf, wsgi_req->cached_response->pos, wsgi_req->cache_it_expires, UWSGI_CACHE_FLAG_UPDATE, wsgi_req->cache_it_to ? wsgi_req->cache_it_to->buf : NULL);
-			if (wsgi_req->cache_it_gzip) {
-#ifdef UWSGI_ZLIB
-				struct uwsgi_buffer *gzipped = uwsgi_gzip(wsgi_req->cached_response->buf, wsgi_req->cached_response->pos);
-				if (gzipped) {
-					uwsgi_cache_magic_set(wsgi_req->cache_it_gzip->buf, wsgi_req->cache_it_gzip->pos,
-                                		gzipped->buf, gzipped->pos, wsgi_req->cache_it_expires, UWSGI_CACHE_FLAG_UPDATE, wsgi_req->cache_it_to ? wsgi_req->cache_it_to->buf : NULL);
-					uwsgi_buffer_destroy(gzipped);
-				}
-#endif
-			}
-		}
-		uwsgi_buffer_destroy(wsgi_req->cache_it);
-	}
-
-	if (wsgi_req->cache_it_gzip) {
-		uwsgi_buffer_destroy(wsgi_req->cache_it_gzip);
-	}
-
-	if (wsgi_req->cache_it_to) {
-		uwsgi_buffer_destroy(wsgi_req->cache_it_to);
-	}
-
-	if (wsgi_req->cached_response) {
-		uwsgi_buffer_destroy(wsgi_req->cached_response);
-	}
-
 	if (!wsgi_req->do_not_account) {
 		uwsgi.workers[0].requests++;
 		uwsgi.workers[uwsgi.mywid].requests++;

@@ -19,7 +19,7 @@ int uwsgi_apply_transformations(struct wsgi_request *wsgi_req) {
 	struct uwsgi_transformation *ut = wsgi_req->transformations;
 	while(ut) {
 		struct uwsgi_buffer *new_ub = NULL;
-		if (ut->func(wsgi_req, wsgi_req->response_buffer, &new_ub)) {
+		if (ut->func(wsgi_req, wsgi_req->response_buffer, &new_ub, ut->data)) {
 			return -1;
 		}
 		if (new_ub) {
@@ -31,7 +31,7 @@ int uwsgi_apply_transformations(struct wsgi_request *wsgi_req) {
 	return 0;
 }
 
-struct uwsgi_transformation *uwsgi_add_transformation(struct wsgi_request *wsgi_req, int (*func)(struct wsgi_request *, struct uwsgi_buffer *, struct uwsgi_buffer **)) {
+struct uwsgi_transformation *uwsgi_add_transformation(struct wsgi_request *wsgi_req, int (*func)(struct wsgi_request *, struct uwsgi_buffer *, struct uwsgi_buffer **, void *), void *data) {
 	struct uwsgi_transformation *old_ut = NULL, *ut = wsgi_req->transformations;
 	while(ut) {
 		old_ut = ut;
@@ -41,6 +41,7 @@ struct uwsgi_transformation *uwsgi_add_transformation(struct wsgi_request *wsgi_
 	ut = uwsgi_malloc(sizeof(struct uwsgi_transformation));
 	ut->func = func;
 	ut->next = NULL;
+	ut->data = data;
 
 	if (old_ut) {
 		old_ut->next = ut;

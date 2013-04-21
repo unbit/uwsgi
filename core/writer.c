@@ -222,18 +222,6 @@ sendbody:
 	// reset for the next write
         wsgi_req->write_pos = 0;
 
-	// now we need to check if the chunk must be stored
-	if (wsgi_req->cache_it) {
-		if (!wsgi_req->cached_response) {
-			wsgi_req->cached_response = uwsgi_buffer_new(len);
-		}
-		// if we are unable to append the buffer, we just stop caching it
-		if (uwsgi_buffer_append(wsgi_req->cached_response, buf, len)) {
-			uwsgi_buffer_destroy(wsgi_req->cache_it);
-			wsgi_req->cache_it = NULL;
-		}
-	}
-
 	return UWSGI_OK;	
 }
 
