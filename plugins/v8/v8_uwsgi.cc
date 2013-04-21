@@ -85,7 +85,7 @@ static v8::Handle<v8::Value> uwsgi_v8_api_register_rpc(const v8::Arguments& args
 		uvrt->func[core_id] = func;
 
 		// we can safely call register_rpc here as it will check for already registered funcs
-		if (uwsgi_register_rpc(*name, v8_plugin.modifier1, j_argc, uvrt)) {
+		if (uwsgi_register_rpc(*name, &v8_plugin, j_argc, uvrt)) {
 			uwsgi_log("[uwsgi-v8] unable to register RPC function \"%s\"\n", *name);
 			return v8::Undefined();
 		}
@@ -179,6 +179,7 @@ extern "C" int uwsgi_v8_init(){
 
 	pthread_key_create(&uv8.current_core, NULL);
 	pthread_setspecific(uv8.current_core, (void *) 0);
+
         uv8.contexts[0] = uwsgi_v8_new_isolate(0);
 
         return 0;

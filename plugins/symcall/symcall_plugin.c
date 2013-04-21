@@ -40,7 +40,7 @@ static void uwsgi_symcall_init(){
 			uwsgi_log("unable to find symbol \"%s\" in process address space\n", space+1);
 			exit(1);
 		}
-		if (uwsgi_register_rpc(usl->value, symcall_plugin.modifier1, 0, func)) {
+		if (uwsgi_register_rpc(usl->value, &symcall_plugin, 0, func)) {
                 	uwsgi_log("unable to register rpc function");
 			exit(1);
         	}

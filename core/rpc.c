@@ -1,8 +1,8 @@
-#include "uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
-int uwsgi_register_rpc(char *name, uint8_t modifier1, uint8_t args, void *func) {
+int uwsgi_register_rpc(char *name, struct uwsgi_plugin *plugin, uint8_t args, void *func) {
 
 	struct uwsgi_rpc *urpc;
 	int ret = -1;
@@ -30,7 +30,7 @@ int uwsgi_register_rpc(char *name, uint8_t modifier1, uint8_t args, void *func) 
 		uwsgi.shared->rpc_count[uwsgi.mywid]++;
 already:
 		memcpy(urpc->name, name, strlen(name));
-		urpc->modifier1 = modifier1;
+		urpc->plugin = plugin;
 		urpc->args = args;
 		urpc->func = func;
 		urpc->shared = uwsgi.mywid == 0 ? 1 : 0;
@@ -77,8 +77,8 @@ uint16_t uwsgi_rpc(char *name, uint8_t argc, char *argv[], uint16_t argvs[], cha
 	}
 
 	if (urpc) {
-		if (uwsgi.p[urpc->modifier1]->rpc) {
-			ret = uwsgi.p[urpc->modifier1]->rpc(urpc->func, argc, argv, argvs, output);
+		if (urpc->plugin->rpc) {
+			ret = urpc->plugin->rpc(urpc->func, argc, argv, argvs, output);
 		}
 	}
 

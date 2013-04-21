@@ -17,7 +17,7 @@ try:
 except:
     pass
 
-CFLAGS = [os.popen(PHPPATH + ' --includes').read().rstrip(), '-Wno-error=sign-compare']
+CFLAGS = [os.popen(PHPPATH + ' --includes').read().rstrip(), '-Wno-sign-compare']
 
 LDFLAGS = os.popen(PHPPATH + ' --ldflags').read().rstrip().split()
 if ld_run_path:

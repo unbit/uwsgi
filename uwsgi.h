@@ -2315,8 +2315,8 @@ struct uwsgi_rpc {
 	char name[UMAX8];
 	void *func;
 	uint8_t args;
-	uint8_t modifier1;
 	uint8_t shared;
+	struct uwsgi_plugin *plugin;
 };
 
 struct uwsgi_signal_entry {
@@ -2791,7 +2791,7 @@ void uwsgi_route_signal(uint8_t);
 
 int uwsgi_start(void *);
 
-int uwsgi_register_rpc(char *, uint8_t, uint8_t, void *);
+int uwsgi_register_rpc(char *, struct uwsgi_plugin *, uint8_t, void *);
 uint16_t uwsgi_rpc(char *, uint8_t, char **, uint16_t *, char *);
 char *uwsgi_do_rpc(char *, char *, uint8_t, char **, uint16_t *, uint16_t *);
 void uwsgi_rpc_init(void);

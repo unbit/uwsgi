@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 #include <lua.h>
 #include <lualib.h>
@@ -12,6 +12,8 @@ struct uwsgi_lua {
 	char *filename;
 	struct uwsgi_string_list *load;
 } ulua;
+
+struct uwsgi_plugin lua_plugin;
 
 #define lca(L, n)		ulua_check_args(L, __FUNCTION__, n)
 
@@ -88,7 +90,7 @@ static int uwsgi_api_register_rpc(lua_State *L) {
 	uwsgi_log("registered function %d in Lua global table\n", func);
 	lfunc = func;
 
-        if (uwsgi_register_rpc((char *)name, 6, 0, (void *) lfunc)) {
+        if (uwsgi_register_rpc((char *)name, &lua_plugin, 0, (void *) lfunc)) {
 		lua_pushnil(L);
         }
 	else {

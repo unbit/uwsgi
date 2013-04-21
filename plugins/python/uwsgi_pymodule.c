@@ -2,6 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
+extern struct uwsgi_plugin python_plugin;
 
 PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 
@@ -394,7 +395,7 @@ PyObject *py_uwsgi_register_rpc(PyObject * self, PyObject * args) {
 	}
 
 
-	if (uwsgi_register_rpc(name, 0, argc, func)) {
+	if (uwsgi_register_rpc(name, &python_plugin, argc, func)) {
 		return PyErr_Format(PyExc_ValueError, "unable to register rpc function");
 	}
 

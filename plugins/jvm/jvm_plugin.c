@@ -41,7 +41,7 @@ JNIEXPORT void JNICALL uwsgi_jvm_api_register_signal(JNIEnv *env, jclass c, jint
 JNIEXPORT void JNICALL uwsgi_jvm_api_register_rpc(JNIEnv *env, jclass c, jstring name, jobject func) {
 	// no need to release it
 	char *n = uwsgi_jvm_str2c(name);
-	if (uwsgi_register_rpc(n, jvm_plugin.modifier1, 0, uwsgi_jvm_ref(func))) {
+	if (uwsgi_register_rpc(n, &jvm_plugin, 0, uwsgi_jvm_ref(func))) {
 		uwsgi_jvm_throw("unable to register rpc function");
 	}
 }
@@ -99,7 +99,7 @@ JNIEXPORT jobject JNICALL uwsgi_jvm_api_cache_get_name(JNIEnv *env, jclass c, js
         char *key = uwsgi_jvm_str2c(jkey);
         char *cache = uwsgi_jvm_str2c(jcache);
         uint64_t vallen = 0;
-        char *value = uwsgi_cache_magic_get(key, keylen, &vallen, cache);
+        char *value = uwsgi_cache_magic_get(key, keylen, &vallen, NULL, cache);
         uwsgi_jvm_release_chars(jkey, key);
         uwsgi_jvm_release_chars(jcache, cache);
         if (value) {

@@ -52,8 +52,8 @@ extern struct uwsgi_server uwsgi;
 
 
 v8::Persistent<v8::Context> uwsgi_v8_setup_context() {
-#ifdef UWSGI_V8_TEAJS
 	v8::HandleScope handle_scope;
+#ifdef UWSGI_V8_TEAJS
 	try {
 		app.init();
 		app.getContext()->Global()->Set(v8::String::New("require"), v8::FunctionTemplate::New(uwsgi_v8_commonjs_require)->GetFunction());
