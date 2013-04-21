@@ -333,6 +333,10 @@ char *uwsgi_get_mime_type(char *name, int namelen, size_t *size) {
 	if (!ext)
 		return NULL;
 
+
+	if (uwsgi.threads > 1)
+                pthread_mutex_lock(&uwsgi.lock_static);
+
 	struct uwsgi_dyn_dict *udd = uwsgi.mimetypes;
 	while (udd) {
 		if (!uwsgi_strncmp(ext, count, udd->key, udd->keylen)) {
@@ -361,10 +365,15 @@ char *uwsgi_get_mime_type(char *name, int namelen, size_t *size) {
 				}
 			}
 			*size = udd->vallen;
+			if (uwsgi.threads > 1)
+                		pthread_mutex_unlock(&uwsgi.lock_static);
 			return udd->value;
 		}
 		udd = udd->next;
 	}
+
+	if (uwsgi.threads > 1)
+        	pthread_mutex_unlock(&uwsgi.lock_static);
 
 	return NULL;
 }
@@ -431,14 +440,12 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 
 	size_t mime_type_size = 0;
 	char http_last_modified[49];
-
-	if (uwsgi.threads > 1)
-		pthread_mutex_lock(&uwsgi.lock_static);
+	int use_gzip = 0;
 
 	char *mime_type = uwsgi_get_mime_type(real_filename, real_filename_len, &mime_type_size);
 
-	if (uwsgi.threads > 1)
-		pthread_mutex_unlock(&uwsgi.lock_static);
+	// here we need to choose if we want the gzip variant;
+	if (uwsgi_static_want_gzip(wsgi_req, real_filename, real_filename_len, st)) use_gzip = 1;
 
 	if (wsgi_req->if_modified_since_len) {
 		time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);
@@ -450,6 +457,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 #ifdef UWSGI_DEBUG
 	uwsgi_log("[uwsgi-fileserve] file %s found\n", real_filename);
 #endif
+
 
 	size_t fsize = st->st_size;
         if (wsgi_req->range_to) {
@@ -483,6 +491,10 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	uwsgi_add_expires_uri(wsgi_req, st);
 #endif
 
+	if (use_gzip) {
+		if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4)) return -1;
+	}
+
 	// Content-Type (if available)
 	if (mime_type_size > 0 && mime_type) {
 		if (uwsgi_response_add_content_type(wsgi_req, mime_type, mime_type_size)) return -1;
@@ -509,11 +521,6 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	}
 	// raw
 	else {
-		// here we need to choose if we want the gzip variant;
-		if (uwsgi_static_want_gzip(wsgi_req, real_filename, real_filename_len, st)) {
-			fsize = st->st_size;
-			if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4)) return -1;
-		}
 		// set Content-Length (to fsize NOT st->st_size)
 		if (uwsgi_response_add_content_length(wsgi_req, fsize)) return -1;
 		if (fsize > 0 && (wsgi_req->range_from || wsgi_req->range_to)) {
