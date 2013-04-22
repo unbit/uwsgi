@@ -197,14 +197,7 @@ extern "C" int uwsgi_gridfs_request(struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
-        if (wsgi_req->appid_len == 0) {
-                if (!uwsgi.ignore_script_name) {
-                        wsgi_req->appid = wsgi_req->script_name;
-                        wsgi_req->appid_len = wsgi_req->script_name_len;
-                }
-        }
-
-        wsgi_req->app_id = uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, gridfs_plugin.modifier1);
+        wsgi_req->app_id = uwsgi_get_app_id(wsgi_req, wsgi_req->appid, wsgi_req->appid_len, gridfs_plugin.modifier1);
         if (ugridfs.debug) {
                 uwsgi_log("[uwsgi-gridfs-debug] app_id = %d\n", wsgi_req->app_id);
         }
