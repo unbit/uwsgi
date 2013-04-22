@@ -474,8 +474,6 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) {
 
 #define UWSGI_LOCK_ENGINE_NAME "ipcsem"
 
-#define UWSGI_IPCSEM_ATEXIT	1
-
 #endif
 
 struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *id) {

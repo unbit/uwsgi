@@ -669,6 +669,8 @@ class uConf(object):
             self.cflags.append('-DUWSGI_LOCK_USE_OSX_SPINLOCK')
         elif locking_mode == 'windows_mutex':
             self.cflags.append('-DUWSGI_LOCK_USE_WINDOWS_MUTEX')
+        else:
+            self.cflags.append('-DUWSGI_IPCSEM_ATEXIT')
 
         if locking_mode == 'auto':
             report['locking'] = 'sysv semaphores'
