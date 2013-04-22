@@ -216,6 +216,9 @@ def build_uwsgi(uc, print_only=False):
 
     gcc_list, cflags, ldflags, libs = uc.get_gcll()
 
+    if 'UWSGI_EMBED_PLUGINS' in os.environ:
+        uc.set('embedded_plugins', uc.get('embedded_plugins') + ',' + os.environ['UWSGI_EMBED_PLUGINS'])
+
     if uc.get('embedded_plugins'):
         ep = uc.get('embedded_plugins').split(',')
         epc = "-DUWSGI_DECLARE_EMBEDDED_PLUGINS=\""
