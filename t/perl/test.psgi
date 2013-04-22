@@ -1,6 +1,14 @@
 use strict;
 use warnings;
 
+uwsgi::register_rpc('hello', sub {
+	my ($one, $two, $three) = @_;
+	unless($one) {
+		return "passed no args to RPC func";
+	}
+	return $three.'-'.$two.'-'.$one;
+});
+
 my $rpc_value = uwsgi::call('hello', 'foo', 'bar', 'test');
 
 if ($rpc_value) {

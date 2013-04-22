@@ -233,6 +233,21 @@ XS(XS_register_signal) {
 	
 }
 
+XS(XS_register_rpc) {
+        dXSARGS;
+
+        psgi_check_args(2);
+
+        char *name = SvPV_nolen(ST(0));
+
+	if (uwsgi_register_rpc(name, &psgi_plugin, 0, (void *) newRV_inc(ST(1)))) {
+                XSRETURN_NO;
+        }
+
+        XSRETURN_YES;
+}
+
+
 XS(XS_postfork) {
         dXSARGS;
 
@@ -519,6 +534,7 @@ void init_perl_embedded_module() {
 	psgi_xs(suspend);
 	psgi_xs(signal);
 	psgi_xs(register_signal);
+	psgi_xs(register_rpc);
 	psgi_xs(signal_wait);
 #ifdef UWSGI_SSL
 	psgi_xs(i_am_the_lord);

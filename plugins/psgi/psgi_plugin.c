@@ -621,7 +621,7 @@ void uwsgi_perl_enable_threads(void) {
 #endif
 }
 
-int uwsgi_perl_signal_handler(uint8_t sig, void *handler) {
+static int uwsgi_perl_signal_handler(uint8_t sig, void *handler) {
 
 	int ret = 0;
 
@@ -688,6 +688,41 @@ realstuff:
 	}
 }
 
+static uint16_t uwsgi_perl_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
+
+	int i;
+	uint16_t ret = 0;
+
+        dSP;
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+	for(i=0;i<argc;i++) {
+        	XPUSHs( sv_2mortal(newSVpv(argv[i], argvs[i])));
+	}
+        PUTBACK;
+
+        call_sv( SvRV((SV*)func), G_SCALAR | G_EVAL);
+
+        SPAGAIN;
+        if(SvTRUE(ERRSV)) {
+                uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
+        }
+	else {
+		STRLEN rlen;
+		SV *response = POPs;
+                char *value = SvPV(response, rlen );
+		ret = UMIN(UMAX16, rlen);
+		memcpy(buffer, value, ret);
+	}
+
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+
+        return ret;
+}
+
 struct uwsgi_plugin psgi_plugin = {
 
 	.name = "psgi",
@@ -700,6 +735,7 @@ struct uwsgi_plugin psgi_plugin = {
 
 	.init_thread = uwsgi_perl_init_thread,
 	.signal_handler = uwsgi_perl_signal_handler,
+	.rpc = uwsgi_perl_rpc,
 
 	.mule = uwsgi_perl_mule,
 
