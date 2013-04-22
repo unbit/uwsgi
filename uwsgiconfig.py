@@ -730,7 +730,7 @@ class uConf(object):
                     if int(sun_minor) >= 10:
                         timer_mode = 'port'
 
-            elif uwsgi_os in ('Darwin', 'FreeBSD'):
+            elif uwsgi_os in ('Darwin', 'FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly'):
                 timer_mode = 'kqueue'
 
         if timer_mode == 'timerfd':
