@@ -15,6 +15,10 @@
 
 	xslt:doc=<path1>,stylesheet=<path2>,params=<params>
 
+	As transformation
+
+	toxslt:stylesheet=<path2>,params=<params>
+
 */
 
 struct uwsgi_xslt_config {
@@ -35,6 +39,12 @@ struct uwsgi_router_xslt_conf {
 	uint16_t params_len;
 	char *content_type;
 	uint16_t content_type_len;
+};
+
+struct uwsgi_transformation_xslt_conf {
+	struct uwsgi_buffer *stylesheet;
+        struct uwsgi_buffer *params;
+        struct uwsgi_buffer *content_type;
 };
 
 struct uwsgi_option uwsgi_xslt_options[] = {
@@ -313,6 +323,55 @@ static void uwsgi_xslt_log(struct wsgi_request *wsgi_req) {
 	log_request(wsgi_req);
 }
 
+static int transform_tofile(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **new, void *data) {
+        struct uwsgi_transformation_xslt_conf *utxc = (struct uwsgi_transformation_xslt_conf *) data;
+
+	if 
+	xmlDoc *doc = xmlReadMemory(ub->buf, ub->pos, NULL, NULL, 0);
+
+	int rlen;
+        char *output = uwsgi_xslt_apply( ub_doc->buf, ub_stylesheet->buf, ub_params ? ub_params->buf : NULL, &rlen);
+	if (!output) goto end;
+
+        if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto end;
+        if (uwsgi_response_add_content_length(wsgi_req, rlen)) goto end;
+        if (uwsgi_response_add_content_type(wsgi_req, urxc->content_type, urxc->content_type_len)) goto end;
+
+	return 0;
+}
+
+static int uwsgi_routing_func_toxslt(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
+
+        struct uwsgi_router_xslt_conf *urxc = (struct uwsgi_router_xslt_conf *) ur->data2;
+	struct uwsgi_transformation_xslt_conf *utxc = uwsgi_calloc(sizeof(struct uwsgi_transformation_xslt_conf));
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *) (((char *)(wsgi_req))+ur->subject_len);
+
+        utxc->stylesheet = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urxc->stylesheet, urxc->stylesheet_len);
+        if (!utxc->stylesheet) goto end;
+
+        if (urxc->params) {
+                utxc->params = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urxc->params, urxc->params_len);
+                if (!utxc->params) goto end;
+        }
+
+        if (urxc->content_type) {
+                utxc->content_type = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urxc->content_type, urxc->content_type_len);
+                if (!utxc->content_type) goto end;
+        }
+
+	uwsgi_transformation_add(wsgi_req, transformation_xslt, utxc);
+	return UWSGI_ROUTE_NEXT;
+end:
+        if (utxc->stylesheet) uwsgi_buffer_destroy(utxc->stylesheet);
+        if (utxc->params) uwsgi_buffer_destroy(utxc->params);
+        if (utxc->content_type) uwsgi_buffer_destroy(utxc->content_type);
+	free(utxc);
+        return UWSGI_ROUTE_BREAK;
+}
+
+
 static int uwsgi_routing_func_xslt(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
 
         struct uwsgi_router_xslt_conf *urxc = (struct uwsgi_router_xslt_conf *) ur->data2;
@@ -390,9 +449,40 @@ static int uwsgi_router_xslt(struct uwsgi_route *ur, char *args) {
         return 0;
 }
 
+static int uwsgi_router_toxslt(struct uwsgi_route *ur, char *args) {
+        ur->func = uwsgi_routing_func_toxslt;
+        ur->data = args;
+        ur->data_len = strlen(args);
+        struct uwsgi_router_xslt_conf *urxc = uwsgi_calloc(sizeof(struct uwsgi_router_xslt_conf));
+        if (uwsgi_kvlist_parse(ur->data, ur->data_len, ',', '=',
+                        "stylesheet", &urxc->stylesheet,
+                        "content_type", &urxc->content_type,
+                        "params", &urxc->params,
+                        NULL)) {
+                        uwsgi_log("invalid route syntax: %s\n", args);
+                        exit(1);
+        }
+
+        if (!urxc->stylesheet) {
+                uwsgi_log("invalid route/transformation syntax: you need to specify a stylesheet\n");
+                exit(1);
+        }
+
+        urxc->stylesheet_len = strlen(urxc->stylesheet);
+
+        if (urxc->params) urxc->params_len = strlen(urxc->params);
+        if (!urxc->content_type) urxc->content_type = "text/html";
+        urxc->content_type_len = strlen(urxc->content_type);
+        ur->data2 = urxc;
+        return 0;
+}
+
+
+
 
 static void router_xslt_register() {
         uwsgi_register_router("xslt", uwsgi_router_xslt);
+        uwsgi_register_router("toxslt", uwsgi_router_toxslt);
 }
 
 

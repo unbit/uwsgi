@@ -86,7 +86,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 	time_t now = uwsgi_now();
 
-	if (uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, -1) != -1) {
+	if (uwsgi_get_app_id(NULL, wsgi_req->appid, wsgi_req->appid_len, -1) != -1) {
 		uwsgi_log( "mountpoint %.*s already configured. skip.\n", wsgi_req->appid_len, wsgi_req->appid);
 		return -1;
 	}

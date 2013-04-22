@@ -1136,11 +1136,36 @@ void parse_sys_envs(char **envs) {
 }
 
 // get the application id
-int uwsgi_get_app_id(char *app_name, int app_name_len, int modifier1) {
+int uwsgi_get_app_id(struct wsgi_request *wsgi_req, char *key, uint16_t key_len, int modifier1) {
 
 	int i;
 	struct stat st;
 	int found;
+	int free_appname = 0;
+
+	char *app_name = key;
+	uint16_t app_name_len = key_len;
+
+	if (!app_name && wsgi_req) {
+		app_name = wsgi_req->appid;
+		app_name_len = wsgi_req->appid_len;
+		if (app_name_len == 0) {
+			if (!uwsgi.ignore_script_name) {
+				app_name = wsgi_req->script_name;
+				app_name_len = wsgi_req->script_name_len;
+			}
+
+			if (uwsgi.vhost) {
+                        	app_name = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|",1, wsgi_req->script_name, wsgi_req->script_name_len);
+                        	app_name_len = wsgi_req->host_len + 1 + wsgi_req->script_name_len;
+#ifdef UWSGI_DEBUG
+                        	uwsgi_debug("VirtualHost KEY=%.*s\n", wsgi_req->appid_len, wsgi_req->appid);
+#endif
+                        	free_appname = 1;
+			}
+                }
+        }
+
 
 	for (i = 0; i < uwsgi_apps_cnt; i++) {
 		// reset check
@@ -1172,14 +1197,19 @@ int uwsgi_get_app_id(char *app_name, int app_name_len, int modifier1) {
 					}
 				}
 			}
-			if (modifier1 == -1)
+			if (modifier1 == -1) {
+				if (free_appname) free(app_name);
 				return i;
-			if (modifier1 == uwsgi_apps[i].modifier1)
+			}
+			if (modifier1 == uwsgi_apps[i].modifier1) {
+				if (free_appname) free(app_name);
 				return i;
+			}
 		}
 	}
 
 	if (!uwsgi.no_default_app) {
+		if (free_appname) free(app_name);
 		return uwsgi.default_app;
 	}
 

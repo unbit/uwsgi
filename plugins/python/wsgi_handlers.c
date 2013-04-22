@@ -293,8 +293,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	struct uwsgi_app *wi;
 
-	int free_appid = 0;
-
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
 		wi = &uwsgi_apps[wsgi_req->app_id];
 		UWSGI_GET_GIL
@@ -330,28 +328,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
-
-	if (wsgi_req->appid_len == 0) {
-		if (!uwsgi.ignore_script_name) {
-			wsgi_req->appid = wsgi_req->script_name;
-			wsgi_req->appid_len = wsgi_req->script_name_len;
-		}
-
-		if (uwsgi.vhost) {
-			wsgi_req->appid = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|",1, wsgi_req->script_name, wsgi_req->script_name_len);
-			wsgi_req->appid_len = wsgi_req->host_len + 1 + wsgi_req->script_name_len;
-#ifdef UWSGI_DEBUG
-			uwsgi_debug("VirtualHost KEY=%.*s\n", wsgi_req->appid_len, wsgi_req->appid);
-#endif
-			free_appid = 1;
-		}
-	}
-
-	if ( (wsgi_req->app_id = uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, 0))  == -1) {
-		wsgi_req->app_id = uwsgi.default_app;
-		if (uwsgi.no_default_app) {
-                	wsgi_req->app_id = -1;
-        	}
+	if ( (wsgi_req->app_id = uwsgi_get_app_id(wsgi_req, wsgi_req->appid, wsgi_req->appid_len, 0))  == -1) {
 		if (wsgi_req->dynamic) {
 			// this part must be heavy locked in threaded modes
 			if (uwsgi.threads > 1) {
@@ -370,10 +347,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 				pthread_mutex_unlock(&up.lock_pyloaders);
 			}
 		}
-	}
-
-	if (free_appid) {
-		free(wsgi_req->appid);
 	}
 
 	if (wsgi_req->app_id == -1) {

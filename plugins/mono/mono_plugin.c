@@ -540,7 +540,7 @@ static int uwsgi_mono_request(struct wsgi_request *wsgi_req) {
 		key_len = 0;
 	}
 
-        wsgi_req->app_id = uwsgi_get_app_id(key, key_len, mono_plugin.modifier1);
+        wsgi_req->app_id = uwsgi_get_app_id(NULL, key, key_len, mono_plugin.modifier1);
         // if it is -1, try to load a dynamic app
         if (wsgi_req->app_id == -1) {
         	if (uwsgi.threads > 1) {
@@ -548,7 +548,7 @@ static int uwsgi_mono_request(struct wsgi_request *wsgi_req) {
                 }
 
 		// check if the mean time, something changed		
-		wsgi_req->app_id = uwsgi_get_app_id(key, key_len, mono_plugin.modifier1);
+		wsgi_req->app_id = uwsgi_get_app_id(NULL, key, key_len, mono_plugin.modifier1);
 
 		if (wsgi_req->app_id == -1) {
                 	wsgi_req->app_id = uwsgi_mono_create_app(key, key_len, key, key_len, 0);

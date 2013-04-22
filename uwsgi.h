@@ -2680,7 +2680,7 @@ char *uwsgi_concat4(char *, char *, char *, char *);
 char *uwsgi_concat4n(char *, int, char *, int, char *, int, char *, int);
 
 
-int uwsgi_get_app_id(char *, int, int);
+int uwsgi_get_app_id(struct wsgi_request *, char *, uint16_t, int);
 char *uwsgi_strncopy(char *, int);
 
 int master_loop(char **, char **);

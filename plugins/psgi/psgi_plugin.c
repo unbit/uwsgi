@@ -394,7 +394,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
-	wsgi_req->app_id = uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, psgi_plugin.modifier1);
+	wsgi_req->app_id = uwsgi_get_app_id(wsgi_req, wsgi_req->appid, wsgi_req->appid_len, psgi_plugin.modifier1);
 	// if it is -1, try to load a dynamic app
 	if (wsgi_req->app_id == -1) {
 		if (wsgi_req->dynamic) {
