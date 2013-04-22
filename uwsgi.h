@@ -3955,6 +3955,7 @@ int uwsgi_fd_is_safe(int);
 void uwsgi_add_safe_fd(int);
 
 void uwsgi_ipcsem_clear(void);
+char *uwsgi_str_to_hex(char *, size_t);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

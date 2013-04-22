@@ -1183,6 +1183,29 @@ static char *uwsgi_route_var_time(struct wsgi_request *wsgi_req, char *key, uint
         return ret;
 }
 
+static char *uwsgi_route_var_base64(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
+	char *ret = NULL;
+	uint16_t var_vallen = 0;
+        char *var_value = uwsgi_get_var(wsgi_req, key, keylen, &var_vallen);
+	if (var_value) {
+		size_t b64_len = 0;
+		ret = uwsgi_base64_encode(var_value, var_vallen, &b64_len);
+		*vallen = b64_len;
+	}
+        return ret;
+}
+
+static char *uwsgi_route_var_hex(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
+        char *ret = NULL;
+        uint16_t var_vallen = 0;
+        char *var_value = uwsgi_get_var(wsgi_req, key, keylen, &var_vallen);
+        if (var_value) {
+                ret = uwsgi_str_to_hex(var_value, var_vallen);
+                *vallen = var_vallen*2;
+        }
+        return ret;
+}
+
 #ifdef UWSGI_MATHEVAL
 static char *uwsgi_route_var_math(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
 	char *ret = NULL;
@@ -1288,6 +1311,11 @@ void uwsgi_register_embedded_routers() {
         urv = uwsgi_register_route_var("math", uwsgi_route_var_math);
 	urv->need_free = 1;
 #endif
+        urv = uwsgi_register_route_var("base64", uwsgi_route_var_base64);
+	urv->need_free = 1;
+
+        urv = uwsgi_register_route_var("hex", uwsgi_route_var_hex);
+	urv->need_free = 1;
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {
