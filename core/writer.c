@@ -231,7 +231,10 @@ int uwsgi_response_sendfile_do(struct wsgi_request *wsgi_req, int fd, size_t pos
 
 	if (fd == wsgi_req->sendfile_fd) can_close = 0;
 
-	if (wsgi_req->write_errors) return -1;
+	if (wsgi_req->write_errors) {
+		if (can_close) close(fd);
+		return -1;
+	}
 
 	if (!wsgi_req->headers_sent) {
 		int ret = uwsgi_response_write_headers_do(wsgi_req);
@@ -252,7 +255,10 @@ sendfile:
 			if (can_close) close(fd);
 			return -1;
 		}
-		if (pos >= (size_t)st.st_size) return UWSGI_OK;
+		if (pos >= (size_t)st.st_size) {
+			if (can_close) close(fd);
+			return UWSGI_OK;
+		}
 		len = st.st_size;
 	}
 
@@ -304,6 +310,7 @@ sendfile:
 		if (ret == 0) {
                         uwsgi_log("uwsgi_response_sendfile_do() TIMEOUT !!!\n");
                         wsgi_req->write_errors++;
+			if (can_close) close(fd);
                         return -1;
                 }	
         }
