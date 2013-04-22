@@ -1,5 +1,7 @@
 #include <uwsgi.h>
 
+#if defined(UWSGI_ROUTING) && defined(UWSGI_ZLIB)
+
 /*
 
 	gzip transformations reset your headers !!!
@@ -39,3 +41,8 @@ struct uwsgi_plugin transformation_gzip_plugin = {
 	.name = "transformation_gzip",
 	.on_load = router_gzip_register,
 };
+#else
+struct uwsgi_plugin transformation_gzip_plugin = {
+	.name = "transformation_gzip",
+};
+#endif

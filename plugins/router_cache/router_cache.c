@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 #ifdef UWSGI_ROUTING
 
