@@ -56,7 +56,7 @@ struct uwsgi_option uwsgi_xslt_options[] = {
 	{NULL, 0, 0, NULL, NULL, NULL, 0},
 };
 
-static char *uwsgi_xslt_apply(char *xmlfile, char *xsltfile, char *params, int *rlen) {
+static char *uwsgi_xslt_apply(xmlDoc *doc, char *xsltfile, char *params, int *rlen) {
 
 	char **vparams = NULL;
 	char *tmp_params = NULL;
@@ -89,19 +89,8 @@ static char *uwsgi_xslt_apply(char *xmlfile, char *xsltfile, char *params, int *
 	xmlSubstituteEntitiesDefault(1);
 	xmlLoadExtDtdDefaultValue = 1;
 
-        xmlDocPtr doc = xmlParseFile(xmlfile);
-        if (!doc) {
-		if (vparams) {
-			int i; for(i=1;i<(count*2);i+=2) free(vparams[i]);
-			free(tmp_params);
-			free(vparams);
-		}
-		return NULL;
-	}
-
         xsltStylesheetPtr ss = xsltParseStylesheetFile((const xmlChar *) xsltfile);
         if (!ss) {
-		xmlFreeDoc(doc);
 		if (vparams) {
 			int i; for(i=1;i<(count*2);i+=2) free(vparams[i]);
 			free(tmp_params);
@@ -113,7 +102,6 @@ static char *uwsgi_xslt_apply(char *xmlfile, char *xsltfile, char *params, int *
         xmlDocPtr res = xsltApplyStylesheet(ss, doc, (const char **) vparams);
 	if (!res) {
 		xsltFreeStylesheet(ss);
-		xmlFreeDoc(doc);
 		if (vparams) {
 			int i; for(i=1;i<(count*2);i+=2) free(vparams[i]);
 			free(tmp_params);
@@ -126,7 +114,6 @@ static char *uwsgi_xslt_apply(char *xmlfile, char *xsltfile, char *params, int *
         int ret = xsltSaveResultToString(&output, rlen, res, ss);
 	xsltFreeStylesheet(ss);
 	xmlFreeDoc(res);
-	xmlFreeDoc(doc);
 	if (vparams) {
 		int i; for(i=1;i<(count*2);i+=2) free(vparams[i]);
 		free(tmp_params);
@@ -289,7 +276,13 @@ apply:
 		params = uwsgi_concat2n(wsgi_req->query_string, wsgi_req->query_string_len, "", 0);
 	}
 	// we have both the file and the stylesheet, let's run the engine
-	output = uwsgi_xslt_apply(filename, stylesheet, params, &output_rlen);
+	xmlDoc *doc = xmlParseFile(xmlfile);
+	if (!doc) {
+		uwsgi_500(wsgi_req);
+                return UWSGI_OK;
+	} 
+	output = uwsgi_xslt_apply(doc, stylesheet, params, &output_rlen);
+	xmlFree(doc);
 	if (params) free(params);
 	if (!output) {
 		uwsgi_500(wsgi_req);
@@ -323,21 +316,38 @@ static void uwsgi_xslt_log(struct wsgi_request *wsgi_req) {
 	log_request(wsgi_req);
 }
 
-static int transform_tofile(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **new, void *data) {
+static int transform_toxslt(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **new, void *data) {
+	int ret = -1;
         struct uwsgi_transformation_xslt_conf *utxc = (struct uwsgi_transformation_xslt_conf *) data;
 
-	if 
 	xmlDoc *doc = xmlReadMemory(ub->buf, ub->pos, NULL, NULL, 0);
+	if (!doc) goto end;
 
 	int rlen;
-        char *output = uwsgi_xslt_apply( ub_doc->buf, ub_stylesheet->buf, ub_params ? ub_params->buf : NULL, &rlen);
+        char *output = uwsgi_xslt_apply( doc, utxc->stylesheet->buf, utxc->params ? utxc->params->buf : NULL, &rlen);
 	if (!output) goto end;
 
-        if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto end;
+        if (uwsgi_response_prepare_headers_int(wsgi_req, wsgi_req->status)) goto end;
         if (uwsgi_response_add_content_length(wsgi_req, rlen)) goto end;
-        if (uwsgi_response_add_content_type(wsgi_req, urxc->content_type, urxc->content_type_len)) goto end;
+        if (uwsgi_response_add_content_type(wsgi_req, utxc->content_type->buf, utxc->content_type->pos)) goto end;
 
-	return 0;
+	*new = uwsgi_buffer_new(rlen);
+	if (uwsgi_buffer_append(*new, output, rlen)) {
+		xmlFree(output);
+		uwsgi_buffer_destroy(*new);
+		*new = NULL;
+		goto end;
+	}
+	xmlFree(output);
+	ret = 0;
+
+end:
+	if (doc) xmlFreeDoc(doc);
+        if (utxc->stylesheet) uwsgi_buffer_destroy(utxc->stylesheet);
+        if (utxc->params) uwsgi_buffer_destroy(utxc->params);
+        if (utxc->content_type) uwsgi_buffer_destroy(utxc->content_type);
+	free(utxc);
+	return ret;
 }
 
 static int uwsgi_routing_func_toxslt(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
@@ -361,7 +371,7 @@ static int uwsgi_routing_func_toxslt(struct wsgi_request *wsgi_req, struct uwsgi
                 if (!utxc->content_type) goto end;
         }
 
-	uwsgi_transformation_add(wsgi_req, transformation_xslt, utxc);
+	uwsgi_add_transformation(wsgi_req, transform_toxslt, utxc);
 	return UWSGI_ROUTE_NEXT;
 end:
         if (utxc->stylesheet) uwsgi_buffer_destroy(utxc->stylesheet);
@@ -400,7 +410,10 @@ static int uwsgi_routing_func_xslt(struct wsgi_request *wsgi_req, struct uwsgi_r
 	}
 
 	int rlen;
-        char *output = uwsgi_xslt_apply( ub_doc->buf, ub_stylesheet->buf, ub_params ? ub_params->buf : NULL, &rlen);
+	xmlDoc *doc = xmlParseFile(ub_doc->buf) ;
+	if (!doc) goto end;
+        char *output = uwsgi_xslt_apply(doc, ub_stylesheet->buf, ub_params ? ub_params->buf : NULL, &rlen);
+	xmlFree(doc);
 	if (!output) goto end;
 
         if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto end;
