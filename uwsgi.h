@@ -3954,6 +3954,8 @@ void uwsgi_file_write_do(struct uwsgi_string_list *);
 int uwsgi_fd_is_safe(int);
 void uwsgi_add_safe_fd(int);
 
+void uwsgi_ipcsem_clear(void);
+
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

@@ -416,6 +416,13 @@ void uwsgi_reload(char **argv) {
 #endif
 	}
 
+#ifndef UWSGI_IPCSEM_ATEXIT
+	// free ipc semaphores if in use
+	if (!strcmp(uwsgi.lock_engine, "ipcsem")) {
+		uwsgi_ipcsem_clear();
+	}
+#endif
+
 	uwsgi_log("running %s\n", uwsgi.binary_path);
 	uwsgi_flush_logs();
 	argv[0] = uwsgi.binary_path;
