@@ -430,6 +430,15 @@ static void gevent_loop() {
 	}
 
 	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {
+		// no need to worry about freeing memory
+        	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
+        	if (uwsgi_dict) {
+                	PyObject *ae = PyDict_GetItemString(uwsgi_dict, "atexit");
+                	if (ae) {
+                        	python_call(ae, PyTuple_New(0), 0, NULL);
+                	}
+        	}
+
 		uwsgi_log("goodbye to the gevent Hub on worker %d (pid: %d)\n", uwsgi.mywid, uwsgi.mypid);
 		if (ugevent.destroy) {
 			exit(0);
