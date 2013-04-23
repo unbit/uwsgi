@@ -52,7 +52,7 @@ static void runqueue_remove(struct uwsgi_async_request *u_request) {
 		child->prev = parent;
 	}
 
-	if (parent == NULL) {
+	if (u_request == uwsgi.async_runqueue) {
 		uwsgi.async_runqueue = child;
 	}
 
@@ -67,25 +67,22 @@ static void runqueue_remove(struct uwsgi_async_request *u_request) {
 
 static void runqueue_push(struct wsgi_request *wsgi_req) {
 
-	struct uwsgi_async_request *uar;
+	struct uwsgi_async_request *uar = uwsgi_malloc(sizeof(struct uwsgi_async_request));
+	uar->prev = NULL;
+	uar->next = NULL;
+	uar->wsgi_req = wsgi_req;
 
 	if (uwsgi.async_runqueue == NULL) {
-		// empty runqueue, create a new one
-		uwsgi.async_runqueue = uwsgi_malloc(sizeof(struct uwsgi_async_request));
-		uwsgi.async_runqueue->next = NULL;
-		uwsgi.async_runqueue->prev = NULL;
-		uwsgi.async_runqueue->wsgi_req = wsgi_req;
-		uwsgi.async_runqueue_last = uwsgi.async_runqueue;
+		uwsgi.async_runqueue = uar;
 	}
 	else {
-		uar = uwsgi_malloc(sizeof(struct uwsgi_async_request));
-		uar->prev = uwsgi.async_runqueue_last;
-		uar->next = NULL;
-		uar->wsgi_req = wsgi_req;
-		uwsgi.async_runqueue_last->next = uar;
-		uwsgi.async_runqueue_last = uar;
+		uar->prev = uwsgi.async_runqueue_last;	
 	}
 
+	if (uwsgi.async_runqueue_last) {
+		uwsgi.async_runqueue_last->next = uar;
+	}
+	uwsgi.async_runqueue_last = uar;
 	uwsgi.async_runqueue_cnt++;
 
 }
