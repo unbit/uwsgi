@@ -418,7 +418,7 @@ void uwsgi_reload(char **argv) {
 
 #ifndef UWSGI_IPCSEM_ATEXIT
 	// free ipc semaphores if in use
-	if (!strcmp(uwsgi.lock_engine, "ipcsem")) {
+	if (uwsgi.lock_engine && !strcmp(uwsgi.lock_engine, "ipcsem")) {
 		uwsgi_ipcsem_clear();
 	}
 #endif
