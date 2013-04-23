@@ -485,6 +485,28 @@ static int uwsgi_router_goon(struct uwsgi_route *ur, char *arg) {
 	return 0;
 }
 
+// flush response
+static int transform_flush(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **foobar, void *data) {
+	wsgi_req->flush = 1;
+	return uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+        return 0;
+}
+static int uwsgi_router_flush_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
+	// if there are no transformations defined, set the flush right now
+	if (!wsgi_req->transformations) {
+		wsgi_req->flush = 1;
+	}
+	else {
+		// otherwise push it in the chain
+		uwsgi_add_transformation(wsgi_req, transform_flush, NULL);
+	}
+	return UWSGI_ROUTE_NEXT;	
+}
+static int uwsgi_router_flush(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_flush_func;
+        return 0;
+}
+
 // log route
 static int uwsgi_router_log_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
@@ -1275,6 +1297,8 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("setfile", uwsgi_router_setfile);
         uwsgi_register_router("setprocname", uwsgi_router_setprocname);
         uwsgi_register_router("alarm", uwsgi_router_alarm);
+
+        uwsgi_register_router("flush", uwsgi_router_flush);
 
         uwsgi_register_route_condition("exists", uwsgi_route_condition_exists);
         uwsgi_register_route_condition("isfile", uwsgi_route_condition_isfile);

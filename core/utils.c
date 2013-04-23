@@ -581,9 +581,11 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		if (uwsgi_apply_transformations(wsgi_req) == 0) {
 			// the response_buffer could be changed by translations
 			ub = wsgi_req->response_buffer;
-			// force true write
+			// force true write (take flushing into account)
 			wsgi_req->response_buffer = NULL;
-			uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+			if (wsgi_req->response_size == 0) {
+				uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+			}
 		}
 		else {
 			wsgi_req->write_errors++;

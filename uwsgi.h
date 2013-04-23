@@ -1416,6 +1416,9 @@ struct wsgi_request {
 	struct uwsgi_buffer *response_buffer;
 	struct uwsgi_transformation *transformations;
 
+	// if set ignore buffering and directly send the body
+	int flush;
+
 	struct msghdr msg;
 	union {
 		struct cmsghdr cmsg;

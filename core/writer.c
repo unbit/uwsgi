@@ -176,8 +176,8 @@ int uwsgi_response_write_body_do(struct wsgi_request *wsgi_req, char *buf, size_
 
 	if (wsgi_req->write_errors) return -1;
 
-	// do not commit headers until a response_buffer is available
-	if (!wsgi_req->response_buffer && !wsgi_req->headers_sent) {
+	// do not commit headers until a response_buffer is available (take in account flushing)
+	if ((wsgi_req->flush || !wsgi_req->response_buffer) && !wsgi_req->headers_sent) {
 		int ret = uwsgi_response_write_headers_do(wsgi_req);
                 if (ret == UWSGI_OK) goto sendbody;
                 if (ret == UWSGI_AGAIN) return UWSGI_AGAIN;
@@ -194,7 +194,8 @@ sendbody:
 			wsgi_req->write_errors++;
 			return -1;
 		}
-		return UWSGI_OK;
+		if (!wsgi_req->flush)
+			return UWSGI_OK;
 	}
 
 	for(;;) {
