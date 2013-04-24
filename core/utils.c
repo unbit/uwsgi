@@ -666,12 +666,14 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		set_user_harakiri(0);
 	}
 
-	// this is racy in multithread mode
-	if (wsgi_req->response_size > 0) {
-		uwsgi.workers[uwsgi.mywid].tx += wsgi_req->response_size;
-	}
-	if (wsgi_req->headers_size > 0) {
-		uwsgi.workers[uwsgi.mywid].tx += wsgi_req->headers_size;
+	if (!wsgi_req->do_not_account) {
+		// this is racy in multithread mode
+		if (wsgi_req->response_size > 0) {
+			uwsgi.workers[uwsgi.mywid].tx += wsgi_req->response_size;
+		}
+		if (wsgi_req->headers_size > 0) {
+			uwsgi.workers[uwsgi.mywid].tx += wsgi_req->headers_size;
+		}
 	}
 
 	// defunct process reaper
