@@ -59,6 +59,9 @@ int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
         if (slen != dlen)
                 return 1;
 
+        if (!dlen || !slen || !src || !dst)
+                return 1;
+
         return memcmp(src, dst, dlen);
 
 }
