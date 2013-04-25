@@ -957,18 +957,15 @@ clear:
 }
 
 void uwsgi_rack_after_request(struct wsgi_request *wsgi_req) {
-
 	log_request(wsgi_req);
 }
 
 void uwsgi_rack_suspend(struct wsgi_request *wsgi_req) {
-
-	uwsgi_log("SUSPENDING RUBY\n");
+	//uwsgi_log("SUSPENDING RUBY\n");
 }
 
 void uwsgi_rack_resume(struct wsgi_request *wsgi_req) {
-
-	uwsgi_log("RESUMING RUBY\n");
+	//uwsgi_log("RESUMING RUBY\n");
 }
 
 VALUE init_rack_app( VALUE script ) {

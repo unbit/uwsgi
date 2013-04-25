@@ -16,7 +16,7 @@ struct uwsgi_option fiber_options[] = {
 
 
 VALUE uwsgi_fiber_request() {
-	async_schedule_to_req_green()
+	async_schedule_to_req_green();
 	return Qnil;
 }
 
