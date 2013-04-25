@@ -288,6 +288,10 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 			exit(1);
 		}
 
+		// restore last_modified_at from cache store file timestamp
+		if (uc->use_last_modified)
+			uc->last_modified_at = cst.st_mtime;
+
 		uwsgi_cache_fix(uc);
 		close(cache_fd);
 	}
