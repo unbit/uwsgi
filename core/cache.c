@@ -162,12 +162,37 @@ static void cache_sync_hook(char *k, uint16_t kl, char *v, uint16_t vl, void *da
 			exit(1);
 		}
 	}
-	if (!uwsgi_strncmp(k, kl, "blocksize", 9)) {
+	else if (!uwsgi_strncmp(k, kl, "blocksize", 9)) {
 		size_t num = uwsgi_str_num(v, vl);
 		if (num != uc->blocksize) {
 			uwsgi_log("[cache-sync] invalid cache block size, expected %llu received %llu\n", (unsigned long long) uc->blocksize, (unsigned long long) num);
 			exit(1);
 		}
+	}
+	else if (!uwsgi_strncmp(k, kl, "last_modified_at", 16) && !strcmp(uc->sync_policy, "lastmod")) {
+		time_t num = (time_t) atol(v);
+		printf("remote lastmod: %llu | local: %llu\n", (unsigned long long) num, (unsigned long long) uc->last_modified_at);
+		if (uc->last_modified_at < num) {
+			uwsgi_log("[cache-sync] remote cache server was last modified at %llu, syncing\n", (unsigned long long) num);
+			uc->can_sync = 1;
+		}
+		else {
+			uwsgi_log("[cache-sync] remote cache server was last modified at %llu, local was modified at %llu, skipping sync\n", (unsigned long long) num, (unsigned long long) uc->last_modified_at);
+		}
+	}
+	else if (!uwsgi_strncmp(k, kl, "n_items", 7) && !strcmp(uc->sync_policy, "items")) {
+		unsigned long long num = atol(v);
+		printf("remote items: %llu | local: %llu\n", (unsigned long long) num, (unsigned long long) uc->n_items);
+		if (uc->n_items < num) {
+			uwsgi_log("[cache-sync] remote cache server has %llu item(s), local has %llu item(s), syncing from remote\n", (unsigned long long) num, (unsigned long long) uc->n_items);
+			uc->can_sync = 1;
+		}
+		else {
+			uwsgi_log("[cache-sync] remote cache server has %llu items(s), local has %llu item(s), skipping sync\n", (unsigned long long) num, (unsigned long long) uc->n_items);
+		}
+	}
+	else if (!strcmp(uc->sync_policy, "always")) {
+		uc->can_sync = 1;
 	}
 }
 
@@ -948,6 +973,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		uc->udp_servers = uwsgi.cache_udp_server;
 		uc->store_sync = uwsgi.cache_store_sync;
 		uc->use_last_modified = (uint8_t) uwsgi.cache_use_last_modified;
+		uc->sync_policy = uwsgi.cache_sync_policy;
 
 		if (uwsgi.cache_sync) {
 			uwsgi_string_new_list(&uc->sync_nodes, uwsgi.cache_sync);
@@ -968,6 +994,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		char *c_udp_servers = NULL;
 		char *c_bitmap = NULL;
 		char *c_use_last_modified = NULL;
+		char *c_sync_policy = NULL;
 
 		if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
                         "name", &c_name,
@@ -994,6 +1021,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                         "udpserver", &c_udp_servers,
                         "bitmap", &c_bitmap,
                         "lastmod", &c_use_last_modified,
+                        "sync_policy", &c_sync_policy,
                 	NULL)) {
 			uwsgi_log("unable to parse cache definition\n");
 			exit(1);
@@ -1064,6 +1092,17 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                                 uwsgi_string_new_list(&uc->sync_nodes, p);
                                 p = strtok(NULL, ";");
                         }
+		}
+
+		if (c_sync_policy) {
+			uc->sync_policy = c_sync_policy;
+			if (strcmp(uc->sync_policy, "always") && strcmp(uc->sync_policy, "lastmod") && strcmp(uc->sync_policy, "items")) {
+				uwsgi_log("invalid cache sync policy for \"%s\": %s\n", uc->name, c_sync_policy);
+				exit(1);
+			}
+		}
+		else {
+			uc->sync_policy = "always";
 		}
 
 		if (c_udp_servers) {
@@ -1739,6 +1778,13 @@ void uwsgi_cache_sync_from_nodes(struct uwsgi_cache *uc) {
 
 		uwsgi_hooked_parse(ub->buf, rlen, cache_sync_hook, uc);
 
+		if (!uc->can_sync) {
+			uwsgi_log("[cache-sync] can't sync from cache server, it is empty or current policy (%s) prevents it\n", uc->sync_policy);
+			uwsgi_buffer_destroy(ub);
+			close(fd);
+			goto next;
+		}
+
 		if (uwsgi_read_nb(fd, (char *) uc->items, uc->filesize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
 			uwsgi_buffer_destroy(ub);
 			close(fd);
@@ -1756,9 +1802,11 @@ void uwsgi_cache_sync_from_nodes(struct uwsgi_cache *uc) {
 		break;
 next:
 		if (!usl->next) {
-			exit(1);
+			uwsgi_log("[cache-sync] no more cache servers to fetch from, cache was NOT SYNCED\n");
 		}
-		uwsgi_log("[cache-sync] trying with the next sync node...\n");
+		else {
+			uwsgi_log("[cache-sync] trying with the next sync node...\n");
+		}
 		usl = usl->next;
 	}
 }

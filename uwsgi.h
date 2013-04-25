@@ -729,6 +729,9 @@ struct uwsgi_cache {
 
 	int thread_server_fd;
 
+	uint8_t can_sync;
+	char *sync_policy;
+
 	struct uwsgi_string_list *nodes;
 	int udp_node_socket;
 	struct uwsgi_string_list *sync_nodes;
@@ -1891,6 +1894,7 @@ struct uwsgi_server {
 	int cache_setup;
 	int locking_setup;
 	int cache_use_last_modified;
+	char *cache_sync_policy;
 
 	struct uwsgi_dyn_dict *static_expires_type;
 	struct uwsgi_dyn_dict *static_expires_type_mtime;

@@ -161,6 +161,8 @@ void uwsgi_init_default() {
 
 	uwsgi.empty = "";
 
+	uwsgi.cache_sync_policy = "always";
+
 	uwsgi.wait_read_hook = uwsgi_simple_wait_read_hook;
 	uwsgi.wait_write_hook = uwsgi_simple_wait_write_hook;
 
@@ -433,6 +435,11 @@ void sanitize_args() {
 	if (uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME] > 0 && uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] >= uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME]) {
 		uwsgi_log("invalid min-worker-lifetime value (%d), must be lower than max-worker-lifetime (%d)\n",
 			uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME], uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME]);
+		exit(1);
+	}
+
+	if (strcmp(uwsgi.cache_sync_policy, "always") && strcmp(uwsgi.cache_sync_policy, "lastmod") && strcmp(uwsgi.cache_sync_policy, "items")) {
+		uwsgi_log("invalid cache sync policy: %s\n", uwsgi.cache_sync_policy);
 		exit(1);
 	}
 
