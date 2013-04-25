@@ -316,6 +316,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		int ret = manage_python_response(wsgi_req);
 		if (ret == UWSGI_OK) goto end;
 		UWSGI_RELEASE_GIL
+		if (ret == UWSGI_AGAIN) {
+			wsgi_req->async_force_again = 1;
+		}
 		return ret;
 	}
 
