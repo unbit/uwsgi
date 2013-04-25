@@ -588,6 +588,8 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 			}
 		}
 		else {
+			// could have been changed in the mean time
+			ub = wsgi_req->response_buffer;
 			wsgi_req->write_errors++;
 		}
 		uwsgi_buffer_destroy(ub);
