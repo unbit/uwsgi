@@ -21,8 +21,8 @@ struct uwsgi_ugreen {
 
 extern struct uwsgi_server uwsgi;
 
-struct uwsgi_option ugreen_options[] = {
-	{"ugreen", no_argument, 0, "enable ugreen coroutine subsystem", uwsgi_opt_true, &ug.ugreen, 1},
+static struct uwsgi_option ugreen_options[] = {
+	{"ugreen", no_argument, 0, "enable ugreen coroutine subsystem", uwsgi_opt_true, &ug.ugreen, 0},
 	{"ugreen-stacksize", required_argument, 0, "set ugreen stack size in pages", uwsgi_opt_set_int, &ug.stackpages, 0},
 	{ 0, 0, 0, 0, 0, 0, 0 }
 };
