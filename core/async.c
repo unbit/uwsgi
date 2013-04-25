@@ -124,7 +124,7 @@ struct wsgi_request *find_first_available_wsgi_req() {
 	return wsgi_req;
 }
 
-static void async_reset_request(struct wsgi_request *wsgi_req) {
+void async_reset_request(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->async_timeout) {
 		uwsgi_del_rb_timer(uwsgi.rb_async_timeouts, wsgi_req->async_timeout);
 		free(wsgi_req->async_timeout);
@@ -178,7 +178,7 @@ int async_add_fd_read(struct wsgi_request *wsgi_req, int fd, int timeout) {
 	if (fd < 0)
 		return -1;
 
-	// find first slot
+	// find last slot
 	while (uad) {
 		last_uad = uad;
 		uad = uad->next;
@@ -235,7 +235,7 @@ int async_add_fd_write(struct wsgi_request *wsgi_req, int fd, int timeout) {
 	if (fd < 0)
 		return -1;
 
-	// find first slot
+	// find last slot
 	while (uad) {
 		last_uad = uad;
 		uad = uad->next;
@@ -281,16 +281,47 @@ static int async_wait_fd_write(int fd, int timeout) {
 void async_schedule_to_req(void) {
 #ifdef UWSGI_ROUTING
         if (uwsgi_apply_routes(uwsgi.wsgi_req) == UWSGI_ROUTE_BREAK) {
-		// end
-		uwsgi.wsgi_req->async_status = UWSGI_OK;
-                return;
+		goto end;
         }
 	// a trick to avoid calling routes again
 	uwsgi.wsgi_req->is_routing = 1;
 #endif
-        uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req);
-	if (uwsgi.schedule_to_main)
+        if (uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req) <= UWSGI_OK) {
+		goto end;
+	}
+
+	if (uwsgi.schedule_to_main) {
         	uwsgi.schedule_to_main(uwsgi.wsgi_req);
+	}
+	return;
+
+end:
+	async_reset_request(uwsgi.wsgi_req);
+	uwsgi_close_request(uwsgi.wsgi_req);
+	uwsgi.wsgi_req->async_status = UWSGI_OK;	
+}
+
+void async_schedule_to_req_green(void) {
+#ifdef UWSGI_ROUTING
+        if (uwsgi_apply_routes(uwsgi.wsgi_req) == UWSGI_ROUTE_BREAK) {
+                goto end;
+        }
+#endif
+        for(;;) {
+                if (uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req) <= UWSGI_OK) {
+                        break;
+                }
+                uwsgi.wsgi_req->switches++;
+                // switch after each yield
+                uwsgi.schedule_to_main(uwsgi.wsgi_req);
+        }
+
+#ifdef UWSGI_ROUTING
+end:
+#endif
+        async_reset_request(uwsgi.wsgi_req);
+        uwsgi_close_request(uwsgi.wsgi_req);
+        uwsgi.wsgi_req->async_status = UWSGI_OK;
 }
 
 void async_loop() {
@@ -467,17 +498,13 @@ void async_loop() {
 			struct uwsgi_async_request *next_request = current_request->next;
 
 			uwsgi.wsgi_req = current_request->wsgi_req;
-
 			uwsgi.schedule_to_req();
 			uwsgi.wsgi_req->switches++;
 
 			// request ended ?
 			if (uwsgi.wsgi_req->async_status <= UWSGI_OK) {
-				async_reset_request(uwsgi.wsgi_req);
-				// remove from the runqueue and close it
+				// remove from the runqueue
 				runqueue_remove(current_request);
-				uwsgi_close_request(uwsgi.wsgi_req);
-
 				// push wsgi_request in the unused stack
 				uwsgi.async_queue_unused_ptr++;
 				uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;

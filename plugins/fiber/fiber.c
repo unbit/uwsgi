@@ -16,13 +16,7 @@ struct uwsgi_option fiber_options[] = {
 
 
 VALUE uwsgi_fiber_request() {
-#ifdef UWSGI_ROUTING
-        if (uwsgi_apply_routes(uwsgi.wsgi_req) == UWSGI_ROUTE_BREAK) {
-		return Qnil;
-        }
-#endif
-	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req);
-	uwsgi.wsgi_req->suspended = 0;
+	async_schedule_to_req_green()
 	return Qnil;
 }
 
@@ -37,30 +31,43 @@ VALUE rb_fiber_schedule_to_req() {
 
         rb_fiber_resume(ufiber.fib[id], 0, NULL);
 
-        if (uwsgi.wsgi_req->suspended) {
-                uwsgi.wsgi_req->async_status = UWSGI_AGAIN;
-        }
-
 	return Qnil;
 }
 
 static void fiber_schedule_to_req() {
 
 	int id = uwsgi.wsgi_req->async_id;
+	uint8_t modifier1 = uwsgi.wsgi_req->uh->modifier1;
+
+	// call it in the main core
+        if (uwsgi.p[modifier1]->suspend) {
+                uwsgi.p[modifier1]->suspend(NULL);
+        }
 
 	int error = 0;
 	rb_protect(rb_fiber_schedule_to_req, 0, &error);
+
+	// call it in the main core
+        if (uwsgi.p[modifier1]->resume) {
+                uwsgi.p[modifier1]->resume(NULL);
+        }
+
 	if (error) {
 		rack_plugin.exception_log(NULL);
 		rb_gc_unregister_address(&ufiber.fib[id]);
-		uwsgi.wsgi_req->async_status = UWSGI_OK;
 	}
 
 }
 
 static void fiber_schedule_to_main(struct wsgi_request *wsgi_req) {
 
+	if (uwsgi.p[wsgi_req->uh->modifier1]->suspend) {
+                uwsgi.p[wsgi_req->uh->modifier1]->suspend(wsgi_req);
+        }
 	rb_fiber_yield(0, NULL);
+	if (uwsgi.p[wsgi_req->uh->modifier1]->resume) {
+                uwsgi.p[wsgi_req->uh->modifier1]->resume(wsgi_req);
+        }
 	uwsgi.wsgi_req = wsgi_req;
 }
 

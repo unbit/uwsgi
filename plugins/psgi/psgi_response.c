@@ -11,7 +11,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 	char *chitem, *chitem2;
 	SV **harakiri;
 
-	if (wsgi_req->async_status == UWSGI_AGAIN) {
+	if (wsgi_req->async_force_again) {
 
 		wsgi_req->async_force_again = 0;
 
@@ -53,7 +53,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 			return UWSGI_OK;
 		}
 		SvREFCNT_dec(chunk);
-
+		wsgi_req->async_force_again = 1;
 		return UWSGI_AGAIN;
 	}
 
@@ -141,7 +141,6 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
                         chitem = SvPV( chunk, hlen);
 			if (uwsgi.async > 1 && wsgi_req->async_force_again) {
 				SvREFCNT_dec(chunk);
-				wsgi_req->async_status = UWSGI_AGAIN;
 				wsgi_req->async_placeholder = (SV *) *hitem;
 				return UWSGI_AGAIN;
 			}
@@ -157,8 +156,8 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 			}
 			SvREFCNT_dec(chunk);
 			if (uwsgi.async > 1) {
-				wsgi_req->async_status = UWSGI_AGAIN;
 				wsgi_req->async_placeholder = (SV *) *hitem;
+				wsgi_req->async_force_again = 1;
 				return UWSGI_AGAIN;
 			}
                 }

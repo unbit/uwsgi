@@ -2622,9 +2622,11 @@ struct wsgi_request *find_first_available_wsgi_req(void);
 struct wsgi_request *find_first_accepting_wsgi_req(void);
 struct wsgi_request *find_wsgi_req_by_fd(int);
 struct wsgi_request *find_wsgi_req_by_id(int);
+void async_schedule_to_req_green(void);
 
 int async_add_fd_write(struct wsgi_request *, int, int);
 int async_add_fd_read(struct wsgi_request *, int, int);
+void async_reset_request(struct wsgi_request *);
 
 struct wsgi_request *next_wsgi_req(struct wsgi_request *);
 
