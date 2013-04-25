@@ -293,8 +293,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	struct uwsgi_app *wi;
 
-	if (wsgi_req->async_status == UWSGI_AGAIN) {
+	if (wsgi_req->async_force_again) {
 		wi = &uwsgi_apps[wsgi_req->app_id];
+		wsgi_req->async_force_again = 0;
 		UWSGI_GET_GIL
 		// get rid of timeout
 		if (wsgi_req->async_timed_out) {
@@ -388,6 +389,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		while (wi->response_subhandler(wsgi_req) != UWSGI_OK) {
 			if (uwsgi.async > 1) {
 				UWSGI_RELEASE_GIL
+				wsgi_req->async_force_again = 1;
 				return UWSGI_AGAIN;
 			}
 			else {
