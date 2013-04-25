@@ -84,14 +84,18 @@ static void stackless_init_apps(void) {
 
 	if (!usl.enabled) return;
 
-	usl.sl = uwsgi_malloc( sizeof(PyTaskletObject *) * uwsgi.async );
-	usl.callable = PyCFunction_New(uwsgi_stackless_request_method, NULL);
-	Py_INCREF(usl.callable);
-	uwsgi_log("enabled stackless engine\n");
 	if (uwsgi.has_threads) {
 		up.gil_get = gil_stackless_get;
         	up.gil_release = gil_stackless_release;
 	}
+
+	// blindy call it as the stackless gil engine is already set
+	UWSGI_GET_GIL
+
+	usl.sl = uwsgi_malloc( sizeof(PyTaskletObject *) * uwsgi.async );
+	usl.callable = PyCFunction_New(uwsgi_stackless_request_method, NULL);
+	Py_INCREF(usl.callable);
+	uwsgi_log("enabled stackless engine\n");
 	uwsgi.schedule_to_main = stackless_schedule_to_main;
 	uwsgi.schedule_to_req = stackless_schedule_to_req;
 
