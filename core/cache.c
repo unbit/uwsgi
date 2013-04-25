@@ -1737,7 +1737,7 @@ void uwsgi_cache_sync_from_nodes(struct uwsgi_cache *uc) {
 			goto next;
 		}
 
-		uwsgi_hooked_parse(ub->buf, ub->pos, cache_sync_hook, uc);
+		uwsgi_hooked_parse(ub->buf, rlen, cache_sync_hook, uc);
 
 		if (uwsgi_read_nb(fd, (char *) uc->items, uc->filesize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
 			uwsgi_buffer_destroy(ub);
