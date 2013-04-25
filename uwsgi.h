@@ -1935,7 +1935,6 @@ struct uwsgi_server {
 	struct wsgi_request **async_proto_fd_table;
 	struct uwsgi_async_request *async_runqueue;
 	struct uwsgi_async_request *async_runqueue_last;
-	int async_runqueue_cnt;
 
 	struct uwsgi_rbtree *rb_async_timeouts;
 

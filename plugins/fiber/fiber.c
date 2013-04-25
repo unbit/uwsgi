@@ -16,6 +16,11 @@ struct uwsgi_option fiber_options[] = {
 
 
 VALUE uwsgi_fiber_request() {
+#ifdef UWSGI_ROUTING
+        if (uwsgi_apply_routes(uwsgi.wsgi_req) == UWSGI_ROUTE_BREAK) {
+		return Qnil;
+        }
+#endif
 	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req);
 	uwsgi.wsgi_req->suspended = 0;
 	return Qnil;

@@ -2202,18 +2202,9 @@ int uwsgi_start(void *v_argv) {
 			}
 		}
 		uwsgi_log("- async cores set to %d - fd table size: %d\n", uwsgi.async, (int) uwsgi.max_fd);
-		uwsgi.async_waiting_fd_table = malloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
-		if (!uwsgi.async_waiting_fd_table) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
-		memset(uwsgi.async_waiting_fd_table, 0, sizeof(struct wsgi_request *) * uwsgi.max_fd);
-		uwsgi.async_proto_fd_table = malloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
-		if (!uwsgi.async_proto_fd_table) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
-		memset(uwsgi.async_proto_fd_table, 0, sizeof(struct wsgi_request *) * uwsgi.max_fd);
+		// optimization, this array maps file descriptor to requests
+		uwsgi.async_waiting_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
+		uwsgi.async_proto_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
 	}
 
 #ifdef UWSGI_DEBUG

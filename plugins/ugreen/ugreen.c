@@ -30,38 +30,43 @@ struct uwsgi_option ugreen_options[] = {
 void u_green_request() {
 #ifdef UWSGI_ROUTING
         if (uwsgi_apply_routes(uwsgi.wsgi_req) == UWSGI_ROUTE_BREAK) {
-		// end of the request
-		uwsgi.wsgi_req->async_status = UWSGI_OK;
-		uwsgi.wsgi_req->suspended = 0;
-		return;
-	}
+                return;
+        }
 #endif
-	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req);
-	uwsgi.wsgi_req->suspended = 0;
+		uwsgi_log("READY TO CALL !\n");
+	for(;;) {
+                uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req);
+                if (uwsgi.wsgi_req->async_status <= UWSGI_OK) {
+			break;
+                }
+                uwsgi.wsgi_req->switches++;
+                // switch after each yield
+		uwsgi.schedule_to_main(uwsgi.wsgi_req);
+        }
 }
 
 static void u_green_schedule_to_req() {
 
 	int id = uwsgi.wsgi_req->async_id;
 
+	// first round ?
 	if (!uwsgi.wsgi_req->suspended) {
 		ug.contexts[id].uc_link = &ug.main;
         	makecontext(&ug.contexts[id], u_green_request, 0);
 		uwsgi.wsgi_req->suspended = 1;
 	}
 
+	// call it in the main core
 	if (uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->suspend) {
 		uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->suspend(NULL);
 	}
 
+	// save the main stack and switch to the core
 	swapcontext(&ug.main, &ug.contexts[id] );		
 
+	// call it in the main core
 	if (uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->resume) {
 		uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->resume(NULL);
-	}
-
-	if (uwsgi.wsgi_req->suspended) {
-		uwsgi.wsgi_req->async_status = UWSGI_AGAIN;
 	}
 
 }
@@ -72,7 +77,9 @@ static void u_green_schedule_to_main(struct wsgi_request *wsgi_req) {
 		uwsgi.p[wsgi_req->uh->modifier1]->suspend(wsgi_req);
 	}
 
+	// back to main
 	swapcontext(&ug.contexts[wsgi_req->async_id], &ug.main);
+	// back to core
 
 	if (uwsgi.p[wsgi_req->uh->modifier1]->resume) {
 		uwsgi.p[wsgi_req->uh->modifier1]->resume(wsgi_req);
