@@ -282,6 +282,14 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 				uwsgi_buffer_destroy(cache_dump);
 				break;
 			}
+			if (uwsgi_buffer_append_keynum(cache_dump, "n_items", 7, uc->n_items)) {
+				uwsgi_buffer_destroy(cache_dump);
+				break;
+			}
+			if (uwsgi_buffer_append_keynum(cache_dump, "last_modified_at", 16, uc->last_modified_at)) {
+				uwsgi_buffer_destroy(cache_dump);
+				break;
+			}
 
 			if (uwsgi_buffer_set_uh(cache_dump, 111, 7)) {
 				uwsgi_buffer_destroy(cache_dump);
