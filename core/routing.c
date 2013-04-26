@@ -489,12 +489,11 @@ static int uwsgi_router_goon(struct uwsgi_route *ur, char *arg) {
 static int transform_flush(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **foobar, void *data) {
 	wsgi_req->flush = 1;
 	return uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
-        return 0;
 }
 static int uwsgi_router_flush_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
 	// if there are no transformations defined, set the flush right now
 	if (!wsgi_req->transformations) {
-		wsgi_req->flush = 1;
+		wsgi_req->initial_flush = 1;
 	}
 	else {
 		// otherwise push it in the chain

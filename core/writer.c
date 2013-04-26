@@ -177,7 +177,7 @@ int uwsgi_response_write_body_do(struct wsgi_request *wsgi_req, char *buf, size_
 	if (wsgi_req->write_errors) return -1;
 
 	// do not commit headers until a response_buffer is available (take in account flushing)
-	if ((wsgi_req->flush || !wsgi_req->response_buffer) && !wsgi_req->headers_sent) {
+	if ((!wsgi_req->response_buffer || wsgi_req->initial_flush || wsgi_req->flush) && !wsgi_req->headers_sent) {
 		int ret = uwsgi_response_write_headers_do(wsgi_req);
                 if (ret == UWSGI_OK) goto sendbody;
                 if (ret == UWSGI_AGAIN) return UWSGI_AGAIN;
@@ -189,14 +189,19 @@ sendbody:
 
 	if (len == 0) return UWSGI_OK;
 	
-	if (wsgi_req->response_buffer) {
+	// pay attention to not append if the buf == wsgi_req->response_buffer
+	if (wsgi_req->response_buffer && !wsgi_req->flush && buf != wsgi_req->response_buffer->buf) {
 		if (uwsgi_buffer_append(wsgi_req->response_buffer, buf, len)) {
 			wsgi_req->write_errors++;
 			return -1;
 		}
-		if (!wsgi_req->flush)
+		// we could be here even if initial_flush is set
+		if (!wsgi_req->initial_flush)
 			return UWSGI_OK;
 	}
+
+	// reset flushing
+	wsgi_req->flush = 0;
 
 	for(;;) {
 		int ret = wsgi_req->socket->proto_write(wsgi_req, buf, len);

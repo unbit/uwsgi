@@ -17,6 +17,8 @@ extern struct uwsgi_server uwsgi;
 
 int uwsgi_apply_transformations(struct wsgi_request *wsgi_req) {
 	int ret = 0;
+	// if we are here the first response has been generated
+	wsgi_req->initial_flush = 0;
 	struct uwsgi_transformation *ut = wsgi_req->transformations;
 	while(ut) {
 		struct uwsgi_buffer *new_ub = NULL;
