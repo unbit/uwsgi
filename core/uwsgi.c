@@ -463,6 +463,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"not-log-alarm", required_argument, 0, "skip the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list_custom, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"not-alarm-log", required_argument, 0, "skip the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list_custom, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 #endif
+#if defined(__linux__) || defined(__APPLE__) || defined(UWSGI_HAS_EXECINFO)
+	{"alarm-segfault", required_argument, 0, "raise specified alarm when uWSGI worker segfaults, syntax: <alarm>[,alarm...]", uwsgi_opt_add_string_list, &uwsgi.alarm_segfaults_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+	{"segfault-alarm", required_argument, 0, "raise specified alarm when uWSGI worker segfaults, syntax: <alarm>[,alarm...]", uwsgi_opt_add_string_list, &uwsgi.alarm_segfaults_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+#endif
 	{"alarm-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
 	{"alarms-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
 	{"alarm-msg-size", required_argument, 0, "set the max size of an alarm message (default 8192)", uwsgi_opt_set_64bit, &uwsgi.alarm_msg_size, 0},
@@ -1178,7 +1182,7 @@ void what_i_am_doing() {
 	int i;
 	char ctime_storage[26];
 
-	uwsgi_backtrace(uwsgi.backtrace_depth);
+	uwsgi_backtrace(uwsgi.backtrace_depth, 0);
 
 	if (uwsgi.cores > 1) {
 		for (i = 0; i < uwsgi.cores; i++) {
@@ -1433,7 +1437,7 @@ void uwsgi_plugins_atexit(void) {
 
 }
 
-void uwsgi_backtrace(int depth) {
+void uwsgi_backtrace(int depth, int trigger_alarm) {
 
 #if defined(__linux__) || defined(__APPLE__) || defined(UWSGI_HAS_EXECINFO)
 
@@ -1442,6 +1446,7 @@ void uwsgi_backtrace(int depth) {
 	void **btrace = uwsgi_malloc(sizeof(void *) * depth);
 	size_t bt_size, i;
 	char **bt_strings;
+	char *alarm_msg = "";
 
 	bt_size = backtrace(btrace, depth);
 
@@ -1450,6 +1455,17 @@ void uwsgi_backtrace(int depth) {
 	uwsgi_log("*** backtrace of %d ***\n", (int) getpid());
 	for (i = 0; i < bt_size; i++) {
 		uwsgi_log("%s\n", bt_strings[i]);
+		if (trigger_alarm) {
+			alarm_msg = uwsgi_concat3(alarm_msg, "\n", bt_strings[i]);
+		}
+	}
+
+	if (trigger_alarm) {
+		struct uwsgi_alarm_ll *uas = uwsgi.alarm_segfaults;
+		while (uas) {
+			uwsgi_alarm_trigger(uas->alarm->name, alarm_msg, strlen(alarm_msg));
+			uas = uas->next;
+		}
 	}
 
 	free(btrace);
@@ -1463,7 +1479,7 @@ void uwsgi_backtrace(int depth) {
 void uwsgi_segfault(int signum) {
 
 	uwsgi_log("!!! uWSGI process %d got Segmentation Fault !!!\n", (int) getpid());
-	uwsgi_backtrace(uwsgi.backtrace_depth);
+	uwsgi_backtrace(uwsgi.backtrace_depth, 1);
 
 	// restore default handler to generate core
 	signal(signum, SIG_DFL);
@@ -1476,7 +1492,7 @@ void uwsgi_segfault(int signum) {
 void uwsgi_fpe(int signum) {
 
 	uwsgi_log("!!! uWSGI process %d got Floating Point Exception !!!\n", (int) getpid());
-	uwsgi_backtrace(uwsgi.backtrace_depth);
+	uwsgi_backtrace(uwsgi.backtrace_depth, 1);
 
 	// restore default handler to generate core
 	signal(signum, SIG_DFL);
