@@ -1,5 +1,9 @@
 #include <uwsgi.h>
 
+#ifdef UWSGI_XML_LIBXML2
+#include <libxml/parser.h>
+#endif
+
 
 extern struct uwsgi_server uwsgi;
 extern char **environ;
@@ -3911,3 +3915,68 @@ char *uwsgi_str_to_hex(char *src, size_t slen) {
 	}
 	return dst;
 }
+
+#ifdef UWSGI_XML_LIBXML2
+char *uwsgi_format_airbrake_backtrace(char *bt, char *msg, char *apikey) {
+
+	xmlChar *xmlbuff;
+	int buffersize;
+	xmlDocPtr doc = NULL;
+	xmlNodePtr notice_node = NULL, node = NULL, line_node = NULL;
+
+	doc = xmlNewDoc(BAD_CAST "1.0");
+	notice_node = xmlNewNode(NULL, BAD_CAST "notice");
+	xmlNewProp(notice_node, BAD_CAST "version", BAD_CAST "2.3");
+	xmlDocSetRootElement(doc, notice_node);
+
+	xmlNewChild(notice_node, NULL, BAD_CAST "api-key", BAD_CAST apikey);
+
+	node = xmlNewChild(notice_node, NULL, BAD_CAST "notifier", NULL);
+	xmlNewChild(node, NULL, BAD_CAST "name", BAD_CAST "uWSGI");
+	xmlNewChild(node, NULL, BAD_CAST "version", BAD_CAST UWSGI_VERSION);
+	xmlNewChild(node, NULL, BAD_CAST "url", BAD_CAST "https://github.com/unbit/uwsgi");
+
+	node = xmlNewChild(notice_node, NULL, BAD_CAST "error", NULL);
+	xmlNewChild(node, NULL, BAD_CAST "class", BAD_CAST "RuntimeError");
+	xmlNewChild(node, NULL, BAD_CAST "message", BAD_CAST msg);
+	node = xmlNewChild(node, NULL, BAD_CAST "backtrace", NULL);
+
+	char *p = strtok(bt, "\n");
+	while (p) {
+		char *n = strchr(p, '(');
+		if (n) {
+			line_node = xmlNewChild(node, NULL, BAD_CAST "line", NULL);
+			*n = 0;
+			char *pls = strchr(n+1, '+');
+			if (pls) {
+				*pls = 0;
+			}
+
+			if ((n+1)[0] == ')') {
+				xmlNewProp(line_node, BAD_CAST "method", BAD_CAST "()");
+			}
+			else {
+				xmlNewProp(line_node, BAD_CAST "method", BAD_CAST n+1);
+			}
+
+			xmlNewProp(line_node, BAD_CAST "file", BAD_CAST p);
+
+			xmlNewProp(line_node, BAD_CAST "number", BAD_CAST "0");
+		}
+		p = strtok(NULL, "\n");
+	}
+
+	node = xmlNewChild(notice_node, NULL, BAD_CAST "server-environment", NULL);
+	xmlNewChild(node, NULL, BAD_CAST "environment-name", BAD_CAST UWSGI_VERSION);
+	xmlNewChild(node, NULL, BAD_CAST "app-version", BAD_CAST UWSGI_VERSION);
+
+	xmlDocDumpFormatMemory(doc, &xmlbuff, &buffersize, 1);
+
+	xmlFreeDoc(doc);
+	xmlCleanupParser();
+	xmlMemoryDump();
+
+	return (char *) xmlbuff;
+}
+#endif
+
