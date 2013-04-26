@@ -1736,7 +1736,7 @@ void *uwsgi_malloc(size_t size) {
 	if (ptr == NULL) {
 		uwsgi_error("malloc()");
 		uwsgi_log("!!! tried memory allocation of %llu bytes !!!\n", (unsigned long long) size);
-		uwsgi_backtrace(uwsgi.backtrace_depth);
+		uwsgi_backtrace(uwsgi.backtrace_depth, 1);
 		exit(1);
 	}
 

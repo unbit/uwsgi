@@ -212,6 +212,34 @@ static int uwsgi_alarm_log_add(char *alarms, char *regexp, int negate) {
 }
 #endif
 
+#if defined(__linux__) || defined(__APPLE__) || defined(UWSGI_HAS_EXECINFO)
+static int uwsgi_alarm_segfault_add(char *alarms) {
+	char *list = uwsgi_str(alarms);
+	char *p = strtok(list, ",");
+	while (p) {
+		struct uwsgi_alarm_instance *uai = uwsgi_alarm_get_instance(p);
+		if (!uai)
+			return -1;
+		struct uwsgi_alarm_ll *old_uall = NULL, *uall = uwsgi.alarm_segfaults;
+		while (uall) {
+			old_uall = uall;
+			uall = uall->next;
+		}
+
+		uall = uwsgi_calloc(sizeof(struct uwsgi_alarm_ll));
+		uall->alarm = uai;
+		if (old_uall) {
+			old_uall->next = uall;
+		}
+		else {
+			uwsgi.alarm_segfaults = uall;
+		}
+		p = strtok(NULL, ",");
+	}
+	return 0;
+}
+#endif
+
 static void uwsgi_alarm_thread_loop(struct uwsgi_thread *ut) {
 	// add uwsgi_alarm_fd;
 	struct uwsgi_alarm_fd *uafd = uwsgi.alarm_fds;
@@ -351,6 +379,19 @@ void uwsgi_alarms_init() {
 
 		usl = usl->next;
 	}
+#endif
+
+#if defined(__linux__) || defined(__APPLE__) || defined(UWSGI_HAS_EXECINFO)
+       //map segfault alarms
+       usl = uwsgi.alarm_segfaults_list;
+       while (usl) {
+               char *line = uwsgi_str(usl->value);
+               if (uwsgi_alarm_segfault_add(line)) {
+                       uwsgi_log("invalid segfault-alarm: %s\n", usl->value);
+                       exit(1);
+               }
+               usl = usl->next;
+       }
 #endif
 }
 

@@ -1158,12 +1158,12 @@ struct uwsgi_alarm_fd {
 
 struct uwsgi_alarm_fd *uwsgi_add_alarm_fd(int, char *, size_t, char *, size_t);
 
-#ifdef UWSGI_PCRE
 struct uwsgi_alarm_ll {
 	struct uwsgi_alarm_instance *alarm;
 	struct uwsgi_alarm_ll *next;
 };
 
+#ifdef UWSGI_PCRE
 struct uwsgi_alarm_log {
 	pcre *pattern;
 	pcre_extra *pattern_extra;
@@ -1846,11 +1846,13 @@ struct uwsgi_server {
 	uint64_t alarm_msg_size;
 	struct uwsgi_string_list *alarm_list;
 	struct uwsgi_string_list *alarm_logs_list;
+	struct uwsgi_string_list *alarm_segfaults_list;
 	struct uwsgi_alarm_fd *alarm_fds;
 	struct uwsgi_string_list *alarm_fd_list;
 	struct uwsgi_alarm *alarms;
 	struct uwsgi_alarm_instance *alarm_instances;
 	struct uwsgi_alarm_log *alarm_logs;
+	struct uwsgi_alarm_ll *alarm_segfaults;
 	struct uwsgi_thread *alarm_thread;
 
 	int threaded_logger;
@@ -3319,7 +3321,7 @@ void uwsgi_reload(char **);
 
 char *uwsgi_chomp(char *);
 int uwsgi_file_to_string_list(char *, struct uwsgi_string_list **);
-void uwsgi_backtrace(int);
+void uwsgi_backtrace(int, int);
 void uwsgi_check_logrotate(void);
 char *uwsgi_check_touches(struct uwsgi_string_list *);
 
