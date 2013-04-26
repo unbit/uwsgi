@@ -3967,6 +3967,10 @@ void uwsgi_check_emperor(void);
 int uwsgi_init(int, char **, char **);
 #endif
 
+#ifdef UWSGI_XML_LIBXML2
+char *uwsgi_format_airbrake_backtrace(char *, char *, char *);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
