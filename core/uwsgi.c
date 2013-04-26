@@ -457,6 +457,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"alarm", required_argument, 0, "create a new alarm, syntax: <alarm> <plugin:args>", uwsgi_opt_add_string_list, &uwsgi.alarm_list, UWSGI_OPT_MASTER},
 	{"alarm-freq", required_argument, 0, "tune the anti-loop alam system (default 3 seconds)", uwsgi_opt_set_int, &uwsgi.alarm_freq, 0},
 	{"alarm-fd", required_argument, 0, "raise the specified alarm when an fd is read for read (by default it reads 1 byte, set 8 for eventfd)", uwsgi_opt_add_string_list, &uwsgi.alarm_fd_list, UWSGI_OPT_MASTER},
+	{"alarm-segfault", required_argument, 0, "raise the specified alarm when the segmentation fault handler is executed", uwsgi_opt_add_string_list, &uwsgi.alarm_segfault, UWSGI_OPT_MASTER},
+	{"segfault-alarm", required_argument, 0, "raise the specified alarm when the segmentation fault handler is executed", uwsgi_opt_add_string_list, &uwsgi.alarm_segfault, UWSGI_OPT_MASTER},
 #ifdef UWSGI_PCRE
 	{"log-alarm", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"alarm-log", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -1447,15 +1449,28 @@ void uwsgi_backtrace(int depth) {
 
 	bt_strings = backtrace_symbols(btrace, bt_size);
 
-	uwsgi_log("*** backtrace of %d ***\n", (int) getpid());
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	uwsgi_buffer_append(ub, "*** backtrace of ",17);
+	uwsgi_buffer_num64(ub, (int64_t) getpid());
+	uwsgi_buffer_append(ub, " ***\n", 5);
 	for (i = 0; i < bt_size; i++) {
-		uwsgi_log("%s\n", bt_strings[i]);
+		uwsgi_buffer_append(ub, bt_strings[i], strlen(bt_strings[i]));
+		uwsgi_buffer_append(ub, "\n", 1);
 	}
 
 	free(btrace);
-	uwsgi_log("*** end of backtrace ***\n");
 
+	uwsgi_buffer_append(ub, "*** end of backtrace ***\n", 25);
 
+	uwsgi_log("%.*s", ub->pos, ub->buf);
+
+	struct uwsgi_string_list *usl = uwsgi.alarm_segfault;
+	while(usl) {
+		uwsgi_alarm_trigger(usl->value, ub->buf, ub->pos);	
+		usl = usl->next;
+	}	
+
+	uwsgi_buffer_destroy(ub);
 #endif
 
 }
