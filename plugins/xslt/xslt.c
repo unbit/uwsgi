@@ -282,7 +282,7 @@ apply:
                 return UWSGI_OK;
 	} 
 	output = uwsgi_xslt_apply(doc, stylesheet, params, &output_rlen);
-	xmlFree(doc);
+	xmlFreeDoc(doc);
 	if (params) free(params);
 	if (!output) {
 		uwsgi_500(wsgi_req);
@@ -413,7 +413,7 @@ static int uwsgi_routing_func_xslt(struct wsgi_request *wsgi_req, struct uwsgi_r
 	xmlDoc *doc = xmlParseFile(ub_doc->buf) ;
 	if (!doc) goto end;
         char *output = uwsgi_xslt_apply(doc, ub_stylesheet->buf, ub_params ? ub_params->buf : NULL, &rlen);
-	xmlFree(doc);
+	xmlFreeDoc(doc);
 	if (!output) goto end;
 
         if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto end;
