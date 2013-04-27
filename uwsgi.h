@@ -3060,6 +3060,7 @@ void uwsgi_fixup_fds(int, int, struct uwsgi_gateway *);
 void uwsgi_set_processname(char *);
 
 void http_url_decode(char *, uint16_t *, char *);
+void http_url_encode(char *, uint16_t *, char *);
 
 pid_t uwsgi_fork(char *);
 

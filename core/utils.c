@@ -3104,6 +3104,7 @@ void http_url_decode(char *buf, uint16_t * len, char *dst) {
 
 }
 
+
 /*
 	we scan the table in reverse, as updated values are at the end
 */
@@ -3911,3 +3912,28 @@ char *uwsgi_str_to_hex(char *src, size_t slen) {
 	}
 	return dst;
 }
+
+// dst has to be 3 times buf size (USE IT ONLY FOR PATH_INFO !!!)
+void http_url_encode(char *buf, uint16_t *len, char *dst) {
+
+        uint16_t i;
+        char *ptr = dst;
+        for(i=0;i<*len;i++) {
+                if ((buf[i] >= 'A' && buf[i] <= 'Z') ||
+                        (buf[i] >= 'a' && buf[i] <= 'z') ||
+                        (buf[i] >= '0' && buf[i] <= '9') ||
+                        buf[i] == '-' || buf[i] == '_' || buf[i] == '.' || buf[i] == '~' || buf[i] == '/' ) {
+                        *ptr++= buf[i];
+                }
+                else {
+                        char *h = uwsgi_hex_table[(int) buf[i]];
+                        *ptr++= '%';
+                        *ptr++= h[0];
+                        *ptr++= h[1];
+                }
+        }
+
+        *len = ptr-dst;
+
+}
+
