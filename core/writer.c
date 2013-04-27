@@ -23,6 +23,28 @@ int uwsgi_response_add_expires(struct wsgi_request *wsgi_req, uint64_t t) {
 	return uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, len); 
 }
 
+int uwsgi_response_add_date(struct wsgi_request *wsgi_req, char *hkey, uint16_t hlen, uint64_t t) {
+        // 30+1
+        char d[31];
+        int len = uwsgi_http_date((time_t) t, d);
+        if (!len) {
+                wsgi_req->write_errors++;
+                return -1;
+        }
+        return uwsgi_response_add_header(wsgi_req, hkey, hlen, d, len);
+}
+
+int uwsgi_response_add_last_modified(struct wsgi_request *wsgi_req, uint64_t t) {
+        // 30+1
+        char lm[31];
+        int len = uwsgi_http_date((time_t) t, lm);
+        if (!len) {
+                wsgi_req->write_errors++;
+                return -1;
+        }
+        return uwsgi_response_add_header(wsgi_req, "Last-Modified", 13, lm, len);
+}
+
 int uwsgi_response_add_content_range(struct wsgi_request *wsgi_req, uint64_t start, uint64_t end, uint64_t cl) {
         char buf[6+(sizeof(UMAX64_STR)*3)+4];
 	if (end == 0) {

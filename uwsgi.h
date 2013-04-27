@@ -3825,6 +3825,8 @@ int uwsgi_proto_base_fix_headers(struct wsgi_request *);
 int uwsgi_response_add_content_length(struct wsgi_request *, uint64_t);
 int uwsgi_response_add_content_range(struct wsgi_request *, uint64_t, uint64_t, uint64_t);
 int uwsgi_response_add_expires(struct wsgi_request *, uint64_t);
+int uwsgi_response_add_last_modified(struct wsgi_request *, uint64_t);
+int uwsgi_response_add_date(struct wsgi_request *, char *, uint16_t, uint64_t);
 
 const char *uwsgi_http_status_msg(char *, uint16_t *);
 int uwsgi_stats_dump_vars(struct uwsgi_stats *, struct uwsgi_core *);
