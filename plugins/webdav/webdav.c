@@ -308,20 +308,24 @@ static int uwsgi_wevdav_manage_propfind(struct wsgi_request *wsgi_req, xmlDoc * 
 		uwsgi_404(wsgi_req);
 		return UWSGI_OK;
 	}
+	xmlDoc *rdoc = NULL;
+	xmlNode *element = NULL;
 
-	xmlNode *element = xmlDocGetRootElement(doc);
-	if (!element) return -1;
+	if (doc) {
+		element = xmlDocGetRootElement(doc);
+		if (!element) return -1;
 
-	if (!element || strcmp((char *) element->name, "propfind")) return -1;
+		if (!element || strcmp((char *) element->name, "propfind")) return -1;
+	}
 
 	if (uwsgi_response_prepare_headers(wsgi_req, "207 Multi-Status", 16))
 		return -1;
 	if (uwsgi_response_add_content_type(wsgi_req, "application/xml; charset=\"utf-8\"", 32))
 		return -1;
 
+	if (doc) {
 	// propfind must have a child (scan them until you find a valid one)
 	xmlNode *node;
-	xmlDoc *rdoc = NULL;
 	for (node = element->children; node; node = node->next) {
 		if (node->type == XML_ELEMENT_NODE) {
 			if (node->ns && !strcmp((char *) node->ns->href, "DAV:")) {
@@ -335,6 +339,10 @@ static int uwsgi_wevdav_manage_propfind(struct wsgi_request *wsgi_req, xmlDoc * 
 				}
 			}
 		}
+	}
+	}
+	else {
+		rdoc = uwsgi_webdav_manage_prop(wsgi_req, filename, filename_len, 1);
 	}
 
 	if (!rdoc) return UWSGI_OK;
@@ -923,17 +931,20 @@ static int uwsgi_webdav_request(struct wsgi_request *wsgi_req) {
 	}
 
 	if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "PROPFIND", 8)) {
-		if (wsgi_req->post_cl == 0)
-			goto end;
-		ssize_t body_len = 0;
-		char *body = uwsgi_request_body_read(wsgi_req, wsgi_req->post_cl, &body_len);
+		if (wsgi_req->post_cl > 0) {
+			ssize_t body_len = 0;
+			char *body = uwsgi_request_body_read(wsgi_req, wsgi_req->post_cl, &body_len);
 #ifdef UWSGI_DEBUG
-		uwsgi_log("%.*s\n", body_len, body);
+			uwsgi_log("%.*s\n", body_len, body);
 #endif
-		xmlDoc *doc = xmlReadMemory(body, body_len, NULL, NULL, 0);
-		if (!doc) goto end;
-		uwsgi_wevdav_manage_propfind(wsgi_req, doc);
-		xmlFreeDoc(doc);
+			xmlDoc *doc = xmlReadMemory(body, body_len, NULL, NULL, 0);
+			if (!doc) goto end;
+			uwsgi_wevdav_manage_propfind(wsgi_req, doc);
+			xmlFreeDoc(doc);
+		}
+		else {
+			uwsgi_wevdav_manage_propfind(wsgi_req, NULL);
+		}
 	}
 
 	// lockable methods ...
