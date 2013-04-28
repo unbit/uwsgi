@@ -53,6 +53,7 @@ struct uwsgi_webdav {
 	struct uwsgi_string_list *javascript;
 	char *class_directory;
 	char *div;
+	char *lock_cache;
 } udav;
 
 struct uwsgi_option uwsgi_webdav_options[] = {
@@ -62,6 +63,7 @@ struct uwsgi_option uwsgi_webdav_options[] = {
 	{ "webdav-js", required_argument, 0, "add a javascript url for automatic webdav directory listing", uwsgi_opt_add_string_list, &udav.javascript, UWSGI_OPT_MIME},
 	{ "webdav-class-directory", required_argument, 0, "set the css directory class for automatic webdav directory listing", uwsgi_opt_set_str, &udav.class_directory, UWSGI_OPT_MIME},
 	{ "webdav-div", required_argument, 0, "set the div id for automatic webdav directory listing", uwsgi_opt_set_str, &udav.div, UWSGI_OPT_MIME},
+	{ "webdav-lock-cache", required_argument, 0, "set the cache to use for webdav locking", uwsgi_opt_set_str, &udav.lock_cache, UWSGI_OPT_MIME},
 	{ 0, 0, 0, 0, 0, 0, 0 },
 };
 
