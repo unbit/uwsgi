@@ -26,7 +26,7 @@
 
 	3) realpath() on it
 
-	step 3 could file (for example on MKCOL or PUT). In such a case:
+	step 3 could be a non-existent file (for example on MKCOL or PUT). In such a case:
 
 	4) find the last / in the path_info, and try realpath() on it, if success the resource can be created
 
@@ -349,6 +349,157 @@ static int uwsgi_wevdav_manage_propfind(struct wsgi_request *wsgi_req, xmlDoc * 
 	xmlFree(xmlbuf);
 	return UWSGI_OK;
 }
+
+static int uwsgi_webdav_prop_set(char *filename, char *attr, char *ns, char *body) {
+	int ret = 0;
+#ifdef __linux__
+	char *xattr_name = NULL;
+	if (ns) {
+		xattr_name = uwsgi_concat4("user.uwsgi.webdav.", ns, "|", attr);
+	}
+	else {	
+		xattr_name = uwsgi_concat2("user.uwsgi.webdav.", attr);
+	}
+	ret = setxattr(filename, xattr_name, body, strlen(body), 0);
+	free(xattr_name);
+#endif
+	return ret; 
+}
+
+static int uwsgi_webdav_prop_del(char *filename, char *attr, char *ns) {
+        int ret = 0;
+#ifdef __linux__
+        char *xattr_name = NULL;
+        if (ns) {
+                xattr_name = uwsgi_concat4("user.uwsgi.webdav.", ns, "|", attr);
+        }
+        else {
+                xattr_name = uwsgi_concat2("user.uwsgi.webdav.", attr);
+        }
+        ret = removexattr(filename, xattr_name);
+        free(xattr_name);
+#endif
+        return ret;
+}
+
+static void uwsgi_webdav_do_prop_update(struct wsgi_request *wsgi_req, xmlNode *prop, xmlNode *response, char *filename, uint8_t action) {
+	xmlNode *node;
+        // search for "prop"
+        for (node = prop->children; node; node = node->next) {
+		if (node->type == XML_ELEMENT_NODE) {
+			xmlNode *propstat = xmlNewChild(response, NULL, BAD_CAST "propstat", NULL);
+			xmlNode *r_prop = xmlNewChild(propstat, NULL, BAD_CAST "prop" , NULL);
+			xmlNode *new_prop = xmlNewChild(r_prop, NULL, node->name, NULL);
+			if (node->ns) {
+				xmlNsPtr xattr_ns = xmlNewNs(new_prop, node->ns->href, NULL);
+                                xmlSetNs(new_prop, xattr_ns);
+			}
+			if (action == 0) {
+				if (uwsgi_webdav_prop_set(filename, (char *) node->name, node->ns ? (char *) node->ns->href : NULL, node->children ? (char *) node->children->content : "")) {
+					char *r_status = uwsgi_concat2n(wsgi_req->protocol, wsgi_req->protocol_len, " 403 Forbidden", 14);
+					xmlNewChild(r_prop, NULL, BAD_CAST "status", BAD_CAST r_status);
+					free(r_status);
+				}
+				else {
+					char *r_status = uwsgi_concat2n(wsgi_req->protocol, wsgi_req->protocol_len, " 200 OK", 7);
+					xmlNewChild(r_prop, NULL, BAD_CAST "status", BAD_CAST r_status);
+					free(r_status);
+				}
+			}
+			else if (action == 1) {
+				if (uwsgi_webdav_prop_del(filename, (char *) node->name, node->ns ? (char *) node->ns->href : NULL)) {
+					char *r_status = uwsgi_concat2n(wsgi_req->protocol, wsgi_req->protocol_len, " 403 Forbidden", 14);
+					xmlNewChild(r_prop, NULL, BAD_CAST "status", BAD_CAST r_status);
+					free(r_status);
+				}
+				else {
+					char *r_status = uwsgi_concat2n(wsgi_req->protocol, wsgi_req->protocol_len, " 200 OK", 7);
+					xmlNewChild(r_prop, NULL, BAD_CAST "status", BAD_CAST r_status);
+					free(r_status);
+				}
+			}
+		}
+	}
+}
+
+// action 0 is set, 1 is remove
+static void uwsgi_webdav_manage_prop_update(struct wsgi_request *wsgi_req, xmlNode *parent, xmlNode *response, char *filename, uint8_t action) {
+	xmlNode *node;
+	// search for "prop"
+	for (node = parent->children; node; node = node->next) {
+		if (node->type == XML_ELEMENT_NODE) {
+			if (node->ns && !strcmp((char *) node->ns->href, "DAV:")) {
+				if (!strcmp((char *) node->name, "prop")) {
+					uwsgi_webdav_do_prop_update(wsgi_req, node, response, filename, action);
+				}
+			}
+		}
+	}
+}
+
+static int uwsgi_wevdav_manage_proppatch(struct wsgi_request *wsgi_req, xmlDoc * doc) {
+        char filename[PATH_MAX];
+        size_t filename_len = uwsgi_webdav_expand_path(wsgi_req, wsgi_req->path_info, wsgi_req->path_info_len, filename);
+        if (filename_len == 0) {
+                uwsgi_404(wsgi_req);
+                return UWSGI_OK;
+        }
+
+        xmlNode *element = xmlDocGetRootElement(doc);
+        if (!element) return -1;
+
+        if (!element || strcmp((char *) element->name, "propertyupdate")) return -1;
+
+        if (uwsgi_response_prepare_headers(wsgi_req, "207 Multi-Status", 16))
+                return -1;
+        if (uwsgi_response_add_content_type(wsgi_req, "application/xml; charset=\"utf-8\"", 32))
+                return -1;
+
+	xmlDoc *rdoc = xmlNewDoc(BAD_CAST "1.0");
+        xmlNode *multistatus = xmlNewNode(NULL, BAD_CAST "multistatus");
+        xmlDocSetRootElement(rdoc, multistatus);
+        xmlNsPtr dav_ns = xmlNewNs(multistatus, BAD_CAST "DAV:", BAD_CAST "D");
+        xmlSetNs(multistatus, dav_ns);
+	xmlNode *response = xmlNewChild(multistatus, dav_ns, BAD_CAST "response", NULL);
+
+	char *uri = uwsgi_concat2n(wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
+        uint16_t uri_len = strlen(uri) ;
+        char *encoded_uri = uwsgi_malloc( (uri_len * 3) + 1);
+        http_url_encode(uri, &uri_len, encoded_uri);
+        encoded_uri[uri_len] = 0;
+        xmlNewChild(response, dav_ns, BAD_CAST "href", BAD_CAST encoded_uri);
+        free(encoded_uri);
+
+        // propfind can be "set" or "remove"
+        xmlNode *node;
+        for (node = element->children; node; node = node->next) {
+                if (node->type == XML_ELEMENT_NODE) {
+                        if (node->ns && !strcmp((char *) node->ns->href, "DAV:")) {
+                                if (!strcmp((char *) node->name, "set")) {
+                                	uwsgi_webdav_manage_prop_update(wsgi_req, node, response, filename, 0);
+                                }
+                                else if (!strcmp((char *) node->name, "remove")) {
+                                	uwsgi_webdav_manage_prop_update(wsgi_req, node, response, filename, 1);
+                                }
+                        }
+                }
+        }
+
+        if (!rdoc) return UWSGI_OK;
+
+        xmlChar *xmlbuf;
+        int xlen = 0;
+        xmlDocDumpFormatMemory(rdoc, &xmlbuf, &xlen, 1);
+        uwsgi_response_add_content_length(wsgi_req, xlen);
+        uwsgi_response_write_body_do(wsgi_req, (char *) xmlbuf, xlen);
+#ifdef UWSGI_DEBUG
+        uwsgi_log("\n%.*s\n", xlen, xmlbuf);
+#endif
+        xmlFreeDoc(rdoc);
+        xmlFree(xmlbuf);
+        return UWSGI_OK;
+}
+
 
 static int uwsgi_wevdav_manage_put(struct wsgi_request *wsgi_req) {
 	char filename[PATH_MAX];
@@ -830,6 +981,7 @@ static int uwsgi_webdav_request(struct wsgi_request *wsgi_req) {
 #endif
                 xmlDoc *doc = xmlReadMemory(body, body_len, NULL, NULL, 0);
                 if (!doc) goto end;
+		uwsgi_wevdav_manage_proppatch(wsgi_req, doc);
                 xmlFreeDoc(doc);
         }
 
