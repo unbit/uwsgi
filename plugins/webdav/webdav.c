@@ -2,8 +2,10 @@
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 
-#ifdef __linux__
+#if defined(__linux__)
 #include <attr/xattr.h>
+#elif defined(__APPLE__)
+#include <sys/xattr.h>
 #endif
 
 /*
@@ -149,14 +151,22 @@ static int uwsgi_webdav_add_props(struct wsgi_request *wsgi_req, xmlNode * multi
 		xmlNewChild(r_prop, dav_ns, BAD_CAST "getlastmodified", NULL);
 	}
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 	// get xattr for user.uwsgi.webdav.
+#if defined(__linux__)
 	ssize_t rlen = listxattr(filename, NULL, 0);
+#elif defined(__APPLE__)
+	ssize_t rlen = listxattr(filename, NULL, 0, 0);
+#endif
 	// do not return -1 as the previous xml is valid !!!
 	if (rlen <= 0) return 0;
 	// use calloc to avoid races
 	char *xattrs = uwsgi_calloc(rlen);
+#if defined(__linux__)
 	if (listxattr(filename, xattrs, rlen) <= 0) {
+#elif defined(__APPLE__)
+	if (listxattr(filename, xattrs, rlen, 0) <= 0) {
+#endif
 		free(xattrs);
 		return 0;
 	}
@@ -177,11 +187,19 @@ static int uwsgi_webdav_add_props(struct wsgi_request *wsgi_req, xmlNode * multi
 				}
 				xmlNode *xattr_item = NULL;
 				if (with_values) {
+#if defined(__linux__)
 					ssize_t rlen2 = getxattr(filename, key, NULL, 0);
+#elif defined(__APPLE__)
+					ssize_t rlen2 = getxattr(filename, key, NULL, 0, 0, 0);
+#endif
 					if (rlen > 0) {
 						// leave space for final 0
 						char *xvalue = uwsgi_calloc(rlen2 + 1);
+#if defined(__linux__)
 						if (getxattr(filename, key, xvalue, rlen2) > 0) {
+#elif defined(__APPLE__)
+						if (getxattr(filename, key, xvalue, rlen2, 0 ,0) > 0) {
+#endif
 							xattr_item = xmlNewTextChild(r_prop, NULL, BAD_CAST xattr_key, BAD_CAST xvalue);
 						}
 						free(xvalue);	
@@ -362,7 +380,7 @@ static int uwsgi_wevdav_manage_propfind(struct wsgi_request *wsgi_req, xmlDoc * 
 
 static int uwsgi_webdav_prop_set(char *filename, char *attr, char *ns, char *body) {
 	int ret = 0;
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 	char *xattr_name = NULL;
 	if (ns) {
 		xattr_name = uwsgi_concat4("user.uwsgi.webdav.", ns, "|", attr);
@@ -370,7 +388,11 @@ static int uwsgi_webdav_prop_set(char *filename, char *attr, char *ns, char *bod
 	else {	
 		xattr_name = uwsgi_concat2("user.uwsgi.webdav.", attr);
 	}
+#if defined(__linux__)
 	ret = setxattr(filename, xattr_name, body, strlen(body), 0);
+#elif defined(__APPLE__)
+	ret = setxattr(filename, xattr_name, body, strlen(body), 0, 0);
+#endif
 	free(xattr_name);
 #endif
 	return ret; 
@@ -378,7 +400,7 @@ static int uwsgi_webdav_prop_set(char *filename, char *attr, char *ns, char *bod
 
 static int uwsgi_webdav_prop_del(char *filename, char *attr, char *ns) {
         int ret = 0;
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
         char *xattr_name = NULL;
         if (ns) {
                 xattr_name = uwsgi_concat4("user.uwsgi.webdav.", ns, "|", attr);
@@ -386,7 +408,11 @@ static int uwsgi_webdav_prop_del(char *filename, char *attr, char *ns) {
         else {
                 xattr_name = uwsgi_concat2("user.uwsgi.webdav.", attr);
         }
+#if defined(__linux__)
         ret = removexattr(filename, xattr_name);
+#elif defined(__APPLE__)
+        ret = removexattr(filename, xattr_name, 0);
+#endif
         free(xattr_name);
 #endif
         return ret;
