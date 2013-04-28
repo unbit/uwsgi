@@ -2,6 +2,10 @@
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 
+#ifdef __linux__
+#include <attr/xattr.h>
+#endif
+
 /*
 
 	rfc4918 implementation (WebDAV)
@@ -35,6 +39,8 @@
 	a uuid.
 
 	if a lock_token is passed the url is checked in the cache and uuid compared
+
+	- Resource properties are stored as filesystem xattr (warning, not all operating system support them) -
 
 */
 
@@ -78,7 +84,7 @@ static char *uwsgi_webdav_new_date(uint64_t t) {
 	return uwsgi_concat2n(d, len, "", 0);
 }
 
-static int uwsgi_webdav_add_props(struct wsgi_request *wsgi_req, xmlNode * multistatus, xmlNsPtr dav_ns, char *uri, char *filename) {
+static int uwsgi_webdav_add_props(struct wsgi_request *wsgi_req, xmlNode * multistatus, xmlNsPtr dav_ns, char *uri, char *filename, int with_values) {
 	struct stat st;
 	if (stat(filename, &st)) {
 		uwsgi_error("uwsgi_webdav_add_props()/stat()");
@@ -96,36 +102,111 @@ static int uwsgi_webdav_add_props(struct wsgi_request *wsgi_req, xmlNode * multi
 	char *r_status = uwsgi_concat2n(wsgi_req->protocol, wsgi_req->protocol_len, " 200 OK", 7);
 	xmlNewChild(r_propstat, dav_ns, BAD_CAST "status", BAD_CAST r_status);
 	free(r_status);
+
 	xmlNode *r_prop = xmlNewChild(r_propstat, dav_ns, BAD_CAST "prop", NULL);
-	xmlNewChild(r_prop, dav_ns, BAD_CAST "displayname", BAD_CAST uri);
-	xmlNode *r_type = xmlNewChild(r_prop, dav_ns, BAD_CAST "resourcetype", NULL);
-	if (S_ISDIR(st.st_mode)) {
-		xmlNewChild(r_type, dav_ns, BAD_CAST "collection", NULL);
+
+	if (with_values) {
+		xmlNewChild(r_prop, dav_ns, BAD_CAST "displayname", BAD_CAST uri);
+		xmlNode *r_type = xmlNewChild(r_prop, dav_ns, BAD_CAST "resourcetype", NULL);
+		if (S_ISDIR(st.st_mode)) {
+			xmlNewChild(r_type, dav_ns, BAD_CAST "collection", NULL);
+		}
+		else {
+			char *r_contentlength = uwsgi_num2str(st.st_size);
+			xmlNewChild(r_prop, dav_ns, BAD_CAST "getcontentlength", BAD_CAST r_contentlength);
+			free(r_contentlength);
+			size_t mime_type_len = 0;
+			char *mime_type = uwsgi_get_mime_type(filename, strlen(filename), &mime_type_len);
+			if (mime_type) {
+				char *r_ctype = uwsgi_concat2n(mime_type, mime_type_len, "", 0);
+				xmlNewTextChild(r_prop, dav_ns, BAD_CAST "getcontenttype", BAD_CAST r_ctype);
+				free(r_ctype);
+			}
+		}
+		// there is no creation date on UNIX/POSIX, ctime is the nearest thing...
+		char *cdate = uwsgi_webdav_new_date(st.st_ctime);
+		if (cdate) {
+			xmlNewTextChild(r_prop, dav_ns, BAD_CAST "creationdate", BAD_CAST cdate);
+			free(cdate);
+		}
+		char *mdate = uwsgi_webdav_new_date(st.st_mtime);
+		if (mdate) {
+			xmlNewTextChild(r_prop, dav_ns, BAD_CAST "getlastmodified", BAD_CAST mdate);
+			free(mdate);
+		}
+		xmlNewChild(r_prop, dav_ns, BAD_CAST "executable", NULL);
 	}
 	else {
-		char *r_contentlength = uwsgi_num2str(st.st_size);
-		xmlNewChild(r_prop, dav_ns, BAD_CAST "getcontentlength", BAD_CAST r_contentlength);
-		free(r_contentlength);
-		size_t mime_type_len = 0;
-		char *mime_type = uwsgi_get_mime_type(filename, strlen(filename), &mime_type_len);
-		if (mime_type) {
-			char *r_ctype = uwsgi_concat2n(mime_type, mime_type_len, "", 0);
-			xmlNewChild(r_prop, dav_ns, BAD_CAST "getcontenttype", BAD_CAST r_ctype);
-			free(r_ctype);
+		xmlNewChild(r_prop, dav_ns, BAD_CAST "displayname", NULL);
+		xmlNewChild(r_prop, dav_ns, BAD_CAST "resourcetype", NULL);
+		if (!S_ISDIR(st.st_mode)) {
+			xmlNewChild(r_prop, dav_ns, BAD_CAST "getcontentlength", NULL);
+			xmlNewChild(r_prop, dav_ns, BAD_CAST "getcontenttype", NULL);
+		}
+		xmlNewChild(r_prop, dav_ns, BAD_CAST "creationdate", NULL);
+		xmlNewChild(r_prop, dav_ns, BAD_CAST "getlastmodified", NULL);
+	}
+
+#ifdef __linux__
+	// get xattr for user.uwsgi.webdav.
+	ssize_t rlen = listxattr(filename, NULL, 0);
+	// do not return -1 as the previous xml is valid !!!
+	if (rlen <= 0) return 0;
+	// use calloc to avoid races
+	char *xattrs = uwsgi_calloc(rlen);
+	if (listxattr(filename, xattrs, rlen) <= 0) {
+		free(xattrs);
+		return 0;
+	}
+	// parse the name list
+	ssize_t i;
+	char *key = NULL;
+	for(i=0;i<rlen;i++) {
+		// check for wrong condition
+		if (xattrs[i] == 0 && key == NULL) break;
+		if (key && xattrs[i] == 0) {
+			if (!uwsgi_starts_with(key, strlen(key), "user.uwsgi.webdav.", 18)) {
+				xmlNsPtr xattr_ns = NULL;
+				// does it has a namespace ?
+				char *separator = strchr(key + 18, '|');
+				char *xattr_key = key + 18;
+				if (separator) {
+					xattr_key = separator + 1;
+				}
+				xmlNode *xattr_item = NULL;
+				if (with_values) {
+					ssize_t rlen2 = getxattr(filename, key, NULL, 0);
+					if (rlen > 0) {
+						// leave space for final 0
+						char *xvalue = uwsgi_calloc(rlen2 + 1);
+						if (getxattr(filename, key, xvalue, rlen2) > 0) {
+							xattr_item = xmlNewTextChild(r_prop, NULL, BAD_CAST xattr_key, BAD_CAST xvalue);
+						}
+						free(xvalue);	
+					}
+					else if (rlen == 0) {
+						xattr_item = xmlNewTextChild(r_prop, NULL, BAD_CAST xattr_key, NULL);
+					}
+				}
+				else {
+					xattr_item = xmlNewTextChild(r_prop, NULL, BAD_CAST xattr_key, NULL);
+				}	
+				if (separator && xattr_item) {
+					*separator = 0;
+					xattr_ns = xmlNewNs(xattr_item, BAD_CAST (key + 18), NULL);
+					*separator = '|';
+					xmlSetNs(xattr_item, xattr_ns);	
+				}
+			}
+			key = NULL;
+		}
+		else if (key == NULL) {
+			key = &xattrs[i];
 		}
 	}
-	// there is no creation date on UNIX/POSIX, ctime is the nearest thing...
-	char *cdate = uwsgi_webdav_new_date(st.st_ctime);
-	if (cdate) {
-		xmlNewChild(r_prop, dav_ns, BAD_CAST "creationdate", BAD_CAST cdate);
-		free(cdate);
-	}
-	char *mdate = uwsgi_webdav_new_date(st.st_mtime);
-	if (mdate) {
-		xmlNewChild(r_prop, dav_ns, BAD_CAST "getlastmodified", BAD_CAST mdate);
-		free(mdate);
-	}
-	xmlNewChild(r_prop, dav_ns, BAD_CAST "executable", NULL);
+	free(xattrs);
+	
+#endif
 	return 0;
 }
 
@@ -158,6 +239,65 @@ static size_t uwsgi_webdav_expand_fake_path(struct wsgi_request *wsgi_req, char 
 	return filename_len;
 }
 
+static xmlDoc *uwsgi_webdav_manage_prop(struct wsgi_request *wsgi_req, char *filename, size_t filename_len, int with_values) {
+	int depth = 0;
+        uint16_t http_depth_len = 0;
+        char *http_depth = uwsgi_get_var(wsgi_req, "HTTP_DEPTH", 10, &http_depth_len);
+        if (http_depth) {
+                depth = uwsgi_str_num(http_depth, http_depth_len);
+        }
+
+	xmlDoc *rdoc = xmlNewDoc(BAD_CAST "1.0");
+        xmlNode *multistatus = xmlNewNode(NULL, BAD_CAST "multistatus");
+        xmlDocSetRootElement(rdoc, multistatus);
+        xmlNsPtr dav_ns = xmlNewNs(multistatus, BAD_CAST "DAV:", BAD_CAST "D");
+        xmlSetNs(multistatus, dav_ns);
+
+	if (depth == 0) {
+                char *uri = uwsgi_concat2n(wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
+                uwsgi_webdav_add_props(wsgi_req, multistatus, dav_ns, uri, filename, with_values);
+                free(uri);
+        }
+        else {
+                DIR *collection = opendir(filename);
+                struct dirent de;
+                for (;;) {
+                        struct dirent *de_r = NULL;
+                        if (readdir_r(collection, &de, &de_r)) {
+                                uwsgi_error("uwsgi_wevdav_manage_propfind()/readdir_r()");
+                                break;
+                        }
+                        if (de_r == NULL) {
+                                break;
+                        }
+                        char *uri = NULL;
+                        char *direntry = NULL;
+                        if (!strcmp(de.d_name, "..")) {
+                                // skip ..
+                                continue;
+                        }
+                        else if (!strcmp(de.d_name, ".")) {
+                                uri = uwsgi_concat2n(wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
+                                direntry = uwsgi_concat2n(filename, filename_len, "", 0);
+                        }
+                        else if (wsgi_req->path_info[wsgi_req->path_info_len - 1] == '/') {
+                                uri = uwsgi_concat2n(wsgi_req->path_info, wsgi_req->path_info_len, de.d_name, strlen(de.d_name));
+                                direntry = uwsgi_concat3n(filename, filename_len, "/", 1, de.d_name, strlen(de.d_name));
+                        }
+                        else {
+                                uri = uwsgi_concat3n(wsgi_req->path_info, wsgi_req->path_info_len, "/", 1, de.d_name, strlen(de.d_name));
+                                direntry = uwsgi_concat3n(filename, filename_len, "/", 1, de.d_name, strlen(de.d_name));
+                        }
+                        uwsgi_webdav_add_props(wsgi_req, multistatus, dav_ns, uri, direntry, with_values);
+                        free(uri);
+                        free(direntry);
+                }
+                closedir(collection);
+        }
+
+	return rdoc;
+	
+}
 
 static int uwsgi_wevdav_manage_propfind(struct wsgi_request *wsgi_req, xmlDoc * doc) {
 	char filename[PATH_MAX];
@@ -167,78 +307,35 @@ static int uwsgi_wevdav_manage_propfind(struct wsgi_request *wsgi_req, xmlDoc * 
 		return UWSGI_OK;
 	}
 
-	if (uwsgi_response_prepare_headers(wsgi_req, "207 Multi-Status", 16))
-		return -1;
-	if (uwsgi_response_add_content_type(wsgi_req, "application/xml; charset=\"utf-8\"", 32))
-		return -1;
-
 	xmlNode *element = xmlDocGetRootElement(doc);
 	if (!element) return -1;
 
 	if (!element || strcmp((char *) element->name, "propfind")) return -1;
 
+	if (uwsgi_response_prepare_headers(wsgi_req, "207 Multi-Status", 16))
+		return -1;
+	if (uwsgi_response_add_content_type(wsgi_req, "application/xml; charset=\"utf-8\"", 32))
+		return -1;
+
 	// propfind must have a child (scan them until you find a valid one)
-	xmlNode *action = element->children;
-	if (!action) return -1;
-
-#ifdef UWSGI_DEBUG
-	uwsgi_log("action = %s ns: %s\n", action->name, action->ns ? (char *) action->ns->href : "");
-#endif
-
-	int depth = 0;
-	uint16_t http_depth_len = 0;
-	char *http_depth = uwsgi_get_var(wsgi_req, "HTTP_DEPTH", 10, &http_depth_len);
-	if (http_depth) {
-		depth = uwsgi_str_num(http_depth, http_depth_len);
-	}
-
-	xmlDoc *rdoc = xmlNewDoc(BAD_CAST "1.0");
-	xmlNode *multistatus = xmlNewNode(NULL, BAD_CAST "multistatus");
-	xmlDocSetRootElement(rdoc, multistatus);
-	xmlNsPtr dav_ns = xmlNewNs(multistatus, BAD_CAST "DAV:", BAD_CAST "D");
-	xmlSetNs(multistatus, dav_ns);
-
-	if (depth == 0) {
-		char *uri = uwsgi_concat2n(wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
-		uwsgi_webdav_add_props(wsgi_req, multistatus, dav_ns, uri, filename);
-		free(uri);
-	}
-	else {
-		DIR *collection = opendir(filename);
-		struct dirent de;
-		for (;;) {
-			struct dirent *de_r = NULL;
-			if (readdir_r(collection, &de, &de_r)) {
-				uwsgi_error("uwsgi_wevdav_manage_propfind()/readdir_r()");
-				break;
+	xmlNode *node;
+	xmlDoc *rdoc = NULL;
+	for (node = element->children; node; node = node->next) {
+		if (node->type == XML_ELEMENT_NODE) {
+			if (node->ns && !strcmp((char *) node->ns->href, "DAV:")) {
+                		if (!strcmp((char *) node->name, "prop") || !strcmp((char *) node->name, "allprop")) {
+					rdoc = uwsgi_webdav_manage_prop(wsgi_req, filename, filename_len, 1);
+					break;
+				}
+				if (!strcmp((char *) node->name, "propname")) {
+					rdoc = uwsgi_webdav_manage_prop(wsgi_req, filename, filename_len, 0);
+					break;
+				}
 			}
-			if (de_r == NULL) {
-				break;
-			}
-			char *uri = NULL;
-			char *direntry = NULL;
-			if (!strcmp(de.d_name, "..")) {
-				// skip ..
-				continue;
-			}
-			else if (!strcmp(de.d_name, ".")) {
-				uri = uwsgi_concat2n(wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
-				direntry = uwsgi_concat2n(filename, filename_len, "", 0);
-			}
-			else if (wsgi_req->path_info[wsgi_req->path_info_len - 1] == '/') {
-				uri = uwsgi_concat2n(wsgi_req->path_info, wsgi_req->path_info_len, de.d_name, strlen(de.d_name));
-				direntry = uwsgi_concat3n(filename, filename_len, "/", 1, de.d_name, strlen(de.d_name));
-			}
-			else {
-				uri = uwsgi_concat3n(wsgi_req->path_info, wsgi_req->path_info_len, "/", 1, de.d_name, strlen(de.d_name));
-				direntry = uwsgi_concat3n(filename, filename_len, "/", 1, de.d_name, strlen(de.d_name));
-			}
-			uwsgi_webdav_add_props(wsgi_req, multistatus, dav_ns, uri, direntry);
-			free(uri);
-			free(direntry);
 		}
-		closedir(collection);
 	}
+
+	if (!rdoc) return UWSGI_OK;
 
 	xmlChar *xmlbuf;
 	int xlen = 0;
@@ -672,6 +769,20 @@ static int uwsgi_webdav_request(struct wsgi_request *wsgi_req) {
 		return uwsgi_wevdav_manage_get(wsgi_req, 0);
 	}
 
+	if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "PROPFIND", 8)) {
+		if (wsgi_req->post_cl == 0)
+			goto end;
+		ssize_t body_len = 0;
+		char *body = uwsgi_request_body_read(wsgi_req, wsgi_req->post_cl, &body_len);
+#ifdef UWSGI_DEBUG
+		uwsgi_log("%.*s\n", body_len, body);
+#endif
+		xmlDoc *doc = xmlReadMemory(body, body_len, NULL, NULL, 0);
+		if (!doc) goto end;
+		uwsgi_wevdav_manage_propfind(wsgi_req, doc);
+		xmlFreeDoc(doc);
+	}
+
 	// lockable methods ...
 	// check for locking
 
@@ -699,24 +810,28 @@ static int uwsgi_webdav_request(struct wsgi_request *wsgi_req) {
 		if (wsgi_req->post_cl > 0) {
 			ssize_t body_len = 0;
                 	char *body = uwsgi_request_body_read(wsgi_req, wsgi_req->post_cl, &body_len);
+#ifdef UWSGI_DEBUG
                 	uwsgi_log("%.*s\n", body_len, body);
+#endif
+			xmlDoc *doc = xmlReadMemory(body, body_len, NULL, NULL, 0);
+			if (!doc) goto end;
+                	xmlFreeDoc(doc);
 		}	
 		return uwsgi_wevdav_manage_lock(wsgi_req);
 	}
 
-	if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "PROPFIND", 8)) {
-		if (wsgi_req->post_cl == 0)
-			goto end;
-		ssize_t body_len = 0;
-		char *body = uwsgi_request_body_read(wsgi_req, wsgi_req->post_cl, &body_len);
+	if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "PROPPATCH", 9)) {
+                if (wsgi_req->post_cl == 0)
+                        goto end;
+                ssize_t body_len = 0;
+                char *body = uwsgi_request_body_read(wsgi_req, wsgi_req->post_cl, &body_len);
 #ifdef UWSGI_DEBUG
-		uwsgi_log("%.*s\n", body_len, body);
+                uwsgi_log("%.*s\n", body_len, body);
 #endif
-		xmlDoc *doc = xmlReadMemory(body, body_len, NULL, NULL, 0);
-		if (!doc) goto end;
-		uwsgi_wevdav_manage_propfind(wsgi_req, doc);
-		xmlFreeDoc(doc);
-	}
+                xmlDoc *doc = xmlReadMemory(body, body_len, NULL, NULL, 0);
+                if (!doc) goto end;
+                xmlFreeDoc(doc);
+        }
 
 end:
 	return UWSGI_OK;
