@@ -2808,6 +2808,7 @@ void uwsgi_gateway_go_cheap(char *, int, int *);
 
 char *uwsgi_open_and_read(char *, size_t *, int, char *[]);
 char *uwsgi_get_last_char(char *, char);
+char *uwsgi_get_last_charn(char *, size_t, char);
 
 void uwsgi_spawn_daemon(struct uwsgi_daemon *);
 void uwsgi_detach_daemons();

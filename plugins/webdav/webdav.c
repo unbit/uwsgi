@@ -229,7 +229,7 @@ static size_t uwsgi_webdav_expand_path(struct wsgi_request *wsgi_req, char *item
 }
 
 static size_t uwsgi_webdav_expand_fake_path(struct wsgi_request *wsgi_req, char *item, uint16_t item_len, char *filename) {
-	char *last_slash = memrchr(item, '/', item_len);
+	char *last_slash = uwsgi_get_last_charn(item, item_len, '/');
         if (!last_slash) return 0;
         size_t filename_len = uwsgi_webdav_expand_path(wsgi_req, item, last_slash - item, filename);
         if (!filename_len) return 0;
@@ -704,7 +704,7 @@ next:
                 if (de_r == NULL) break;
 		// skip items startign with a dot
 		if (de.d_name[0] == '.') continue;
-		if (uwsgi_webdav_dirlist_add_item(ub, de.d_name[0], strlen(de.d_name[0]), de.d_type == DT_DIR ? 1 : 0) goto end;
+		if (uwsgi_webdav_dirlist_add_item(ub, de.d_name, strlen(de.d_name), de.d_type == DT_DIR ? 1 : 0)) goto end;
         }
 
 	closedir(d);

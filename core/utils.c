@@ -1814,17 +1814,20 @@ void init_magic_table(char *magic_table[]) {
 }
 
 char *uwsgi_get_last_char(char *what, char c) {
-	int i;
-	char *ptr = NULL;
-
-	for (i = 0; i < (int) strlen(what); i++) {
-		if (what[i] == c) {
-			ptr = what + i;
-		}
+	size_t len = strlen(what);
+	while(len--) {
+		if (what[len] == c) return what + len;
 	}
-
-	return ptr;
+	return NULL;
 }
+
+char *uwsgi_get_last_charn(char *what, size_t len, char c) {
+        while(len--) {
+                if (what[len] == c) return what + len;
+        }
+        return NULL;
+}
+
 
 char *uwsgi_num2str(int num) {
 
