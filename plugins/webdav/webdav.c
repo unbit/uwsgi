@@ -241,11 +241,18 @@ static int uwsgi_webdav_add_props(struct wsgi_request *wsgi_req, xmlNode * multi
 		free(etag);
 		xmlNewChild(r_prop, dav_ns, BAD_CAST "executable", NULL);
 
-		if (udav.principal_base && wsgi_req->remote_user_len > 0) {
-			char *current_user_principal = uwsgi_concat2n(udav.principal_base, strlen(udav.principal_base), wsgi_req->remote_user, wsgi_req->remote_user_len);
-			xmlNode *cup = xmlNewChild(r_prop, dav_ns, BAD_CAST "current-user-principal", NULL);
-			xmlNewTextChild(cup, dav_ns, BAD_CAST "href", BAD_CAST current_user_principal);
-			free(current_user_principal);
+		if (wsgi_req->remote_user_len > 0) {
+			if (udav.principal_base) {
+				char *current_user_principal = uwsgi_concat2n(udav.principal_base, strlen(udav.principal_base), wsgi_req->remote_user, wsgi_req->remote_user_len);
+				xmlNode *cup = xmlNewChild(r_prop, dav_ns, BAD_CAST "current-user-principal", NULL);
+				xmlNewTextChild(cup, dav_ns, BAD_CAST "href", BAD_CAST current_user_principal);
+				free(current_user_principal);
+			}
+			xmlNode *cups = xmlNewChild(r_prop, dav_ns, BAD_CAST "current-user-privilege-set", NULL);
+			xmlNewChild(cups, dav_ns, BAD_CAST "all", NULL);
+			xmlNewChild(cups, dav_ns, BAD_CAST "read", NULL);
+			xmlNewChild(cups, dav_ns, BAD_CAST "write", NULL);
+			xmlNewChild(cups, dav_ns, BAD_CAST "write-content", NULL);
 		}
 		uwsgi_webdav_foreach_prop(udav.add_prop, r_prop, 0);
                 uwsgi_webdav_foreach_prop(udav.add_prop_href, r_prop, 1);
@@ -259,8 +266,11 @@ static int uwsgi_webdav_add_props(struct wsgi_request *wsgi_req, xmlNode * multi
 		}
 		xmlNewChild(r_prop, dav_ns, BAD_CAST "creationdate", NULL);
 		xmlNewChild(r_prop, dav_ns, BAD_CAST "getlastmodified", NULL);
-		if (udav.principal_base) {
-			xmlNewChild(r_prop, dav_ns, BAD_CAST "current-user-principal", NULL);
+		if (wsgi_req->remote_user_len > 0) {
+			xmlNewChild(r_prop, dav_ns, BAD_CAST "current-user-privilege-set", NULL);
+			if (udav.principal_base) {
+				xmlNewChild(r_prop, dav_ns, BAD_CAST "current-user-principal", NULL);
+			}
 		}
 	}
 
