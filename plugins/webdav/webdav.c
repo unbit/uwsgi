@@ -55,7 +55,25 @@ struct uwsgi_webdav {
 	struct uwsgi_string_list *javascript;
 	char *class_directory;
 	char *div;
+
 	char *lock_cache;
+	char *principal_base;
+
+	struct uwsgi_string_list *add_option;
+
+	struct uwsgi_string_list *add_prop;
+	struct uwsgi_string_list *add_collection_prop;
+	struct uwsgi_string_list *add_object_prop;
+
+	struct uwsgi_string_list *add_prop_href;
+	struct uwsgi_string_list *add_collection_prop_href;
+	struct uwsgi_string_list *add_object_prop_href;
+
+	struct uwsgi_string_list *add_rtype_prop;
+	struct uwsgi_string_list *add_rtype_collection_prop;
+	struct uwsgi_string_list *add_rtype_object_prop;
+
+
 } udav;
 
 struct uwsgi_option uwsgi_webdav_options[] = {
@@ -66,15 +84,79 @@ struct uwsgi_option uwsgi_webdav_options[] = {
 	{ "webdav-class-directory", required_argument, 0, "set the css directory class for automatic webdav directory listing", uwsgi_opt_set_str, &udav.class_directory, UWSGI_OPT_MIME},
 	{ "webdav-div", required_argument, 0, "set the div id for automatic webdav directory listing", uwsgi_opt_set_str, &udav.div, UWSGI_OPT_MIME},
 	{ "webdav-lock-cache", required_argument, 0, "set the cache to use for webdav locking", uwsgi_opt_set_str, &udav.lock_cache, UWSGI_OPT_MIME},
+	{ "webdav-principal-base", required_argument, 0, "enable WebDAV Current Principal Extension using the specified base", uwsgi_opt_set_str, &udav.principal_base, UWSGI_OPT_MIME},
+	{ "webdav-add-option", required_argument, 0, "add a WebDAV standard to the OPTIONS response", uwsgi_opt_add_string_list, &udav.add_option, UWSGI_OPT_MIME},
+
+	{ "webdav-add-prop", required_argument, 0, "add a WebDAV property to all resources", uwsgi_opt_add_string_list, &udav.add_prop, UWSGI_OPT_MIME},
+	{ "webdav-add-collection-prop", required_argument, 0, "add a WebDAV property to all collections", uwsgi_opt_add_string_list, &udav.add_collection_prop, UWSGI_OPT_MIME},
+	{ "webdav-add-object-prop", required_argument, 0, "add a WebDAV property to all objects", uwsgi_opt_add_string_list, &udav.add_object_prop, UWSGI_OPT_MIME},
+
+	{ "webdav-add-prop-href", required_argument, 0, "add a WebDAV property to all resources (href value)", uwsgi_opt_add_string_list, &udav.add_prop_href, UWSGI_OPT_MIME},
+	{ "webdav-add-collection-prop-href", required_argument, 0, "add a WebDAV property to all collections (href value)", uwsgi_opt_add_string_list, &udav.add_collection_prop_href, UWSGI_OPT_MIME},
+	{ "webdav-add-object-prop-href", required_argument, 0, "add a WebDAV property to all objects (href value)", uwsgi_opt_add_string_list, &udav.add_object_prop_href, UWSGI_OPT_MIME},
+
+	{ "webdav-add-rtype-prop", required_argument, 0, "add a WebDAV resourcetype property to all resources", uwsgi_opt_add_string_list, &udav.add_rtype_prop, UWSGI_OPT_MIME},
+	{ "webdav-add-rtype-collection-prop", required_argument, 0, "add a WebDAV resourcetype property to all collections", uwsgi_opt_add_string_list, &udav.add_rtype_collection_prop, UWSGI_OPT_MIME},
+	{ "webdav-add-rtype-object-prop", required_argument, 0, "add a WebDAV resourcetype property to all objects", uwsgi_opt_add_string_list, &udav.add_rtype_object_prop, UWSGI_OPT_MIME},
+
 	{ 0, 0, 0, 0, 0, 0, 0 },
 };
+
+static void uwsgi_webdav_add_a_prop(xmlNode *node, char *opt, int href) {
+	char *first_space = strchr(opt, ' ');
+	if (!first_space) return;
+	*first_space = 0;
+	char *second_space = strchr(first_space + 1, ' ');
+	xmlNode *new_node = NULL;
+	if (second_space) {
+		*second_space = 0;
+		if (href) {
+			new_node = xmlNewChild(node, NULL, BAD_CAST first_space + 1, NULL);
+			xmlNewTextChild(new_node, NULL, BAD_CAST "href", BAD_CAST second_space + 1);
+		}
+		else {
+			new_node = xmlNewTextChild(node, NULL, BAD_CAST first_space + 1, BAD_CAST second_space + 1);
+		}
+		*second_space = ' ';
+	}
+	else {
+		new_node = xmlNewChild(node, NULL, BAD_CAST first_space + 1, NULL);
+	}
+	xmlNsPtr ns = xmlNewNs(new_node, BAD_CAST opt, NULL);
+	xmlSetNs(new_node, ns);
+	*first_space = ' ';
+}
+
+static void uwsgi_webdav_foreach_prop(struct uwsgi_string_list *usl, xmlNode *node, int href) {
+	if (!usl) return;
+	while(usl) {
+		uwsgi_webdav_add_a_prop(node, usl->value, href);
+		usl = usl->next;
+	}
+}
+
 
 /*
 	OPTIONS: if it is a valid webdav resource add Dav: to the response header	
 */
 static int uwsgi_wevdav_manage_options(struct wsgi_request *wsgi_req) {
 	uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6);
-	uwsgi_response_add_header(wsgi_req, "Dav", 3, "1, 2", 4);
+	if (udav.add_option) {
+		struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+		if (uwsgi_buffer_append(ub, "1, 2", 4)) goto end;
+		struct uwsgi_string_list *usl = udav.add_option;
+		while(usl) {
+			if (uwsgi_buffer_append(ub, ", ", 2)) goto end;
+			if (uwsgi_buffer_append(ub, usl->value, usl->len)) goto end;
+			usl = usl->next;
+		}
+		uwsgi_response_add_header(wsgi_req, "Dav", 3, ub->buf, ub->pos);
+end:	
+		uwsgi_buffer_destroy(ub);
+	}
+	else {
+		uwsgi_response_add_header(wsgi_req, "Dav", 3, "1, 2", 4);
+	}
 	return UWSGI_OK;
 }
 
@@ -110,12 +192,25 @@ static int uwsgi_webdav_add_props(struct wsgi_request *wsgi_req, xmlNode * multi
 	xmlNode *r_prop = xmlNewChild(r_propstat, dav_ns, BAD_CAST "prop", NULL);
 
 	if (with_values) {
-		xmlNewChild(r_prop, dav_ns, BAD_CAST "displayname", BAD_CAST uri);
-		xmlNode *r_type = xmlNewChild(r_prop, dav_ns, BAD_CAST "resourcetype", NULL);
-		if (S_ISDIR(st.st_mode)) {
-			xmlNewChild(r_type, dav_ns, BAD_CAST "collection", NULL);
+		char *base_uri = uwsgi_get_last_char(uri, '/');
+		if (base_uri) {
+			xmlNewChild(r_prop, dav_ns, BAD_CAST "displayname", BAD_CAST base_uri+1);
 		}
 		else {
+			xmlNewChild(r_prop, dav_ns, BAD_CAST "displayname", BAD_CAST uri);
+		}
+		xmlNode *r_type = xmlNewChild(r_prop, dav_ns, BAD_CAST "resourcetype", NULL);
+
+		uwsgi_webdav_foreach_prop(udav.add_rtype_prop, r_type, 0);
+
+		if (S_ISDIR(st.st_mode)) {
+			xmlNewChild(r_type, dav_ns, BAD_CAST "collection", NULL);
+			uwsgi_webdav_foreach_prop(udav.add_rtype_collection_prop, r_type, 0);
+			uwsgi_webdav_foreach_prop(udav.add_collection_prop, r_prop, 0);
+			uwsgi_webdav_foreach_prop(udav.add_collection_prop_href, r_prop, 1);
+		}
+		else {
+			uwsgi_webdav_foreach_prop(udav.add_rtype_object_prop, r_type, 0);
 			char *r_contentlength = uwsgi_num2str(st.st_size);
 			xmlNewChild(r_prop, dav_ns, BAD_CAST "getcontentlength", BAD_CAST r_contentlength);
 			free(r_contentlength);
@@ -126,6 +221,8 @@ static int uwsgi_webdav_add_props(struct wsgi_request *wsgi_req, xmlNode * multi
 				xmlNewTextChild(r_prop, dav_ns, BAD_CAST "getcontenttype", BAD_CAST r_ctype);
 				free(r_ctype);
 			}
+			uwsgi_webdav_foreach_prop(udav.add_object_prop, r_prop, 0);
+			uwsgi_webdav_foreach_prop(udav.add_object_prop_href, r_prop, 1);
 		}
 		// there is no creation date on UNIX/POSIX, ctime is the nearest thing...
 		char *cdate = uwsgi_webdav_new_date(st.st_ctime);
@@ -138,7 +235,20 @@ static int uwsgi_webdav_add_props(struct wsgi_request *wsgi_req, xmlNode * multi
 			xmlNewTextChild(r_prop, dav_ns, BAD_CAST "getlastmodified", BAD_CAST mdate);
 			free(mdate);
 		}
+
+		char *etag = uwsgi_num2str(st.st_mtime);
+		xmlNewTextChild(r_prop, dav_ns, BAD_CAST "getetag", BAD_CAST etag);
+		free(etag);
 		xmlNewChild(r_prop, dav_ns, BAD_CAST "executable", NULL);
+
+		if (udav.principal_base && wsgi_req->remote_user_len > 0) {
+			char *current_user_principal = uwsgi_concat2n(udav.principal_base, strlen(udav.principal_base), wsgi_req->remote_user, wsgi_req->remote_user_len);
+			xmlNode *cup = xmlNewChild(r_prop, dav_ns, BAD_CAST "current-user-principal", NULL);
+			xmlNewTextChild(cup, dav_ns, BAD_CAST "href", BAD_CAST current_user_principal);
+			free(current_user_principal);
+		}
+		uwsgi_webdav_foreach_prop(udav.add_prop, r_prop, 0);
+                uwsgi_webdav_foreach_prop(udav.add_prop_href, r_prop, 1);
 	}
 	else {
 		xmlNewChild(r_prop, dav_ns, BAD_CAST "displayname", NULL);
@@ -149,6 +259,9 @@ static int uwsgi_webdav_add_props(struct wsgi_request *wsgi_req, xmlNode * multi
 		}
 		xmlNewChild(r_prop, dav_ns, BAD_CAST "creationdate", NULL);
 		xmlNewChild(r_prop, dav_ns, BAD_CAST "getlastmodified", NULL);
+		if (udav.principal_base) {
+			xmlNewChild(r_prop, dav_ns, BAD_CAST "current-user-principal", NULL);
+		}
 	}
 
 #if defined(__linux__) || defined(__APPLE__)
@@ -790,6 +903,12 @@ static int uwsgi_wevdav_manage_get(struct wsgi_request *wsgi_req, int send_body)
 			goto end;
 	}
 	// add ETag (based on file mtime, not rock-solid, but good enough)
+	char *etag = uwsgi_num2str(st.st_mtime);
+	if (uwsgi_response_add_header(wsgi_req, "ETag", 4, etag, strlen(etag))) {
+		free(etag);
+		goto end;
+	}
+	free(etag);
 	// start sending the file (note: we do not use sendfile() api, for being able to use caching and transformations)
 	if (!send_body)
 		goto end;
