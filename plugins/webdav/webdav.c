@@ -1293,6 +1293,20 @@ static int uwsgi_webdav_request(struct wsgi_request *wsgi_req) {
 		}
 	}
 
+	if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "REPORT", 6)) {
+                if (wsgi_req->post_cl > 0) {
+                        ssize_t body_len = 0;
+                        char *body = uwsgi_request_body_read(wsgi_req, wsgi_req->post_cl, &body_len);
+#ifdef UWSGI_DEBUG
+                        uwsgi_log("%.*s\n", body_len, body);
+#endif
+                        xmlDoc *doc = xmlReadMemory(body, body_len, NULL, NULL, 0);
+                        if (!doc) goto end;
+                        xmlFreeDoc(doc);
+                }
+        }
+
+
 	// lockable methods ...
 	// check for locking
 
