@@ -1,6 +1,11 @@
 #include <uwsgi.h>
 
-static char gzheader[10] = { 0x1f, 0x8b, Z_DEFLATED, 0, 0, 0, 0, 0, 0, 3 };
+char gzheader[10] = { 0x1f, 0x8b, Z_DEFLATED, 0, 0, 0, 0, 0, 0, 3 };
+
+char *uwsgi_gzip_chunk(z_stream *z, uint32_t *crc32, char *buf, size_t len, size_t *dlen) {
+	uwsgi_crc32(crc32, buf, len);
+	return uwsgi_deflate(z, buf, len, dlen);
+}
 
 struct uwsgi_buffer *uwsgi_gzip(char *buf, size_t len) {
 	z_stream z;
@@ -47,6 +52,29 @@ int uwsgi_deflate_init(z_stream *z, char *dict, size_t dict_len) {
                 }
 	}
 	return 0;
+}
+
+int uwsgi_gzip_prepare(z_stream *z, char *dict, size_t dict_len, uint32_t *crc32) {
+	uwsgi_crc32(crc32, NULL, 0);
+	if (uwsgi_deflate_init(z, NULL, 0)) return -1;
+	return 0;
+}
+
+// fix and free a gzip stream
+int uwsgi_gzip_fix(z_stream *z, uint32_t crc32, struct uwsgi_buffer *ub, size_t len) {
+	size_t dlen0 = 0;
+	char *gzipped0 = uwsgi_deflate(z, NULL, 0, &dlen0);
+        if (!gzipped0) goto end;
+	if (uwsgi_buffer_append(ub, gzipped0, dlen0)) goto end;
+	free(gzipped0);
+	if (uwsgi_buffer_u32le(ub, crc32)) goto end;
+        if (uwsgi_buffer_u32le(ub, len)) goto end;
+	deflateEnd(z);
+	return 0;
+end:
+	if (gzipped0) free(gzipped0);
+	deflateEnd(z);
+	return -1;
 }
 
 

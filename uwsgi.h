@@ -3609,6 +3609,7 @@ int uwsgi_buffer_insert_chunked(struct uwsgi_buffer *, size_t, size_t);
 int uwsgi_buffer_append_chunked(struct uwsgi_buffer *, size_t);
 int uwsgi_buffer_append_json(struct uwsgi_buffer *, char *, size_t);
 int uwsgi_buffer_set_uh(struct uwsgi_buffer *, uint8_t, uint8_t);
+void uwsgi_buffer_map(struct uwsgi_buffer *, char *, size_t);
 struct uwsgi_buffer *uwsgi_buffer_from_file(char *);
 
 ssize_t uwsgi_buffer_write_simple(struct wsgi_request *, struct uwsgi_buffer *);
@@ -3939,6 +3940,9 @@ int uwsgi_deflate_init(z_stream *, char *, size_t);
 char *uwsgi_deflate(z_stream *, char *, size_t, size_t *);
 void uwsgi_crc32(uint32_t *, char *, size_t);
 struct uwsgi_buffer *uwsgi_gzip(char *, size_t);
+int uwsgi_gzip_fix(z_stream *, uint32_t, struct uwsgi_buffer *, size_t);
+char *uwsgi_gzip_chunk(z_stream *, uint32_t *, char *, size_t, size_t *);
+int uwsgi_gzip_prepare(z_stream *, char *, size_t, uint32_t *);
 #endif
 
 char *uwsgi_get_cookie(struct wsgi_request *, char *, uint16_t, uint16_t *);

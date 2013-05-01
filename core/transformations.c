@@ -56,7 +56,13 @@ next:
 
 }
 
+/*
+
+if a transformation is "final", we need to call it independently by the write status
+
+*/
 int uwsgi_apply_final_transformations(struct wsgi_request *wsgi_req) {
+	int ret = 0;
 	struct uwsgi_transformation *ut = wsgi_req->transformations;
 	wsgi_req->transformed_chunk = NULL;
         wsgi_req->transformed_chunk_len = 0;
@@ -75,15 +81,10 @@ int uwsgi_apply_final_transformations(struct wsgi_request *wsgi_req) {
 				return -1;
 			}
 		}
-		// if we have no buffer, just stop the chain
-		else {
-			return -1;
-		}
-
 		
 		// run the transformation
 		if (ut->func(wsgi_req, ut)) {
-			return -1;
+			ret = -1;
                 }
 
 		t_buf = ut->chunk->buf;
@@ -96,7 +97,7 @@ next:
 	// if we are here, all of the transformations are applied
 	wsgi_req->transformed_chunk = t_buf;
         wsgi_req->transformed_chunk_len = t_len;
-        return 0;
+        return ret;
 }
 
 void uwsgi_free_transformations(struct wsgi_request *wsgi_req) {

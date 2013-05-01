@@ -354,3 +354,11 @@ struct uwsgi_buffer *uwsgi_buffer_from_file(char *filename) {
 	return ub;
 }
 
+void uwsgi_buffer_map(struct uwsgi_buffer *ub, char *buf, size_t len) {
+	if (ub->buf) {
+		free(ub->buf);
+	}
+	ub->buf = buf;
+	ub->pos = len;
+	ub->len = len;
+}
