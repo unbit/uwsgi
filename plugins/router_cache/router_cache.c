@@ -54,9 +54,9 @@ struct uwsgi_transformation_cache_conf {
         uint64_t cache_it_expires;
 };
 
-static int transform_cache(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **new, void *data) {
-	struct uwsgi_transformation_cache_conf *utcc = (struct uwsgi_transformation_cache_conf *) data;
-
+static int transform_cache(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
+	struct uwsgi_transformation_cache_conf *utcc = (struct uwsgi_transformation_cache_conf *) ut->data;
+	struct uwsgi_buffer *ub = ut->chunk;
 	// store only successfull response
 	if (wsgi_req->write_errors == 0 && wsgi_req->status == 200 && ub->pos > 0) {
 		if (utcc->cache_it) {

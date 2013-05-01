@@ -20,8 +20,10 @@ struct uwsgi_transformation_tofile_conf {
 	struct uwsgi_buffer *filename;
 };
 
-static int transform_tofile(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **new, void *data) {
-	struct uwsgi_transformation_tofile_conf *uttc = (struct uwsgi_transformation_tofile_conf *) data;
+static int transform_tofile(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
+	
+	struct uwsgi_transformation_tofile_conf *uttc = (struct uwsgi_transformation_tofile_conf *) ut->data;
+	struct uwsgi_buffer *ub = ut->chunk;
 
 	// store only successfull response
 	if (wsgi_req->write_errors == 0 && wsgi_req->status == 200 && ub->pos > 0) {

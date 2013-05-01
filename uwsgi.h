@@ -1195,7 +1195,9 @@ struct uwsgi_logvar {
 };
 
 struct uwsgi_transformation {
-	int (*func)(struct wsgi_request *, struct uwsgi_buffer *, struct uwsgi_buffer **, void *);
+	int (*func)(struct wsgi_request *, struct uwsgi_transformation *);
+	struct uwsgi_buffer *chunk;
+	uint8_t can_stream;
 	void *data;
 	struct uwsgi_transformation *next;
 };
@@ -1413,12 +1415,9 @@ struct wsgi_request {
 	// internal routing goto instruction
 	uint32_t route_goto;
 
-	struct uwsgi_buffer *response_buffer;
 	struct uwsgi_transformation *transformations;
-
-	// if set ignore buffering and directly send the body
-	int initial_flush;
-	int flush;
+	char *transformed_chunk;
+	size_t transformed_chunk_len;
 
 	struct msghdr msg;
 	union {
@@ -3804,6 +3803,7 @@ int uwsgi_websocket_handshake(struct wsgi_request *, char *, uint16_t, char *, u
 int uwsgi_response_prepare_headers(struct wsgi_request *, char *, uint16_t);
 int uwsgi_response_prepare_headers_int(struct wsgi_request *, int);
 int uwsgi_response_add_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+int uwsgi_response_add_header_force(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 int uwsgi_response_commit_headers(struct wsgi_request *);
 int uwsgi_response_sendfile_do(struct wsgi_request *, int, size_t, size_t);
 
@@ -3956,8 +3956,10 @@ int uwsgi_is_full_http(struct uwsgi_buffer *);
 
 int uwsgi_http_date(time_t t, char *);
 
-int uwsgi_apply_transformations(struct wsgi_request *wsgi_req);
-struct uwsgi_transformation *uwsgi_add_transformation(struct wsgi_request *wsgi_req, int (*func)(struct wsgi_request *, struct uwsgi_buffer *, struct uwsgi_buffer **, void *), void *);
+int uwsgi_apply_transformations(struct wsgi_request *wsgi_req, char *, size_t);
+int uwsgi_apply_final_transformations(struct wsgi_request *);
+void uwsgi_free_transformations(struct wsgi_request *);
+struct uwsgi_transformation *uwsgi_add_transformation(struct wsgi_request *wsgi_req, int (*func)(struct wsgi_request *, struct uwsgi_transformation *), void *);
 
 void uwsgi_file_write_do(struct uwsgi_string_list *);
 

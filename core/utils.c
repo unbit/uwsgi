@@ -574,25 +574,14 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	int tmp_id;
 	uint64_t tmp_rt, rss = 0, vsz = 0;
 
-	// flush the response buf (if any)
-	if (wsgi_req->response_buffer) {
-		// send the body only if transformations are successfull
-		struct uwsgi_buffer *ub = wsgi_req->response_buffer;
-		if (uwsgi_apply_transformations(wsgi_req) == 0) {
-			// the response_buffer could be changed by translations
-			ub = wsgi_req->response_buffer;
-			// force true write (take flushing into account)
-			wsgi_req->response_buffer = NULL;
-			if (wsgi_req->response_size == 0) {
-				uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+	// apply transformations
+	if (wsgi_req->transformations) {
+		if (uwsgi_apply_final_transformations(wsgi_req) == 0) {
+			if (wsgi_req->transformed_chunk && wsgi_req->transformed_chunk_len > 0) {
+				uwsgi_response_write_body_do(wsgi_req, wsgi_req->transformed_chunk, wsgi_req->transformed_chunk_len);
 			}
 		}
-		else {
-			// could have been changed in the mean time
-			ub = wsgi_req->response_buffer;
-			wsgi_req->write_errors++;
-		}
-		uwsgi_buffer_destroy(ub);
+		uwsgi_free_transformations(wsgi_req);
 	}
 
 	// check if headers should be sent

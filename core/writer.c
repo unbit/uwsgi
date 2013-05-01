@@ -108,6 +108,24 @@ error:
 }
 
 //each protocol has its header generator
+static int uwsgi_response_add_header_do(struct wsgi_request *wsgi_req, char *key, uint16_t key_len, char *value, uint16_t value_len) {
+        if (!wsgi_req->headers) {
+                wsgi_req->headers = uwsgi_buffer_new(uwsgi.page_size);
+                wsgi_req->headers->limit = UMAX16;
+        }
+
+        struct uwsgi_buffer *hh = wsgi_req->socket->proto_add_header(wsgi_req, key, key_len, value, value_len);
+        if (!hh) { wsgi_req->write_errors++ ; return -1;}
+        if (uwsgi_buffer_append(wsgi_req->headers, hh->buf, hh->pos)) goto error;
+        wsgi_req->header_cnt++;
+        uwsgi_buffer_destroy(hh);
+        return 0;
+error:
+        uwsgi_buffer_destroy(hh);
+        wsgi_req->write_errors++;
+        return -1;
+}
+
 int uwsgi_response_add_header(struct wsgi_request *wsgi_req, char *key, uint16_t key_len, char *value, uint16_t value_len) {
 
 	if (wsgi_req->headers_sent || wsgi_req->headers_size || wsgi_req->response_size || wsgi_req->write_errors) return -1;
@@ -127,21 +145,14 @@ int uwsgi_response_add_header(struct wsgi_request *wsgi_req, char *key, uint16_t
 		rh = rh->next;
 	}
 
-	if (!wsgi_req->headers) {
-		wsgi_req->headers = uwsgi_buffer_new(uwsgi.page_size);
-		wsgi_req->headers->limit = UMAX16;
-	}
+	return uwsgi_response_add_header_do(wsgi_req, key, key_len, value, value_len);
+}
 
-	struct uwsgi_buffer *hh = wsgi_req->socket->proto_add_header(wsgi_req, key, key_len, value, value_len);
-	if (!hh) { wsgi_req->write_errors++ ; return -1;}
-	if (uwsgi_buffer_append(wsgi_req->headers, hh->buf, hh->pos)) goto error;
-	wsgi_req->header_cnt++;
-	uwsgi_buffer_destroy(hh);
-	return 0;
-error:
-	uwsgi_buffer_destroy(hh);
-	wsgi_req->write_errors++;
-	return -1;
+int uwsgi_response_add_header_force(struct wsgi_request *wsgi_req, char *key, uint16_t key_len, char *value, uint16_t value_len) {
+
+        if (wsgi_req->headers_sent || wsgi_req->headers_size || wsgi_req->response_size || wsgi_req->write_errors) return -1;
+
+        return uwsgi_response_add_header_do(wsgi_req, key, key_len, value, value_len);
 }
 
 int uwsgi_response_write_headers_do(struct wsgi_request *wsgi_req) {
@@ -198,8 +209,27 @@ int uwsgi_response_write_body_do(struct wsgi_request *wsgi_req, char *buf, size_
 
 	if (wsgi_req->write_errors) return -1;
 
-	// do not commit headers until a response_buffer is available (take in account flushing)
-	if ((!wsgi_req->response_buffer || wsgi_req->initial_flush || wsgi_req->flush) && !wsgi_req->headers_sent) {
+	// if the transformation chain returns 1, we are in buffering mode
+	if (wsgi_req->transformed_chunk_len == 0 && wsgi_req->transformations) {
+		int t_ret = uwsgi_apply_transformations(wsgi_req, buf, len);
+		if (t_ret == 0) {
+			buf = wsgi_req->transformed_chunk;
+			len = wsgi_req->transformed_chunk_len;
+			// reset transformation
+			wsgi_req->transformed_chunk = NULL;
+			wsgi_req->transformed_chunk_len = 0;
+			goto write;
+		}
+		if (t_ret == 1) {
+			return UWSGI_OK;
+		}
+		wsgi_req->write_errors++;
+		return -1;
+	}
+
+write:
+	// send headers if not already sent
+	if (!wsgi_req->headers_sent) {
 		int ret = uwsgi_response_write_headers_do(wsgi_req);
                 if (ret == UWSGI_OK) goto sendbody;
                 if (ret == UWSGI_AGAIN) return UWSGI_AGAIN;
@@ -211,20 +241,6 @@ sendbody:
 
 	if (len == 0) return UWSGI_OK;
 	
-	// pay attention to not append if the buf == wsgi_req->response_buffer
-	if (wsgi_req->response_buffer && !wsgi_req->flush && buf != wsgi_req->response_buffer->buf) {
-		if (uwsgi_buffer_append(wsgi_req->response_buffer, buf, len)) {
-			wsgi_req->write_errors++;
-			return -1;
-		}
-		// we could be here even if initial_flush is set
-		if (!wsgi_req->initial_flush)
-			return UWSGI_OK;
-	}
-
-	// reset flushing
-	wsgi_req->flush = 0;
-
 	for(;;) {
 		int ret = wsgi_req->socket->proto_write(wsgi_req, buf, len);
 		if (ret < 0) {

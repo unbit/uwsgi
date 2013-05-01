@@ -4,22 +4,22 @@
 
 /*
 
-	gzip transformations reset your headers !!!
+	gzip transformations add content-encoding to your headers and changes the final size !!!
 
-	remember to re-add the content type via routing rules
+	remember to fix the content_length !!!
 
 */
 
-static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **new, void *data) {
+static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
+	struct uwsgi_buffer *ub = ut->chunk;
 	struct uwsgi_buffer *gzipped = uwsgi_gzip(ub->buf, ub->pos);
 	if (!gzipped) {
 		return -1;
 	}
-	// use this new buffer
-	*new = gzipped;	
-	if (uwsgi_response_prepare_headers_int(wsgi_req, wsgi_req->status)) return -1;
+	// swap the old buf with the new one
+	uwsgi_buffer_destroy(ut->chunk);
+	ut->chunk = gzipped;
         if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4)) return -1;
-        if (uwsgi_response_add_content_length(wsgi_req, gzipped->pos)) return -1;
 	return 0;
 }
 

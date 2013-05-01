@@ -1,15 +1,16 @@
 #include <uwsgi.h>
 
-static int transform_toupper(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **foobar, void *data) {
+static int transform_toupper(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
 	size_t i;
-	for(i=0;i<ub->pos;i++) {
-		ub->buf[i] = toupper((int) ub->buf[i]);
+	for(i=0;i<ut->chunk->pos;i++) {
+		ut->chunk->buf[i] = toupper((int) ut->chunk->buf[i]);
 	}
 	return 0;
 }
 
 static int uwsgi_routing_func_toupper(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-	uwsgi_add_transformation(wsgi_req, transform_toupper, NULL);
+	struct uwsgi_transformation *ut = uwsgi_add_transformation(wsgi_req, transform_toupper, NULL);
+	ut->can_stream = 1;
 	return UWSGI_ROUTE_NEXT;
 }
 

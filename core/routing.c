@@ -486,25 +486,45 @@ static int uwsgi_router_goon(struct uwsgi_route *ur, char *arg) {
 }
 
 // flush response
-static int transform_flush(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub, struct uwsgi_buffer **foobar, void *data) {
-	wsgi_req->flush = 1;
-	return uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+static int transform_flush(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
+	// avoid loops !!!
+	if (ut->chunk->pos == 0) return 0;
+	wsgi_req->transformed_chunk = ut->chunk->buf;
+	wsgi_req->transformed_chunk_len = ut->chunk->pos;
+	int ret = uwsgi_response_write_body_do(wsgi_req, ut->chunk->buf, ut->chunk->pos);
+	wsgi_req->transformed_chunk = NULL;
+	wsgi_req->transformed_chunk_len = 0;
+	return ret;
 }
 static int uwsgi_router_flush_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
-	// if there are no transformations defined, set the flush right now
-	if (!wsgi_req->transformations) {
-		wsgi_req->initial_flush = 1;
-	}
-	else {
-		// otherwise push it in the chain
-		uwsgi_add_transformation(wsgi_req, transform_flush, NULL);
-	}
+	struct uwsgi_transformation *ut = uwsgi_add_transformation(wsgi_req, transform_flush, NULL);
+	ut->can_stream = 1;
 	return UWSGI_ROUTE_NEXT;	
 }
 static int uwsgi_router_flush(struct uwsgi_route *ur, char *arg) {
         ur->func = uwsgi_router_flush_func;
         return 0;
 }
+
+// fix content length
+static int transform_fixcl(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
+	char buf[sizeof(UMAX64_STR)+1];
+        int ret = snprintf(buf, sizeof(UMAX64_STR)+1, "%llu", (unsigned long long) ut->chunk->pos);
+        if (ret <= 0 || ret > (int) (sizeof(UMAX64_STR)+1)) {
+                wsgi_req->write_errors++;
+                return -1;
+        }
+        return uwsgi_response_add_header(wsgi_req, "Content-Length", 14, buf, ret);
+}
+static int uwsgi_router_fixcl_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
+        uwsgi_add_transformation(wsgi_req, transform_fixcl, NULL);
+        return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_fixcl(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_fixcl_func;
+        return 0;
+}
+
 
 // log route
 static int uwsgi_router_log_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
@@ -1324,6 +1344,7 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("alarm", uwsgi_router_alarm);
 
         uwsgi_register_router("flush", uwsgi_router_flush);
+        uwsgi_register_router("fixcl", uwsgi_router_fixcl);
 
         uwsgi_register_route_condition("exists", uwsgi_route_condition_exists);
         uwsgi_register_route_condition("isfile", uwsgi_route_condition_isfile);
