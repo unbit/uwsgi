@@ -19,7 +19,9 @@ static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_transforma
 	// swap the old buf with the new one
 	uwsgi_buffer_destroy(ut->chunk);
 	ut->chunk = gzipped;
-        if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4)) return -1;
+	if (!wsgi_req->headers_sent) {
+        	if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4)) return -1;
+	}
 	return 0;
 }
 
