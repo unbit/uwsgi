@@ -27,6 +27,8 @@ int uwsgi_apply_transformations(struct wsgi_request *wsgi_req, char *buf, size_t
 		if (!ut->chunk) {
 			ut->chunk = uwsgi_buffer_new(t_len);
 		}
+		// skip final transformations before appending data
+		if (ut->is_final) goto next;
 		if (uwsgi_buffer_append(ut->chunk, t_buf, t_len)) {
 			return -1;
 		}
@@ -42,6 +44,7 @@ int uwsgi_apply_transformations(struct wsgi_request *wsgi_req, char *buf, size_t
 		t_len = ut->chunk->pos;
 		// we reset the buffer, so we do not waste memory
 		ut->chunk->pos = 0;
+next:
 		ut = ut->next;
 	}
 
@@ -117,6 +120,7 @@ struct uwsgi_transformation *uwsgi_add_transformation(struct wsgi_request *wsgi_
 
 	ut = uwsgi_malloc(sizeof(struct uwsgi_transformation));
 	ut->func = func;
+	ut->is_final = 0;
 	ut->next = NULL;
 	ut->chunk = NULL;
 	ut->can_stream = 0;

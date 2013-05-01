@@ -10,17 +10,25 @@
 
 static int transform_chunked(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
 	struct uwsgi_buffer *ub = ut->chunk;
-	if (uwsgi_buffer_insert_chunked(ub, 0, ub->pos)) return -1;
-	if (uwsgi_buffer_append(ub, "\r\n", 2)) return -1;
 	if (!wsgi_req->headers_sent) {
         	if (uwsgi_response_add_header(wsgi_req, "Transfer-Encoding", 17, "chunked", 7)) return -1;
 	}
+	if (ut->is_final) {
+		if (uwsgi_buffer_insert_chunked(ub, 0, 0)) return -1;
+	}
+	else {
+		if (uwsgi_buffer_insert_chunked(ub, 0, ub->pos)) return -1;
+	}
+	if (uwsgi_buffer_append(ub, "\r\n", 2)) return -1;
 	return 0;
 }
 
 static int uwsgi_routing_func_chunked(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 	struct uwsgi_transformation *ut = uwsgi_add_transformation(wsgi_req, transform_chunked, NULL);
 	ut->can_stream = 1;
+	// add a "final" transformation to add the trailing chunk
+	ut = uwsgi_add_transformation(wsgi_req, transform_chunked, NULL);
+	ut->is_final = 1;
 	return UWSGI_ROUTE_NEXT;
 }
 

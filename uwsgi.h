@@ -1198,6 +1198,7 @@ struct uwsgi_transformation {
 	int (*func)(struct wsgi_request *, struct uwsgi_transformation *);
 	struct uwsgi_buffer *chunk;
 	uint8_t can_stream;
+	uint8_t is_final;
 	void *data;
 	struct uwsgi_transformation *next;
 };
