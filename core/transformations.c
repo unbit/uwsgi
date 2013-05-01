@@ -4,10 +4,11 @@
 
 	uWSGI transformations
 
-	responses can be buffered in the wsgi_request structure (instead of being sent to the client)
-	Before closing the request, the transformations are applied in chain to the response buffer
+	each body chunk is passed (in chain) to every transformation
 
-	Finally the resulting buffer is sent to the client
+	some of them supports streaming, other requires buffering
+
+	at the end of the request the "final chain" is called (and the whole chain freed)
 
 	Transformations (if required) could completely swallow already set headers
 
@@ -22,6 +23,7 @@ int uwsgi_apply_transformations(struct wsgi_request *wsgi_req, char *buf, size_t
 	struct uwsgi_transformation *ut = wsgi_req->transformations;
 	char *t_buf = buf;
 	size_t t_len = len;
+	uint8_t flushed = 0;
 	while(ut) {
 		// allocate the buffer (if needed)
 		if (!ut->chunk) {
@@ -36,9 +38,12 @@ int uwsgi_apply_transformations(struct wsgi_request *wsgi_req, char *buf, size_t
 		// if the transformation cannot stream, continue buffering (the func will be called at the end)
 		if (!ut->can_stream) return 1;
 		
+		ut->round++;
 		if (ut->func(wsgi_req, ut)) {
 			return -1;
 		}
+
+		if (ut->flushed) flushed = 1;
 
 		t_buf = ut->chunk->buf;
 		t_len = ut->chunk->pos;
@@ -50,54 +55,74 @@ next:
 
 	// if we are here we can tell the writer to send the body to the client
 	// no buffering please
-	wsgi_req->transformed_chunk = t_buf;
-	wsgi_req->transformed_chunk_len = t_len;
+	if (!flushed) {
+		wsgi_req->transformed_chunk = t_buf;
+		wsgi_req->transformed_chunk_len = t_len;
+	}
 	return 0;
 
 }
 
 /*
 
-if a transformation is "final", we need to call it independently by the write status
+run all the remaining (or buffered) transformations
 
 */
 int uwsgi_apply_final_transformations(struct wsgi_request *wsgi_req) {
-	int ret = 0;
 	struct uwsgi_transformation *ut = wsgi_req->transformations;
 	wsgi_req->transformed_chunk = NULL;
         wsgi_req->transformed_chunk_len = 0;
 	char *t_buf = NULL;
 	size_t t_len = 0;
+	uint8_t flushed = 0;
+	int found_nostream = 0;
 	while(ut) {
-		if (ut->chunk) {
-			t_buf = ut->chunk->buf;
-			t_len = ut->chunk->pos;
-			// if the transformation can stream and has a chunk, we already applied it
-			if (ut->can_stream) goto next;
+		if (!found_nostream) {
+			if (!ut->can_stream) {
+				found_nostream = 1;
+			}
+			else {
+				t_buf = ut->chunk->buf;
+                		t_len = ut->chunk->pos;
+				goto next;
+			}
 		}
-		else if (t_len > 0) {
-			ut->chunk = uwsgi_buffer_new(t_len);
-			if (uwsgi_buffer_append(ut->chunk, t_buf, t_len)) {
-				return -1;
+
+		if (!ut->chunk) {
+			if (t_len > 0) {
+				ut->chunk = uwsgi_buffer_new(t_len);
+			}
+			else {
+				ut->chunk = uwsgi_buffer_new(uwsgi.page_size);
 			}
 		}
 		
+		if (t_len > 0) {
+			if (uwsgi_buffer_append(ut->chunk, t_buf, t_len)) {
+				return -1;
+                	}
+		}
+		
 		// run the transformation
+		ut->round++;
 		if (ut->func(wsgi_req, ut)) {
-			ret = -1;
+			return -1;
                 }
+
+		if (ut->flushed) flushed = 1;
 
 		t_buf = ut->chunk->buf;
 		t_len = ut->chunk->pos;
-		
 next:
 		ut = ut->next;
 	}
 
 	// if we are here, all of the transformations are applied
-	wsgi_req->transformed_chunk = t_buf;
-        wsgi_req->transformed_chunk_len = t_len;
-        return ret;
+	if (!flushed) {
+		wsgi_req->transformed_chunk = t_buf;
+        	wsgi_req->transformed_chunk_len = t_len;
+	}
+        return 0;
 }
 
 void uwsgi_free_transformations(struct wsgi_request *wsgi_req) {

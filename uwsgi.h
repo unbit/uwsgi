@@ -1199,7 +1199,9 @@ struct uwsgi_transformation {
 	struct uwsgi_buffer *chunk;
 	uint8_t can_stream;
 	uint8_t is_final;
+	uint8_t flushed;
 	void *data;
+	uint64_t round;
 	struct uwsgi_transformation *next;
 };
 

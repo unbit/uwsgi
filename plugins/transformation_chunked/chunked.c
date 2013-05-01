@@ -10,16 +10,22 @@
 
 static int transform_chunked(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
 	struct uwsgi_buffer *ub = ut->chunk;
-	if (!wsgi_req->headers_sent) {
-        	if (uwsgi_response_add_header(wsgi_req, "Transfer-Encoding", 17, "chunked", 7)) return -1;
-	}
+
 	if (ut->is_final) {
-		if (uwsgi_buffer_insert_chunked(ub, 0, 0)) return -1;
+		if (uwsgi_buffer_append(ub, "0\r\n\r\n", 5)) return -1;
+		return 0;
 	}
-	else {
+
+	if (ut->round == 1) {
+		// do not check for errors !!!
+        	uwsgi_response_add_header(wsgi_req, "Transfer-Encoding", 17, "chunked", 7);
+	}
+
+	if (ub->pos > 0) {
 		if (uwsgi_buffer_insert_chunked(ub, 0, ub->pos)) return -1;
+		if (uwsgi_buffer_append(ub, "\r\n", 2)) return -1;
 	}
-	if (uwsgi_buffer_append(ub, "\r\n", 2)) return -1;
+
 	return 0;
 }
 

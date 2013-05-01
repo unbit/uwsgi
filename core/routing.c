@@ -494,6 +494,7 @@ static int transform_flush(struct wsgi_request *wsgi_req, struct uwsgi_transform
 	int ret = uwsgi_response_write_body_do(wsgi_req, ut->chunk->buf, ut->chunk->pos);
 	wsgi_req->transformed_chunk = NULL;
 	wsgi_req->transformed_chunk_len = 0;
+	ut->flushed = 1;
 	return ret;
 }
 static int uwsgi_router_flush_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
@@ -514,7 +515,9 @@ static int transform_fixcl(struct wsgi_request *wsgi_req, struct uwsgi_transform
                 wsgi_req->write_errors++;
                 return -1;
         }
-        return uwsgi_response_add_header(wsgi_req, "Content-Length", 14, buf, ret);
+	// do not check for errors !!!
+        uwsgi_response_add_header(wsgi_req, "Content-Length", 14, buf, ret);
+	return 0;
 }
 static int uwsgi_router_fixcl_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
         uwsgi_add_transformation(wsgi_req, transform_fixcl, NULL);

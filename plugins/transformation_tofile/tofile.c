@@ -28,7 +28,7 @@ static int transform_tofile(struct wsgi_request *wsgi_req, struct uwsgi_transfor
 	// store only successfull response
 	if (wsgi_req->write_errors == 0 && wsgi_req->status == 200 && ub->pos > 0) {
 		if (uttc->filename) {
-			int fd = open(uttc->filename->buf, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+			int fd = open(uttc->filename->buf, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
 			if (fd < 0) {
 				uwsgi_error_open(uttc->filename->buf);
 				goto end;
@@ -58,6 +58,7 @@ end:
 	// free resources
 	if (uttc->filename) uwsgi_buffer_destroy(uttc->filename);
 	free(uttc);
+	// reset the buffer
         return 0;
 }
 

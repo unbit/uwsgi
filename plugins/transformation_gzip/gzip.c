@@ -22,11 +22,8 @@ extern char gzheader[];
 static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
 	struct uwsgi_transformation_gzip *utgz = (struct uwsgi_transformation_gzip *) ut->data;
 	struct uwsgi_buffer *ub = ut->chunk;
-	if (!wsgi_req->headers_sent) {
-        	if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4)) return -1;
-	}
+
 	if (ut->is_final) {
-		uwsgi_log("size = %d %d\n", ub->pos, utgz->len);
 		if (uwsgi_gzip_fix(&utgz->z, utgz->crc32, ub, utgz->len)) {
 			free(utgz);
 			return -1;
@@ -34,17 +31,21 @@ static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_transforma
 		free(utgz);
 		return 0;
 	}
+
 	size_t dlen = 0;
 	char *gzipped = uwsgi_gzip_chunk(&utgz->z, &utgz->crc32, ub->buf, ub->pos, &dlen);
 	if (!gzipped) return -1;
 	utgz->len += ub->pos;
 	uwsgi_buffer_map(ub, gzipped, dlen);
 	if (!utgz->header) {
+		// do not check for errors !!!
+        	uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4);
 		utgz->header = 1;
 		if (uwsgi_buffer_insert(ub, 0, gzheader, 10)) {
 			return -1;
 		}
 	}
+
 	return 0;
 }
 
