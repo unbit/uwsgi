@@ -269,8 +269,9 @@ end2:
 
 
 	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {
-          int running_cores = 0;
-          for(int i=0;i<uwsgi.async;i++) {
+		int running_cores = 0;
+		int i;
+          for(i=0;i<uwsgi.async;i++) {
             if (uwsgi.workers[uwsgi.mywid].cores[i].in_request) {
               running_cores++;
             }
