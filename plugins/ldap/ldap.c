@@ -1,6 +1,19 @@
 #include <uwsgi.h>
 
+/*
+	Authors:
+
+	Roberto De Ioris <roberto@unbit.it> - general LDAP support, reading uWSGI configuration from LDAP servers
+
+	Łukasz Mierzwa <l.mierzwa@gmail.com> - LDAP auth router support
+*/
+
 extern struct uwsgi_server uwsgi;
+
+// enable depracated APIs
+#ifndef LDAP_DEPRECATED
+#define LDAP_DEPRECATED 1
+#endif
 
 #include <ldap.h>
 
@@ -366,7 +379,280 @@ static void uwsgi_ldap_config(char *url) {
 
 }
 
+#ifdef UWSGI_ROUTING
+
+struct uwsgi_ldapauth_config {
+	char *url;
+	LDAPURLDesc *ldap_url;
+	char *binddn;
+	char *bindpw;
+	char *basedn;
+	char *filter;
+	char *login_attr;
+	int loglevel;
+};
+
+LDAP *ldap_connect(struct uwsgi_ldapauth_config *ulc) {
+	LDAP *ldp;
+	int desired_version = LDAP_VERSION3;
+	int ret;
+
+	if ((ldp = ldap_init(ulc->ldap_url->lud_host, ulc->ldap_url->lud_port)) == NULL) {
+		uwsgi_log("[router-ldapauth] can't connect to LDAP server at %s\n", ulc->url);
+		return NULL;
+	}
+
+	if ((ret = ldap_set_option(ldp, LDAP_OPT_PROTOCOL_VERSION, &desired_version)) != LDAP_OPT_SUCCESS) {
+		uwsgi_log("[router-ldapauth] LDAP protocol version mismatch: %s\n", ldap_err2string(ret));
+		if ((ret = ldap_unbind_s(ldp)) != LDAP_OPT_SUCCESS) {
+			uwsgi_log("[router-ldapauth] LDAP unbind error: %s\n", ldap_err2string(ret));
+		}
+		return NULL;
+	}
+
+	return ldp;
+}
+
+static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth) {
+
+	char *colon = strchr(auth, ':');
+	if (!colon) return 0;
+
+	char username[128];
+	if (snprintf(username, 128, "%.*s", (int) (colon-auth), auth) < 0) {
+		uwsgi_error("ldap_passwd_check()/sprintfn");
+		return 0;
+	}
+
+	int ret;
+	uint16_t ulen = 0;
+	LDAP *ldp = ldap_connect(ulc);
+	if (!ldp)
+		return 0;
+
+	// first bind if needed
+	if (ulc->binddn && ulc->bindpw) {
+		if ((ret = ldap_bind_s(ldp, ulc->binddn, ulc->bindpw, LDAP_AUTH_SIMPLE)) != LDAP_OPT_SUCCESS) {
+			uwsgi_log("[router-ldapauth] can't bind as user '%s' to '%s': %s\n", ulc->binddn, ulc->url, ldap_err2string(ret));
+			goto close;
+		}
+	}
+
+	// search for user
+	char *userdn = NULL;
+	int i;
+	LDAPMessage *msg, *entry;
+	char filter[1024];
+	if (snprintf(filter, 1024, "(&(%s=%s)%s)", ulc->login_attr, username, ulc->filter) < 0) {
+		uwsgi_error("ldap_passwd_check()/sprintfn(filter)");
+		goto close;
+	}
+
+	if ((ret = ldap_search_s(ldp, ulc->basedn, LDAP_SCOPE_SUBTREE, filter, NULL, 0, &msg)) != LDAP_OPT_SUCCESS) {
+		uwsgi_log("[router-ldapauth] search error on '%s': %s\n", ulc->url, ldap_err2string(ret));
+		goto close;
+	}
+	else {
+		entry = ldap_first_entry(ldp, msg);
+		while (entry) {
+			char **vals = ldap_get_values(ldp, entry, ulc->login_attr);
+			for (i=0; i < ldap_count_values(vals); i++) {
+				if (!strcmp(username, vals[i])) {
+					userdn = ldap_get_dn(ldp, entry);
+					break;
+				}
+			}
+			entry = ldap_next_entry(ldp, entry);
+		}
+	}
+
+	if (userdn) {
+		// user found in ldap, try to bind
+
+		// first unbind system connection
+		if ((ret = ldap_unbind_s(ldp)) != LDAP_OPT_SUCCESS) {
+			uwsgi_log("[router-ldapauth] LDAP unbind error: %s\n", ldap_err2string(ret));
+		}
+
+		LDAP *ldp = ldap_connect(ulc);
+		if (!ldp) {
+			ldap_memfree(userdn);
+			return 0;
+		}
+
+		if ((ret = ldap_bind_s(ldp, userdn, colon+1, LDAP_AUTH_SIMPLE)) != LDAP_OPT_SUCCESS) {
+			if (ulc->loglevel)
+				uwsgi_log("[router-ldapauth] can't bind as user '%s' to '%s': %s\n", userdn, ulc->url, ldap_err2string(ret));
+		}
+		else {
+			if (ulc->loglevel > 1)
+				uwsgi_log("[router-ldapauth] successful bind as user '%s' to '%s'\n", userdn, ulc->url);
+			ulen = strlen(username);
+		}
+
+		ldap_memfree(userdn);
+	}
+	else if (ulc->loglevel) {
+		uwsgi_log("router-ldapauth] user '%s' not found in LDAP server at '%s'\n", username, ulc->url);
+	}
+
+close:
+	if ((ret = ldap_unbind_s(ldp)) != LDAP_OPT_SUCCESS) {
+		uwsgi_log("[router-ldapauth] LDAP unbind error: %s\n", ldap_err2string(ret));
+	}
+
+	return ulen;
+}
+
+int uwsgi_routing_func_ldapauth(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+
+	// skip if already authenticated
+	if (wsgi_req->remote_user_len > 0) {
+		return UWSGI_ROUTE_NEXT;
+	}
+
+	if (wsgi_req->authorization_len > 7 && ur->data2) {
+		if (strncmp(wsgi_req->authorization, "Basic ", 6))
+			goto forbidden;
+
+		size_t auth_len = 0;
+		char *auth = uwsgi_base64_decode(wsgi_req->authorization+6, wsgi_req->authorization_len-6, &auth_len);
+		if (auth) {
+			if (!ur->custom) {
+				uint16_t ulen = ldap_passwd_check(ur->data2, auth);
+				if (ulen > 0) {
+					wsgi_req->remote_user = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, auth, ulen); 
+					if (wsgi_req->remote_user)
+						wsgi_req->remote_user_len = ulen;
+				}
+				else if (ur->data3_len == 0) {
+					free(auth);
+					goto forbidden;
+				}
+			}
+			free(auth);
+			return UWSGI_ROUTE_NEXT;
+		}
+	}
+
+forbidden:
+	if (uwsgi_response_prepare_headers(wsgi_req, "401 Authorization Required", 26)) goto end;
+	char *realm = uwsgi_concat3n("Basic realm=\"", 13, ur->data, ur->data_len, "\"", 1);
+	int ret = uwsgi_response_add_header(wsgi_req, "WWW-Authenticate", 16, realm, 13 + ur->data_len + 1);
+	free(realm);
+	if (ret) goto end;
+	uwsgi_response_write_body_do(wsgi_req, "Unauthorized", 12);
+end:
+	return UWSGI_ROUTE_BREAK;
+}
+
+static int uwsgi_router_ldapauth(struct uwsgi_route *ur, char *args) {
+
+	ur->func = uwsgi_routing_func_ldapauth;
+
+	char *comma = strchr(args, ',');
+	if (!comma) {
+		uwsgi_log("invalid route syntax: %s\n", args);
+		exit(1);
+	}
+	*comma = 0;
+
+	ur->data = args;
+	ur->data_len = strlen(args);
+
+	char *url = NULL;
+	char *binddn = NULL;
+	char *bindpw = NULL;
+	char *basedn = NULL;
+	char *filter = NULL;
+	char *attr = NULL;
+	char *loglevel = NULL;
+	if (uwsgi_kvlist_parse(comma+1, strlen(comma+1), ';', '=',
+		"url", &url,
+		"binddn", &binddn,
+		"bindpw", &bindpw,
+		"basedn", &basedn,
+		"filter", &filter,
+		"attr", &attr,
+		"loglevel", &loglevel,
+		NULL)) {
+			uwsgi_log("[router-ldapauth] unable to parse options: %s\n", comma+1);
+			exit(1);
+	}
+	else {
+		struct uwsgi_ldapauth_config *ulc = uwsgi_malloc(sizeof(struct uwsgi_ldapauth_config));
+
+		if (!basedn) {
+			uwsgi_log("[router-ldapauth] missing LDAP base dn (basedn option) on line: %s\n", comma+1);
+			exit(1);
+		}
+		else {
+			ulc->basedn = basedn;
+		}
+
+		if (!url) {
+			uwsgi_log("[router-ldapauth] missing LDAP server url (url option) on line: %s\n", comma+1);
+			exit(1);
+		}
+		else {
+			if (!ldap_is_ldap_url(url)) {
+				uwsgi_log("[router-ldapauth] invalid LDAP url: %s\n", url);
+				exit(1);
+			}
+			if (ldap_url_parse(url, &ulc->ldap_url) != LDAP_SUCCESS) {
+				uwsgi_log("[router-ldapauth] unable to parse LDAP url: %s\n", url);
+				exit(1);
+				}
+		}
+
+		if (!filter) {
+			ulc->filter = uwsgi_str("(objectClass=*)");
+		}
+		else {
+			ulc->filter = filter;
+		}
+
+		if (!attr) {
+			ulc->login_attr = uwsgi_str("uid");
+		}
+		else {
+			ulc->login_attr = attr;
+		}
+
+		ulc->url = url;
+
+		ulc->binddn = binddn;
+		ulc->bindpw = bindpw;
+
+		if (loglevel) {
+			ulc->loglevel = atoi(loglevel);
+		}
+		else {
+			ulc->loglevel = 0;
+		}
+
+		ur->data2 = ulc;
+	}
+
+	return 0;
+}
+
+static int uwsgi_router_ldapauth_next(struct uwsgi_route *ur, char *args) {
+	ur->data3_len = 1;
+	return uwsgi_router_ldapauth(ur, args);
+}
+#endif
+
+void uwsgi_ldap_register(void) {
+#ifdef UWSGI_ROUTING
+	uwsgi_register_router("ldapauth", uwsgi_router_ldapauth);
+	uwsgi_register_router("ldapauth-next", uwsgi_router_ldapauth_next);
+#endif
+}
+
 struct uwsgi_plugin ldap_plugin = {
 	.name = "ldap",
-	.options = uwsgi_ldap_options,	
+	.options = uwsgi_ldap_options,
+	.on_load = uwsgi_ldap_register,
 };
+
