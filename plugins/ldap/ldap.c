@@ -392,27 +392,6 @@ struct uwsgi_ldapauth_config {
 	int loglevel;
 };
 
-LDAP *ldap_connect(struct uwsgi_ldapauth_config *ulc) {
-	LDAP *ldp;
-	int desired_version = LDAP_VERSION3;
-	int ret;
-
-	if ((ldp = ldap_init(ulc->ldap_url->lud_host, ulc->ldap_url->lud_port)) == NULL) {
-		uwsgi_log("[router-ldapauth] can't connect to LDAP server at %s\n", ulc->url);
-		return NULL;
-	}
-
-	if ((ret = ldap_set_option(ldp, LDAP_OPT_PROTOCOL_VERSION, &desired_version)) != LDAP_OPT_SUCCESS) {
-		uwsgi_log("[router-ldapauth] LDAP protocol version mismatch: %s\n", ldap_err2string(ret));
-		if ((ret = ldap_unbind_s(ldp)) != LDAP_OPT_SUCCESS) {
-			uwsgi_log("[router-ldapauth] LDAP unbind error: %s\n", ldap_err2string(ret));
-		}
-		return NULL;
-	}
-
-	return ldp;
-}
-
 static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth) {
 
 	char *colon = strchr(auth, ':');
@@ -426,9 +405,19 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 
 	int ret;
 	uint16_t ulen = 0;
-	LDAP *ldp = ldap_connect(ulc);
-	if (!ldp)
+
+	LDAP *ldp;
+	int desired_version = LDAP_VERSION3;
+
+	if ((ldp = ldap_init(ulc->ldap_url->lud_host, ulc->ldap_url->lud_port)) == NULL) {
+		uwsgi_log("[router-ldapauth] can't connect to LDAP server at %s\n", ulc->url);
 		return 0;
+	}
+
+	if ((ret = ldap_set_option(ldp, LDAP_OPT_PROTOCOL_VERSION, &desired_version)) != LDAP_OPT_SUCCESS) {
+		uwsgi_log("[router-ldapauth] LDAP protocol version mismatch: %s\n", ldap_err2string(ret));
+		goto close;
+	}
 
 	// first bind if needed
 	if (ulc->binddn && ulc->bindpw) {
@@ -468,17 +457,6 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 
 	if (userdn) {
 		// user found in ldap, try to bind
-
-		// first unbind system connection
-		if ((ret = ldap_unbind_s(ldp)) != LDAP_OPT_SUCCESS) {
-			uwsgi_log("[router-ldapauth] LDAP unbind error: %s\n", ldap_err2string(ret));
-		}
-
-		LDAP *ldp = ldap_connect(ulc);
-		if (!ldp) {
-			ldap_memfree(userdn);
-			return 0;
-		}
 
 		if ((ret = ldap_bind_s(ldp, userdn, colon+1, LDAP_AUTH_SIMPLE)) != LDAP_OPT_SUCCESS) {
 			if (ulc->loglevel)
