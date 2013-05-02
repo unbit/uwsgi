@@ -30,16 +30,6 @@ PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
         uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 
-	// no need to worry about freeing memory
-        PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
-        if (uwsgi_dict) {
-        	PyObject *ae = PyDict_GetItemString(uwsgi_dict, "atexit");
-                if (ae) {
-                	python_call(ae, PyTuple_New(0), 0, NULL);
-                }
-	}
-
-	
 	uwsgi_log_verbose("stopping gevent signals watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	PyObject_CallMethod(ugevent.my_signal_watcher, "stop", NULL);
 	PyObject_CallMethod(ugevent.signal_watcher, "stop", NULL);
@@ -64,7 +54,16 @@ PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
 
 	if (running_cores > 0) {
 		uwsgi_log_verbose("waiting for %d running requests on worker %d (pid: %d)...\n", running_cores, uwsgi.mywid, uwsgi.mypid);
-	}
+	} else {
+            // no need to worry about freeing memory
+            PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
+            if (uwsgi_dict) {
+              PyObject *ae = PyDict_GetItemString(uwsgi_dict, "atexit");
+              if (ae) {
+                python_call(ae, PyTuple_New(0), 0, NULL);
+              }
+            }
+        }
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -267,6 +266,27 @@ end2:
 
 	uwsgi_close_request(wsgi_req);
 	free_req_queue;
+
+
+	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {
+          int running_cores = 0;
+          for(int i=0;i<uwsgi.async;i++) {
+            if (uwsgi.workers[uwsgi.mywid].cores[i].in_request) {
+              running_cores++;
+            }
+          }
+
+          if (running_cores == 0) {
+            // no need to worry about freeing memory
+            PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
+            if (uwsgi_dict) {
+              PyObject *ae = PyDict_GetItemString(uwsgi_dict, "atexit");
+              if (ae) {
+                python_call(ae, PyTuple_New(0), 0, NULL);
+              }
+            }
+          }
+        }
 
 	Py_INCREF(Py_None);
 	return Py_None;
