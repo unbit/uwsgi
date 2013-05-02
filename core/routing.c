@@ -1230,6 +1230,19 @@ static char *uwsgi_route_var_mime(struct wsgi_request *wsgi_req, char *key, uint
         return ret;
 }
 
+static char *uwsgi_route_var_httptime(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
+        // 30+1
+        char *ht = uwsgi_calloc(31);
+	size_t t = uwsgi_str_num(key, keylen);
+        int len = uwsgi_http_date(uwsgi_now() + t, ht);
+	if (len == 0) {
+		free(ht);
+		return NULL;
+	}
+	*vallen = len;
+        return ht;
+}
+
 
 static char *uwsgi_route_var_time(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
         char *ret = NULL;
@@ -1366,6 +1379,8 @@ void uwsgi_register_embedded_routers() {
         struct uwsgi_route_var *urv = uwsgi_register_route_var("uwsgi", uwsgi_route_var_uwsgi);
 	urv->need_free = 1;
         urv = uwsgi_register_route_var("time", uwsgi_route_var_time);
+	urv->need_free = 1;
+        urv = uwsgi_register_route_var("httptime", uwsgi_route_var_httptime);
 	urv->need_free = 1;
 #ifdef UWSGI_MATHEVAL
         urv = uwsgi_register_route_var("math", uwsgi_route_var_math);

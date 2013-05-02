@@ -83,12 +83,20 @@ int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_rou
 					if (wsgi_req->remote_user)
 						wsgi_req->remote_user_len = ulen;
 				}
+				else if (ur->data3_len == 0) {
+					free(auth);
+					goto forbidden;
+				}
 			}
 			else {
 				if (!uwsgi_strncmp(auth, auth_len, ur->data2, ur->data2_len)) {
 					wsgi_req->remote_user = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, auth, ur->custom); 
 					if (wsgi_req->remote_user)
 						wsgi_req->remote_user_len = ur->custom;
+				}
+				else if (ur->data3_len == 0) {
+					free(auth);
+					goto forbidden;
 				}
 			}
 			free(auth);
@@ -143,8 +151,14 @@ static int uwsgi_router_basicauth(struct uwsgi_route *ur, char *args) {
 	return 0;
 }
 
+static int uwsgi_router_basicauth_next(struct uwsgi_route *ur, char *args) {
+	ur->data3_len = 1;
+	return uwsgi_router_basicauth(ur, args);
+}
+
 void router_basicauth_register(void) {
 	uwsgi_register_router("basicauth", uwsgi_router_basicauth);
+	uwsgi_register_router("basicauth-next", uwsgi_router_basicauth_next);
 }
 
 struct uwsgi_plugin router_basicauth_plugin = {
