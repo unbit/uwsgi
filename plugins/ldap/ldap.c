@@ -392,15 +392,8 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 	char *colon = strchr(auth, ':');
 	if (!colon) return 0;
 
-	char username[128];
-	if (snprintf(username, 128, "%.*s", (int) (colon-auth), auth) < 0) {
-		uwsgi_error("ldap_passwd_check()/sprintfn");
-		return 0;
-	}
-
 	int ret;
 	uint16_t ulen = 0;
-
 	LDAP *ldp;
 	int desired_version = LDAP_VERSION3;
 
@@ -440,7 +433,7 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 	char *userdn = NULL;
 	LDAPMessage *msg, *entry;
 	char filter[1024];
-	if (snprintf(filter, 1024, "(&(%s=%s)%s)", ulc->login_attr, username, ulc->filter) < 0) {
+	if (snprintf(filter, 1024, "(&(%s=%.*s)%s)", ulc->login_attr, (int) (colon-auth), auth, ulc->filter) <= 0) {
 		uwsgi_error("ldap_passwd_check()/sprintfn(filter)");
 		goto close;
 	}
@@ -453,12 +446,15 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 		entry = ldap_first_entry(ldp, msg);
 		while (entry) {
 			struct berval **vals = ldap_get_values_len(ldp, entry, ulc->login_attr);
-			if (!uwsgi_strncmp(username, strlen(username), vals[0]->bv_val, vals[0]->bv_len)) {
+			if (!uwsgi_strncmp(auth, colon-auth, vals[0]->bv_val, vals[0]->bv_len)) {
 				userdn = ldap_get_dn(ldp, entry);
+				free(vals);
 				break;
 			}
+			free(vals);
 			entry = ldap_next_entry(ldp, entry);
 		}
+		ldap_msgfree(msg);
 	}
 
 	if (userdn) {
@@ -478,13 +474,13 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 		else {
 			if (ulc->loglevel > 1)
 				uwsgi_log("[router-ldapauth] successful bind as user '%s' to '%s'\n", userdn, ulc->url);
-			ulen = strlen(username);
+			ulen = colon-auth;
 		}
 
 		ldap_memfree(userdn);
 	}
 	else if (ulc->loglevel) {
-		uwsgi_log("router-ldapauth] user '%s' not found in LDAP server at '%s'\n", username, ulc->url);
+		uwsgi_log("router-ldapauth] user '%.*s' not found in LDAP server at '%s'\n", colon-auth, auth, ulc->url);
 	}
 
 close:
