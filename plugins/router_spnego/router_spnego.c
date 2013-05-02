@@ -111,7 +111,6 @@ static int uwsgi_routing_func_spnego(struct wsgi_request *wsgi_req, struct uwsgi
 
         char *negotiate = NULL;
         size_t negotiate_len = 0;
-        struct uwsgi_buffer *ub = NULL;
         size_t b64_len = 0;
 
         // check for "Negotiate " string at least
@@ -128,9 +127,7 @@ static int uwsgi_routing_func_spnego(struct wsgi_request *wsgi_req, struct uwsgi
 				free(negotiate);
                                 uwsgi_additional_header_add(wsgi_req, auth_header, negotiate_len + 28);
                                 free(auth_header);
-                                if (ur->custom)
-                                        return UWSGI_ROUTE_CONTINUE;
-                                return UWSGI_ROUTE_GOON;
+                                return UWSGI_ROUTE_NEXT;
 
                         }
                 }
@@ -151,7 +148,7 @@ forbidden:
 		if (uwsgi_response_add_header(wsgi_req, "WWW-Authenticate", 16, "Negotiate", 9)) goto end;
 	}
 
-        uwsgi_response_write_body(wsgi_req, "Unauthorized", 12);
+        uwsgi_response_write_body_do(wsgi_req, "Unauthorized", 12);
 end:
         return UWSGI_ROUTE_BREAK;
 }
@@ -195,17 +192,8 @@ static int uwsgi_router_spnego(struct uwsgi_route *ur, char *args) {
         return 0;
 }
 
-static int uwsgi_router_spnego_last(struct uwsgi_route *ur, char *args) {
-	uwsgi_router_spnego(ur, args);
-	ur->custom = 1;
-	return 0;
-}
-
-
 static void router_spnego_register(void) {
-
 	uwsgi_register_router("spnego", uwsgi_router_spnego);
-	uwsgi_register_router("spnego-last", uwsgi_router_spnego_last);
 }
 
 struct uwsgi_plugin router_spnego_plugin = {
