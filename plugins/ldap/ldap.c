@@ -432,17 +432,21 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 	// search for user
 	char *userdn = NULL;
 	LDAPMessage *msg, *entry;
-	char filter[1024];
+	// use the minimal amount of memory
+	char *filter = uwsgi_malloc( strlen(ulc->login_attr) + (colon-auth) + strlen(ulc->filter) + 7);
 	if (snprintf(filter, 1024, "(&(%s=%.*s)%s)", ulc->login_attr, (int) (colon-auth), auth, ulc->filter) <= 0) {
+		free(filter);
 		uwsgi_error("ldap_passwd_check()/sprintfn(filter)");
 		goto close;
 	}
 
 	if ((ret = ldap_search_ext_s(ldp, ulc->basedn, LDAP_SCOPE_SUBTREE, filter, NULL, 0, NULL, NULL, NULL, 0, &msg)) != LDAP_SUCCESS) {
+		free(filter);
 		uwsgi_log("[router-ldapauth] search error on '%s': %s\n", ulc->url, ldap_err2string(ret));
 		goto close;
 	}
 	else {
+		free(filter);
 		entry = ldap_first_entry(ldp, msg);
 		while (entry) {
 			struct berval **vals = ldap_get_values_len(ldp, entry, ulc->login_attr);
