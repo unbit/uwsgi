@@ -247,9 +247,6 @@ static int uwsgi_routing_func_rpc_ret(struct wsgi_request *wsgi_req, struct uwsg
 	else if (!uwsgi_strncmp(response, size, "continue", 8 )) {
         	ret = UWSGI_ROUTE_CONTINUE;
 	}
-	else if (!uwsgi_strncmp(response, size, "goon", 4 )) {
-        	ret = UWSGI_ROUTE_GOON;
-	}
 	else if (!uwsgi_starts_with(response, size, "break", 5 )) {
         	ret = UWSGI_ROUTE_BREAK;
 		if (size > 6) {

@@ -23,6 +23,12 @@ struct uwsgi_router_cache_conf {
 	char *key;
 	size_t key_len;
 
+	char *var;
+	size_t var_len;
+
+	char *value;
+	size_t value_len;
+
 	// use mime types ?
 	char *mime;
 
@@ -172,6 +178,60 @@ error:
 	return UWSGI_ROUTE_BREAK;
 }
 
+// place a cache value in a request var
+static int uwsgi_routing_func_cachevar(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
+
+        struct uwsgi_router_cache_conf *urcc = (struct uwsgi_router_cache_conf *) ur->data2;
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urcc->key, urcc->key_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
+
+        uint64_t valsize = 0;
+        char *value = uwsgi_cache_magic_get(ub->buf, ub->pos, &valsize, NULL, urcc->name);
+        uwsgi_buffer_destroy(ub);
+        if (value) {
+		if (!uwsgi_req_append(wsgi_req, urcc->var, urcc->var_len, value, valsize)) {
+        		free(value);
+			return UWSGI_ROUTE_BREAK;
+        	}
+		free(value);
+        }
+
+        return UWSGI_ROUTE_NEXT;
+}
+
+// set a cache item
+static int uwsgi_routing_func_cacheset(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
+
+        struct uwsgi_router_cache_conf *urcc = (struct uwsgi_router_cache_conf *) ur->data2;
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urcc->key, urcc->key_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
+
+        struct uwsgi_buffer *ub_val = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urcc->value, urcc->value_len);
+        if (!ub_val) {
+		uwsgi_buffer_destroy(ub);
+		return UWSGI_ROUTE_BREAK;
+	}
+
+        if (uwsgi_cache_magic_set(ub->buf, ub->pos, ub_val->buf, ub_val->pos, urcc->expires, 0, urcc->name)) {
+		uwsgi_buffer_destroy(ub);
+		uwsgi_buffer_destroy(ub_val);
+		return UWSGI_ROUTE_BREAK;
+	}
+        uwsgi_buffer_destroy(ub);
+	uwsgi_buffer_destroy(ub_val);
+        return UWSGI_ROUTE_NEXT;
+}
+
+
+
 static int uwsgi_router_cache_store(struct uwsgi_route *ur, char *args) {
 	ur->func = uwsgi_routing_func_cache_store;
 	ur->data = args;
@@ -264,9 +324,90 @@ static int uwsgi_router_cache_continue(struct uwsgi_route *ur, char *args) {
 	return 0;
 }
 
+static int uwsgi_router_cacheset(struct uwsgi_route *ur, char *args) {
+        ur->func = uwsgi_routing_func_cacheset;
+        ur->data = args;
+        ur->data_len = strlen(args);
+        struct uwsgi_router_cache_conf *urcc = uwsgi_calloc(sizeof(struct uwsgi_router_cache_conf));
+        if (uwsgi_kvlist_parse(ur->data, ur->data_len, ',', '=',
+                        "key", &urcc->key,
+                        "value", &urcc->value,
+                        "name", &urcc->name,
+                        "expires", &urcc->expires_str, NULL)) {
+                        uwsgi_log("invalid cacheset route syntax: %s\n", args);
+                        goto error;
+                }
+
+                if (urcc->key) {
+                        urcc->key_len = strlen(urcc->key);
+                }
+
+                if (urcc->value) {
+                        urcc->value_len = strlen(urcc->value);
+                }
+
+                if (urcc->name) {
+                        urcc->name_len = strlen(urcc->name);
+                }
+
+                if (!urcc->key || !urcc->value) {
+                        uwsgi_log("invalid cacheset route syntax: you need to specify a cache key and a value\n");
+                        goto error;
+                }
+
+                if (urcc->expires_str) {
+                        urcc->expires = strtoul(urcc->expires_str, NULL, 10);
+                }
+
+        ur->data2 = urcc;
+        return 0;
+error:
+        if (urcc->key) free(urcc->key);
+        if (urcc->name) free(urcc->name);
+        if (urcc->value) free(urcc->value);
+        if (urcc->expires_str) free(urcc->expires_str);
+        free(urcc);
+        return -1;
+}
+
+
+static int uwsgi_router_cachevar(struct uwsgi_route *ur, char *args) {
+        ur->func = uwsgi_routing_func_cachevar;
+        ur->data = args;
+        ur->data_len = strlen(args);
+        struct uwsgi_router_cache_conf *urcc = uwsgi_calloc(sizeof(struct uwsgi_router_cache_conf));
+                if (uwsgi_kvlist_parse(ur->data, ur->data_len, ',', '=',
+                        "key", &urcc->key,
+                        "var", &urcc->var,
+                        "name", &urcc->name,
+                        NULL)) {
+                        uwsgi_log("invalid route syntax: %s\n", args);
+                        exit(1);
+                }
+
+                if (urcc->key) {
+                        urcc->key_len = strlen(urcc->key);
+                }
+
+                if (urcc->var) {
+                        urcc->var_len = strlen(urcc->var);
+                }
+
+                if (!urcc->key || !urcc->var) {
+                        uwsgi_log("invalid route syntax: you need to specify a cache key and a request var\n");
+                        exit(1);
+                }
+
+                ur->data2 = urcc;
+        return 0;
+}
+
+
 static void router_cache_register() {
 	uwsgi_register_router("cache", uwsgi_router_cache);
 	uwsgi_register_router("cache-continue", uwsgi_router_cache_continue);
+	uwsgi_register_router("cachevar", uwsgi_router_cachevar);
+	uwsgi_register_router("cacheset", uwsgi_router_cacheset);
 	uwsgi_register_router("cachestore", uwsgi_router_cache_store);
 	uwsgi_register_router("cache-store", uwsgi_router_cache_store);
 }

@@ -1049,8 +1049,6 @@ struct uwsgi_spooler {
 #define UWSGI_ROUTE_CONTINUE 1
 // close the request
 #define UWSGI_ROUTE_BREAK 2
-// go to the next group of routes
-#define UWSGI_ROUTE_GOON 3
 
 struct uwsgi_route {
 
@@ -1080,9 +1078,6 @@ struct uwsgi_route {
 
 	// 64bit value for custom usage
 	uint64_t custom;
-
-	// true ifthis is the last rule of this kind
-	int is_last;
 
 	uint64_t pos;
 	char *label;

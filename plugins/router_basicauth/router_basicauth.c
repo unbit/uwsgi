@@ -62,6 +62,12 @@ static uint16_t htpasswd_check(char *filename, char *auth) {
 
 int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
+	// skip if already authenticated
+	if (wsgi_req->remote_user_len > 0) {
+		return UWSGI_ROUTE_NEXT;
+	}
+
+
 	if (wsgi_req->authorization_len > 7 && ur->data2_len > 0) {
 		if (strncmp(wsgi_req->authorization, "Basic ", 6))
 			goto forbidden;
@@ -76,10 +82,6 @@ int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_rou
 					wsgi_req->remote_user = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, auth, ulen); 
 					if (wsgi_req->remote_user)
 						wsgi_req->remote_user_len = ulen;
-					free(auth);
-					if (ur->data3_len > 0)
-						return UWSGI_ROUTE_CONTINUE;
-					return UWSGI_ROUTE_GOON;
 				}
 			}
 			else {
@@ -87,15 +89,9 @@ int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_rou
 					wsgi_req->remote_user = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, auth, ur->custom); 
 					if (wsgi_req->remote_user)
 						wsgi_req->remote_user_len = ur->custom;
-					free(auth);
-					if (ur->data3_len > 0)
-						return UWSGI_ROUTE_CONTINUE;
-					return UWSGI_ROUTE_GOON;
 				}
 			}
 			free(auth);
-			if (ur->is_last)
-				goto forbidden;
 			return UWSGI_ROUTE_NEXT;
 		}
 	}
@@ -147,17 +143,8 @@ static int uwsgi_router_basicauth(struct uwsgi_route *ur, char *args) {
 	return 0;
 }
 
-static int uwsgi_router_basicauth_last(struct uwsgi_route *ur, char *args) {
-	uwsgi_router_basicauth(ur, args);
-	ur->data3_len = 1;
-	return 0;
-}
-
-
 void router_basicauth_register(void) {
-
 	uwsgi_register_router("basicauth", uwsgi_router_basicauth);
-	uwsgi_register_router("basicauth-last", uwsgi_router_basicauth_last);
 }
 
 struct uwsgi_plugin router_basicauth_plugin = {

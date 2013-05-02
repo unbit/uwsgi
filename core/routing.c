@@ -149,7 +149,6 @@ error:
 int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req, char *subject, uint16_t subject_len) {
 
 	struct uwsgi_route *routes = uwsgi.routes;
-        void *goon_func = NULL;
 	int n = -1;
 
 	char *orig_subject = subject;
@@ -163,10 +162,6 @@ int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req, char *subject, uint16_t
 			goto next;
 		}
 
-		if (goon_func && goon_func == routes->func) {
-			goto next;
-		}
-		goon_func = NULL;
 		wsgi_req->route_goto = 0;
 
 		if (!routes->if_func) {
@@ -217,10 +212,6 @@ run:
 				return ret;
 			}
 			
-			if (ret == UWSGI_ROUTE_GOON) {
-				goon_func = routes->func;
-			}
-
 			if (ret == -1) {
 				return UWSGI_ROUTE_BREAK;
 			}
@@ -394,16 +385,6 @@ done:
 	while (r) {
 		if (!strcmp(r->name, command)) {
 			if (r->func(ur, colon + 1) == 0) {
-				// apply is_last
-				struct uwsgi_route *last_ur = ur;
-				ur = uwsgi.routes;
-				while (ur) {
-					if (ur->func == last_ur->func) {
-						ur->is_last = 0;
-					}
-					ur = ur->next;
-				}
-				last_ur->is_last = 1;
 				return;
 			}
 			break;
@@ -473,15 +454,6 @@ static int uwsgi_router_break(struct uwsgi_route *ur, char *arg) {
 	ur->func = uwsgi_router_break_func;
 	ur->data = arg;
         ur->data_len = strlen(arg);
-	return 0;
-}
-
-// goon route
-static int uwsgi_router_goon_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
-	return UWSGI_ROUTE_GOON;	
-}
-static int uwsgi_router_goon(struct uwsgi_route *ur, char *arg) {
-	ur->func = uwsgi_router_goon_func;
 	return 0;
 }
 
@@ -762,7 +734,13 @@ static int uwsgi_router_setuser_func(struct wsgi_request *wsgi_req, struct uwsgi
 
         struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
         if (!ub) return UWSGI_ROUTE_BREAK;
-        char *ptr = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, ub->buf, ub->pos);
+	uint16_t user_len = ub->pos;
+	// stop at the first colon (useful for various tricks)
+	char *colon = memchr(ub->buf, ':', ub->pos);
+	if (colon) {
+		user_len = colon - ub->buf;
+	}
+        char *ptr = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, ub->buf, user_len);
         if (!ptr) {
                 uwsgi_buffer_destroy(ub);
                 return UWSGI_ROUTE_BREAK;
@@ -1172,7 +1150,7 @@ static int uwsgi_route_condition_endswith(struct wsgi_request *wsgi_req, struct 
                 return -1;
         }
 
-	if (ub2->pos < ub->pos) goto zero;
+	if (ub2->pos > ub->pos) goto zero;
         if(!uwsgi_strncmp(ub->buf + (ub->pos - ub2->pos), ub2->pos, ub2->buf, ub2->pos)) {
                 uwsgi_buffer_destroy(ub);
                 uwsgi_buffer_destroy(ub2);
@@ -1230,6 +1208,11 @@ static char *uwsgi_route_var_uwsgi(struct wsgi_request *wsgi_req, char *key, uin
 	else if (!uwsgi_strncmp(key, keylen, "pid", 3)) {
 		ret = uwsgi_num2str(uwsgi.mypid);
 		*vallen = strlen(ret);
+	}
+	else if (!uwsgi_strncmp(key, keylen, "uuid", 4)) {
+		ret = uwsgi_malloc(37);
+		uwsgi_uuid(ret);
+		*vallen = 36;
 	}
 
 	return ret;
@@ -1327,7 +1310,6 @@ void uwsgi_register_embedded_routers() {
 	uwsgi_register_router("continue", uwsgi_router_continue);
         uwsgi_register_router("last", uwsgi_router_continue);
         uwsgi_register_router("break", uwsgi_router_break);
-        uwsgi_register_router("goon", uwsgi_router_goon);
         uwsgi_register_router("log", uwsgi_router_log);
         uwsgi_register_router("logvar", uwsgi_router_logvar);
         uwsgi_register_router("goto", uwsgi_router_goto);
