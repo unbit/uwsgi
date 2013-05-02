@@ -10,11 +10,6 @@
 
 extern struct uwsgi_server uwsgi;
 
-// enable depracated APIs
-#ifndef LDAP_DEPRECATED
-#define LDAP_DEPRECATED 1
-#endif
-
 #include <ldap.h>
 
 #ifndef LDAP_OPT_SUCCESS
@@ -409,10 +404,17 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 	LDAP *ldp;
 	int desired_version = LDAP_VERSION3;
 
+#if LDAP_API_VERSION >= 3000
+        if ((ret = ldap_initialize(&ldp, ulc->url)) != LDAP_SUCCESS) {
+		uwsgi_log("[router-ldapauth] can't connect to LDAP server at %s\n", ulc->url);
+		return 0;
+        }
+#else
 	if ((ldp = ldap_init(ulc->ldap_url->lud_host, ulc->ldap_url->lud_port)) == NULL) {
 		uwsgi_log("[router-ldapauth] can't connect to LDAP server at %s\n", ulc->url);
 		return 0;
 	}
+#endif
 
 	if ((ret = ldap_set_option(ldp, LDAP_OPT_PROTOCOL_VERSION, &desired_version)) != LDAP_OPT_SUCCESS) {
 		uwsgi_log("[router-ldapauth] LDAP protocol version mismatch: %s\n", ldap_err2string(ret));
@@ -421,7 +423,14 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 
 	// first bind if needed
 	if (ulc->binddn && ulc->bindpw) {
+#if LDAP_API_VERSION >= 3000
+		struct berval bval;
+		bval.bv_val = ulc->bindpw;
+		bval.bv_len = strlen(bval.bv_val);
+		if ((ret = ldap_sasl_bind_s(ldp, ulc->binddn, LDAP_SASL_SIMPLE, &bval, NULL, NULL, NULL)) != LDAP_OPT_SUCCESS) {
+#else
 		if ((ret = ldap_bind_s(ldp, ulc->binddn, ulc->bindpw, LDAP_AUTH_SIMPLE)) != LDAP_OPT_SUCCESS) {
+#endif
 			uwsgi_log("[router-ldapauth] can't bind as user '%s' to '%s': %s\n", ulc->binddn, ulc->url, ldap_err2string(ret));
 			goto close;
 		}
@@ -429,7 +438,6 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 
 	// search for user
 	char *userdn = NULL;
-	int i;
 	LDAPMessage *msg, *entry;
 	char filter[1024];
 	if (snprintf(filter, 1024, "(&(%s=%s)%s)", ulc->login_attr, username, ulc->filter) < 0) {
@@ -437,19 +445,17 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 		goto close;
 	}
 
-	if ((ret = ldap_search_s(ldp, ulc->basedn, LDAP_SCOPE_SUBTREE, filter, NULL, 0, &msg)) != LDAP_OPT_SUCCESS) {
+	if ((ret = ldap_search_ext_s(ldp, ulc->basedn, LDAP_SCOPE_SUBTREE, filter, NULL, 0, NULL, NULL, NULL, 0, &msg)) != LDAP_SUCCESS) {
 		uwsgi_log("[router-ldapauth] search error on '%s': %s\n", ulc->url, ldap_err2string(ret));
 		goto close;
 	}
 	else {
 		entry = ldap_first_entry(ldp, msg);
 		while (entry) {
-			char **vals = ldap_get_values(ldp, entry, ulc->login_attr);
-			for (i=0; i < ldap_count_values(vals); i++) {
-				if (!strcmp(username, vals[i])) {
-					userdn = ldap_get_dn(ldp, entry);
-					break;
-				}
+			struct berval **vals = ldap_get_values_len(ldp, entry, ulc->login_attr);
+			if (!uwsgi_strncmp(username, strlen(username), vals[0]->bv_val, vals[0]->bv_len)) {
+				userdn = ldap_get_dn(ldp, entry);
+				break;
 			}
 			entry = ldap_next_entry(ldp, entry);
 		}
@@ -458,7 +464,14 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 	if (userdn) {
 		// user found in ldap, try to bind
 
+#if LDAP_API_VERSION >= 3000
+                struct berval bval;
+                bval.bv_val = colon+1;
+                bval.bv_len = strlen(bval.bv_val);
+                if ((ret = ldap_sasl_bind_s(ldp, userdn, LDAP_SASL_SIMPLE, &bval, NULL, NULL, NULL)) != LDAP_OPT_SUCCESS) {
+#else
 		if ((ret = ldap_bind_s(ldp, userdn, colon+1, LDAP_AUTH_SIMPLE)) != LDAP_OPT_SUCCESS) {
+#endif
 			if (ulc->loglevel)
 				uwsgi_log("[router-ldapauth] can't bind as user '%s' to '%s': %s\n", userdn, ulc->url, ldap_err2string(ret));
 		}
@@ -475,7 +488,7 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 	}
 
 close:
-	if ((ret = ldap_unbind_s(ldp)) != LDAP_OPT_SUCCESS) {
+	if ((ret = ldap_unbind_ext_s(ldp, NULL, NULL)) != LDAP_OPT_SUCCESS) {
 		uwsgi_log("[router-ldapauth] LDAP unbind error: %s\n", ldap_err2string(ret));
 	}
 
