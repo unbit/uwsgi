@@ -31,7 +31,7 @@ static void uwsgi_spnego_err(OM_uint32 err_maj, OM_uint32 err_min) {
 		return;
 	}
 
-	uwsgi_log("[uwsgi-spnego] error: %.*s\n", status_string.length, status_string.value);
+	uwsgi_log("[uwsgi-spnego] error (major): %.*s\n", status_string.length, status_string.value);
 
 	gss_release_buffer(&min_stat, &status_string);
 	
@@ -47,39 +47,67 @@ static void uwsgi_spnego_err(OM_uint32 err_maj, OM_uint32 err_min) {
 	}
 
 
-        uwsgi_log("[uwsgi-spnego] error: %.*s\n", status_string.length, status_string.value);
+	if (status_string.length > 0) {
+        	uwsgi_log("[uwsgi-spnego] error (minor): %.*s\n", status_string.length, status_string.value);
+	}
 
 	gss_release_buffer(&min_stat, &status_string);
 	
 }
 
-static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, gss_cred_id_t cred, char *token_buf, size_t token_buf_len, size_t *b64_len) {
+static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, struct uwsgi_route *ur, char *token_buf, size_t token_buf_len, size_t *b64_len) {
 
         char *b64 = NULL;
 
         OM_uint32 ret;
         OM_uint32 min_ret;
 
-        gss_ctx_id_t context = GSS_C_NO_CONTEXT;
-        gss_name_t client_name = GSS_C_NO_NAME;
+	gss_buffer_desc service = GSS_C_EMPTY_BUFFER;
+        service.value = ur->data;
+        service.length = ur->data_len;
 
-        gss_buffer_desc output = GSS_C_EMPTY_BUFFER;
+        gss_name_t server_name = GSS_C_NO_NAME;
+        gss_name_t client_name = GSS_C_NO_NAME;
+        gss_ctx_id_t context = GSS_C_NO_CONTEXT;
+        gss_cred_id_t cred = GSS_C_NO_CREDENTIAL;
 
         gss_buffer_desc token = GSS_C_EMPTY_BUFFER;
         token.value = token_buf;
         token.length = token_buf_len;
 
+        if (service.length == 0) {
+                service.value = "HTTP";
+                service.length = 4;
+        }
+        ret = gss_import_name(&min_ret, &service, GSS_C_NT_HOSTBASED_SERVICE, &server_name);
+        if (GSS_ERROR(ret)) {
+                uwsgi_spnego_err(ret, min_ret);
+		goto end;
+        }
+
+        ret = gss_acquire_cred(&min_ret, server_name, GSS_C_INDEFINITE, GSS_C_NO_OID_SET, GSS_C_ACCEPT, &cred, NULL, NULL);
+        if (GSS_ERROR(ret)) {
+                uwsgi_spnego_err(ret, min_ret);
+		goto end;
+        }
+
+        gss_buffer_desc output = GSS_C_EMPTY_BUFFER;
 
         ret = gss_accept_sec_context(&min_ret, &context, cred, &token, GSS_C_NO_CHANNEL_BINDINGS, &client_name, NULL, &output, NULL, NULL, NULL);
 
         if (GSS_ERROR(ret)) {
                 uwsgi_spnego_err(ret, min_ret);
+		if (output.value) {
+			gss_release_buffer(&min_ret, &output);
+		}
                 goto end;
         }
 
         if (output.length) {
                 b64 = uwsgi_base64_encode(output.value, output.length, b64_len);
-                gss_release_buffer(&min_ret, &output);
+		if (output.value) {
+                	gss_release_buffer(&min_ret, &output);
+		}
                 if (!b64) {
                         goto end;
                 }
@@ -87,13 +115,26 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, gss_cred_id_t
                 ret = gss_display_name(&min_ret, client_name, &output, NULL);
                 if (GSS_ERROR(ret)) {
                         uwsgi_spnego_err(ret, min_ret);
+			if (output.value) {
+				gss_release_buffer(&min_ret, &output);
+			}
                         free(b64);
 			b64 = NULL;
                         goto end;
                 }
                 wsgi_req->remote_user = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, output.value, output.length);
+		if (!wsgi_req->remote_user) {
+			if (output.value) {
+                		gss_release_buffer(&min_ret, &output);
+			}
+                        free(b64);
+			b64 = NULL;
+                        goto end;
+		}
 		wsgi_req->remote_user_len = output.length;
-                gss_release_buffer(&min_ret, &output);
+		if (output.value) {
+                	gss_release_buffer(&min_ret, &output);
+		}
                 if (!wsgi_req->remote_user) {
 			wsgi_req->remote_user_len = 0;
                         uwsgi_spnego_err(ret, min_ret);
@@ -106,9 +147,15 @@ end:
         if (context != GSS_C_NO_CONTEXT) {
                 gss_delete_sec_context(&min_ret, &context, GSS_C_NO_BUFFER);
         }
+        if (server_name != GSS_C_NO_NAME) {
+                gss_release_name(&min_ret, &server_name);
+        }
         if (client_name != GSS_C_NO_NAME) {
                 gss_release_name(&min_ret, &client_name);
         }
+	if (cred != GSS_C_NO_CREDENTIAL) {
+		gss_release_cred(&min_ret, &cred);
+	}
         return b64;
 }
 
@@ -126,7 +173,7 @@ static int uwsgi_routing_func_spnego(struct wsgi_request *wsgi_req, struct uwsgi
 
                 char *token = uwsgi_base64_decode(wsgi_req->authorization+10, wsgi_req->authorization_len-10, &b64_len);
                 if (token && b64_len) {
-                        negotiate = uwsgi_spnego_new_token(wsgi_req, ur->data2, token, b64_len, &negotiate_len);
+                        negotiate = uwsgi_spnego_new_token(wsgi_req, ur, token, b64_len, &negotiate_len);
                         free(token);
                         if (negotiate) {
                                 char *auth_header = uwsgi_concat2n("WWW-Authenticate: Negotiate ", 28, negotiate, negotiate_len);
@@ -164,36 +211,10 @@ end:
 static int uwsgi_router_spnego(struct uwsgi_route *ur, char *args) {
 
         ur->func = uwsgi_routing_func_spnego;
-
-	OM_uint32 ret;
-        OM_uint32 min_ret;
-
-	gss_buffer_desc service = GSS_C_EMPTY_BUFFER;
-	service.value = args;
-	service.length = strlen(args);
-
-	if (service.length == 0) {
-		service.value = "HTTP";
-		service.length = 4;
+	ur->data = args ;
+	if (args) {
+		ur->data_len = strlen(args);
 	}
-
-	gss_name_t server_name = GSS_C_NO_NAME;
-
-	ret = gss_import_name(&min_ret, &service, GSS_C_NT_HOSTBASED_SERVICE, &server_name);
-	if (GSS_ERROR(ret)) {
-                uwsgi_spnego_err(ret, min_ret);
-		exit(1);
-	}	
-
-	gss_cred_id_t cred = GSS_C_NO_CREDENTIAL;
-
-	ret = gss_acquire_cred(&min_ret, server_name, GSS_C_INDEFINITE, GSS_C_NO_OID_SET, GSS_C_ACCEPT, &cred, NULL, NULL);
-	if (GSS_ERROR(ret)) {
-                uwsgi_spnego_err(ret, min_ret);
-		exit(1);
-	}	
-	
-	ur->data2 = cred;
 
         return 0;
 }
