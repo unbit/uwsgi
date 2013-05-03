@@ -522,6 +522,16 @@ static int uwsgi_router_log(struct uwsgi_route *ur, char *arg) {
 	return 0;
 }
 
+// do not log !!!
+static int uwsgi_router_donotlog_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	wsgi_req->do_not_log = 1;
+	return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_donotlog(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_donotlog_func;
+        return 0;
+}
+
 // logvar route
 static int uwsgi_router_logvar_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
@@ -726,6 +736,31 @@ static int uwsgi_router_setapp(struct uwsgi_route *ur, char *arg) {
         ur->data_len = strlen(arg);
         return 0;
 }
+
+// setscriptname route
+static int uwsgi_router_setscriptname_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
+        char *ptr = uwsgi_req_append(wsgi_req, "SCRIPT_NAME", 11, ub->buf, ub->pos);
+        if (!ptr) {
+                uwsgi_buffer_destroy(ub);
+                return UWSGI_ROUTE_BREAK;
+        }
+        wsgi_req->script_name = ptr;
+        wsgi_req->script_name_len = ub->pos;
+        uwsgi_buffer_destroy(ub);
+        return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_setscriptname(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_setscriptname_func;
+        ur->data = arg;
+        ur->data_len = strlen(arg);
+        return 0;
+}
+
 
 // setuser route
 static int uwsgi_router_setuser_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
@@ -1324,6 +1359,7 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("last", uwsgi_router_continue);
         uwsgi_register_router("break", uwsgi_router_break);
         uwsgi_register_router("log", uwsgi_router_log);
+        uwsgi_register_router("donotlog", uwsgi_router_donotlog);
         uwsgi_register_router("logvar", uwsgi_router_logvar);
         uwsgi_register_router("goto", uwsgi_router_goto);
         uwsgi_register_router("addvar", uwsgi_router_addvar);
@@ -1338,6 +1374,7 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("setuser", uwsgi_router_setuser);
         uwsgi_register_router("sethome", uwsgi_router_sethome);
         uwsgi_register_router("setfile", uwsgi_router_setfile);
+        uwsgi_register_router("setscriptname", uwsgi_router_setscriptname);
         uwsgi_register_router("setprocname", uwsgi_router_setprocname);
         uwsgi_register_router("alarm", uwsgi_router_alarm);
 
