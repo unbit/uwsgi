@@ -1,10 +1,16 @@
-#include "../../uwsgi.h"
-
-#ifdef UWSGI_ROUTING
+#include <uwsgi.h>
 
 #include <gssapi/gssapi.h>
 
 extern struct uwsgi_server uwsgi;
+
+/*
+
+	At the first request (without authentication) uWSGI sends back a token
+	The client resend-the request with its token
+	Following requests could need a new token or are simply accepted
+
+*/
 
 // log errors...
 static void uwsgi_spnego_err(OM_uint32 err_maj, OM_uint32 err_min) {
@@ -197,12 +203,6 @@ static void router_spnego_register(void) {
 }
 
 struct uwsgi_plugin router_spnego_plugin = {
-
 	.name = "router_spnego",
 	.on_load = router_spnego_register,
 };
-#else
-struct uwsgi_plugin router_spnego_plugin = {
-	.name = "router_spnego",
-};
-#endif

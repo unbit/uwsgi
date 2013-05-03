@@ -1,5 +1,13 @@
 #include "uwsgi_python.h"
 
+/*
+
+	This is the official python plugin, the one with the modifier1 mapped to 0
+
+	Since uWSGI 1.0 it is heavily based on Graham Dumpleton mod_wsgi (for Apache)
+
+*/
+
 extern struct uwsgi_server uwsgi;
 struct uwsgi_python up;
 
