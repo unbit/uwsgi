@@ -3,6 +3,6 @@ NAME='router_spnego'
 
 CFLAGS = []
 LDFLAGS = []
-LIBS = ['-L' + os.popen('krb5-config --libs gssapi').read().rstrip()]
+LIBS = os.popen('krb5-config --libs gssapi').read().rstrip().split()
 
 GCC_LIST = ['router_spnego']
