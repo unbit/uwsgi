@@ -332,13 +332,15 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
+	if (wsgi_req->dynamic) {
+        	// this part must be heavy locked in threaded modes
+                if (uwsgi.threads > 1) {
+                	pthread_mutex_lock(&up.lock_pyloaders);
+                }
+	}
+
 	if ( (wsgi_req->app_id = uwsgi_get_app_id(wsgi_req, wsgi_req->appid, wsgi_req->appid_len, 0))  == -1) {
 		if (wsgi_req->dynamic) {
-			// this part must be heavy locked in threaded modes
-			if (uwsgi.threads > 1) {
-				pthread_mutex_lock(&up.lock_pyloaders);
-			}
-
 			UWSGI_GET_GIL
 			if (uwsgi.single_interpreter) {
 				wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
@@ -347,9 +349,12 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 				wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, NULL, PYTHON_APP_TYPE_WSGI);
 			}
 			UWSGI_RELEASE_GIL
-			if (uwsgi.threads > 1) {
-				pthread_mutex_unlock(&up.lock_pyloaders);
-			}
+		}
+	}
+
+	if (wsgi_req->dynamic) {
+		if (uwsgi.threads > 1) {
+			pthread_mutex_unlock(&up.lock_pyloaders);
 		}
 	}
 
