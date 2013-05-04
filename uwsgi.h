@@ -1054,8 +1054,11 @@ struct uwsgi_route {
 
 	pcre *pattern;
 	pcre_extra *pattern_extra;
-	int ovn;
-	int *ovector;
+
+	char *orig_route;
+	
+	int *ovn;
+	int **ovector;
 
 	char *subject_str;
 	size_t subject_str_len;
@@ -3313,6 +3316,7 @@ void uwsgi_routing_dump();
 struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *, struct uwsgi_route *, char *, uint16_t, char *, size_t);
 int uwsgi_route_api_func(struct wsgi_request *, char *, char *);
 struct uwsgi_route_condition *uwsgi_register_route_condition(char *, int (*) (struct wsgi_request *, struct uwsgi_route *));
+void uwsgi_fixup_routes(void);
 #endif
 
 void uwsgi_reload(char **);

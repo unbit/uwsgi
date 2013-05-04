@@ -1,7 +1,7 @@
 import os
 NAME='router_spnego'
 
-CFLAGS = []
+CFLAGS = os.popen('krb5-config --cflags gssapi').read().rstrip().split()
 LDFLAGS = []
 LIBS = os.popen('krb5-config --libs gssapi').read().rstrip().split()
 

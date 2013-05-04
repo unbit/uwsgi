@@ -13,7 +13,7 @@ extern struct uwsgi_server uwsgi;
 */
 
 // log errors...
-static void uwsgi_spnego_err(OM_uint32 err_maj, OM_uint32 err_min) {
+static void uwsgi_spnego_err(const char *func, OM_uint32 err_maj, OM_uint32 err_min) {
 
 	OM_uint32 ret;
 	OM_uint32 min_stat;
@@ -29,7 +29,7 @@ static void uwsgi_spnego_err(OM_uint32 err_maj, OM_uint32 err_min) {
 
 	if (GSS_ERROR(ret)) return;
 
-	uwsgi_log("[uwsgi-spnego] error (major): %.*s\n", status_string.length, status_string.value);
+	uwsgi_log("[uwsgi-spnego] %s() error (major): %.*s\n", func, status_string.length, status_string.value);
 
 	gss_release_buffer(&min_stat, &status_string);
 	
@@ -43,7 +43,9 @@ static void uwsgi_spnego_err(OM_uint32 err_maj, OM_uint32 err_min) {
 	if (GSS_ERROR(ret)) return;
 
 	if (status_string.length > 0) {
-        	uwsgi_log("[uwsgi-spnego] error (minor): %.*s\n", status_string.length, status_string.value);
+        	uwsgi_log("[uwsgi-spnego] %s() error (minor): %.*s\n",func, status_string.length, status_string.value);
+	}
+	if (status_string.value) {
 		gss_release_buffer(&min_stat, &status_string);
 	}
 	
@@ -85,13 +87,13 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, struct uwsgi_
 
         ret = gss_import_name(&min_ret, &service, GSS_C_NT_HOSTBASED_SERVICE, &server_name);
         if (GSS_ERROR(ret)) {
-                uwsgi_spnego_err(ret, min_ret);
+                uwsgi_spnego_err("gss_import_name", ret, min_ret);
 		goto end;
         }
 
         ret = gss_acquire_cred(&min_ret, server_name, GSS_C_INDEFINITE, GSS_C_NO_OID_SET, GSS_C_ACCEPT, &cred, NULL, NULL);
         if (GSS_ERROR(ret)) {
-                uwsgi_spnego_err(ret, min_ret);
+                uwsgi_spnego_err("gss_acquire_cred", ret, min_ret);
 		goto end;
         }
 
@@ -100,7 +102,7 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, struct uwsgi_
         ret = gss_accept_sec_context(&min_ret, &context, cred, &token, GSS_C_NO_CHANNEL_BINDINGS, &client_name, NULL, &output, NULL, NULL, NULL);
 
         if (GSS_ERROR(ret)) {
-                uwsgi_spnego_err(ret, min_ret);
+                uwsgi_spnego_err("gss_accept_sec_context", ret, min_ret);
 		if (output.value) {
 			gss_release_buffer(&min_ret, &output);
 		}
@@ -118,7 +120,7 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, struct uwsgi_
 
                 ret = gss_display_name(&min_ret, client_name, &output, NULL);
                 if (GSS_ERROR(ret)) {
-                        uwsgi_spnego_err(ret, min_ret);
+                        uwsgi_spnego_err("gss_display_name", ret, min_ret);
 			if (output.value) {
 				gss_release_buffer(&min_ret, &output);
 			}
@@ -141,7 +143,6 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, struct uwsgi_
 		}
                 if (!wsgi_req->remote_user) {
 			wsgi_req->remote_user_len = 0;
-                        uwsgi_spnego_err(ret, min_ret);
                         free(b64);
 			b64 = NULL;
                         goto end;

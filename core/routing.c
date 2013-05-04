@@ -47,7 +47,7 @@ struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *wsgi_req, stru
 
 	// cannot fail
 	if (subject) {
-		pass1 = uwsgi_regexp_apply_ovec(subject, subject_len, data, data_len, ur->ovector, ur->ovn);
+		pass1 = uwsgi_regexp_apply_ovec(subject, subject_len, data, data_len, ur->ovector[wsgi_req->async_id], ur->ovn[wsgi_req->async_id]);
 		pass1_len = strlen(pass1);
 	}
 
@@ -176,7 +176,7 @@ int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req, char *subject, uint16_t
 				subject = *subject2 ;
 				subject_len = *subject_len2;
 			}
-			n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, subject, subject_len, routes->ovector, routes->ovn);
+			n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, subject, subject_len, routes->ovector[wsgi_req->async_id], routes->ovn[wsgi_req->async_id]);
 		}
 		else {
 			int ret = routes->if_func(wsgi_req, routes);
@@ -286,14 +286,14 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 		return;
 	}
 
-	char *route = uwsgi_str(value);
+	ur->orig_route = uwsgi_str(value);
 
 	if (!strcmp(foobar, "run")) {
-		command = route;	
+		command = ur->orig_route;	
 		goto done;
 	}
 
-	space = strchr(route, ' ');
+	space = strchr(ur->orig_route, ' ');
 	if (!space) {
 		uwsgi_log("invalid route syntax\n");
 		exit(1);
@@ -302,7 +302,7 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 	*space = 0;
 
 	if (!strcmp(foobar, "if") || !strcmp(foobar, "if-not")) {
-		char *colon = strchr(route, ':');
+		char *colon = strchr(ur->orig_route, ':');
 		if (!colon) {
 			uwsgi_log("invalid route condition syntax\n");
                 	exit(1);
@@ -314,9 +314,9 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 		}
 
 		foobar = colon+1;
-		ur->if_func = uwsgi_route_get_condition_func(route);
+		ur->if_func = uwsgi_route_get_condition_func(ur->orig_route);
 		if (!ur->if_func) {
-			uwsgi_log("unable to find \"%s\" route condition\n", route);
+			uwsgi_log("unable to find \"%s\" route condition\n", ur->orig_route);
 			exit(1);
 		}
 	}
@@ -356,18 +356,7 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 
 	ur->subject_str = foobar;
 	ur->subject_str_len = strlen(ur->subject_str);
-	ur->regexp = route;
-
-	if (ur->subject && ur->subject_len) {
-		if (uwsgi_regexp_build(route, &ur->pattern, &ur->pattern_extra)) {
-			exit(1);
-		}
-
-		ur->ovn = uwsgi_regexp_ovector(ur->pattern, ur->pattern_extra);
-		if (ur->ovn > 0) {
-			ur->ovector = uwsgi_calloc(sizeof(int) * (3 * (ur->ovn + 1)));
-		}
-	}
+	ur->regexp = ur->orig_route;
 
 	command = space + 1;
 done:
@@ -394,6 +383,28 @@ done:
 
 	uwsgi_log("unable to register route \"%s\"\n", value);
 	exit(1);
+}
+
+void uwsgi_fixup_routes() {
+	struct uwsgi_route *ur = uwsgi.routes;
+	while(ur) {
+		if (ur->subject && ur->subject_len) {
+                	if (uwsgi_regexp_build(ur->orig_route, &ur->pattern, &ur->pattern_extra)) {
+                        	exit(1);
+                	}
+
+			ur->ovn = uwsgi_malloc(sizeof(int) * uwsgi.cores);
+			ur->ovector = uwsgi_malloc(sizeof(int *) * uwsgi.cores);
+			int i;
+			for(i=0;i<uwsgi.cores;i++) {
+                		ur->ovn[i] = uwsgi_regexp_ovector(ur->pattern, ur->pattern_extra);
+                		if (ur->ovn[i] > 0) {
+                        		ur->ovector[i] = uwsgi_calloc(sizeof(int) * (3 * (ur->ovn[i] + 1)));
+                		}
+			}
+		}
+		ur = ur->next;
+        }
 }
 
 int uwsgi_route_api_func(struct wsgi_request *wsgi_req, char *router, char *args) {
@@ -953,6 +964,7 @@ static int uwsgi_route_condition_regexp(struct wsgi_request *wsgi_req, struct uw
 		return -1;
 	}
 	free(re);
+
 
 	if (uwsgi_regexp_match(pattern, pattern_extra, ub->buf, ub->pos) >= 0) {
 		uwsgi_buffer_destroy(ub);
