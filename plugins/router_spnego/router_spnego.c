@@ -27,9 +27,7 @@ static void uwsgi_spnego_err(OM_uint32 err_maj, OM_uint32 err_min) {
                                        &msg_ctx,
                                        &status_string);
 
-	if (GSS_ERROR(ret)) {
-		return;
-	}
+	if (GSS_ERROR(ret)) return;
 
 	uwsgi_log("[uwsgi-spnego] error (major): %.*s\n", status_string.length, status_string.value);
 
@@ -42,16 +40,12 @@ static void uwsgi_spnego_err(OM_uint32 err_maj, OM_uint32 err_min) {
                                        &msg_ctx,
                                        &status_string);
 
-	if (GSS_ERROR(ret)) {
-		return;
-	}
-
+	if (GSS_ERROR(ret)) return;
 
 	if (status_string.length > 0) {
         	uwsgi_log("[uwsgi-spnego] error (minor): %.*s\n", status_string.length, status_string.value);
+		gss_release_buffer(&min_stat, &status_string);
 	}
-
-	gss_release_buffer(&min_stat, &status_string);
 	
 }
 
@@ -63,8 +57,17 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, struct uwsgi_
         OM_uint32 min_ret;
 
 	gss_buffer_desc service = GSS_C_EMPTY_BUFFER;
-        service.value = ur->data;
-        service.length = ur->data_len;
+	struct uwsgi_buffer *ub = NULL;
+
+	if (ur->data_len) {
+		char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        	uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        	ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+		if (!ub) goto end;
+        	service.value = ub->buf;
+        	service.length = ub->pos;
+	}
 
         gss_name_t server_name = GSS_C_NO_NAME;
         gss_name_t client_name = GSS_C_NO_NAME;
@@ -79,6 +82,7 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, struct uwsgi_
                 service.value = "HTTP";
                 service.length = 4;
         }
+
         ret = gss_import_name(&min_ret, &service, GSS_C_NT_HOSTBASED_SERVICE, &server_name);
         if (GSS_ERROR(ret)) {
                 uwsgi_spnego_err(ret, min_ret);
@@ -144,18 +148,26 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, struct uwsgi_
                 }
         }
 end:
-        if (context != GSS_C_NO_CONTEXT) {
-                gss_delete_sec_context(&min_ret, &context, GSS_C_NO_BUFFER);
-        }
         if (server_name != GSS_C_NO_NAME) {
                 gss_release_name(&min_ret, &server_name);
         }
+
         if (client_name != GSS_C_NO_NAME) {
                 gss_release_name(&min_ret, &client_name);
         }
+
+        if (context != GSS_C_NO_CONTEXT) {
+                gss_delete_sec_context(&min_ret, &context, GSS_C_NO_BUFFER);
+        }
+
 	if (cred != GSS_C_NO_CREDENTIAL) {
 		gss_release_cred(&min_ret, &cred);
 	}
+
+	if (ub) {
+		uwsgi_buffer_destroy(ub);
+	}
+
         return b64;
 }
 
@@ -183,6 +195,7 @@ static int uwsgi_routing_func_spnego(struct wsgi_request *wsgi_req, struct uwsgi
                                 return UWSGI_ROUTE_NEXT;
 
                         }
+			if (ur->custom) return UWSGI_ROUTE_NEXT;
                 }
         }
 
@@ -219,8 +232,14 @@ static int uwsgi_router_spnego(struct uwsgi_route *ur, char *args) {
         return 0;
 }
 
+static int uwsgi_router_spnego_next(struct uwsgi_route *ur, char *args) {
+	ur->custom = 1;
+	return uwsgi_router_spnego(ur, args);
+}
+
 static void router_spnego_register(void) {
 	uwsgi_register_router("spnego", uwsgi_router_spnego);
+	uwsgi_register_router("spnego-next", uwsgi_router_spnego_next);
 }
 
 struct uwsgi_plugin router_spnego_plugin = {
