@@ -1057,8 +1057,10 @@ struct uwsgi_route {
 
 	char *orig_route;
 	
+	// one for each core
 	int *ovn;
 	int **ovector;
+	struct uwsgi_buffer **condition_ub;
 
 	char *subject_str;
 	size_t subject_str_len;
