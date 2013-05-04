@@ -91,6 +91,7 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, struct uwsgi_
 		goto end;
         }
 
+
         ret = gss_acquire_cred(&min_ret, server_name, GSS_C_INDEFINITE, GSS_C_NO_OID_SET, GSS_C_ACCEPT, &cred, NULL, NULL);
         if (GSS_ERROR(ret)) {
                 uwsgi_spnego_err("gss_acquire_cred", ret, min_ret);
@@ -98,6 +99,7 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, struct uwsgi_
         }
 
         gss_buffer_desc output = GSS_C_EMPTY_BUFFER;
+
 
         ret = gss_accept_sec_context(&min_ret, &context, cred, &token, GSS_C_NO_CHANNEL_BINDINGS, &client_name, NULL, &output, NULL, NULL, NULL);
 
@@ -157,13 +159,14 @@ end:
                 gss_release_name(&min_ret, &client_name);
         }
 
+	if (cred != GSS_C_NO_CREDENTIAL) {
+		gss_release_cred(&min_ret, &cred);
+	}
+
         if (context != GSS_C_NO_CONTEXT) {
                 gss_delete_sec_context(&min_ret, &context, GSS_C_NO_BUFFER);
         }
 
-	if (cred != GSS_C_NO_CREDENTIAL) {
-		gss_release_cred(&min_ret, &cred);
-	}
 
 	if (ub) {
 		uwsgi_buffer_destroy(ub);
