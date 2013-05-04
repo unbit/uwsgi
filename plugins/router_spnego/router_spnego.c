@@ -188,7 +188,7 @@ static int uwsgi_routing_func_spnego(struct wsgi_request *wsgi_req, struct uwsgi
                         goto forbidden;
 
                 char *token = uwsgi_base64_decode(wsgi_req->authorization+10, wsgi_req->authorization_len-10, &b64_len);
-                if (token && b64_len) {
+                if (token) {
                         negotiate = uwsgi_spnego_new_token(wsgi_req, ur, token, b64_len, &negotiate_len);
                         free(token);
                         if (negotiate) {
