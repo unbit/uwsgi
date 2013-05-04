@@ -217,6 +217,7 @@ forbidden:
 
         uwsgi_response_write_body_do(wsgi_req, "Unauthorized", 12);
 end:
+	if (ur->custom) return UWSGI_ROUTE_NEXT;
         return UWSGI_ROUTE_BREAK;
 }
 
