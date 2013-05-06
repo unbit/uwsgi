@@ -1,5 +1,7 @@
-#include "../uwsgi.h"
+#include <uwsgi.h>
 #include <openssl/rand.h>
+#include <openssl/sha.h>
+#include <openssl/md5.h>
 
 extern struct uwsgi_server uwsgi;
 /*
@@ -412,8 +414,9 @@ char *uwsgi_sanitize_cert_filename(char *base, char *key, uint16_t keylen) {
 }
 
 char *uwsgi_ssl_rand(size_t len) {
-	unsigned char *buf = uwsgi_calloc(len+1);
+	unsigned char *buf = uwsgi_calloc(len);
 	if (RAND_bytes(buf, len) <= 0) {
+		free(buf);
 		return NULL;
 	}
 	return (char *) buf;
@@ -424,6 +427,14 @@ char *uwsgi_sha1(char *src, size_t len, char *dst) {
         SHA1_Init(&sha);
         SHA1_Update(&sha, src, len);
         SHA1_Final((unsigned char *)dst, &sha);
+	return dst;
+}
+
+char *uwsgi_md5(char *src, size_t len, char *dst) {
+	MD5_CTX md5;
+	MD5_Init(&md5);
+	MD5_Update(&md5, src, len);
+	MD5_Final((unsigned char *)dst, &md5);
 	return dst;
 }
 

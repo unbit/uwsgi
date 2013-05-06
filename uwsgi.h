@@ -2563,9 +2563,8 @@ int bind_to_udp(char *, int, int);
 int bind_to_unix_dgram(char *);
 int timed_connect(struct pollfd *, const struct sockaddr *, int, int, int);
 int uwsgi_connect(char *, int, int);
+int uwsgi_connect_udp(char *);
 int uwsgi_connectn(char *, uint16_t, int, int);
-int connect_to_tcp(char *, int, int, int);
-int connect_to_unix(char *, int, int);
 
 void daemonize(char *);
 void logto(char *);
@@ -3461,6 +3460,7 @@ int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *, struct uwsgi_su
 
 char *uwsgi_sha1(char *, size_t, char *);
 char *uwsgi_sha1_2n(char *, size_t, char *, size_t, char *);
+char *uwsgi_md5(char *, size_t, char *);
 #endif
 
 void uwsgi_opt_ssa(char *, char *, void *);

@@ -2,6 +2,10 @@
 
 extern struct uwsgi_server uwsgi;
 
+static int connect_to_unix(char *, int, int);
+static int connect_to_tcp(char *, int, int, int);
+static int connect_to_udp(char *, int);
+
 static int uwsgi_socket_strcmp(char *sock1, char *sock2) {
 	size_t sock1_len = strlen(sock1);
 	size_t sock2_len = strlen(sock2);
@@ -312,36 +316,46 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 
 }
 
+static int uwsgi_connect_do(char *socket_name, int timeout, int async) {
+        char *tcp_port = strchr(socket_name, ':');
+
+        if (tcp_port) {
+                tcp_port[0] = 0;
+                tcp_port++;
+                return connect_to_tcp(socket_name, atoi(tcp_port), timeout, async);
+        }
+
+        return connect_to_unix(socket_name, timeout, async);
+}
+
 int uwsgi_connectn(char *socket_name, uint16_t len, int timeout, int async) {
-
-	int fd;
-
 	char *zeroed_socket_name = uwsgi_concat2n(socket_name, len, "", 0);
-	fd = uwsgi_connect(zeroed_socket_name, timeout, async);
-
+	int fd = uwsgi_connect_do(zeroed_socket_name, timeout, async);
 	free(zeroed_socket_name);
 	return fd;
 }
 
 int uwsgi_connect(char *socket_name, int timeout, int async) {
-
-	int ret;
-	char *tcp_port = strchr(socket_name, ':');
-
-	if (tcp_port) {
-		tcp_port[0] = 0;
-		tcp_port++;
-		ret = connect_to_tcp(socket_name, atoi(tcp_port), timeout, async);
-		// reset the socket name
-		tcp_port--;
-		tcp_port[0] = ':';
-		return ret;
-	}
-
-	return connect_to_unix(socket_name, timeout, async);
+	char *zeroed_socket_name = uwsgi_str(socket_name);
+	int fd = uwsgi_connect_do(zeroed_socket_name, timeout, async);
+	free(zeroed_socket_name);
+	return fd;
 }
 
-int connect_to_unix(char *socket_name, int timeout, int async) {
+int uwsgi_connect_udp(char *socket_name) {
+	int fd = -1;
+	char *zeroed_socket_name = uwsgi_str(socket_name);
+	char *udp_port = strchr(zeroed_socket_name, ':');
+	if (!udp_port) goto end;
+	*udp_port = 0;
+	udp_port++;
+        fd = connect_to_udp(zeroed_socket_name, atoi(udp_port));
+end:
+        free(zeroed_socket_name);
+        return fd;
+}
+
+static int connect_to_unix(char *socket_name, int timeout, int async) {
 
 	struct pollfd uwsgi_poll;
 	struct sockaddr_un uws_addr;
@@ -386,7 +400,7 @@ int connect_to_unix(char *socket_name, int timeout, int async) {
 
 }
 
-int connect_to_tcp(char *socket_name, int port, int timeout, int async) {
+static int connect_to_tcp(char *socket_name, int port, int timeout, int async) {
 
 	struct pollfd uwsgi_poll;
 	struct sockaddr_in uws_addr;
@@ -403,15 +417,13 @@ int connect_to_tcp(char *socket_name, int port, int timeout, int async) {
 		uws_addr.sin_addr.s_addr = inet_addr(socket_name);
 	}
 
-	socket_name[strlen(socket_name)] = ':';
-
 #if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
 	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 #else
 	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM, 0);
 #endif
 	if (uwsgi_poll.fd < 0) {
-		uwsgi_error("socket()");
+		uwsgi_error("connect_to_tcp()/socket()");
 		return -1;
 	}
 
@@ -426,6 +438,38 @@ int connect_to_tcp(char *socket_name, int port, int timeout, int async) {
 	return uwsgi_poll.fd;
 
 }
+
+static int connect_to_udp(char *socket_name, int port) {
+
+        struct sockaddr_in uws_addr;
+        memset(&uws_addr, 0, sizeof(struct sockaddr_in));
+
+        uws_addr.sin_family = AF_INET;
+        uws_addr.sin_port = htons(port);
+
+        if (socket_name[0] == 0) {
+                uws_addr.sin_addr.s_addr = INADDR_ANY;
+        }
+        else {
+                uws_addr.sin_addr.s_addr = inet_addr(socket_name);
+        }
+
+        int fd = socket(AF_INET, SOCK_DGRAM, 0);
+        if (fd < 0) {
+                uwsgi_error("connect_to_udp()/socket()");
+                return -1;
+        }
+
+	if (connect(fd, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in))) {
+		close(fd);
+		return -1;
+	}
+
+        return fd;
+
+}
+
+
 
 char *generate_socket_name(char *socket_name) {
 
