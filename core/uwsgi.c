@@ -630,6 +630,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"attach-daemon", required_argument, 0, "attach a command/daemon to the master process (the command has to not go in background)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
 	{"smart-attach-daemon", required_argument, 0, "attach a command/daemon to the master process managed by a pidfile (the command has to daemonize)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
 	{"smart-attach-daemon2", required_argument, 0, "attach a command/daemon to the master process managed by a pidfile (the command has to NOT daemonize)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
+#ifdef UWSGI_SSL
+	{"legion-attach-daemon", required_argument, 0, "same as --attach-daemon but daemon runs only on legion lord node", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
+	{"legion-smart-attach-daemon", required_argument, 0, "same as --smart-attach-daemon but daemon runs only on legion lord node", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
+	{"legion-smart-attach-daemon2", required_argument, 0, "same as --smart-attach-daemon2 but daemon runs only on legion lord node", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
+#endif
 	{"daemons-honour-stdin", no_argument, 0, "do not change the stdin of external daemons to /dev/null", uwsgi_opt_true, &uwsgi.daemons_honour_stdin, UWSGI_OPT_MASTER},
 	{"plugins", required_argument, 0, "load uWSGI plugins", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"plugin", required_argument, 0, "load uWSGI plugins", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
