@@ -411,10 +411,10 @@ func uwsgi_go_helper_run_core(core_id int) {
 	the main function, running the uWSGI server via libuwsgi.so
 */
 func Run() {
-        argc := len(os.Args)
+        argc := len(os.Args) + 1
         argv := C.uwsgi_go_helper_create_argv(C.int(argc))
         for i, s := range os.Args {
                 C.uwsgi_go_helper_set_argv(argv, C.int(i), C.CString(s))
         }
-        C.uwsgi_init(C.int(argc), argv, nil)
+        C.uwsgi_init(C.int(argc-1), argv, nil)
 }
