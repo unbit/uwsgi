@@ -293,18 +293,17 @@ void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer 
 #endif
         }
 
-	
 	if (peer->failed) {
 		
 		if (peer->soopt) {
                         if (!ucr->quiet)
-                                uwsgi_log("[uwsgi-%s] unable to connect() to node \"%.*s\": %s\n", ucr->short_name, (int) peer->instance_address_len, peer->instance_address, strerror(peer->soopt));
+                                uwsgi_log("[uwsgi-%s] unable to connect() to node \"%.*s\" (%d retries): %s\n", ucr->short_name, (int) peer->instance_address_len, peer->instance_address, peer->retries, strerror(peer->soopt));
                 }
                 else if (peer->timed_out) {
                         if (peer->instance_address_len > 0) {
                                 if (peer->connecting) {
                                         if (!ucr->quiet)
-                                                uwsgi_log("[uwsgi-%s] unable to connect() to node \"%.*s\": timeout\n", ucr->short_name, (int) peer->instance_address_len, peer->instance_address);
+                                                uwsgi_log("[uwsgi-%s] unable to connect() to node \"%.*s\" (%d retries): timeout\n", ucr->short_name, (int) peer->instance_address_len, peer->instance_address, peer->retries);
                                 }
                         }
                 }
