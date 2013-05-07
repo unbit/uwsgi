@@ -659,7 +659,9 @@ ready:
 	// application generic lock
 	uwsgi.user_lock = uwsgi_malloc(sizeof(void *) * (uwsgi.locks + 1));
 	for (i = 0; i < uwsgi.locks + 1; i++) {
-		uwsgi.user_lock[i] = uwsgi_lock_init(uwsgi_concat2("user ", uwsgi_num2str(i)));
+		char *num = uwsgi_num2str(i);
+		uwsgi.user_lock[i] = uwsgi_lock_init(uwsgi_concat2("user ", num));
+		free(num);
 	}
 
 	// event queue lock (mitigate same event on multiple queues)
