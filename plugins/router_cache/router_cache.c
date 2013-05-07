@@ -47,6 +47,9 @@ struct uwsgi_router_cache_conf {
 
 	char *expires_str;
 	uint64_t expires;
+
+	char *status_str;
+	int status;
 };
 
 // this is allocated for each transformation
@@ -56,6 +59,9 @@ struct uwsgi_transformation_cache_conf {
         struct uwsgi_buffer *cache_it_gzip;
 #endif
 
+	int status;
+	struct uwsgi_buffer *value;
+
         struct uwsgi_buffer *cache_it_to;
         uint64_t cache_it_expires;
 };
@@ -63,8 +69,12 @@ struct uwsgi_transformation_cache_conf {
 static int transform_cache(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
 	struct uwsgi_transformation_cache_conf *utcc = (struct uwsgi_transformation_cache_conf *) ut->data;
 	struct uwsgi_buffer *ub = ut->chunk;
+	// force value
+	if (utcc->value) {
+		ub = utcc->value;
+	}
 	// store only successfull response
-	if (wsgi_req->write_errors == 0 && wsgi_req->status == 200 && ub->pos > 0) {
+	if (wsgi_req->write_errors == 0 && (wsgi_req->status == 200 || (utcc->status && wsgi_req->status == utcc->status))  && ub->pos > 0) {
 		if (utcc->cache_it) {
 			uwsgi_cache_magic_set(utcc->cache_it->buf, utcc->cache_it->pos, ub->buf, ub->pos, utcc->cache_it_expires,
 				UWSGI_CACHE_FLAG_UPDATE, utcc->cache_it_to ? utcc->cache_it_to->buf : NULL);
@@ -87,6 +97,7 @@ static int transform_cache(struct wsgi_request *wsgi_req, struct uwsgi_transform
 	if (utcc->cache_it_gzip) uwsgi_buffer_destroy(utcc->cache_it_gzip);
 #endif
 	if (utcc->cache_it_to) uwsgi_buffer_destroy(utcc->cache_it_to);
+	if (utcc->value) uwsgi_buffer_destroy(utcc->value);
 	free(utcc);
         return 0;
 }
@@ -109,6 +120,13 @@ static int uwsgi_routing_func_cache_store(struct wsgi_request *wsgi_req, struct 
 		utcc->cache_it_to = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urcc->name, urcc->name_len);
 		if (!utcc->cache_it_to) goto error;
 	}
+
+	if (urcc->value) {
+		utcc->value = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urcc->value, urcc->value_len);
+                if (!utcc->value) goto error;
+	}
+
+	utcc->status = urcc->status;
 
 #ifdef UWSGI_ZLIB
 	if (urcc->gzip) {
@@ -243,6 +261,9 @@ static int uwsgi_router_cache_store(struct uwsgi_route *ur, char *args) {
                         "gzip", &urcc->gzip,
 #endif
                         "name", &urcc->name,
+                        "value", &urcc->value,
+			"status", &urcc->status_str,
+			"code", &urcc->status_str,
                         "expires", &urcc->expires_str, NULL)) {
                         uwsgi_log("invalid cachestore route syntax: %s\n", args);
 			goto error;
@@ -270,6 +291,14 @@ static int uwsgi_router_cache_store(struct uwsgi_route *ur, char *args) {
 		if (urcc->expires_str) {
 			urcc->expires = strtoul(urcc->expires_str, NULL, 10);
 		}
+
+		if (urcc->value) {
+			urcc->value_len = strlen(urcc->value);
+		}
+
+		if (urcc->status_str) {
+                        urcc->status = atoi(urcc->status_str);
+                }
 
 	ur->data2 = urcc;
         return 0;
@@ -402,6 +431,33 @@ static int uwsgi_router_cachevar(struct uwsgi_route *ur, char *args) {
         return 0;
 }
 
+static int uwsgi_route_condition_incache(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	int ret = 0;
+	char *key = NULL;
+	size_t key_len = 0;
+	char *name = NULL;
+
+	if (uwsgi_kvlist_parse(ur->subject_str, ur->subject_str_len, ',', '=',
+        	"key", &key,
+                "name", &name,
+                NULL)) {
+		return 0;
+	}
+
+	if (!key) goto end;
+
+	key_len = strlen(key);
+	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, key, key_len);
+        if (!ub) goto end;
+
+        ret = uwsgi_cache_magic_exists(ub->buf, ub->pos, name);
+	uwsgi_buffer_destroy(ub);
+
+end:
+	if (key) free(key);
+	if (name) free(name);
+	return ret;
+}
 
 static void router_cache_register() {
 	uwsgi_register_router("cache", uwsgi_router_cache);
@@ -410,6 +466,7 @@ static void router_cache_register() {
 	uwsgi_register_router("cacheset", uwsgi_router_cacheset);
 	uwsgi_register_router("cachestore", uwsgi_router_cache_store);
 	uwsgi_register_router("cache-store", uwsgi_router_cache_store);
+	uwsgi_register_route_condition("incache", uwsgi_route_condition_incache);
 }
 
 struct uwsgi_plugin router_cache_plugin = {
