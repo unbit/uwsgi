@@ -242,7 +242,9 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #include <sys/wait.h>
 
 #ifdef __APPLE__
+#ifndef MAC_OS_X_VERSION_MIN_REQUIRED
 #define MAC_OS_X_VERSION_MIN_REQUIRED MAC_OS_X_VERSION_10_4
+#endif
 #include <mach-o/dyld.h>
 #endif
 
