@@ -692,9 +692,9 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 				goto end;
 			if (uwsgi_stats_keyval_comma(us, "cmd", ud->command))
 				goto end;
-			if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) ud->pid))
+			if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) (ud->pid < 0) ? 0 : ud->pid))
 				goto end;
-			if (uwsgi_stats_keylong(us, "respawns", (unsigned long long) (ud->respawns - 1)))
+			if (uwsgi_stats_keylong(us, "respawns", (unsigned long long) ud->respawns ? 0 : ud->respawns))
 				goto end;
 			if (uwsgi_stats_object_close(us))
 				goto end;

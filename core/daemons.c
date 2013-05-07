@@ -1,4 +1,4 @@
-#include "../uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
@@ -42,6 +42,31 @@ void uwsgi_daemons_smart_check() {
 
 	struct uwsgi_daemon *ud = uwsgi.daemons;
 	while (ud) {
+#ifdef UWSGI_SSL
+		if (ud->legion) {
+			if (uwsgi_legion_i_am_the_lord(ud->legion)) {
+				// lord, spawn if not running
+				if (ud->pid <= 0) {
+					uwsgi_spawn_daemon(ud);
+				}
+			}
+			else {
+				// not lord, kill daemon if running
+				if (ud->pid > 0) {
+					if (!kill(ud->pid, 0)) {
+						uwsgi_log("[uwsgi_daemons] stopping legion \"%s\" daemon: %s (pid: %d)\n", ud->legion, ud->command, ud->pid);
+						kill(-ud->pid, SIGTERM);
+					}
+					else {
+						// pid already died
+						ud->pid = -1;
+					}
+				}
+				ud = ud->next;
+				continue;
+			}
+		}
+#endif
 		if (ud->pidfile) {
 			int checked_pid = uwsgi_check_pidfile(ud->pidfile);
 			if (checked_pid <= 0) {
@@ -70,12 +95,13 @@ void uwsgi_daemons_smart_check() {
 	}
 }
 
-// this function is called when a dumb daemon dies and we do not wat to respawn it
+// this function is called when a dumb daemon dies and we do not want to respawn it
 int uwsgi_daemon_check_pid_death(pid_t diedpid) {
 	struct uwsgi_daemon *ud = uwsgi.daemons;
 	while (ud) {
 		if (ud->pid == diedpid && !ud->pidfile) {
 			uwsgi_log("daemon \"%s\" (pid: %d) annihilated\n", ud->command, (int) diedpid);
+			ud->pid = -1;
 			return -1;
 		}
 		ud = ud->next;
@@ -87,6 +113,15 @@ int uwsgi_daemon_check_pid_death(pid_t diedpid) {
 int uwsgi_daemon_check_pid_reload(pid_t diedpid) {
 	struct uwsgi_daemon *ud = uwsgi.daemons;
 	while (ud) {
+#ifdef UWSGI_SSL
+		if (ud->pid == diedpid && ud->legion && !uwsgi_legion_i_am_the_lord(ud->legion)) {
+			// part of legion but not lord, don't respawn
+			ud->pid = -1;
+			uwsgi_log("uwsgi-daemons] legion \"%s\" daemon \"%s\" (pid: %d) annihilated\n", ud->legion, ud->command, (int) diedpid);
+			ud = ud->next;
+			continue;
+		}
+#endif
 		if (ud->pid == diedpid && !ud->pidfile) {
 			uwsgi_spawn_daemon(ud);
 			return 1;
@@ -133,6 +168,19 @@ void uwsgi_daemons_spawn_all() {
 	struct uwsgi_daemon *ud = uwsgi.daemons;
 	while (ud) {
 		if (!ud->registered) {
+#ifdef UWSGI_SSL
+			if (ud->legion && !uwsgi_legion_i_am_the_lord(ud->legion)) {
+				// part of legion, register but don't spawn it yet
+				if (ud->pidfile) {
+					ud->pid = uwsgi_check_pidfile(ud->pidfile);
+					if (ud->pid > 0)
+						uwsgi_log("[uwsgi-daemons] found valid/active pidfile for \"%s\" (pid: %d)\n", ud->command, (int) ud->pid);
+				}
+				ud->registered = 1;
+				ud = ud->next;
+				continue;
+			}
+#endif
 			if (ud->pidfile) {
 				int checked_pid = uwsgi_check_pidfile(ud->pidfile);
 				if (checked_pid <= 0) {
@@ -156,14 +204,38 @@ void uwsgi_daemons_spawn_all() {
 void uwsgi_detach_daemons() {
 	struct uwsgi_daemon *ud = uwsgi.daemons;
 	while (ud) {
-		if (ud->pid > 0 && !ud->pidfile)
-			kill(-ud->pid, SIGKILL);
+#ifdef UWSGI_SSL
+		// stop any legion daemon, doesn't matter if dumb or smart
+		if (ud->pid > 0 && (ud->legion || !ud->pidfile)) {
+#else
+		// stop only dumb daemons
+		if (ud->pid > 0 && !ud->pidfile) {
+#endif
+			uwsgi_log("[uwsgi-daemons] stopping daemon (pid: %d): %s\n", (int) ud->pid, ud->command);
+			// try to gracefully stop daemon, kill it if it won't die
+			// if mercy is not set than wait up to 3 seconds
+			time_t timeout = uwsgi_now() + (uwsgi.reload_mercy ? uwsgi.reload_mercy : 3);
+			while (!kill(ud->pid, 0)) {
+				kill(-ud->pid, SIGTERM);
+				sleep(1);
+				if (uwsgi_now() >= timeout) {
+					uwsgi_log("[uwsgi-daemons] daemon did not died in time, killing (pid: %d): %s\n", (int) ud->pid, ud->command);
+					kill(-ud->pid, SIGKILL);
+					break;
+				}
+			}
+			// unregister daemon to prevent it from being respawned
+			ud->registered = 0;
+		}
 		ud = ud->next;
 	}
 }
 
 
 void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
+
+	// skip unregistered daemons
+	if (!ud->registered) return;
 
 	int devnull = -1;
 	int throttle = 0;
@@ -261,11 +333,26 @@ void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
 	char *pidfile = NULL;
 	int daemonize = 0;
 	int freq = 10;
+	char *space = NULL;
 
 	char *command = uwsgi_str(value);
 
-	if (!strcmp(opt, "smart-attach-daemon") || !strcmp(opt, "smart-attach-daemon2")) {
-		char *space = strchr(command, ' ');
+#ifdef UWSGI_SSL
+	char *legion = NULL;
+	if (!uwsgi_starts_with(opt, strlen(command), "legion-", 7)) {
+		space = strchr(command, ' ');
+		if (!space) {
+			uwsgi_log("invalid legion daemon syntax: %s\n", command);
+			exit(1);
+		}
+		*space = 0;
+		legion = command;
+		command = space+1;
+	}
+#endif
+
+	if (!strcmp(opt, "smart-attach-daemon") || !strcmp(opt, "smart-attach-daemon2") || !strcmp(opt, "legion-smart-attach-daemon") || !strcmp(opt, "legion-smart-attach-daemon2")) {
+		space = strchr(command, ' ');
 		if (!space) {
 			uwsgi_log("invalid smart-attach-daemon syntax: %s\n", command);
 			exit(1);
@@ -308,6 +395,9 @@ void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
 	uwsgi_ud->last_spawn = 0;
 	uwsgi_ud->daemonize = daemonize;
 	uwsgi_ud->pidfile = pidfile;
+#ifdef UWSGI_SSL
+	uwsgi_ud->legion = legion;
+#endif
 
 	uwsgi.daemons_cnt++;
 

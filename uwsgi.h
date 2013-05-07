@@ -542,6 +542,10 @@ struct uwsgi_daemon {
 	// frequency of pidfile checks (default 10 secs)
 	int freq;
 
+#ifdef UWSGI_SSL
+	char *legion;
+#endif
+
 	struct uwsgi_daemon *next;
 };
 
