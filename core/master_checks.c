@@ -177,6 +177,7 @@ void uwsgi_master_check_gateways_deadline() {
 		if (ushared->gateways_harakiri[i] > 0) {
 			if (ushared->gateways_harakiri[i] < (time_t) uwsgi.current_time) {
 				if (ushared->gateways[i].pid > 0) {
+					uwsgi_log("*** HARAKIRI ON GATEWAY %s %d (pid: %d) ***\n", ushared->gateways[i].name, ushared->gateways[i].num, ushared->gateways[i].pid);
 					kill(ushared->gateways[i].pid, SIGKILL);
 				}
 				ushared->gateways_harakiri[i] = 0;
