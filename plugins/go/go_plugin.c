@@ -48,9 +48,6 @@ static int uwsgi_go_init() {
 
 	uwsgi_log("Go version \"%s\" initialized\n", uwsgi_go_helper_version_c());
 
-	// call PostInit()
-	uwsgi_go_helper_post_init_c();
-
 	return 0;
 }
 
@@ -80,9 +77,7 @@ static int uwsgi_go_request(struct wsgi_request *wsgi_req) {
 }
 
 static void uwsgi_go_after_request(struct wsgi_request *wsgi_req) {
-
         log_request(wsgi_req);
-
 }
 
 static int uwsgi_go_signal_handler(uint8_t signum, void *handler) {
@@ -101,11 +96,18 @@ static void uwsgi_go_on_load() {
 	uwsgi_register_loop("goroutines", goroutines_loop);
 }
 
+static void uwsgi_go_call_init_hook() {
+	if (uwsgi_go_helper_post_init_c) {
+		uwsgi_go_helper_post_init_c();
+	}
+}
+
 struct uwsgi_plugin go_plugin = {
 	.name = "go",
 	.modifier1 = 11,
 	.request = uwsgi_go_request,
 	.after_request = uwsgi_go_after_request,
+	.preinit_apps = uwsgi_go_call_init_hook,
 	.post_fork = uwsgi_go_post_fork,
 	.init = uwsgi_go_init,
 	.signal_handler = uwsgi_go_signal_handler,
