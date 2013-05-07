@@ -18,7 +18,9 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop) (int, void *), v
 		}
 	}
 
-	char *fullname = uwsgi_concat3(name, " ", uwsgi_num2str(num));
+	char *str = uwsgi_num2str(num);
+	char *fullname = uwsgi_concat3(name, " ", str);
+	free(str);
 
 	ug = &ushared->gateways[ushared->gateways_cnt];
 	ug->pid = 0;
