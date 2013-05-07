@@ -3163,7 +3163,7 @@ char *uwsgi_check_touches(struct uwsgi_string_list *touch_list) {
 				uwsgi_log("[uwsgi-check-touches] File %s was removed\n", touch->value);
 #endif
 				touch->custom2 = 1;
-				return touch->value;
+				return touch->custom_ptr ? touch->custom_ptr : touch->value;
 			}
 			else if (!touch->custom && !touch->custom2) {
 				uwsgi_log("unable to stat() %s, events will be triggered as soon as the file is created\n", touch->value);
@@ -3178,14 +3178,14 @@ char *uwsgi_check_touches(struct uwsgi_string_list *touch_list) {
 #endif
 				touch->custom = (uint64_t) tr_st.st_mtime;
 				touch->custom2 = 0;
-				return touch->value;
+				return touch->custom_ptr ? touch->custom_ptr : touch->value;
 			}
 			else if (touch->custom && (uint64_t) tr_st.st_mtime > touch->custom) {
 #ifdef UWSGI_DEBUG
 				uwsgi_log("[uwsgi-check-touches] modification detected on %s: %llu -> %llu\n", touch->value, (unsigned long long) touch->custom, (unsigned long long) tr_st.st_mtime);
 #endif
 				touch->custom = (uint64_t) tr_st.st_mtime;
-				return touch->value;
+				return touch->custom_ptr ? touch->custom_ptr : touch->value;
 			}
 			touch->custom = (uint64_t) tr_st.st_mtime;
 		}

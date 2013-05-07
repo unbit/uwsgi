@@ -473,6 +473,18 @@ int master_loop(char **argv, char **environ) {
 	uwsgi_check_touches(uwsgi.touch_chain_reload);
 	uwsgi_check_touches(uwsgi.touch_workers_reload);
 	uwsgi_check_touches(uwsgi.touch_gracefully_stop);
+	// update exec touches
+	struct uwsgi_string_list *usl = uwsgi.touch_exec;
+	while(usl) {
+		char *space = strchr(usl->value, ' ');
+		if (space) {
+			*space = 0;
+			usl->len = strlen(usl->value);
+			usl->custom_ptr = space + 1;
+		}
+		usl = usl->next;
+	}
+	uwsgi_check_touches(uwsgi.touch_exec);
 
 	// setup cheaper algos (can be stacked)
 	uwsgi.cheaper_algo = uwsgi_cheaper_algo_spare;
@@ -746,6 +758,14 @@ int master_loop(char **argv, char **environ) {
 					}
 					else {
                                         	uwsgi_log_verbose("*** %s has been touched... but chain reload is already running ***\n", touched);
+					}
+				}
+
+				// be sure to run it as the last touch check
+				touched = uwsgi_check_touches(uwsgi.touch_exec);
+				if (touched) {
+					if (uwsgi_run_command( touched , NULL, -1) >= 0) {
+						uwsgi_log_verbose("[uwsgi-touch-exec] running %s\n", touched);
 					}
 				}
 			}
