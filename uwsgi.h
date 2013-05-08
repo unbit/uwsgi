@@ -313,9 +313,14 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #endif
 
 #define UWSGI_CACHE_FLAG_UNGETTABLE	0x01
-#define UWSGI_CACHE_FLAG_UPDATE	0x02
-#define UWSGI_CACHE_FLAG_LOCAL	0x04
-#define UWSGI_CACHE_FLAG_ABSEXPIRE	0x08
+#define UWSGI_CACHE_FLAG_UPDATE	1 << 1
+#define UWSGI_CACHE_FLAG_LOCAL	1 << 2
+#define UWSGI_CACHE_FLAG_ABSEXPIRE	1 << 3
+#define UWSGI_CACHE_FLAG_MATH	1 << 4
+#define UWSGI_CACHE_FLAG_INC	1 << 5
+#define UWSGI_CACHE_FLAG_DEC	1 << 6
+#define UWSGI_CACHE_FLAG_MUL	1 << 7
+#define UWSGI_CACHE_FLAG_DIV	1 << 8
 
 #ifdef UWSGI_SSL
 #include "openssl/conf.h"
@@ -733,7 +738,7 @@ struct uwsgi_cache {
 	uint64_t filesize;
 	uint64_t store_sync;
 
-	int thread_server_fd;
+	int64_t math_initial;
 
 	struct uwsgi_string_list *nodes;
 	int udp_node_socket;

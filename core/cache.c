@@ -543,6 +543,8 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 
 	if (vallen > uc->max_item_size) return -1;
 
+	if ((flags & UWSGI_CACHE_FLAG_MATH) && vallen != 8) return -1;
+
 	//uwsgi_log("putting cache data in key %.*s %d\n", keylen, key, vallen);
 	index = uwsgi_cache_get_index(uc, key, keylen);
 	if (!index) {
@@ -602,7 +604,33 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		uci->hits = 0;
 		uci->flags = flags;
 		memcpy(uci->key, key, keylen);
-		memcpy(((char *) uc->data) + (uci->first_block * uc->blocksize), val, vallen);
+
+		if ( !(flags & UWSGI_CACHE_FLAG_MATH)) {
+			memcpy(((char *) uc->data) + (uci->first_block * uc->blocksize), val, vallen);
+		}		
+		// ok math operations here
+		else {
+			int64_t *num = (int64_t *)(((char *) uc->data) + (uci->first_block * uc->blocksize));
+			*num = uc->math_initial;
+			int64_t *delta = (int64_t *) val;
+			if (flags & UWSGI_CACHE_FLAG_INC) {
+				*num += *delta;
+			}
+			else if (flags & UWSGI_CACHE_FLAG_DEC) {
+				*num -= *delta;
+			}
+			else if (flags & UWSGI_CACHE_FLAG_MUL) {
+				*num *= *delta;
+			}
+			else if (flags & UWSGI_CACHE_FLAG_DIV) {
+				if (*delta == 0) {
+					*num = 0;
+				}
+				else {
+					*num /= *delta;
+				}
+			}
+		}
 
 		// set this as late as possibile (to reduce races risk)
 
@@ -661,7 +689,30 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 			// unmark the old blocks
 			cache_unmark_blocks(uc, uci->first_block, uci->valsize);
 		}
-		memcpy(uc->data + (uci->first_block * uc->blocksize), val, vallen);
+		if ( !(flags & UWSGI_CACHE_FLAG_MATH)) {
+			memcpy(uc->data + (uci->first_block * uc->blocksize), val, vallen);
+		}
+		else {
+			int64_t *num = (int64_t *)(((char *) uc->data) + (uci->first_block * uc->blocksize));
+                        int64_t *delta = (int64_t *) val;
+                        if (flags & UWSGI_CACHE_FLAG_INC) {
+                                *num += *delta;
+                        }
+                        else if (flags & UWSGI_CACHE_FLAG_DEC) {
+                                *num -= *delta;
+                        }
+                        else if (flags & UWSGI_CACHE_FLAG_MUL) {
+                                *num *= *delta;
+                        }
+                        else if (flags & UWSGI_CACHE_FLAG_DIV) {
+                                if (*delta == 0) {
+                                        *num = 0;
+                                }
+                                else {
+                                        *num /= *delta;
+                                }
+                        }
+		}
 		uci->valsize = vallen;
 		ret = 0;
 	}
