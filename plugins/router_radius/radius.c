@@ -157,7 +157,7 @@ static int uwsgi_routing_func_radius(struct wsgi_request *wsgi_req, struct uwsgi
                         	wsgi_req->remote_user = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, auth, rlen);
 				free(auth);
                                 if (!wsgi_req->remote_user) goto forbidden;
-                                wsgi_req->remote_user_len = ur->custom;
+                                wsgi_req->remote_user_len = rlen;
 				return UWSGI_ROUTE_NEXT;
                         }
 			free(auth);
@@ -219,8 +219,14 @@ static int uwsgi_router_radius(struct uwsgi_route *ur, char *args) {
         return 0;
 }
 
+static int uwsgi_router_radius_next(struct uwsgi_route *ur, char *args) {
+	ur->custom = 1;
+	return uwsgi_router_radius(ur, args);
+}
+
 static void router_radius_register(void) {
 	uwsgi_register_router("radius", uwsgi_router_radius);
+	uwsgi_register_router("radius-next", uwsgi_router_radius_next);
 }
 
 struct uwsgi_plugin router_radius_plugin = {
