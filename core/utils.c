@@ -1826,6 +1826,12 @@ char *uwsgi_num2str(int num) {
 	return str;
 }
 
+char *uwsgi_64bit2str(int64_t num) {
+	char *str = uwsgi_malloc(sizeof(MAX64_STR)+1);
+	snprintf(str, sizeof(MAX64_STR)+1, "%lld", (long long) num);
+	return str;
+}
+
 int uwsgi_num2str2(int num, char *ptr) {
 
 	return snprintf(ptr, 11, "%d", num);

@@ -32,6 +32,8 @@ struct uwsgi_router_cache_conf {
 	// use mime types ?
 	char *mime;
 
+	char *as_num;
+
 #ifdef UWSGI_ZLIB
 	char *gzip;
 	size_t gzip_len;
@@ -211,6 +213,17 @@ static int uwsgi_routing_func_cachevar(struct wsgi_request *wsgi_req, struct uws
         char *value = uwsgi_cache_magic_get(ub->buf, ub->pos, &valsize, NULL, urcc->name);
         uwsgi_buffer_destroy(ub);
         if (value) {
+		if (urcc->as_num) {
+			char *tmp = value;
+			if (valsize == 8) {
+				int64_t *num = (int64_t *) value;
+				value = uwsgi_64bit2str(*num);
+			}
+			else {
+				value = uwsgi_64bit2str(0);
+			}
+			free(tmp);
+		}
 		if (!uwsgi_req_append(wsgi_req, urcc->var, urcc->var_len, value, valsize)) {
         		free(value);
 			return UWSGI_ROUTE_BREAK;
@@ -409,6 +422,8 @@ static int uwsgi_router_cachevar(struct uwsgi_route *ur, char *args) {
                         "key", &urcc->key,
                         "var", &urcc->var,
                         "name", &urcc->name,
+                        "num", &urcc->as_num,
+                        "as_num", &urcc->as_num,
                         NULL)) {
                         uwsgi_log("invalid route syntax: %s\n", args);
                         exit(1);

@@ -9,7 +9,8 @@ extern "C" {
 #define UMAX16	65536
 #define UMAX8	256
 
-#define UMAX64_STR "18446744073709551616"
+#define UMAX64_STR "18446744073709551615"
+#define MAX64_STR "−9223372036854775808"
 
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_error_realpath(x)  uwsgi_log("realpath() of %s failed: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
@@ -321,6 +322,7 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #define UWSGI_CACHE_FLAG_DEC	1 << 6
 #define UWSGI_CACHE_FLAG_MUL	1 << 7
 #define UWSGI_CACHE_FLAG_DIV	1 << 8
+#define UWSGI_CACHE_FLAG_FIXEXPIRE	1 << 9
 
 #ifdef UWSGI_SSL
 #include "openssl/conf.h"
@@ -2759,6 +2761,7 @@ struct uwsgi_cache *uwsgi_cache_by_namelen(char *, uint16_t);
 void uwsgi_cache_create_all(void);
 void uwsgi_cache_sync_from_nodes(struct uwsgi_cache *);
 void uwsgi_cache_setup_nodes(struct uwsgi_cache *);
+int64_t uwsgi_cache_num2(struct uwsgi_cache *, char *, uint16_t);
 
 void uwsgi_cache_sync_all(void);
 void uwsgi_cache_start_sweepers(void);
@@ -2828,6 +2831,7 @@ void uwsgi_detach_daemons();
 
 void emperor_loop(void);
 char *uwsgi_num2str(int);
+char *uwsgi_64bit2str(int64_t);
 
 char *magic_sub(char *, size_t, size_t *, char *[]);
 void init_magic_table(char *[]);

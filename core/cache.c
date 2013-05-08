@@ -416,6 +416,24 @@ char *uwsgi_cache_get2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint6
 	return NULL;
 }
 
+int64_t uwsgi_cache_num2(struct uwsgi_cache *uc, char *key, uint16_t keylen) {
+
+        uint64_t index = uwsgi_cache_get_index(uc, key, keylen);
+
+        if (index) {
+                struct uwsgi_cache_item *uci = cache_item(index);
+		if (uci->flags & UWSGI_CACHE_FLAG_UNGETTABLE)
+                        return 0;
+                uci->hits++;
+                uc->hits++;
+		int64_t *num = (int64_t *) (uc->data + (uci->first_block * uc->blocksize));
+		return *num;
+        }
+
+        uc->miss++;
+	return 0;
+}
+
 char *uwsgi_cache_get3(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_t * valsize, uint64_t *expires) {
 
         uint64_t index = uwsgi_cache_get_index(uc, key, keylen);
@@ -662,7 +680,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 	}
 	else if (flags & UWSGI_CACHE_FLAG_UPDATE) {
 		uci = cache_item(index);
-		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
+		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE) && !(flags & UWSGI_CACHE_FLAG_FIXEXPIRE)) {
 			now = uwsgi_now();
 			expires += now;
 			uci->expires = expires;
@@ -1019,6 +1037,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		char *c_udp_servers = NULL;
 		char *c_bitmap = NULL;
 		char *c_use_last_modified = NULL;
+		char *c_math_initial = NULL;
 
 		if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
                         "name", &c_name,
@@ -1045,6 +1064,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                         "udpserver", &c_udp_servers,
                         "bitmap", &c_bitmap,
                         "lastmod", &c_use_last_modified,
+                        "math_initial", &c_math_initial,
                 	NULL)) {
 			uwsgi_log("unable to parse cache definition\n");
 			exit(1);
@@ -1090,6 +1110,8 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 			uc->max_item_size = uc->blocksize * uc->blocks;
 		}
 		if (c_use_last_modified) uc->use_last_modified = 1;
+
+		if (c_math_initial) uc->math_initial = strtol(c_math_initial, NULL, 10);
 
 		uc->store_sync = uwsgi.cache_store_sync;
 		if (c_store_sync) { uc->store_sync = uwsgi_n64(c_store_sync); }

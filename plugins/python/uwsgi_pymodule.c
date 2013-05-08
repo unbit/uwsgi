@@ -2555,7 +2555,7 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 
 	uint64_t expires = 0;
 
-	if (!PyArg_ParseTuple(args, "s#s#|is:cache_set", &key, &keylen, &value, &vallen, &expires, &remote)) {
+	if (!PyArg_ParseTuple(args, "s#s#|ls:cache_set", &key, &keylen, &value, &vallen, &expires, &remote)) {
 		return NULL;
 	}
 
@@ -2582,12 +2582,112 @@ PyObject *py_uwsgi_cache_update(PyObject * self, PyObject * args) {
 
         uint64_t expires = 0;
 
-        if (!PyArg_ParseTuple(args, "s#s#|is:cache_update", &key, &keylen, &value, &vallen, &expires, &remote)) {
+        if (!PyArg_ParseTuple(args, "s#s#|ls:cache_update", &key, &keylen, &value, &vallen, &expires, &remote)) {
                 return NULL;
         }
 
         UWSGI_RELEASE_GIL
         if (uwsgi_cache_magic_set(key, keylen, value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE, remote)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+        UWSGI_GET_GIL
+
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
+PyObject *py_uwsgi_cache_inc(PyObject * self, PyObject * args) {
+
+        char *key;
+        Py_ssize_t keylen = 0;
+        char *remote = NULL;
+	int64_t value = 1;
+        uint64_t expires = 0;
+
+        if (!PyArg_ParseTuple(args, "s#|lls:cache_inc", &key, &keylen, &value, &expires, &remote)) {
+                return NULL;
+        }
+
+        UWSGI_RELEASE_GIL
+        if (uwsgi_cache_magic_set(key, keylen, (char *) &value, 8, expires, UWSGI_CACHE_FLAG_UPDATE|UWSGI_CACHE_FLAG_MATH|UWSGI_CACHE_FLAG_FIXEXPIRE|UWSGI_CACHE_FLAG_INC, remote)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+        UWSGI_GET_GIL
+
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
+PyObject *py_uwsgi_cache_dec(PyObject * self, PyObject * args) {
+
+        char *key;
+        Py_ssize_t keylen = 0;
+        char *remote = NULL;
+        int64_t value = 1;
+        uint64_t expires = 0;
+
+        if (!PyArg_ParseTuple(args, "s#|lls:cache_dec", &key, &keylen, &value, &expires, &remote)) {
+                return NULL;
+        }
+
+        UWSGI_RELEASE_GIL
+        if (uwsgi_cache_magic_set(key, keylen, (char *) &value, 8, expires, UWSGI_CACHE_FLAG_UPDATE|UWSGI_CACHE_FLAG_MATH|UWSGI_CACHE_FLAG_FIXEXPIRE|UWSGI_CACHE_FLAG_DEC, remote)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+        UWSGI_GET_GIL
+
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
+PyObject *py_uwsgi_cache_mul(PyObject * self, PyObject * args) {
+
+        char *key;
+        Py_ssize_t keylen = 0;
+        char *remote = NULL;
+        int64_t value = 2;
+        uint64_t expires = 0;
+
+        if (!PyArg_ParseTuple(args, "s#|lls:cache_mul", &key, &keylen, &value, &expires, &remote)) {
+                return NULL;
+        }
+
+        UWSGI_RELEASE_GIL
+        if (uwsgi_cache_magic_set(key, keylen, (char *) &value, 8, expires, UWSGI_CACHE_FLAG_UPDATE|UWSGI_CACHE_FLAG_MATH|UWSGI_CACHE_FLAG_FIXEXPIRE|UWSGI_CACHE_FLAG_MUL, remote)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+        UWSGI_GET_GIL
+
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
+PyObject *py_uwsgi_cache_div(PyObject * self, PyObject * args) {
+
+        char *key;
+        Py_ssize_t keylen = 0;
+        char *remote = NULL;
+        int64_t value = 2;
+        uint64_t expires = 0;
+
+        if (!PyArg_ParseTuple(args, "s#|lls:cache_div", &key, &keylen, &value, &expires, &remote)) {
+                return NULL;
+        }
+
+        UWSGI_RELEASE_GIL
+        if (uwsgi_cache_magic_set(key, keylen, (char *) &value, 8, expires, UWSGI_CACHE_FLAG_UPDATE|UWSGI_CACHE_FLAG_MATH|UWSGI_CACHE_FLAG_FIXEXPIRE|UWSGI_CACHE_FLAG_DIV, remote)) {
                 UWSGI_GET_GIL
                 Py_INCREF(Py_None);
                 return Py_None;
@@ -2940,6 +3040,31 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 
 }
 
+PyObject *py_uwsgi_cache_num(PyObject * self, PyObject * args) {
+
+        char *key;
+        Py_ssize_t keylen = 0;
+        char *cache = NULL;
+
+        if (!PyArg_ParseTuple(args, "s#|s:cache_num", &key, &keylen, &cache)) {
+                return NULL;
+        }
+
+        uint64_t vallen = 0;
+        UWSGI_RELEASE_GIL
+        char *value = uwsgi_cache_magic_get(key, keylen, &vallen, NULL, cache);
+        UWSGI_GET_GIL
+        if (value && vallen == 8) {
+		int64_t *num = (int64_t *) value;
+                PyObject *ret = PyLong_FromLong(*num);
+                free(value);
+                return ret;
+        }
+
+        return PyLong_FromLong(0);
+
+}
+
 static PyMethodDef uwsgi_cache_methods[] = {
 	{"cache_get", py_uwsgi_cache_get, METH_VARARGS, ""},
 	{"cache_set", py_uwsgi_cache_set, METH_VARARGS, ""},
@@ -2947,6 +3072,11 @@ static PyMethodDef uwsgi_cache_methods[] = {
 	{"cache_del", py_uwsgi_cache_del, METH_VARARGS, ""},
 	{"cache_exists", py_uwsgi_cache_exists, METH_VARARGS, ""},
 	{"cache_clear", py_uwsgi_cache_clear, METH_VARARGS, ""},
+	{"cache_inc", py_uwsgi_cache_inc, METH_VARARGS, ""},
+	{"cache_dec", py_uwsgi_cache_dec, METH_VARARGS, ""},
+	{"cache_mul", py_uwsgi_cache_mul, METH_VARARGS, ""},
+	{"cache_div", py_uwsgi_cache_div, METH_VARARGS, ""},
+	{"cache_num", py_uwsgi_cache_num, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 
