@@ -7,6 +7,7 @@ struct uwsgi_symcall {
 	int (*symcall_function)(struct wsgi_request *);
 
 	struct uwsgi_string_list *rpc;
+	struct uwsgi_string_list *post_fork;
 } usym;
 
 struct uwsgi_plugin symcall_plugin;
@@ -14,6 +15,7 @@ struct uwsgi_plugin symcall_plugin;
 static struct uwsgi_option uwsgi_symcall_options[] = {
         {"symcall", required_argument, 0, "load the specified C symbol as the symcall request handler", uwsgi_opt_set_str, &usym.symcall_function_name, 0},
         {"symcall-register-rpc", required_argument, 0, "load the specified C symbol as an RPC function (syntax: name function)", uwsgi_opt_add_string_list, &usym.rpc, 0},
+        {"symcall-post-fork", required_argument, 0, "call the specified C symbol after each fork()", uwsgi_opt_add_string_list, &usym.post_fork, 0},
         {0, 0, 0, 0},
 };
 
@@ -66,6 +68,20 @@ static uint16_t uwsgi_symcall_rpc(void *func, uint8_t argc, char **argv, uint16_
 	return casted_func(argc, argv, argvs, buffer);
 }
 
+static void uwsgi_symcall_post_fork() {
+	void (*func)(void);
+	struct uwsgi_string_list *usl = usym.post_fork;
+        while(usl) {
+                func = dlsym(RTLD_DEFAULT, usl->value);
+                if (!func) {
+                        uwsgi_log("unable to find symbol \"%s\" in process address space\n", usl->value);
+                        exit(1);
+                }
+		func();
+                usl = usl->next;
+        }
+}
+
 struct uwsgi_plugin symcall_plugin = {
 
         .name = "symcall",
@@ -75,6 +91,7 @@ struct uwsgi_plugin symcall_plugin = {
         .request = uwsgi_symcall_request,
         .after_request = uwsgi_symcall_after_request,
 	.rpc = uwsgi_symcall_rpc,
+	.post_fork = uwsgi_symcall_post_fork,
 
 };
 
