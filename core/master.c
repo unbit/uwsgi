@@ -853,6 +853,7 @@ next:
 		// ok, if we are reloading or dying, just continue the master loop
 		// as soon as all of the workers have pid == 0, the action (exit, or reload) is triggered
 		if (uwsgi_instance_is_reloading || uwsgi_instance_is_dying) {
+			if (!uwsgi.workers[thewid].cursed_at) uwsgi.workers[thewid].cursed_at = uwsgi_now();
 			uwsgi_log("worker %d buried after %d seconds\n", thewid, (int) (uwsgi_now()-uwsgi.workers[thewid].cursed_at));
 			uwsgi.workers[thewid].cursed_at = 0;
 			continue;

@@ -3939,3 +3939,14 @@ void http_url_encode(char *buf, uint16_t *len, char *dst) {
 
 }
 
+void uwsgi_takeover() {
+	if (uwsgi.i_am_a_spooler) {
+		uwsgi_spooler_run();
+	}
+	else if (uwsgi.muleid) {
+		uwsgi_mule_run();
+	}
+	else {
+		uwsgi_worker_run();
+	}
+}

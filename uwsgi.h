@@ -3997,6 +3997,7 @@ char *uwsgi_str_to_hex(char *, size_t);
 void uwsgi_worker_run(void);
 void uwsgi_mule_run(void);
 void uwsgi_spooler_run(void);
+void uwsgi_takeover(void);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
