@@ -122,27 +122,33 @@ pid_t spooler_start(struct uwsgi_spooler * uspool) {
 			}
 		}
 
-		uwsgi.signal_socket = uwsgi.shared->spooler_signal_pipe[1];
-
-		for (i = 0; i < 256; i++) {
-			if (uwsgi.p[i]->spooler_init) {
-				uwsgi.p[i]->spooler_init();
-			}
-		}
-
-		for (i = 0; i < uwsgi.gp_cnt; i++) {
-			if (uwsgi.gp[i]->spooler_init) {
-				uwsgi.gp[i]->spooler_init();
-			}
-		}
-
-		spooler(uspool);
+		uwsgi_spooler_run();
 	}
 	else if (pid > 0) {
 		uwsgi_log("spawned the uWSGI spooler on dir %s with pid %d\n", uspool->dir, pid);
 	}
 
 	return pid;
+}
+
+void uwsgi_spooler_run() {
+	int i;
+	struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
+	uwsgi.signal_socket = uwsgi.shared->spooler_signal_pipe[1];
+
+                for (i = 0; i < 256; i++) {
+                        if (uwsgi.p[i]->spooler_init) {
+                                uwsgi.p[i]->spooler_init();
+                        }
+                }
+
+                for (i = 0; i < uwsgi.gp_cnt; i++) {
+                        if (uwsgi.gp[i]->spooler_init) {
+                                uwsgi.gp[i]->spooler_init();
+                        }
+                }
+
+                spooler(uspool);
 }
 
 void destroy_spool(char *dir, char *file) {

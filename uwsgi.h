@@ -3993,6 +3993,11 @@ void uwsgi_add_safe_fd(int);
 void uwsgi_ipcsem_clear(void);
 char *uwsgi_str_to_hex(char *, size_t);
 
+// this 3 functions have been added 1.9.10 to allow plugins take the control over processes
+void uwsgi_worker_run(void);
+void uwsgi_mule_run(void);
+void uwsgi_spooler_run(void);
+
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

@@ -2790,6 +2790,16 @@ next2:
 		}
 	}
 
+	uwsgi_worker_run();
+	// never here
+	_exit(0);
+
+}
+
+void uwsgi_worker_run() {
+
+	int i;
+
 	if (uwsgi.lazy || uwsgi.lazy_apps) {
 		uwsgi_init_all_apps();
 	}
