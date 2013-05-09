@@ -1,0 +1,127 @@
+#include <uwsgi.h>
+
+/*
+
+	Soon before official Go 1.1, we understand supporting Go in a fork() heavy
+	environment was not blessed by the Go community.
+
+	Instead of completely dropping support for Go, we studied how the gccgo project works and we
+	decided it was a better approach for uWSGI.
+
+	This new plugin works by initializing a new "go runtime" after each fork().
+
+	The runtime calls the Go main function (developed by the user), and pass the whole
+	uWSGI control to it.
+	
+	the uwsgi.Run() go function directly calls the uwsgi_takeover() function (it automatically
+	manages mules, spoolers and workers)
+
+*/
+
+struct uwsgi_gccgo{
+	struct uwsgi_string_list *libs;
+} ugccgo;
+
+struct uwsgi_option uwsgi_gccgo_options[] = {
+	{"go-load", required_argument, 0, "load a go shared library in the process address space, eventually patching main.main and __go_init_main", uwsgi_opt_add_string_list, &ugccgo.libs, 0},
+	{"gccgo-load", required_argument, 0, "load a go shared library in the process address space, eventually patching main.main and __go_init_main", uwsgi_opt_add_string_list, &ugccgo.libs, 0},
+        //{"goroutines", required_argument, 0, "a shortcut setting optimal options for goroutine-based apps, takes the number of goroutines to spawn as argument", uwsgi_opt_setup_goroutines, NULL, UWSGI_OPT_THREADS},
+        {0, 0, 0, 0, 0, 0, 0},
+
+};
+
+// no_split_stack is the key to avoid crashing !!!
+void* runtime_m(void) __attribute__ ((noinline, no_split_stack));
+
+void runtime_check(void);
+void runtime_args(int, char **);
+void runtime_osinit(void);
+void runtime_schedinit(void);
+void *__go_go(void *, void *);
+void runtime_main(void);
+void runtime_mstart(void *);
+
+extern void uwsgigo_request(void *, void *) __asm__ ("go.uwsgi.RequestHandler");
+extern void* uwsgigo_env(void *) __asm__ ("go.uwsgi.Env");
+extern void* uwsgigo_env_add(void *, void *, uint16_t, void *, uint16_t) __asm__ ("go.uwsgi.EnvAdd");
+
+static void mainstart(void *arg __attribute__((unused))) {
+	runtime_main();
+}
+
+void uwsgigo_main_main(void) __asm__ ("main.main");
+void uwsgigo_main_init(void) __asm__ ("__go_init_main");
+
+void (*uwsgigo_hook_init)(void);
+void (*uwsgigo_hook_main)(void);
+
+void uwsgigo_main_init(void) {
+	uwsgigo_hook_init();
+}
+
+
+void uwsgigo_main_main(void) {
+	uwsgigo_hook_main();
+}
+
+static void uwsgi_gccgo_initialize() {
+	struct uwsgi_string_list *usl = ugccgo.libs;
+	while(usl) {
+		void *handle = dlopen(usl->value, RTLD_NOW | RTLD_GLOBAL);
+		if (!handle) {
+			uwsgi_log("unable to open go shared library: %s\n", dlerror());
+			exit(1);
+		}
+		uwsgi_log("[uwsgi-gccgo] loaded %s\n", usl->value);
+		uwsgigo_hook_init = dlsym(handle, "__go_init_main");
+		uwsgigo_hook_main = dlsym(handle, "main.main");
+		usl = usl->next;
+	}
+	if (!uwsgigo_hook_init || !uwsgigo_hook_main) {
+		return;
+	}
+
+	// Go runtime initialization
+        char *argv[2] = {0};
+        runtime_check();
+        runtime_args(0, argv);
+        runtime_osinit();
+        runtime_schedinit();
+        __go_go(mainstart, NULL);
+        runtime_mstart(runtime_m());
+	// never here
+}
+
+static int uwsgi_gccgo_request(struct wsgi_request *wsgi_req) {
+	/* Standard GO request */
+        if (!wsgi_req->uh->pktsize) {
+                uwsgi_log("Empty GO request. skip.\n");
+                return -1;
+        }
+
+        if (uwsgi_parse_vars(wsgi_req)) {
+                return -1;
+        }
+
+	wsgi_req->async_environ = uwsgigo_env(wsgi_req);
+	int i;
+        for(i=0;i<wsgi_req->var_cnt;i++) {
+                uwsgigo_env_add(wsgi_req->async_environ, wsgi_req->hvec[i].iov_base,  wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len);
+                i++;
+        }
+	uwsgigo_request(wsgi_req->async_environ, wsgi_req);
+	return UWSGI_OK;
+}
+
+static void uwsgi_gccgo_after_request(struct wsgi_request *wsgi_req) {
+	log_request(wsgi_req);
+}
+
+struct uwsgi_plugin gccgo_plugin = {
+        .name = "gccgo",
+        .modifier1 = 11,
+	.options = uwsgi_gccgo_options,
+        .request = uwsgi_gccgo_request,
+        .after_request = uwsgi_gccgo_after_request,
+        .post_fork = uwsgi_gccgo_initialize,
+};
