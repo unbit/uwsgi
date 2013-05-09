@@ -18,6 +18,8 @@
 
 */
 
+extern struct uwsgi_server uwsgi;
+
 struct uwsgi_gccgo{
 	struct uwsgi_string_list *libs;
 } ugccgo;
@@ -59,9 +61,21 @@ void uwsgigo_main_init(void) {
 	uwsgigo_hook_init();
 }
 
-
 void uwsgigo_main_main(void) {
 	uwsgigo_hook_main();
+}
+
+int uwsgi_gccgo_helper_request_body_read(struct wsgi_request *wsgi_req, char *p, uint64_t len) {
+	ssize_t rlen = 0;
+	char *buf = uwsgi_request_body_read(wsgi_req, len, &rlen);
+	if (buf == uwsgi.empty) {
+		return 0;
+	}
+	else if (buf == NULL) {
+		return -1;
+	}
+	memcpy(p, buf, rlen);
+	return (int) rlen;
 }
 
 static void uwsgi_gccgo_initialize() {

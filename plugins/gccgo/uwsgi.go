@@ -4,6 +4,7 @@ import (
 	"strings"
 	"net/http"
 	"net/http/cgi"
+	"io"
 )
 
 
@@ -15,8 +16,8 @@ func uwsgi_response_write_body_do(*interface{}, *byte, uint64) int
 func uwsgi_response_prepare_headers_int(*interface{}, int) int
 //extern uwsgi_response_add_header
 func uwsgi_response_add_header(*interface{}, *byte, uint16, *byte, uint16) int
-//extern uwsgi_request_body_read
-func uwsgi_request_body_read(*interface{}, []byte, uint64) int
+//extern uwsgi_gccgo_helper_request_body_read
+func uwsgi_request_body_read(*interface{}, *byte, uint64) int
 
 func Env(wsgi_req *interface{}) *map[string]string {
 	var env map[string]string
@@ -75,22 +76,16 @@ func (br *BodyReader) Close() error {
 }
 
 func (br *BodyReader) Read(p []byte) (n int, err error) {
-                return 0, err
+	var rlen int = uwsgi_request_body_read(br.wsgi_req, &p[0], uint64(len(p)))
+	if (rlen == 0) {
+		err = io.EOF;
+		return 0, err
+	} else if (rlen == -1) {
+		err = io.ErrUnexpectedEOF
+		return 0, err
+	}
+	return rlen, err
 }
-/*
-        m := len(p)
-        var body []byte = uwsgi_request_body_read(br.wsgi_req, C.ssize_t(m), &rlen)
-        if (body[0] == 0) {
-                err = io.EOF;
-                return 0, err
-        } else if (body != nil) {
-                return int(rlen), err
-        }
-        err = io.ErrUnexpectedEOF
-        rlen = 0
-        return int(rlen), err
-}
-*/
 
 func RequestHandler(env *map[string]string, wsgi_req *interface{}) {
         httpReq, err := cgi.RequestFromMap(*env)
