@@ -1425,6 +1425,7 @@ struct wsgi_request {
 
 	// avoid routing loops
 	int is_routing;
+	int is_final_routing;
 	int routes_applied;
 	// internal routing vm program counter
 	uint32_t route_pc;
@@ -2113,6 +2114,7 @@ struct uwsgi_server {
 #ifdef UWSGI_ROUTING
 	struct uwsgi_router *routers;
 	struct uwsgi_route *routes;
+	struct uwsgi_route *final_routes;
 	struct uwsgi_route_condition *route_conditions;
 	struct uwsgi_route_var *route_vars;
 #endif
@@ -3327,13 +3329,14 @@ char *uwsgi_tmpname(char *, char *);
 struct uwsgi_router *uwsgi_register_router(char *, int (*)(struct uwsgi_route *, char *));
 void uwsgi_opt_add_route(char *, char *, void *);
 int uwsgi_apply_routes(struct wsgi_request *);
-int uwsgi_apply_routes_do(struct wsgi_request *, char *, uint16_t);
+void uwsgi_apply_final_routes(struct wsgi_request *);
+int uwsgi_apply_routes_do(struct uwsgi_route *, struct wsgi_request *, char *, uint16_t);
 void uwsgi_register_embedded_routers(void);
 void uwsgi_routing_dump();
 struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *, struct uwsgi_route *, char *, uint16_t, char *, size_t);
 int uwsgi_route_api_func(struct wsgi_request *, char *, char *);
 struct uwsgi_route_condition *uwsgi_register_route_condition(char *, int (*) (struct wsgi_request *, struct uwsgi_route *));
-void uwsgi_fixup_routes(void);
+void uwsgi_fixup_routes(struct uwsgi_route *);
 #endif
 
 void uwsgi_reload(char **);

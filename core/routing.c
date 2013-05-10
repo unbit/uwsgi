@@ -166,9 +166,8 @@ static void uwsgi_routing_reset_memory(struct wsgi_request *wsgi_req, struct uws
 
 }
 
-int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req, char *subject, uint16_t subject_len) {
+int uwsgi_apply_routes_do(struct uwsgi_route *routes, struct wsgi_request *wsgi_req, char *subject, uint16_t subject_len) {
 
-	struct uwsgi_route *routes = uwsgi.routes;
 	int n = -1;
 
 	char *orig_subject = subject;
@@ -268,8 +267,21 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 		return UWSGI_ROUTE_CONTINUE;
 	}
 
-	return uwsgi_apply_routes_do(wsgi_req, NULL, 0);
+	return uwsgi_apply_routes_do(uwsgi.routes, wsgi_req, NULL, 0);
 }
+
+void uwsgi_apply_final_routes(struct wsgi_request *wsgi_req) {
+
+        if (!uwsgi.final_routes) return;
+
+        // avoid loops
+        if (wsgi_req->is_routing) return;
+
+	wsgi_req->is_final_routing = 1;
+
+        uwsgi_apply_routes_do(uwsgi.final_routes, wsgi_req, NULL, 0);
+}
+
 
 static void *uwsgi_route_get_condition_func(char *name) {
 	struct uwsgi_route_condition *urc = uwsgi.route_conditions;
@@ -286,7 +298,10 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 
 	char *space = NULL;
 	char *command = NULL;
-	struct uwsgi_route *old_ur = NULL,*ur = uwsgi.routes;
+	struct uwsgi_route *old_ur = NULL, *ur = uwsgi.routes;
+	if (!uwsgi_starts_with(opt, strlen(opt), "final", 5)) {
+		ur = uwsgi.final_routes;
+	} 
 	uint64_t pos = 0;
 	while(ur) {
 		old_ur = ur;
@@ -298,7 +313,12 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 		old_ur->next = ur;
 	}
 	else {
-		uwsgi.routes = ur;
+		if (!uwsgi_starts_with(opt, strlen(opt), "final", 5)) {
+			uwsgi.final_routes = ur;
+		}
+		else {
+			uwsgi.routes = ur;
+		}
 	}
 
 	ur->pos = pos;
@@ -409,8 +429,7 @@ done:
 	exit(1);
 }
 
-void uwsgi_fixup_routes() {
-	struct uwsgi_route *ur = uwsgi.routes;
+void uwsgi_fixup_routes(struct uwsgi_route *ur) {
 	while(ur) {
 		// prepare the main pointers
 		ur->ovn = uwsgi_calloc(sizeof(int) * uwsgi.cores);
@@ -612,6 +631,9 @@ static int uwsgi_router_goto_func(struct wsgi_request *wsgi_req, struct uwsgi_ro
 
 	// find the label
 	struct uwsgi_route *routes = uwsgi.routes;
+	if (wsgi_req->is_final_routing) {
+		routes = uwsgi.final_routes;
+	}
 	while(routes) {
 		if (!routes->label) goto next;
 		if (!uwsgi_strncmp(routes->label, routes->label_len, ub->buf, ub->pos)) {
@@ -1291,6 +1313,14 @@ static char *uwsgi_route_var_uwsgi(struct wsgi_request *wsgi_req, char *key, uin
 		uwsgi_uuid(ret);
 		*vallen = 36;
 	}
+	else if (!uwsgi_strncmp(key, keylen, "status", 6)) {
+                ret = uwsgi_num2str(wsgi_req->status);
+                *vallen = strlen(ret);
+        }
+	else if (!uwsgi_strncmp(key, keylen, "rtime", 5)) {
+                ret = uwsgi_num2str(wsgi_req->end_of_request - wsgi_req->start_of_request);
+                *vallen = strlen(ret);
+        }
 
 	return ret;
 }
@@ -1537,5 +1567,21 @@ void uwsgi_routing_dump() {
 		routes = routes->next;
 	}
 	uwsgi_log("*** end of the internal routing table ***\n");
+	routes = uwsgi.final_routes;
+	if (!routes) return;
+        uwsgi_log("*** dumping internal final routing table ***\n");
+        while(routes) {
+                if (routes->label) {
+                        uwsgi_log("[rule: %llu] label: %s\n", (unsigned long long ) routes->pos, routes->label);
+                }
+                else if (!routes->subject_str && !routes->if_func) {
+                        uwsgi_log("[rule: %llu] action: %s\n", (unsigned long long ) routes->pos, routes->action);
+                }
+                else {
+                        uwsgi_log("[rule: %llu] subject: %s %s: %s%s action: %s\n", (unsigned long long ) routes->pos, routes->subject_str, routes->if_func ? "func" : "regexp", routes->if_negate ? "!" : "", routes->regexp, routes->action);
+                }
+                routes = routes->next;
+        }
+        uwsgi_log("*** end of the internal final routing table ***\n");
 }
 #endif

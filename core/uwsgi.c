@@ -531,6 +531,22 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"route-if", required_argument, 0, "add a route based on condition", uwsgi_opt_add_route, "if", 0},
 	{"route-if-not", required_argument, 0, "add a route based on condition (negate version)", uwsgi_opt_add_route, "if-not", 0},
 	{"route-run", required_argument, 0, "always run the specified route action", uwsgi_opt_add_route, "run", 0},
+
+
+
+	{"final-route", required_argument, 0, "add a final route", uwsgi_opt_add_route, "path_info", 0},
+        {"final-route-host", required_argument, 0, "add a final route based on Host header", uwsgi_opt_add_route, "http_host", 0},
+        {"final-route-uri", required_argument, 0, "add a final route based on REQUEST_URI", uwsgi_opt_add_route, "request_uri", 0},
+        {"final-route-qs", required_argument, 0, "add a final route based on QUERY_STRING", uwsgi_opt_add_route, "query_string", 0},
+        {"final-route-remote-addr", required_argument, 0, "add a final route based on REMOTE_ADDR", uwsgi_opt_add_route, "remote_addr", 0},
+        {"final-route-user-agent", required_argument, 0, "add a final route based on HTTP_USER_AGENT", uwsgi_opt_add_route, "user_agent", 0},
+        {"final-route-remote-user", required_argument, 0, "add a final route based on REMOTE_USER", uwsgi_opt_add_route, "remote_user", 0},
+        {"final-route-referer", required_argument, 0, "add a final route based on HTTP_REFERER", uwsgi_opt_add_route, "referer", 0},
+        {"final-route-label", required_argument, 0, "add a final routing label (for use with goto)", uwsgi_opt_add_route, NULL, 0},
+        {"final-route-if", required_argument, 0, "add a final route based on condition", uwsgi_opt_add_route, "if", 0},
+        {"final-route-if-not", required_argument, 0, "add a final route based on condition (negate version)", uwsgi_opt_add_route, "if-not", 0},
+        {"final-route-run", required_argument, 0, "always run the specified final route action", uwsgi_opt_add_route, "run", 0},
+
 	{"router-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 	{"routers-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 #endif
