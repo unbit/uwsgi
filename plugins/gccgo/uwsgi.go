@@ -18,6 +18,8 @@ func uwsgi_response_prepare_headers_int(*interface{}, int) int
 func uwsgi_response_add_header(*interface{}, *byte, uint16, *byte, uint16) int
 //extern uwsgi_gccgo_helper_request_body_read
 func uwsgi_request_body_read(*interface{}, *byte, uint64) int
+//extern simple_loop_run_int
+func simple_loop_run_int(int)
 
 func Env(wsgi_req *interface{}) *map[string]string {
 	var env map[string]string
@@ -96,6 +98,9 @@ func RequestHandler(env *map[string]string, wsgi_req *interface{}) {
         }
 }
 
+func RunCore(core_id int) {
+        go simple_loop_run_int(core_id)
+}
 
 func Run() {
 	uwsgi_takeover()

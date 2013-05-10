@@ -181,6 +181,7 @@ void uwsgi_daemons_spawn_all() {
 				continue;
 			}
 #endif
+			ud->registered = 1;
 			if (ud->pidfile) {
 				int checked_pid = uwsgi_check_pidfile(ud->pidfile);
 				if (checked_pid <= 0) {
@@ -194,7 +195,6 @@ void uwsgi_daemons_spawn_all() {
 			else {
 				uwsgi_spawn_daemon(ud);
 			}
-			ud->registered = 1;
 		}
 		ud = ud->next;
 	}

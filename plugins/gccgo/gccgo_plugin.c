@@ -24,10 +24,17 @@ struct uwsgi_gccgo{
 	struct uwsgi_string_list *libs;
 } ugccgo;
 
+static void uwsgi_opt_setup_goroutines(char *opt, char *value, void *foobar) {
+        // set async mode
+        uwsgi_opt_set_int(opt, value, &uwsgi.async);
+        // set loop engine
+        uwsgi.loop = "goroutines";
+}
+
 struct uwsgi_option uwsgi_gccgo_options[] = {
 	{"go-load", required_argument, 0, "load a go shared library in the process address space, eventually patching main.main and __go_init_main", uwsgi_opt_add_string_list, &ugccgo.libs, 0},
 	{"gccgo-load", required_argument, 0, "load a go shared library in the process address space, eventually patching main.main and __go_init_main", uwsgi_opt_add_string_list, &ugccgo.libs, 0},
-        //{"goroutines", required_argument, 0, "a shortcut setting optimal options for goroutine-based apps, takes the number of goroutines to spawn as argument", uwsgi_opt_setup_goroutines, NULL, UWSGI_OPT_THREADS},
+        {"goroutines", required_argument, 0, "a shortcut setting optimal options for goroutine-based apps, takes the number of goroutines to spawn as argument", uwsgi_opt_setup_goroutines, NULL, UWSGI_OPT_THREADS},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -46,6 +53,7 @@ void runtime_mstart(void *);
 extern void uwsgigo_request(void *, void *) __asm__ ("go.uwsgi.RequestHandler");
 extern void* uwsgigo_env(void *) __asm__ ("go.uwsgi.Env");
 extern void* uwsgigo_env_add(void *, void *, uint16_t, void *, uint16_t) __asm__ ("go.uwsgi.EnvAdd");
+extern void uwsgigo_run_core(int) __asm__ ("go.uwsgi.RunCore");
 
 static void mainstart(void *arg __attribute__((unused))) {
 	runtime_main();
@@ -127,6 +135,21 @@ static int uwsgi_gccgo_request(struct wsgi_request *wsgi_req) {
 	return UWSGI_OK;
 }
 
+void syscall_cgocall(void) __asm__ ("syscall.Cgocall");
+
+static void goroutines_loop() {
+        int i;
+        for (i = 1; i < uwsgi.async; i++) {
+		syscall_cgocall();
+                uwsgigo_run_core(i);
+        }
+        simple_loop_run_int(0);
+}
+
+static void uwsgi_gccgo_on_load() {
+        uwsgi_register_loop("goroutines", goroutines_loop);
+}
+
 static void uwsgi_gccgo_after_request(struct wsgi_request *wsgi_req) {
 	log_request(wsgi_req);
 }
@@ -135,6 +158,7 @@ struct uwsgi_plugin gccgo_plugin = {
         .name = "gccgo",
         .modifier1 = 11,
 	.options = uwsgi_gccgo_options,
+	.on_load = uwsgi_gccgo_on_load,
         .request = uwsgi_gccgo_request,
         .after_request = uwsgi_gccgo_after_request,
         .post_fork = uwsgi_gccgo_initialize,
