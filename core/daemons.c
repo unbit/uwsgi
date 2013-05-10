@@ -366,7 +366,7 @@ void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
 			freq = atoi(comma + 1);
 		}
 		command = space + 1;
-		if (!strcmp(opt, "smart-attach-daemon2")) {
+		if (!strcmp(opt, "smart-attach-daemon2") || !strcmp(opt, "legion-smart-attach-daemon2")) {
 			daemonize = 1;
 		}
 	}
