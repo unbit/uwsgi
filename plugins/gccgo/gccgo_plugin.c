@@ -16,6 +16,9 @@
 	the uwsgi.Run() go function directly calls the uwsgi_takeover() function (it automatically
 	manages mules, spoolers and workers)
 
+	As well as before each core maps to a goroutine mapped to a real pthread. (goroutines called
+	from your apps are native goroutines)
+
 */
 
 extern struct uwsgi_server uwsgi;
