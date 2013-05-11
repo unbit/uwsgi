@@ -570,7 +570,7 @@ class uConf(object):
                 return None
             return value
         except:
-            if default:
+            if default is not None:
                 return default
             return None
 
