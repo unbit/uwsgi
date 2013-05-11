@@ -22,6 +22,7 @@ extern struct uwsgi_server uwsgi;
 
 struct uwsgi_gccgo{
 	struct uwsgi_string_list *libs;
+	char *args;
 } ugccgo;
 
 static void uwsgi_opt_setup_goroutines(char *opt, char *value, void *foobar) {
@@ -34,6 +35,8 @@ static void uwsgi_opt_setup_goroutines(char *opt, char *value, void *foobar) {
 struct uwsgi_option uwsgi_gccgo_options[] = {
 	{"go-load", required_argument, 0, "load a go shared library in the process address space, eventually patching main.main and __go_init_main", uwsgi_opt_add_string_list, &ugccgo.libs, 0},
 	{"gccgo-load", required_argument, 0, "load a go shared library in the process address space, eventually patching main.main and __go_init_main", uwsgi_opt_add_string_list, &ugccgo.libs, 0},
+	{"go-args", required_argument, 0, "set go commandline arguments", uwsgi_opt_set_str, &ugccgo.args, 0},
+	{"gccgo-args", required_argument, 0, "set go commandline arguments", uwsgi_opt_set_str, &ugccgo.args, 0},
         {"goroutines", required_argument, 0, "a shortcut setting optimal options for goroutine-based apps, takes the number of goroutines to spawn as argument", uwsgi_opt_setup_goroutines, NULL, UWSGI_OPT_THREADS},
         {0, 0, 0, 0, 0, 0, 0},
 
@@ -104,9 +107,33 @@ static void uwsgi_gccgo_initialize() {
 	}
 
 	// Go runtime initialization
-        char *argv[2] = {0};
+	int argc = 0;
+	if (ugccgo.args) {
+        	char *argv_list = uwsgi_str(ugccgo.args);
+                char *p = strtok(argv_list, " ");
+                while(p) {
+			argc++;
+                        p = strtok(NULL, " ");
+                }
+		free(argv_list);
+        }
         runtime_check();
-        runtime_args(0, argv);
+	if (argc > 0) {
+		char **argv = uwsgi_calloc(sizeof(char *) * (argc + 1));
+		char *argv_list = uwsgi_str(ugccgo.args);
+		char *p = strtok(argv_list, " ");
+		int n = 0;
+                while(p) {
+			argv[n] = p;
+			n++;
+                        p = strtok(NULL, " ");
+                }
+        	runtime_args(argc, argv);
+	}
+	else {
+		char *argv[2] = {0,0};
+        	runtime_args(0, argv);
+	}
         runtime_osinit();
         runtime_schedinit();
         __go_go(mainstart, NULL);
