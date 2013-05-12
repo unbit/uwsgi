@@ -535,6 +535,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 
 	{"final-route", required_argument, 0, "add a final route", uwsgi_opt_add_route, "path_info", 0},
+	{"final-route-status", required_argument, 0, "add a final route for the specified status", uwsgi_opt_add_route, "status", 0},
         {"final-route-host", required_argument, 0, "add a final route based on Host header", uwsgi_opt_add_route, "http_host", 0},
         {"final-route-uri", required_argument, 0, "add a final route based on REQUEST_URI", uwsgi_opt_add_route, "request_uri", 0},
         {"final-route-qs", required_argument, 0, "add a final route based on QUERY_STRING", uwsgi_opt_add_route, "query_string", 0},
@@ -548,6 +549,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
         {"final-route-run", required_argument, 0, "always run the specified final route action", uwsgi_opt_add_route, "run", 0},
 
 	{"error-route", required_argument, 0, "add an error route", uwsgi_opt_add_route, "path_info", 0},
+	{"error-route-status", required_argument, 0, "add an error route for the specified status", uwsgi_opt_add_route, "status", 0},
         {"error-route-host", required_argument, 0, "add an error route based on Host header", uwsgi_opt_add_route, "http_host", 0},
         {"error-route-uri", required_argument, 0, "add an error route based on REQUEST_URI", uwsgi_opt_add_route, "request_uri", 0},
         {"error-route-qs", required_argument, 0, "add an error route based on QUERY_STRING", uwsgi_opt_add_route, "query_string", 0},

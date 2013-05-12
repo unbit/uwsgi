@@ -1082,6 +1082,7 @@ struct uwsgi_route {
 
 	int (*if_func)(struct wsgi_request *, struct uwsgi_route *);
 	int if_negate;
+	int if_status;
 
 	int (*func) (struct wsgi_request *, struct uwsgi_route *);
 

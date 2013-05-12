@@ -306,6 +306,14 @@ static void *uwsgi_route_get_condition_func(char *name) {
 	return NULL;
 }
 
+static int uwsgi_route_condition_status(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	if (wsgi_req->status == ur->if_status) {
+		return 1;
+	}
+        return 0;
+}
+
+
 void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 
 	char *space = NULL;
@@ -382,6 +390,11 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 			exit(1);
 		}
 	}
+	else if (!strcmp(foobar, "status")) {
+		ur->if_status = atoi(ur->orig_route);
+		foobar = ur->orig_route;
+                ur->if_func = uwsgi_route_condition_status;
+        }
 
 	else if (!strcmp(foobar, "http_host")) {
 		ur->subject = offsetof(struct wsgi_request, host);
@@ -1573,7 +1586,7 @@ struct uwsgi_route_condition *uwsgi_register_route_condition(char *name, int (*f
 
 void uwsgi_routing_dump() {
 	struct uwsgi_route *routes = uwsgi.routes;
-	if (!routes) return;
+	if (!routes) goto next;
 	uwsgi_log("*** dumping internal routing table ***\n");
 	while(routes) {
 		if (routes->label) {
@@ -1588,8 +1601,9 @@ void uwsgi_routing_dump() {
 		routes = routes->next;
 	}
 	uwsgi_log("*** end of the internal routing table ***\n");
+next:
 	routes = uwsgi.error_routes;
-        if (!routes) return;
+        if (!routes) goto next2;
         uwsgi_log("*** dumping internal error routing table ***\n");
         while(routes) {
                 if (routes->label) {
@@ -1604,6 +1618,7 @@ void uwsgi_routing_dump() {
                 routes = routes->next;
         }
         uwsgi_log("*** end of the internal error routing table ***\n");
+next2:
 	routes = uwsgi.final_routes;
 	if (!routes) return;
         uwsgi_log("*** dumping internal final routing table ***\n");

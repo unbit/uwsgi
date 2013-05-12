@@ -214,7 +214,7 @@ static int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len)
 				// "Status: NNN"
 				if (header_size >= 11) {
 					if (!strncasecmp("Status: ", key, 8)) {
-						uwsgi_response_prepare_headers(wsgi_req, key+8, header_size - 8);
+						if (uwsgi_response_prepare_headers(wsgi_req, key+8, header_size - 8)) return -1;
 						status_sent = 1;
 						key = NULL;
 						value = NULL;
@@ -229,13 +229,13 @@ static int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len)
 				// Location: X
 				if (header_size >= 11) {
 					if (!strncasecmp("Location: ", key, 10)) {
-						uwsgi_response_prepare_headers(wsgi_req, "302 Found", 9);
+						if (uwsgi_response_prepare_headers(wsgi_req, "302 Found", 9)) return -1;
 						status_sent = 1;
 					}
 				}
 
 				if (status_sent == 0) {
-					uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6);
+					if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) return -1;
 					status_sent = 1;
 				}
 			}
