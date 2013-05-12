@@ -80,7 +80,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 #ifdef PYTHREE
 		Py_DECREF(zero);
 #endif
-		return PyErr_Format(PyExc_TypeError, "unable to set HTTP status line");
+		goto end;
 	}
 
 #ifdef PYTHREE
@@ -193,6 +193,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		UWSGI_GET_GIL
 	}
 
+end:
 	Py_INCREF(up.wsgi_writeout);
 	return up.wsgi_writeout;
 }

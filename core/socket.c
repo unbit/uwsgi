@@ -1552,6 +1552,9 @@ void uwsgi_setup_shared_sockets() {
 				shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 				shared_sock->family = AF_UNIX;
 				uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+				if (uwsgi.chown_socket) {
+                                        uwsgi_chown(shared_sock->name, uwsgi.chown_socket);
+                                }
 			}
 			else {
 #ifdef AF_INET6
