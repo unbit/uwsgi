@@ -76,6 +76,8 @@ int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, 
 
 	// reset the buffer (could be useful for rollbacks...)
 	wsgi_req->headers->pos = 0;
+	// reset headers count
+	wsgi_req->header_cnt = 0;
 	struct uwsgi_buffer *hh = NULL;
 	if (status_len <= 4) {
 		char *new_sc = NULL;
