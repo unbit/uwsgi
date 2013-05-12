@@ -888,7 +888,9 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		status = rb_obj_as_string(RARRAY_PTR(ret)[0]);
 		// get the status code
 
-		uwsgi_response_prepare_headers(wsgi_req, RSTRING_PTR(status), RSTRING_LEN(status));
+		if (uwsgi_response_prepare_headers(wsgi_req, RSTRING_PTR(status), RSTRING_LEN(status))) {
+			goto clear;
+		}
 
 		headers = RARRAY_PTR(ret)[1] ;
 		if (rb_respond_to( headers, rb_intern("each") )) {

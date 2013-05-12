@@ -349,6 +349,7 @@ void uwsgi_setup_workers() {
 
 #ifdef UWSGI_ROUTING
 	uwsgi_fixup_routes(uwsgi.routes);
+	uwsgi_fixup_routes(uwsgi.error_routes);
 	uwsgi_fixup_routes(uwsgi.final_routes);
 #endif
 

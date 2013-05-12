@@ -79,6 +79,14 @@ int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, 
 	// reset headers count
 	wsgi_req->header_cnt = 0;
 	struct uwsgi_buffer *hh = NULL;
+	wsgi_req->status = uwsgi_str3_num(status);
+#ifdef UWSGI_ROUTING
+	// apply error routes
+	if (uwsgi_apply_error_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
+		return -1;
+	}
+	wsgi_req->is_error_routing = 0;
+#endif
 	if (status_len <= 4) {
 		char *new_sc = NULL;
 		size_t new_sc_len = 0;
@@ -101,7 +109,6 @@ int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, 
 	if (!hh) {wsgi_req->write_errors++; return -1;}
         if (uwsgi_buffer_append(wsgi_req->headers, hh->buf, hh->pos)) goto error;
         uwsgi_buffer_destroy(hh);
-	wsgi_req->status = uwsgi_str3_num(status);
         return 0;
 error:
         uwsgi_buffer_destroy(hh);
