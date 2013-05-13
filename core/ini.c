@@ -164,7 +164,7 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 	}
 
 	if (!got_section) {
-		uwsgi_log("*** WARNING: Can't find section \"%s\" form INI configuration file %s ***\n", section_asked, file);
+		uwsgi_log("*** WARNING: Can't find section \"%s\" in INI configuration file %s ***\n", section_asked, file);
 	}
 
 	if (colon) {
