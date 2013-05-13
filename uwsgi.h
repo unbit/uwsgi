@@ -1434,6 +1434,8 @@ struct wsgi_request {
 	// internal routing goto instruction
 	uint32_t route_goto;
 
+	int ignore_body;
+
 	struct uwsgi_transformation *transformations;
 	char *transformed_chunk;
 	size_t transformed_chunk_len;
