@@ -35,6 +35,7 @@ int uwsgi_routing_func_file(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 
 	char buf[32768];
 	struct stat st;
+	int ret = UWSGI_ROUTE_BREAK;
 
 	struct uwsgi_router_file_conf *urfc = (struct uwsgi_router_file_conf *) ur->data2;
 
@@ -45,7 +46,11 @@ int uwsgi_routing_func_file(struct wsgi_request *wsgi_req, struct uwsgi_route *u
         if (!ub) return UWSGI_ROUTE_BREAK;
 
 	int fd = open(ub->buf, O_RDONLY);
-	if (fd < 0) goto end; 
+	if (fd < 0) {
+		if (ur->custom)
+			ret = UWSGI_ROUTE_NEXT;
+		goto end; 
+	}
 
 	if (fstat(fd, &st)) {
 		goto end2;
@@ -79,7 +84,7 @@ end2:
 	close(fd);
 end:
         uwsgi_buffer_destroy(ub);
-        return UWSGI_ROUTE_BREAK;
+        return ret;
 }
 
 
@@ -126,11 +131,17 @@ static int uwsgi_router_file(struct uwsgi_route *ur, char *args) {
 	return 0;
 }
 
+static int uwsgi_router_file_next(struct uwsgi_route *ur, char *args) {
+	ur->custom = 1;
+	return uwsgi_router_file(ur, args);
+}
+
 
 static void router_static_register(void) {
 
 	uwsgi_register_router("static", uwsgi_router_static);
 	uwsgi_register_router("file", uwsgi_router_file);
+	uwsgi_register_router("file-next", uwsgi_router_file_next);
 }
 
 struct uwsgi_plugin router_static_plugin = {
