@@ -12,6 +12,7 @@ struct uwsgi_pypy uwsgi_pypy_settings = {
 char* rpython_startup_code();
 int pypy_setup_home(char *homedir, int verbose);
 int pypy_execute_source(char *source);
+extern FILE* pypy_debug_file;
 
 extern struct uwsgi_server uwsgi;
 
@@ -62,6 +63,12 @@ void uwsgi_dummy_preinit_apps()
   // this is a placeholder so function does not stay empty  
 }
 
+void uwsgi_pypy_atexit()
+{
+  if (pypy_debug_file)
+	fflush(pypy_debug_file);
+}
+
 struct uwsgi_option uwsgi_pypy_options[] = {
   {"pypy-home", required_argument, 0, "set the home of pypy library (required)",
    uwsgi_opt_set_str, &uwsgi_pypy_settings.homedir, 0},
@@ -80,4 +87,5 @@ struct uwsgi_plugin pypy_plugin = {
 		.options = uwsgi_pypy_options,
 		.init_apps = uwsgi_dummy_init_apps,
 		.preinit_apps = uwsgi_dummy_preinit_apps,
+		.atexit = uwsgi_pypy_atexit,
 };
