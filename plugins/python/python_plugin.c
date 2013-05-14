@@ -1688,7 +1688,7 @@ void uwsgi_python_hijack(void) {
 		uwsgi.workers[uwsgi.mywid].hijacked = 0;
 		return;
 	}
-	if (up.pyshell && uwsgi.mywid == 1) {
+	if ((up.pymain || up.pyshell) && uwsgi.mywid == 1) {
 		uwsgi.workers[uwsgi.mywid].hijacked = 1;
 		uwsgi.workers[uwsgi.mywid].hijacked_count++;
 		// re-map stdin to stdout and stderr if we are logging to a file
@@ -1702,7 +1702,10 @@ void uwsgi_python_hijack(void) {
 		}
 		UWSGI_GET_GIL;
 		int ret = -1;
-		if (up.pyshell[0] != 0) {
+		if (up.pymain) {
+			ret = Py_Main(up.pymain, uwsgi.argv);
+		}
+		else if (up.pyshell[0] != 0) {
 			ret = PyRun_SimpleString(up.pyshell);
 		}
 		else {
@@ -1711,6 +1714,9 @@ void uwsgi_python_hijack(void) {
 #ifndef UWSGI_PYPY
 			ret = PyRun_InteractiveLoop(stdin, "uwsgi");
 #endif
+		}
+		if (up.pymain) {
+			exit(ret);
 		}
 		if (up.pyshell_oneshot) {
 			exit(UWSGI_DE_HIJACKED_CODE);
@@ -1827,6 +1833,19 @@ clear:
 }
 
 void uwsgi_python_on_load() {
+	char *name = strrchr(uwsgi.argv[0], '/');
+	name = (name==NULL) ? uwsgi.argv[0] : name + 1;
+	if(!strncmp(name, "python", 6)) {
+		up.pymain = uwsgi.argc;
+		//...these are not the args you're looking for
+		uwsgi.argc = 1;
+		//...embedded config could override this (which is ok?)
+		uwsgi.master_process = 0;
+		//...but not these! (required for proper impl)
+		uwsgi.no_initial_output = 1;
+		uwsgi.honour_stdin = 1;
+		uwsgi.command_mode = 1;
+	}
 	uwsgi_register_logger("python", uwsgi_python_logger);
 }
 

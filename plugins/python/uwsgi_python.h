@@ -89,6 +89,7 @@ struct uwsgi_python {
 
 	char *home;
 	int optimize;
+	int pymain;
 
 	char *argv;
 	int argc;
