@@ -1,9 +1,4 @@
 
-import sys
-# XXX temp
-sys.path.insert(0, '/home/fijal/src/pypy/lib-python/2.7')
-sys.path.insert(0, '/home/fijal/src/pypy/lib_pypy')
-
 import os
 import cffi
 ffi = cffi.FFI()
