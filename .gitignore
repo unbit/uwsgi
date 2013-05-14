@@ -2,6 +2,8 @@
 *.py[co]
 *.class
 *.jar
+*~
+*.so
 
 /uwsgi
 /uwsgibuild.*
