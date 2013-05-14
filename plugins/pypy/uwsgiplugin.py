@@ -4,7 +4,7 @@ import os
 
 PYPY_HOME = os.environ.get('PYPY_HOME', None)
 if PYPY_HOME is None:
-    print "Please set PYPY_HOME to wherever your libpypy-c.so leaves"
+    print "Please set PYPY_HOME to wherever your libpypy-c.so lives"
     raise Exception
 
 NAME='pypy'

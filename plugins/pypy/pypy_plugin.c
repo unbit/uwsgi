@@ -6,7 +6,7 @@
 // I don't quite care
 
 struct uwsgi_pypy uwsgi_pypy_settings = {
-  .homedir = NULL,
+  .homedir = NULL,  
 };
 
 char* rpython_startup_code();
@@ -52,18 +52,32 @@ void uwsgi_dummy_after_request(struct wsgi_request *wsgi_req)
   // this is a placeholder so function does not stay empty  
 }
 
+void uwsgi_dummy_init_apps()
+{
+  // this is a placeholder so function does not stay empty  
+}
+
+void uwsgi_dummy_preinit_apps()
+{
+  // this is a placeholder so function does not stay empty  
+}
+
 struct uwsgi_option uwsgi_pypy_options[] = {
   {"pypy-home", required_argument, 0, "set the home of pypy library (required)",
    uwsgi_opt_set_str, &uwsgi_pypy_settings.homedir, 0},
+  {"wsgi", required_argument, 'w', "load a WSGI module", uwsgi_opt_set_str,
+   &uwsgi_pypy_settings.wsgi_app, 0},
   {0, 0, 0, 0, 0, 0, 0},
 };
 
 struct uwsgi_plugin pypy_plugin = {
 
         .name = "pypy",
-        .modifier1 = 250,
+        .modifier1 = 0,
         .init = uwsgi_pypy_init,
         .request = uwsgi_dummy_request,
         .after_request = uwsgi_dummy_after_request,
 		.options = uwsgi_pypy_options,
+		.init_apps = uwsgi_dummy_init_apps,
+		.preinit_apps = uwsgi_dummy_preinit_apps,
 };
