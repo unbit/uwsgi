@@ -172,6 +172,9 @@ static ssize_t fr_instance_connected(struct corerouter_peer *peer) {
 
 	cr_peer_connected(peer, "fr_instance_connected()");
 
+	// we are connected, we cannot retry anymore
+	peer->can_retry = 0;
+
 	// fix modifiers
 	peer->in->buf[0] = peer->session->main_peer->modifier1;
 	peer->in->buf[3] = peer->session->main_peer->modifier2;
@@ -216,6 +219,8 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 		// check instance
 		if (new_peer->instance_address_len == 0)
 			return -1;
+
+		new_peer->can_retry = 1;
 
 		cr_connect(new_peer, fr_instance_connected);
 	}

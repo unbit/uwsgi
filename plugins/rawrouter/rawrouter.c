@@ -163,6 +163,8 @@ static ssize_t rr_instance_connected(struct corerouter_peer *peer) {
         struct rawrouter_session *rr = (struct rawrouter_session *) cs;
 	cr_peer_connected(peer, "rr_instance_connected()");
 
+	peer->can_retry = 0;
+
 	if (rr->xclient) {
 		cr_reset_hooks_and_read(peer, rr_xclient_read);
 		return 1;
@@ -251,6 +253,7 @@ static int rawrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_ga
 		return -1;
         }
 
+	peer->can_retry = 1;
 	cr_connect(peer, rr_instance_connected);
 	return 0;
 }

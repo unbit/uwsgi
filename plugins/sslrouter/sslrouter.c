@@ -193,6 +193,7 @@ static ssize_t sr_instance_read(struct corerouter_peer *peer) {
 // the instance is connected now we cannot retry connections
 static ssize_t sr_instance_connected(struct corerouter_peer *peer) {
 	cr_peer_connected(peer, "sr_instance_connected()");
+	peer->can_retry = 0;
 	// set the output buffer as the main_peer output one
 	peer->out = peer->session->main_peer->in;
         peer->out_pos = 0;
@@ -307,6 +308,7 @@ static ssize_t sr_read(struct corerouter_peer *main_peer) {
                 		return -1;
         		}
 
+			peer->can_retry = 1;
         		cr_connect(peer, sr_instance_connected);
 			return 1;
 		}

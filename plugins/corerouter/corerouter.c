@@ -44,10 +44,6 @@ struct corerouter_peer *uwsgi_cr_peer_add(struct corerouter_session *cs) {
 	peers->in = uwsgi_buffer_new(uwsgi.page_size);
 	// add timeout
         peers->timeout = cr_add_timeout(cs->corerouter, peers);
-	// check retry
-	if (cs->retry) {
-		peers->can_retry = 1;
-	}
 	peers->prev = old_peers;
 
 	if (old_peers) {
