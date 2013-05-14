@@ -1,6 +1,6 @@
 # uWSGI build system
 
-uwsgi_version = '1.9.9'
+uwsgi_version = '1.9.10'
 
 import os
 import re
@@ -153,7 +153,7 @@ def spcall3(cmd):
 def add_o(x):
     if x == 'uwsgi':
         x = 'main'
-    elif x.endswith('.a'):
+    elif x.endswith('.a') or x.endswith('.o'):
         return x
     x = x + '.o'
     return x
@@ -277,7 +277,7 @@ def build_uwsgi(uc, print_only=False):
         objfile = file
         if objfile == 'uwsgi':
             objfile = 'main'
-        if not objfile.endswith('.a'):
+        if not objfile.endswith('.a') and not objfile.endswith('.o'):
             compile(' '.join(cflags), last_cflags_ts, objfile + '.o', file + '.c')
 
     if uc.get('embedded_plugins'):
@@ -346,6 +346,8 @@ def build_uwsgi(uc, print_only=False):
                 for cfile in up['GCC_LIST']:
                     if cfile.endswith('.a'):
                         gcc_list.append(cfile)
+                    elif cfile.endswith('.o'):
+                        gcc_list.append('%s/%s' % (path, cfile))
                     elif not cfile.endswith('.c') and not cfile.endswith('.cc') and not cfile.endswith('.m'):
                         compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
                             path + '/' + cfile + '.o', path + '/' + cfile + '.c')
@@ -471,7 +473,7 @@ class uConf(object):
         self.gcc_list.append('proto/scgi')
         self.include_path = []
 
-        self.cflags = ['-O2', '-I.', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
+        self.cflags = ['-O2', '-I.', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split() + self.get('cflags','').split()
 
         report['kernel'] = uwsgi_os
 
@@ -568,7 +570,7 @@ class uConf(object):
                 return None
             return value
         except:
-            if default:
+            if default is not None:
                 return default
             return None
 
@@ -1122,7 +1124,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     for cfile in up['GCC_LIST']:
         if cfile.endswith('.a'): 
             gcc_list.append(cfile)
-        elif not cfile.endswith('.c') and not cfile.endswith('.cc') and not cfile.endswith('.m'):
+        elif not cfile.endswith('.c') and not cfile.endswith('.cc') and not cfile.endswith('.m') and not cfile.endswith('.o'):
             gcc_list.append(path + '/' + cfile + '.c')
         else:
             gcc_list.append(path + '/' + cfile)

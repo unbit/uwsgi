@@ -348,7 +348,9 @@ void uwsgi_setup_workers() {
         uwsgi.shared->signal_table = uwsgi_calloc_shared(sizeof(struct uwsgi_signal_entry) * 256 * (uwsgi.numproc + 1));
 
 #ifdef UWSGI_ROUTING
-	uwsgi_fixup_routes();
+	uwsgi_fixup_routes(uwsgi.routes);
+	uwsgi_fixup_routes(uwsgi.error_routes);
+	uwsgi_fixup_routes(uwsgi.final_routes);
 #endif
 
 }

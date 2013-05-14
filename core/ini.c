@@ -91,6 +91,7 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 
 	char *section_asked = "uwsgi";
 	char *colon;
+	int got_section = 0;
 
 
 	if (uwsgi_check_scheme(file)) {
@@ -147,6 +148,7 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 				val = ini_get_key(key);
 
 				if (!strcmp(section, section_asked)) {
+					got_section = 1;
 					ini_rstrip(key);
 					val = ini_lstrip(val);
 					ini_rstrip(val);
@@ -159,6 +161,10 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 		len -= (ini_line - ini);
 		ini += (ini_line - ini);
 
+	}
+
+	if (!got_section) {
+		uwsgi_log("*** WARNING: Can't find section \"%s\" in INI configuration file %s ***\n", section_asked, file);
 	}
 
 	if (colon) {

@@ -388,6 +388,12 @@ void uwsgi_reload(char **argv) {
 			}
 		}
 
+		if (uwsgi.alarm_thread) {
+			if (i == uwsgi.alarm_thread->queue) continue;
+			if (i == uwsgi.alarm_thread->pipe[0]) continue;
+			if (i == uwsgi.alarm_thread->pipe[1]) continue;
+		}
+
 		if (uwsgi.log_master) {
 			if (uwsgi.original_log_fd > -1) {
 				if (i == uwsgi.original_log_fd) {

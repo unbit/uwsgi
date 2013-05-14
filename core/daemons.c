@@ -181,6 +181,7 @@ void uwsgi_daemons_spawn_all() {
 				continue;
 			}
 #endif
+			ud->registered = 1;
 			if (ud->pidfile) {
 				int checked_pid = uwsgi_check_pidfile(ud->pidfile);
 				if (checked_pid <= 0) {
@@ -194,7 +195,6 @@ void uwsgi_daemons_spawn_all() {
 			else {
 				uwsgi_spawn_daemon(ud);
 			}
-			ud->registered = 1;
 		}
 		ud = ud->next;
 	}
@@ -366,7 +366,7 @@ void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
 			freq = atoi(comma + 1);
 		}
 		command = space + 1;
-		if (!strcmp(opt, "smart-attach-daemon2")) {
+		if (!strcmp(opt, "smart-attach-daemon2") || !strcmp(opt, "legion-smart-attach-daemon2")) {
 			daemonize = 1;
 		}
 	}

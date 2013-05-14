@@ -644,7 +644,7 @@ safe:
 
 #ifdef UWSGI_ROUTING
 		// before sending the file, we need to check if some rule applies
-		if (!wsgi_req->is_routing && uwsgi_apply_routes_do(wsgi_req, NULL, 0) == UWSGI_ROUTE_BREAK) {
+		if (!wsgi_req->is_routing && uwsgi_apply_routes_do(uwsgi.routes, wsgi_req, NULL, 0) == UWSGI_ROUTE_BREAK) {
 			return 0;
 		}
 		wsgi_req->routes_applied = 1;

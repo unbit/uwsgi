@@ -4,6 +4,7 @@ import "uwsgi"
 import "net/http"
 import "fmt"
 import "io/ioutil"
+import "os"
 
 
 func viewHandler(w http.ResponseWriter, r *http.Request) {
@@ -24,6 +25,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	fmt.Println(os.Args)
 	http.HandleFunc("/view/", viewHandler)
 	http.HandleFunc("/post/", postHandler)
 	uwsgi.Run()

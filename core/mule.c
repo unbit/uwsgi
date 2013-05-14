@@ -77,25 +77,31 @@ void uwsgi_mule(int id) {
 			}
 		}
 
+		uwsgi_mule_run();
 
-		if (uwsgi.mules[id - 1].patch) {
-			for (i = 0; i < 256; i++) {
-				if (uwsgi.p[i]->mule) {
-					if (uwsgi.p[i]->mule(uwsgi.mules[id - 1].patch) == 1) {
-						// never here ?
-						end_me(1);
-					}
-				}
-			}
-		}
-
-		uwsgi_mule_handler();
 	}
 	else if (pid > 0) {
 		uwsgi.mules[id - 1].id = id;
 		uwsgi.mules[id - 1].pid = pid;
 		uwsgi_log("spawned uWSGI mule %d (pid: %d)\n", id, (int) pid);
 	}
+}
+
+void uwsgi_mule_run() {
+	int id = uwsgi.muleid;
+	int i;
+	if (uwsgi.mules[id - 1].patch) {
+                        for (i = 0; i < 256; i++) {
+                                if (uwsgi.p[i]->mule) {
+                                        if (uwsgi.p[i]->mule(uwsgi.mules[id - 1].patch) == 1) {
+                                                // never here ?
+                                                end_me(1);
+                                        }
+                                }
+                        }
+                }
+
+                uwsgi_mule_handler();
 }
 
 int uwsgi_farm_has_mule(struct uwsgi_farm *farm, int muleid) {

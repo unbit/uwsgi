@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 #include <curl/curl.h>
 
 extern struct uwsgi_server uwsgi;
@@ -168,7 +168,8 @@ static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 
 	for(;;) {
 		int ret = event_queue_wait(ut->queue, -1, &interesting_fd);	
-		if (ret <= 0) continue;
+		if (ret < 0) return;
+		if (ret == 0) continue;
 		if (interesting_fd != ut->pipe[1]) continue;
 		ssize_t rlen = read(ut->pipe[1], ut->buf, uwsgi.log_master_bufsize);
 		if (rlen <= 0) continue;
