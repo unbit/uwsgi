@@ -250,6 +250,8 @@ pep405:
 #endif
 
 	Py_Initialize();
+	up.pymain_intr = (struct sigaction *)uwsgi_calloc(sizeof(struct sigaction));
+	sigaction(SIGINT, NULL, up.pymain_intr);
 
 	if (!uwsgi.has_threads) {
 		uwsgi_log_initial("*** Python threads support is disabled. You can enable it with --enable-threads ***\n");
@@ -1703,6 +1705,8 @@ void uwsgi_python_hijack(void) {
 		UWSGI_GET_GIL;
 		int ret = -1;
 		if (up.pymain) {
+			//...restore the default handler (KeyboardInterrupt)
+			sigaction(SIGINT, up.pymain_intr, NULL);
 			ret = Py_Main(up.pymain, uwsgi.argv);
 		}
 		else if (up.pyshell[0] != 0) {
