@@ -56,7 +56,14 @@ int uwsgi_routing_func_file(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 		goto end2;
 	}
 
-	if (uwsgi_response_prepare_headers(wsgi_req, urfc->status, urfc->status_len)) goto end2;
+	struct uwsgi_buffer *ub_s = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urfc->status, urfc->status_len);
+        if (!ub_s) goto end2;
+
+	if (uwsgi_response_prepare_headers(wsgi_req, ub_s->buf, ub_s->pos)) {
+		uwsgi_buffer_destroy(ub_s);
+		goto end2;
+	}
+	uwsgi_buffer_destroy(ub_s);
 	if (uwsgi_response_add_content_length(wsgi_req, st.st_size)) goto end2;
 	if (urfc->mime) {
 		size_t mime_type_len = 0;
