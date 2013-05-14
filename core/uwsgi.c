@@ -2475,7 +2475,7 @@ unsafe:
 		uwsgi_log("your server socket listen backlog is limited to %d connections\n", uwsgi.listen_queue);
 #endif
 
-	uwsgi_log("your mercy for graceful operations on workers is %d seconds\n", uwsgi.worker_reload_mercy);
+	uwsgi_log_initial("your mercy for graceful operations on workers is %d seconds\n", uwsgi.worker_reload_mercy);
 
 	if (uwsgi.crons) {
 		struct uwsgi_cron *ucron = uwsgi.crons;
@@ -2516,7 +2516,7 @@ unsafe:
 	uwsgi_setup_mules_and_farms();
 
 	if (uwsgi.command_mode) {
-		uwsgi_log("*** Operational MODE: command ***\n");
+		uwsgi_log_initial("*** Operational MODE: command ***\n");
 	}
 	else if (!uwsgi.numproc) {
 		uwsgi_log("*** Operational MODE: no-workers ***\n");
@@ -2624,7 +2624,7 @@ next:
 	}
 
 	if (!uwsgi.single_interpreter && uwsgi.numproc > 0) {
-		uwsgi_log("*** uWSGI is running in multiple interpreter mode ***\n");
+		uwsgi_log_initial("*** uWSGI is running in multiple interpreter mode ***\n");
 	}
 
 	// check for request plugins, and eventually print a warning
@@ -2701,7 +2701,7 @@ next2:
 
 	if (!uwsgi.master_process) {
 		if (uwsgi.numproc == 1) {
-			uwsgi_log("spawned uWSGI worker 1 (and the only) (pid: %d, cores: %d)\n", masterpid, uwsgi.cores);
+			uwsgi_log_initial("spawned uWSGI worker 1 (and the only) (pid: %d, cores: %d)\n", masterpid, uwsgi.cores);
 		}
 		else {
 			uwsgi_log("spawned uWSGI worker 1 (pid: %d, cores: %d)\n", masterpid, uwsgi.cores);
