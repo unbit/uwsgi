@@ -1431,8 +1431,12 @@ struct wsgi_request {
 	int routes_applied;
 	// internal routing vm program counter
 	uint32_t route_pc;
+	uint32_t error_route_pc;
+	uint32_t final_route_pc;
 	// internal routing goto instruction
 	uint32_t route_goto;
+	uint32_t error_route_goto;
+	uint32_t final_route_goto;
 
 	int ignore_body;
 

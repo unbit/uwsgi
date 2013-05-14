@@ -173,15 +173,27 @@ int uwsgi_apply_routes_do(struct uwsgi_route *routes, struct wsgi_request *wsgi_
 	char *orig_subject = subject;
 	uint16_t orig_subject_len = subject_len;
 
+	uint32_t *r_goto = &wsgi_req->route_goto;
+	uint32_t *r_pc = &wsgi_req->route_pc;
+
+	if (routes == uwsgi.error_routes) {
+		r_goto = &wsgi_req->error_route_goto;
+		r_pc = &wsgi_req->error_route_pc;
+	}
+	else if (routes == uwsgi.final_routes) {
+		r_goto = &wsgi_req->final_route_goto;
+		r_pc = &wsgi_req->final_route_pc;
+	}
+
 	while (routes) {
 
 		if (routes->label) goto next;
 
-		if (wsgi_req->route_goto > 0 && wsgi_req->route_pc < wsgi_req->route_goto) {
+		if (*r_goto > 0 && *r_pc < *r_goto) {
 			goto next;
 		}
 
-		wsgi_req->route_goto = 0;
+		*r_goto = 0;
 
 		if (!routes->if_func) {
 			// could be a "run"
@@ -243,7 +255,7 @@ next:
 		subject = orig_subject;
 		subject_len = orig_subject_len;
 		routes = routes->next;
-		if (routes) wsgi_req->route_pc++;
+		if (routes) *r_pc = *r_pc+1;
 	}
 
 	return UWSGI_ROUTE_CONTINUE;
@@ -659,31 +671,37 @@ static int uwsgi_router_goto_func(struct wsgi_request *wsgi_req, struct uwsgi_ro
 
 	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
         if (!ub) return UWSGI_ROUTE_BREAK;
+	uint32_t *r_goto = &wsgi_req->route_goto;
+	uint32_t *r_pc = &wsgi_req->route_pc;
 
 	// find the label
 	struct uwsgi_route *routes = uwsgi.routes;
 	if (wsgi_req->is_error_routing) {
 		routes = uwsgi.error_routes;
+		r_goto = &wsgi_req->error_route_goto;
+		r_pc = &wsgi_req->error_route_pc;
 	}
 	else if (wsgi_req->is_final_routing) {
 		routes = uwsgi.final_routes;
+		r_goto = &wsgi_req->final_route_goto;
+		r_pc = &wsgi_req->final_route_pc;
 	}
 	while(routes) {
 		if (!routes->label) goto next;
 		if (!uwsgi_strncmp(routes->label, routes->label_len, ub->buf, ub->pos)) {
-			wsgi_req->route_goto = routes->pos;
+			*r_goto = routes->pos;
 			goto found;
 		}
 next:
 		routes = routes->next;
 	}
 
-	wsgi_req->route_goto = ur->custom;
+	*r_goto = ur->custom;
 	
 found:
 	uwsgi_buffer_destroy(ub);
-	if (wsgi_req->route_goto <= wsgi_req->route_pc) {
-		wsgi_req->route_goto = 0;
+	if (*r_goto <= *r_pc) {
+		*r_goto = 0;
 		uwsgi_log("[uwsgi-route] ERROR \"goto\" instruction can only jump forward (check your label !!!)\n");
 		return UWSGI_ROUTE_BREAK;
 	}
