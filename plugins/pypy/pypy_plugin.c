@@ -1,4 +1,12 @@
 
+/*******************************************************************
+
+ This is the C part of the PyPy plugin (with the main logic being in
+ Python, see plugin_setup.py), written by Maciej Fijalkowski,
+ heavily based on python_plugin.c
+
+ *******************************************************************/
+
 #include <uwsgi.h>
 #include <uwsgi_pypy.h>
 
