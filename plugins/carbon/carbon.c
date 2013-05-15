@@ -249,14 +249,18 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 
 		unsigned long long total_rss = 0;
 		unsigned long long total_vsz = 0;
+		unsigned long long total_respawns = 0;
 		unsigned long long total_tx = 0;
 		unsigned long long total_avg_rt = 0; // total avg_rt
 		unsigned long long avg_rt = 0; // per worker avg_rt reported to carbon
 		unsigned long long active_workers = 0; // number of workers used to calculate total avg_rt
+		unsigned long long busy_workers = 0;
+		unsigned long long idle_workers = 0;
 		unsigned long long total_busyness = 0;
 		unsigned long long total_avg_busyness = 0;
 		unsigned long long worker_busyness = 0;
 		unsigned long long total_harakiri = 0;
+		unsigned long long total_exceptions = 0;
 
 		int do_avg_push;
 
@@ -264,8 +268,11 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 		if (!wok) goto clear;
 
 		for(i=1;i<=uwsgi.numproc;i++) {
+			unsigned long long worker_exceptions = uwsgi_worker_exceptions(i);
 			total_tx += uwsgi.workers[i].tx;
 			total_harakiri += uwsgi.workers[i].harakiri_count;
+			total_respawns += uwsgi.workers[i].respawn_count;
+			total_exceptions += worker_exceptions;
 
 			if (uwsgi.workers[i].cheaped) {
 				// also if worker is cheaped than we report its average response time as zero, sending last value might be confusing
@@ -276,6 +283,8 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 				// global average response time is calculated from active/idle workers, cheaped workers are excluded, otherwise it is not accurate
 				avg_rt = uwsgi.workers[i].avg_response_time;
 				active_workers++;
+				if (uwsgi_worker_is_busy(i)) busy_workers++;
+				else if (! uwsgi.workers[i].suspended && ! uwsgi.workers[i].sig) idle_workers++;
 				total_avg_rt += uwsgi.workers[i].avg_response_time;
 
 				// calculate worker busyness
@@ -333,6 +342,12 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 			wok = carbon_write(fd, "%s%s.%s.worker%d.harakiri %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, i, (unsigned long long) uwsgi.workers[i].harakiri_count, (unsigned long long) now);
 			if (!wok) goto clear;
 
+			wok = carbon_write(fd, "%s%s.%s.worker%d.respawns %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, i, (unsigned long long) uwsgi.workers[i].respawn_count, (unsigned long long) now);
+			if (!wok) goto clear;
+
+			wok = carbon_write(fd, "%s%s.%s.worker%d.exceptions %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, i, (unsigned long long) worker_exceptions, (unsigned long long) now);
+			if (!wok) goto clear;
+
 		}
 
 		if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1 || uwsgi.force_get_memusage) {
@@ -373,12 +388,24 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 		wok = carbon_write(fd, "%s%s.%s.active_workers %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) active_workers, (unsigned long long) now);
 		if (!wok) goto clear;
 
+		wok = carbon_write(fd, "%s%s.%s.busy_workers %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) busy_workers, (unsigned long long) now);
+		if (!wok) goto clear;
+
+		wok = carbon_write(fd, "%s%s.%s.idle_workers %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) idle_workers, (unsigned long long) now);
+		if (!wok) goto clear;
+
 		if (uwsgi.cheaper) {
 			wok = carbon_write(fd, "%s%s.%s.cheaped_workers %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) uwsgi.numproc - active_workers, (unsigned long long) now);
 			if (!wok) goto clear;
 		}
 
 		wok = carbon_write(fd, "%s%s.%s.harakiri %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) total_harakiri, (unsigned long long) now);
+		if (!wok) goto clear;
+
+		wok = carbon_write(fd, "%s%s.%s.respawns %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) total_respawns, (unsigned long long) now);
+		if (!wok) goto clear;
+
+		wok = carbon_write(fd, "%s%s.%s.exceptions %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) total_exceptions, (unsigned long long) now);
 		if (!wok) goto clear;
 
 		usl->healthy = 1;
