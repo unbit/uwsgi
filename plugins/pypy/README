@@ -1,0 +1,28 @@
+
+This is a bit convoluted, but you run it (so far) this way:
+
+You have to compile PyPy with strange options. I'll explain them below.
+In the pypy checkout, run:
+
+  ./rpython/bin/rpython -Ojit --shared --gcrootfinder=shadowstack pypy/goal/targetpypystandalone --withoutmod-cpyext
+
+Options:
+
+  -Ojit - standard PyPy build with JIT
+  --shared - as expected, creates a .so
+  --gcrootfinder - on linux, the default rootfinder is asmgcc which has trouble
+                   with position independent code. This option is not needed
+                   on OS X or windows.
+  --withoutmod-cpyext - since uwsgi loads libpython2.7.so, cpyext
+                        (a compatibility layer for CPython C API) has clashing
+                        symbols. This has to be disabled for now.
+
+
+Then you need to set up PYPY_HOME env variable to wherever your pypy is built,
+like this:
+
+   export PYPY_HOME=/home/user/pypy/
+
+so it can find libraries and the correct options. uwsgi has to be loaded
+in a way that it can find libpypy-c.so, LD_LIBRARY_PATH to the directory
+would work, like this: export LD_LIBRARY_PATH=$PYPY_HOME
