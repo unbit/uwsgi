@@ -13,16 +13,19 @@ Options:
   --gcrootfinder - on linux, the default rootfinder is asmgcc which has trouble
                    with position independent code. This option is not needed
                    on OS X or windows.
-  --withoutmod-cpyext - since uwsgi loads libpython2.7.so, cpyext
-                        (a compatibility layer for CPython C API) has clashing
-                        symbols. This has to be disabled for now.
+
+If for some strange/dangerous/wrong reason your uWSGI binary is linked with cpython you could have name collisions
+with pypy cpyext. In such crazy case you can remove cpyext support with:
+
+  ./rpython/bin/rpython -Ojit --shared --gcrootfinder=shadowstack pypy/goal/targetpypystandalone --withoutmod-cpyext
+
+By default the pypy uWSGI plugin will load the libpypy-c.so library. You should have it in the LD_LIBRARY_PATH, otherwise you can set its path
+with --pypy-lib option (pass an absolute path to it)
+
+You have to specify the pypy home too, you can use the --pypy-home option or the PYPY_HOME var
+
+   PYPY_HOME=/home/user/pypy/lib_pypy uwsgi --pypy-lib /opt/pypy/libpypy-c.so --http-socket :9090 --pypy-wsgi werkzeug.testapp:test_app
 
 
-Then you need to set up PYPY_HOME env variable to wherever your pypy is built,
-like this:
-
-   export PYPY_HOME=/home/user/pypy/
-
-so it can find libraries and the correct options. uwsgi has to be loaded
-in a way that it can find libpypy-c.so, LD_LIBRARY_PATH to the directory
-would work, like this: export LD_LIBRARY_PATH=$PYPY_HOME
+The funny part about the uWSGI pypy plugin is that it is mainly written in python. The pypy_setup.py script is linked to the plugin, but you can override
+it with the --pypy-setup option
