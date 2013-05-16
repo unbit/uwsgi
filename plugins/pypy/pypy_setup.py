@@ -49,12 +49,26 @@ def uwsgi_pypy_wsgi_handler(wsgi_req):
             lib.uwsgi_pypy_helper_header(wsgi_req, ffi.new("char[]", hh[0]), len(hh[0]), ffi.new("char[]", hh[1]), len(hh[1]))
         return writer
 
+    class WSGIinput():
+        pass
+
     environ = {}
     n = lib.uwsgi_pypy_helper_vars(wsgi_req)
     for i in range(0, n, 2):
         key = ffi.string( lib.uwsgi_pypy_helper_key(wsgi_req, i), lib.uwsgi_pypy_helper_keylen(wsgi_req, i) )
         value = ffi.string( lib.uwsgi_pypy_helper_val(wsgi_req, i), lib.uwsgi_pypy_helper_vallen(wsgi_req, i) )
         environ[key] = value
+
+    environ['wsgi.version'] = (1, 0)
+    scheme = 'http'
+    if 'HTTPS' in environ:
+        if environ['HTTPS'] in ('on', 'ON', 'On', '1', 'true', 'TRUE'):
+            scheme = 'https'
+    environ['wsgi.url_scheme'] = environ.get('UWSGI_SCHEME', scheme)
+    environ['wsgi.input'] = WSGIinput
+    environ['wsgi.errors'] = sys.stderr
+    environ['wsgi.run_once'] = False
+
     response = wsgi_application(environ, start_response) 
     if type(response) == 'str':
         writer(response)
