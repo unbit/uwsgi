@@ -51,11 +51,10 @@ def uwsgi_pypy_wsgi_handler(wsgi_req):
 
     environ = {}
     n = lib.uwsgi_pypy_helper_vars(wsgi_req)
-    for i in range(0, n):
+    for i in range(0, n, 2):
         key = ffi.string( lib.uwsgi_pypy_helper_key(wsgi_req, i), lib.uwsgi_pypy_helper_keylen(wsgi_req, i) )
         value = ffi.string( lib.uwsgi_pypy_helper_val(wsgi_req, i), lib.uwsgi_pypy_helper_vallen(wsgi_req, i) )
         environ[key] = value
-    print environ
     response = wsgi_application(environ, start_response) 
     if type(response) == 'str':
         writer(response)

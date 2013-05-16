@@ -12,6 +12,7 @@
 struct uwsgi_pypy {
 	void *handler;
 	char *lib;
+	char *setup;
 	char *home;
 	char *wsgi;
 } upypy;
@@ -29,7 +30,7 @@ extern struct uwsgi_server uwsgi;
 
 int uwsgi_pypy_helper_vars(void *r) {
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) r;
-	return wsgi_req->var_cnt/2;
+	return wsgi_req->var_cnt;
 }
 
 char *uwsgi_pypy_helper_key(void *r, int pos) {
@@ -72,6 +73,9 @@ static int uwsgi_pypy_init() {
 	if (upypy.lib) {
 		upypy.handler = dlopen(upypy.lib, RTLD_NOW | RTLD_GLOBAL);
 	}
+	else {
+		upypy.handler = dlopen("libpypy-c.so", RTLD_NOW | RTLD_GLOBAL);
+	}
 
 	if (!upypy.handler) {
 		uwsgi_log("unable to load pypy library: %s\n", dlerror());
@@ -97,35 +101,37 @@ static int uwsgi_pypy_init() {
 	}
 	
 	rpython_startup_code();
+
+	if (!upypy.home) {
+		upypy.home = getenv("PYPY_HOME");
+		if (!upypy.home) {
+			uwsgi_log("you have to specify a pypy home with --pypy-home\n");
+			exit(1);
+		}
+	}
 	if (pypy_setup_home(upypy.home, 1)) {
-                uwsgi_error("unable to set pypy home\n");
+                uwsgi_log("unable to set pypy home to \"%s\"\n", upypy.home);
 		exit(1);
         }
 
 	size_t rlen = 0;
-	char *buffer = uwsgi_open_and_read("pypy_setup.py", &rlen, 1, NULL);
+	char *buffer = NULL;
+	if (upypy.setup) {
+		buffer = uwsgi_open_and_read(upypy.setup, &rlen, 1, NULL);
+	}
+	else {
+		char *start = dlsym(RTLD_DEFAULT, "uwsgi_pypy_setup_start");
+		char *end = dlsym(RTLD_DEFAULT, "uwsgi_pypy_setup_end");
+		if (start && end) {
+			buffer = uwsgi_concat2n(start, end-start, "", 0);
+		}
+	}
+
+	if (!buffer) {
+		uwsgi_log("you have to load a pypy setup file with --pypy-setup\n");
+		exit(1);
+	}
 	pypy_execute_source(buffer);
-/*
-	if (!uwsgi_pypy_settings.homedir) {
-		uwsgi_pypy_settings.homedir = getenv("PYPY_HOME");
-	}
-	if (!uwsgi_pypy_settings.homedir) {
-		uwsgi_error("PYPY_HOME environment variable not set and pypy-home option not provided");
-		return 1;
-	}
-	rpython_startup_code();
-	buffer = (char *) malloc(strlen(uwsgi_pypy_settings.homedir) + strlen("pypy") + 2);
-	sprintf(buffer, "%s%s", uwsgi_pypy_settings.homedir, "pypy");
-	if (pypy_setup_home(buffer, 1)) {
-		uwsgi_error("Failed to set up pypyhome\n");
-	}
-	free(buffer);
-	buffer = (char *) malloc(strlen(initial_source_format) + strlen(uwsgi.binary_path) + 2);
-	sprintf(buffer, initial_source_format, uwsgi.binary_path);
-	pypy_execute_source(buffer);
-	free(buffer);
-	return 0;
-*/
 	return 0;
 }
 
@@ -165,6 +171,7 @@ static void uwsgi_pypy_atexit() {
 
 static struct uwsgi_option uwsgi_pypy_options[] = {
 	{"pypy-lib", required_argument, 0, "set the path/name of the pypy library", uwsgi_opt_set_str, &upypy.lib, 0},
+	{"pypy-setup", required_argument, 0, "set the path of the python setup script", uwsgi_opt_set_str, &upypy.setup, 0},
 	{"pypy-home", required_argument, 0, "set the home of pypy library", uwsgi_opt_set_str, &upypy.home, 0},
 	{"pypy-wsgi", required_argument, 'w', "load a WSGI module", uwsgi_opt_set_str, &upypy.wsgi, 0},
 	{0, 0, 0, 0, 0, 0, 0},
