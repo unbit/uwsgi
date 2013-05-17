@@ -1,5 +1,10 @@
 #include <uwsgi.h>
 
+#ifdef UWSGI_XML_LIBXML2
+#include <libxml/parser.h>
+#include <libxml/tree.h>
+#endif
+
 extern struct uwsgi_server uwsgi;
 
 /*
@@ -15,6 +20,106 @@ extern struct uwsgi_server uwsgi;
 	4 -> set jsonrpc wrapper (requires libjansson)
 
 */
+
+#ifdef UWSGI_XML_LIBXML2
+// raise error on non-string args
+static int uwsgi_rpc_xmlrpc_string(xmlNode *element, char **argv, uint16_t *argvs, uint8_t *argc) {
+	
+	xmlNode *node;
+	for (node = element->children; node; node = node->next) {
+		if (node->type == XML_ELEMENT_NODE) {
+			if (strcmp((char *) node->name, "string")) {
+				return -1;
+			}
+			if (!node->children) return -1;
+			if (!node->children->content) return -1;
+			*argc+=1;
+			argv[*argc] = (char *) node->children->content;
+			argvs[*argc] = strlen(argv[*argc]);
+		}
+	}
+
+	return 0;
+}
+static int uwsgi_rpc_xmlrpc_value(xmlNode *element, char **argv, uint16_t *argvs, uint8_t *argc) {
+	xmlNode *node;
+        for (node = element->children; node; node = node->next) {
+                if (node->type == XML_ELEMENT_NODE) {
+                        if (!strcmp((char *) node->name, "value")) {
+				if (uwsgi_rpc_xmlrpc_string(node, argv, argvs, argc)) {
+					return -1;
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+static int uwsgi_rpc_xmlrpc_args(xmlNode *element, char **argv, uint16_t *argvs, uint8_t *argc) {
+	xmlNode *node;
+        for (node = element->children; node; node = node->next) {
+                if (node->type == XML_ELEMENT_NODE) {
+                        if (!strcmp((char *) node->name, "param")) {
+				if (uwsgi_rpc_xmlrpc_value(node, argv, argvs, argc)) {
+					return -1;
+				}
+                        }
+                }
+        }
+
+	return 0;
+}
+
+static int uwsgi_rpc_xmlrpc(struct wsgi_request *wsgi_req, xmlDoc *doc, char **argv, uint16_t *argvs, uint8_t *argc, char *response_buf) {
+	char *method = NULL;
+	xmlNode *element = xmlDocGetRootElement(doc);
+        if (!element) return -1;
+
+        if (strcmp((char *) element->name, "methodCall")) return -1;
+
+	*argc = 0;
+	xmlNode *node;
+        for (node = element->children; node; node = node->next) {
+                if (node->type == XML_ELEMENT_NODE) {
+                	if (!strcmp((char *) node->name, "methodName") && node->children) {
+				method = (char *) node->children->content;
+			}
+			else if (!strcmp((char *) node->name, "params")) {
+				if (uwsgi_rpc_xmlrpc_args(node, argv, argvs, argc)) return -1;	
+			}
+                }
+        }
+
+	if (!method) return -1;
+	wsgi_req->uh->pktsize = uwsgi_rpc(method, *argc, argv+1, argvs+1, response_buf);
+
+	if (!wsgi_req->uh->pktsize) return -1;
+	if (wsgi_req->uh->pktsize == UMAX16-1) return -1;
+	// add final NULL byte
+	response_buf[wsgi_req->uh->pktsize] = 0;
+
+	xmlDoc *rdoc = xmlNewDoc(BAD_CAST "1.0");
+        xmlNode *m_response = xmlNewNode(NULL, BAD_CAST "methodResponse");
+        xmlDocSetRootElement(rdoc, m_response);
+	xmlNode *x_params = xmlNewChild(m_response, NULL, BAD_CAST "params", NULL);
+	xmlNode *x_param = xmlNewChild(x_params, NULL, BAD_CAST "param", NULL);
+	xmlNode *x_value = xmlNewChild(x_param, NULL, BAD_CAST "value", NULL);
+        xmlNewTextChild(x_value, NULL, BAD_CAST "string", BAD_CAST response_buf);
+	
+	xmlChar *xmlbuf;
+        int xlen = 0;
+        xmlDocDumpFormatMemory(rdoc, &xmlbuf, &xlen, 1);
+	uwsgi_response_prepare_headers(wsgi_req,"200 OK", 6);
+        uwsgi_response_add_content_length(wsgi_req, xlen);
+        uwsgi_response_add_content_type(wsgi_req, "application/xml", 15);
+        uwsgi_response_write_body_do(wsgi_req, (char *) xmlbuf, xlen);
+
+	xmlFreeDoc(rdoc);
+	xmlFree(xmlbuf);
+
+	return 0;
+}
+#endif
 
 static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 
@@ -87,8 +192,24 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 		goto sendbody;
 	}
 
-#ifdef UWSGI_XMLRPC
+#ifdef UWSGI_XML_LIBXML2
 	if (wsgi_req->uh->modifier2 == 3) {
+		if (wsgi_req->post_cl == 0) {
+			uwsgi_500(wsgi_req);
+			return UWSGI_OK;
+		}
+		ssize_t body_len = 0;
+                char *body = uwsgi_request_body_read(wsgi_req, wsgi_req->post_cl, &body_len);	
+		xmlDoc *doc = xmlReadMemory(body, body_len, NULL, NULL, 0);
+                if (!doc) {
+			uwsgi_500(wsgi_req);
+			return UWSGI_OK;
+		}
+                int ret = uwsgi_rpc_xmlrpc(wsgi_req, doc, argv, argvs, &argc, response_buf);
+                xmlFreeDoc(doc);
+		if (ret) {
+			uwsgi_500(wsgi_req);
+		}
 		return UWSGI_OK;
 	}
 #endif
