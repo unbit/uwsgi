@@ -2,6 +2,19 @@
 
 extern struct uwsgi_server uwsgi;
 
+/*
+
+	rpc-HTTP interface.
+
+	modifier2 changes the parsser behaviours:
+
+	0 -> return uwsgi header + rpc response
+	1 -> return raw rpc response
+	2 -> split PATH_INFO to get func name and args and return as HTTP response with content_type as application/binary or  Accept request header (if different from *)
+	3 -> set xmlrpc wrapper (requires libxml2)
+	4 -> set jsonrpc wrapper (requires libjansson)
+
+*/
 
 static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 
@@ -20,6 +33,66 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
+	if (wsgi_req->uh->modifier2 == 2) {
+		if (uwsgi_parse_vars(wsgi_req)) {
+                	uwsgi_log("Invalid RPC request. skip.\n");
+                	return -1;
+		}
+
+		if (wsgi_req->path_info_len == 0) {
+			uwsgi_500(wsgi_req);
+			return UWSGI_OK;
+		}
+
+		char *args = NULL;
+		if (wsgi_req->path_info[0] == '/') {
+			args = uwsgi_concat2n(wsgi_req->path_info+1, wsgi_req->path_info_len-1, "", 0);
+		}
+		else {
+			args = uwsgi_concat2n(wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
+		}
+
+		argc = 0;
+		argv[0] = strtok(args, "/");
+		if (!argv[0]) {
+			free(args);
+			uwsgi_500(wsgi_req);
+			return UWSGI_OK;
+		}
+		char *p = strtok(NULL, "/");
+		while(p) {
+			argc++;
+			argv[argc] = p;
+			argvs[argc] = strlen(p);
+			p = strtok(NULL, "/");
+		}
+		
+		wsgi_req->uh->pktsize = uwsgi_rpc(argv[0], argc, argv+1, argvs+1, response_buf);
+		free(args);
+
+		if (!wsgi_req->uh->pktsize) {
+			uwsgi_404(wsgi_req);
+			return UWSGI_OK;
+		}
+		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) return 1;
+		if (uwsgi_response_add_content_length(wsgi_req, wsgi_req->uh->pktsize)) return -1;
+		uint16_t ctype_len = 0;
+		char *ctype = uwsgi_get_var(wsgi_req, "HTTP_ACCEPT", 11, &ctype_len);
+		if (ctype && strcmp(ctype, "*/*") && strcmp(ctype, "*")) {
+			if (uwsgi_response_add_content_type(wsgi_req, ctype, ctype_len)) return -1;
+		}
+		else {
+			if (uwsgi_response_add_content_type(wsgi_req, "application/binary", 18)) return -1;
+		}
+		goto sendbody;
+	}
+
+#ifdef UWSGI_XMLRPC
+	if (wsgi_req->uh->modifier2 == 3) {
+		return UWSGI_OK;
+	}
+#endif
+
 	if (uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh->pktsize, argv, argvs, &argc)) {
                 uwsgi_log("Invalid RPC request. skip.\n");
                 return -1;
@@ -34,6 +107,9 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 			return -1;
 		}
 	}
+
+
+sendbody:
 	// write the response
 	uwsgi_response_write_body_do(wsgi_req, response_buf, wsgi_req->uh->pktsize);
 	
