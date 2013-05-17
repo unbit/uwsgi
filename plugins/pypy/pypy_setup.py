@@ -75,7 +75,6 @@ def uwsgi_pypy_wsgi_handler(wsgi_req):
     else:
         for chunk in response:
             writer(chunk)
-         
 
 lib.uwsgi_pypy_hook_loader = uwsgi_pypy_loader
 lib.uwsgi_pypy_hook_request = uwsgi_pypy_wsgi_handler

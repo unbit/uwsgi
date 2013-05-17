@@ -1,9 +1,9 @@
-
 /*******************************************************************
 
  This is the C part of the PyPy plugin (with the main logic being in
- Python, see plugin_setup.py), written by Maciej Fijalkowski,
- heavily based on python_plugin.c
+ Python, see pypy_setup.py).
+
+ Idea and initial implementation by Maciej Fijalkowski
 
  *******************************************************************/
 
@@ -21,6 +21,7 @@ struct uwsgi_pypy {
 char *(*rpython_startup_code)(void);
 int (*pypy_setup_home)(char *, int);
 int (*pypy_execute_source)(char *);
+void (*pypy_thread_attach)(void);
 
 // the hooks you can override with pypy
 void (*uwsgi_pypy_hook_loader)(char *);
@@ -99,6 +100,11 @@ static int uwsgi_pypy_init() {
 		uwsgi_log("unable to find pypy_execute_source() symbol\n");
 		exit(1);
 	}
+
+	pypy_thread_attach = dlsym(upypy.handler, "pypy_thread_attach");
+        if (!pypy_thread_attach) {
+                uwsgi_log("!!! WARNING your libpypy-c does not export pypy_thread_attach, multithreading will not work !!!\n");
+        }
 	
 	rpython_startup_code();
 
@@ -177,6 +183,12 @@ static struct uwsgi_option uwsgi_pypy_options[] = {
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
+static void uwsgi_pypy_init_thread() {
+	if (pypy_thread_attach) {
+		pypy_thread_attach();
+	}
+}
+
 struct uwsgi_plugin pypy_plugin = {
 	.name = "pypy",
 	.modifier1 = 0,
@@ -185,4 +197,5 @@ struct uwsgi_plugin pypy_plugin = {
 	.after_request = uwsgi_pypy_after_request,
 	.options = uwsgi_pypy_options,
 	.init_apps = uwsgi_pypy_init_apps,
+	.init_thread = uwsgi_pypy_init_thread,
 };
