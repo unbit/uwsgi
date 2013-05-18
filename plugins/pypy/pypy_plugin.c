@@ -26,7 +26,7 @@ void (*pypy_init_threads)(void);
 
 // the hooks you can override with pypy
 void (*uwsgi_pypy_hook_loader)(char *);
-void (*uwsgi_pypy_hook_request)(void *);
+void (*uwsgi_pypy_hook_request)(int);
 
 extern struct uwsgi_server uwsgi;
 struct uwsgi_plugin pypy_plugin;
@@ -43,43 +43,51 @@ int uwsgi_pypy_helper_register_signal(int signum, char *kind, void *handler) {
 	return uwsgi_register_signal(signum, kind, handler, pypy_plugin.modifier1);
 }
 
-int uwsgi_pypy_helper_vars(void *r) {
-	struct wsgi_request *wsgi_req = (struct wsgi_request *) r;
+int uwsgi_pypy_helper_register_rpc(char *name, int argc, void *func) {
+	return uwsgi_register_rpc(name, &pypy_plugin, argc, func);
+}
+
+int uwsgi_pypy_helper_vars(int core) {
+	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
 	return wsgi_req->var_cnt;
 }
 
-char *uwsgi_pypy_helper_key(void *r, int pos) {
-	struct wsgi_request *wsgi_req = (struct wsgi_request *) r;
+char *uwsgi_pypy_helper_key(int core, int pos) {
+	uwsgi_log("[key] core = %d pos = %d\n", core, pos);
+	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
 	return wsgi_req->hvec[pos].iov_base;
 }
 
-int uwsgi_pypy_helper_keylen(void *r, int pos) {
-	struct wsgi_request *wsgi_req = (struct wsgi_request *) r;
+int uwsgi_pypy_helper_keylen(int core, int pos) {
+	uwsgi_log("[keylen] core = %d pos = %d\n", core, pos);
+	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
 	return wsgi_req->hvec[pos].iov_len;
 }
 
-char *uwsgi_pypy_helper_val(void *r, int pos) {
-	struct wsgi_request *wsgi_req = (struct wsgi_request *) r;
+char *uwsgi_pypy_helper_val(int core, int pos) {
+	uwsgi_log("[val] core = %d pos = %d\n", core, pos);
+	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
 	return wsgi_req->hvec[pos+1].iov_base;
 }
 
-int uwsgi_pypy_helper_vallen(void *r, int pos) {
-	struct wsgi_request *wsgi_req = (struct wsgi_request *) r;
+int uwsgi_pypy_helper_vallen(int core, int pos) {
+	uwsgi_log("[vallen] core = %d pos = %d\n", core, pos);
+	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
 	return wsgi_req->hvec[pos+1].iov_len;
 }
 
-void uwsgi_pypy_helper_status(void *r, char *status, int status_len) {
-	struct wsgi_request *wsgi_req = (struct wsgi_request *) r;
+void uwsgi_pypy_helper_status(int core, char *status, int status_len) {
+	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
 	uwsgi_response_prepare_headers(wsgi_req, status, status_len);
 }
 
-void uwsgi_pypy_helper_header(void *r, char *k, int kl, char *v, int vl) {
-	struct wsgi_request *wsgi_req = (struct wsgi_request *) r;
+void uwsgi_pypy_helper_header(int core, char *k, int kl, char *v, int vl) {
+	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
 	uwsgi_response_add_header(wsgi_req, k, kl, v, vl);
 }
 
-void uwsgi_pypy_helper_write(void *r, char *body, int len) {
-	struct wsgi_request *wsgi_req = (struct wsgi_request *) r;
+void uwsgi_pypy_helper_write(int core, char *body, int len) {
+	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
 	uwsgi_response_write_body_do(wsgi_req, body, len);
 }
 
@@ -172,7 +180,7 @@ static int uwsgi_pypy_request(struct wsgi_request *wsgi_req) {
         }
 
 	if (uwsgi_pypy_hook_request) {
-		uwsgi_pypy_hook_request(wsgi_req);
+		uwsgi_pypy_hook_request(wsgi_req->async_id);
 	}
 	return UWSGI_OK;
 }
@@ -205,14 +213,12 @@ static struct uwsgi_option uwsgi_pypy_options[] = {
 static void uwsgi_pypy_enable_threads() {
 	if (pypy_init_threads) {
 		pypy_init_threads();
-		uwsgi_log("THREADS ENABLED !!!\n");
 	}
 }
 
 static void uwsgi_pypy_init_thread() {
-	uwsgi_log("initializing thread...\n");
 	if (pypy_thread_attach) {
-		//pypy_thread_attach();
+		pypy_thread_attach();
 	}
 }
 
@@ -220,6 +226,17 @@ static int uwsgi_pypy_signal_handler(uint8_t sig, void *handler) {
 	void (*pypy_func)(int) = (void(*)(int)) handler;
 	pypy_func(sig);
 	return 0;
+}
+
+static uint16_t uwsgi_python_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
+	int iargvs[UMAX8];
+	int i;
+	int (*pypy_func)(int, char **, int*, char *) = (int (*)(int, char **, int*, char *)) func;
+	// we convert 16bit to int
+	for(i=0;i<argc;i++) {
+		iargvs[i] = (int) argvs[i]; 
+	}
+	return pypy_func(argc, argv, iargvs, buffer);
 }
 
 struct uwsgi_plugin pypy_plugin = {
@@ -233,4 +250,5 @@ struct uwsgi_plugin pypy_plugin = {
 	.init_thread = uwsgi_pypy_init_thread,
 	.signal_handler = uwsgi_pypy_signal_handler,
 	.enable_threads = uwsgi_pypy_enable_threads,
+	.rpc = uwsgi_python_rpc,
 };
