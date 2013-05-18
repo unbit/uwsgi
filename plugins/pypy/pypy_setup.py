@@ -84,7 +84,7 @@ def uwsgi_pypy_wsgi_handler(core):
     environ['uwsgi.core'] = core
 
     response = wsgi_application(environ, start_response) 
-    if type(response) == 'str':
+    if type(response) is str:
         writer(response)
     else:
         for chunk in response:
