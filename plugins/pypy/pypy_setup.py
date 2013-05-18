@@ -30,6 +30,7 @@ int uwsgi_pypy_helper_register_rpc(char *, int, void *);
 void uwsgi_pypy_helper_signal(int);
 
 char *uwsgi_cache_magic_get(char *, uint64_t, uint64_t *, uint64_t *, char *);
+int uwsgi_add_timer(uint8_t, int);
 '''
 
 ffi = cffi.FFI()
@@ -103,7 +104,6 @@ sys.modules['uwsgi'] = uwsgi
 uwsgi.version = ffi.string( lib.uwsgi_pypy_helper_version() )
 
 def uwsgi_pypy_uwsgi_register_signal(signum, kind, handler):
-    global uwsgi_gc
     uwsgi_gc.append(handler)
     if lib.uwsgi_pypy_helper_register_signal(signum, ffi.new("char[]", kind), ffi.callback('void(int)', handler)) < 0:
         raise Exception("unable to register signal %d" % signum)
@@ -123,7 +123,6 @@ class uwsgi_pypy_RPC():
         return len(response)
 
 def uwsgi_pypy_uwsgi_register_rpc(name, func, argc=0):
-    global uwsgi_gc
     uwsgi_gc.append(func)
     if lib.uwsgi_pypy_helper_register_rpc(ffi.new("char[]", name), argc, ffi.callback("int(int, char*[], int[], char*)", uwsgi_pypy_RPC(func))) < 0:
         raise Exception("unable to register rpc func %s" % name)
@@ -143,5 +142,9 @@ def uwsgi_pypy_uwsgi_cache_get(key, cache=ffi.NULL):
     return ret
 uwsgi.cache_get = uwsgi_pypy_uwsgi_cache_get
 
+def uwsgi_pypy_uwsgi_add_timer(signum, secs):
+    if lib.uwsgi_add_timer(signum, secs) < 0:
+        raise Exception("unable to register timer")
+uwsgi.add_timer = uwsgi_pypy_uwsgi_add_timer
 
 print "Initialized PyPy with Python",sys.version
