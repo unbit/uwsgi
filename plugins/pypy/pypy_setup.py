@@ -31,6 +31,7 @@ void uwsgi_pypy_helper_signal(int);
 
 char *uwsgi_cache_magic_get(char *, uint64_t, uint64_t *, uint64_t *, char *);
 int uwsgi_add_timer(uint8_t, int);
+int uwsgi_add_file_monitor(uint8_t, char *);
 '''
 
 ffi = cffi.FFI()
@@ -146,5 +147,10 @@ def uwsgi_pypy_uwsgi_add_timer(signum, secs):
     if lib.uwsgi_add_timer(signum, secs) < 0:
         raise Exception("unable to register timer")
 uwsgi.add_timer = uwsgi_pypy_uwsgi_add_timer
+
+def uwsgi_pypy_uwsgi_add_file_monitor(signum, filename):
+    if lib.uwsgi_add_file_monitor(signum, ffi.new("char[]", filename)) < 0:
+        raise Exception("unable to register file monitor")
+uwsgi.add_file_monitor = uwsgi_pypy_uwsgi_add_file_monitor
 
 print "Initialized PyPy with Python",sys.version
