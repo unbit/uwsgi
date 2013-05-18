@@ -12,13 +12,12 @@ void free(void *);
 void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_request)(int);
 
-char *uwsgi_pypy_helper_key(int, int);
-int uwsgi_pypy_helper_keylen(int, int);
+struct iovec {
+	char *iov_base;
+	uint64_t iov_len;
+};
 
-char *uwsgi_pypy_helper_val(int, int);
-int uwsgi_pypy_helper_vallen(int, int);
-
-int uwsgi_pypy_helper_vars(int);
+struct iovec *uwsgi_pypy_helper_environ(int, uint16_t *);
 
 void uwsgi_pypy_helper_status(int, char *, int);
 void uwsgi_pypy_helper_header(int, char *, int, char *, int);
@@ -67,12 +66,10 @@ def uwsgi_pypy_wsgi_handler(core):
         pass
 
     environ = {}
-    n = lib.uwsgi_pypy_helper_vars(core)
-    print "[n] core = %d vars = %d" % (core, n)
-    for i in range(0, n, 2):
-        key = ffi.string( lib.uwsgi_pypy_helper_key(core, i), lib.uwsgi_pypy_helper_keylen(core, i) )
-        value = ffi.string( lib.uwsgi_pypy_helper_val(core, i), lib.uwsgi_pypy_helper_vallen(core, i) )
-        environ[key] = value
+    nv = ffi.new("uint16_t *")
+    iov = lib.uwsgi_pypy_helper_environ(core, nv)
+    for i in range(0, nv[0], 2):
+        environ[ffi.string(iov[i].iov_base, iov[i].iov_len)] = ffi.string(iov[i+1].iov_base, iov[i+1].iov_len)
 
     environ['wsgi.version'] = (1, 0)
     scheme = 'http'

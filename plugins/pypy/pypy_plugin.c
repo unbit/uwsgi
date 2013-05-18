@@ -47,33 +47,10 @@ int uwsgi_pypy_helper_register_rpc(char *name, int argc, void *func) {
 	return uwsgi_register_rpc(name, &pypy_plugin, argc, func);
 }
 
-int uwsgi_pypy_helper_vars(int core) {
+struct iovec *uwsgi_pypy_helper_environ(int core, uint16_t *len) {
 	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
-	return wsgi_req->var_cnt;
-}
-
-char *uwsgi_pypy_helper_key(int core, int pos) {
-	uwsgi_log("[key] core = %d pos = %d\n", core, pos);
-	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
-	return wsgi_req->hvec[pos].iov_base;
-}
-
-int uwsgi_pypy_helper_keylen(int core, int pos) {
-	uwsgi_log("[keylen] core = %d pos = %d\n", core, pos);
-	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
-	return wsgi_req->hvec[pos].iov_len;
-}
-
-char *uwsgi_pypy_helper_val(int core, int pos) {
-	uwsgi_log("[val] core = %d pos = %d\n", core, pos);
-	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
-	return wsgi_req->hvec[pos+1].iov_base;
-}
-
-int uwsgi_pypy_helper_vallen(int core, int pos) {
-	uwsgi_log("[vallen] core = %d pos = %d\n", core, pos);
-	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
-	return wsgi_req->hvec[pos+1].iov_len;
+	*len = wsgi_req->var_cnt;
+	return wsgi_req->hvec;
 }
 
 void uwsgi_pypy_helper_status(int core, char *status, int status_len) {
