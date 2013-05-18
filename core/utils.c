@@ -3956,3 +3956,35 @@ void uwsgi_takeover() {
 		uwsgi_worker_run();
 	}
 }
+
+// create a message pipe
+void create_msg_pipe(int *fd, int bufsize) {
+
+#if defined(SOCK_SEQPACKET) && defined(__linux__)
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, fd)) {
+#else
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, fd)) {
+#endif
+		uwsgi_error("create_msg_pipe()/socketpair()");
+		exit(1);
+	}
+
+	uwsgi_socket_nb(fd[0]);
+        uwsgi_socket_nb(fd[1]);
+
+        if (bufsize) {
+                if (setsockopt(fd[0], SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(int))) {
+                        uwsgi_error("create_msg_pipe()/setsockopt()");
+                }
+                if (setsockopt(fd[0], SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(int))) {
+                        uwsgi_error("create_msg_pipe()/setsockopt()");
+                }
+
+                if (setsockopt(fd[1], SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(int))) {
+                        uwsgi_error("create_msg_pipe()/setsockopt()");
+                }
+                if (setsockopt(fd[1], SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(int))) {
+                        uwsgi_error("create_msg_pipe()/setsockopt()");
+                }
+        }
+}

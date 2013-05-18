@@ -2093,6 +2093,7 @@ struct uwsgi_server {
 	struct uwsgi_mule *mules;
 	struct uwsgi_string_list *farms_list;
 	struct uwsgi_farm *farms;
+	int mule_msg_size;
 
 	pid_t mypid;
 	int mywid;
@@ -3157,6 +3158,7 @@ void mule_send_msg(int, char *, size_t);
 
 uint32_t djb33x_hash(char *, uint64_t);
 void create_signal_pipe(int *);
+void create_msg_pipe(int *, int);
 struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **, char *, uint16_t);
 struct uwsgi_subscribe_node *uwsgi_get_subscribe_node_by_name(struct uwsgi_subscribe_slot **, char *, uint16_t, char *, uint16_t);
 struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slot **, char *, uint16_t);

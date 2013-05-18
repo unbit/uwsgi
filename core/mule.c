@@ -416,12 +416,12 @@ void uwsgi_setup_mules_and_farms() {
 		uwsgi.mules = (struct uwsgi_mule *) uwsgi_calloc_shared(sizeof(struct uwsgi_mule) * uwsgi.mules_cnt);
 
 		create_signal_pipe(uwsgi.shared->mule_signal_pipe);
-		create_signal_pipe(uwsgi.shared->mule_queue_pipe);
+		create_msg_pipe(uwsgi.shared->mule_queue_pipe, uwsgi.mule_msg_size);
 
 		for (i = 0; i < uwsgi.mules_cnt; i++) {
 			// create the socket pipe
 			create_signal_pipe(uwsgi.mules[i].signal_pipe);
-			create_signal_pipe(uwsgi.mules[i].queue_pipe);
+			create_msg_pipe(uwsgi.mules[i].queue_pipe, uwsgi.mule_msg_size);
 
 			uwsgi.mules[i].id = i + 1;
 
@@ -451,7 +451,7 @@ void uwsgi_setup_mules_and_farms() {
 
 			// create the socket pipe
 			create_signal_pipe(uwsgi.farms[i].signal_pipe);
-			create_signal_pipe(uwsgi.farms[i].queue_pipe);
+			create_msg_pipe(uwsgi.farms[i].queue_pipe, uwsgi.mule_msg_size);
 
 			char *p = strtok(mules_list, ",");
 			while (p != NULL) {
