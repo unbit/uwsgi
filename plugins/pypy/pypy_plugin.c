@@ -211,6 +211,7 @@ static struct uwsgi_option uwsgi_pypy_options[] = {
 };
 
 static void uwsgi_pypy_enable_threads() {
+	return;
 	if (pypy_init_threads) {
 		pypy_init_threads();
 	}
@@ -218,6 +219,7 @@ static void uwsgi_pypy_enable_threads() {
 
 static void uwsgi_pypy_init_thread() {
 	if (pypy_thread_attach) {
+		pypy_init_threads();
 		pypy_thread_attach();
 	}
 }

@@ -1146,7 +1146,7 @@ int uwsgi_get_app_id(struct wsgi_request *wsgi_req, char *key, uint16_t key_len,
 	char *app_name = key;
 	uint16_t app_name_len = key_len;
 
-	if (!app_name && wsgi_req) {
+	if (app_name_len == 0 && wsgi_req) {
 		app_name = wsgi_req->appid;
 		app_name_len = wsgi_req->appid_len;
 		if (app_name_len == 0) {
