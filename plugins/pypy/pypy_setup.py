@@ -7,6 +7,8 @@ import cffi
 uwsgi_gc = []
 
 defines = '''
+void free(void *);
+
 void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_request)(int);
 
@@ -27,11 +29,14 @@ char *uwsgi_pypy_helper_version();
 int uwsgi_pypy_helper_register_signal(int, char *, void *);
 int uwsgi_pypy_helper_register_rpc(char *, int, void *);
 void uwsgi_pypy_helper_signal(int);
+
+char *uwsgi_cache_magic_get(char *, uint64_t, uint64_t *, uint64_t *, char *);
 '''
 
 ffi = cffi.FFI()
 ffi.cdef(defines)
 lib = ffi.verify(defines)
+libc = ffi.dlopen(None)
 
 wsgi_application = None
 
@@ -130,6 +135,16 @@ uwsgi.register_rpc = uwsgi_pypy_uwsgi_register_rpc
 def uwsgi_pypy_uwsgi_signal(signum):
     lib.uwsgi_pypy_helper_signal(signum)
 uwsgi.signal = uwsgi_pypy_uwsgi_signal
+
+def uwsgi_pypy_uwsgi_cache_get(key, cache=ffi.NULL):
+    vallen = ffi.new('uint64_t *')
+    value = lib.uwsgi_cache_magic_get(key, len(key), vallen, ffi.NULL, cache)
+    if value == ffi.NULL:
+        return None
+    ret = ffi.string(value, vallen[0])
+    libc.free(value)
+    return ret
+uwsgi.cache_get = uwsgi_pypy_uwsgi_cache_get
 
 
 print "Initialized PyPy with Python",sys.version
