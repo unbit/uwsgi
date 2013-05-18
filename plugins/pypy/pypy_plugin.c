@@ -22,11 +22,11 @@ char *(*rpython_startup_code)(void);
 int (*pypy_setup_home)(char *, int);
 int (*pypy_execute_source)(char *);
 void (*pypy_thread_attach)(void);
+void (*pypy_init_threads)(void);
 
 // the hooks you can override with pypy
 void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_request)(void *);
-void (*uwsgi_pypy_hook_signal_handler)(void *, int);
 
 extern struct uwsgi_server uwsgi;
 struct uwsgi_plugin pypy_plugin;
@@ -119,6 +119,11 @@ static int uwsgi_pypy_init() {
         if (!pypy_thread_attach) {
                 uwsgi_log("!!! WARNING your libpypy-c does not export pypy_thread_attach, multithreading will not work !!!\n");
         }
+
+	pypy_init_threads = dlsym(upypy.handler, "pypy_init_threads");
+        if (!pypy_init_threads) {
+                uwsgi_log("!!! WARNING your libpypy-c does not export pypy_init_threads, multithreading will not work !!!\n");
+        }
 	
 	rpython_startup_code();
 
@@ -197,17 +202,24 @@ static struct uwsgi_option uwsgi_pypy_options[] = {
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
+static void uwsgi_pypy_enable_threads() {
+	if (pypy_init_threads) {
+		pypy_init_threads();
+		uwsgi_log("THREADS ENABLED !!!\n");
+	}
+}
+
 static void uwsgi_pypy_init_thread() {
+	uwsgi_log("initializing thread...\n");
 	if (pypy_thread_attach) {
-		pypy_thread_attach();
+		//pypy_thread_attach();
 	}
 }
 
 static int uwsgi_pypy_signal_handler(uint8_t sig, void *handler) {
-	if (uwsgi_pypy_hook_signal_handler) {
-		uwsgi_pypy_hook_signal_handler(handler, sig);
-	}
-	return -1;
+	void (*pypy_func)(int) = (void(*)(int)) handler;
+	pypy_func(sig);
+	return 0;
 }
 
 struct uwsgi_plugin pypy_plugin = {
@@ -220,4 +232,5 @@ struct uwsgi_plugin pypy_plugin = {
 	.init_apps = uwsgi_pypy_init_apps,
 	.init_thread = uwsgi_pypy_init_thread,
 	.signal_handler = uwsgi_pypy_signal_handler,
+	.enable_threads = uwsgi_pypy_enable_threads,
 };

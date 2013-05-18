@@ -7,7 +7,6 @@ import cffi
 defines = '''
 void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_request)(void *);
-void (*uwsgi_pypy_hook_signal_handler)(void *, int);
 
 char *uwsgi_pypy_helper_key(void *, int);
 int uwsgi_pypy_helper_keylen(void *, int);
@@ -83,14 +82,8 @@ def uwsgi_pypy_wsgi_handler(wsgi_req):
         for chunk in response:
             writer(chunk)
 
-@ffi.callback("void(void *, int)")
-def uwsgi_pypy_signal_handler(func, signum):
-    py_func = ffi.callback('void(int)', func)
-    py_func(signum)
-
 lib.uwsgi_pypy_hook_loader = uwsgi_pypy_loader
 lib.uwsgi_pypy_hook_request = uwsgi_pypy_wsgi_handler
-lib.uwsgi_pypy_hook_signal_handler = uwsgi_pypy_signal_handler
 
 """
 Here we define the "uwsgi" virtual module
@@ -107,7 +100,7 @@ def uwsgi_pypy_uwsgi_register_signal(signum, kind, handler):
 uwsgi.register_signal = uwsgi_pypy_uwsgi_register_signal
 
 def uwsgi_pypy_uwsgi_signal(signum):
-    lig.uwsgi_pypy_helper_signal(signum)
+    lib.uwsgi_pypy_helper_signal(signum)
 uwsgi.signal = uwsgi_pypy_uwsgi_signal
 
 print "Initialized PyPy with Python",sys.version
