@@ -26,8 +26,22 @@ void (*pypy_thread_attach)(void);
 // the hooks you can override with pypy
 void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_request)(void *);
+void (*uwsgi_pypy_hook_signal_handler)(void *, int);
 
 extern struct uwsgi_server uwsgi;
+struct uwsgi_plugin pypy_plugin;
+
+void uwsgi_pypy_helper_signal(int signum) {
+	uwsgi_signal_send(uwsgi.signal_socket, signum);
+}
+
+char *uwsgi_pypy_helper_version() {
+	return UWSGI_VERSION;
+}
+
+int uwsgi_pypy_helper_register_signal(int signum, char *kind, void *handler) {
+	return uwsgi_register_signal(signum, kind, handler, pypy_plugin.modifier1);
+}
 
 int uwsgi_pypy_helper_vars(void *r) {
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) r;
@@ -189,6 +203,13 @@ static void uwsgi_pypy_init_thread() {
 	}
 }
 
+static int uwsgi_pypy_signal_handler(uint8_t sig, void *handler) {
+	if (uwsgi_pypy_hook_signal_handler) {
+		uwsgi_pypy_hook_signal_handler(handler, sig);
+	}
+	return -1;
+}
+
 struct uwsgi_plugin pypy_plugin = {
 	.name = "pypy",
 	.modifier1 = 0,
@@ -198,4 +219,5 @@ struct uwsgi_plugin pypy_plugin = {
 	.options = uwsgi_pypy_options,
 	.init_apps = uwsgi_pypy_init_apps,
 	.init_thread = uwsgi_pypy_init_thread,
+	.signal_handler = uwsgi_pypy_signal_handler,
 };

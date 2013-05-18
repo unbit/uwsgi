@@ -99,7 +99,10 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
 
 	struct uwsgi_signal_entry *use = NULL;
 
-	if (!uwsgi.master_process) return -1;
+	if (!uwsgi.master_process) {
+		uwsgi_log("you cannot register signals without a master\n");
+		return -1;
+	}
 
 	if (uwsgi.mywid == 0 && uwsgi.workers[0].pid != uwsgi.mypid) {
                 uwsgi_log("only the master and the workers can register signal handlers\n");

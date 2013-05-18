@@ -376,7 +376,11 @@ void *event_queue_alloc(int nevents) {
 
 int event_queue_interesting_fd(void *events, int id) {
 	port_event_t *pe = (port_event_t *) events;
+#ifdef PORT_SOURCE_FILE
 	if (pe[id].portev_source == PORT_SOURCE_FILE || pe[id].portev_source == PORT_SOURCE_TIMER) {
+#else
+	if (pe[id].portev_source == PORT_SOURCE_TIMER) {
+#endif
 		return (long) pe[id].portev_user;
 	}
 
@@ -464,7 +468,11 @@ int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 	}
 
 
+#ifdef PORT_SOURCE_FILE
 	if (pe.portev_source == PORT_SOURCE_FILE || pe.portev_source == PORT_SOURCE_TIMER) {
+#else
+	if (pe.portev_source == PORT_SOURCE_TIMER) {
+#endif
 		*interesting_fd = (long) pe.portev_user;
 	}
 	else {
@@ -972,6 +980,7 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
 #endif
 
 #ifdef UWSGI_EVENT_FILEMONITOR_USE_PORT
+#ifdef PORT_SOURCE_FILE
 int event_queue_add_file_monitor(int eq, char *filename, int *id) {
 
 	struct file_obj fo;
@@ -1032,6 +1041,14 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
 
 }
 
+#else
+int event_queue_add_file_monitor(int eq, char *filename, int *id) {
+	return -1;
+}
+struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
+	return NULL;
+}
+#endif
 #endif
 
 

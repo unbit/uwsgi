@@ -1,10 +1,13 @@
 import sys
 
+sys.path.insert(0, '.')
+
 import cffi
 
 defines = '''
 void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_request)(void *);
+void (*uwsgi_pypy_hook_signal_handler)(void *, int);
 
 char *uwsgi_pypy_helper_key(void *, int);
 int uwsgi_pypy_helper_keylen(void *, int);
@@ -18,6 +21,10 @@ void uwsgi_pypy_helper_status(void *, char *, int);
 void uwsgi_pypy_helper_header(void *, char *, int, char *, int);
 
 void uwsgi_pypy_helper_write(void *, char *, int);
+
+char *uwsgi_pypy_helper_version();
+int uwsgi_pypy_helper_register_signal(int, char *, void *);
+void uwsgi_pypy_helper_signal(int);
 '''
 
 ffi = cffi.FFI()
@@ -76,7 +83,31 @@ def uwsgi_pypy_wsgi_handler(wsgi_req):
         for chunk in response:
             writer(chunk)
 
+@ffi.callback("void(void *, int)")
+def uwsgi_pypy_signal_handler(func, signum):
+    py_func = ffi.callback('void(int)', func)
+    py_func(signum)
+
 lib.uwsgi_pypy_hook_loader = uwsgi_pypy_loader
 lib.uwsgi_pypy_hook_request = uwsgi_pypy_wsgi_handler
+lib.uwsgi_pypy_hook_signal_handler = uwsgi_pypy_signal_handler
 
-print "Initialized Python",sys.version
+"""
+Here we define the "uwsgi" virtual module
+"""
+import imp
+
+uwsgi = imp.new_module('uwsgi')
+sys.modules['uwsgi'] = uwsgi
+uwsgi.version = ffi.string( lib.uwsgi_pypy_helper_version() )
+
+def uwsgi_pypy_uwsgi_register_signal(signum, kind, handler):
+    if lib.uwsgi_pypy_helper_register_signal(signum, ffi.new("char[]", kind), ffi.callback('void(int)', handler)) < 0:
+        raise Exception("unable to register signal %d" % signum)
+uwsgi.register_signal = uwsgi_pypy_uwsgi_register_signal
+
+def uwsgi_pypy_uwsgi_signal(signum):
+    lig.uwsgi_pypy_helper_signal(signum)
+uwsgi.signal = uwsgi_pypy_uwsgi_signal
+
+print "Initialized PyPy with Python",sys.version
