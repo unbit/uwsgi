@@ -12,13 +12,23 @@ from setuptools.command.build_ext import build_ext
 """
 This is a hack allowing you installing
 uWSGI and uwsgidecorators via pip and easy_install
+since 1.9.11 it automatically detects pypy
 """
 
 uwsgi_compiled = False
 
 
 def get_profile():
-    profile = os.environ.get('UWSGI_PROFILE', 'buildconf/default.ini')
+    is_pypy = False
+    try:
+        import __pypy__
+        is_pypy = True
+    except:
+        pass
+    if is_pypy:
+        profile = os.environ.get('UWSGI_PROFILE', 'buildconf/pypy.ini')
+    else:
+        profile = os.environ.get('UWSGI_PROFILE', 'buildconf/default.ini')
     if not profile.endswith('.ini'):
         profile = "%s.ini" % profile
     if not '/' in profile:
