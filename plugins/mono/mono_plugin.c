@@ -547,7 +547,7 @@ static int uwsgi_mono_request(struct wsgi_request *wsgi_req) {
                 	pthread_mutex_lock(&umono.lock_loader);
                 }
 
-		// check if the mean time, something changed		
+		// check if in the mean time, something changed		
 		wsgi_req->app_id = uwsgi_get_app_id(NULL, key, key_len, mono_plugin.modifier1);
 
 		if (wsgi_req->app_id == -1) {

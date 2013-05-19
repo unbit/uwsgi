@@ -394,25 +394,37 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
+	if (wsgi_req->dynamic) {
+		if (uwsgi.threads > 1) {
+                	pthread_mutex_lock(&uperl.lock_loader);
+                }
+	}
+
 	wsgi_req->app_id = uwsgi_get_app_id(wsgi_req, wsgi_req->appid, wsgi_req->appid_len, psgi_plugin.modifier1);
 	// if it is -1, try to load a dynamic app
 	if (wsgi_req->app_id == -1) {
 		if (wsgi_req->dynamic) {
-			if (uwsgi.threads > 1) {
-                                pthread_mutex_lock(&uperl.lock_loader);
-                        }
-
 			if (wsgi_req->script_len > 0) {
 				wsgi_req->app_id = init_psgi_app(wsgi_req, wsgi_req->script, wsgi_req->script_len, NULL);	
 			}
 			else if (wsgi_req->file_len > 0) {
 				wsgi_req->app_id = init_psgi_app(wsgi_req, wsgi_req->file, wsgi_req->file_len, NULL);	
 			}
-
-			if (uwsgi.threads > 1) {
-                                pthread_mutex_unlock(&uperl.lock_loader);
-                        }
 		}
+
+			if (wsgi_req->app_id == -1 && !uwsgi.no_default_app && uwsgi.default_app > -1) {
+				if (uwsgi_apps[uwsgi.default_app].modifier1 == psgi_plugin.modifier1) {
+					wsgi_req->app_id = uwsgi.default_app;
+				}
+			}
+
+	}
+	
+	if (wsgi_req->dynamic) {
+                if (uwsgi.threads > 1) {
+                        pthread_mutex_unlock(&uperl.lock_loader);
+                }
+        }
 
 		if (wsgi_req->app_id == -1) {
 			uwsgi_500(wsgi_req);	
@@ -420,7 +432,6 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 			// nothing to clear/free
 			return UWSGI_OK;
 		}
-	}
 
 	struct uwsgi_app *wi = &uwsgi_apps[wsgi_req->app_id];
 	wi->requests++;
@@ -712,7 +723,7 @@ static uint16_t uwsgi_perl_rpc(void *func, uint8_t argc, char **argv, uint16_t a
 		STRLEN rlen;
 		SV *response = POPs;
                 char *value = SvPV(response, rlen );
-		ret = UMIN(UMAX16, rlen);
+		ret = UMIN(UMAX16-1, rlen);
 		memcpy(buffer, value, ret);
 	}
 

@@ -2,6 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
+extern struct uwsgi_plugin python_plugin;
 
 
 PyObject *uwsgi_Input_iter(PyObject *self) {
@@ -339,7 +340,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
                 }
 	}
 
-	if ( (wsgi_req->app_id = uwsgi_get_app_id(wsgi_req, wsgi_req->appid, wsgi_req->appid_len, 0))  == -1) {
+	if ( (wsgi_req->app_id = uwsgi_get_app_id(wsgi_req, wsgi_req->appid, wsgi_req->appid_len, python_plugin.modifier1))  == -1) {
 		if (wsgi_req->dynamic) {
 			UWSGI_GET_GIL
 			if (uwsgi.single_interpreter) {
@@ -350,6 +351,12 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			}
 			UWSGI_RELEASE_GIL
 		}
+
+		if (wsgi_req->app_id == -1 && !uwsgi.no_default_app && uwsgi.default_app > -1) {
+                	if (uwsgi_apps[uwsgi.default_app].modifier1 == python_plugin.modifier1) {
+                        	wsgi_req->app_id = uwsgi.default_app;
+                        }
+		}
 	}
 
 	if (wsgi_req->dynamic) {
@@ -357,6 +364,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			pthread_mutex_unlock(&up.lock_pyloaders);
 		}
 	}
+
 
 	if (wsgi_req->app_id == -1) {
 		uwsgi_500(wsgi_req);
