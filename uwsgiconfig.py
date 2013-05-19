@@ -361,11 +361,13 @@ def build_uwsgi(uc, print_only=False):
                         binary_link_cmd = "ld -r -b binary -o %s/%s.o %s/%s" % (path, bfile[1], path, bfile[1])
                         print(binarize('%s/%s' % (path, bfile[1])))
                         print(binary_link_cmd)
-                        os.system(binary_link_cmd)
+                        if os.system(binary_link_cmd) != 0:
+                            raise Exception('unable to link binary file')
                         for kind in ('start','end'):
                             objcopy_cmd = "objcopy --redefine-sym _binary_%s_%s=%s_%s %s/%s.o" % (binarize('%s/%s' % (path, bfile[1])), kind, bfile[0], kind, path, bfile[1])
                             print(objcopy_cmd)
-                            os.system(objcopy_cmd)
+                            if os.system(objcopy_cmd) != 0:
+                                raise Exception('unable to link binary file')
                         gcc_list.append('%s/%s.o' % (path, bfile[1]))
                     except:
                         pass
@@ -1146,11 +1148,13 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
             binary_link_cmd = "ld -r -b binary -o %s/%s.o %s/%s" % (path, bfile[1], path, bfile[1])
             print(binarize('%s/%s' % (path, bfile[1])))
             print(binary_link_cmd)
-            os.system(binary_link_cmd)
+            if os.system(binary_link_cmd) != 0:
+                raise Exception('unable to link binary file')
             for kind in ('start','end'):
                 objcopy_cmd = "objcopy --redefine-sym _binary_%s_%s=%s_%s %s/%s.o" % (binarize('%s/%s' % (path, bfile[1])), kind, bfile[0], kind, path, bfile[1])
                 print(objcopy_cmd)
-                os.system(objcopy_cmd)
+                if os.system(objcopy_cmd) != 0:
+                    raise Exception('unable to link binary file')
             gcc_list.append('%s/%s.o' % (path, bfile[1]))
         except:
             pass

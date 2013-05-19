@@ -1,5 +1,8 @@
 import sys
+import os
+sys.path += os.environ.get('PYTHONPATH','').split(':')
 sys.path.insert(0, '.')
+import imp
 
 mainmodule = type(sys)('__main__')
 sys.modules['__main__'] = mainmodule
@@ -51,9 +54,15 @@ ffi.cdef(defines)
 lib = ffi.verify(defines)
 libc = ffi.dlopen(None)
 
+"""
+this is a global object point the the WSGI callable
+it sucks, i will fix it in the near future...
+"""
 wsgi_application = None
 
-
+"""
+load a wsgi module
+"""
 @ffi.callback("void(char *)")
 def uwsgi_pypy_loader(module):
     global wsgi_application
@@ -67,7 +76,29 @@ def uwsgi_pypy_loader(module):
         mod = __import__(m)
     wsgi_application = getattr(mod, c)
 
+"""
+load a mod_wsgi compliant .wsgi file
+"""
+@ffi.callback("void(char *)")
+def uwsgi_pypy_file_loader(filename):
+    global wsgi_application
+    w = ffi.string(filename)
+    c = 'application'
+    mod = imp.load_source('uwsgi_file_wsgi', filename)
+    wsgi_application = getattr(mod, c)
 
+"""
+add an item to the pythonpath
+"""
+@ffi.callback("void(char *)")
+def uwsgi_pypy_pythonpath(item):
+    path = ffi.string(item)
+    sys.path.append(path)
+
+
+"""
+class implementing wsgi.file_wrapper
+"""
 class WSGIfilewrapper(object):
     def __init__(self, wsgi_req, f, chunksize=0):
         self.wsgi_req = wsgi_req
@@ -80,6 +111,9 @@ class WSGIfilewrapper(object):
         lib.uwsgi_response_sendfile_do(self.wsgi_req, self.fd, 0, 0)
 
 
+"""
+class implementing wsgi.input
+"""
 class WSGIinput(object):
     def __init__(self, wsgi_req):
         self.wsgi_req = wsgi_req
@@ -124,6 +158,9 @@ class WSGIinput(object):
         return chunk
 
 
+"""
+the WSGI request handler
+"""
 @ffi.callback("void(void *, int)")
 def uwsgi_pypy_wsgi_handler(wsgi_req, core):
     global wsgi_application
@@ -179,7 +216,6 @@ lib.uwsgi_pypy_hook_request = uwsgi_pypy_wsgi_handler
 """
 Here we define the "uwsgi" virtual module
 """
-import imp
 
 uwsgi = imp.new_module('uwsgi')
 sys.modules['uwsgi'] = uwsgi
