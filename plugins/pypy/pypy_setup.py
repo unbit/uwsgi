@@ -45,6 +45,8 @@ void uwsgi_pypy_helper_signal(int);
 struct uwsgi_opt** uwsgi_pypy_helper_opts(int *);
 
 char *uwsgi_cache_magic_get(char *, uint64_t, uint64_t *, uint64_t *, char *);
+int uwsgi_cache_magic_set(char *, uint64_t, char *, uint64_t, uint64_t, uint64_t, char *);
+int uwsgi_cache_magic_del(char *, uint64_t, char *);
 int uwsgi_add_timer(uint8_t, int);
 int uwsgi_add_file_monitor(uint8_t, char *);
 '''
@@ -265,6 +267,21 @@ def uwsgi_pypy_uwsgi_cache_get(key, cache=ffi.NULL):
     libc.free(value)
     return ret
 uwsgi.cache_get = uwsgi_pypy_uwsgi_cache_get
+
+def uwsgi_pypy_uwsgi_cache_set(key, value, expires=0, cache=ffi.NULL):
+    if lib.uwsgi_cache_magic_set(key, len(key), value, len(value), expires, 0, cache) < 0:
+        raise Exception('unable to store item in the cache')
+uwsgi.cache_set = uwsgi_pypy_uwsgi_cache_set
+
+def uwsgi_pypy_uwsgi_cache_update(key, value, expires=0, cache=ffi.NULL):
+    if lib.uwsgi_cache_magic_set(key, len(key), value, len(value), expires, 1 << 1, cache) < 0:
+        raise Exception('unable to store item in the cache')
+uwsgi.cache_update = uwsgi_pypy_uwsgi_cache_update
+
+def uwsgi_pypy_uwsgi_cache_del(key, cache=ffi.NULL):
+    if lib.uwsgi_cache_magic_del(key, len(key), cache) < 0:
+        raise Exception('unable to delete item from the cache')
+uwsgi.cache_del = uwsgi_pypy_uwsgi_cache_del
 
 
 def uwsgi_pypy_uwsgi_add_timer(signum, secs):
