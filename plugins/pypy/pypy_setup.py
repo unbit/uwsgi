@@ -18,6 +18,7 @@ struct iovec {
 };
 
 int uwsgi_response_write_body_do(void *, char *, uint64_t);
+int uwsgi_response_sendfile_do(void *, int, uint64_t, uint64_t);
 int uwsgi_response_prepare_headers(void *, char *, uint16_t);
 int uwsgi_response_add_header(void *, char *, uint16_t, char *, uint16_t);
 char *uwsgi_request_body_read(void *, uint64_t, int64_t *);
@@ -49,7 +50,10 @@ def uwsgi_pypy_loader(module):
     c = 'application'
     if ':' in m:
         m, c = m.split(':')
-    mod = __import__(m)
+    if '.' in m: 
+        mod = __import__(m, None, None, '*')
+    else:
+        mod = __import__(m)
     wsgi_application = getattr(mod, c)
 
 @ffi.callback("void(void *, int)")
@@ -64,6 +68,22 @@ def uwsgi_pypy_wsgi_handler(wsgi_req, core):
         for hh in headers:
             lib.uwsgi_response_add_header(wsgi_req, ffi.new("char[]", hh[0]), len(hh[0]), ffi.new("char[]", hh[1]), len(hh[1]))
         return writer
+
+    class WSGIfilewrapper():
+        def __init__(self, f, chunksize=0):
+            self.fd = f.fileno()
+            self.chunksize = chunksize
+            if hasattr(f, 'close'):
+                self.close = f.close
+
+        def __getitem__(self, key):
+            data = self.filelike.read(self.blksize)
+            if data:
+                return data
+            raise IndexError
+
+        def sendfile(self):
+            lib.uwsgi_response_sendfile_do(wsgi_req, self.fd, 0, 0)
 
     class WSGIinput():
         def read(self, size=0):
@@ -120,6 +140,7 @@ def uwsgi_pypy_wsgi_handler(wsgi_req, core):
     environ['wsgi.input'] = WSGIinput()
     environ['wsgi.errors'] = sys.stderr
     environ['wsgi.run_once'] = False
+    environ['wsgi.file_wrapper'] = WSGIfilewrapper
 
     environ['uwsgi.core'] = core
 
@@ -127,8 +148,18 @@ def uwsgi_pypy_wsgi_handler(wsgi_req, core):
     if type(response) is str:
         writer(response)
     else:
-        for chunk in response:
-            writer(chunk)
+        try:
+            if isinstance(response, WSGIfilewrapper):
+                response.sendfile()
+            else:
+                for chunk in response:
+                    if isinstance(chunk, WSGIfilewrapper):
+                        chunk.sendfile()
+                    else:
+                        writer(chunk)
+        finally:
+            if hasattr(response, 'close'):
+                response.close()
 
 lib.uwsgi_pypy_hook_loader = uwsgi_pypy_loader
 lib.uwsgi_pypy_hook_request = uwsgi_pypy_wsgi_handler
