@@ -30,7 +30,7 @@ int uwsgi_response_add_header(void *, char *, uint16_t, char *, uint16_t);
 char *uwsgi_request_body_read(void *, uint64_t, int64_t *);
 char *uwsgi_request_body_readline(void *, uint64_t, int64_t *);
 
-struct iovec *uwsgi_pypy_helper_environ(int, uint16_t *);
+struct iovec *uwsgi_pypy_helper_environ(void *, uint16_t *);
 
 char *uwsgi_pypy_helper_version();
 int uwsgi_pypy_helper_register_signal(int, char *, void *);
@@ -134,7 +134,7 @@ def uwsgi_pypy_wsgi_handler(wsgi_req, core):
 
     environ = {}
     nv = ffi.new("uint16_t *")
-    iov = lib.uwsgi_pypy_helper_environ(core, nv)
+    iov = lib.uwsgi_pypy_helper_environ(wsgi_req, nv)
     for i in range(0, nv[0], 2):
         environ[ffi.string(iov[i].iov_base, iov[i].iov_len)] = ffi.string(iov[i+1].iov_base, iov[i+1].iov_len)
 

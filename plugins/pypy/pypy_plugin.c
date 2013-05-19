@@ -52,8 +52,7 @@ int uwsgi_pypy_helper_register_rpc(char *name, int argc, void *func) {
 	return uwsgi_register_rpc(name, &pypy_plugin, argc, func);
 }
 
-struct iovec *uwsgi_pypy_helper_environ(int core, uint16_t *len) {
-	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
+struct iovec *uwsgi_pypy_helper_environ(struct wsgi_request *wsgi_req, uint16_t *len) {
 	*len = wsgi_req->var_cnt;
 	return wsgi_req->hvec;
 }
