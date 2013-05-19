@@ -15,6 +15,10 @@ struct uwsgi_pypy {
 	char *setup;
 	char *home;
 	char *wsgi;
+	struct uwsgi_string_list *eval;
+	struct uwsgi_string_list *eval_post_fork;
+	struct uwsgi_string_list *exec;
+	struct uwsgi_string_list *exec_post_fork;
 } upypy;
 
 // the functions exposed by libpypy-c
@@ -130,7 +134,29 @@ static int uwsgi_pypy_init() {
 		uwsgi_log("you have to load a pypy setup file with --pypy-setup\n");
 		exit(1);
 	}
-	pypy_execute_source(buffer);
+	if (pypy_execute_source(buffer)) {
+		exit(1);
+	}
+	free(buffer);
+
+	struct uwsgi_string_list *usl = upypy.eval;
+	while(usl) {
+		if (pypy_execute_source(usl->value)) {
+			exit(1);
+		}
+		usl = usl->next;
+	}
+
+	usl = upypy.exec;
+	while(usl) {
+		rlen = 0;
+		buffer = uwsgi_open_and_read(usl->value, &rlen, 1, NULL);
+		if (pypy_execute_source(buffer)) {
+			exit(1);
+		}
+		free(buffer);
+		usl = usl->next;
+	}
 	return 0;
 }
 
@@ -173,6 +199,10 @@ static struct uwsgi_option uwsgi_pypy_options[] = {
 	{"pypy-setup", required_argument, 0, "set the path of the python setup script", uwsgi_opt_set_str, &upypy.setup, 0},
 	{"pypy-home", required_argument, 0, "set the home of pypy library", uwsgi_opt_set_str, &upypy.home, 0},
 	{"pypy-wsgi", required_argument, 'w', "load a WSGI module", uwsgi_opt_set_str, &upypy.wsgi, 0},
+	{"pypy-eval", required_argument, 'w', "evaluate pypy code before fork()", uwsgi_opt_add_string_list, &upypy.eval, 0},
+	{"pypy-eval-post-fork", required_argument, 'w', "evaluate pypy code soon after fork()", uwsgi_opt_add_string_list, &upypy.eval_post_fork, 0},
+	{"pypy-exec", required_argument, 'w', "execute pypy code from file before fork()", uwsgi_opt_add_string_list, &upypy.exec, 0},
+	{"pypy-exec-post-fork", required_argument, 'w', "execute pypy code from file soon after fork()", uwsgi_opt_add_string_list, &upypy.exec_post_fork, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -194,7 +224,7 @@ static int uwsgi_pypy_signal_handler(uint8_t sig, void *handler) {
 	return 0;
 }
 
-static uint16_t uwsgi_python_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
+static uint16_t uwsgi_pypy_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
 	int iargvs[UMAX8];
 	int i;
 	int (*pypy_func)(int, char **, int*, char *) = (int (*)(int, char **, int*, char *)) func;
@@ -203,6 +233,26 @@ static uint16_t uwsgi_python_rpc(void *func, uint8_t argc, char **argv, uint16_t
 		iargvs[i] = (int) argvs[i]; 
 	}
 	return pypy_func(argc, argv, iargvs, buffer);
+}
+
+static void uwsgi_pypy_post_fork() {
+	struct uwsgi_string_list *usl = upypy.eval_post_fork;
+        while(usl) {
+                if (pypy_execute_source(usl->value)) {
+			exit(1);
+		}
+                usl = usl->next;
+        }
+	usl = upypy.exec_post_fork;
+        while(usl) {
+                size_t rlen = 0;
+                char *buffer = uwsgi_open_and_read(usl->value, &rlen, 1, NULL);
+                if (pypy_execute_source(buffer)) {
+			exit(1);
+		}
+                free(buffer);
+                usl = usl->next;
+        }
 }
 
 struct uwsgi_plugin pypy_plugin = {
@@ -216,5 +266,6 @@ struct uwsgi_plugin pypy_plugin = {
 	.init_thread = uwsgi_pypy_init_thread,
 	.signal_handler = uwsgi_pypy_signal_handler,
 	.enable_threads = uwsgi_pypy_enable_threads,
-	.rpc = uwsgi_python_rpc,
+	.rpc = uwsgi_pypy_rpc,
+	.post_fork = uwsgi_pypy_post_fork,
 };
