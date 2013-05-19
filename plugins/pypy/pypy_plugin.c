@@ -63,11 +63,24 @@ struct iovec *uwsgi_pypy_helper_environ(struct wsgi_request *wsgi_req, uint16_t 
 
 static int uwsgi_pypy_init() {
 
+	size_t rlen = 0;
+	char *buffer = NULL;
+
 	if (upypy.lib) {
 		upypy.handler = dlopen(upypy.lib, RTLD_NOW | RTLD_GLOBAL);
 	}
 	else {
-		upypy.handler = dlopen("libpypy-c.so", RTLD_NOW | RTLD_GLOBAL);
+		if (upypy.home) {
+                        char *libpath = uwsgi_concat2(upypy.home, "/libpypy-c.so");
+			if (uwsgi_file_exists(libpath)) {
+				upypy.handler = dlopen(libpath, RTLD_NOW | RTLD_GLOBAL);
+			}
+			free(libpath);
+		}
+		// fallback to standard library search path
+		if (!upypy.handler) {
+			upypy.handler = dlopen("libpypy-c.so", RTLD_NOW | RTLD_GLOBAL);
+		}
 	}
 
 	if (!upypy.handler) {
@@ -112,13 +125,21 @@ static int uwsgi_pypy_init() {
 			exit(1);
 		}
 	}
-	if (pypy_setup_home(upypy.home, 1)) {
+
+	if (pypy_setup_home(upypy.home, 0)) {
+		char *retry = uwsgi_concat2(upypy.home, "/lib_pypy");
+		if (uwsgi_is_dir(retry)) {
+			// this time we use debug
+			if (!pypy_setup_home(retry, 1)) {
+				free(retry);
+				goto ready;
+			}
+		}
                 uwsgi_log("unable to set pypy home to \"%s\"\n", upypy.home);
 		exit(1);
         }
 
-	size_t rlen = 0;
-	char *buffer = NULL;
+ready:
 	if (upypy.setup) {
 		buffer = uwsgi_open_and_read(upypy.setup, &rlen, 1, NULL);
 	}

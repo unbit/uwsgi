@@ -1,6 +1,9 @@
 import sys
 sys.path.insert(0, '.')
 
+# avoid problems (need to find a better solution)
+sys.modules['__main__'] = None
+
 import cffi
 
 # this is a list holding object we do not want to be freed (like callback and handlers)
