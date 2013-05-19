@@ -10,19 +10,20 @@ defines = '''
 void free(void *);
 
 void (*uwsgi_pypy_hook_loader)(char *);
-void (*uwsgi_pypy_hook_request)(int);
+void (*uwsgi_pypy_hook_request)(void *, int);
 
 struct iovec {
 	char *iov_base;
 	uint64_t iov_len;
 };
 
+int uwsgi_response_write_body_do(void *, char *, uint64_t);
+int uwsgi_response_prepare_headers(void *, char *, uint16_t);
+int uwsgi_response_add_header(void *, char *, uint16_t, char *, uint16_t);
+char *uwsgi_request_body_read(void *, uint64_t, int64_t *);
+char *uwsgi_request_body_readline(void *, uint64_t, int64_t *);
+
 struct iovec *uwsgi_pypy_helper_environ(int, uint16_t *);
-
-void uwsgi_pypy_helper_status(int, char *, int);
-void uwsgi_pypy_helper_header(int, char *, int, char *, int);
-
-void uwsgi_pypy_helper_write(int, char *, int);
 
 char *uwsgi_pypy_helper_version();
 int uwsgi_pypy_helper_register_signal(int, char *, void *);
@@ -51,21 +52,58 @@ def uwsgi_pypy_loader(module):
     mod = __import__(m)
     wsgi_application = getattr(mod, c)
 
-@ffi.callback("void(int)")
-def uwsgi_pypy_wsgi_handler(core):
+@ffi.callback("void(void *, int)")
+def uwsgi_pypy_wsgi_handler(wsgi_req, core):
     global wsgi_application
 
     def writer(data):
-        lib.uwsgi_pypy_helper_write(core, ffi.new("char[]", data), len(data))
+        lib.uwsgi_response_write_body_do(wsgi_req, ffi.new("char[]", data), len(data))
 
     def start_response(status, headers, exc_info=None):
-        lib.uwsgi_pypy_helper_status(core, ffi.new("char[]", status), len(status))
+        lib.uwsgi_response_prepare_headers(wsgi_req, ffi.new("char[]", status), len(status))
         for hh in headers:
-            lib.uwsgi_pypy_helper_header(core, ffi.new("char[]", hh[0]), len(hh[0]), ffi.new("char[]", hh[1]), len(hh[1]))
+            lib.uwsgi_response_add_header(wsgi_req, ffi.new("char[]", hh[0]), len(hh[0]), ffi.new("char[]", hh[1]), len(hh[1]))
         return writer
 
     class WSGIinput():
-        pass
+        def read(self, size=0):
+            rlen = ffi.new('int64_t *')
+            chunk = lib.uwsgi_request_body_read(wsgi_req, size, rlen)
+            if chunk != ffi.NULL:
+                return ffi.string(chunk, rlen[0])
+            if rlen[0] < 0:
+                raise IOError("error reading wsgi.input")
+            raise IOError("error waiting for wsgi.input")
+
+        def getline(self,hint=0):
+            rlen = ffi.new('int64_t *')
+            chunk = lib.uwsgi_request_body_readline(wsgi_req, hint, rlen)
+            if chunk != ffi.NULL:
+                return ffi.string(chunk, rlen[0])
+            if rlen[0] < 0:
+                raise IOError("error reading line from wsgi.input")
+            raise IOError("error waiting for line on wsgi.input")
+        
+        def readline(self, hint=0):
+            return self.getline(hint)
+
+        def readlines(self,hint=0):
+            lines = []
+            for chunk in self.getline(hint):
+                if len(chunk) == 0:
+                    break
+                lines.append(chunk)
+            return lines
+
+        def __iter__(self):
+            return self
+  
+        def __next__(self):
+            chunk = self.getline()
+            if len(chunk) == 0:
+                raise StopIteration
+            return chunk
+            
 
     environ = {}
     nv = ffi.new("uint16_t *")
@@ -79,7 +117,7 @@ def uwsgi_pypy_wsgi_handler(core):
         if environ['HTTPS'] in ('on', 'ON', 'On', '1', 'true', 'TRUE', 'True'):
             scheme = 'https'
     environ['wsgi.url_scheme'] = environ.get('UWSGI_SCHEME', scheme)
-    environ['wsgi.input'] = WSGIinput
+    environ['wsgi.input'] = WSGIinput()
     environ['wsgi.errors'] = sys.stderr
     environ['wsgi.run_once'] = False
 

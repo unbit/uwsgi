@@ -26,7 +26,7 @@ void (*pypy_init_threads)(void);
 
 // the hooks you can override with pypy
 void (*uwsgi_pypy_hook_loader)(char *);
-void (*uwsgi_pypy_hook_request)(int);
+void (*uwsgi_pypy_hook_request)(void *, int);
 
 extern struct uwsgi_server uwsgi;
 struct uwsgi_plugin pypy_plugin;
@@ -51,21 +51,6 @@ struct iovec *uwsgi_pypy_helper_environ(int core, uint16_t *len) {
 	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
 	*len = wsgi_req->var_cnt;
 	return wsgi_req->hvec;
-}
-
-void uwsgi_pypy_helper_status(int core, char *status, int status_len) {
-	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
-	uwsgi_response_prepare_headers(wsgi_req, status, status_len);
-}
-
-void uwsgi_pypy_helper_header(int core, char *k, int kl, char *v, int vl) {
-	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
-	uwsgi_response_add_header(wsgi_req, k, kl, v, vl);
-}
-
-void uwsgi_pypy_helper_write(int core, char *body, int len) {
-	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core].req;
-	uwsgi_response_write_body_do(wsgi_req, body, len);
 }
 
 static int uwsgi_pypy_init() {
@@ -157,7 +142,7 @@ static int uwsgi_pypy_request(struct wsgi_request *wsgi_req) {
         }
 
 	if (uwsgi_pypy_hook_request) {
-		uwsgi_pypy_hook_request(wsgi_req->async_id);
+		uwsgi_pypy_hook_request(wsgi_req, wsgi_req->async_id);
 	}
 	return UWSGI_OK;
 }
