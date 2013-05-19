@@ -1,8 +1,8 @@
 import sys
 sys.path.insert(0, '.')
 
-# avoid problems (need to find a better solution)
-sys.modules['__main__'] = None
+mainmodule = type(sys)('__main__')
+sys.modules['__main__'] = mainmodule
 
 import cffi
 
