@@ -73,12 +73,6 @@ class WSGIfilewrapper(object):
         if hasattr(f, 'close'):
             self.close = f.close
 
-    def __getitem__(self, key):
-        data = self.filelike.read(self.blksize)
-        if data:
-            return data
-        raise IndexError
-
     def sendfile(self):
         lib.uwsgi_response_sendfile_do(self.wsgi_req, self.fd, 0, 0)
 
