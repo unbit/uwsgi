@@ -1,7 +1,7 @@
 import sys
 import os
-sys.path += os.environ.get('PYTHONPATH','').split(':')
 sys.path.insert(0, '.')
+sys.path.extend(os.environ.get('PYTHONPATH','').split(os.pathsep))
 import imp
 
 mainmodule = type(sys)('__main__')
@@ -98,6 +98,7 @@ add an item to the pythonpath
 def uwsgi_pypy_pythonpath(item):
     path = ffi.string(item)
     sys.path.append(path)
+    print "added %s to pythonpath" % path
 
 
 """
