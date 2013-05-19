@@ -211,8 +211,9 @@ void init_pyargv() {
 #endif
 				if (*ap != '\0') {
 #ifdef PYTHREE
-					mbstowcs( wcargv + strlen(ap), ap, strlen(ap));
-					up.py_argv[up.argc] = wcargv + strlen(ap);
+					mbstowcs( wcargv, ap, strlen(ap));
+					up.py_argv[up.argc] = wcargv;
+					wcargv += strlen(ap) + 1;
 #else
 					up.py_argv[up.argc] = ap;
 #endif
