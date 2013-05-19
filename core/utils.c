@@ -1208,6 +1208,7 @@ int uwsgi_get_app_id(struct wsgi_request *wsgi_req, char *key, uint16_t key_len,
 		}
 	}
 
+	if (free_appname) free(app_name);
 	return -1;
 }
 
