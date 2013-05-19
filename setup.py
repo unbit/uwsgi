@@ -23,7 +23,7 @@ def get_profile():
     try:
         import __pypy__
         is_pypy = True
-    except:
+    except ImportError:
         pass
     if is_pypy:
         profile = os.environ.get('UWSGI_PROFILE', 'buildconf/pypy.ini')

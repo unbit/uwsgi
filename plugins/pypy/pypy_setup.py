@@ -16,8 +16,8 @@ void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_request)(void *, int);
 
 struct iovec {
-	char *iov_base;
-	uint64_t iov_len;
+    char *iov_base;
+    uint64_t iov_len;
 };
 
 struct uwsgi_opt {
@@ -53,6 +53,7 @@ libc = ffi.dlopen(None)
 
 wsgi_application = None
 
+
 @ffi.callback("void(char *)")
 def uwsgi_pypy_loader(module):
     global wsgi_application
@@ -60,11 +61,68 @@ def uwsgi_pypy_loader(module):
     c = 'application'
     if ':' in m:
         m, c = m.split(':')
-    if '.' in m: 
+    if '.' in m:
         mod = __import__(m, None, None, '*')
     else:
         mod = __import__(m)
     wsgi_application = getattr(mod, c)
+
+
+class WSGIfilewrapper(object):
+    def __init__(self, wsgi_req, f, chunksize=0):
+        self.wsgi_req = wsgi_req
+        self.fd = f.fileno()
+        self.chunksize = chunksize
+        if hasattr(f, 'close'):
+            self.close = f.close
+
+    def sendfile(self):
+        lib.uwsgi_response_sendfile_do(self.wsgi_req, self.fd, 0, 0)
+
+
+class WSGIinput(object):
+    def __init__(self, wsgi_req):
+        self.wsgi_req = wsgi_req
+
+    def read(self, size=0):
+        rlen = ffi.new('int64_t *')
+        chunk = lib.uwsgi_request_body_read(self.wsgi_req, size, rlen)
+        if chunk != ffi.NULL:
+            return ffi.string(chunk, rlen[0])
+        if rlen[0] < 0:
+            raise IOError("error reading wsgi.input")
+        raise IOError("error waiting for wsgi.input")
+
+    def getline(self, hint=0):
+        rlen = ffi.new('int64_t *')
+        chunk = lib.uwsgi_request_body_readline(self.wsgi_req, hint, rlen)
+        if chunk != ffi.NULL:
+            return ffi.string(chunk, rlen[0])
+        if rlen[0] < 0:
+            raise IOError("error reading line from wsgi.input")
+        raise IOError("error waiting for line on wsgi.input")
+
+    def readline(self, hint=0):
+        return self.getline(hint)
+
+    def readlines(self, hint=0):
+        lines = []
+        while True:
+            chunk = self.getline(hint)
+            if len(chunk) == 0:
+                break
+            lines.append(chunk)
+        return lines
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        chunk = self.getline()
+        if len(chunk) == 0:
+            raise StopIteration
+        return chunk
+
 
 @ffi.callback("void(void *, int)")
 def uwsgi_pypy_wsgi_handler(wsgi_req, core):
@@ -79,62 +137,6 @@ def uwsgi_pypy_wsgi_handler(wsgi_req, core):
             lib.uwsgi_response_add_header(wsgi_req, ffi.new("char[]", hh[0]), len(hh[0]), ffi.new("char[]", hh[1]), len(hh[1]))
         return writer
 
-    class WSGIfilewrapper():
-        def __init__(self, f, chunksize=0):
-            self.fd = f.fileno()
-            self.chunksize = chunksize
-            if hasattr(f, 'close'):
-                self.close = f.close
-
-        def __getitem__(self, key):
-            data = self.filelike.read(self.blksize)
-            if data:
-                return data
-            raise IndexError
-
-        def sendfile(self):
-            lib.uwsgi_response_sendfile_do(wsgi_req, self.fd, 0, 0)
-
-    class WSGIinput():
-        def read(self, size=0):
-            rlen = ffi.new('int64_t *')
-            chunk = lib.uwsgi_request_body_read(wsgi_req, size, rlen)
-            if chunk != ffi.NULL:
-                return ffi.string(chunk, rlen[0])
-            if rlen[0] < 0:
-                raise IOError("error reading wsgi.input")
-            raise IOError("error waiting for wsgi.input")
-
-        def getline(self,hint=0):
-            rlen = ffi.new('int64_t *')
-            chunk = lib.uwsgi_request_body_readline(wsgi_req, hint, rlen)
-            if chunk != ffi.NULL:
-                return ffi.string(chunk, rlen[0])
-            if rlen[0] < 0:
-                raise IOError("error reading line from wsgi.input")
-            raise IOError("error waiting for line on wsgi.input")
-        
-        def readline(self, hint=0):
-            return self.getline(hint)
-
-        def readlines(self,hint=0):
-            lines = []
-            for chunk in self.getline(hint):
-                if len(chunk) == 0:
-                    break
-                lines.append(chunk)
-            return lines
-
-        def __iter__(self):
-            return self
-  
-        def __next__(self):
-            chunk = self.getline()
-            if len(chunk) == 0:
-                raise StopIteration
-            return chunk
-            
-
     environ = {}
     nv = ffi.new("uint16_t *")
     iov = lib.uwsgi_pypy_helper_environ(wsgi_req, nv)
@@ -147,14 +149,14 @@ def uwsgi_pypy_wsgi_handler(wsgi_req, core):
         if environ['HTTPS'] in ('on', 'ON', 'On', '1', 'true', 'TRUE', 'True'):
             scheme = 'https'
     environ['wsgi.url_scheme'] = environ.get('UWSGI_SCHEME', scheme)
-    environ['wsgi.input'] = WSGIinput()
+    environ['wsgi.input'] = WSGIinput(wsgi_req)
     environ['wsgi.errors'] = sys.stderr
     environ['wsgi.run_once'] = False
-    environ['wsgi.file_wrapper'] = WSGIfilewrapper
+    environ['wsgi.file_wrapper'] = lambda f, chunksize=0: WSGIfilewrapper(wsgi_req, f, chunksize)
 
     environ['uwsgi.core'] = core
 
-    response = wsgi_application(environ, start_response) 
+    response = wsgi_application(environ, start_response)
     if type(response) is str:
         writer(response)
     else:
@@ -181,7 +183,8 @@ import imp
 
 uwsgi = imp.new_module('uwsgi')
 sys.modules['uwsgi'] = uwsgi
-uwsgi.version = ffi.string( lib.uwsgi_pypy_helper_version() )
+uwsgi.version = ffi.string(lib.uwsgi_pypy_helper_version())
+
 
 def uwsgi_pypy_uwsgi_register_signal(signum, kind, handler):
     uwsgi_gc.append(handler)
@@ -189,18 +192,21 @@ def uwsgi_pypy_uwsgi_register_signal(signum, kind, handler):
         raise Exception("unable to register signal %d" % signum)
 uwsgi.register_signal = uwsgi_pypy_uwsgi_register_signal
 
-class uwsgi_pypy_RPC():
+
+class uwsgi_pypy_RPC(object):
     def __init__(self, func):
         self.func = func
+
     def __call__(self, argc, argv, argvs, buf):
         pargs = []
         for i in range(0, argc):
-            pargs.append(ffi.string(argv[i],argvs[i]))
+            pargs.append(ffi.string(argv[i], argvs[i]))
         response = self.func(*pargs)
         if len(response) > 0 and len(response) <= 65535:
             dst = ffi.buffer(buf, 65536)
             dst[:len(response)] = response
         return len(response)
+
 
 def uwsgi_pypy_uwsgi_register_rpc(name, func, argc=0):
     uwsgi_gc.append(func)
@@ -208,9 +214,11 @@ def uwsgi_pypy_uwsgi_register_rpc(name, func, argc=0):
         raise Exception("unable to register rpc func %s" % name)
 uwsgi.register_rpc = uwsgi_pypy_uwsgi_register_rpc
 
+
 def uwsgi_pypy_uwsgi_signal(signum):
     lib.uwsgi_pypy_helper_signal(signum)
 uwsgi.signal = uwsgi_pypy_uwsgi_signal
+
 
 def uwsgi_pypy_uwsgi_cache_get(key, cache=ffi.NULL):
     vallen = ffi.new('uint64_t *')
@@ -222,10 +230,12 @@ def uwsgi_pypy_uwsgi_cache_get(key, cache=ffi.NULL):
     return ret
 uwsgi.cache_get = uwsgi_pypy_uwsgi_cache_get
 
+
 def uwsgi_pypy_uwsgi_add_timer(signum, secs):
     if lib.uwsgi_add_timer(signum, secs) < 0:
         raise Exception("unable to register timer")
 uwsgi.add_timer = uwsgi_pypy_uwsgi_add_timer
+
 
 def uwsgi_pypy_uwsgi_add_file_monitor(signum, filename):
     if lib.uwsgi_add_file_monitor(signum, ffi.new("char[]", filename)) < 0:
@@ -238,7 +248,7 @@ populate uwsgi.opt
 uwsgi.opt = {}
 n_opts = ffi.new('int *')
 u_opts = lib.uwsgi_pypy_helper_opts(n_opts)
-for i in range(0,n_opts[0]):
+for i in range(0, n_opts[0]):
     k = ffi.string(u_opts[i].key)
     if u_opts[i].value == ffi.NULL:
         v = True
@@ -252,4 +262,4 @@ for i in range(0,n_opts[0]):
     else:
         uwsgi.opt[k] = v
 
-print "Initialized PyPy with Python",sys.version
+print "Initialized PyPy with Python", sys.version
