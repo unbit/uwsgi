@@ -16,6 +16,8 @@ defines = '''
 void free(void *);
 
 void (*uwsgi_pypy_hook_loader)(char *);
+void (*uwsgi_pypy_hook_file_loader)(char *);
+void (*uwsgi_pypy_hook_pythonpath)(char *);
 void (*uwsgi_pypy_hook_request)(void *, int);
 
 struct iovec {
@@ -213,6 +215,8 @@ def uwsgi_pypy_wsgi_handler(wsgi_req, core):
                 response.close()
 
 lib.uwsgi_pypy_hook_loader = uwsgi_pypy_loader
+lib.uwsgi_pypy_hook_file_loader = uwsgi_pypy_file_loader
+lib.uwsgi_pypy_hook_pythonpath = uwsgi_pypy_pythonpath
 lib.uwsgi_pypy_hook_request = uwsgi_pypy_wsgi_handler
 
 """

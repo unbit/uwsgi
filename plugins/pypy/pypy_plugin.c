@@ -76,7 +76,11 @@ static int uwsgi_pypy_init() {
 	}
 	else {
 		if (upypy.home) {
+#ifdef __APPLE__
+                        char *libpath = uwsgi_concat2(upypy.home, "/libpypy-c.dylib");
+#else
                         char *libpath = uwsgi_concat2(upypy.home, "/libpypy-c.so");
+#endif
 			if (uwsgi_file_exists(libpath)) {
 				upypy.handler = dlopen(libpath, RTLD_NOW | RTLD_GLOBAL);
 			}
@@ -84,7 +88,11 @@ static int uwsgi_pypy_init() {
 		}
 		// fallback to standard library search path
 		if (!upypy.handler) {
+#ifdef __APPLE__
+			upypy.handler = dlopen("libpypy-c.dylib", RTLD_NOW | RTLD_GLOBAL);
+#else
 			upypy.handler = dlopen("libpypy-c.so", RTLD_NOW | RTLD_GLOBAL);
+#endif
 		}
 	}
 
