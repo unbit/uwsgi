@@ -17,6 +17,12 @@ struct iovec {
 	uint64_t iov_len;
 };
 
+struct uwsgi_opt {
+        char *key;
+        char *value;
+        int configured;
+};
+
 int uwsgi_response_write_body_do(void *, char *, uint64_t);
 int uwsgi_response_sendfile_do(void *, int, uint64_t, uint64_t);
 int uwsgi_response_prepare_headers(void *, char *, uint16_t);
@@ -30,6 +36,7 @@ char *uwsgi_pypy_helper_version();
 int uwsgi_pypy_helper_register_signal(int, char *, void *);
 int uwsgi_pypy_helper_register_rpc(char *, int, void *);
 void uwsgi_pypy_helper_signal(int);
+struct uwsgi_opt** uwsgi_pypy_helper_opts(int *);
 
 char *uwsgi_cache_magic_get(char *, uint64_t, uint64_t *, uint64_t *, char *);
 int uwsgi_add_timer(uint8_t, int);
@@ -221,5 +228,25 @@ def uwsgi_pypy_uwsgi_add_file_monitor(signum, filename):
     if lib.uwsgi_add_file_monitor(signum, ffi.new("char[]", filename)) < 0:
         raise Exception("unable to register file monitor")
 uwsgi.add_file_monitor = uwsgi_pypy_uwsgi_add_file_monitor
+
+"""
+populate uwsgi.opt
+"""
+uwsgi.opt = {}
+n_opts = ffi.new('int *')
+u_opts = lib.uwsgi_pypy_helper_opts(n_opts)
+for i in range(0,n_opts[0]):
+    k = ffi.string(u_opts[i].key)
+    if u_opts[i].value == ffi.NULL:
+        v = True
+    else:
+        v = ffi.string(u_opts[i].value)
+    if k in uwsgi.opt:
+        if type(uwsgi.opt[k]) is list:
+            uwsgi.opt[k].append(v)
+        else:
+            uwsgi.opt[k] = [uwsgi.opt[k], v]
+    else:
+        uwsgi.opt[k] = v
 
 print "Initialized PyPy with Python",sys.version

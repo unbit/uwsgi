@@ -35,6 +35,11 @@ void uwsgi_pypy_helper_signal(int signum) {
 	uwsgi_signal_send(uwsgi.signal_socket, signum);
 }
 
+struct uwsgi_opt **uwsgi_pypy_helper_opts(int *n) {
+	*n = uwsgi.exported_opts_cnt;
+	return uwsgi.exported_opts;
+}
+
 char *uwsgi_pypy_helper_version() {
 	return UWSGI_VERSION;
 }
