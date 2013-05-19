@@ -66,7 +66,8 @@ def uwsgi_pypy_loader(module):
 
 
 class WSGIfilewrapper(object):
-    def __init__(self, f, chunksize=0):
+    def __init__(self, wsgi_req, f, chunksize=0):
+        self.wsgi_req = wsgi_req
         self.fd = f.fileno()
         self.chunksize = chunksize
         if hasattr(f, 'close'):
@@ -77,6 +78,9 @@ class WSGIfilewrapper(object):
         if data:
             return data
         raise IndexError
+
+    def sendfile(self):
+        lib.uwsgi_response_sendfile_do(self.wsgi_req, self.fd, 0, 0)
 
 
 class WSGIinput(object):
@@ -136,9 +140,6 @@ def uwsgi_pypy_wsgi_handler(wsgi_req, core):
             lib.uwsgi_response_add_header(wsgi_req, ffi.new("char[]", hh[0]), len(hh[0]), ffi.new("char[]", hh[1]), len(hh[1]))
         return writer
 
-        def sendfile(self):
-            lib.uwsgi_response_sendfile_do(wsgi_req, self.fd, 0, 0)
-
     environ = {}
     nv = ffi.new("uint16_t *")
     iov = lib.uwsgi_pypy_helper_environ(wsgi_req, nv)
@@ -151,10 +152,10 @@ def uwsgi_pypy_wsgi_handler(wsgi_req, core):
         if environ['HTTPS'] in ('on', 'ON', 'On', '1', 'true', 'TRUE', 'True'):
             scheme = 'https'
     environ['wsgi.url_scheme'] = environ.get('UWSGI_SCHEME', scheme)
-    environ['wsgi.input'] = WSGIinput()
+    environ['wsgi.input'] = WSGIinput(wsgi_req)
     environ['wsgi.errors'] = sys.stderr
     environ['wsgi.run_once'] = False
-    environ['wsgi.file_wrapper'] = WSGIfilewrapper
+    environ['wsgi.file_wrapper'] = lambda f, chunksize=0: WSGIfilewrapper(wsgi_req, f, chunksize)
 
     environ['uwsgi.core'] = core
 
