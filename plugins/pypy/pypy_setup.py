@@ -195,6 +195,8 @@ def uwsgi_pypy_wsgi_handler(wsgi_req, core):
     environ['wsgi.errors'] = sys.stderr
     environ['wsgi.run_once'] = False
     environ['wsgi.file_wrapper'] = lambda f, chunksize=0: WSGIfilewrapper(wsgi_req, f, chunksize)
+    environ['wsgi.multithread'] = True
+    environ['wsgi.multiprocess'] = True
 
     environ['uwsgi.core'] = core
 
@@ -321,3 +323,10 @@ for i in range(0, n_opts[0]):
         uwsgi.opt[k] = v
 
 print "Initialized PyPy with Python", sys.version
+print "PyPy Home:", sys.prefix
+
+def pippo():
+    foo = sys.exc_info()
+    print foo
+
+sys.__excepthook__ = pippo
