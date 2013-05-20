@@ -3,6 +3,7 @@ import os
 sys.path.insert(0, '.')
 sys.path.extend(os.environ.get('PYTHONPATH','').split(os.pathsep))
 import imp
+import traceback
 
 mainmodule = type(sys)('__main__')
 sys.modules['__main__'] = mainmodule
@@ -174,6 +175,8 @@ def uwsgi_pypy_wsgi_handler(wsgi_req, core):
         lib.uwsgi_response_write_body_do(wsgi_req, ffi.new("char[]", data), len(data))
 
     def start_response(status, headers, exc_info=None):
+        if exc_info:
+            traceback.print_exception(*exc_info)
         lib.uwsgi_response_prepare_headers(wsgi_req, ffi.new("char[]", status), len(status))
         for hh in headers:
             lib.uwsgi_response_add_header(wsgi_req, ffi.new("char[]", hh[0]), len(hh[0]), ffi.new("char[]", hh[1]), len(hh[1]))
