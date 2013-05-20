@@ -282,8 +282,10 @@ sendbody:
 }
 
 int uwsgi_response_sendfile_do(struct wsgi_request *wsgi_req, int fd, size_t pos, size_t len) {
+	return uwsgi_response_sendfile_do_can_close(wsgi_req, fd, pos, len, 1);	
+}
 
-	int can_close = 1;
+int uwsgi_response_sendfile_do_can_close(struct wsgi_request *wsgi_req, int fd, size_t pos, size_t len, int can_close) {
 
 	if (fd == wsgi_req->sendfile_fd) can_close = 0;
 
@@ -311,7 +313,7 @@ sendfile:
 	if (len == 0) {
 		struct stat st;
 		if (fstat(fd, &st)) {
-			uwsgi_error("fstat()");
+			uwsgi_error("uwsgi_response_sendfile_do()/fstat()");
 			wsgi_req->write_errors++;
 			if (can_close) close(fd);
 			return -1;

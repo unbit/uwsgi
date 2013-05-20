@@ -32,7 +32,7 @@ struct uwsgi_opt {
 };
 
 int uwsgi_response_write_body_do(void *, char *, uint64_t);
-int uwsgi_response_sendfile_do(void *, int, uint64_t, uint64_t);
+int uwsgi_response_sendfile_do_can_close(void *, int, uint64_t, uint64_t, int);
 int uwsgi_response_prepare_headers(void *, char *, uint16_t);
 int uwsgi_response_add_header(void *, char *, uint16_t, char *, uint16_t);
 char *uwsgi_request_body_read(void *, uint64_t, int64_t *);
@@ -107,13 +107,13 @@ class implementing wsgi.file_wrapper
 class WSGIfilewrapper(object):
     def __init__(self, wsgi_req, f, chunksize=0):
         self.wsgi_req = wsgi_req
-        self.fd = f.fileno()
+        self.f = f
         self.chunksize = chunksize
         if hasattr(f, 'close'):
             self.close = f.close
 
     def sendfile(self):
-        lib.uwsgi_response_sendfile_do(self.wsgi_req, self.fd, 0, 0)
+        lib.uwsgi_response_sendfile_do_can_close(self.wsgi_req, self.f.fileno(), 0, 0, 0)
 
 
 """
@@ -210,7 +210,10 @@ def uwsgi_pypy_wsgi_handler(wsgi_req, core):
             else:
                 for chunk in response:
                     if isinstance(chunk, WSGIfilewrapper):
-                        chunk.sendfile()
+                        try:
+                            chunk.sendfile()
+                        finally:
+                            chunk.close()
                     else:
                         writer(chunk)
         finally:

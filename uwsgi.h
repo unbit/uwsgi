@@ -3842,6 +3842,7 @@ int uwsgi_response_add_header(struct wsgi_request *, char *, uint16_t, char *, u
 int uwsgi_response_add_header_force(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 int uwsgi_response_commit_headers(struct wsgi_request *);
 int uwsgi_response_sendfile_do(struct wsgi_request *, int, size_t, size_t);
+int uwsgi_response_sendfile_do_can_close(struct wsgi_request *, int, size_t, size_t, int);
 
 struct uwsgi_buffer *uwsgi_proto_base_add_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
