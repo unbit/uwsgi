@@ -193,6 +193,11 @@ int http_headers_parse(struct corerouter_peer *peer) {
 		ptr++;
 	}
 
+        // ensure we have a method
+        if (base == ptr) {
+          return -1;
+        }
+
 	// REQUEST_URI / PATH_INFO / QUERY_STRING
 	base = ptr;
 	while (ptr < watermark) {
@@ -225,6 +230,11 @@ int http_headers_parse(struct corerouter_peer *peer) {
 		ptr++;
 	}
 
+        // ensure we have a URI
+        if (base == ptr) {
+          return -1;
+        }
+
 	// SERVER_PROTOCOL
 	base = ptr;
 	while (ptr < watermark) {
@@ -242,6 +252,11 @@ int http_headers_parse(struct corerouter_peer *peer) {
 		}
 		ptr++;
 	}
+
+        // ensure we have a protocol
+        if (base == ptr) {
+          return -1;
+        }
 
 	// SCRIPT_NAME
 	if (uwsgi_buffer_append_keyval(out, "SCRIPT_NAME", 11, "", 0)) return -1;
