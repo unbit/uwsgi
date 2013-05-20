@@ -306,9 +306,16 @@ static void uwsgi_pypy_post_fork() {
         }
 }
 
+static void uwsgi_pypy_onload() {
+#ifdef UWSGI_PYPY_HOME
+	upypy.home = UWSGI_PYPY_HOME;
+#endif
+}
+
 struct uwsgi_plugin pypy_plugin = {
 	.name = "pypy",
 	.modifier1 = 0,
+	.on_load = uwsgi_pypy_onload,
 	.init = uwsgi_pypy_init,
 	.request = uwsgi_pypy_request,
 	.after_request = uwsgi_pypy_after_request,

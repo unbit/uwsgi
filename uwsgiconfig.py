@@ -359,7 +359,6 @@ def build_uwsgi(uc, print_only=False):
                 for bfile in up.get('BINARY_LIST', []):
                     try:
                         binary_link_cmd = "ld -r -b binary -o %s/%s.o %s/%s" % (path, bfile[1], path, bfile[1])
-                        print(binarize('%s/%s' % (path, bfile[1])))
                         print(binary_link_cmd)
                         if os.system(binary_link_cmd) != 0:
                             raise Exception('unable to link binary file')
@@ -1146,7 +1145,6 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     for bfile in up.get('BINARY_LIST', []):
         try:
             binary_link_cmd = "ld -r -b binary -o %s/%s.o %s/%s" % (path, bfile[1], path, bfile[1])
-            print(binarize('%s/%s' % (path, bfile[1])))
             print(binary_link_cmd)
             if os.system(binary_link_cmd) != 0:
                 raise Exception('unable to link binary file')
