@@ -121,7 +121,6 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 
 	else if (!uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
 		hr->content_length = uwsgi_str_num(val, vallen);
-		hr->session.can_keepalive = 0;
 	}
 
 	// in the future we could support chunked requests...
@@ -459,6 +458,8 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 	struct http_session *hr = (struct http_session *) peer->session;
         ssize_t len = cr_read(peer, "hr_instance_read()");
         if (!len) {
+		// disable keepalive on unread body
+		if (hr->content_length) hr->session.can_keepalive = 0;
 		if (hr->session.can_keepalive) {
 			peer->session->main_peer->disabled = 0;
 			hr->rnrn = 0;
@@ -575,9 +576,16 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				if (main_peer->in->pos > hr->content_length) {
 					main_peer->in->pos = hr->content_length;
 					hr->content_length = 0;
+					// on pipeline attempt, disable keepalive
+					hr->session.can_keepalive = 0;
 				}		
 				else {
 					hr->content_length -= main_peer->in->pos;
+					if (hr->content_length == 0) {
+						main_peer->disabled = 1;
+                                		// stop reading from the client
+                                		if (uwsgi_cr_set_hooks(main_peer, NULL, NULL)) return -1;
+					}
 				}
 			}
 		}
@@ -660,7 +668,7 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				if (uwsgi_buffer_append(new_peer->out, main_peer->in->buf + hr->headers_size + 1, hr->remains)) return -1;
 			}
 
-			if (hr->session.can_keepalive) {
+			if (hr->session.can_keepalive && hr->content_length == 0) {
 				main_peer->disabled = 1;
 				// stop reading from the client
 				if (uwsgi_cr_set_hooks(main_peer, NULL, NULL)) return -1;
