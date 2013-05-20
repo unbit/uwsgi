@@ -182,24 +182,28 @@ int http_headers_parse(struct corerouter_peer *peer) {
 	peer->out_pos = 0;
 
 	struct uwsgi_buffer *out = peer->out;
+	int found = 0;
 
 	// REQUEST_METHOD 
 	while (ptr < watermark) {
 		if (*ptr == ' ') {
 			if (uwsgi_buffer_append_keyval(out, "REQUEST_METHOD", 14, base, ptr - base)) return -1;
 			ptr++;
+			found = 1;
 			break;
 		}
+		else if (*ptr == '\r' || *ptr == '\n') break;
 		ptr++;
 	}
 
         // ensure we have a method
-        if (base == ptr) {
+        if (!found) {
           return -1;
         }
 
 	// REQUEST_URI / PATH_INFO / QUERY_STRING
 	base = ptr;
+	found = 0;
 	while (ptr < watermark) {
 		if (*ptr == '?' && !query_string) {
 			// PATH_INFO must be url-decoded !!!
@@ -225,18 +229,20 @@ int http_headers_parse(struct corerouter_peer *peer) {
 				if (uwsgi_buffer_append_keyval(out, "QUERY_STRING", 12, query_string, ptr - query_string)) return -1;
 			}
 			ptr++;
+			found = 1;
 			break;
 		}
 		ptr++;
 	}
 
         // ensure we have a URI
-        if (base == ptr) {
+        if (!found) {
           return -1;
         }
 
 	// SERVER_PROTOCOL
 	base = ptr;
+	found = 0;
 	while (ptr < watermark) {
 		if (*ptr == '\r') {
 			if (ptr + 1 >= watermark)
@@ -248,13 +254,14 @@ int http_headers_parse(struct corerouter_peer *peer) {
 				hr->session.can_keepalive = 1;
 			}
 			ptr += 2;
+			found = 1;
 			break;
 		}
 		ptr++;
 	}
 
         // ensure we have a protocol
-        if (base == ptr) {
+        if (!found) {
           return -1;
         }
 
