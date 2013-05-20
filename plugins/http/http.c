@@ -121,7 +121,6 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 
 	else if (!uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
 		hr->content_length = uwsgi_str_num(val, vallen);
-		hr->session.can_keepalive = 0;
 	}
 
 	// in the future we could support chunked requests...
