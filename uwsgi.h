@@ -4015,6 +4015,8 @@ void uwsgi_mule_run(void);
 void uwsgi_spooler_run(void);
 void uwsgi_takeover(void);
 
+char *uwsgi_binary_path(void);
+
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

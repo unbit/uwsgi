@@ -5,6 +5,7 @@ sys.path.extend(os.environ.get('PYTHONPATH','').split(os.pathsep))
 import imp
 import traceback
 
+__name__ = '__main__'
 mainmodule = type(sys)('__main__')
 sys.modules['__main__'] = mainmodule
 
@@ -31,6 +32,8 @@ struct uwsgi_opt {
         char *value;
         int configured;
 };
+
+char *uwsgi_binary_path();
 
 int uwsgi_response_write_body_do(void *, char *, uint64_t);
 int uwsgi_response_sendfile_do_can_close(void *, int, uint64_t, uint64_t, int);
@@ -64,6 +67,8 @@ this is a global object point the the WSGI callable
 it sucks, i will fix it in the near future...
 """
 wsgi_application = None
+
+sys.argv.insert(0, ffi.string(lib.uwsgi_binary_path()))
 
 """
 load a wsgi module

@@ -3984,3 +3984,7 @@ void create_msg_pipe(int *fd, int bufsize) {
                 }
         }
 }
+
+char *uwsgi_binary_path() {
+	return uwsgi.binary_path ? uwsgi.binary_path : "uwsgi";
+}
