@@ -22,6 +22,10 @@
 #define HAS_NOT_PyFrame_GetLineNumber 
 #endif
 
+#if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION == 0
+#define HAS_NO_ERRORS_IN_PyFile_FromFd
+#endif
+
 #if PY_MAJOR_VERSION > 2
 #define PYTHREE
 #endif
