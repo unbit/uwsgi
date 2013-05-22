@@ -2158,6 +2158,7 @@ struct uwsgi_server {
 #ifdef __linux__
 	struct uwsgi_string_list *cgroup;
 	struct uwsgi_string_list *cgroup_opt;
+	char *cgroup_dir_mode;
 	char *ns;
 	char *ns_net;
 	struct uwsgi_string_list *ns_keep_mount;
