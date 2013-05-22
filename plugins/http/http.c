@@ -679,10 +679,11 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
         		new_peer->out->buf[2] = (uint8_t) ((pktsize >> 8) & 0xff);
 
 			if (hr->remains > 0) {
-				hr->session.can_keepalive = 0;
 				if (hr->content_length < hr->remains) { 
 					hr->remains = hr->content_length;
 					hr->content_length = 0;
+					// we need to avoid problems with pipelined requests
+					hr->session.can_keepalive = 0;
 				}
 				else {
 					hr->content_length -= hr->remains;
