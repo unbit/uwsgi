@@ -206,14 +206,20 @@ void uwsgi_set_cgroup() {
 	usl = uwsgi.cgroup;
 
 	while (usl) {
-		if (mkdir(usl->value, 0700)) {
-			uwsgi_log("using Linux cgroup %s\n", usl->value);
+		int mode = strtol(uwsgi.cgroup_dir_mode, 0, 8);
+		if (mkdir(usl->value, mode)) {
 			if (errno != EEXIST) {
 				uwsgi_error("mkdir()");
+				exit(1);
 			}
+			if (chmod(usl->value, mode)) {
+				uwsgi_error("chmod()");
+				exit(1);
+			}
+			uwsgi_log("using Linux cgroup %s with mode %o\n", usl->value, mode);
 		}
 		else {
-			uwsgi_log("created Linux cgroup %s\n", usl->value);
+			uwsgi_log("created Linux cgroup %s with mode %o\n", usl->value, mode);
 		}
 
 		cgroup_taskfile = uwsgi_concat2(usl->value, "/tasks");
