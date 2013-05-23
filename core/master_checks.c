@@ -297,7 +297,7 @@ void uwsgi_master_check_crons_deadline() {
 	while (uc) {
 		if (uc->pid >= 0 && uc->harakiri > 0 && uc->harakiri < (time_t) uwsgi.current_time) {
 			uwsgi_log("*** HARAKIRI ON CRON \"%s\" (pid: %d) ***\n", uc->command, uc->pid);
-			kill(uc->pid, SIGKILL);
+			kill(-uc->pid, SIGKILL);
 		}
 		uc = uc->next;
 	}
