@@ -181,6 +181,8 @@ void uwsgi_manage_command_cron(time_t now) {
 							current_cron->pid = pid;
 							current_cron->started_at = now;
 							uwsgi_log_verbose("[uwsgi-cron] running \"%s\" (pid %d)\n", current_cron->command, current_cron->pid);
+							if (uwsgi.cron_harakiri)
+								current_cron->harakiri = now + uwsgi.cron_harakiri;
 						}
 					}
                                 }
