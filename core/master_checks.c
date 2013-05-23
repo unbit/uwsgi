@@ -277,3 +277,17 @@ int uwsgi_worker_is_busy(int wid) {
 	}
 	return 0;
 }
+
+int uwsgi_master_check_cron_death(int diedpid) {
+	struct uwsgi_cron *uc = uwsgi.crons;
+	while (uc) {
+		if (uc->pid == (pid_t) diedpid) {
+			uwsgi_log("[uwsgi-cron] command \"%s\" running with pid %d exited after %d second(s)\n", uc->command, uc->pid, uwsgi_now() - uc->started_at);
+			uc->pid = -1;
+			return -1;
+		}
+		uc = uc->next;
+	}
+	return 0;
+}
+
