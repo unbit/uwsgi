@@ -2920,7 +2920,8 @@ struct uwsgi_async_request {
 int event_queue_read(void);
 int event_queue_write(void);
 
-void uwsgi_help(char *opt, char *val, void *);
+void uwsgi_help(char *, char *, void *);
+void uwsgi_print_sym(char *, char *, void *);
 
 int uwsgi_str2_num(char *);
 int uwsgi_str3_num(char *);

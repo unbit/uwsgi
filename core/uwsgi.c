@@ -206,6 +206,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"help", no_argument, 'h', "show this help", uwsgi_help, NULL, UWSGI_OPT_IMMEDIATE},
 	{"usage", no_argument, 'h', "show this help", uwsgi_help, NULL, UWSGI_OPT_IMMEDIATE},
 
+	{"print-sym", required_argument, 0, "print content of the specified binary symbol", uwsgi_print_sym, NULL, UWSGI_OPT_IMMEDIATE},
+	{"print-symbol", required_argument, 0, "print content of the specified binary symbol", uwsgi_print_sym, NULL, UWSGI_OPT_IMMEDIATE},
+
 	{"reaper", no_argument, 'r', "call waitpid(-1,...) after each request to get rid of zombies", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_REAPER, 0},
 	{"max-requests", required_argument, 'R', "reload workers after the specified amount of managed requests", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MAX_REQUESTS, 0},
 	{"min-worker-lifetime", required_argument, 0, "number of seconds worker must run before being reloaded (default is 60)", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MIN_WORKER_LIFETIME, 0},
@@ -4095,5 +4098,25 @@ void uwsgi_opt_extract(char *opt, char *address, void *foobar) {
 			exit(1);
 		};
 	};
+	exit(0);
+}
+
+void uwsgi_print_sym(char *opt, char *symbol, void *foobar) {
+	char *sym = dlsym(RTLD_DEFAULT, symbol);
+	if (sym) {
+		uwsgi_log("%s", sym);
+		exit(0);
+	}
+	
+	char *symbol_start = uwsgi_concat2(symbol, "_start");
+	char *symbol_end = uwsgi_concat2(symbol, "_end");
+
+	char *sym_s = dlsym(RTLD_DEFAULT, symbol_start);
+	char *sym_e = dlsym(RTLD_DEFAULT, symbol_end);
+
+	if (sym_s && sym_e) {
+		uwsgi_log("%.*s", sym_e - sym_s, sym_s);
+	}
+
 	exit(0);
 }
