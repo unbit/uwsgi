@@ -292,6 +292,7 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #include <sys/devpoll.h>
 #elif defined(__HAIKU__)
 #elif defined(__CYGWIN__)
+#elif defined(__HURD__)
 #else
 #include <sys/event.h>
 #endif
@@ -783,6 +784,9 @@ struct uwsgi_opt {
 #elif defined(__APPLE__)
 #include <libkern/OSByteOrder.h>
 #elif defined(__HAIKU__)
+#elif defined(__HURD__)
+#define PATH_MAX 8192
+#define RTLD_DEFAULT   ((void *) 0)
 #else
 #include <machine/endian.h>
 #endif

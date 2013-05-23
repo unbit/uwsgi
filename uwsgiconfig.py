@@ -501,6 +501,9 @@ class uConf(object):
             except:
                 pass
 
+        if uwsgi_os == 'GNU':
+            self.cflags.append('-D__HURD__')
+
         try:
             gcc_version = str(spcall("%s -dumpversion" % GCC))
         except:
@@ -674,6 +677,8 @@ class uConf(object):
                          locking_mode = 'posix_sem'
                  except:
                      pass
+            elif uwsgi_os == 'GNU':
+                locking_mode = 'posix_sem'
             elif uwsgi_os == 'Darwin':
                 locking_mode = 'osx_spinlock'
             elif uwsgi_os.startswith('CYGWIN'):
@@ -710,7 +715,7 @@ class uConf(object):
                         event_mode = 'port'
             elif uwsgi_os in ('Darwin', 'FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly'):
                 event_mode = 'kqueue'
-            elif uwsgi_os.startswith('CYGWIN'):
+            elif uwsgi_os.startswith('CYGWIN') or uwsgi_os == 'GNU':
                 event_mode = 'poll'
 
         if event_mode == 'epoll':
