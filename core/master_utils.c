@@ -1079,6 +1079,63 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			goto end;
 	}
 
+	struct uwsgi_cron *ucron = uwsgi.crons;
+	if (ucron) {
+		if (uwsgi_stats_comma(us))
+			goto end;
+		if (uwsgi_stats_key(us, "crons"))
+			goto end;
+		if (uwsgi_stats_list_open(us))
+			goto end;
+		while (ucron) {
+			if (uwsgi_stats_object_open(us))
+				goto end;
+
+			if (uwsgi_stats_keyslong_comma(us, "minute", (long long) ucron->minute))
+				goto end;
+
+			if (uwsgi_stats_keyslong_comma(us, "hour", (long long) ucron->hour))
+				goto end;
+
+			if (uwsgi_stats_keyslong_comma(us, "day", (long long) ucron->day))
+				goto end;
+
+			if (uwsgi_stats_keyslong_comma(us, "month", (long long) ucron->month))
+				goto end;
+
+			if (uwsgi_stats_keyslong_comma(us, "week", (long long) ucron->week))
+				goto end;
+
+			if (uwsgi_stats_keyval_comma(us, "command", ucron->command))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "unique", (unsigned long long) ucron->unique))
+				goto end;
+
+#ifdef UWSGI_SSL
+			if (uwsgi_stats_keyval_comma(us, "legion", ucron->legion ? ucron->legion : ""))
+				goto end;
+#endif
+
+			if (uwsgi_stats_keyslong_comma(us, "pid", (long long) ucron->pid))
+				goto end;
+
+			if (uwsgi_stats_keylong(us, "started_at", (unsigned long long) ucron->started_at))
+				goto end;
+
+			if (uwsgi_stats_object_close(us))
+				goto end;
+
+			ucron = ucron->next;
+			if (ucron) {
+				if (uwsgi_stats_comma(us))
+					goto end;
+			}
+		}
+		if (uwsgi_stats_list_close(us))
+			goto end;
+	}
+
 #ifdef UWSGI_SSL
 	struct uwsgi_legion *legion = NULL;
 	if (uwsgi.legions) {

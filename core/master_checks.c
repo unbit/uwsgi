@@ -284,10 +284,22 @@ int uwsgi_master_check_cron_death(int diedpid) {
 		if (uc->pid == (pid_t) diedpid) {
 			uwsgi_log("[uwsgi-cron] command \"%s\" running with pid %d exited after %d second(s)\n", uc->command, uc->pid, uwsgi_now() - uc->started_at);
 			uc->pid = -1;
+			uc->started_at = 0;
 			return -1;
 		}
 		uc = uc->next;
 	}
 	return 0;
+}
+
+void uwsgi_master_check_crons_deadline() {
+	struct uwsgi_cron *uc = uwsgi.crons;
+	while (uc) {
+		if (uc->pid >= 0 && uc->harakiri > 0 && uc->harakiri < (time_t) uwsgi.current_time) {
+			uwsgi_log("*** HARAKIRI ON CRON \"%s\" (pid: %d) ***\n", uc->command, uc->pid);
+			kill(uc->pid, SIGKILL);
+		}
+		uc = uc->next;
+	}
 }
 

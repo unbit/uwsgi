@@ -706,6 +706,7 @@ int master_loop(char **argv, char **environ) {
 			uwsgi_master_check_gateways_deadline();
 			uwsgi_master_check_mules_deadline();
 			uwsgi_master_check_spoolers_deadline();
+			uwsgi_master_check_crons_deadline();
 
 #ifdef __linux__
 #ifdef MADV_MERGEABLE
