@@ -146,6 +146,7 @@ void uwsgi_opt_add_cron2(char *opt, char *value, void *foobar) {
 	uc->week = -1;
 
 	uc->unique = 0;
+	uc->mercy = 0;
 	uc->harakiri = 0;
 	uc->pid = -1;
 
@@ -171,9 +172,19 @@ void uwsgi_opt_add_cron2(char *opt, char *value, void *foobar) {
 	if (c_unique)
 		uc->unique = atoi(c_unique);
 
-	if (c_harakiri)
-		uc->harakiri = uwsgi_now() + atoi(c_harakiri);
-
+	if (c_harakiri) {
+		if (atoi(c_harakiri)) {
+			// harakiri > 0
+			uc->mercy = atoi(c_harakiri);
+		}
+		else {
+			// harakiri == 0
+			uc->mercy = -1;
+		}
+	}
+	else if (uwsgi.cron_harakiri) {
+		uc->harakiri = uwsgi.cron_harakiri;
+	}
 }
 
 
@@ -288,7 +299,12 @@ void uwsgi_manage_command_cron(time_t now) {
 							current_cron->pid = pid;
 							current_cron->started_at = now;
 							uwsgi_log_verbose("[uwsgi-cron] running \"%s\" (pid %d)\n", current_cron->command, current_cron->pid);
-							if (uwsgi.cron_harakiri)
+							if (current_cron->mercy) {
+								//uwsgi_cron->mercy can be negative to inform master that harakiri should be disabled for this cron
+								if (current_cron->mercy > 0)
+									current_cron->harakiri = now + current_cron->mercy;
+							}
+							else if (uwsgi.cron_harakiri)
 								current_cron->harakiri = now + uwsgi.cron_harakiri;
 						}
 					}

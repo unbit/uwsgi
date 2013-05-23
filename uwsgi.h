@@ -2388,7 +2388,12 @@ struct uwsgi_cron {
 	void (*func)(struct uwsgi_cron *, time_t);
 
 	time_t started_at;
+
+	// next harakiri timestamp
 	time_t harakiri;
+	// number of seconds to wait before calling harakiri on cron
+	int mercy;
+
 	uint8_t unique;
 	pid_t pid;
 
