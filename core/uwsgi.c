@@ -53,7 +53,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"harakiri-no-arh", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh, 0},
 	{"no-harakiri-arh", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh, 0},
 	{"no-harakiri-after-req-hook", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh, 0},
-	{"backtrace-depth", no_argument, 0, "set backtrace depth", uwsgi_opt_set_int, &uwsgi.backtrace_depth, 0},
+	{"backtrace-depth", required_argument, 0, "set backtrace depth", uwsgi_opt_set_int, &uwsgi.backtrace_depth, 0},
 	{"mule-harakiri", required_argument, 0, "set harakiri timeout for mule tasks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MULE_HARAKIRI, 0},
 #ifdef UWSGI_XML
 	{"xmlconfig", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
