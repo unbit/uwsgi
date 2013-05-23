@@ -2386,6 +2386,10 @@ struct uwsgi_cron {
 #endif
 	void (*func)(struct uwsgi_cron *, time_t);
 
+	time_t started_at;
+	uint8_t unique;
+	pid_t pid;
+
 	struct uwsgi_cron *next;
 };
 
@@ -3257,12 +3261,14 @@ void uwsgi_opt_add_shared_socket(char *, char *, void *);
 void uwsgi_opt_add_socket(char *, char *, void *);
 void uwsgi_opt_add_lazy_socket(char *, char *, void *);
 void uwsgi_opt_add_cron(char *, char *, void *);
+void uwsgi_opt_add_unique_cron(char *, char *, void *);
 void uwsgi_opt_load_plugin(char *, char *, void *);
 void uwsgi_opt_load_dl(char *, char *, void *);
 void uwsgi_opt_load(char *, char *, void *);
 void uwsgi_opt_safe_fd(char *, char *, void *);
 #ifdef UWSGI_SSL
 void uwsgi_opt_add_legion_cron(char *, char *, void *);
+void uwsgi_opt_add_unique_legion_cron(char *, char *, void *);
 void uwsgi_opt_sni(char *, char *, void *);
 struct uwsgi_string_list *uwsgi_ssl_add_sni_item(char *, char *, char *, char *, char *);
 #endif
@@ -4027,6 +4033,8 @@ void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
 #endif
+
+int uwsgi_master_check_cron_death(int);
 
 #ifdef __cplusplus
 }
