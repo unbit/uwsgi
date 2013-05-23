@@ -657,6 +657,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"cron", required_argument, 0, "add a cron task", uwsgi_opt_add_cron, NULL, UWSGI_OPT_MASTER},
 	{"unique-cron", required_argument, 0, "add a unique cron task", uwsgi_opt_add_unique_cron, NULL, UWSGI_OPT_MASTER},
+	{"cron-harakiri", required_argument, 0, "set the maximum time (in seconds) we wait for cron command to complete", uwsgi_opt_set_int, &uwsgi.cron_harakiri, 0},
 #ifdef UWSGI_SSL
 	{"legion-cron", required_argument, 0, "add a cron task runnable only when the instance is a lord of the specified legion", uwsgi_opt_add_legion_cron, NULL, UWSGI_OPT_MASTER},
 	{"cron-legion", required_argument, 0, "add a cron task runnable only when the instance is a lord of the specified legion", uwsgi_opt_add_legion_cron, NULL, UWSGI_OPT_MASTER},

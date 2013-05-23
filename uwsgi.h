@@ -2185,6 +2185,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *map_socket;
 
 	struct uwsgi_cron *crons;
+	time_t cron_harakiri;
 
 	time_t respawn_delta;
 
@@ -2387,6 +2388,7 @@ struct uwsgi_cron {
 	void (*func)(struct uwsgi_cron *, time_t);
 
 	time_t started_at;
+	time_t harakiri;
 	uint8_t unique;
 	pid_t pid;
 
@@ -3899,6 +3901,7 @@ void uwsgi_master_check_workers_deadline(void);
 void uwsgi_master_check_gateways_deadline(void);
 void uwsgi_master_check_mules_deadline(void);
 void uwsgi_master_check_spoolers_deadline(void);
+void uwsgi_master_check_crons_deadline(void);
 int uwsgi_master_check_spoolers_death(int);
 int uwsgi_master_check_emperor_death(int);
 int uwsgi_master_check_mules_death(int);
