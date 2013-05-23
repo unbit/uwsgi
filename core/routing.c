@@ -558,6 +558,21 @@ static int uwsgi_router_break(struct uwsgi_route *ur, char *arg) {
 	return 0;
 }
 
+
+// harakiri router
+static int uwsgi_router_harakiri_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
+	if (route->custom > 0) {	
+		set_user_harakiri(route->custom);
+	}
+	return UWSGI_ROUTE_CONTINUE;
+}
+
+static int uwsgi_router_harakiri(struct uwsgi_route *ur, char *arg) {
+	ur->func = uwsgi_router_harakiri_func;
+	ur->custom = atoi(arg);
+	return 0;
+}
+
 // flush response
 static int transform_flush(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
 	// avoid loops !!!
@@ -1504,6 +1519,8 @@ void uwsgi_register_embedded_routers() {
 
         uwsgi_register_router("flush", uwsgi_router_flush);
         uwsgi_register_router("fixcl", uwsgi_router_fixcl);
+
+        uwsgi_register_router("harakiri", uwsgi_router_harakiri);
 
         uwsgi_register_route_condition("exists", uwsgi_route_condition_exists);
         uwsgi_register_route_condition("isfile", uwsgi_route_condition_isfile);
