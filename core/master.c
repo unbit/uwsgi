@@ -789,6 +789,7 @@ int master_loop(char **argv, char **environ) {
 			if (uwsgi_master_check_mules_death(diedpid)) continue;
 			if (uwsgi_master_check_gateways_death(diedpid)) continue;
 			if (uwsgi_master_check_daemons_death(diedpid)) continue;
+			if (uwsgi_master_check_cron_death(diedpid)) continue;
 		}
 
 
