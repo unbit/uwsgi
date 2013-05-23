@@ -52,11 +52,7 @@ void uwsgi_opt_pyrun(char *opt, char *value, void *foobar) {
 }
 
 void uwsgi_opt_pyver(char *opt, char *foo, void *bar) {
-#ifndef UWSGI_PYPY
 	const char *version = Py_GetVersion();
-#else
-	const char *version = PYPY_VERSION;
-#endif
 	const char *space = strchr(version, ' ');
 	if (space) {
         	fprintf(stdout, "%.*s\n", (int) (space-version), version);
@@ -136,9 +132,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"ini-paste-logged", required_argument, 0, "load a paste.deploy config file containing uwsgi section (load loggers too)", uwsgi_opt_ini_paste, NULL, UWSGI_OPT_IMMEDIATE},
 	{"reload-os-env", no_argument, 0, "force reload of os.environ at each request", uwsgi_opt_true, &up.reload_os_env, 0},
 #ifndef __CYGWIN__
-#ifndef UWSGI_PYPY
 	{"no-site", no_argument, 0, "do not import site module", uwsgi_opt_true, &Py_NoSiteFlag, 0},
-#endif
 #endif
 	{"pyshell", optional_argument, 0, "run an interactive python shell in the uWSGI environment", uwsgi_opt_pyshell, NULL, 0},
 	{"pyshell-oneshot", optional_argument, 0, "run an interactive python shell in the uWSGI environment (one-shot variant)", uwsgi_opt_pyshell, NULL, 0},
@@ -147,9 +141,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"py", required_argument, 0, "run a python script in the uWSGI environment", uwsgi_opt_pyrun, NULL, 0},
 	{"pyrun", required_argument, 0, "run a python script in the uWSGI environment", uwsgi_opt_pyrun, NULL, 0},
 
-#ifndef UWSGI_PYPY
 	{"py-tracebacker", required_argument, 0, "enable the uWSGI python tracebacker", uwsgi_opt_set_str, &up.tracebacker, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
-#endif
+
 	{"py-auto-reload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 	{"py-autoreload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 	{"python-auto-reload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
@@ -183,7 +176,6 @@ PyMethodDef uwsgi_write_method[] = { {"uwsgi_write", py_uwsgi_write, METH_VARARG
 
 int uwsgi_python_init() {
 
-#ifndef UWSGI_PYPY
 	char *pyversion = strchr(Py_GetVersion(), '\n');
 	if (!pyversion) {
         	uwsgi_log_initial("Python version: %s\n", Py_GetVersion());
@@ -191,9 +183,6 @@ int uwsgi_python_init() {
 	else {
         	uwsgi_log_initial("Python version: %.*s %s\n", pyversion-Py_GetVersion(), Py_GetVersion(), Py_GetCompiler()+1);
 	}
-#else
-	uwsgi_log_initial("PyPy version: %s\n", PYPY_VERSION);
-#endif
 
 	if (up.home != NULL) {
 #ifdef PYTHREE
@@ -245,9 +234,7 @@ pep405:
 #endif
 
 
-#ifndef UWSGI_PYPY
 	Py_OptimizeFlag = up.optimize;
-#endif
 
 	Py_Initialize();
 
@@ -286,9 +273,6 @@ void uwsgi_python_reset_random_seed() {
                         random_seed = PyDict_GetItemString(random_dict, "seed");
                         if (random_seed) {
                                 PyObject *random_args = PyTuple_New(1);
-#ifdef UWSGI_PYPY
-				Py_INCREF(Py_None);
-#endif
                                 // pass no args
                                 PyTuple_SetItem(random_args, 0, Py_None);
                                 PyEval_CallObject(random_seed, random_args);
@@ -375,13 +359,11 @@ void uwsgi_python_post_fork() {
 			pthread_t par_tid;
 			pthread_create(&par_tid, NULL, uwsgi_python_autoreloader_thread, NULL);
 		}
-#ifndef UWSGI_PYPY
 		if (up.tracebacker) {
 			// spawn the tracebacker thread
 			pthread_t ptb_tid;
 			pthread_create(&ptb_tid, NULL, uwsgi_python_tracebacker_thread, NULL);
 		}
-#endif
 	}
 
 UWSGI_RELEASE_GIL
@@ -390,10 +372,6 @@ UWSGI_RELEASE_GIL
 
 PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
-#ifdef UWSGI_PYPY
-	uwsgi_log("import by filename is currently not supported on PyPy !!!\n");
-	return NULL;
-#else
 	FILE *pyfile;
 	struct _node *py_file_node = NULL;
 	PyObject *py_compiled_node, *py_file_module;
@@ -479,7 +457,6 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 	Py_DECREF(py_compiled_node);
 
 	return py_file_module;
-#endif
 
 }
 
@@ -1071,13 +1048,11 @@ void uwsgi_python_init_apps() {
 		UWSGI_GET_GIL;
 	}
 
-#ifndef UWSGI_PYPY
 	// prepare for stack suspend/resume
 	if (uwsgi.async > 1) {
 		up.current_recursion_depth = uwsgi_malloc(sizeof(int)*uwsgi.async);
         	up.current_frame = uwsgi_malloc(sizeof(struct _frame)*uwsgi.async);
 	}
-#endif
 
         // setup app loaders
         up.loaders[LOADER_DYN] = uwsgi_dyn_loader;
@@ -1164,7 +1139,6 @@ next:
 		init_uwsgi_app(LOADER_UWSGI, up.wsgi_lite, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI_LITE);
 	}
 
-#ifndef UWSGI_PYPY
 	if (uwsgi.profiler) {
 		if (!strcmp(uwsgi.profiler, "pycall")) {
 			PyEval_SetProfile(uwsgi_python_profiler_call, NULL);
@@ -1173,7 +1147,6 @@ next:
 			PyEval_SetTrace(uwsgi_python_tracer, NULL);
 		}
 	}
-#endif
 
 	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
         if (uwsgi_dict) {
@@ -1429,7 +1402,6 @@ void *uwsgi_python_autoreloader_thread(void *foobar) {
 	return NULL;
 }
 
-#ifndef UWSGI_PYPY
 void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 
 	PyGILState_STATE pgst = PyGILState_Ensure();
@@ -1446,7 +1418,6 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 	}
 
 }
-#endif
 
 char *uwsgi_python_code_string(char *id, char *code, char *function, char *key, uint16_t keylen) {
 
@@ -1641,7 +1612,6 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 	return -1;
 }
 
-#ifndef UWSGI_PYPY
 void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 
 	PyGILState_STATE pgst = PyGILState_Ensure();
@@ -1658,7 +1628,6 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 	}
 
 }
-#endif
 
 void uwsgi_python_fixup() {
 	// set hacky modifier 30
@@ -1672,7 +1641,6 @@ void uwsgi_python_hijack(void) {
 
 	// the pyshell will be execute only in the first worker
 
-#ifndef UWSGI_PYPY
 	FILE *pyfile;
 	if (up.pyrun) {
 		uwsgi.workers[uwsgi.mywid].hijacked = 1;
@@ -1686,7 +1654,6 @@ void uwsgi_python_hijack(void) {
 		// could be never executed
 		exit(0);
 	}
-#endif
 
 	if (up.pyshell_oneshot && uwsgi.workers[uwsgi.mywid].hijacked_count > 0) {
 		uwsgi.workers[uwsgi.mywid].hijacked = 0;
@@ -1712,9 +1679,7 @@ void uwsgi_python_hijack(void) {
 		else {
 			PyImport_ImportModule("readline");
 
-#ifndef UWSGI_PYPY
 			ret = PyRun_InteractiveLoop(stdin, "uwsgi");
-#endif
 		}
 		if (up.pyshell_oneshot) {
 			exit(UWSGI_DE_HIJACKED_CODE);
@@ -1834,13 +1799,8 @@ void uwsgi_python_on_load() {
 	uwsgi_register_logger("python", uwsgi_python_logger);
 }
 
-#ifndef UWSGI_PYPY
 struct uwsgi_plugin python_plugin = {
 	.name = "python",
-#else
-struct uwsgi_plugin pypy_plugin = {
-	.name = "pypy",
-#endif
 	.alias = "python",
 	.modifier1 = 0,
 	.init = uwsgi_python_init,
@@ -1862,10 +1822,8 @@ struct uwsgi_plugin pypy_plugin = {
 
 	.magic = uwsgi_python_magic,
 
-#ifndef UWSGI_PYPY
 	.suspend = uwsgi_python_suspend,
 	.resume = uwsgi_python_resume,
-#endif
 
 	.harakiri = uwsgi_python_harakiri,
 

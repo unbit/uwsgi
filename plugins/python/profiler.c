@@ -15,7 +15,6 @@ int PyFrame_GetLineNumber(PyFrameObject *frame) {
 
 int uwsgi_python_profiler_call(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg) {
 
-#ifndef UWSGI_PYPY
 	static uint64_t last_ts = 0;
         uint64_t now = uwsgi_micros();
         uint64_t delta = 0;
@@ -42,14 +41,12 @@ int uwsgi_python_profiler_call(PyObject *obj, PyFrameObject *frame, int what, Py
 				PyEval_GetFuncName(arg), frame->f_code->co_argcount, frame->f_code->co_stacksize);
 			break;
 	}
-#endif
 
 	return 0;
 }
 
 int uwsgi_python_tracer(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg) {
 
-#ifndef UWSGI_PYPY
 	static uint64_t last_ts = 0;
 	uint64_t now = uwsgi_micros();
 	uint64_t delta = 0;
@@ -64,7 +61,6 @@ int uwsgi_python_tracer(PyObject *obj, PyFrameObject *frame, int what, PyObject 
 		last_ts = now;
 		uwsgi_log("[uWSGI Python profiler %llu] file %s line %d: %s argc:%d\n", (unsigned long long)delta,  PyString_AsString(frame->f_code->co_filename), PyFrame_GetLineNumber(frame), PyString_AsString(frame->f_code->co_name), frame->f_code->co_argcount);
 	}
-#endif
 
         return 0;
 }

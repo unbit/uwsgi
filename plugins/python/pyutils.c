@@ -10,14 +10,14 @@ int manage_python_response(struct wsgi_request *wsgi_req) {
 
 char *uwsgi_python_get_exception_type(PyObject *exc) {
 	char *class_name = NULL;
-#if !defined(PYTHREE) && !defined(UWSGI_PYPY)
+#if !defined(PYTHREE)
 	if (PyClass_Check(exc)) {
 		class_name = PyString_AsString( ((PyClassObject*)(exc))->cl_name );
 	}
 	else {
 #endif
 		class_name = (char *) ((PyTypeObject*)exc)->tp_name;
-#if !defined(PYTHREE) && !defined(UWSGI_PYPY)
+#if !defined(PYTHREE)
 	}
 #endif
 

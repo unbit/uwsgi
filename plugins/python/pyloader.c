@@ -672,10 +672,6 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 
 PyObject *uwsgi_eval_loader(void *arg1) {
 
-#ifdef UWSGI_PYPY
-	uwsgi_log("the eval loader is currently not supported under PyPy !!!\n");
-	return NULL;
-#else
 	char *code = (char *) arg1;
 
 	PyObject *wsgi_eval_module, *wsgi_eval_callable = NULL;
@@ -731,7 +727,6 @@ PyObject *uwsgi_eval_loader(void *arg1) {
 	}
 
 	return wsgi_eval_callable;
-#endif
 
 }
 

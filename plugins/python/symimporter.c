@@ -1,7 +1,5 @@
 #include "uwsgi_python.h"
 
-#ifndef UWSGI_PYPY
-
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
@@ -806,5 +804,3 @@ int uwsgi_init_symbol_import() {
         return 0;
 	
 }
-
-#endif

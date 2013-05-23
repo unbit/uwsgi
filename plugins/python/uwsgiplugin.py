@@ -14,10 +14,6 @@ NAME='python'
 GCC_LIST = ['python_plugin', 'pyutils', 'pyloader', 'wsgi_handlers', 'wsgi_headers', 'wsgi_subhandler', 'web3_subhandler', 'pump_subhandler', 'gil', 'uwsgi_pymodule', 'profiler', 'symimporter', 'tracebacker']
 
 CFLAGS = ['-I' + sysconfig.get_python_inc(), '-I' + sysconfig.get_python_inc(plat_specific=True) ] 
-
-if 'pypy_version_info' in sys.__dict__:
-    CFLAGS.append('-DUWSGI_PYPY')
-
 LDFLAGS = []
 
 if not 'UWSGI_PYTHON_NOLIB' in os.environ:
