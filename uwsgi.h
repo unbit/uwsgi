@@ -3263,6 +3263,7 @@ void uwsgi_opt_add_shared_socket(char *, char *, void *);
 void uwsgi_opt_add_socket(char *, char *, void *);
 void uwsgi_opt_add_lazy_socket(char *, char *, void *);
 void uwsgi_opt_add_cron(char *, char *, void *);
+void uwsgi_opt_add_cron2(char *, char *, void *);
 void uwsgi_opt_add_unique_cron(char *, char *, void *);
 void uwsgi_opt_load_plugin(char *, char *, void *);
 void uwsgi_opt_load_dl(char *, char *, void *);

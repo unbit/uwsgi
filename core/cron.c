@@ -70,6 +70,113 @@ void uwsgi_opt_add_unique_legion_cron(char *opt, char *value, void *foobar) {
 #endif
 
 
+void uwsgi_opt_add_cron2(char *opt, char *value, void *foobar) {
+
+	char *c_minute = NULL;
+	char *c_hour = NULL;
+	char *c_day = NULL;
+	char *c_month = NULL;
+	char *c_week = NULL;
+	char *c_unique = NULL;
+	char *c_harakiri = NULL;
+	char *c_legion = NULL;
+
+	char *c_command = value;
+
+	char *space = strchr(value, ' ');
+	if (space) {
+		if (uwsgi_str_contains(value, space - value, '=')) {
+			// --cron2 key=val command
+			*space = 0;
+			c_command = space + 1;
+		}
+
+		// no point in parsing key=val list if there is none
+		if (uwsgi_kvlist_parse(value, strlen(value), ',', '=',
+			"minute", &c_minute,
+			"hour", &c_hour,
+			"day", &c_day,
+			"month", &c_month,
+			"week", &c_week,
+			"unique", &c_unique,
+			"harakiri", &c_harakiri,
+			"legion", &c_legion,
+			NULL)) {
+			uwsgi_log("unable to parse cron definition: %s\n", value);
+			exit(1);
+		}
+	}
+	else {
+		if (uwsgi_str_contains(value, strlen(value), '=')) {
+			// --cron2 key=val
+			uwsgi_log("unable to parse cron definition: %s\n", value);
+			exit(1);
+		}
+	}
+
+	struct uwsgi_cron *old_uc, *uc = uwsgi.crons;
+	if (!uc) {
+		uc = uwsgi_malloc(sizeof(struct uwsgi_cron));
+		uwsgi.crons = uc;
+	}
+	else {
+		old_uc = uc;
+		while (uc->next) {
+			uc = uc->next;
+			old_uc = uc;
+		}
+
+		old_uc->next = uwsgi_malloc(sizeof(struct uwsgi_cron));
+		uc = old_uc->next;
+	}
+
+	memset(uc, 0, sizeof(struct uwsgi_cron));
+
+	uc->command = c_command;
+	if (!uc->command) {
+		uwsgi_log("[uwsgi-cron] invalid command in cron definition: %s\n", value);
+		exit(1);
+	}
+
+	// defaults
+	uc->minute = -1;
+	uc->hour = -1;
+	uc->day = -1;
+	uc->month = -1;
+	uc->week = -1;
+
+	uc->unique = 0;
+	uc->harakiri = 0;
+	uc->pid = -1;
+
+#ifdef UWSGI_SSL
+	uc->legion = c_legion;
+#endif
+
+	if (c_minute)
+		uc->minute = atoi(c_minute);
+
+	if (c_hour)
+		uc->hour = atoi(c_hour);
+
+	if (c_day)
+		uc->day = atoi(c_day);
+
+	if (c_month)
+		uc->month = atoi(c_month);
+
+	if (c_week)
+		uc->week = atoi(c_week);
+
+	if (c_unique)
+		uc->unique = atoi(c_unique);
+
+	if (c_harakiri)
+		uc->harakiri = uwsgi_now() + atoi(c_harakiri);
+
+}
+
+
 int uwsgi_signal_add_cron(uint8_t sig, int minute, int hour, int day, int month, int week) {
 
         if (!uwsgi.master_process)
