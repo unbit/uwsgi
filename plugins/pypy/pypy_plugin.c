@@ -71,6 +71,12 @@ static int uwsgi_pypy_init() {
 	size_t rlen = 0;
 	char *buffer = NULL;
 
+	void *is_cpython_loaded = dlsym(RTLD_DEFAULT, "Py_Initialize");
+	if (is_cpython_loaded) {
+		uwsgi_log("!! Loading both PyPy and CPython in the same process IS PURE EVIL AND IT IS NOT SUPPORTED !!!\n");
+		exit(1);
+	}
+
 	if (upypy.lib) {
 		upypy.handler = dlopen(upypy.lib, RTLD_NOW | RTLD_GLOBAL);
 	}
