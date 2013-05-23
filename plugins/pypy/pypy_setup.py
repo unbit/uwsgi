@@ -118,8 +118,23 @@ class WSGIfilewrapper(object):
         if hasattr(f, 'close'):
             self.close = f.close
 
+    def __iter__(self):
+        return self
+
     def sendfile(self):
-        lib.uwsgi_response_sendfile_do_can_close(self.wsgi_req, self.f.fileno(), 0, 0, 0)
+        if hasattr(self.f, 'fileno'):
+            lib.uwsgi_response_sendfile_do_can_close(self.wsgi_req, self.f.fileno(), 0, 0, 0)
+        elif hasattr(self.f, 'read'):
+            if self.chunksize == 0:
+                chunk = self.f.read()
+                if len(chunk) > 0:
+                    lib.uwsgi_response_write_body_do(self.wsgi_req, ffi.new("char[]", chunk), len(chunk))
+                return
+            while True:
+                chunk = self.f.read(self.chunksize)
+                if chunk is None or len(chunk) == 0:
+                    break
+                lib.uwsgi_response_write_body_do(self.wsgi_req, ffi.new("char[]", chunk), len(chunk))
 
 
 """
