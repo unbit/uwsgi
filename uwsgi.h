@@ -3796,8 +3796,8 @@ int uwsgi_plugin_modifier1(char *);
 
 void *cache_udp_server_loop(void *);
 
-void uwsgi_user_lock(int);
-void uwsgi_user_unlock(int);
+int uwsgi_user_lock(int);
+int uwsgi_user_unlock(int);
 
 void simple_loop_run_int(int);
 

@@ -5,6 +5,7 @@ sys.path.extend(os.environ.get('PYTHONPATH','').split(os.pathsep))
 import imp
 import traceback
 
+
 __name__ = '__main__'
 mainmodule = type(sys)('__main__')
 sys.modules['__main__'] = mainmodule
@@ -55,6 +56,10 @@ int uwsgi_cache_magic_set(char *, uint64_t, char *, uint64_t, uint64_t, uint64_t
 int uwsgi_cache_magic_del(char *, uint64_t, char *);
 int uwsgi_add_timer(uint8_t, int);
 int uwsgi_add_file_monitor(uint8_t, char *);
+
+int uwsgi_user_lock(int);
+int uwsgi_user_unlock(int);
+
 '''
 
 ffi = cffi.FFI()
@@ -68,7 +73,9 @@ it sucks, i will fix it in the near future...
 """
 wsgi_application = None
 
+
 sys.argv.insert(0, ffi.string(lib.uwsgi_binary_path()))
+
 
 """
 load a wsgi module
@@ -94,7 +101,7 @@ def uwsgi_pypy_file_loader(filename):
     global wsgi_application
     w = ffi.string(filename)
     c = 'application'
-    mod = imp.load_source('uwsgi_file_wsgi', filename)
+    mod = imp.load_source('uwsgi_file_wsgi', w)
     wsgi_application = getattr(mod, c)
 
 """
@@ -328,6 +335,16 @@ def uwsgi_pypy_uwsgi_add_file_monitor(signum, filename):
         raise Exception("unable to register file monitor")
 uwsgi.add_file_monitor = uwsgi_pypy_uwsgi_add_file_monitor
 
+def uwsgi_pypy_lock(num):
+    if lib.uwsgi_user_lock(num) < 0:
+        raise Exception("invalid lock")
+uwsgi.lock = uwsgi_pypy_lock
+
+def uwsgi_pypy_unlock(num):
+    if lib.uwsgi_user_unlock(num) < 0:
+        raise Exception("invalid lock")
+uwsgi.unlock = uwsgi_pypy_unlock
+
 """
 populate uwsgi.opt
 """
@@ -350,9 +367,3 @@ for i in range(0, n_opts[0]):
 
 print "Initialized PyPy with Python", sys.version
 print "PyPy Home:", sys.prefix
-
-def pippo():
-    foo = sys.exc_info()
-    print foo
-
-sys.__excepthook__ = pippo

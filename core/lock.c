@@ -764,10 +764,18 @@ nextlock:
 
 }
 
-void uwsgi_user_lock(int lock_num) {
+int uwsgi_user_lock(int lock_num) {
+	if (lock_num < 0 || lock_num > uwsgi.locks) {
+		return -1;
+	}
 	uwsgi_lock(uwsgi.user_lock[lock_num]);
+	return 0;
 }
 
-void uwsgi_user_unlock(int lock_num) {
+int uwsgi_user_unlock(int lock_num) {
+	if (lock_num < 0 || lock_num > uwsgi.locks) {
+		return -1;
+	}
 	uwsgi_unlock(uwsgi.user_lock[lock_num]);
+	return 0;
 }
