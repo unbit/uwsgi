@@ -188,7 +188,12 @@ ready:
 		usl = usl->next;
 	}
 
-	usl = upypy.eval;
+	return 0;
+}
+
+static void uwsgi_pypy_preinit_apps() {
+
+	struct uwsgi_string_list *usl = upypy.eval;
 	while(usl) {
 		if (pypy_execute_source(usl->value)) {
 			exit(1);
@@ -198,15 +203,14 @@ ready:
 
 	usl = upypy.exec;
 	while(usl) {
-		rlen = 0;
-		buffer = uwsgi_open_and_read(usl->value, &rlen, 1, NULL);
+		size_t rlen = 0;
+		char *buffer = uwsgi_open_and_read(usl->value, &rlen, 1, NULL);
 		if (pypy_execute_source(buffer)) {
 			exit(1);
 		}
 		free(buffer);
 		usl = usl->next;
 	}
-	return 0;
 }
 
 static int uwsgi_pypy_request(struct wsgi_request *wsgi_req) {
@@ -326,6 +330,7 @@ struct uwsgi_plugin pypy_plugin = {
 	.request = uwsgi_pypy_request,
 	.after_request = uwsgi_pypy_after_request,
 	.options = uwsgi_pypy_options,
+	.preinit_apps = uwsgi_pypy_preinit_apps,
 	.init_apps = uwsgi_pypy_init_apps,
 	.init_thread = uwsgi_pypy_init_thread,
 	.signal_handler = uwsgi_pypy_signal_handler,
