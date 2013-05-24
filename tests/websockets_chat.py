@@ -1,7 +1,6 @@
 #!./uwsgi --http-socket :9090 --gevent 100 --module tests.websocket_chat --gevent-monkey-patch
 import uwsgi
 import time
-import gevent
 import gevent.select
 import redis
 
