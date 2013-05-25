@@ -579,6 +579,7 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 		if (item && item_len > 0 && item_len <= PATH_MAX) {
 			memcpy(real_filename, item, item_len);
 			real_filename_len = item_len;
+			real_filename[real_filename_len] = 0;
 			uwsgi_rwunlock(uwsgi.static_cache_paths->lock);
 			goto found;
 		}
