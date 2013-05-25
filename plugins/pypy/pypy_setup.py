@@ -267,8 +267,9 @@ uwsgi.version = ffi.string(lib.uwsgi_pypy_helper_version())
 
 
 def uwsgi_pypy_uwsgi_register_signal(signum, kind, handler):
-    uwsgi_gc.append(handler)
-    if lib.uwsgi_pypy_helper_register_signal(signum, ffi.new("char[]", kind), ffi.callback('void(int)', handler)) < 0:
+    cb = ffi.callback('void(int)', handler)
+    uwsgi_gc.append(cb)
+    if lib.uwsgi_pypy_helper_register_signal(signum, ffi.new("char[]", kind), cb) < 0:
         raise Exception("unable to register signal %d" % signum)
 uwsgi.register_signal = uwsgi_pypy_uwsgi_register_signal
 
@@ -289,8 +290,10 @@ class uwsgi_pypy_RPC(object):
 
 
 def uwsgi_pypy_uwsgi_register_rpc(name, func, argc=0):
-    uwsgi_gc.append(func)
-    if lib.uwsgi_pypy_helper_register_rpc(ffi.new("char[]", name), argc, ffi.callback("int(int, char*[], int[], char*)", uwsgi_pypy_RPC(func))) < 0:
+    rpc_func = uwsgi_pypy_RPC(func)
+    cb = ffi.callback("int(int, char*[], int[], char*)", rpc_func)
+    uwsgi_gc.append(cb)
+    if lib.uwsgi_pypy_helper_register_rpc(ffi.new("char[]", name), argc, cb) < 0:
         raise Exception("unable to register rpc func %s" % name)
 uwsgi.register_rpc = uwsgi_pypy_uwsgi_register_rpc
 
