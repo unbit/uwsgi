@@ -60,6 +60,23 @@ static int uwsgi_offload_enqueue(struct wsgi_request *wsgi_req, struct uwsgi_off
 
 /*
 
+        memory offload engine:
+                buf -> pointer to the memory to transfer (memory is freed at the end)
+                len -> amount of data to transfer
+
+*/
+
+int u_offload_memory_prepare(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor) {
+
+        if (!uor->buf || !uor->len) {
+                return -1;
+        }
+        return 0;
+}
+
+
+/*
+
 	transfer offload engine:
 		name -> socket name
 		ubuf -> data to send
@@ -239,6 +256,39 @@ static void uwsgi_offload_loop(struct uwsgi_thread *ut) {
 struct uwsgi_thread *uwsgi_offload_thread_start() {
 	return uwsgi_thread_new(uwsgi_offload_loop);
 }
+
+/*
+
+	offload memory transfer
+
+        uor->len -> the size of the memory chunk
+        uor->buf -> the memory to transfer
+	uor->written -> written bytes
+
+        status: none
+
+*/
+
+static int u_offload_memory_do(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor, int fd) {
+	if (fd == -1) {
+                if (event_queue_add_fd_write(ut->queue, uor->s)) return -1;
+                return 0;
+        }
+	ssize_t rlen = write(uor->s, uor->buf + uor->written, uor->len - uor->written);
+	if (rlen > 0) {
+		uor->written += rlen;
+		if (uor->written >= uor->len) {
+			return -1;
+		}
+		return 0;
+	}
+        else if (rlen < 0) {
+		uwsgi_offload_retry
+                uwsgi_error("u_offload_memory_do()");
+	}
+	return -1;
+}
+
 
 /*
 
@@ -490,6 +540,7 @@ struct uwsgi_offload_engine *uwsgi_offload_register_engine(char *name, int (*pre
 void uwsgi_offload_engines_register_all() {
 	uwsgi.offload_engine_sendfile = uwsgi_offload_register_engine("sendfile", u_offload_sendfile_prepare, u_offload_sendfile_do);
 	uwsgi.offload_engine_transfer = uwsgi_offload_register_engine("transfer", u_offload_transfer_prepare, u_offload_transfer_do);
+	uwsgi.offload_engine_memory = uwsgi_offload_register_engine("memory", u_offload_memory_prepare, u_offload_memory_do);
 }
 
 int uwsgi_offload_request_sendfile_do(struct wsgi_request *wsgi_req, int fd, size_t len) {
@@ -506,4 +557,12 @@ int uwsgi_offload_request_net_do(struct wsgi_request *wsgi_req, char *socketname
 	uor.name = socketname;
 	uor.ubuf = ubuf;
 	return uwsgi_offload_run(wsgi_req, &uor, NULL);
+}
+
+int uwsgi_offload_request_memory_do(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+        struct uwsgi_offload_request uor;
+        uwsgi_offload_setup(uwsgi.offload_engine_memory, &uor, wsgi_req, 1);
+        uor.buf = buf;
+        uor.len = len;
+        return uwsgi_offload_run(wsgi_req, &uor, NULL);
 }

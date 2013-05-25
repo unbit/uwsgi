@@ -194,8 +194,14 @@ static void uwsgi_cache_load_files(struct uwsgi_cache *uc) {
 			if (!uwsgi_cache_set2(uc, key, key_len, value, len, 0, 0)) {
 				uwsgi_log("[cache] stored \"%.*s\" in \"%s\"\n", key_len, key, uc->name);
 			}		
+			else {
+				uwsgi_log("[cache-error] unable to store \"%.*s\" in \"%s\"\n", key_len, key, uc->name);
+			}
 			uwsgi_rwunlock(uc->lock);
 			free(value);
+		}
+		else {
+			uwsgi_log("[cache-error] unable to read file \"%.*s\"\n", key_len, key);
 		}
 next:
 		usl = usl->next;
@@ -1089,7 +1095,6 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		// defaults
 		uc->blocks = uc->max_items;
 		uc->blocksize = UMAX16;
-		uc->max_item_size = uc->blocksize;
 		uc->keysize = 2048;
 		uc->hashsize = UMAX16;
 		uc->hash = uwsgi_hash_algo_get("djb33x");
@@ -1097,6 +1102,9 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		// customize
 		if (c_blocksize) uc->blocksize = uwsgi_n64(c_blocksize);
 		if (!uc->blocksize) { uwsgi_log("invalid cache blocksize for \"%s\"\n", uc->name); exit(1); }
+		// set the true max size of an item
+		uc->max_item_size = uc->blocksize;
+
 		if (c_blocks) uc->blocks = uwsgi_n64(c_blocks);
 		if (!uc->blocks) { uwsgi_log("invalid cache blocks for \"%s\"\n", uc->name); exit(1); }
 		if (c_hash) uc->hash = uwsgi_hash_algo_get(c_hash);
