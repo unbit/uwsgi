@@ -55,7 +55,9 @@ char *uwsgi_cache_magic_get(char *, uint64_t, uint64_t *, uint64_t *, char *);
 int uwsgi_cache_magic_set(char *, uint64_t, char *, uint64_t, uint64_t, uint64_t, char *);
 int uwsgi_cache_magic_del(char *, uint64_t, char *);
 int uwsgi_add_timer(uint8_t, int);
+int uwsgi_add_rb_timer(uint8_t, int, int);
 int uwsgi_add_file_monitor(uint8_t, char *);
+char *uwsgi_do_rpc(char *, char *, uint8_t, char **, uint16_t *, uint16_t *);
 
 int uwsgi_user_lock(int);
 int uwsgi_user_unlock(int);
@@ -152,7 +154,7 @@ class WSGIinput(object):
         self.wsgi_req = wsgi_req
 
     def read(self, size=0):
-        rlen = ffi.new('int64_t *')
+        rlen = ffi.new('int64_t*')
         chunk = lib.uwsgi_request_body_read(self.wsgi_req, size, rlen)
         if chunk != ffi.NULL:
             return ffi.string(chunk, rlen[0])
@@ -161,7 +163,7 @@ class WSGIinput(object):
         raise IOError("error waiting for wsgi.input")
 
     def getline(self, hint=0):
-        rlen = ffi.new('int64_t *')
+        rlen = ffi.new('int64_t*')
         chunk = lib.uwsgi_request_body_readline(self.wsgi_req, hint, rlen)
         if chunk != ffi.NULL:
             return ffi.string(chunk, rlen[0])
@@ -210,7 +212,7 @@ def uwsgi_pypy_wsgi_handler(wsgi_req, core):
         return writer
 
     environ = {}
-    nv = ffi.new("uint16_t *")
+    nv = ffi.new("uint16_t*")
     iov = lib.uwsgi_pypy_helper_environ(wsgi_req, nv)
     for i in range(0, nv[0], 2):
         environ[ffi.string(iov[i].iov_base, iov[i].iov_len)] = ffi.string(iov[i+1].iov_base, iov[i+1].iov_len)
@@ -292,14 +294,48 @@ def uwsgi_pypy_uwsgi_register_rpc(name, func, argc=0):
         raise Exception("unable to register rpc func %s" % name)
 uwsgi.register_rpc = uwsgi_pypy_uwsgi_register_rpc
 
+def uwsgi_pypy_rpc(node, func, *args):
+    argc = 0
+    argv = ffi.new('char*[256]')
+    argvs = ffi.new('uint16_t[256]')
+    rsize = ffi.new('uint16_t*')
 
+    for arg in args:
+        if argc >= 255:
+            raise Exception('invalid number of rpc arguments')
+        if len(arg) >= 65535:
+            raise Exception('invalid rpc argument size (must be < 65535)')
+        argv[argc] = ffi.new('char[]', arg)
+        argvs[argc] = len(arg)
+        argc += 1
+
+    if node:
+        c_node = ffi.new("char[]", node)
+    else:
+        c_node = ffi.NULL
+
+    response = lib.uwsgi_do_rpc(c_node, ffi.new("char[]",func), argc, argv, argvs, rsize)
+    if response:
+        ret = ffi.string(response, rsize[0])
+        lib.free(response)
+        return ret
+    return None
+uwsgi.rpc = uwsgi_pypy_rpc
+
+def uwsgi_pypy_call(func, *args):
+    node = None
+    if '@' in func:
+        (func, node) = func.split('@')
+    return uwsgi_pypy_rpc(node, func, *args)
+uwsgi.call = uwsgi_pypy_call
+    
 def uwsgi_pypy_uwsgi_signal(signum):
     lib.uwsgi_pypy_helper_signal(signum)
 uwsgi.signal = uwsgi_pypy_uwsgi_signal
 
 
 def uwsgi_pypy_uwsgi_cache_get(key, cache=ffi.NULL):
-    vallen = ffi.new('uint64_t *')
+    vallen = ffi.new('uint64_t*')
     value = lib.uwsgi_cache_magic_get(key, len(key), vallen, ffi.NULL, cache)
     if value == ffi.NULL:
         return None
@@ -329,6 +365,11 @@ def uwsgi_pypy_uwsgi_add_timer(signum, secs):
         raise Exception("unable to register timer")
 uwsgi.add_timer = uwsgi_pypy_uwsgi_add_timer
 
+def uwsgi_pypy_uwsgi_add_rb_timer(signum, secs):
+    if lib.uwsgi_add_rb_timer(signum, secs, 0) < 0:
+        raise Exception("unable to register redblack timer")
+uwsgi.add_rb_timer = uwsgi_pypy_uwsgi_add_rb_timer
+
 
 def uwsgi_pypy_uwsgi_add_file_monitor(signum, filename):
     if lib.uwsgi_add_file_monitor(signum, ffi.new("char[]", filename)) < 0:
@@ -349,7 +390,7 @@ uwsgi.unlock = uwsgi_pypy_unlock
 populate uwsgi.opt
 """
 uwsgi.opt = {}
-n_opts = ffi.new('int *')
+n_opts = ffi.new('int*')
 u_opts = lib.uwsgi_pypy_helper_opts(n_opts)
 for i in range(0, n_opts[0]):
     k = ffi.string(u_opts[i].key)
