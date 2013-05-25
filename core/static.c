@@ -2,9 +2,9 @@
 
 extern struct uwsgi_server uwsgi;
 
-int uwsgi_static_want_gzip(struct wsgi_request *wsgi_req, char *filename, size_t filename_len, struct stat *st) {
+int uwsgi_static_want_gzip(struct wsgi_request *wsgi_req, char *filename, size_t *filename_len, struct stat *st) {
 	// check for filename size
-	if (filename_len + 4 > PATH_MAX) return 0;
+	if (*filename_len + 4 > PATH_MAX) return 0;
 	// check for supported encodings
 	if (!uwsgi_contains_n(wsgi_req->encoding, wsgi_req->encoding_len, "gzip", 4) ) return 0;
 
@@ -14,7 +14,7 @@ int uwsgi_static_want_gzip(struct wsgi_request *wsgi_req, char *filename, size_t
 	// check for dirs/prefix
 	struct uwsgi_string_list *usl = uwsgi.static_gzip_dir;
 	while(usl) {
-		if (!uwsgi_starts_with(filename, filename_len, usl->value, usl->len)) {
+		if (!uwsgi_starts_with(filename, *filename_len, usl->value, usl->len)) {
 			goto gzip;
 		}
 		usl = usl->next;
@@ -23,7 +23,7 @@ int uwsgi_static_want_gzip(struct wsgi_request *wsgi_req, char *filename, size_t
 	// check for ext/suffix
 	usl = uwsgi.static_gzip_ext;
         while(usl) {
-		if (!uwsgi_strncmp(filename + (filename_len - usl->len), usl->len, usl->value, usl->len)) {
+		if (!uwsgi_strncmp(filename + (*filename_len - usl->len), usl->len, usl->value, usl->len)) {
 			goto gzip;
 		}
                 usl = usl->next;
@@ -33,7 +33,7 @@ int uwsgi_static_want_gzip(struct wsgi_request *wsgi_req, char *filename, size_t
 	// check for regexp
 	struct uwsgi_regexp_list *url = uwsgi.static_gzip;
 	while(url) {
-		if (uwsgi_regexp_match(url->pattern, url->pattern_extra, filename, filename_len) >= 0) {
+		if (uwsgi_regexp_match(url->pattern, url->pattern_extra, filename, *filename_len) >= 0) {
 			goto gzip;
 		}
 		url = url->next;
@@ -43,12 +43,12 @@ int uwsgi_static_want_gzip(struct wsgi_request *wsgi_req, char *filename, size_t
 
 gzip:
 
-	memcpy(filename + filename_len, ".gz\0", 4);
-	filename_len += 3;
+	memcpy(filename + *filename_len, ".gz\0", 4);
+	*filename_len += 3;
 	
 	if (stat(filename, st)) {
-		filename_len -= 3;
-		filename[filename_len] = 0;
+		*filename_len -= 3;
+		filename[*filename_len] = 0;
 		return 0;
 	}
 	
@@ -445,7 +445,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	char *mime_type = uwsgi_get_mime_type(real_filename, real_filename_len, &mime_type_size);
 
 	// here we need to choose if we want the gzip variant;
-	if (uwsgi_static_want_gzip(wsgi_req, real_filename, real_filename_len, st)) use_gzip = 1;
+	if (uwsgi_static_want_gzip(wsgi_req, real_filename, &real_filename_len, st)) use_gzip = 1;
 
 	if (wsgi_req->if_modified_since_len) {
 		time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);
