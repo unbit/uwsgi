@@ -36,9 +36,25 @@ void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_file_loader)(char *);
 void (*uwsgi_pypy_hook_pythonpath)(char *);
 void (*uwsgi_pypy_hook_request)(void *, int);
+void (*uwsgi_pypy_post_fork_hook)(void);
 
 extern struct uwsgi_server uwsgi;
 struct uwsgi_plugin pypy_plugin;
+
+int uwsgi_pypy_helper_masterpid() {
+	if (uwsgi.master_process) {
+		return uwsgi.workers[0].pid;
+	}
+	return 0;
+}
+
+int uwsgi_pypy_helper_worker_id() {
+	return uwsgi.mywid;
+}
+
+int uwsgi_pypy_helper_mule_id() {
+	return uwsgi.muleid;
+}
 
 void uwsgi_pypy_helper_signal(int signum) {
 	uwsgi_signal_send(uwsgi.signal_socket, signum);
@@ -314,6 +330,10 @@ static void uwsgi_pypy_post_fork() {
                 free(buffer);
                 usl = usl->next;
         }
+
+	if (uwsgi_pypy_post_fork_hook) {
+		uwsgi_pypy_post_fork_hook();
+	}
 }
 
 static void uwsgi_pypy_onload() {

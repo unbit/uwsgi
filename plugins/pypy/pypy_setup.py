@@ -22,6 +22,7 @@ void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_file_loader)(char *);
 void (*uwsgi_pypy_hook_pythonpath)(char *);
 void (*uwsgi_pypy_hook_request)(void *, int);
+void (*uwsgi_pypy_post_fork_hook)(void);
 
 struct iovec {
     char *iov_base;
@@ -35,6 +36,9 @@ struct uwsgi_opt {
 };
 
 char *uwsgi_binary_path();
+void uwsgi_set_processname(char *);
+void uwsgi_alarm_trigger(char *, char *, uint64_t);
+int uwsgi_signal_registered(uint8_t);
 
 int uwsgi_response_write_body_do(void *, char *, uint64_t);
 int uwsgi_response_sendfile_do_can_close(void *, int, uint64_t, uint64_t, int);
@@ -50,6 +54,9 @@ int uwsgi_pypy_helper_register_signal(int, char *, void *);
 int uwsgi_pypy_helper_register_rpc(char *, int, void *);
 void uwsgi_pypy_helper_signal(int);
 struct uwsgi_opt** uwsgi_pypy_helper_opts(int *);
+int uwsgi_pypy_helper_masterpid();
+int uwsgi_pypy_helper_worker_id();
+int uwsgi_pypy_helper_mule_id();
 
 char *uwsgi_cache_magic_get(char *, uint64_t, uint64_t *, uint64_t *, char *);
 int uwsgi_cache_magic_set(char *, uint64_t, char *, uint64_t, uint64_t, uint64_t, char *);
@@ -58,6 +65,7 @@ int uwsgi_add_timer(uint8_t, int);
 int uwsgi_add_rb_timer(uint8_t, int, int);
 int uwsgi_add_file_monitor(uint8_t, char *);
 char *uwsgi_do_rpc(char *, char *, uint8_t, char **, uint16_t *, uint16_t *);
+int uwsgi_signal_add_cron(uint8_t, int, int, int, int, int);
 
 int uwsgi_user_lock(int);
 int uwsgi_user_unlock(int);
@@ -105,6 +113,15 @@ def uwsgi_pypy_file_loader(filename):
     c = 'application'
     mod = imp.load_source('uwsgi_file_wsgi', w)
     wsgi_application = getattr(mod, c)
+
+"""
+.post_fork_hokk
+"""
+@ffi.callback("void()")
+def uwsgi_pypy_post_fork_hook():
+    import uwsgi
+    if hasattr(uwsgi, 'post_fork_hook'):
+        uwsgi.post_fork_hook()
 
 """
 add an item to the pythonpath
@@ -256,6 +273,7 @@ lib.uwsgi_pypy_hook_loader = uwsgi_pypy_loader
 lib.uwsgi_pypy_hook_file_loader = uwsgi_pypy_file_loader
 lib.uwsgi_pypy_hook_pythonpath = uwsgi_pypy_pythonpath
 lib.uwsgi_pypy_hook_request = uwsgi_pypy_wsgi_handler
+lib.uwsgi_pypy_post_fork_hook = uwsgi_pypy_post_fork_hook
 
 """
 Here we define the "uwsgi" virtual module
@@ -388,6 +406,38 @@ def uwsgi_pypy_unlock(num):
     if lib.uwsgi_user_unlock(num) < 0:
         raise Exception("invalid lock")
 uwsgi.unlock = uwsgi_pypy_unlock
+
+def uwsgi_pypy_masterpid():
+    return lib.uwsgi_pypy_helper_masterpid()
+uwsgi.masterpid = uwsgi_pypy_masterpid
+
+def uwsgi_pypy_worker_id():
+    return lib.uwsgi_pypy_helper_worker_id()
+uwsgi.worker_id = uwsgi_pypy_worker_id
+
+def uwsgi_pypy_mule_id():
+    return lib.uwsgi_pypy_helper_mule_id()
+uwsgi.mule_id = uwsgi_pypy_mule_id
+
+def uwsgi_pypy_signal_registered(signum):
+    if lib.uwsgi_signal_registered(signum) > 0:
+        return True
+    return False
+uwsgi.signal_registered = uwsgi_pypy_signal_registered
+
+def uwsgi_pypy_alarm(alarm, msg):
+    lib.uwsgi_alarm_trigger(ffi.new('char[]', alarm), ffi.new('char[]', msg), len(msg))
+uwsgi.alarm = uwsgi_pypy_alarm
+
+def uwsgi_pypy_setprocname(name):
+    lib.uwsgi_set_processname(ffi.new('char[]',name))
+uwsgi.setprocname = uwsgi_pypy_setprocname
+
+def uwsgi_pypy_add_cron(signum, minute, hour, day, month, week):
+    if lib.uwsgi_signal_add_cron(signum, minute, hour, day, month, week) < 0:
+        raise Exception("unable to register cron")
+    return True
+uwsgi.add_cron = uwsgi_pypy_add_cron
 
 """
 populate uwsgi.opt
