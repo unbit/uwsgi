@@ -453,7 +453,8 @@ static int amqp_wait_connection_tune(int fd) {
 static char *amqp_simple_get_frame(int fd, struct amqp_frame_header *fh) {
 
 	char *ptr = (char *) fh;
-        ssize_t len = 0, rlen;
+        size_t len = 0;
+        ssize_t rlen;
 
         while(len < 7) {
                 rlen = recv(fd, ptr, 7-len, 0);
