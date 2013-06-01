@@ -9,6 +9,7 @@ struct uwsgi_jwsgi {
 	char *app;
 	jmethodID app_mid;
 	jclass app_class;
+	jobject app_instance;
 } ujwsgi;
 
 static struct uwsgi_option uwsgi_jwsgi_options[] = {
@@ -20,7 +21,16 @@ static int uwsgi_jwsgi_add_request_item(jobject hm, char *key, uint16_t key_len,
 	jobject j_key = uwsgi_jvm_str(key, key_len);
 	if (!j_key) return -1;
 
-	jobject j_value = uwsgi_jvm_str(value, value_len);
+	jobject j_value = NULL;
+	// avoid clobbering vars
+	if (value_len > 0) {
+		j_value = uwsgi_jvm_str(value, value_len);
+	}
+	else {
+		char *tmp = uwsgi_str("");
+		j_value = uwsgi_jvm_str(tmp, 0);
+		free(tmp);
+	}
 	if (!j_value) {
 		uwsgi_jvm_local_unref(j_value);
 		return -1;
@@ -72,7 +82,12 @@ static int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi_jwsgi_add_request_input(hm, "jwsgi.input", 11)) goto end;
 
-	response = uwsgi_jvm_call_object_static(ujwsgi.app_class, ujwsgi.app_mid, hm);
+	if (!ujwsgi.app_instance) {
+		response = uwsgi_jvm_call_object_static(ujwsgi.app_class, ujwsgi.app_mid, hm);
+	}
+	else {
+		response = uwsgi_jvm_call_object(ujwsgi.app_instance, ujwsgi.app_mid, hm);
+	}
 	if (!response) goto end;
 
 	if (uwsgi_jvm_array_len(response) != 3) {
@@ -149,9 +164,18 @@ static int uwsgi_jwsgi_setup() {
 		exit(1);
 	}
 
-	ujwsgi.app_mid = uwsgi_jvm_get_static_method_id(ujwsgi.app_class, colon+1, "(Ljava/util/HashMap;)[Ljava/lang/Object;");
-	if (!ujwsgi.app_mid) {
-		exit(1);
+	ujwsgi.app_mid = uwsgi_jvm_get_static_method_id_quiet(ujwsgi.app_class, colon+1, "(Ljava/util/HashMap;)[Ljava/lang/Object;");
+	if (uwsgi_jvm_exception() || !ujwsgi.app_mid) {
+                jmethodID mid = uwsgi_jvm_get_method_id(ujwsgi.app_class, "<init>", "()V");
+                if (uwsgi_jvm_exception() || !mid) exit(1);
+        	ujwsgi.app_instance = (*ujvm_env)->NewObject(ujvm_env, ujwsgi.app_class, mid);
+        	if (uwsgi_jvm_exception() || !ujwsgi.app_instance) {
+			exit(1);
+        	}
+		ujwsgi.app_mid = uwsgi_jvm_get_method_id(ujwsgi.app_class, colon+1, "(Ljava/util/HashMap;)[Ljava/lang/Object;");
+        	if (uwsgi_jvm_exception() || !ujwsgi.app_mid) {
+			exit(1);
+        	}
 	}
 
 	uwsgi_log("JWSGI app \"%s\" loaded\n", ujwsgi.app);
