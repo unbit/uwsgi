@@ -3065,6 +3065,36 @@ void escape_shell_arg(char *src, size_t len, char *dst) {
 	*ptr++ = 0;
 }
 
+void escape_json(char *src, size_t len, char *dst) {
+
+	size_t i;
+	char *ptr = dst;
+
+	for (i = 0; i < len; i++) {
+		if (src[i] == '\t') {
+			*ptr++ = '\\';
+			*ptr++ = 't';
+		}
+		else if (src[i] == '\n') {
+			*ptr++ = '\\';
+			*ptr++ = 'n';
+		}
+		else if (src[i] == '\r') {
+			*ptr++ = '\\';
+			*ptr++ = 'r';
+		}
+		else if (src[i] == '"') {
+			*ptr++ = '\\';
+			*ptr++ = '"';
+		}
+		else {
+			*ptr++ = src[i];
+		}
+	}
+
+	*ptr++ = 0;
+}
+
 void http_url_decode(char *buf, uint16_t * len, char *dst) {
 
 	uint16_t i;
