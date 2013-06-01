@@ -25,6 +25,7 @@ struct uwsgi_jvm {
 	jclass input_stream_class;
 	jclass file_class;
 	jclass hashmap_class;
+	jclass list_class;
 	jclass set_class;
 	jclass iterator_class;
 
@@ -63,6 +64,10 @@ jmethodID uwsgi_jvm_get_static_method_id_quiet(jclass, char *, char *);
 jobject uwsgi_jvm_str(char *, size_t);
 jobject uwsgi_jvm_hashmap(void);
 int uwsgi_jvm_hashmap_put(jobject, jobject, jobject);
+int uwsgi_jvm_hashmap_has(jobject, jobject);
+
+jobject uwsgi_jvm_list(void);
+int uwsgi_jvm_list_add(jobject, jobject);
 
 jobject uwsgi_jvm_call_object(jobject, jmethodID, ...);
 jobject uwsgi_jvm_call_object_static(jclass, jmethodID, ...);

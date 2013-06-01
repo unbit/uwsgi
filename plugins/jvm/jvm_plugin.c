@@ -684,6 +684,23 @@ void uwsgi_jvm_local_unref(jobject obj) {
         (*ujvm_env)->DeleteLocalRef(ujvm_env, obj);
 }
 
+jobject uwsgi_jvm_list() {
+        // optimization
+        static jmethodID mid = 0;
+
+        if (!mid) {
+                mid = uwsgi_jvm_get_method_id(ujvm.list_class, "<init>", "()V");
+                if (!mid) return NULL;
+        }
+
+        jobject ll = (*ujvm_env)->NewObject(ujvm_env, ujvm.list_class, mid);
+        if (uwsgi_jvm_exception()) {
+                return NULL;
+        }
+        return ll;
+}
+
+
 jobject uwsgi_jvm_hashmap() {
 	// optimization
 	static jmethodID mid = 0;
@@ -712,6 +729,18 @@ int uwsgi_jvm_hashmap_put(jobject hm, jobject key, jobject value) {
 	return uwsgi_jvm_call(hm, mid, key, value);
 }
 
+int uwsgi_jvm_list_add(jobject ll, jobject value) {
+        // optimization
+        static jmethodID mid = 0;
+
+        if (!mid) {
+                mid = uwsgi_jvm_get_method_id(ujvm.list_class, "add", "(Ljava/lang/Object;)Z");
+                if (!mid) return -1;
+        }
+
+        return uwsgi_jvm_call(ll, mid, value);
+}
+
 jobject uwsgi_jvm_hashmap_get(jobject hm, jobject key) {
         // optimization
         static jmethodID mid = 0;
@@ -722,6 +751,21 @@ jobject uwsgi_jvm_hashmap_get(jobject hm, jobject key) {
         }
 
         return uwsgi_jvm_call_object(hm, mid, key);
+}
+
+int uwsgi_jvm_hashmap_has(jobject hm, jobject key) {
+        // optimization
+        static jmethodID mid = 0;
+
+        if (!mid) {
+                mid = uwsgi_jvm_get_method_id(ujvm.hashmap_class, "containsKey", "(Ljava/lang/Object;)Z");
+                if (!mid) return 0;
+        }
+
+	if (uwsgi_jvm_call_bool(hm, mid, key)) {
+		return 1;
+	}
+	return 0;
 }
 
 jobject uwsgi_jvm_iterator(jobject set) {
@@ -1010,6 +1054,9 @@ static void uwsgi_jvm_create(void) {
 	ujvm.hashmap_class = uwsgi_jvm_class("java/util/HashMap");
 	if (!ujvm.hashmap_class) exit(1);
 
+	ujvm.list_class = uwsgi_jvm_class("java/util/ArrayList");
+	if (!ujvm.list_class) exit(1);
+
 	ujvm.set_class = uwsgi_jvm_class("java/util/Set");
 	if (!ujvm.set_class) exit(1);
 
@@ -1026,6 +1073,52 @@ static void uwsgi_jvm_create(void) {
 	if (!uwsgi_class) {
 		exit(1);
 	}
+
+	/*
+		start filling uwsgi.opt
+	*/
+	jfieldID opt_fid = (*ujvm_env)->GetStaticFieldID(ujvm_env, uwsgi_class, "opt", "Ljava/util/HashMap;");
+	if (uwsgi_jvm_exception()) {
+                exit(1);
+        }
+	jobject opt_hm = uwsgi_jvm_hashmap();	
+	int j;
+	for (j = 0; j < uwsgi.exported_opts_cnt; j++) {
+		jstring j_opt_key = uwsgi_jvm_str(uwsgi.exported_opts[j]->key, 0);
+		if (uwsgi_jvm_hashmap_has(opt_hm, (jobject) j_opt_key)) {
+			jobject j_opt_value = uwsgi_jvm_hashmap_get(opt_hm, (jobject) j_opt_key);
+			if (uwsgi_jvm_object_is_instance(j_opt_value, ujvm.list_class)) {
+				if (uwsgi.exported_opts[j]->value == NULL) {
+                                        uwsgi_jvm_list_add(j_opt_value, (jobject) 1);
+                                }
+                                else {
+                                        uwsgi_jvm_list_add(j_opt_value, uwsgi_jvm_str(uwsgi.exported_opts[j]->value, 0));
+                                }	
+			}
+			else {
+				jobject ll = uwsgi_jvm_list();
+				uwsgi_jvm_list_add(ll, j_opt_value);
+				if (uwsgi.exported_opts[j]->value == NULL) {
+					uwsgi_jvm_list_add(ll, (jobject) 1);
+				}
+				else {
+					uwsgi_jvm_list_add(ll, uwsgi_jvm_str(uwsgi.exported_opts[j]->value, 0));
+				}
+				uwsgi_jvm_hashmap_put(opt_hm, j_opt_key, ll);
+			}
+		}
+		else {
+			if (uwsgi.exported_opts[j]->value == NULL) {
+				uwsgi_jvm_hashmap_put(opt_hm, j_opt_key, (jobject) 1);
+			}
+			else {
+				uwsgi_jvm_hashmap_put(opt_hm, j_opt_key, uwsgi_jvm_str(uwsgi.exported_opts[j]->value, 0));
+			}
+		}
+	}
+	(*ujvm_env)->SetStaticObjectField(ujvm_env, uwsgi_class, opt_fid, opt_hm);
+	
+
 	(*ujvm_env)->RegisterNatives(ujvm_env, uwsgi_class, uwsgi_jvm_api_methods, sizeof(uwsgi_jvm_api_methods)/sizeof(uwsgi_jvm_api_methods[0]));
 	if (uwsgi_jvm_exception()) {
 		exit(1);

@@ -1,6 +1,9 @@
 import java.io.*;
+import java.util.*;
 
 public class uwsgi {
+
+	static HashMap<String,Object> opt;	
 
 	public static class RequestBody extends InputStream {
 		public native int read();
