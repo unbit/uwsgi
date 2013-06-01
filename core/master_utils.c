@@ -696,8 +696,17 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		while (ud) {
 			if (uwsgi_stats_object_open(us))
 				goto end;
-			if (uwsgi_stats_keyval_comma(us, "cmd", ud->command))
+
+			// allocate 2x the size of original command
+			// in case we need to escape all chars
+			char *cmd = uwsgi_malloc(strlen(ud->command)*2);
+			escape_json(ud->command, strlen(ud->command), cmd);
+			if (uwsgi_stats_keyval_comma(us, "cmd", cmd)) {
+				free(cmd);
 				goto end;
+			}
+			free(cmd);
+
 			if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) (ud->pid < 0) ? 0 : ud->pid))
 				goto end;
 			if (uwsgi_stats_keylong(us, "respawns", (unsigned long long) ud->respawns ? 0 : ud->respawns))
@@ -1106,8 +1115,13 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_keyslong_comma(us, "week", (long long) ucron->week))
 				goto end;
 
-			if (uwsgi_stats_keyval_comma(us, "command", ucron->command))
+			char *cmd = uwsgi_malloc(strlen(ucron->command)*2);
+			escape_json(ucron->command, strlen(ucron->command), cmd);
+			if (uwsgi_stats_keyval_comma(us, "command", cmd)) {
+				free(cmd);
 				goto end;
+			}
+			free(cmd);
 
 			if (uwsgi_stats_keylong_comma(us, "unique", (unsigned long long) ucron->unique))
 				goto end;

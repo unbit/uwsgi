@@ -3227,6 +3227,7 @@ struct uwsgi_gateway_socket *uwsgi_new_gateway_socket(char *, char *);
 struct uwsgi_gateway_socket *uwsgi_new_gateway_socket_from_fd(int, char *);
 
 void escape_shell_arg(char *, size_t, char *);
+void escape_json(char *, size_t, char *);
 
 void *uwsgi_malloc_shared(size_t);
 void *uwsgi_calloc_shared(size_t);
