@@ -10,6 +10,7 @@ public class uwsgi {
 		public native int read(byte[] b);
 		public native int readLine(byte[] b);
 		public native int available();
+		public native void seek(int pos);
 	}
 
 	public interface SignalHandler {
