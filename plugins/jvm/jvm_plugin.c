@@ -215,6 +215,26 @@ JNIEXPORT jint JNICALL uwsgi_jvm_request_body_read_bytearray(JNIEnv *env, jobjec
         return rlen;
 }
 
+JNIEXPORT jint JNICALL uwsgi_jvm_request_body_readline_bytearray(JNIEnv *env, jobject o, jobject b) {
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+        ssize_t rlen = 0;
+        size_t len = uwsgi_jvm_array_len(b);
+        char *chunk = uwsgi_request_body_readline(wsgi_req, len, &rlen);
+        if (!chunk) {
+                uwsgi_jvm_throw_io("error reading request body");
+                return -1;
+        }
+        if (chunk == uwsgi.empty) {
+                return -1;
+        }
+        char *buf = (char *) (*ujvm_env)->GetByteArrayElements(ujvm_env, b, JNI_FALSE);
+        if (!buf) return -1;
+        memcpy(buf, chunk, rlen);
+         (*ujvm_env)->ReleaseByteArrayElements(ujvm_env, b, (jbyte *) buf, 0);
+        return rlen;
+}
+
+
 JNIEXPORT jint JNICALL uwsgi_jvm_request_body_available(JNIEnv *env, jobject o) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	return (jint) (wsgi_req->post_cl - wsgi_req->post_pos);
@@ -223,6 +243,7 @@ JNIEXPORT jint JNICALL uwsgi_jvm_request_body_available(JNIEnv *env, jobject o) 
 static JNINativeMethod uwsgi_jvm_request_body_methods[] = {
 	{"read", "()I", (void *) &uwsgi_jvm_request_body_read},
 	{"read", "([B)I", (void *) &uwsgi_jvm_request_body_read_bytearray},
+	{"readLine", "([B)I", (void *) &uwsgi_jvm_request_body_readline_bytearray},
 	{"available", "()I", (void *) &uwsgi_jvm_request_body_available},
 };
 

@@ -8,6 +8,7 @@ public class uwsgi {
 	public static class RequestBody extends InputStream {
 		public native int read();
 		public native int read(byte[] b);
+		public native int readLine(byte[] b);
 		public native int available();
 	}
 
