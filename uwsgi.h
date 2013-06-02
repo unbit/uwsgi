@@ -1402,6 +1402,7 @@ struct wsgi_request {
 	int headers_hvec;
 
 	uint64_t proto_parser_pos;
+	uint64_t proto_parser_move;
 	int64_t proto_parser_status;
 	void *proto_parser_buf;
 	uint64_t proto_parser_buf_size;

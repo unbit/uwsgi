@@ -155,6 +155,11 @@ ssize_t uwsgi_proto_fastcgi_read_body(struct wsgi_request *wsgi_req, char *buf, 
                 memcpy(buf, wsgi_req->proto_parser_remains_buf, remains);
                 wsgi_req->proto_parser_remains -= remains;
                 wsgi_req->proto_parser_remains_buf += remains;
+		// we consumed all of the body, we can safely move the memory
+                if (wsgi_req->proto_parser_remains == 0 && wsgi_req->proto_parser_move) {
+                	memmove(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_buf + wsgi_req->proto_parser_move, wsgi_req->proto_parser_pos);
+			wsgi_req->proto_parser_move = 0;
+                }
                 return remains;
         }
 
@@ -176,7 +181,14 @@ ssize_t uwsgi_proto_fastcgi_read_body(struct wsgi_request *wsgi_req, char *buf, 
 					// copy remaining
 					wsgi_req->proto_parser_remains = fcgi_len - remains;
 					wsgi_req->proto_parser_remains_buf = wsgi_req->proto_parser_buf + sizeof(struct fcgi_record) + remains;
-                                	memmove(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_buf + fcgi_all_len, wsgi_req->proto_parser_pos - fcgi_all_len);
+					// we consumed all of the body, we can safely move the memory
+					if (wsgi_req->proto_parser_remains == 0) {
+                                		memmove(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_buf + fcgi_all_len, wsgi_req->proto_parser_pos - fcgi_all_len);
+					}
+					else {
+						// postpone memory move
+						wsgi_req->proto_parser_move = fcgi_all_len;
+					}
                                 	wsgi_req->proto_parser_pos -= fcgi_all_len;
 					return remains;
 				}
