@@ -193,7 +193,6 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 		if (wsgi_req->socket->can_offload && !ur->custom && !urcc->no_offload) {
                 	if (!uwsgi_offload_request_memory_do(wsgi_req, value, valsize)) {
                         	wsgi_req->via = UWSGI_VIA_OFFLOAD;
-                       		wsgi_req->status = 202;
                         	return UWSGI_ROUTE_BREAK;
                 	}
 		}

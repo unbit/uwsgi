@@ -478,9 +478,9 @@ int uwsgi_postbuffer_do_in_disk(struct wsgi_request *wsgi_req) {
         int upload_progress_fd = -1;
         char *upload_progress_filename = NULL;
 
-        wsgi_req->post_file = tmpfile();
+        wsgi_req->post_file = uwsgi_tmpfile();
         if (!wsgi_req->post_file) {
-                uwsgi_error("uwsgi_postbuffer_do_in_disk()/tmpfile()");
+                uwsgi_error("uwsgi_postbuffer_do_in_disk()/uwsgi_tmpfile()");
                 return -1;
         }
 

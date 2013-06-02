@@ -1220,6 +1220,10 @@ struct uwsgi_transformation {
 	uint8_t flushed;
 	void *data;
 	uint64_t round;
+	int fd;
+	struct uwsgi_buffer *ub;
+	uint64_t len;
+	uint64_t custom64;
 	struct uwsgi_transformation *next;
 };
 
@@ -3356,7 +3360,8 @@ void uwsgi_opt_set_cap(char *, char *, void *);
 void uwsgi_opt_set_unshare(char *, char *, void *);
 #endif
 
-char *uwsgi_tmpname(char *, char *);
+int uwsgi_tmpfd();
+FILE *uwsgi_tmpfile();
 
 #ifdef UWSGI_ROUTING
 struct uwsgi_router *uwsgi_register_router(char *, int (*)(struct uwsgi_route *, char *));
@@ -3771,6 +3776,9 @@ struct uwsgi_thread *uwsgi_offload_thread_start(void);
 int uwsgi_offload_request_sendfile_do(struct wsgi_request *, int, size_t);
 int uwsgi_offload_request_net_do(struct wsgi_request *, char *, struct uwsgi_buffer *);
 int uwsgi_offload_request_memory_do(struct wsgi_request *, char *, size_t);
+
+int uwsgi_simple_sendfile(struct wsgi_request *, int, size_t, size_t);
+int uwsgi_simple_write(struct wsgi_request *, char *, size_t);
 
 
 void uwsgi_subscription_set_algo(char *);

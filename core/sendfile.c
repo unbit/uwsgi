@@ -37,3 +37,39 @@ ssize_t uwsgi_sendfile_do(int sockfd, int filefd, size_t pos, size_t len) {
 #endif
 
 }
+
+
+/*
+	simple non blocking sendfile implementation
+	(generally used as fallback)
+*/
+
+int uwsgi_simple_sendfile(struct wsgi_request *wsgi_req, int fd, size_t pos, size_t len) {
+
+	wsgi_req->write_pos = 0;
+
+	for(;;) {
+                int ret = wsgi_req->socket->proto_sendfile(wsgi_req, fd, pos, len);
+                if (ret < 0) {
+                        if (!uwsgi.ignore_write_errors) {
+                                uwsgi_error("uwsgi_simple_sendfile()");
+                        }
+                        wsgi_req->write_errors++;
+                        return -1;
+                }
+                if (ret == UWSGI_OK) {
+                        break;
+                }
+                ret = uwsgi_wait_write_req(wsgi_req);
+                if (ret < 0) {
+                        wsgi_req->write_errors++;
+                        return -1;
+                }
+                if (ret == 0) {
+                        uwsgi_log("uwsgi_simple_sendfile() TIMEOUT !!!\n");
+                        wsgi_req->write_errors++;
+                        return -1;
+                }
+        }
+	return 0;
+}

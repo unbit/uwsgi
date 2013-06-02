@@ -3251,14 +3251,21 @@ char *uwsgi_chomp(char *str) {
 	return str;
 }
 
-char *uwsgi_tmpname(char *base, char *id) {
-	char *template = uwsgi_concat3(base, "/", id);
-	if (mkstemp(template) < 0) {
-		free(template);
-		return NULL;
+int uwsgi_tmpfd() {
+	char *tmpdir = getenv("TMPDIR");
+	if (!tmpdir) {
+		tmpdir = "/tmp";
 	}
+	char *template = uwsgi_concat2(tmpdir, "/uwsgiXXXXXX");
+	int fd = mkstemp(template);
+	free(template);
+	return fd;
+}
 
-	return template;
+FILE *uwsgi_tmpfile() {
+	int fd = uwsgi_tmpfd();
+	if (fd < 0) return NULL;
+	return fdopen(fd, "w+");
 }
 
 int uwsgi_file_to_string_list(char *filename, struct uwsgi_string_list **list) {
