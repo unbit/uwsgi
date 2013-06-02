@@ -1756,7 +1756,12 @@ void uwsgi_python_harakiri(int wid) {
 	}
 
 }
-
+/*
+	# you can use this logger to offload logging to python
+	# be sure to configure it to not log to stderr otherwise you will generate a loop
+	import logging
+	logging.basicConfig(filename='/tmp/pippo.log')
+*/
 ssize_t uwsgi_python_logger(struct uwsgi_logger *ul, char *message, size_t len) {
 	if (!Py_IsInitialized()) return -1;
 
