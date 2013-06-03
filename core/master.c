@@ -485,6 +485,18 @@ int master_loop(char **argv, char **environ) {
 		usl = usl->next;
 	}
 	uwsgi_check_touches(uwsgi.touch_exec);
+	// update signal touches
+	usl = uwsgi.touch_signal;
+        while(usl) {
+                char *space = strchr(usl->value, ' ');
+                if (space) {
+                        *space = 0;
+                        usl->len = strlen(usl->value);
+                        usl->custom_ptr = space + 1;
+                }
+                usl = usl->next;
+        }
+        uwsgi_check_touches(uwsgi.touch_signal);
 
 	// setup cheaper algos (can be stacked)
 	uwsgi.cheaper_algo = uwsgi_cheaper_algo_spare;
@@ -769,6 +781,12 @@ int master_loop(char **argv, char **environ) {
 						uwsgi_log_verbose("[uwsgi-touch-exec] running %s\n", touched);
 					}
 				}
+				touched = uwsgi_check_touches(uwsgi.touch_signal);
+                                if (touched) {
+					uint8_t signum = atoi(touched);
+					uwsgi_route_signal(signum);
+                                        uwsgi_log_verbose("[uwsgi-touch-signal] raising %u\n", signum);
+                                }
 			}
 
 			continue;

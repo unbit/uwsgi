@@ -2000,6 +2000,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *touch_logrotate;
 	struct uwsgi_string_list *touch_logreopen;
 	struct uwsgi_string_list *touch_exec;
+	struct uwsgi_string_list *touch_signal;
 
 	int propagate_touch;
 
