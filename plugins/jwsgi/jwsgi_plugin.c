@@ -150,21 +150,20 @@ static int uwsgi_jwsgi_setup() {
 
 	char *app = uwsgi_str(ujwsgi.app);
 
+	char *method = "application";
 	char *colon = strchr(app, ':');
 
-	if (!colon) {
-		uwsgi_log("invalid JWSGI app definition, must be class:method\n");
-		exit(1);
+	if (colon) {
+		*colon = 0;
+		method = colon + 1;
 	}
-
-	*colon = 0;
 
 	ujwsgi.app_class = uwsgi_jvm_class(app);
 	if (!ujwsgi.app_class) {
 		exit(1);
 	}
 
-	ujwsgi.app_mid = uwsgi_jvm_get_static_method_id_quiet(ujwsgi.app_class, colon+1, "(Ljava/util/HashMap;)[Ljava/lang/Object;");
+	ujwsgi.app_mid = uwsgi_jvm_get_static_method_id_quiet(ujwsgi.app_class, method, "(Ljava/util/HashMap;)[Ljava/lang/Object;");
 	if (uwsgi_jvm_exception() || !ujwsgi.app_mid) {
                 jmethodID mid = uwsgi_jvm_get_method_id(ujwsgi.app_class, "<init>", "()V");
                 if (uwsgi_jvm_exception() || !mid) exit(1);
@@ -172,7 +171,7 @@ static int uwsgi_jwsgi_setup() {
         	if (uwsgi_jvm_exception() || !ujwsgi.app_instance) {
 			exit(1);
         	}
-		ujwsgi.app_mid = uwsgi_jvm_get_method_id(ujwsgi.app_class, colon+1, "(Ljava/util/HashMap;)[Ljava/lang/Object;");
+		ujwsgi.app_mid = uwsgi_jvm_get_method_id(ujwsgi.app_class, method, "(Ljava/util/HashMap;)[Ljava/lang/Object;");
         	if (uwsgi_jvm_exception() || !ujwsgi.app_mid) {
 			exit(1);
         	}
