@@ -346,7 +346,7 @@ void uwsgi_setup_workers() {
 
 	total_memory *= (uwsgi.numproc + uwsgi.master_process);
 	if (uwsgi.numproc > 0)
-		uwsgi_log("mapped %llu bytes (%llu KB) for %d cores\n", (unsigned long long) total_memory, (unsigned long long) (total_memory / 1024), uwsgi.cores * uwsgi.numproc);
+		uwsgi_log_initial("mapped %llu bytes (%llu KB) for %d cores\n", (unsigned long long) total_memory, (unsigned long long) (total_memory / 1024), uwsgi.cores * uwsgi.numproc);
 
 	// allocate signal table
         uwsgi.shared->signal_table = uwsgi_calloc_shared(sizeof(struct uwsgi_signal_entry) * 256 * (uwsgi.numproc + 1));
