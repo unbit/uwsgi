@@ -1,6 +1,6 @@
 #include <uwsgi.h>
 
-#define MEMCACHED_BUFSIZE 8192
+#define MEMCACHED_BUFSIZE 100
 
 extern struct uwsgi_server uwsgi;
 
@@ -55,13 +55,46 @@ static size_t memcached_firstline_parse(char *buf, size_t len) {
 	}
 }
 
+// store an item in memcached
+static void memcached_store(char *addr, struct uwsgi_buffer *key, struct uwsgi_buffer *value, char *expires) {
+	
+	int timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
+
+        int fd = uwsgi_connect(addr, 0, 1);
+        if (fd < 0) return;
+
+	// wait for connection
+        int ret = uwsgi.wait_write_hook(fd, timeout);
+        if (ret <= 0) goto end;
+
+	// build the request
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	if (uwsgi_buffer_append(ub, "set ", 4)) goto end2;
+	if (uwsgi_buffer_append(ub, key->buf, key->pos)) goto end2;
+	if (uwsgi_buffer_append(ub, " 0 " , 3)) goto end2;
+	if (uwsgi_buffer_append(ub, expires, strlen(expires))) goto end2;
+	if (uwsgi_buffer_append(ub, " " , 1)) goto end2;
+	if (uwsgi_buffer_num64(ub, value->pos)) goto end2;
+	if (uwsgi_buffer_append(ub, "\r\n" , 2)) goto end2;
+	
+        if (uwsgi_write_true_nb(fd, ub->buf, ub->pos, timeout)) goto end2;
+        if (uwsgi_write_true_nb(fd, value->buf, value->pos, timeout)) goto end2;
+        if (uwsgi_write_true_nb(fd, "\r\n", 2, timeout)) goto end2;
+
+	// we are not interested in command result... (ugly but it works)
+end2:
+	uwsgi_buffer_destroy(ub);
+end:
+	close(fd);
+}
+
 static int transform_memcached(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
         struct uwsgi_transformation_memcached_conf *utmc = (struct uwsgi_transformation_memcached_conf *) ut->data;
         struct uwsgi_buffer *ub = ut->chunk;
 
         // store only successfull response
         if (wsgi_req->write_errors == 0 && wsgi_req->status == 200 && ub->pos > 0) {
-		//memcached_store(utmc->addr, utmc->key, ub->buf, ub->pos);
+		memcached_store(utmc->addr, utmc->key, ub, utmc->expires);
         }
 
         // free resources

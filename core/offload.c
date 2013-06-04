@@ -68,7 +68,7 @@ static int uwsgi_offload_enqueue(struct wsgi_request *wsgi_req, struct uwsgi_off
 
 static int u_offload_pipe_prepare(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor) {
 
-        if (!uor->buf || !uor->len) {
+        if (uor->fd < 0 || !uor->len) {
                 return -1;
         }
         return 0;
@@ -387,7 +387,8 @@ static int u_offload_pipe_do(struct uwsgi_thread *ut, struct uwsgi_offload_reque
 			if (rlen > 0) {
 				uor->to_write = rlen;
 				uor->pos = 0;
-				uwsgi_offload_0r_1w(uor->fd, uor->s)
+				if (event_queue_del_fd(ut->queue, uor->fd, event_queue_read())) return -1;
+				if (event_queue_add_fd_write(ut->queue, uor->s)) return -1;
 				uor->status = 1;
 				return 0;
 			}
