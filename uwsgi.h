@@ -278,7 +278,9 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #endif
 
 #if defined(__HAIKU__) || defined(__CYGWIN__)
+#ifndef WAIT_ANY
 #define WAIT_ANY (-1)
+#endif
 #define PRIO_MAX  20
 #endif
 
