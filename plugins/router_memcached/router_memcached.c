@@ -23,8 +23,17 @@ struct uwsgi_router_memcached_conf {
 	size_t content_type_len;
 
 	char *no_offload;
+	char *expires;
 	
 };
+
+// this is allocated for each transformation
+struct uwsgi_transformation_memcached_conf {
+	char *addr;
+        struct uwsgi_buffer *key;
+        char *expires;
+};
+
 
 static size_t memcached_firstline_parse(char *buf, size_t len) {
 	// check for "VALUE x 0 0"
@@ -45,6 +54,49 @@ static size_t memcached_firstline_parse(char *buf, size_t len) {
 		return uwsgi_str_num(bytes + 1, len-skip);
 	}
 }
+
+static int transform_memcached(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
+        struct uwsgi_transformation_memcached_conf *utmc = (struct uwsgi_transformation_memcached_conf *) ut->data;
+        struct uwsgi_buffer *ub = ut->chunk;
+
+        // store only successfull response
+        if (wsgi_req->write_errors == 0 && wsgi_req->status == 200 && ub->pos > 0) {
+		//memcached_store(utmc->addr, utmc->key, ub->buf, ub->pos);
+        }
+
+        // free resources
+        uwsgi_buffer_destroy(utmc->key);
+        free(utmc);
+        return 0;
+}
+
+
+// be tolerant on errors
+static int uwsgi_routing_func_memcached_store(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
+        struct uwsgi_router_memcached_conf *urmc = (struct uwsgi_router_memcached_conf *) ur->data2;
+
+        struct uwsgi_transformation_memcached_conf *utmc = uwsgi_calloc(sizeof(struct uwsgi_transformation_memcached_conf));
+
+        // build key and name
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        utmc->key = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urmc->key, urmc->key_len);
+        if (!utmc->key) goto error;
+
+        utmc->addr = urmc->addr;
+        utmc->expires = urmc->expires;
+
+        uwsgi_add_transformation(wsgi_req, transform_memcached, utmc);
+
+        return UWSGI_ROUTE_NEXT;
+
+error:
+        if (utmc->key) uwsgi_buffer_destroy(utmc->key);
+        free(utmc);
+        return UWSGI_ROUTE_NEXT;
+}
+
 
 static int uwsgi_routing_func_memcached(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
 	// this is the buffer for the memcached response
@@ -206,7 +258,7 @@ static int uwsgi_router_memcached(struct uwsgi_route *ur, char *args) {
 
 	if (!urmc->key || !urmc->addr) {
 		uwsgi_log("invalid route syntax: you need to specify a memcached address and key pattern\n");
-		exit(1);
+		return -1;
 	}
 
 	urmc->key_len = strlen(urmc->key);
@@ -224,9 +276,38 @@ static int uwsgi_router_memcached_continue(struct uwsgi_route *ur, char *args) {
 	return 0;
 }
 
+static int uwsgi_router_memcached_store(struct uwsgi_route *ur, char *args) {
+        ur->func = uwsgi_routing_func_memcached_store;
+        ur->data = args;
+        ur->data_len = strlen(args);
+	struct uwsgi_router_memcached_conf *urmc = uwsgi_calloc(sizeof(struct uwsgi_router_memcached_conf));
+        if (uwsgi_kvlist_parse(ur->data, ur->data_len, ',', '=',
+			"addr", &urmc->addr,
+                        "key", &urmc->key,
+                        "expires", &urmc->expires, NULL)) {
+                        uwsgi_log("invalid cachestore route syntax: %s\n", args);
+			return -1;
+                }
+
+		if (!urmc->key || !urmc->addr) {
+                        uwsgi_log("invalid memcachedstore route syntax: you need to specify an address and a key\n");
+			return -1;
+                }
+
+		urmc->key_len = strlen(urmc->key);
+
+                if (!urmc->expires) urmc->expires = "0";
+
+        ur->data2 = urmc;
+        return 0;
+}
+
+
 static void router_memcached_register() {
 	uwsgi_register_router("memcached", uwsgi_router_memcached);
 	uwsgi_register_router("memcached-continue", uwsgi_router_memcached_continue);
+	uwsgi_register_router("memcachedstore", uwsgi_router_memcached_store);
+        uwsgi_register_router("memcached-store", uwsgi_router_memcached_store);
 }
 
 struct uwsgi_plugin router_memcached_plugin = {
