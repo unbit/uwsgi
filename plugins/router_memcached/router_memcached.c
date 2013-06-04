@@ -1,14 +1,17 @@
 #include <uwsgi.h>
 
-#define MEMCACHED_BUFSIZE 100
+#ifdef UWSGI_ROUTING
+
+#define MEMCACHED_BUFSIZE 8192
 
 extern struct uwsgi_server uwsgi;
 
 /*
 
-	memcached internal router
+	memcached internal router and transformation
 
 	route = /^foobar1(.*)/ memcached:addr=127.0.0.1:11211,key=foo$1poo
+	route = /^foobar1(.*)/ memcachedstore:addr=127.0.0.1:11211,key=foo$1poo
 
 */
 
@@ -318,7 +321,7 @@ static int uwsgi_router_memcached_store(struct uwsgi_route *ur, char *args) {
 			"addr", &urmc->addr,
                         "key", &urmc->key,
                         "expires", &urmc->expires, NULL)) {
-                        uwsgi_log("invalid cachestore route syntax: %s\n", args);
+                        uwsgi_log("invalid memcachedstore route syntax: %s\n", args);
 			return -1;
                 }
 
@@ -343,7 +346,11 @@ static void router_memcached_register() {
         uwsgi_register_router("memcached-store", uwsgi_router_memcached_store);
 }
 
+#endif
+
 struct uwsgi_plugin router_memcached_plugin = {
 	.name = "router_memcached",
+#ifdef UWSGI_ROUTING
 	.on_load = router_memcached_register,
+#endif
 };
