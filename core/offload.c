@@ -60,13 +60,29 @@ static int uwsgi_offload_enqueue(struct wsgi_request *wsgi_req, struct uwsgi_off
 
 /*
 
+	pipe offload engine:
+		fd -> the file descriptor to read from
+		len -> amount of data to transfer
+
+*/
+
+static int u_offload_pipe_prepare(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor) {
+
+        if (!uor->buf || !uor->len) {
+                return -1;
+        }
+        return 0;
+}
+
+/*
+
         memory offload engine:
                 buf -> pointer to the memory to transfer (memory is freed at the end)
                 len -> amount of data to transfer
 
 */
 
-int u_offload_memory_prepare(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor) {
+static int u_offload_memory_prepare(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor) {
 
         if (!uor->buf || !uor->len) {
                 return -1;
@@ -83,7 +99,7 @@ int u_offload_memory_prepare(struct wsgi_request *wsgi_req, struct uwsgi_offload
 
 */
 
-int u_offload_transfer_prepare(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor) {
+static int u_offload_transfer_prepare(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor) {
 
 	if (!uor->name) {
 		return -1;
@@ -344,6 +360,70 @@ static int u_offload_sendfile_do(struct uwsgi_thread *ut, struct uwsgi_offload_r
 }
 
 /*
+
+	pipe offloading
+	status:
+		0 -> waiting for data on fd
+		1 -> waiting for write to s
+*/
+
+static int u_offload_pipe_do(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor, int fd) {
+	
+	ssize_t rlen;
+
+	// setup
+	if (fd == -1) {
+		event_queue_add_fd_read(ut->queue, uor->fd);
+		return 0;
+	}
+
+	switch(uor->status) {
+		// read event from fd
+		case 0:
+			if (!uor->buf) {
+				uor->buf = uwsgi_malloc(4096);
+			}
+			rlen = read(uor->fd, uor->buf, 4096);
+			if (rlen > 0) {
+				uor->to_write = rlen;
+				uor->pos = 0;
+				uwsgi_offload_0r_1w(uor->fd, uor->s)
+				uor->status = 1;
+				return 0;
+			}
+			if (rlen < 0) {
+				uwsgi_offload_retry
+				uwsgi_error("u_offload_pipe_do() -> read()");
+			}
+			return -1;
+		// write event on s
+		case 1:
+			rlen = write(uor->s, uor->buf + uor->pos, uor->to_write);
+			if (rlen > 0) {
+				uor->to_write -= rlen;
+				uor->pos += rlen;
+				if (uor->to_write == 0) {
+					if (event_queue_del_fd(ut->queue, uor->s, event_queue_write())) return -1;
+					if (event_queue_add_fd_read(ut->queue, uor->fd)) return -1;
+					uor->status = 0;
+				}
+				return 0;
+			}
+			else if (rlen < 0) {
+				uwsgi_offload_retry
+				uwsgi_error("u_offload_pipe_do() -> write()");
+			}
+			return -1;
+		default:
+			break;
+	}
+
+	return -1;
+}
+
+
+
+/*
 the offload task starts soon after the call to connect()
 
 	status:
@@ -541,6 +621,7 @@ void uwsgi_offload_engines_register_all() {
 	uwsgi.offload_engine_sendfile = uwsgi_offload_register_engine("sendfile", u_offload_sendfile_prepare, u_offload_sendfile_do);
 	uwsgi.offload_engine_transfer = uwsgi_offload_register_engine("transfer", u_offload_transfer_prepare, u_offload_transfer_do);
 	uwsgi.offload_engine_memory = uwsgi_offload_register_engine("memory", u_offload_memory_prepare, u_offload_memory_do);
+	uwsgi.offload_engine_pipe = uwsgi_offload_register_engine("pipe", u_offload_pipe_prepare, u_offload_pipe_do);
 }
 
 int uwsgi_offload_request_sendfile_do(struct wsgi_request *wsgi_req, int fd, size_t len) {
@@ -563,6 +644,14 @@ int uwsgi_offload_request_memory_do(struct wsgi_request *wsgi_req, char *buf, si
         struct uwsgi_offload_request uor;
         uwsgi_offload_setup(uwsgi.offload_engine_memory, &uor, wsgi_req, 1);
         uor.buf = buf;
+        uor.len = len;
+        return uwsgi_offload_run(wsgi_req, &uor, NULL);
+}
+
+int uwsgi_offload_request_pipe_do(struct wsgi_request *wsgi_req, int fd, size_t len) {
+        struct uwsgi_offload_request uor;
+        uwsgi_offload_setup(uwsgi.offload_engine_pipe, &uor, wsgi_req, 1);
+        uor.fd = fd;
         uor.len = len;
         return uwsgi_offload_run(wsgi_req, &uor, NULL);
 }

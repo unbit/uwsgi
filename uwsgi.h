@@ -1950,6 +1950,7 @@ struct uwsgi_server {
 	struct uwsgi_offload_engine *offload_engine_sendfile;
 	struct uwsgi_offload_engine *offload_engine_transfer;
 	struct uwsgi_offload_engine *offload_engine_memory;
+	struct uwsgi_offload_engine *offload_engine_pipe;
 	int offload_threads;
 	int offload_threads_events;
 	struct uwsgi_thread **offload_thread;
@@ -3778,6 +3779,7 @@ struct uwsgi_thread *uwsgi_offload_thread_start(void);
 int uwsgi_offload_request_sendfile_do(struct wsgi_request *, int, size_t);
 int uwsgi_offload_request_net_do(struct wsgi_request *, char *, struct uwsgi_buffer *);
 int uwsgi_offload_request_memory_do(struct wsgi_request *, char *, size_t);
+int uwsgi_offload_request_pipe_do(struct wsgi_request *, int, size_t);
 
 int uwsgi_simple_sendfile(struct wsgi_request *, int, size_t, size_t);
 int uwsgi_simple_write(struct wsgi_request *, char *, size_t);
