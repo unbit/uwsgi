@@ -8,7 +8,7 @@ extern struct uwsgi_server uwsgi;
 
 	memcached internal router
 
-	route = /^foobar1(.*)/ memcached:addr=127.0.0.1:11211,key=foo$1poo,type=body
+	route = /^foobar1(.*)/ memcached:addr=127.0.0.1:11211,key=foo$1poo
 
 */
 
@@ -22,9 +22,7 @@ struct uwsgi_router_memcached_conf {
 	char *content_type;
 	size_t content_type_len;
 
-	// 0 -> full, 1 -> body
-	char *type;
-	int type_num;
+	char *no_offload;
 	
 };
 
@@ -130,26 +128,34 @@ read:
 		goto end;
 	}
 
-	if (urmc->type_num == 1) {
-		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) { close(fd); goto end; }
-		if (uwsgi_response_add_content_type(wsgi_req, urmc->content_type, urmc->content_type_len)) { close(fd); goto end; }
-		if (uwsgi_response_add_content_length(wsgi_req, response_size)) { close(fd); goto end; }
-	}
+	// from now on, every error will trigger a BREAK...
+
+	// send headers
+	if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto error;
+	if (uwsgi_response_add_content_type(wsgi_req, urmc->content_type, urmc->content_type_len)) goto error;
+	if (uwsgi_response_add_content_length(wsgi_req, response_size)) goto error;
+
+	// the first chunk could already contains part of the body
 	size_t remains = pos-(found+2);
 	if (remains >= response_size) {
 		uwsgi_response_write_body_do(wsgi_req, buf+found+2, response_size);
-		close(fd);
-		goto end;
+		goto done;	
 	}
 
 	// send what we have
-	if (uwsgi_response_write_body_do(wsgi_req, buf+found+2, remains)) {
-		close(fd);
-		goto end;
-	}
+	if (uwsgi_response_write_body_do(wsgi_req, buf+found+2, remains)) goto error;
 
 	// and now start reading til the output is consumed
 	response_size -= remains;
+
+	// try to offload via the pipe engine
+	if (wsgi_req->socket->can_offload && !ur->custom && !urmc->no_offload) {
+        	if (!uwsgi_offload_request_pipe_do(wsgi_req, fd, response_size)) {
+                	wsgi_req->via = UWSGI_VIA_OFFLOAD;
+                        return UWSGI_ROUTE_BREAK;
+                }
+        }
+
 	while(response_size > 0) {
 		ssize_t len = read(fd, buf, UMIN(MEMCACHED_BUFSIZE, response_size));
 		if (len > 0) goto write;
@@ -165,23 +171,22 @@ wait2:
 		}
 		goto error;
 write:
-		if (uwsgi_response_write_body_do(wsgi_req, buf, len)) {
-			goto error;
-        	}
+		if (uwsgi_response_write_body_do(wsgi_req, buf, len)) goto error;
 		response_size -= len;
 	}
 
+done:
 	close(fd);
+	if (ur->custom)
+                return UWSGI_ROUTE_NEXT;
 	return UWSGI_ROUTE_BREAK;
 
 error:
 	close(fd);
+	return UWSGI_ROUTE_BREAK;
 	
 end:
-	if (ur->custom)
-        	return UWSGI_ROUTE_NEXT;
-
-	return UWSGI_ROUTE_BREAK;
+	return UWSGI_ROUTE_NEXT;
 }
 
 static int uwsgi_router_memcached(struct uwsgi_route *ur, char *args) {
@@ -193,7 +198,8 @@ static int uwsgi_router_memcached(struct uwsgi_route *ur, char *args) {
                         "addr", &urmc->addr,
                         "key", &urmc->key,
                         "content_type", &urmc->content_type,
-                        "type", &urmc->type, NULL)) {
+                        "no_offload", &urmc->no_offload,
+                        NULL)) {
 			uwsgi_log("invalid route syntax: %s\n", args);
 		exit(1);
         }
@@ -205,14 +211,8 @@ static int uwsgi_router_memcached(struct uwsgi_route *ur, char *args) {
 
 	urmc->key_len = strlen(urmc->key);
 
-        if (!urmc->type) urmc->type = "full";
         if (!urmc->content_type) urmc->content_type = "text/html";
-
         urmc->content_type_len = strlen(urmc->content_type);
-
-        if (!strcmp(urmc->type, "body")) {
-        	urmc->type_num = 1;
-        }
 
         ur->data2 = urmc;
 	return 0;
