@@ -82,6 +82,8 @@ int uwsgi_apply_final_transformations(struct wsgi_request *wsgi_req) {
 				found_nostream = 1;
 			}
 			else {
+				// stop the chain if no chunk is available
+				if (!ut->chunk) return 0;
 				t_buf = ut->chunk->buf;
                 		t_len = ut->chunk->pos;
 				goto next;
