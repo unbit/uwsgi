@@ -3258,6 +3258,7 @@ int uwsgi_tmpfd() {
 	}
 	char *template = uwsgi_concat2(tmpdir, "/uwsgiXXXXXX");
 	int fd = mkstemp(template);
+	unlink(template);
 	free(template);
 	return fd;
 }
