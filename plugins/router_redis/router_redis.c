@@ -18,6 +18,7 @@ extern struct uwsgi_server uwsgi;
 struct uwsgi_router_redis_conf {
 
 	char *addr;
+	size_t addr_len;
 
 	char *key;
 	size_t key_len;
@@ -32,7 +33,7 @@ struct uwsgi_router_redis_conf {
 
 // this is allocated for each transformation
 struct uwsgi_transformation_redis_conf {
-	char *addr;
+	struct uwsgi_buffer *addr;
         struct uwsgi_buffer *key;
         char *expires;
 };
@@ -96,11 +97,12 @@ static int transform_redis(struct wsgi_request *wsgi_req, struct uwsgi_transform
 
         // store only successfull response
         if (wsgi_req->write_errors == 0 && wsgi_req->status == 200 && ub->pos > 0) {
-		redis_store(utrc->addr, utrc->key, ub, utrc->expires);
+		redis_store(utrc->addr->buf, utrc->key, ub, utrc->expires);
         }
 
         // free resources
         uwsgi_buffer_destroy(utrc->key);
+        uwsgi_buffer_destroy(utrc->addr);
         free(utrc);
         return 0;
 }
@@ -119,7 +121,9 @@ static int uwsgi_routing_func_redis_store(struct wsgi_request *wsgi_req, struct 
         utrc->key = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urrc->key, urrc->key_len);
         if (!utrc->key) goto error;
 
-        utrc->addr = urrc->addr;
+        utrc->addr = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urrc->addr, urrc->addr_len);
+        if (!utrc->addr) goto error;
+
         utrc->expires = urrc->expires;
 
         uwsgi_add_transformation(wsgi_req, transform_redis, utrc);
@@ -128,6 +132,7 @@ static int uwsgi_routing_func_redis_store(struct wsgi_request *wsgi_req, struct 
 
 error:
         if (utrc->key) uwsgi_buffer_destroy(utrc->key);
+        if (utrc->addr) uwsgi_buffer_destroy(utrc->addr);
         free(utrc);
         return UWSGI_ROUTE_NEXT;
 }
@@ -147,13 +152,24 @@ static int uwsgi_routing_func_redis(struct wsgi_request *wsgi_req, struct uwsgi_
 	struct uwsgi_buffer *ub_key = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urrc->key, urrc->key_len);
         if (!ub_key) return UWSGI_ROUTE_BREAK;
 
-	int fd = uwsgi_connect(urrc->addr, 0, 1);
-	if (fd < 0) { uwsgi_buffer_destroy(ub_key) ; goto end; }
+	struct uwsgi_buffer *ub_addr = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urrc->addr, urrc->addr_len);
+        if (!ub_addr) {
+		uwsgi_buffer_destroy(ub_key);
+		return UWSGI_ROUTE_BREAK;
+	}
+
+	int fd = uwsgi_connect(ub_addr->buf, 0, 1);
+	if (fd < 0) {
+		uwsgi_buffer_destroy(ub_key);
+		uwsgi_buffer_destroy(ub_addr);
+		goto end;
+	}
 
         // wait for connection;
         int ret = uwsgi.wait_write_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
         if (ret <= 0) {
 		uwsgi_buffer_destroy(ub_key) ;
+		uwsgi_buffer_destroy(ub_addr);
 		close(fd);
 		goto end;
         }
@@ -162,11 +178,13 @@ static int uwsgi_routing_func_redis(struct wsgi_request *wsgi_req, struct uwsgi_
 	char *cmd = uwsgi_concat3n("get ", 4, ub_key->buf, ub_key->pos, "\r\n", 2);
 	if (uwsgi_write_true_nb(fd, cmd, 6+ub_key->pos, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
 		uwsgi_buffer_destroy(ub_key);
+		uwsgi_buffer_destroy(ub_addr);
 		free(cmd);
 		close(fd);
 		goto end;
 	}
 	uwsgi_buffer_destroy(ub_key);
+	uwsgi_buffer_destroy(ub_addr);
 	free(cmd);
 
 	// ok, start reading the response...
@@ -296,6 +314,7 @@ static int uwsgi_router_redis(struct uwsgi_route *ur, char *args) {
 	}
 
 	urrc->key_len = strlen(urrc->key);
+	urrc->addr_len = strlen(urrc->addr);
 
         if (!urrc->content_type) urrc->content_type = "text/html";
         urrc->content_type_len = strlen(urrc->content_type);
@@ -329,6 +348,7 @@ static int uwsgi_router_redis_store(struct uwsgi_route *ur, char *args) {
                 }
 
 		urrc->key_len = strlen(urrc->key);
+		urrc->addr_len = strlen(urrc->addr);
 
                 if (!urrc->expires) urrc->expires = "0";
 

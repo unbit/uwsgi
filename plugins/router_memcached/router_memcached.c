@@ -18,6 +18,7 @@ extern struct uwsgi_server uwsgi;
 struct uwsgi_router_memcached_conf {
 
 	char *addr;
+	size_t addr_len;
 
 	char *key;
 	size_t key_len;
@@ -32,7 +33,7 @@ struct uwsgi_router_memcached_conf {
 
 // this is allocated for each transformation
 struct uwsgi_transformation_memcached_conf {
-	char *addr;
+	struct uwsgi_buffer *addr;
         struct uwsgi_buffer *key;
         char *expires;
 };
@@ -97,11 +98,12 @@ static int transform_memcached(struct wsgi_request *wsgi_req, struct uwsgi_trans
 
         // store only successfull response
         if (wsgi_req->write_errors == 0 && wsgi_req->status == 200 && ub->pos > 0) {
-		memcached_store(utmc->addr, utmc->key, ub, utmc->expires);
+		memcached_store(utmc->addr->buf, utmc->key, ub, utmc->expires);
         }
 
         // free resources
         uwsgi_buffer_destroy(utmc->key);
+        uwsgi_buffer_destroy(utmc->addr);
         free(utmc);
         return 0;
 }
@@ -120,7 +122,9 @@ static int uwsgi_routing_func_memcached_store(struct wsgi_request *wsgi_req, str
         utmc->key = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urmc->key, urmc->key_len);
         if (!utmc->key) goto error;
 
-        utmc->addr = urmc->addr;
+        utmc->addr = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urmc->addr, urmc->addr_len);
+        if (!utmc->addr) goto error;
+
         utmc->expires = urmc->expires;
 
         uwsgi_add_transformation(wsgi_req, transform_memcached, utmc);
@@ -129,6 +133,7 @@ static int uwsgi_routing_func_memcached_store(struct wsgi_request *wsgi_req, str
 
 error:
         if (utmc->key) uwsgi_buffer_destroy(utmc->key);
+        if (utmc->addr) uwsgi_buffer_destroy(utmc->addr);
         free(utmc);
         return UWSGI_ROUTE_NEXT;
 }
@@ -148,13 +153,24 @@ static int uwsgi_routing_func_memcached(struct wsgi_request *wsgi_req, struct uw
 	struct uwsgi_buffer *ub_key = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urmc->key, urmc->key_len);
         if (!ub_key) return UWSGI_ROUTE_BREAK;
 
-	int fd = uwsgi_connect(urmc->addr, 0, 1);
-	if (fd < 0) { uwsgi_buffer_destroy(ub_key) ; goto end; }
+	struct uwsgi_buffer *ub_addr = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urmc->addr, urmc->addr_len);
+        if (!ub_addr) {
+		uwsgi_buffer_destroy(ub_key);
+		return UWSGI_ROUTE_BREAK;
+	}
+
+	int fd = uwsgi_connect(ub_addr->buf, 0, 1);
+	if (fd < 0) {
+		uwsgi_buffer_destroy(ub_key);
+		uwsgi_buffer_destroy(ub_addr);
+		goto end;
+	}
 
         // wait for connection;
         int ret = uwsgi.wait_write_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
         if (ret <= 0) {
 		uwsgi_buffer_destroy(ub_key) ;
+		uwsgi_buffer_destroy(ub_addr);
 		close(fd);
 		goto end;
         }
@@ -163,11 +179,13 @@ static int uwsgi_routing_func_memcached(struct wsgi_request *wsgi_req, struct uw
 	char *cmd = uwsgi_concat3n("get ", 4, ub_key->buf, ub_key->pos, "\r\n", 2);
 	if (uwsgi_write_true_nb(fd, cmd, 6+ub_key->pos, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
 		uwsgi_buffer_destroy(ub_key);
+		uwsgi_buffer_destroy(ub_addr);
 		free(cmd);
 		close(fd);
 		goto end;
 	}
 	uwsgi_buffer_destroy(ub_key);
+	uwsgi_buffer_destroy(ub_addr);
 	free(cmd);
 
 	// ok, start reading the response...
@@ -298,6 +316,7 @@ static int uwsgi_router_memcached(struct uwsgi_route *ur, char *args) {
 	}
 
 	urmc->key_len = strlen(urmc->key);
+	urmc->addr_len = strlen(urmc->addr);
 
         if (!urmc->content_type) urmc->content_type = "text/html";
         urmc->content_type_len = strlen(urmc->content_type);
@@ -331,6 +350,7 @@ static int uwsgi_router_memcached_store(struct uwsgi_route *ur, char *args) {
                 }
 
 		urmc->key_len = strlen(urmc->key);
+		urmc->addr_len = strlen(urmc->addr);
 
                 if (!urmc->expires) urmc->expires = "0";
 
