@@ -339,8 +339,6 @@ def uwsgi_pypy_wsgi_handler(wsgi_req):
     for i in range(0, wsgi_req.var_cnt, 2):
         environ[ffi.buffer(iov[i].iov_base, iov[i].iov_len)[:]] = ffi.buffer(iov[i+1].iov_base, iov[i+1].iov_len)[:]
 
-    print environ
-
     environ['wsgi.version'] = (1, 0)
     scheme = 'http'
     if 'HTTPS' in environ:
@@ -590,7 +588,6 @@ def uwsgi_pypy_workers():
         worker['tx'] = lib.uwsgi.workers[i].tx
             
         workers.append(worker)
-    print workers
     return workers
     
 uwsgi.workers = uwsgi_pypy_workers
