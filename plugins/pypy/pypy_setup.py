@@ -64,11 +64,19 @@ struct iovec {
 	...;
 };
 
+struct uwsgi_header {
+	uint8_t modifier1;
+	...;
+};
+
 struct wsgi_request {
 	int async_id;
 	uint16_t var_cnt;
 	struct iovec *hvec;
 
+	int suspended;
+
+	struct uwsgi_header *uh;
 	...;
 };
 
@@ -98,6 +106,9 @@ struct uwsgi_worker {
 
 struct uwsgi_plugin {
 	uint8_t modifier1;
+
+	void (*suspend) (struct wsgi_request *);
+        void (*resume) (struct wsgi_request *);
 	...;
 };
 
@@ -114,6 +125,16 @@ struct uwsgi_server {
 
 	int signal_socket;
 	int numproc;
+	int async;
+
+	void (*schedule_to_main) (struct wsgi_request *);
+        void (*schedule_to_req) (void);
+
+	struct wsgi_request *(*current_wsgi_req) (void);
+	
+	struct wsgi_request *wsgi_req;
+
+	struct uwsgi_plugin *p[];
 	...;
 };
 struct uwsgi_server uwsgi;
@@ -159,6 +180,8 @@ int uwsgi_signal_registered(uint8_t);
 
 int uwsgi_signal_add_cron(uint8_t, int, int, int, int, int);
 void uwsgi_alarm_trigger(char *, char *, size_t);
+
+void async_schedule_to_req_green(void);
 
 %s
 
@@ -559,6 +582,17 @@ for i in range(0, lib.uwsgi.exported_opts_cnt):
         uwsgi.opt[k] = v
 
 """
+uwsgi.suspend()
+"""
+def uwsgi_pypy_suspend():
+    wsgi_req = lib.uwsgi.current_wsgi_req();
+    if wsgi_req == ffi.NULL:
+        raise Exception("unable to get current wsgi_request, check your setup !!!")
+    if lib.uwsgi.schedule_to_main:
+        lib.uwsgi.schedule_to_main(wsgi_req);
+uwsgi.suspend = uwsgi_pypy_suspend
+
+"""
 uwsgi.workers()
 """
 def uwsgi_pypy_workers():
@@ -594,3 +628,61 @@ uwsgi.workers = uwsgi_pypy_workers
 
 print "Initialized PyPy with Python", sys.version
 print "PyPy Home:", sys.prefix
+
+
+"""
+Continulets support
+"""
+
+# this is the dictionary of continulets (one per-core)
+uwsgi_pypy_continulets = {}
+
+
+def uwsgi_pypy_continulet_wrapper(cont):
+    lib.async_schedule_to_req_green()
+
+@ffi.callback("void()")
+def uwsgi_pypy_continulet_schedule():
+    id = lib.uwsgi.wsgi_req.async_id
+    modifier1 = lib.uwsgi.wsgi_req.uh.modifier1;
+
+    # generate a new continulet
+    if not lib.uwsgi.wsgi_req.suspended:
+        from _continuation import continulet
+        uwsgi_pypy_continulets[id] = continulet(uwsgi_pypy_continulet_wrapper)
+        lib.uwsgi.wsgi_req.suspended = 1
+
+    # this is called in the main stack
+    if lib.uwsgi.p[modifier1].suspend:
+        lib.uwsgi.p[modifier1].suspend(ffi.NULL)    
+
+    # let's switch
+    uwsgi_pypy_continulets[id].switch()
+
+    # back to the main stack
+    if lib.uwsgi.p[modifier1].resume:
+        lib.uwsgi.p[modifier1].resume(ffi.NULL) 
+
+@ffi.callback("void(struct wsgi_request *)")
+def uwsgi_pypy_continulet_switch(wsgi_req):
+    id = wsgi_req.async_id
+    modifier1 = wsgi_req.uh.modifier1;
+
+    # this is called in the current continulet
+    if lib.uwsgi.p[modifier1].suspend:
+        lib.uwsgi.p[modifier1].suspend(wsgi_req)    
+
+    uwsgi_pypy_continulets[id].switch()
+
+    # back to the continulet
+    if lib.uwsgi.p[modifier1].resume:
+        lib.uwsgi.p[modifier1].resume(wsgi_req) 
+
+    # update current running continulet
+    lib.uwsgi.wsgi_req = wsgi_req
+    
+def uwsgi_pypy_setup_continulets():
+    if lib.uwsgi.async <= 1:
+        raise Exception("pypy continulets require async mode !!!")
+    lib.uwsgi.schedule_to_main = uwsgi_pypy_continulet_switch
+    lib.uwsgi.schedule_to_req = uwsgi_pypy_continulet_schedule
