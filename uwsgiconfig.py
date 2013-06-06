@@ -267,6 +267,18 @@ def build_uwsgi(uc, print_only=False):
     ulc.write(uwsgi_cflags)
     ulc.close()
 
+
+    # embed uwsgi.h in the server binary. It increases the binary size, but will be very useful
+    # various tricks (like cffi integration)
+    try:
+        uwsgi_dot_h = open('uwsgi.h').read().encode('hex')
+    except:
+        import binascii
+        uwsgi_dot_h = binascii.b2a_hex(open('uwsgi.h').read().encode()).decode('ascii')
+    open('core/dot_h.c', 'w').write('char *uwsgi_dot_h = "%s";' % uwsgi_dot_h);
+    gcc_list.append('core/dot_h') 
+    
+
     cflags.append('-DUWSGI_CFLAGS=\\"%s\\"' % uwsgi_cflags)
     cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
 

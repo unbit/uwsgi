@@ -694,6 +694,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"show-config", no_argument, 0, "show the current config reformatted as ini", uwsgi_opt_true, &uwsgi.show_config, 0},
 	{"print", required_argument, 0, "simple print", uwsgi_opt_print, NULL, 0},
 	{"cflags", no_argument, 0, "report uWSGI CFLAGS (useful for building external plugins)", uwsgi_opt_cflags, NULL, UWSGI_OPT_IMMEDIATE},
+	{"dot-h", no_argument, 0, "dump the uwsgi.h used for building the core  (useful for building external plugins)", uwsgi_opt_dot_h, NULL, UWSGI_OPT_IMMEDIATE},
 	{"version", no_argument, 0, "print uWSGI version", uwsgi_opt_print, UWSGI_VERSION, 0},
 	{0, 0, 0, 0, 0, 0, 0}
 };
@@ -4072,6 +4073,25 @@ void uwsgi_opt_cflags(char *opt, char *filename, void *foobar) {
 	exit(0);
 }
 
+// report uwsgi.h used for compiling the server
+// use that values to build external plugins
+extern char *uwsgi_dot_h;
+void uwsgi_opt_dot_h(char *opt, char *filename, void *foobar) {
+        size_t len = strlen(uwsgi_dot_h);
+        char *src = uwsgi_dot_h;
+        char *ptr = uwsgi_malloc(len / 2);
+        char *base = ptr;
+        size_t i;
+        unsigned int u;
+        for (i = 0; i < len; i += 2) {
+                sscanf(src + i, "%2x", &u);
+                *ptr++ = (char) u;
+        }
+        fprintf(stdout, "%.*s\n", (int) len / 2, base);
+        exit(0);
+}
+
+
 void uwsgi_opt_connect_and_read(char *opt, char *address, void *foobar) {
 
 	char buf[8192];
@@ -4108,9 +4128,9 @@ void uwsgi_opt_extract(char *opt, char *address, void *foobar) {
 }
 
 void uwsgi_print_sym(char *opt, char *symbol, void *foobar) {
-	char *sym = dlsym(RTLD_DEFAULT, symbol);
+	char **sym = dlsym(RTLD_DEFAULT, symbol);
 	if (sym) {
-		uwsgi_log("%s", sym);
+		uwsgi_log("%s", *sym);
 		exit(0);
 	}
 	

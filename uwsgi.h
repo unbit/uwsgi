@@ -3496,6 +3496,7 @@ char *uwsgi_substitute(char *, char *, char *);
 
 void uwsgi_opt_add_custom_option(char *, char *, void *);
 void uwsgi_opt_cflags(char *, char *, void *);
+void uwsgi_opt_dot_h(char *, char *, void *);
 void uwsgi_opt_connect_and_read(char *, char *, void *);
 void uwsgi_opt_extract(char *, char *, void *);
 
