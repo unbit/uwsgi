@@ -155,6 +155,11 @@ int uwsgi_signal_add_rb_timer(uint8_t, int, int);
 int uwsgi_user_lock(int);
 int uwsgi_user_unlock(int);
 
+int uwsgi_signal_registered(uint8_t);
+
+int uwsgi_signal_add_cron(uint8_t, int, int, int, int, int);
+void uwsgi_alarm_trigger(char *, char *, size_t);
+
 %s
 
 ''' % ('\n'.join(uwsgi_cdef), hooks)
