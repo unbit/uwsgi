@@ -182,6 +182,7 @@ int uwsgi_signal_add_cron(uint8_t, int, int, int, int, int);
 void uwsgi_alarm_trigger(char *, char *, size_t);
 
 void async_schedule_to_req_green(void);
+void async_add_timeout(struct wsgi_request *, int);
 
 %s
 
@@ -581,13 +582,17 @@ for i in range(0, lib.uwsgi.exported_opts_cnt):
     else:
         uwsgi.opt[k] = v
 
+def uwsgi_pypy_current_wsgi_req():
+    wsgi_req = lib.uwsgi.current_wsgi_req()
+    if wsgi_req == ffi.NULL:
+        raise Exception("unable to get current wsgi_request, check your setup !!!")
+    return wsgi_req
+
 """
 uwsgi.suspend()
 """
 def uwsgi_pypy_suspend():
-    wsgi_req = lib.uwsgi.current_wsgi_req();
-    if wsgi_req == ffi.NULL:
-        raise Exception("unable to get current wsgi_request, check your setup !!!")
+    wsgi_req = uwsgi_pypy_current_wsgi_req()
     if lib.uwsgi.schedule_to_main:
         lib.uwsgi.schedule_to_main(wsgi_req);
 uwsgi.suspend = uwsgi_pypy_suspend
@@ -625,6 +630,15 @@ def uwsgi_pypy_workers():
     return workers
     
 uwsgi.workers = uwsgi_pypy_workers
+
+"""
+uwsgi.async_sleep(timeout)
+"""
+def uwsgi_pypy_async_sleep(timeout):
+    if timeout > 0:
+        wsgi_req = uwsgi_pypy_current_wsgi_req();
+        lib.async_add_timeout(wsgi_req, timeout);
+uwsgi.async_sleep = uwsgi_pypy_async_sleep
 
 print "Initialized PyPy with Python", sys.version
 print "PyPy Home:", sys.prefix
