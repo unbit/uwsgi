@@ -66,8 +66,6 @@ struct uwsgi_buffer *uwsgi_zlib_decompress(char *buf, size_t len) {
 			ub = NULL;
 			goto end;			
 		}
-		uwsgi_log("%d\n", 8192 - z.avail_out);
-		uwsgi_log("%.*s\n", 8192 - z.avail_out, out);
 		if (uwsgi_buffer_append(ub, (char *)out, 8192 - z.avail_out)) {
 			uwsgi_buffer_destroy(ub);
 			ub = NULL;
@@ -75,7 +73,6 @@ struct uwsgi_buffer *uwsgi_zlib_decompress(char *buf, size_t len) {
 		}
 	}
 	while (z.avail_out == 0);
-	uwsgi_log("decompressed\n");
 end:
         inflateEnd(&z);
         return ub;
