@@ -337,7 +337,7 @@ def uwsgi_pypy_wsgi_handler(wsgi_req):
     environ = {}
     iov = wsgi_req.hvec
     for i in range(0, wsgi_req.var_cnt, 2):
-        environ[ffi.buffer(iov[i].iov_base, iov[i].iov_len)[:]] = ffi.buffer(iov[i+1].iov_base, iov[i+1].iov_len)[:]
+        environ[ffi.string(ffi.cast("char*", iov[i].iov_base), iov[i].iov_len)] = ffi.string(ffi.cast("char*", iov[i+1].iov_base), iov[i+1].iov_len)
 
     environ['wsgi.version'] = (1, 0)
     scheme = 'http'
