@@ -218,11 +218,6 @@ extern "C" {
 #include <sys/prctl.h>
 #include <linux/limits.h>
 #include <sys/mount.h>
-#ifdef UWSGI_PTRACE
-#include <sys/ptrace.h>
-#include <sys/user.h>
-#include <sys/reg.h>
-#endif
 extern int pivot_root(const char *new_root, const char *put_old);
 #endif
 
