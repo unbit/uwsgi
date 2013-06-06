@@ -152,6 +152,9 @@ int uwsgi_add_file_monitor(uint8_t, char *);
 int uwsgi_add_timer(uint8_t, int);
 int uwsgi_signal_add_rb_timer(uint8_t, int, int);
 
+int uwsgi_user_lock(int);
+int uwsgi_user_unlock(int);
+
 %s
 
 ''' % ('\n'.join(uwsgi_cdef), hooks)
