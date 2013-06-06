@@ -220,7 +220,7 @@ def uwsgi_pypy_file_loader(filename):
     wsgi_application = getattr(mod, c)
 
 """
-.post_fork_hokk
+.post_fork_hook
 """
 @ffi.callback("void()")
 def uwsgi_pypy_post_fork_hook():
