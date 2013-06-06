@@ -3500,6 +3500,9 @@ void uwsgi_opt_dot_h(char *, char *, void *);
 void uwsgi_opt_connect_and_read(char *, char *, void *);
 void uwsgi_opt_extract(char *, char *, void *);
 
+char *uwsgi_get_dot_h();
+char *uwsgi_get_cflags();
+
 struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *, char *, size_t);
 
 void trigger_harakiri(int);

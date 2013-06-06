@@ -4059,18 +4059,23 @@ void uwsgi_opt_flock_wait(char *opt, char *filename, void *none) {
 // report CFLAGS used for compiling the server
 // use that values to build external plugins
 void uwsgi_opt_cflags(char *opt, char *filename, void *foobar) {
-	size_t len = sizeof(UWSGI_CFLAGS);
-	char *src = UWSGI_CFLAGS;
-	char *ptr = uwsgi_malloc(len / 2);
-	char *base = ptr;
-	size_t i;
-	unsigned int u;
-	for (i = 0; i < len; i += 2) {
-		sscanf(src + i, "%2x", &u);
-		*ptr++ = (char) u;
-	}
-	fprintf(stdout, "%.*s\n", (int) len / 2, base);
+	fprintf(stdout, "%s", uwsgi_get_cflags());
 	exit(0);
+}
+
+char *uwsgi_get_cflags() {
+	size_t len = sizeof(UWSGI_CFLAGS);
+        char *src = UWSGI_CFLAGS;
+        char *ptr = uwsgi_malloc((len / 2) + 1);
+        char *base = ptr;
+        size_t i;
+        unsigned int u;
+        for (i = 0; i < len; i += 2) {
+                sscanf(src + i, "%2x", &u);
+                *ptr++ = (char) u;
+        }
+	*ptr ++= 0;
+	return base;
 }
 
 // report uwsgi.h used for compiling the server

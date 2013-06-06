@@ -284,7 +284,7 @@ def build_uwsgi(uc, print_only=False):
         uwsgi_dot_h = binascii.b2a_hex(uwsgi_dot_h_content).decode('ascii')
     else:
         uwsgi_dot_h = uwsgi_dot_h_content.encode('hex')
-    open('core/dot_h.c', 'w').write('char *uwsgi_dot_h = "%s";' % uwsgi_dot_h);
+    open('core/dot_h.c', 'w').write('char *uwsgi_dot_h = "%s";\n' % uwsgi_dot_h);
     gcc_list.append('core/dot_h') 
     
 
