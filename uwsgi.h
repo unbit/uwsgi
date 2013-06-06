@@ -4006,9 +4006,11 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *);
 #ifdef UWSGI_ZLIB
 #include <zlib.h>
 int uwsgi_deflate_init(z_stream *, char *, size_t);
+int uwsgi_inflate_init(z_stream *, char *, size_t);
 char *uwsgi_deflate(z_stream *, char *, size_t, size_t *);
 void uwsgi_crc32(uint32_t *, char *, size_t);
 struct uwsgi_buffer *uwsgi_gzip(char *, size_t);
+struct uwsgi_buffer *uwsgi_zlib_decompress(char *, size_t);
 int uwsgi_gzip_fix(z_stream *, uint32_t, struct uwsgi_buffer *, size_t);
 char *uwsgi_gzip_chunk(z_stream *, uint32_t *, char *, size_t, size_t *);
 int uwsgi_gzip_prepare(z_stream *, char *, size_t, uint32_t *);

@@ -4076,9 +4076,9 @@ void uwsgi_opt_cflags(char *opt, char *filename, void *foobar) {
 // report uwsgi.h used for compiling the server
 // use that values to build external plugins
 extern char *uwsgi_dot_h;
-void uwsgi_opt_dot_h(char *opt, char *filename, void *foobar) {
-        size_t len = strlen(uwsgi_dot_h);
-        char *src = uwsgi_dot_h;
+char *uwsgi_get_dot_h() {
+	char *src = uwsgi_dot_h;
+	size_t len = strlen(src);
         char *ptr = uwsgi_malloc(len / 2);
         char *base = ptr;
         size_t i;
@@ -4087,7 +4087,24 @@ void uwsgi_opt_dot_h(char *opt, char *filename, void *foobar) {
                 sscanf(src + i, "%2x", &u);
                 *ptr++ = (char) u;
         }
-        fprintf(stdout, "%.*s\n", (int) len / 2, base);
+#ifdef UWSGI_ZLIB
+	struct uwsgi_buffer *ub = uwsgi_zlib_decompress(base, ptr-base);
+	if (!ub) {
+		free(base);
+		return "";
+	}
+	// add final null byte
+	uwsgi_buffer_append(ub, "\0", 1);
+	free(base);
+	// base is the final blob
+	base = ub->buf;
+	ub->buf = NULL;
+	uwsgi_buffer_destroy(ub);
+#endif
+	return base;
+}
+void uwsgi_opt_dot_h(char *opt, char *filename, void *foobar) {
+        fprintf(stdout, "%s\n", uwsgi_get_dot_h());
         exit(0);
 }
 

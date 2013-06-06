@@ -245,11 +245,11 @@ def build_uwsgi(uc, print_only=False):
     print("detected CPU cores: %d" % CPUCOUNT)
     print("configured CFLAGS: %s" % ' '.join(cflags))
 
-    try:
-        uwsgi_cflags = ' '.join(cflags).encode('hex')
-    except:
+    if sys.version_info[0] >= 3:
         import binascii
         uwsgi_cflags = binascii.b2a_hex(' '.join(cflags).encode('ascii')).decode('ascii')
+    else:
+        uwsgi_cflags = ' '.join(cflags).encode('hex')
 
     last_cflags_ts = 0
     
@@ -269,12 +269,21 @@ def build_uwsgi(uc, print_only=False):
 
 
     # embed uwsgi.h in the server binary. It increases the binary size, but will be very useful
-    # various tricks (like cffi integration)
-    try:
-        uwsgi_dot_h = open('uwsgi.h').read().encode('hex')
-    except:
+    # for various tricks (like cffi integration)
+    # if possibile, the blob is compressed
+    if sys.version_info[0] >= 3:
+        uwsgi_dot_h_content = open('uwsgi.h').read().encode()
+    else:
+        uwsgi_dot_h_content = open('uwsgi.h').read()
+    if report['zlib']:
+        import zlib
+        # maximum level of compression
+        uwsgi_dot_h_content = zlib.compress(uwsgi_dot_h_content, 9)
+    if sys.version_info[0] >= 3:
         import binascii
-        uwsgi_dot_h = binascii.b2a_hex(open('uwsgi.h').read().encode()).decode('ascii')
+        uwsgi_dot_h = binascii.b2a_hex(uwsgi_dot_h_content).decode('ascii')
+    else:
+        uwsgi_dot_h = uwsgi_dot_h_content.encode('hex')
     open('core/dot_h.c', 'w').write('char *uwsgi_dot_h = "%s";' % uwsgi_dot_h);
     gcc_list.append('core/dot_h') 
     

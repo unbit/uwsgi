@@ -2,6 +2,8 @@
 
 char gzheader[10] = { 0x1f, 0x8b, Z_DEFLATED, 0, 0, 0, 0, 0, 0, 3 };
 
+extern struct uwsgi_server uwsgi;
+
 char *uwsgi_gzip_chunk(z_stream *z, uint32_t *crc32, char *buf, size_t len, size_t *dlen) {
 	uwsgi_crc32(crc32, buf, len);
 	return uwsgi_deflate(z, buf, len, dlen);
@@ -38,6 +40,48 @@ end:
 	return ub;
 }
 
+struct uwsgi_buffer *uwsgi_zlib_decompress(char *buf, size_t len) {
+        z_stream z;
+
+	z.zalloc = Z_NULL;
+        z.zfree = Z_NULL;
+        z.opaque = Z_NULL;
+        if (inflateInit(&z) != Z_OK) {
+		return NULL;
+        }
+
+        struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	unsigned char out[8192];
+
+	z.next_in = (unsigned char *)buf;
+	z.avail_in = len;
+	z.next_out = out;
+
+	do {
+		z.avail_out = 8192;
+		z.next_out = out;
+		int ret = inflate(&z, Z_NO_FLUSH);
+		if (ret == Z_STREAM_ERROR || ret == Z_NEED_DICT || ret == Z_DATA_ERROR || ret == Z_MEM_ERROR) {
+			uwsgi_buffer_destroy(ub);
+			ub = NULL;
+			goto end;			
+		}
+		uwsgi_log("%d\n", 8192 - z.avail_out);
+		uwsgi_log("%.*s\n", 8192 - z.avail_out, out);
+		if (uwsgi_buffer_append(ub, (char *)out, 8192 - z.avail_out)) {
+			uwsgi_buffer_destroy(ub);
+			ub = NULL;
+			goto end;			
+		}
+	}
+	while (z.avail_out == 0);
+	uwsgi_log("decompressed\n");
+end:
+        inflateEnd(&z);
+        return ub;
+}
+
+
 int uwsgi_deflate_init(z_stream *z, char *dict, size_t dict_len) {
         z->zalloc = Z_NULL;
         z->zfree = Z_NULL;
@@ -52,6 +96,21 @@ int uwsgi_deflate_init(z_stream *z, char *dict, size_t dict_len) {
                 }
 	}
 	return 0;
+}
+
+int uwsgi_inflate_init(z_stream *z, char *dict, size_t dict_len) {
+        z->zalloc = Z_NULL;
+        z->zfree = Z_NULL;
+        z->opaque = Z_NULL;
+        if (inflateInit2(z, 16+MAX_WBITS) != Z_OK) {
+                return -1;
+        }
+        if (dict && dict_len) {
+                if (inflateSetDictionary(z, (Bytef *) dict, dict_len) != Z_OK) {
+                        return -1;
+                }
+        }
+        return 0;
 }
 
 int uwsgi_gzip_prepare(z_stream *z, char *dict, size_t dict_len, uint32_t *crc32) {
