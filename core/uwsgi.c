@@ -4059,7 +4059,7 @@ void uwsgi_opt_flock_wait(char *opt, char *filename, void *none) {
 // report CFLAGS used for compiling the server
 // use that values to build external plugins
 void uwsgi_opt_cflags(char *opt, char *filename, void *foobar) {
-	fprintf(stdout, "%s", uwsgi_get_cflags());
+	fprintf(stdout, "%s\n", uwsgi_get_cflags());
 	exit(0);
 }
 
