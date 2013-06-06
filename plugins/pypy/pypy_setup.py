@@ -20,6 +20,9 @@ ffi = cffi.FFI()
 # the hooks we need to patch
 hooks = '''
 void free(void *);
+ssize_t read(int, void *, size_t);
+ssize_t write(int, const void *, size_t);
+int close(int);
 
 void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_file_loader)(char *);
@@ -183,6 +186,9 @@ void uwsgi_alarm_trigger(char *, char *, size_t);
 
 void async_schedule_to_req_green(void);
 void async_add_timeout(struct wsgi_request *, int);
+int async_add_fd_write(struct wsgi_request *, int, int);
+int async_add_fd_read(struct wsgi_request *, int, int);
+int uwsgi_connect(char *, int, int);
 
 %s
 
@@ -640,8 +646,80 @@ def uwsgi_pypy_async_sleep(timeout):
         lib.async_add_timeout(wsgi_req, timeout);
 uwsgi.async_sleep = uwsgi_pypy_async_sleep
 
+"""
+uwsgi.async_connect(addr)
+"""
+def uwsgi_pypy_async_connect(addr):
+    fd = lib.uwsgi_connect(ffi.new('char[]', addr), 0, 1)
+    if fd < 0:
+        raise Exception("unable to connect to %s" % addr)
+    return fd
+uwsgi.async_connect = uwsgi_pypy_async_connect
+
+"""
+uwsgi.wait_fd_read(fd, timeout=0)
+"""
+def uwsgi_pypy_wait_fd_read(fd, timeout):
+    wsgi_req = uwsgi_pypy_current_wsgi_req();
+    if lib.async_add_fd_read(wsgi_req, fd, timeout) < 0:
+        raise Exception("unable to add fd %d to the event queue" % fd)
+uwsgi.wait_fd_read = uwsgi_pypy_wait_fd_read
+
+"""
+uwsgi.wait_fd_write(fd, timeout=0)
+"""
+def uwsgi_pypy_wait_fd_write(fd, timeout):
+    wsgi_req = uwsgi_pypy_current_wsgi_req();
+    if lib.async_add_fd_write(wsgi_req, fd, timeout) < 0:
+        raise Exception("unable to add fd %d to the event queue" % fd)
+uwsgi.wait_fd_write = uwsgi_pypy_wait_fd_write
+
 print "Initialized PyPy with Python", sys.version
 print "PyPy Home:", sys.prefix
+
+"""
+uwsgi.send(fd=None,data)
+"""
+def uwsgi_pypy_send(*args):
+    if len(args) == 0:
+        raise ValueError("uwsgi.send() takes at least 1 argument")
+    elif len(args) == 1:
+        wsgi_req = uwsgi_pypy_current_wsgi_req();
+        fd = wsgi_req.fd
+        data = args[0]
+    else:
+        fd = args[0]
+        data = args[1]
+    rlen = libc.write(fd, data, len(data))
+    if rlen <= 0:
+        raise IOError("unable to send data")
+    return rlen
+uwsgi.send = uwsgi_pypy_send
+
+"""
+uwsgi.recv(fd=None,len)
+"""
+def uwsgi_pypy_recv(*args):
+    if len(args) == 0:
+        raise ValueError("uwsgi.recv() takes at least 1 argument")
+    elif len(args) == 1:
+        wsgi_req = uwsgi_pypy_current_wsgi_req();
+        fd = wsgi_req.fd
+        l = args[0]
+    else:
+        fd = args[0]
+        l = args[1]
+    data = ffi.new('char[%d]' % l)
+    rlen = libc.read(fd, data, l)
+    if rlen <= 0:
+        raise IOError("unable to receive data")
+    return ffi.string(data[0:rlen])
+uwsgi.recv = uwsgi_pypy_recv
+    
+"""
+uwsgi.close(fd)
+"""
+uwsgi.close = lambda fd: lib.close(fd)
 
 
 """
