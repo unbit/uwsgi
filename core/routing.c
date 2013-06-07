@@ -889,6 +889,30 @@ static int uwsgi_router_setscriptname(struct uwsgi_route *ur, char *arg) {
         return 0;
 }
 
+// setmethod route
+static int uwsgi_router_setmethod_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
+        char *ptr = uwsgi_req_append(wsgi_req, "REQUEST_METHOD", 14, ub->buf, ub->pos);
+        if (!ptr) {
+                uwsgi_buffer_destroy(ub);
+                return UWSGI_ROUTE_BREAK;
+        }
+        wsgi_req->method = ptr;
+        wsgi_req->method_len = ub->pos;
+        uwsgi_buffer_destroy(ub);
+        return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_setmethod(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_setmethod_func;
+        ur->data = arg;
+        ur->data_len = strlen(arg);
+        return 0;
+}
+
 
 // setuser route
 static int uwsgi_router_setuser_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
@@ -1514,6 +1538,7 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("sethome", uwsgi_router_sethome);
         uwsgi_register_router("setfile", uwsgi_router_setfile);
         uwsgi_register_router("setscriptname", uwsgi_router_setscriptname);
+        uwsgi_register_router("setmethod", uwsgi_router_setmethod);
         uwsgi_register_router("setprocname", uwsgi_router_setprocname);
         uwsgi_register_router("alarm", uwsgi_router_alarm);
 
