@@ -564,7 +564,7 @@ static int uwsgi_router_harakiri_func(struct wsgi_request *wsgi_req, struct uwsg
 	if (route->custom > 0) {	
 		set_user_harakiri(route->custom);
 	}
-	return UWSGI_ROUTE_CONTINUE;
+	return UWSGI_ROUTE_NEXT;
 }
 
 static int uwsgi_router_harakiri(struct uwsgi_route *ur, char *arg) {
