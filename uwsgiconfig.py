@@ -25,7 +25,6 @@ try:
     import ConfigParser
 except:
     import configparser as ConfigParser
-    from imp import reload
 
 GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
 if not GCC:
