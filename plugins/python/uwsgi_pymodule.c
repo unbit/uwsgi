@@ -1063,6 +1063,42 @@ PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args) {
         return Py_None;
 }
 
+PyObject *py_uwsgi_chunked_read(PyObject * self, PyObject * args) {
+	int timeout = 0; 
+	if (!PyArg_ParseTuple(args, "|i:chunked_read", &timeout)) {
+                return NULL;
+        }
+	size_t len = 0;
+        struct wsgi_request *wsgi_req = py_current_wsgi_req();
+        UWSGI_RELEASE_GIL
+        char *chunk = uwsgi_chunked_read(wsgi_req, &len, timeout, 0);
+        UWSGI_GET_GIL
+        if (!chunk) {
+                return PyErr_Format(PyExc_IOError, "unable to receive chunked part");
+        }
+
+        return PyString_FromStringAndSize(chunk, len);
+}
+
+PyObject *py_uwsgi_chunked_read_nb(PyObject * self, PyObject * args) {
+        size_t len = 0;
+        struct wsgi_request *wsgi_req = py_current_wsgi_req();
+        UWSGI_RELEASE_GIL
+        char *chunk = uwsgi_chunked_read(wsgi_req, &len, 0, 1);
+        UWSGI_GET_GIL
+        if (!chunk) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+			Py_INCREF(Py_None);
+			return Py_None;
+		}
+                return PyErr_Format(PyExc_IOError, "unable to receive chunked part");
+        }
+
+        return PyString_FromStringAndSize(chunk, len);
+}
+
+
+
 PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args) {
 	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 	UWSGI_RELEASE_GIL	
@@ -2483,6 +2519,9 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"websocket_recv_nb", py_uwsgi_websocket_recv_nb, METH_VARARGS, ""},
 	{"websocket_send", py_uwsgi_websocket_send, METH_VARARGS, ""},
 	{"websocket_handshake", py_uwsgi_websocket_handshake, METH_VARARGS, ""},
+
+	{"chunked_read", py_uwsgi_chunked_read, METH_VARARGS, ""},
+	{"chunked_read_nb", py_uwsgi_chunked_read_nb, METH_VARARGS, ""},
 
 	{NULL, NULL},
 };

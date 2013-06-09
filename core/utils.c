@@ -708,6 +708,11 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
                 free(ptr);
         }
 
+	// free chunked input
+	if (wsgi_req->chunked_input_buf) {
+                uwsgi_buffer_destroy(wsgi_req->chunked_input_buf);
+        }
+
 	// free websocket engine
 	if (wsgi_req->websocket_buf) {
 		uwsgi_buffer_destroy(wsgi_req->websocket_buf);
@@ -1952,7 +1957,7 @@ int uwsgi_list_has_str(char *list, char *str) {
 	return 0;
 }
 
-char hex2num(char *str) {
+static char hex2num(char *str) {
 
 	char val = 0;
 

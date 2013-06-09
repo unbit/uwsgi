@@ -1428,6 +1428,12 @@ struct wsgi_request {
 	time_t websocket_last_pong;
 	int websocket_closed;
 
+	struct uwsgi_buffer *chunked_input_buf;
+	uint8_t chunked_input_parser_status;
+	uint8_t chunked_input_want;
+	size_t chunked_input_need;
+	uint8_t chunked_input_complete;
+
 	uint64_t stream_id;
 
 	// avoid routing loops
@@ -2342,6 +2348,9 @@ struct uwsgi_server {
 	int websockets_ping_freq;
 	int websockets_pong_tolerance;
 	uint64_t websockets_max_size;
+
+	int chunked_input_timeout;
+	uint64_t chunked_input_limit;
 
 	int (*wait_write_hook) (int, int);
 	int (*wait_read_hook) (int, int);
@@ -3865,6 +3874,8 @@ void uwsgi_websockets_init(void);
 int uwsgi_websocket_send(struct wsgi_request *, char *, size_t);
 struct uwsgi_buffer *uwsgi_websocket_recv(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_websocket_recv_nb(struct wsgi_request *);
+
+char *uwsgi_chunked_read(struct wsgi_request *, size_t *, int, int);
 
 uint16_t uwsgi_be16(char *);
 uint32_t uwsgi_be32(char *);
