@@ -210,6 +210,8 @@ struct uwsgi_buffer *uwsgi_websocket_recv_nb(struct wsgi_request *);
 
 char *uwsgi_chunked_read(struct wsgi_request *, size_t *, int, int);
 
+void uwsgi_disconnect(struct wsgi_request *);
+
 %s
 
 ''' % ('\n'.join(uwsgi_cdef), hooks)
@@ -749,6 +751,11 @@ uwsgi.recv = uwsgi_pypy_recv
 uwsgi.close(fd)
 """
 uwsgi.close = lambda fd: lib.close(fd)
+
+"""
+uwsgi.disconnect()
+"""
+uwsgi.disconnect = lambda: lib.uwsgi_disconnect(uwsgi_pypy_current_wsgi_req())
 
 """
 uwsgi.websocket_recv

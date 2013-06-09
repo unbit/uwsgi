@@ -2270,17 +2270,10 @@ PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 
 	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
-#ifdef UWSGI_DEBUG
-	uwsgi_log("disconnecting worker %d (pid :%d) from session...\n", uwsgi.mywid, uwsgi.mypid);
-#endif
+	uwsgi_disconnect(wsgi_req);
 
-	if (wsgi_req->socket) {
-		wsgi_req->socket->proto_close(wsgi_req);
-	}
-	wsgi_req->fd_closed = 1;
-
-	Py_INCREF(Py_True);
-	return Py_True;
+	Py_INCREF(Py_None);
+	return Py_None;
 }
 
 PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {

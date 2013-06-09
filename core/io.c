@@ -1085,3 +1085,10 @@ int uwsgi_is_again() {
 	}
 	return 0;
 }
+
+void uwsgi_disconnect(struct wsgi_request *wsgi_req) {
+	if (wsgi_req->socket) {
+                wsgi_req->socket->proto_close(wsgi_req);
+        }
+        wsgi_req->fd_closed = 1;
+}
