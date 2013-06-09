@@ -59,9 +59,10 @@ static ssize_t uwsgi_chunked_readline(struct wsgi_request *wsgi_req) {
 	for(i=0;i<wsgi_req->chunked_input_buf->pos;i++) {
 		if (found) {
 			if (wsgi_req->chunked_input_buf->buf[i] == '\n') {
-				if (uwsgi_buffer_decapitate(wsgi_req->chunked_input_buf, i+1)) return -1;
 				// strtoul will stop at \r
-				return strtoul(wsgi_req->chunked_input_buf->buf, NULL, 16);
+				size_t num =  strtoul(wsgi_req->chunked_input_buf->buf, NULL, 16);
+				if (uwsgi_buffer_decapitate(wsgi_req->chunked_input_buf, i+1)) return -1;
+				return num;
 			}
 			return -1;
 		}
