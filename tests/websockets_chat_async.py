@@ -1,5 +1,7 @@
 #!./uwsgi --http-socket :9090 --async 100 ...
 # same chat example but using uwsgi async api
+# for pypy + continulets just run:
+# uwsgi --http-socket :9090 --pypy-home /opt/pypy --pypy-wsgi-file tests/websockets_chat_async.py --pypy-eval "uwsgi_pypy_setup_continulets()" --async 100
 import uwsgi
 import time
 import redis

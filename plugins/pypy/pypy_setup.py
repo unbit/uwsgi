@@ -167,6 +167,7 @@ char *uwsgi_request_body_read(struct wsgi_request *, ssize_t , ssize_t *);
 char *uwsgi_request_body_readline(struct wsgi_request *, ssize_t, ssize_t *);
 
 void uwsgi_buffer_destroy(struct uwsgi_buffer *);
+int uwsgi_is_again();
 
 int uwsgi_register_rpc(char *, struct uwsgi_plugin *, uint8_t, void *);
 int uwsgi_register_signal(uint8_t, char *, void *, uint8_t);
@@ -206,6 +207,8 @@ int uwsgi_websocket_handshake(struct wsgi_request *, char *, uint16_t, char *, u
 int uwsgi_websocket_send(struct wsgi_request *, char *, size_t);
 struct uwsgi_buffer *uwsgi_websocket_recv(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_websocket_recv_nb(struct wsgi_request *);
+
+char *uwsgi_chunked_read(struct wsgi_request *, size_t *, int, int);
 
 %s
 
@@ -791,6 +794,33 @@ def uwsgi_pypy_websocket_send(msg):
         raise IOError("unable to send websocket message")
 uwsgi.websocket_send = uwsgi_pypy_websocket_send
 
+"""
+uwsgi.chunked_read(timeout=0)
+"""
+def uwsgi_pypy_chunked_read(timeout=0):
+    wsgi_req = uwsgi_pypy_current_wsgi_req();
+    rlen = ffi.new("size_t*")
+    chunk = lib.uwsgi_chunked_read(wsgi_req, rlen, timeout, 0)
+    if chunk == ffi.NULL:
+        raise IOError("unable to receive chunked part")
+    return ffi.string(chunk, rlen[0])
+uwsgi.chunked_read = uwsgi_pypy_chunked_read
+
+"""
+uwsgi.chunked_read_nb()
+"""
+def uwsgi_pypy_chunked_read_nb():
+    wsgi_req = uwsgi_pypy_current_wsgi_req();
+    rlen = ffi.new("size_t*")
+    chunk = lib.uwsgi_chunked_read(wsgi_req, rlen, 0, 1)
+    if chunk == ffi.NULL:
+        if lib.uwsgi_is_again() > 0:
+            return None
+        raise IOError("unable to receive chunked part")
+    
+    return ffi.string(chunk, rlen[0])
+uwsgi.chunked_read_nb = uwsgi_pypy_chunked_read_nb
+
 
 print "Initialized PyPy with Python", sys.version
 print "PyPy Home:", sys.prefix
@@ -852,3 +882,4 @@ def uwsgi_pypy_setup_continulets():
         raise Exception("pypy continulets require async mode !!!")
     lib.uwsgi.schedule_to_main = uwsgi_pypy_continulet_switch
     lib.uwsgi.schedule_to_req = uwsgi_pypy_continulet_schedule
+    print "*** PyPy Continulets engine loaded ***"

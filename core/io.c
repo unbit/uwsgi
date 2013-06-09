@@ -1078,3 +1078,10 @@ void uwsgi_add_safe_fd(int fd) {
 	uwsgi.safe_fds[uwsgi.safe_fds_cnt] = fd;	
 	uwsgi.safe_fds_cnt++;
 }
+
+int uwsgi_is_again() {
+	if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+		return 1;
+	}
+	return 0;
+}
