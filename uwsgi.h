@@ -1878,6 +1878,8 @@ struct uwsgi_server {
 	struct uwsgi_regexp_list *log_req_route;
 #endif
 
+	int use_abort;
+
 	int alarm_freq;
 	uint64_t alarm_msg_size;
 	struct uwsgi_string_list *alarm_list;

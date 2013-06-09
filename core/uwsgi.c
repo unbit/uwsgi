@@ -460,6 +460,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-route", required_argument, 0, "log to the specified named logger if regexp applied on logline matches", uwsgi_opt_add_regexp_custom_list, &uwsgi.log_route, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"log-req-route", required_argument, 0, "log requests to the specified named logger if regexp applied on logline matches", uwsgi_opt_add_regexp_custom_list, &uwsgi.log_req_route, UWSGI_OPT_REQ_LOG_MASTER},
 #endif
+
+	{"use-abort", no_argument, 0, "call abort() on segfault/fpe, could be useful for generating a core dump", uwsgi_opt_true, &uwsgi.use_abort, 0},
+
 	{"alarm", required_argument, 0, "create a new alarm, syntax: <alarm> <plugin:args>", uwsgi_opt_add_string_list, &uwsgi.alarm_list, UWSGI_OPT_MASTER},
 	{"alarm-freq", required_argument, 0, "tune the anti-loop alam system (default 3 seconds)", uwsgi_opt_set_int, &uwsgi.alarm_freq, 0},
 	{"alarm-fd", required_argument, 0, "raise the specified alarm when an fd is read for read (by default it reads 1 byte, set 8 for eventfd)", uwsgi_opt_add_string_list, &uwsgi.alarm_fd_list, UWSGI_OPT_MASTER},
@@ -1532,6 +1535,8 @@ void uwsgi_segfault(int signum) {
 	uwsgi_log("!!! uWSGI process %d got Segmentation Fault !!!\n", (int) getpid());
 	uwsgi_backtrace(uwsgi.backtrace_depth);
 
+	if (uwsgi.use_abort) abort();
+
 	// restore default handler to generate core
 	signal(signum, SIG_DFL);
 	kill(getpid(), signum);
@@ -1544,6 +1549,8 @@ void uwsgi_fpe(int signum) {
 
 	uwsgi_log("!!! uWSGI process %d got Floating Point Exception !!!\n", (int) getpid());
 	uwsgi_backtrace(uwsgi.backtrace_depth);
+
+	if (uwsgi.use_abort) abort();
 
 	// restore default handler to generate core
 	signal(signum, SIG_DFL);
