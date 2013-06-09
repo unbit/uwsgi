@@ -703,6 +703,7 @@ def uwsgi_pypy_ready_fd():
     wsgi_req = uwsgi_pypy_current_wsgi_req();
     if wsgi_req.async_ready_fd == 1:
         return wsgi_req.async_last_ready_fd
+    return -1
 uwsgi.ready_fd = uwsgi_pypy_ready_fd
     
 
