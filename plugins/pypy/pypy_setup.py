@@ -73,9 +73,13 @@ struct uwsgi_header {
 };
 
 struct wsgi_request {
+	int fd;
 	int async_id;
 	uint16_t var_cnt;
 	struct iovec *hvec;
+
+	int async_ready_fd;
+	int async_last_ready_fd;
 
 	int suspended;
 
@@ -112,6 +116,12 @@ struct uwsgi_plugin {
 
 	void (*suspend) (struct wsgi_request *);
         void (*resume) (struct wsgi_request *);
+	...;
+};
+
+struct uwsgi_buffer {
+	char *buf;
+	size_t pos;
 	...;
 };
 
@@ -156,6 +166,8 @@ int uwsgi_response_sendfile_do_can_close(struct wsgi_request *, int, size_t, siz
 char *uwsgi_request_body_read(struct wsgi_request *, ssize_t , ssize_t *);
 char *uwsgi_request_body_readline(struct wsgi_request *, ssize_t, ssize_t *);
 
+void uwsgi_buffer_destroy(struct uwsgi_buffer *);
+
 int uwsgi_register_rpc(char *, struct uwsgi_plugin *, uint8_t, void *);
 int uwsgi_register_signal(uint8_t, char *, void *, uint8_t);
 
@@ -189,6 +201,11 @@ void async_add_timeout(struct wsgi_request *, int);
 int async_add_fd_write(struct wsgi_request *, int, int);
 int async_add_fd_read(struct wsgi_request *, int, int);
 int uwsgi_connect(char *, int, int);
+
+int uwsgi_websocket_handshake(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+int uwsgi_websocket_send(struct wsgi_request *, char *, size_t);
+struct uwsgi_buffer *uwsgi_websocket_recv(struct wsgi_request *);
+struct uwsgi_buffer *uwsgi_websocket_recv_nb(struct wsgi_request *);
 
 %s
 
@@ -656,10 +673,12 @@ def uwsgi_pypy_async_connect(addr):
     return fd
 uwsgi.async_connect = uwsgi_pypy_async_connect
 
+uwsgi.connection_fd = lambda: uwsgi_pypy_current_wsgi_req().fd
+
 """
 uwsgi.wait_fd_read(fd, timeout=0)
 """
-def uwsgi_pypy_wait_fd_read(fd, timeout):
+def uwsgi_pypy_wait_fd_read(fd, timeout=0):
     wsgi_req = uwsgi_pypy_current_wsgi_req();
     if lib.async_add_fd_read(wsgi_req, fd, timeout) < 0:
         raise Exception("unable to add fd %d to the event queue" % fd)
@@ -668,14 +687,21 @@ uwsgi.wait_fd_read = uwsgi_pypy_wait_fd_read
 """
 uwsgi.wait_fd_write(fd, timeout=0)
 """
-def uwsgi_pypy_wait_fd_write(fd, timeout):
+def uwsgi_pypy_wait_fd_write(fd, timeout=0):
     wsgi_req = uwsgi_pypy_current_wsgi_req();
     if lib.async_add_fd_write(wsgi_req, fd, timeout) < 0:
         raise Exception("unable to add fd %d to the event queue" % fd)
 uwsgi.wait_fd_write = uwsgi_pypy_wait_fd_write
 
-print "Initialized PyPy with Python", sys.version
-print "PyPy Home:", sys.prefix
+"""
+uwsgi.ready_fd()
+"""
+def uwsgi_pypy_ready_fd():
+    wsgi_req = uwsgi_pypy_current_wsgi_req();
+    if wsgi_req.async_ready_fd == 1:
+        return wsgi_req.async_last_ready_fd
+uwsgi.ready_fd = uwsgi_pypy_ready_fd
+    
 
 """
 uwsgi.send(fd=None,data)
@@ -720,6 +746,54 @@ uwsgi.recv = uwsgi_pypy_recv
 uwsgi.close(fd)
 """
 uwsgi.close = lambda fd: lib.close(fd)
+
+"""
+uwsgi.websocket_recv
+"""
+def uwsgi_pypy_websocket_recv():
+    wsgi_req = uwsgi_pypy_current_wsgi_req();
+    ub = lib.uwsgi_websocket_recv(wsgi_req);
+    if ub == ffi.NULL:
+        raise IOError("unable to receive websocket message")
+    ret = ffi.string(ub.buf, ub.pos)
+    lib.uwsgi_buffer_destroy(ub)
+    return ret
+uwsgi.websocket_recv = uwsgi_pypy_websocket_recv
+
+"""
+uwsgi.websocket_recv_nb
+"""
+def uwsgi_pypy_websocket_recv_nb():
+    wsgi_req = uwsgi_pypy_current_wsgi_req();
+    ub = lib.uwsgi_websocket_recv_nb(wsgi_req);
+    if ub == ffi.NULL:
+        raise IOError("unable to receive websocket message")
+    ret = ffi.string(ub.buf, ub.pos)
+    lib.uwsgi_buffer_destroy(ub)
+    return ret
+uwsgi.websocket_recv_nb = uwsgi_pypy_websocket_recv_nb
+
+"""
+uwsgi.websocket_handshake(key, origin)
+"""
+def uwsgi_pypy_websocket_handshake(key, origin=''):
+    wsgi_req = uwsgi_pypy_current_wsgi_req();
+    if lib.uwsgi_websocket_handshake(wsgi_req, ffi.new('char[]', key), len(key), ffi.new('char[]',origin), len(origin)) < 0:
+        raise IOError("unable to complete websocket handshake")
+uwsgi.websocket_handshake = uwsgi_pypy_websocket_handshake
+
+"""
+uwsgi.websocket_send(msg)
+"""
+def uwsgi_pypy_websocket_send(msg):
+    wsgi_req = uwsgi_pypy_current_wsgi_req();
+    if lib.uwsgi_websocket_send(wsgi_req, ffi.new('char[]', msg), len(msg)) < 0:
+        raise IOError("unable to send websocket message")
+uwsgi.websocket_send = uwsgi_pypy_websocket_send
+
+
+print "Initialized PyPy with Python", sys.version
+print "PyPy Home:", sys.prefix
 
 
 """

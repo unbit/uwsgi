@@ -206,7 +206,11 @@ int async_add_fd_read(struct wsgi_request *wsgi_req, int fd, int timeout) {
 }
 
 static int async_wait_fd_read(int fd, int timeout) {
+
 	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	wsgi_req->async_ready_fd = 0;
+
 	if (async_add_fd_read(wsgi_req, fd, timeout)) {
 		return -1;
 	}
@@ -221,6 +225,8 @@ static int async_wait_fd_read(int fd, int timeout) {
 }
 
 void async_add_timeout(struct wsgi_request *wsgi_req, int timeout) {
+
+	wsgi_req->async_ready_fd = 0;
 
 	if (timeout > 0 && wsgi_req->async_timeout == NULL) {
 		wsgi_req->async_timeout = uwsgi_add_rb_timer(uwsgi.rb_async_timeouts, uwsgi_now() + timeout, wsgi_req);
@@ -265,6 +271,9 @@ int async_add_fd_write(struct wsgi_request *wsgi_req, int fd, int timeout) {
 
 static int async_wait_fd_write(int fd, int timeout) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	wsgi_req->async_ready_fd = 0;
+
 	if (async_add_fd_write(wsgi_req, fd, timeout)) {
 		return -1;
 	}
