@@ -169,6 +169,9 @@ void uwsgi_init_default() {
 	uwsgi.wait_write_hook = uwsgi_simple_wait_write_hook;
 
 	uwsgi_websockets_init();
+	
+	// 1 MB default limit
+	uwsgi.chunked_input_limit = 1024*1024;
 }
 
 void uwsgi_setup_reload() {

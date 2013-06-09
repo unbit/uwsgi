@@ -580,6 +580,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"websockets-max-size", required_argument, 0, "set the max allowed size of websocket messages (in Kbytes, default 1024)", uwsgi_opt_set_64bit, &uwsgi.websockets_max_size, 0},
 	{"websocket-max-size", required_argument, 0, "set the max allowed size of websocket messages (in Kbytes, default 1024)", uwsgi_opt_set_64bit, &uwsgi.websockets_max_size, 0},
 
+	{"chunked-input-limit", required_argument, 0, "set the max size of a chunked input part (default 1MB, in bytes)", uwsgi_opt_set_64bit, &uwsgi.chunked_input_limit, 0},
+	{"chunked-input-timeout", required_argument, 0, "set default timeout for chunked input", uwsgi_opt_set_int, &uwsgi.chunked_input_timeout, 0},
+
 	{"clock", required_argument, 0, "set a clock source", uwsgi_opt_set_str, &uwsgi.requested_clock, 0},
 
 	{"clock-list", no_argument, 0, "list enabled clocks", uwsgi_opt_true, &uwsgi.clock_list, 0},
