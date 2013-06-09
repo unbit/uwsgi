@@ -586,7 +586,6 @@ uwsgi.setprocname = lambda name: lib.uwsgi_set_processname(ffi.new('char[]', nam
 def uwsgi_pypy_add_cron(signum, minute, hour, day, month, week):
     if lib.uwsgi_signal_add_cron(signum, minute, hour, day, month, week) < 0:
         raise Exception("unable to register cron")
-    return True
 uwsgi.add_cron = uwsgi_pypy_add_cron
 
 """
