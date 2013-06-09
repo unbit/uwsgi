@@ -758,7 +758,7 @@ uwsgi.disconnect()
 uwsgi.disconnect = lambda: lib.uwsgi_disconnect(uwsgi_pypy_current_wsgi_req())
 
 """
-uwsgi.websocket_recv
+uwsgi.websocket_recv()
 """
 def uwsgi_pypy_websocket_recv():
     wsgi_req = uwsgi_pypy_current_wsgi_req();
@@ -771,7 +771,7 @@ def uwsgi_pypy_websocket_recv():
 uwsgi.websocket_recv = uwsgi_pypy_websocket_recv
 
 """
-uwsgi.websocket_recv_nb
+uwsgi.websocket_recv_nb()
 """
 def uwsgi_pypy_websocket_recv_nb():
     wsgi_req = uwsgi_pypy_current_wsgi_req();
