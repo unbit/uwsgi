@@ -272,7 +272,7 @@ def build_uwsgi(uc, print_only=False):
     # for various tricks (like cffi integration)
     # if possibile, the blob is compressed
     if sys.version_info[0] >= 3:
-        uwsgi_dot_h_content = open('uwsgi.h').read().encode()
+        uwsgi_dot_h_content = open('uwsgi.h', 'rb').read()
     else:
         uwsgi_dot_h_content = open('uwsgi.h').read()
     if report['zlib']:
@@ -507,6 +507,10 @@ class uConf(object):
         self.gcc_list.append('proto/fastcgi')
         self.gcc_list.append('proto/scgi')
         self.include_path = []
+
+        if 'UWSGI_INCLUDES' in os.environ:
+            self.include_path += os.environ['UWSGI_INCLUDES'].split(',')
+
 
         self.cflags = ['-O2', '-I.', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split() + self.get('cflags','').split()
 
