@@ -1430,7 +1430,7 @@ struct wsgi_request {
 
 	struct uwsgi_buffer *chunked_input_buf;
 	uint8_t chunked_input_parser_status;
-	uint8_t chunked_input_want;
+	ssize_t chunked_input_chunk_len;
 	size_t chunked_input_need;
 	uint8_t chunked_input_complete;
 
