@@ -1413,6 +1413,11 @@ static char *uwsgi_route_var_uwsgi(struct wsgi_request *wsgi_req, char *key, uin
                 *vallen = strlen(ret);
         }
 
+	else if (!uwsgi_strncmp(key, keylen, "lq", 2)) {
+                ret = uwsgi_num2str(uwsgi.shared->load);
+                *vallen = strlen(ret);
+        }
+
 	return ret;
 }
 
