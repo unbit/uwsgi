@@ -551,12 +551,12 @@ def uwsgi_pypy_uwsgi_add_file_monitor(signum, filename):
         raise Exception("unable to register file monitor")
 uwsgi.add_file_monitor = uwsgi_pypy_uwsgi_add_file_monitor
 
-def uwsgi_pypy_lock(num):
+def uwsgi_pypy_lock(num=0):
     if lib.uwsgi_user_lock(num) < 0:
         raise Exception("invalid lock")
 uwsgi.lock = uwsgi_pypy_lock
 
-def uwsgi_pypy_unlock(num):
+def uwsgi_pypy_unlock(num=0):
     if lib.uwsgi_user_unlock(num) < 0:
         raise Exception("invalid lock")
 uwsgi.unlock = uwsgi_pypy_unlock
