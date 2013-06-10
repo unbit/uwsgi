@@ -4071,6 +4071,7 @@ char *uwsgi_binary_path(void);
 
 int uwsgi_is_again();
 void uwsgi_disconnect(struct wsgi_request *);
+int uwsgi_ready_fd(struct wsgi_request *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

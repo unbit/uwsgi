@@ -1092,3 +1092,8 @@ void uwsgi_disconnect(struct wsgi_request *wsgi_req) {
         }
         wsgi_req->fd_closed = 1;
 }
+
+int uwsgi_ready_fd(struct wsgi_request *wsgi_req) {
+	if (wsgi_req->async_ready_fd) return wsgi_req->async_last_ready_fd;
+	return -1;
+}

@@ -212,6 +212,8 @@ char *uwsgi_chunked_read(struct wsgi_request *, size_t *, int, int);
 
 void uwsgi_disconnect(struct wsgi_request *);
 
+int uwsgi_ready_fd(struct wsgi_request *);
+
 %s
 
 ''' % ('\n'.join(uwsgi_cdef), hooks)
@@ -702,9 +704,7 @@ uwsgi.ready_fd()
 """
 def uwsgi_pypy_ready_fd():
     wsgi_req = uwsgi_pypy_current_wsgi_req();
-    if wsgi_req.async_ready_fd == 1:
-        return wsgi_req.async_last_ready_fd
-    return -1
+    return lib.uwsgi_ready_fd(wsgi_req)
 uwsgi.ready_fd = uwsgi_pypy_ready_fd
     
 

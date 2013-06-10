@@ -2276,6 +2276,11 @@ PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_ready_fd(PyObject * self, PyObject * args) {
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
+	return PyInt_FromLong(uwsgi_ready_fd(wsgi_req));
+}
+
 PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 
 	char *filename;
@@ -2515,6 +2520,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 	{"chunked_read", py_uwsgi_chunked_read, METH_VARARGS, ""},
 	{"chunked_read_nb", py_uwsgi_chunked_read_nb, METH_VARARGS, ""},
+
+	{"ready_fd", py_uwsgi_ready_fd, METH_VARARGS, ""},
 
 	{NULL, NULL},
 };
