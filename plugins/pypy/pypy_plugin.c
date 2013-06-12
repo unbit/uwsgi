@@ -301,6 +301,20 @@ static void uwsgi_pypy_onload() {
 #endif
 }
 
+static int uwsgi_pypy_mule(char *opt) {
+
+        if (uwsgi_endswith(opt, ".py")) {
+                size_t rlen = 0;
+                char *buffer = uwsgi_open_and_read(opt, &rlen, 1, NULL);
+                pypy_execute_source(buffer);
+		free(buffer);
+                return 1;
+        }
+        return 0;
+
+}
+
+
 struct uwsgi_plugin pypy_plugin = {
 	.name = "pypy",
 	.modifier1 = 0,
@@ -316,4 +330,5 @@ struct uwsgi_plugin pypy_plugin = {
 	.enable_threads = uwsgi_pypy_enable_threads,
 	.rpc = uwsgi_pypy_rpc,
 	.post_fork = uwsgi_pypy_post_fork,
+	.mule = uwsgi_pypy_mule,
 };
