@@ -15,9 +15,9 @@ GCC_LIST = ['python_plugin', 'pyutils', 'pyloader', 'wsgi_handlers', 'wsgi_heade
 
 CFLAGS = ['-I' + sysconfig.get_python_inc(), '-I' + sysconfig.get_python_inc(plat_specific=True) ] 
 LDFLAGS = []
+LIBS = []
 
 if not 'UWSGI_PYTHON_NOLIB' in os.environ:
-    LIBS = sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
     # check if it is a non-shared build (but please, add --enable-shared to your python's ./configure script)
     if not sysconfig.get_config_var('Py_ENABLE_SHARED'):
         libdir = sysconfig.get_config_var('LIBPL')
@@ -50,5 +50,6 @@ if not 'UWSGI_PYTHON_NOLIB' in os.environ:
             os.environ['LD_RUN_PATH'] = "%s/lib" % sysconfig.PREFIX
 
         LIBS.append('-lpython%s' % get_python_version())
-else:
-    LIBS = []
+
+    LIBS.extend(sysconfig.get_config_var('LIBS').split())
+    LIBS.extend(sysconfig.get_config_var('SYSLIBS').split())
