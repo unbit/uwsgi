@@ -229,6 +229,7 @@ static void uwsgi_airbrake_loop(struct uwsgi_thread *ut) {
 	curl_easy_setopt(curl, CURLOPT_POST, 1L);
 	struct curl_slist *expect = NULL; expect = curl_slist_append(expect, "Expect:");
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, expect);
+	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 
 	struct uwsgi_airbrake_config *uacc = (struct uwsgi_airbrake_config *) ut->data;
 	char *opts = uwsgi_str(uacc->arg);
