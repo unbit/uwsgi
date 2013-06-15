@@ -679,6 +679,8 @@ class uConf(object):
 
         if uwsgi_os == 'Darwin':
             self.cflags.append('-mmacosx-version-min=10.5')
+            if GCC in ('clang',):
+                self.libs.remove('-rdynamic')
 
         # compile extras
         extras = self.get('extras', None)
