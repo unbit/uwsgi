@@ -26,6 +26,13 @@ VALUE rack_uwsgi_warning(VALUE *class, VALUE rbmessage) {
         return Qnil;
 }
 
+VALUE rack_uwsgi_user_harakiri(VALUE *class, VALUE sec) {
+        Check_Type(sec, T_FIXNUM);
+	set_user_harakiri(NUM2INT(sec));
+        return Qnil;
+}
+
+
 VALUE rack_uwsgi_log(VALUE *class, VALUE msg) {
 
 	Check_Type(msg, T_STRING);
@@ -1068,6 +1075,8 @@ void uwsgi_rack_init_api() {
         uwsgi_rack_api("logsize", rack_uwsgi_logsize, 0);
 
         uwsgi_rack_api("set_warning_message", rack_uwsgi_warning, 1);
+
+        uwsgi_rack_api("set_user_harakiri", rack_uwsgi_user_harakiri, 1);
 
         uwsgi_rack_api("rpc", uwsgi_ruby_do_rpc, -1);
 

@@ -74,7 +74,7 @@ void set_user_harakiri(int sec) {
 	// a 0 seconds value, reset the timer
 	if (sec == 0) {
 		if (uwsgi.muleid > 0) {
-			uwsgi.mules[uwsgi.muleid].user_harakiri = 0;
+			uwsgi.mules[uwsgi.muleid-1].user_harakiri = 0;
 		}
 		else if (uwsgi.i_am_a_spooler) {
 			struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
@@ -86,7 +86,7 @@ void set_user_harakiri(int sec) {
 	}
 	else {
 		if (uwsgi.muleid > 0) {
-                        uwsgi.mules[uwsgi.muleid].user_harakiri = uwsgi_now() + sec;
+                        uwsgi.mules[uwsgi.muleid-1].user_harakiri = uwsgi_now() + sec;
                 }
                 else if (uwsgi.i_am_a_spooler) {
                         struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;

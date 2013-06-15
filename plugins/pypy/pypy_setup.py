@@ -214,6 +214,8 @@ void uwsgi_disconnect(struct wsgi_request *);
 
 int uwsgi_ready_fd(struct wsgi_request *);
 
+void set_user_harakiri(int);
+
 %s
 
 ''' % ('\n'.join(uwsgi_cdef), hooks)
@@ -827,6 +829,11 @@ def uwsgi_pypy_chunked_read_nb():
     
     return ffi.string(chunk, rlen[0])
 uwsgi.chunked_read_nb = uwsgi_pypy_chunked_read_nb
+
+"""
+uwsgi.set_user_harakiri(sec)
+"""
+uwsgi.set_user_harakiri = lambda x: lib.set_user_harakiri(x)
 
 
 print "Initialized PyPy with Python", sys.version

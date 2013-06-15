@@ -81,6 +81,16 @@ XS(XS_signal) {
 	XSRETURN_UNDEF;
 }
 
+XS(XS_set_user_harakiri) {
+        dXSARGS;
+
+        psgi_check_args(1);
+
+	set_user_harakiri( SvIV(ST(0)) );
+
+        XSRETURN_UNDEF;
+}
+
 XS(XS_reload) {
     dXSARGS;
 
@@ -549,5 +559,7 @@ void init_perl_embedded_module() {
 
 	psgi_xs(add_timer);
 	psgi_xs(add_rb_timer);
+
+	psgi_xs(set_user_harakiri);
 }
 
