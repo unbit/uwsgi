@@ -1,4 +1,3 @@
-import uwsgi
 import sys
 from threading import Thread
 
@@ -7,6 +6,7 @@ try:
 except:
     import pickle
 
+import uwsgi
 
 if uwsgi.masterpid() == 0:
     raise Exception(
@@ -45,48 +45,43 @@ class postfork(object):
         postfork_chain.append(f)
 
 
-class spool(object):
+class spoolraw(object):
 
-    def spool(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs):
         arguments = self.base_dict
-        arguments['ud_spool_ret'] = str(uwsgi.SPOOL_OK)
         if len(args) > 0:
             arguments.update(args[0])
         if kwargs:
             arguments.update(kwargs)
         return uwsgi.spool(arguments)
+
+    # For backward compatibility (uWSGI < 1.9.13)
+    def spool(self, *args, **kwargs):
+        return self.__class__.__call__(self, *args, **kwargs)
 
     def __init__(self, f):
         if not 'spooler' in uwsgi.opt:
             raise Exception(
-                "you have to enable the uWSGI spooler to use @spool decorator")
+                "you have to enable the uWSGI spooler to use @%s decorator" % self.__class__.__name__)
         self.f = f
-        spooler_functions[f.__name__] = self.f
-        self.f.spool = self.spool
+        spooler_functions[self.f.__name__] = self.f
+        # For backward compatibility (uWSGI < 1.9.13)
+        self.f.spool = self.__call__
         self.base_dict = {'ud_spool_func': self.f.__name__}
 
 
-class spoolforever(spool):
+class spool(spoolraw):
 
-    def spool(self, *args, **kwargs):
-        arguments = self.base_dict
-        arguments['ud_spool_ret'] = str(uwsgi.SPOOL_RETRY)
-        if len(args) > 0:
-            arguments.update(args[0])
-        if kwargs:
-            arguments.update(kwargs)
-        return uwsgi.spool(arguments)
+    def __call__(self, *args, **kwargs):
+        self.base_dict['ud_spool_ret'] = str(uwsgi.SPOOL_OK)
+        return spoolraw.__call__(self, *args, **kwargs)
 
 
-class spoolraw(spool):
+class spoolforever(spoolraw):
 
-    def spool(self, *args, **kwargs):
-        arguments = self.base_dict
-        if len(args) > 0:
-            arguments.update(args[0])
-        if kwargs:
-            arguments.update(kwargs)
-        return uwsgi.spool(arguments)
+    def __call__(self, *args, **kwargs):
+        self.base_dict['ud_spool_ret'] = str(uwsgi.SPOOL_RETRY)
+        return spoolraw.__call__(self, *args, **kwargs)
 
 
 class mulefunc(object):
