@@ -1045,6 +1045,7 @@ struct uwsgi_spooler {
 	uint64_t tasks;
 	struct uwsgi_lock_item *lock;
 	time_t harakiri;
+	time_t user_harakiri;
 
 	int mode;
 
@@ -2583,6 +2584,7 @@ struct uwsgi_mule {
 	uint8_t signum;
 
 	time_t harakiri;
+	time_t user_harakiri;
 
 	char name[0xff];
 };

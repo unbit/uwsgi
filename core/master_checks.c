@@ -197,6 +197,14 @@ void uwsgi_master_check_mules_deadline() {
 				uwsgi.mules[i].harakiri = 0;
 			}
 		}
+		// user harakiri
+		if (uwsgi.mules[i].user_harakiri > 0) {
+                        if (uwsgi.mules[i].user_harakiri < (time_t) uwsgi.current_time) {
+                                uwsgi_log("*** HARAKIRI ON MULE %d (pid: %d) ***\n", i + 1, uwsgi.mules[i].pid);
+                                kill(uwsgi.mules[i].pid, SIGKILL);
+                                uwsgi.mules[i].user_harakiri = 0;
+                        }
+                }
 	}
 }
 
@@ -208,6 +216,11 @@ void uwsgi_master_check_spoolers_deadline() {
 			kill(uspool->pid, SIGKILL);
 			uspool->harakiri = 0;
 		}
+		if (uspool->user_harakiri > 0 && uspool->user_harakiri < (time_t) uwsgi.current_time) {
+                        uwsgi_log("*** HARAKIRI ON THE SPOOLER (pid: %d) ***\n", uspool->pid);
+                        kill(uspool->pid, SIGKILL);
+                        uspool->user_harakiri = 0;
+                }
 		uspool = uspool->next;
 	}
 }
