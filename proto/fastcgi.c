@@ -205,13 +205,9 @@ ssize_t uwsgi_proto_fastcgi_read_body(struct wsgi_request *wsgi_req, char *buf, 
                                 wsgi_req->proto_parser_buf = tmp_buf;
                                 wsgi_req->proto_parser_buf_size += fcgi_all_len - (wsgi_req->proto_parser_buf_size - wsgi_req->proto_parser_pos);
                         }
-			if (!has_read) {
-				goto gather;
-			}
-			else {
-				errno = EAGAIN;
-				return -1;
-			}
+			if (!has_read) goto gather;
+			errno = EAGAIN;
+			return -1;
                 }
                 else {
 gather:
