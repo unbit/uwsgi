@@ -15,7 +15,7 @@ if uwsgi.masterpid() == 0:
 spooler_functions = {}
 mule_functions = {}
 postfork_chain = []
-
+predrop_chain = []
 
 def get_free_signal():
     for signum in xrange(0, 256):
@@ -36,13 +36,21 @@ def postfork_chain_hook():
     for f in postfork_chain:
         f()
 
+def predrop_chain_hook():
+    for f in predrop_chain:
+        f()
+
 uwsgi.spooler = manage_spool_request
 uwsgi.post_fork_hook = postfork_chain_hook
-
+uwsgi.pre_drop_privs_hook = predrop_chain_hook
 
 class postfork(object):
     def __init__(self, f):
         postfork_chain.append(f)
+
+class predrop(object):
+    def __init__(self, f):
+        predrop_chain.append(f)
 
 
 class spool(object):

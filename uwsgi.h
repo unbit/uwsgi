@@ -931,6 +931,7 @@ struct uwsgi_plugin {
 	int (*init) (void);
 	void (*post_init) (void);
 	void (*post_fork) (void);
+        void (*pre_drop_privs) (void);
 	struct uwsgi_option *options;
 	void (*enable_threads) (void);
 	void (*init_thread) (int);

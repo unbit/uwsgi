@@ -370,6 +370,27 @@ UWSGI_RELEASE_GIL
 
 }
 
+void uwsgi_python_pre_drop_privs() {
+
+	if (uwsgi.i_am_a_spooler) {
+		UWSGI_GET_GIL
+	}
+
+	// call the pre_drop_privs hook
+	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
+	if (uwsgi_dict) {
+		PyObject *pfh = PyDict_GetItemString(uwsgi_dict, "pre_drop_privs_hook");
+		if (pfh) {
+			python_call(pfh, PyTuple_New(0), 0, NULL);
+		}
+	}
+	PyErr_Clear();
+
+UWSGI_RELEASE_GIL
+
+}
+
+
 PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
 	FILE *pyfile;
@@ -1810,6 +1831,7 @@ struct uwsgi_plugin python_plugin = {
 	.modifier1 = 0,
 	.init = uwsgi_python_init,
 	.post_fork = uwsgi_python_post_fork,
+	.pre_drop_privs = uwsgi_python_pre_drop_privs,
 	.options = uwsgi_python_options,
 	.request = uwsgi_request_wsgi,
 	.after_request = uwsgi_after_request_wsgi,
