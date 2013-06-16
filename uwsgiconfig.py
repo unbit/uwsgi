@@ -476,6 +476,8 @@ def open_profile(filename):
 class uConf(object):
 
     def __init__(self, filename, mute=False):
+        global GCC
+
         self.config = ConfigParser.ConfigParser()
         if not mute:
             print("using profile: %s" % filename)
@@ -528,11 +530,10 @@ class uConf(object):
         if uwsgi_os == 'GNU':
             self.cflags.append('-D__HURD__')
 
-        try:
-            gcc_version = str(spcall("%s -dumpversion" % GCC))
-        except:
-            print("*** you need a c compiler to build uWSGI ***")
-            sys.exit(1)
+        gcc_version = spcall("%s -dumpversion" % GCC)
+        if not gcc_version and GCC.startswith('gcc') and uwsgi_os == 'Darwin':
+            GCC = 'llvm-' + GCC
+            gcc_version = spcall("%s -dumpversion" % GCC)
 
         try:
             add_it = False
