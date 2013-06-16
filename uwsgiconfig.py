@@ -531,8 +531,11 @@ class uConf(object):
             self.cflags.append('-D__HURD__')
 
         gcc_version = spcall("%s -dumpversion" % GCC)
-        if not gcc_version and GCC.startswith('gcc') and uwsgi_os == 'Darwin':
-            GCC = 'llvm-' + GCC
+        if not gcc_version and GCC.startswith('gcc'):
+            if uwsgi_os == 'Darwin':
+                GCC = 'llvm-' + GCC
+            else:
+                GCC = 'gcc'
             gcc_version = spcall("%s -dumpversion" % GCC)
 
         try:
