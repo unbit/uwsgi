@@ -900,13 +900,35 @@ PyObject *py_uwsgi_warning(PyObject * self, PyObject * args) {
 	return Py_True;
 }
 
-PyObject *py_uwsgi_log(PyObject * self, PyObject * args) {
+PyObject *py_uwsgi_log(PyObject * self, PyObject * arg) {
+#ifdef PYTHREE
+        PyObject *arg_utf8_string;
+#endif
 	char *logline;
 
-	if (!PyArg_ParseTuple(args, "s:log", &logline)) {
-		return NULL;
-	}
+	if (PyString_Check(arg)) {
+#ifdef PYTHREE
+            arg_utf8_string = PyUnicode_AsUTF8String(arg);
+            logline = strdup(PyBytes_AsString(arg_utf8_string));
+#else
+            logline = strdup(PyString_AsString(arg));
+#endif
+        } else {
+            if (PyObject_Str(arg)) {
+#ifdef PYTHREE
+                arg_utf8_string = PyUnicode_AsUTF8String(PyObject_Str(arg));
+                logline = strdup(PyBytes_AsString(arg_utf8_string));
+#else
+                logline = strdup(PyString_AsString(PyObject_Str(arg)));
+#endif
+            } else {
+                return PyErr_Format(PyExc_ValueError, "%s does not implement required __str__ or __repr__ methods", arg->ob_type->tp_name);
+            }
+        }
 
+#ifdef PYTHREE
+        Py_XDECREF(arg_utf8_string);
+#endif
 	uwsgi_log("%s\n", logline);
 
 	Py_INCREF(Py_True);
@@ -2437,7 +2459,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"request_id", py_uwsgi_request_id, METH_VARARGS, ""},
 	{"worker_id", py_uwsgi_worker_id, METH_VARARGS, ""},
 	{"mule_id", py_uwsgi_mule_id, METH_VARARGS, ""},
-	{"log", py_uwsgi_log, METH_VARARGS, ""},
+	{"log", py_uwsgi_log, METH_O, ""},
 	{"log_this_request", py_uwsgi_log_this, METH_VARARGS, ""},
 	{"set_logvar", py_uwsgi_set_logvar, METH_VARARGS, ""},
 	{"get_logvar", py_uwsgi_get_logvar, METH_VARARGS, ""},
