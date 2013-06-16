@@ -902,32 +902,32 @@ PyObject *py_uwsgi_warning(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_log(PyObject * self, PyObject * arg) {
 #ifdef PYTHREE
-        PyObject *arg_utf8_string;
+	PyObject *arg_utf8_string;
 #endif
 	char *logline;
 
 	if (PyString_Check(arg)) {
 #ifdef PYTHREE
-            arg_utf8_string = PyUnicode_AsUTF8String(arg);
-            logline = strdup(PyBytes_AsString(arg_utf8_string));
+		arg_utf8_string = PyUnicode_AsUTF8String(arg);
+		logline = strdup(PyBytes_AsString(arg_utf8_string));
 #else
-            logline = strdup(PyString_AsString(arg));
+		logline = strdup(PyString_AsString(arg));
 #endif
-        } else {
-            if (PyObject_Str(arg)) {
+	} else {
+		if (PyObject_Str(arg)) {
 #ifdef PYTHREE
-                arg_utf8_string = PyUnicode_AsUTF8String(PyObject_Str(arg));
-                logline = strdup(PyBytes_AsString(arg_utf8_string));
+			arg_utf8_string = PyUnicode_AsUTF8String(PyObject_Str(arg));
+			logline = strdup(PyBytes_AsString(arg_utf8_string));
 #else
-                logline = strdup(PyString_AsString(PyObject_Str(arg)));
+			logline = strdup(PyString_AsString(PyObject_Str(arg)));
 #endif
-            } else {
-                return PyErr_Format(PyExc_ValueError, "%s does not implement required __str__ or __repr__ methods", arg->ob_type->tp_name);
-            }
-        }
+		} else {
+			return PyErr_Format(PyExc_ValueError, "%s does not implement required __str__ or __repr__ methods", arg->ob_type->tp_name);
+		}
+	}
 
 #ifdef PYTHREE
-        Py_XDECREF(arg_utf8_string);
+	Py_XDECREF(arg_utf8_string);
 #endif
 	uwsgi_log("%s\n", logline);
 
