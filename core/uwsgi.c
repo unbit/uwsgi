@@ -2816,14 +2816,14 @@ next2:
 		exit(1);
 	}
 
-	// must be run before dropping privileges
-	for (i = 0; i < 256; i++) {
-		if (uwsgi.p[i]->pre_drop_privs) {
-			uwsgi.p[i]->pre_drop_privs();
-		}
-	}
-
 	if (uwsgi.master_as_root) {
+		// must be run before dropping privileges
+		for (i = 0; i < 256; i++) {
+			if (uwsgi.p[i]->as_root) {
+				uwsgi.p[i]->as_root();
+			}
+		}
+
 		uwsgi_as_root();
 	}
 
