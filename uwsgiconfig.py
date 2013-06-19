@@ -337,6 +337,13 @@ def build_uwsgi(uc, print_only=False):
                     except:
                         pass
 
+                if GCC in ('clang',):
+                    try:
+                        p_cflags.remove('-fno-fast-math')
+                        p_cflags.remove('-ggdb3')
+                    except:
+                        pass
+
                 try:
                     p_cflags.remove('-Wdeclaration-after-statement')
                 except:
@@ -1226,6 +1233,13 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         p_cflags.remove('-pie')
     except:
         pass
+
+    if GCC in ('clang',):
+        try:
+            p_cflags.remove('-fno-fast-math')
+            p_cflags.remove('-ggdb3')
+        except:
+            pass
 
     if uwsgi_os.startswith('CYGWIN'):
         try:

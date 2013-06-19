@@ -141,13 +141,13 @@ static struct uwsgi_buffer *uwsgi_ruby_backtrace(struct wsgi_request *wsgi_req) 
 		// ok let's start the C dance to parse the backtrace
 		char *colon = strchr(bt, ':');
 		if (!colon) continue;
-		filename = uwsgi_concat2n(bt, colon-bt, "", 0);
+		filename = uwsgi_concat2n(bt, (int) (colon-bt), "", 0);
 		uint16_t filename_len = colon-bt;
 		colon++; if (*colon == 0) goto error;
 		char *lineno_ptr = colon;
 		colon = strchr(lineno_ptr, ':');
 		if (!colon) goto error;
-		int64_t lineno = uwsgi_str_num(lineno_ptr, colon-lineno_ptr);
+		int64_t lineno = uwsgi_str_num(lineno_ptr, (int) (colon-lineno_ptr));
 		colon++; if (*colon == 0) goto error;
 		colon = strchr(lineno_ptr, '`');
 		if (!colon) goto error;
@@ -155,7 +155,7 @@ static struct uwsgi_buffer *uwsgi_ruby_backtrace(struct wsgi_request *wsgi_req) 
 		char *function_ptr = colon;
 		char *function_end = strchr(function_ptr, '\'');
 		if (!function_end) goto error;
-		function = uwsgi_concat2n(function_ptr, function_end-function_ptr, "", 0);
+		function = uwsgi_concat2n(function_ptr, (int) (function_end-function_ptr), "", 0);
 		uint16_t function_len = function_end-function_ptr;
 
 		if (uwsgi_buffer_u16le(ub, filename_len)) goto error;
@@ -312,7 +312,7 @@ VALUE init_rack_app(VALUE);
 
 VALUE rack_call_rpc_handler(VALUE args) {
         VALUE rpc_args = rb_ary_entry(args, 1);
-        return rb_funcall2(rb_ary_entry(args, 0), rb_intern("call"), RARRAY_LEN(rpc_args), RARRAY_PTR(rpc_args));
+        return rb_funcall2(rb_ary_entry(args, 0), rb_intern("call"), (int) RARRAY_LEN(rpc_args), RARRAY_PTR(rpc_args));
 }
 
 

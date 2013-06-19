@@ -933,10 +933,10 @@ static VALUE rack_uwsgi_send_spool(VALUE *class, VALUE args) {
 	rb_hash_foreach(args, rack_uwsgi_build_spool, (VALUE) argv); 
 
         if (numprio) {
-                priority = uwsgi_num2str(numprio);
+                priority = uwsgi_num2str((int)numprio);
         }
 
-        int ret = spool_request(uwsgi.spoolers, spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, argv[0] - spool_buffer, priority, at, body, body_len);
+        int ret = spool_request(uwsgi.spoolers, spool_filename, (int)(uwsgi.workers[0].requests + 1), wsgi_req->async_id, spool_buffer, (int)(argv[0] - spool_buffer), priority, at, body, body_len);
 
         if (priority) {
                 free(priority);
