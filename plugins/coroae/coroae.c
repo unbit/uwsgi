@@ -161,7 +161,7 @@ request:
 #endif
 
         for(;;) {
-                if (uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req)) {
+                if (uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req) <= UWSGI_OK) {
                         goto end;
                 }
                 wsgi_req->switches++;
