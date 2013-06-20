@@ -3398,7 +3398,9 @@ void uwsgi_opt_set_16bit(char *opt, char *value, void *key) {
         uint16_t *ptr = (uint16_t *) key;
 
         if (value) {
-                *ptr = (strtoul(value, NULL, 10));
+		unsigned long n = strtoul(value, NULL, 10);
+		if (n > 65535) n = 65535;
+                *ptr = n;
         }
         else {
                 *ptr = 1;
