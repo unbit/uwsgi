@@ -2250,6 +2250,7 @@ struct uwsgi_server {
 	size_t lock_size;
 	size_t rwlock_size;
 
+	struct uwsgi_string_list *add_cache_item;
 	struct uwsgi_string_list *load_file_in_cache;
 #ifdef UWSGI_ZLIB
 	struct uwsgi_string_list *load_file_in_cache_gzip;

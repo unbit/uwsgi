@@ -171,6 +171,41 @@ static void cache_sync_hook(char *k, uint16_t kl, char *v, uint16_t vl, void *da
 	}
 }
 
+static void uwsgi_cache_add_items(struct uwsgi_cache *uc) {
+	struct uwsgi_string_list *usl = uwsgi.add_cache_item;
+        while(usl) {
+                char *space = strchr(usl->value, ' ');
+		char *key = usl->value;
+		uint16_t key_len = usl->len;
+                if (space) {
+                        // need to skip ?
+                        if (uwsgi_strncmp(uc->name, uc->name_len, usl->value, space-usl->value)) {
+                                goto next;
+                        }
+                        key = space+1;
+                        key_len = usl->len - ((space-usl->value)+1);
+                }
+		char *value = strchr(key, '=');
+		if (!value) {
+			uwsgi_log("[cache] unable to store item %s\n", usl->value);
+			goto next;
+		}
+		key_len = value - key;
+		value++;
+		uint64_t len = (usl->value + usl->len) - value;
+                uwsgi_wlock(uc->lock);
+                if (!uwsgi_cache_set2(uc, key, key_len, value, len, 0, 0)) {
+                	uwsgi_log("[cache] stored \"%.*s\" in \"%s\"\n", key_len, key, uc->name);
+                }
+                else {
+                	uwsgi_log("[cache-error] unable to store \"%.*s\" in \"%s\"\n", key_len, key, uc->name);
+                }
+                uwsgi_rwunlock(uc->lock);
+next:
+                usl = usl->next;
+        }
+}
+
 static void uwsgi_cache_load_files(struct uwsgi_cache *uc) {
 
 	struct uwsgi_string_list *usl = uwsgi.load_file_in_cache;
@@ -340,6 +375,8 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 	uwsgi_cache_sync_from_nodes(uc);
 
 	uwsgi_cache_load_files(uc);
+
+	uwsgi_cache_add_items(uc);
 
 }
 
