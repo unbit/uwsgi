@@ -30,7 +30,12 @@ GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
 if not GCC:
     GCC = 'gcc'
 
-CPP = os.environ.get('CPP', 'cpp')
+def get_preprocessor():
+    if 'clang' in GCC:
+        return 'clang -xc core/clang_fake.c'
+    return 'cpp'
+
+CPP = os.environ.get('CPP', get_preprocessor())
 
 try:
     CPUCOUNT = int(os.environ.get('CPUCOUNT', -1))
