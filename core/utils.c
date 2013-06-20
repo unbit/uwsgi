@@ -1171,7 +1171,6 @@ int uwsgi_get_app_id(struct wsgi_request *wsgi_req, char *key, uint16_t key_len,
 	int i;
 	struct stat st;
 	int found;
-	int free_appname = 0;
 
 	char *app_name = key;
 	uint16_t app_name_len = key_len;
@@ -1186,13 +1185,20 @@ int uwsgi_get_app_id(struct wsgi_request *wsgi_req, char *key, uint16_t key_len,
 			}
 
 			if (uwsgi.vhost) {
-                        	app_name = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|",1, wsgi_req->script_name, wsgi_req->script_name_len);
+				char *vhost_name = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|",1, wsgi_req->script_name, wsgi_req->script_name_len);
                         	app_name_len = wsgi_req->host_len + 1 + wsgi_req->script_name_len;
+				app_name = uwsgi_req_append(wsgi_req, "UWSGI_APPID", 11, vhost_name, app_name_len);
+				free(vhost_name);
+				if (!app_name) {
+					uwsgi_log("unable to add UWSGI_APPID to the uwsgi buffer, consider increasing it\n");
+					return -1;
+				}
 #ifdef UWSGI_DEBUG
-                        	uwsgi_debug("VirtualHost KEY=%.*s\n", wsgi_req->appid_len, wsgi_req->appid);
+                        	uwsgi_debug("VirtualHost KEY=%.*s\n", app_name_len, app_name);
 #endif
-                        	free_appname = 1;
 			}
+			wsgi_req->appid = app_name;
+			wsgi_req->appid_len = app_name_len;
                 }
         }
 
@@ -1227,18 +1233,11 @@ int uwsgi_get_app_id(struct wsgi_request *wsgi_req, char *key, uint16_t key_len,
 					}
 				}
 			}
-			if (modifier1 == -1) {
-				if (free_appname) free(app_name);
-				return i;
-			}
-			if (modifier1 == uwsgi_apps[i].modifier1) {
-				if (free_appname) free(app_name);
-				return i;
-			}
+			if (modifier1 == -1) return i;
+			if (modifier1 == uwsgi_apps[i].modifier1) return i;
 		}
 	}
 
-	if (free_appname) free(app_name);
 	return -1;
 }
 
