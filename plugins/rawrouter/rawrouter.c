@@ -112,7 +112,7 @@ static ssize_t rr_xclient_write(struct corerouter_peer *peer) {
         if (!len) return 0;
 
         if (cr_write_complete_buf(peer, rr->xclient)) {
-                if (peer->session->main_peer->out) {
+                if (peer->session->main_peer->out_pos) {
                         // (eventually) send previous data
                         cr_write_to_main(peer, rr_write);
                 }
