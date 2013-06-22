@@ -112,13 +112,15 @@ static ssize_t rr_xclient_write(struct corerouter_peer *peer) {
         if (!len) return 0;
 
         if (cr_write_complete_buf(peer, rr->xclient)) {
-                if (peer->session->main_peer->out_pos) {
+                if (peer->session->main_peer->out_pos > 0) {
                         // (eventually) send previous data
+			peer->last_hook_read = rr_instance_read;
                         cr_write_to_main(peer, rr_write);
                 }
                 else {
                         // reset to standard behaviour
-                        cr_reset_hooks(peer);
+			peer->in->pos = 0;
+			cr_reset_hooks_and_read(peer, rr_instance_read);
                 }
         }
 
@@ -140,10 +142,10 @@ static ssize_t rr_xclient_read(struct corerouter_peer *peer) {
 				return -1;
 			}
 			// banner received (skip it, will be sent later)
-			size_t remains = peer->in->pos - (len - (i+1));
+			size_t remains = len - (i+1);
 			if (remains > 0) {
 				peer->session->main_peer->out = peer->in;
-				peer->session->main_peer->out_pos = remains;
+				peer->session->main_peer->out_pos = (peer->in->pos - remains) ;
 			}
 			cr_write_to_backend(peer, rr_xclient_write);
 			return len;
