@@ -23,13 +23,13 @@
         }\
         peer->out_pos += len;
 
-#define cr_write_buf(peer, buf, f) write(peer->fd, buf + buf##_pos, buf->pos - buf##_pos);\
+#define cr_write_buf(peer, ubuf, f) write(peer->fd, ubuf->buf + ubuf##_pos, ubuf->pos - ubuf##_pos);\
         if (len < 0) {\
                 cr_try_again;\
                 uwsgi_cr_error(peer, f);\
                 return -1;\
         }\
-        buf##_pos += len;
+        ubuf##_pos += len;
 
 #define cr_write_complete(peer) peer->out_pos == peer->out->pos
 
