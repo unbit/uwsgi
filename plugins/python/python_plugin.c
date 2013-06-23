@@ -1732,7 +1732,7 @@ int uwsgi_python_mule_msg(char *message, size_t len) {
 	return 1;
 }
 
-void uwsgi_python_harakiri(int wid) {
+static void uwsgi_python_harakiri(int wid) {
 
 	if (up.tracebacker) {
 
@@ -1762,7 +1762,7 @@ void uwsgi_python_harakiri(int wid) {
 	import logging
 	logging.basicConfig(filename='/tmp/pippo.log')
 */
-ssize_t uwsgi_python_logger(struct uwsgi_logger *ul, char *message, size_t len) {
+static ssize_t uwsgi_python_logger(struct uwsgi_logger *ul, char *message, size_t len) {
 	if (!Py_IsInitialized()) return -1;
 
 	UWSGI_GET_GIL
@@ -1800,7 +1800,7 @@ clear:
 	return -1;
 }
 
-void uwsgi_python_on_load() {
+static void uwsgi_python_on_load() {
 	uwsgi_register_logger("python", uwsgi_python_logger);
 }
 

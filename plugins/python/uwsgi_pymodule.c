@@ -4,7 +4,7 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 extern struct uwsgi_plugin python_plugin;
 
-PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
+static PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 
         struct wsgi_request *wsgi_req = py_current_wsgi_req();
 	int wait_for_specific_signal = 0;
@@ -41,7 +41,7 @@ PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
         return PyString_FromString("");
 }
 
-PyObject *py_uwsgi_signal_received(PyObject * self, PyObject * args) {
+static PyObject *py_uwsgi_signal_received(PyObject * self, PyObject * args) {
 
         struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
@@ -172,12 +172,12 @@ char *uwsgi_encode_pydict(PyObject * pydict, uint16_t * size) {
 
 }
 
-PyObject *py_uwsgi_listen_queue(PyObject * self, PyObject * args) {
+static PyObject *py_uwsgi_listen_queue(PyObject * self, PyObject * args) {
 
 	return PyInt_FromLong(uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS]);
 }
 
-PyObject *py_uwsgi_close(PyObject * self, PyObject * args) {
+static PyObject *py_uwsgi_close(PyObject * self, PyObject * args) {
 
 	int fd;
 
@@ -193,7 +193,7 @@ PyObject *py_uwsgi_close(PyObject * self, PyObject * args) {
 
 }
 
-PyObject *py_uwsgi_add_cron(PyObject * self, PyObject * args) {
+static PyObject *py_uwsgi_add_cron(PyObject * self, PyObject * args) {
 
 	uint8_t uwsgi_signal;
 	int minute, hour, day, month, week;
@@ -211,7 +211,7 @@ PyObject *py_uwsgi_add_cron(PyObject * self, PyObject * args) {
 }
 
 
-PyObject *py_uwsgi_add_timer(PyObject * self, PyObject * args) {
+static PyObject *py_uwsgi_add_timer(PyObject * self, PyObject * args) {
 
 	uint8_t uwsgi_signal;
 	int secs;
@@ -3477,7 +3477,7 @@ clear:
 	return Py_None;
 }
 
-PyObject *py_snmp_decr_gauge(PyObject * self, PyObject * args) {
+static PyObject *py_snmp_decr_gauge(PyObject * self, PyObject * args) {
 
 	uint8_t oid_num;
 	uint64_t oid_val = 1;
@@ -3510,7 +3510,7 @@ clear:
 	return Py_None;
 }
 
-PyObject *py_snmp_set_community(PyObject * self, PyObject * args) {
+static PyObject *py_snmp_set_community(PyObject * self, PyObject * args) {
 
         char *snmp_community;
 
