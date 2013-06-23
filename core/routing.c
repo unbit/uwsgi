@@ -961,6 +961,31 @@ static int uwsgi_router_setpathinfo(struct uwsgi_route *ur, char *arg) {
         return 0;
 }
 
+// setscheme route
+static int uwsgi_router_setscheme_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
+        char *ptr = uwsgi_req_append(wsgi_req, "UWSGI_SCHEME", 12, ub->buf, ub->pos);
+        if (!ptr) {
+                uwsgi_buffer_destroy(ub);
+                return UWSGI_ROUTE_BREAK;
+        }
+        wsgi_req->scheme = ptr;
+        wsgi_req->scheme_len = ub->pos;
+        uwsgi_buffer_destroy(ub);
+        return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_setscheme(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_setscheme_func;
+        ur->data = arg;
+        ur->data_len = strlen(arg);
+        return 0;
+}
+
+
 // setuser route
 static int uwsgi_router_setuser_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
         char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
@@ -1593,6 +1618,7 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("setmethod", uwsgi_router_setmethod);
         uwsgi_register_router("seturi", uwsgi_router_seturi);
         uwsgi_register_router("setpathinfo", uwsgi_router_setpathinfo);
+        uwsgi_register_router("setscheme", uwsgi_router_setscheme);
         uwsgi_register_router("setprocname", uwsgi_router_setprocname);
         uwsgi_register_router("alarm", uwsgi_router_alarm);
 
