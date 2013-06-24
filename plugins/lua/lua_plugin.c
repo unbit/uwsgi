@@ -4,6 +4,11 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+#if LUA_VERSION_NUM < 502
+# define luaL_newlib(L,l) (lua_newtable(L), luaL_register(L,NULL,l))
+# define lua_rawlen lua_objlen
+#endif
+
 extern struct uwsgi_server uwsgi;
 
 struct uwsgi_lua {
@@ -411,7 +416,7 @@ static void uwsgi_lua_app() {
 		for(i=0;i<uwsgi.cores;i++) {
 			ulua.L[i] = luaL_newstate();
 			luaL_openlibs(ulua.L[i]);
-			luaL_register(ulua.L[i], "uwsgi", uwsgi_api);
+			luaL_newlib(ulua.L[i], uwsgi_api);
 
 			lua_pushstring(ulua.L[i], UWSGI_VERSION);
         		lua_setfield(ulua.L[i], -2, "version");
@@ -711,7 +716,7 @@ static uint16_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t a
 static void uwsgi_lua_configurator_array(lua_State *L) { 
 
 	int i;
-	int n = luaL_getn(L, -3);
+	int n = lua_rawlen(L, -3);
 
 	for(i=1;i<=n;i++) {
 		lua_rawgeti(L, 1, i);
