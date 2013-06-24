@@ -1,19 +1,8 @@
 import os,sys
 
-try:
-        LUALIB = os.environ['UWSGICONFIG_LUALIB']
-except:
-        LUALIB = 'lua5.1'
-
-try:
-        LUAINC = os.environ['UWSGICONFIG_LUAINC']
-except:
-        LUAINC = '/usr/include/lua5.1'
-
-try:
-        LUALIBPATH = os.environ['UWSGICONFIG_LUALIBPATH']
-except:
-        LUALIBPATH = '/usr/lib/lua5.1'
+LUALIB = os.environ.get('UWSGICONFIG_LUALIB', 'lua5.1')
+LUAINC = os.environ.get('UWSGICONFIG_LUAINC', '/usr/include/lua5.1')
+LUALIBPATH = os.environ.get('UWSGICONFIG_LUALIBPATH', '/usr/lib/lua5.1')
 
 NAME='lua'
 CFLAGS = ['-I%s' % LUAINC]
