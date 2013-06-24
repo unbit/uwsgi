@@ -2,6 +2,12 @@
 
 #include <uwsgi.h>
 
+#ifdef __UCLIBC__
+struct uwsgi_plugin ugreen_plugin = {
+        .name = "ugreen",   
+};
+#else
+
 #ifdef __APPLE__
 #define _XOPEN_SOURCE
 #endif
@@ -130,3 +136,4 @@ struct uwsgi_plugin ugreen_plugin = {
 	.init = u_green_init,
 	.options = ugreen_options,
 };
+#endif

@@ -2,7 +2,7 @@
 
 #ifdef UWSGI_ROUTING
 
-#ifdef __linux__
+#if defined(__linux__) && !defined(__UCLIBC__)
 #include <crypt.h>
 #elif defined(__CYGWIN__)
 #include <crypt.h>
@@ -34,7 +34,7 @@ static uint16_t htpasswd_check(char *filename, char *auth) {
 
 		if (clen > 13) cpwd[13] = 0;
 
-#ifdef __linux__
+#if defined(__linux__) && !defined(__UCLIBC__)
 		struct crypt_data cd;
 		cd.initialized = 0;
 		// we do as nginx here

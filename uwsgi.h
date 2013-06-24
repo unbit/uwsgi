@@ -141,7 +141,15 @@ extern "C" {
 #define __EXTENSIONS__
 #endif
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include <stdio.h>
+#ifdef __UCLIBC__
+#include <sched.h>
+#endif
+#undef _GNU_SOURCE
+
 #include <stdlib.h>
 #include <stddef.h>
 #include <signal.h>
@@ -212,11 +220,6 @@ extern "C" {
 
 
 #ifdef __linux__
-#ifdef __UCLIBC__
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-#endif
 #include <sched.h>
 #include <sys/prctl.h>
 #include <linux/limits.h>
