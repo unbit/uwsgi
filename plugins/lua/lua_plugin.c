@@ -347,7 +347,7 @@ static int uwsgi_api_unlock(lua_State *L) {
 	return 0;
 }
 
-static const luaL_reg uwsgi_api[] = {
+static const luaL_Reg uwsgi_api[] = {
   {"log", uwsgi_api_log},
   {"connection_fd", uwsgi_api_req_fd},
 

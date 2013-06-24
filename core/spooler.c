@@ -241,6 +241,16 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 	}
 
 	if (at > 0) {
+#ifdef __UCLIBC__
+		struct timespec ts[2]; 
+		ts[0].tv_sec = at; 
+		ts[0].tv_nsec = 0;
+		ts[1].tv_sec = at;
+		ts[1].tv_nsec = 0; 
+		if (futimens(fd, ts)) {
+			uwsgi_error("futimens()");	
+		}
+#else
 		struct timeval tv[2];
 		tv[0].tv_sec = at;
 		tv[0].tv_usec = 0;
@@ -253,6 +263,7 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 #endif
 			uwsgi_error("futimes()");
 		}
+#endif
 	}
 
 	// here the file will be unlocked too
