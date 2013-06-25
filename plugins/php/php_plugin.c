@@ -96,7 +96,7 @@ static int sapi_uwsgi_send_headers(sapi_headers_struct *sapi_headers)
 	}
 	else {
 		char *sl = SG(sapi_headers).http_status_line;
-		uwsgi_response_prepare_headers(wsgi_req, sl + 8 , strlen(sl) - 8);
+		uwsgi_response_prepare_headers(wsgi_req, sl + 9 , strlen(sl + 9));
 	}
 	
 	h = zend_llist_get_first_ex(&sapi_headers->headers, &pos);
