@@ -391,7 +391,7 @@ void spooler(struct uwsgi_spooler *uspool) {
 static void spooler_scandir(struct uwsgi_spooler *uspool, char *dir) {
 
 	struct dirent **tasklist;
-	int n;
+	int n, i;
 
 	if (!dir)
 		dir = uspool->dir;
@@ -402,9 +402,9 @@ static void spooler_scandir(struct uwsgi_spooler *uspool, char *dir) {
 		return;
 	}
 
-	while (n--) {
-		spooler_manage_task(uspool, dir, tasklist[n]->d_name);
-		free(tasklist[n]);
+	for (i = 0; i < n; i++) {
+		spooler_manage_task(uspool, dir, tasklist[i]->d_name);
+		free(tasklist[i]);
 	}
 
 	free(tasklist);
