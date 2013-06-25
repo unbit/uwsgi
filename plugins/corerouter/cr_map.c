@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 #include "cr.h"
 
@@ -9,13 +9,26 @@ int uwsgi_cr_map_use_void(struct uwsgi_corerouter *ucr, struct corerouter_peer *
 }
 
 int uwsgi_cr_map_use_cache(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
+	uint64_t hits = 0;
 	uwsgi_rlock(ucr->cache->lock);
-	peer->instance_address = uwsgi_cache_get2(ucr->cache, peer->key, peer->key_len, &peer->instance_address_len);
+	char *value = uwsgi_cache_get4(ucr->cache, peer->key, peer->key_len, &peer->instance_address_len, &hits);
+	if (!value) goto end;
+	peer->tmp_socket_name = uwsgi_concat2n(value, peer->instance_address_len, "", 0);
+	size_t nodes = uwsgi_str_occurence(peer->tmp_socket_name, peer->instance_address_len, '|');
+	if (nodes > 0) {
+		size_t choosen_node = hits % (nodes+1);
+		peer->instance_address = uwsgi_str_split_nget(peer->tmp_socket_name, peer->instance_address_len, '|', choosen_node, &peer->instance_address_len);
+		if (!peer->instance_address) goto end;
+	}
+	else {
+		peer->instance_address = peer->tmp_socket_name;
+	}
 	char *cs_mod = uwsgi_str_contains(peer->instance_address, peer->instance_address_len, ',');
 	if (cs_mod) {
 		peer->modifier1 = uwsgi_str_num(cs_mod + 1, (peer->instance_address_len - (cs_mod - peer->instance_address)) - 1);
 		peer->instance_address_len = (cs_mod - peer->instance_address);
 	}
+end:
 	uwsgi_rwunlock(ucr->cache->lock);
 	return 0;
 }

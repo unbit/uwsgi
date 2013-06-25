@@ -1,5 +1,46 @@
 #include <uwsgi.h>
 
+char *uwsgi_str_split_nget(char *str, size_t len, char what, size_t pos, size_t *rlen) {
+	size_t i;
+	size_t current = 0;
+	char *choosen = str;
+	size_t choosen_len = 0;
+	*rlen = 0;
+	for(i=0;i<len;i++) {
+		if (!choosen) choosen = str + i;
+		if (str[i] == what) {
+			if (current == pos) {
+				if (choosen_len == 0) return NULL;
+				*rlen = choosen_len;
+				return choosen;
+			}
+			current++;
+			choosen = NULL;
+			choosen_len = 0;
+		}
+		else {
+			choosen_len ++;
+		}
+	}
+
+	if (current == pos) {
+		if (choosen_len == 0) return NULL;
+		*rlen = choosen_len;
+		return choosen;
+	}
+
+	return NULL;
+}
+
+size_t uwsgi_str_occurence(char *str, size_t len, char what) {
+	size_t count = 0;
+	size_t i;
+	for(i=0;i<len;i++) {
+		if (str[i] == what) count++;
+	}
+	return count;
+}
+
 // check if a string_list contains an item
 struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *list, char *key, size_t keylen) {
         struct uwsgi_string_list *usl = list;

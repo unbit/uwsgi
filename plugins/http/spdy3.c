@@ -568,6 +568,8 @@ static ssize_t spdy_inflate_http_headers(struct http_session *hr) {
         new_peer->out->buf[1] = (uint8_t) (pktsize & 0xff);
         new_peer->out->buf[2] = (uint8_t) ((pktsize >> 8) & 0xff);
 
+	new_peer->can_retry = 1;
+
 	cr_connect(new_peer, hr_instance_connected);
 
 	return 1;

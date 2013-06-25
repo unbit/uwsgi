@@ -498,6 +498,27 @@ char *uwsgi_cache_get3(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint6
         return NULL;
 }
 
+char *uwsgi_cache_get4(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_t * valsize, uint64_t *hits) {
+
+        uint64_t index = uwsgi_cache_get_index(uc, key, keylen);
+
+        if (index) {
+                struct uwsgi_cache_item *uci = cache_item(index);
+                if (uci->flags & UWSGI_CACHE_FLAG_UNGETTABLE)
+                        return NULL;
+                *valsize = uci->valsize;
+                if (hits)
+                        *hits = uci->hits;
+                uci->hits++;
+                uc->hits++;
+                return uc->data + (uci->first_block * uc->blocksize);
+        }
+
+        uc->miss++;
+
+        return NULL;
+}
+
 
 int uwsgi_cache_del2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_t index, uint16_t flags) {
 

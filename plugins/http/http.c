@@ -430,6 +430,9 @@ ssize_t hr_instance_connected(struct corerouter_peer* peer) {
 
 	cr_peer_connected(peer, "hr_instance_connected()");
 
+	// we are connected, we cannot retry anymore
+        peer->can_retry = 0;
+
 	// prepare for write
 	peer->out_pos = 0;
 
@@ -705,7 +708,7 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 			if (hr->websockets > 2 && hr->websocket_key_len > 0) {
 				hr->raw_body = 1;
 			}
-
+			new_peer->can_retry = 1;
                 	cr_connect(new_peer, hr_instance_connected);
 			break;
 		}
@@ -775,7 +778,31 @@ ssize_t hr_recv_stud4(struct corerouter_peer * main_peer) {
 
 }
 
+// retry connection to the backend
+static int hr_retry(struct corerouter_peer *peer) {
+
+        struct uwsgi_corerouter *ucr = peer->session->corerouter;
+
+        if (peer->instance_address_len > 0) goto retry;
+
+        if (ucr->mapper(ucr, peer)) {
+                return -1;
+        }
+
+        if (peer->instance_address_len == 0) {
+                return -1;
+        }
+
+retry:
+        // start async connect (again)
+        cr_connect(peer, hr_instance_connected);
+        return 0;
+}
+
+
 int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, struct corerouter_session *cs, struct sockaddr *sa, socklen_t s_len) {
+	// set the retry hook
+        cs->retry = hr_retry;
 	struct http_session *hr = (struct http_session *) cs;
 	// set the modifier1
 	cs->main_peer->modifier1 = uhttp.modifier1;

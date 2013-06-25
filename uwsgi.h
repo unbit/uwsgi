@@ -2807,6 +2807,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *, char *, uint16_t, char *, uint64_t, u
 int uwsgi_cache_del2(struct uwsgi_cache *, char *, uint16_t, uint64_t, uint16_t);
 char *uwsgi_cache_get2(struct uwsgi_cache *, char *, uint16_t, uint64_t *);
 char *uwsgi_cache_get3(struct uwsgi_cache *, char *, uint16_t, uint64_t *, uint64_t *);
+char *uwsgi_cache_get4(struct uwsgi_cache *, char *, uint16_t, uint64_t *, uint64_t *);
 uint32_t uwsgi_cache_exists2(struct uwsgi_cache *, char *, uint16_t);
 struct uwsgi_cache *uwsgi_cache_create(char *);
 struct uwsgi_cache *uwsgi_cache_by_name(char *);
@@ -2988,7 +2989,7 @@ time_t timegm(struct tm *);
 #endif
 
 size_t uwsgi_str_num(char *, int);
-
+size_t uwsgi_str_occurence(char *, size_t, char);
 
 int uwsgi_proto_uwsgi_parser(struct wsgi_request *);
 int uwsgi_proto_base_write(struct wsgi_request *, char *, size_t);
@@ -3028,6 +3029,8 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *, int);
 char *uwsgi_split3(char *, size_t, char, char **, size_t *, char **, size_t *, char **, size_t *);
 char *uwsgi_split4(char *, size_t, char, char **, size_t *, char **, size_t *, char **, size_t *, char **, size_t *);
 char *uwsgi_netstring(char *, size_t, char **, size_t *);
+
+char *uwsgi_str_split_nget(char *, size_t, char, size_t, size_t *);
 
 int uwsgi_get_socket_num(struct uwsgi_socket *);
 struct uwsgi_socket *uwsgi_new_socket(char *);
