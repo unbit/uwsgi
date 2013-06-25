@@ -17,8 +17,10 @@ int uwsgi_cr_map_use_cache(struct uwsgi_corerouter *ucr, struct corerouter_peer 
 	size_t nodes = uwsgi_str_occurence(peer->tmp_socket_name, peer->instance_address_len, '|');
 	if (nodes > 0) {
 		size_t choosen_node = hits % (nodes+1);
-		peer->instance_address = uwsgi_str_split_nget(peer->tmp_socket_name, peer->instance_address_len, '|', choosen_node, &peer->instance_address_len);
+		size_t choosen_node_len = 0;
+		peer->instance_address = uwsgi_str_split_nget(peer->tmp_socket_name, peer->instance_address_len, '|', choosen_node, &choosen_node_len);
 		if (!peer->instance_address) goto end;
+		peer->instance_address_len = choosen_node_len;
 	}
 	else {
 		peer->instance_address = peer->tmp_socket_name;
