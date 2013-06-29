@@ -234,11 +234,18 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 		if (!uwsgi_emperor_is_valid(de->d_name))
 			continue;
 
-		if (stat(de->d_name, &st))
-			continue;
-
-		if (!S_ISREG(st.st_mode))
-			continue;
+		if (uwsgi.emperor_nofollow) {
+			if (lstat(de->d_name, &st))
+				continue;
+			if (!S_ISLNK(st.st_mode) && !S_ISREG(st.st_mode))
+				continue;
+		}
+		else {
+			if (stat(de->d_name, &st))
+				continue;
+			if (!S_ISREG(st.st_mode))
+				continue;
+		}
 
 		ui_current = emperor_get(de->d_name);
 
@@ -294,16 +301,30 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 				else {
 					char *filename = uwsgi_calloc(0xff);
 					memcpy(filename, c_ui->name, colon - c_ui->name);
-					if (stat(filename, &st)) {
-						emperor_stop(c_ui);
+					if (uwsgi.emperor_nofollow) {
+						if (lstat(filename, &st)) {
+							emperor_stop(c_ui);
+						}
+					}
+					else {
+						if (stat(filename, &st)) {
+							emperor_stop(c_ui);
+						}
 					}
 					free(filename);
 				}
 			}
 			else {
-                                if (stat(c_ui->name, &st)) {
-                                       	emperor_stop(c_ui);
-                                }
+				if (uwsgi.emperor_nofollow) {
+                                	if (lstat(c_ui->name, &st)) {
+                                       		emperor_stop(c_ui);
+                                	}
+				}
+				else {
+                                	if (stat(c_ui->name, &st)) {
+                                       		emperor_stop(c_ui);
+                                	}
+				}
 			}
 		}
 		c_ui = c_ui->ui_next;
@@ -328,11 +349,18 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 		if (!uwsgi_emperor_is_valid(g.gl_pathv[i]))
 			continue;
 
-		if (stat(g.gl_pathv[i], &st))
-			continue;
-
-		if (!S_ISREG(st.st_mode))
-			continue;
+		if (uwsgi.emperor_nofollow) {
+			if (lstat(g.gl_pathv[i], &st))
+				continue;
+			if (!S_ISREG(st.st_mode) && !S_ISLNK(st.st_mode))
+				continue;
+		}
+		else {
+			if (stat(g.gl_pathv[i], &st))
+				continue;
+			if (!S_ISREG(st.st_mode))
+				continue;
+		}
 
 		ui_current = emperor_get(g.gl_pathv[i]);
 
@@ -389,16 +417,30 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
                                 else {
                                         char *filename = uwsgi_calloc(0xff);
                                         memcpy(filename, c_ui->name, colon - c_ui->name);
-                                        if (stat(filename, &st)) {
-                                                emperor_stop(c_ui);
-                                        }
+					if (uwsgi.emperor_nofollow) {
+                                        	if (lstat(filename, &st)) {
+                                                	emperor_stop(c_ui);
+                                        	}
+					}
+					else {
+                                        	if (stat(filename, &st)) {
+                                                	emperor_stop(c_ui);
+                                        	}
+					}
                                         free(filename);
                                 }
                         }
                         else {
-                                if (stat(c_ui->name, &st)) { 
-                                        emperor_stop(c_ui);
-                                }       
+				if (uwsgi.emperor_nofollow) {
+                                	if (lstat(c_ui->name, &st)) { 
+                                        	emperor_stop(c_ui);
+                                	}
+				}
+				else {
+                                	if (stat(c_ui->name, &st)) { 
+                                        	emperor_stop(c_ui);
+                                	}
+				}
                         }
 		}
 		c_ui = c_ui->ui_next;
