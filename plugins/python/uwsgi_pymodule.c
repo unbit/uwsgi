@@ -819,7 +819,7 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 	}
 #ifdef PYTHREE
 	else if (PyUnicode_Check(what)) {
-		filename = PyBytes_AsString(PyUnicode_AsASCIIString(what));
+		filename = PyBytes_AsString(PyUnicode_AsLatin1String(what));
 
 		fd = open(filename, O_RDONLY);
 		if (fd < 0) {
