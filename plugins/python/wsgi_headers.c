@@ -153,7 +153,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 #ifdef PYTHREE
 		if (self != Py_None) {
-			zero2 = PyUnicode_AsASCIIString(h_value);
+			zero2 = PyUnicode_AsLatin1String(h_value);
 			if (!zero2) {
 				return PyErr_Format(PyExc_TypeError, "http header must be encodable in latin1");
 			}
