@@ -100,7 +100,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[1].iov_len = 1;
 #ifdef PYTHREE
 		if (self != Py_None) {
-			PyObject *zero = PyUnicode_AsASCIIString(head);
+			PyObject *zero = PyUnicode_AsLatin1String(head);
 			wsgi_req->hvec[2].iov_base = PyBytes_AsString(zero);
 			PyList_Append((PyObject *) wsgi_req->gc_tracker, zero);
 			Py_DECREF(zero);
@@ -124,7 +124,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[0].iov_len = 8;
 #ifdef PYTHREE
 		if (self != Py_None) {
-			PyObject *zero = PyUnicode_AsASCIIString(head);
+			PyObject *zero = PyUnicode_AsLatin1String(head);
 			wsgi_req->hvec[1].iov_base = PyBytes_AsString(zero);
 			PyList_Append((PyObject *) wsgi_req->gc_tracker, zero);
                         Py_DECREF(zero);
@@ -198,7 +198,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 #ifdef PYTHREE
 		if (self != Py_None) {
-			PyObject *zero = PyUnicode_AsASCIIString(h_key);
+			PyObject *zero = PyUnicode_AsLatin1String(h_key);
 			wsgi_req->hvec[j].iov_base = PyBytes_AsString(zero);
 			PyList_Append((PyObject *) wsgi_req->gc_tracker, zero);
                         Py_DECREF(zero);
@@ -215,7 +215,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[j + 1].iov_len = H_SEP_SIZE;
 #ifdef PYTHREE
 		if (self != Py_None) {
-			PyObject *zero = PyUnicode_AsASCIIString(h_value);
+			PyObject *zero = PyUnicode_AsLatin1String(h_value);
 			wsgi_req->hvec[j + 2].iov_base = PyBytes_AsString(zero);
 			PyList_Append((PyObject *) wsgi_req->gc_tracker, zero);
                         Py_DECREF(zero);
