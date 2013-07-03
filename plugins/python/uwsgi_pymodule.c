@@ -955,8 +955,7 @@ PyObject *py_uwsgi_is_locked(PyObject * self, PyObject * args) {
 
         if (uwsgi_lock_check(uwsgi.user_lock[lock_num]) == 0) {
 		UWSGI_GET_GIL
-		Py_INCREF(Py_False);
-		return Py_False;
+		return PyErr_Format(PyExc_Exception, "already locked");
 	}
 
 	UWSGI_GET_GIL
