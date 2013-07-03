@@ -1672,7 +1672,6 @@ struct uwsgi_server {
 	char *emperor_procname;
 	int emperor_fd;
 	int emperor_queue;
-	int emperor_nofollow;
 	int emperor_tyrant;
 	int emperor_tyrant_nofollow;
 	int emperor_fd_config;

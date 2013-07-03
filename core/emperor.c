@@ -221,7 +221,7 @@ static char *emperor_check_on_demand_socket(char *filename) {
 void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 	struct uwsgi_instance *ui_current;
 	struct dirent *de;
-	struct stat st;
+	struct stat st, lst;
 
 	if (chdir(ues->arg)) {
 		uwsgi_error("chdir()");
@@ -229,23 +229,19 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 	}
 
 	DIR *dir = opendir(".");
+	// read every filename in the directory monitored by Emperor and take an action if needed
 	while ((de = readdir(dir)) != NULL) {
 
 		if (!uwsgi_emperor_is_valid(de->d_name))
 			continue;
 
-		if (uwsgi.emperor_nofollow) {
-			if (lstat(de->d_name, &st))
-				continue;
-			if (!S_ISLNK(st.st_mode) && !S_ISREG(st.st_mode))
-				continue;
-		}
-		else {
-			if (stat(de->d_name, &st))
-				continue;
-			if (!S_ISREG(st.st_mode))
-				continue;
-		}
+		// get file status of the ini file which may be a symbolic link
+		if (stat(de->d_name, &st) || lstat(de->d_name, &lst))
+			continue;
+
+		// d_name must be a regular file (or a symlink pointing to a regular file)
+		if (!S_ISREG(st.st_mode))
+			continue;
 
 		ui_current = emperor_get(de->d_name);
 
@@ -276,10 +272,14 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 				}
 			}
 			// check if mtime is changed and the uWSGI instance must be reloaded
-			if (st.st_mtime > ui_current->last_mod) {
-				emperor_respawn(ui_current, st.st_mtime);
+			// handles also the case 'touch --no-dereference $INIFILE' to reload only a single instance
+			if (st.st_mtime > ui_current->last_mod || lst.st_mtime > ui_current->last_mod) {
+				time_t new_mtime = lst.st_mtime >= st.st_mtime ? lst.st_mtime : st.st_mtime;
+				emperor_respawn(ui_current, new_mtime);
 			}
 		}
+		// new ini file found!
+		// => add a new element to the list of monitored instances and start it
 		else {
 			char *socket_name = emperor_check_on_demand_socket(de->d_name);
 			emperor_add(ues, de->d_name, st.st_mtime, NULL, 0, t_uid, t_gid, socket_name);
@@ -291,6 +291,8 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 	// now check for removed instances
 	struct uwsgi_instance *c_ui = ui->ui_next;
 
+	// loop over all the registered instances
+	// and find those which do not live in the filesystem anymore
 	while (c_ui) {
 		if (c_ui->scanner == ues) {
 			if (c_ui->zerg) {
@@ -301,29 +303,16 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 				else {
 					char *filename = uwsgi_calloc(0xff);
 					memcpy(filename, c_ui->name, colon - c_ui->name);
-					if (uwsgi.emperor_nofollow) {
-						if (lstat(filename, &st)) {
-							emperor_stop(c_ui);
-						}
-					}
-					else {
-						if (stat(filename, &st)) {
-							emperor_stop(c_ui);
-						}
+					if (stat(filename, &st)) {
+						emperor_stop(c_ui);
 					}
 					free(filename);
 				}
 			}
 			else {
-				if (uwsgi.emperor_nofollow) {
-                                	if (lstat(c_ui->name, &st)) {
-                                       		emperor_stop(c_ui);
-                                	}
-				}
-				else {
-                                	if (stat(c_ui->name, &st)) {
-                                       		emperor_stop(c_ui);
-                                	}
+				// name may be a symlink; we still have to stat the target file, not the symlink
+				if (stat(c_ui->name, &st)) {
+					emperor_stop(c_ui);
 				}
 			}
 		}
@@ -336,7 +325,7 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 
 	glob_t g;
 	int i;
-	struct stat st;
+	struct stat st, lst;
 	struct uwsgi_instance *ui_current;
 
 	if (glob(ues->arg, GLOB_MARK | GLOB_NOCHECK, NULL, &g)) {
@@ -349,37 +338,32 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 		if (!uwsgi_emperor_is_valid(g.gl_pathv[i]))
 			continue;
 
-		if (uwsgi.emperor_nofollow) {
-			if (lstat(g.gl_pathv[i], &st))
-				continue;
-			if (!S_ISREG(st.st_mode) && !S_ISLNK(st.st_mode))
-				continue;
-		}
-		else {
-			if (stat(g.gl_pathv[i], &st))
-				continue;
-			if (!S_ISREG(st.st_mode))
-				continue;
-		}
+		// get file status of the ini file which may be a symbolic link
+		if (stat(g.gl_pathv[i], &st) || lstat(g.gl_pathv[i], &lst))
+			continue;
+
+		// g.gl_pathv[i] must be a regular file (or a symlink pointing to a regular file)
+		if (!S_ISREG(st.st_mode))
+			continue;
 
 		ui_current = emperor_get(g.gl_pathv[i]);
 
 		uid_t t_uid = st.st_uid;
-                gid_t t_gid = st.st_gid;
+		gid_t t_gid = st.st_gid;
 
-                if (uwsgi.emperor_tyrant && uwsgi.emperor_tyrant_nofollow) {
-                        struct stat lst;
-                        if (lstat(g.gl_pathv[i], &lst)) {
-                                uwsgi_error("[emperor-tyrant]/lstat()");
-                                if (ui_current) {
-                                        uwsgi_log("!!! availability of file %s changed. stopping the instance... !!!\n", g.gl_pathv[i]);
-                                        emperor_stop(ui_current);
-                                }
-                                continue;
-                        }
-                        t_uid = lst.st_uid;
-                        t_gid = lst.st_gid;
-                }
+        if (uwsgi.emperor_tyrant && uwsgi.emperor_tyrant_nofollow) {
+			struct stat lst;
+			if (lstat(g.gl_pathv[i], &lst)) {
+				uwsgi_error("[emperor-tyrant]/lstat()");
+				if (ui_current) {
+					uwsgi_log("!!! availability of file %s changed. stopping the instance... !!!\n", g.gl_pathv[i]);
+					emperor_stop(ui_current);
+				}
+				continue;
+			}
+			t_uid = lst.st_uid;
+			t_gid = lst.st_gid;
+		}
 
 		if (ui_current) {
 			// check if uid or gid are changed, in such case, stop the instance
@@ -391,10 +375,14 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 				}
 			}
 			// check if mtime is changed and the uWSGI instance must be reloaded
-			if (st.st_mtime > ui_current->last_mod) {
-				emperor_respawn(ui_current, st.st_mtime);
+			// handles also the case 'touch --no-dereference $INIFILE' to reload only a single instance
+			if (st.st_mtime > ui_current->last_mod || lst.st_mtime > ui_current->last_mod) {
+				time_t new_mtime = lst.st_mtime >= st.st_mtime ? lst.st_mtime : st.st_mtime;
+				emperor_respawn(ui_current, new_mtime);
 			}
 		}
+		// new ini file found!
+		// => add a new element to the list of monitored instances and start it
 		else {
 			char *socket_name = emperor_check_on_demand_socket(g.gl_pathv[i]);
 			emperor_add(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, t_uid, t_gid, socket_name);
@@ -407,41 +395,30 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 	// now check for removed instances
 	struct uwsgi_instance *c_ui = ui->ui_next;
 
+	// loop over all the registered instances
+	// and find those which do not live in the filesystem anymore
 	while (c_ui) {
 		if (c_ui->scanner == ues) {
 			if (c_ui->zerg) {
-                                char *colon = strrchr(c_ui->name, ':');
-                                if (!colon) {
-                                        emperor_stop(c_ui);
-                                }
-                                else {
-                                        char *filename = uwsgi_calloc(0xff);
-                                        memcpy(filename, c_ui->name, colon - c_ui->name);
-					if (uwsgi.emperor_nofollow) {
-                                        	if (lstat(filename, &st)) {
-                                                	emperor_stop(c_ui);
-                                        	}
-					}
-					else {
-                                        	if (stat(filename, &st)) {
-                                                	emperor_stop(c_ui);
-                                        	}
-					}
-                                        free(filename);
-                                }
-                        }
-                        else {
-				if (uwsgi.emperor_nofollow) {
-                                	if (lstat(c_ui->name, &st)) { 
-                                        	emperor_stop(c_ui);
-                                	}
+				char *colon = strrchr(c_ui->name, ':');
+				if (!colon) {
+					emperor_stop(c_ui);
 				}
 				else {
-                                	if (stat(c_ui->name, &st)) { 
-                                        	emperor_stop(c_ui);
-                                	}
+					char *filename = uwsgi_calloc(0xff);
+					memcpy(filename, c_ui->name, colon - c_ui->name);
+					if (stat(filename, &st)) {
+						emperor_stop(c_ui);
+					}
+					free(filename);
 				}
-                        }
+			}
+			else {
+				// name may be a symlink; we still have to stat the target file, not the symlink
+				if (stat(c_ui->name, &st)) {
+					emperor_stop(c_ui);
+				}
+			}
 		}
 		c_ui = c_ui->ui_next;
 	}
