@@ -1440,6 +1440,7 @@ struct wsgi_request {
 	ssize_t chunked_input_chunk_len;
 	size_t chunked_input_need;
 	uint8_t chunked_input_complete;
+        size_t chunked_input_decapitate;
 
 	uint64_t stream_id;
 

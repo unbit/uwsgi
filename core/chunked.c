@@ -84,7 +84,7 @@ static ssize_t uwsgi_chunked_readline(struct wsgi_request *wsgi_req) {
 */
 
 char *uwsgi_chunked_read(struct wsgi_request *wsgi_req, size_t *len, int timeout, int nb) {
-	char *ret;
+
 	if (!wsgi_req->chunked_input_buf) {
 		wsgi_req->chunked_input_buf = uwsgi_buffer_new(uwsgi.page_size);
 		wsgi_req->chunked_input_buf->limit = uwsgi.chunked_input_limit;
@@ -96,14 +96,18 @@ char *uwsgi_chunked_read(struct wsgi_request *wsgi_req, size_t *len, int timeout
 		return wsgi_req->chunked_input_buf->buf;
 	}
 
+	if (wsgi_req->chunked_input_decapitate > 0) {
+		if (uwsgi_buffer_decapitate(wsgi_req->chunked_input_buf, wsgi_req->chunked_input_decapitate)) return NULL;
+		wsgi_req->chunked_input_decapitate = 0;
+	}
+
 	for(;;) {
 		if (wsgi_req->chunked_input_need > 0 || wsgi_req->chunked_input_buf->pos == 0) {
-			if (uwsgi_buffer_fix(wsgi_req->chunked_input_buf, uwsgi.page_size)) return NULL;
+			if (uwsgi_buffer_ensure(wsgi_req->chunked_input_buf, UMAX((uint64_t)uwsgi.page_size, wsgi_req->chunked_input_need))) return NULL;
 			ssize_t rlen = uwsgi_chunked_input_recv(wsgi_req, timeout, nb);	
 			if (rlen <= 0) return NULL;
 			// update buffer position
 			wsgi_req->chunked_input_buf->pos += rlen;
-
 			if (wsgi_req->chunked_input_need > 0) {
 				if ((size_t)rlen > wsgi_req->chunked_input_need) {
 					wsgi_req->chunked_input_need = 0;
@@ -122,6 +126,7 @@ char *uwsgi_chunked_read(struct wsgi_request *wsgi_req, size_t *len, int timeout
 				case 0:
 					wsgi_req->chunked_input_chunk_len = uwsgi_chunked_readline(wsgi_req);
 					if (wsgi_req->chunked_input_chunk_len == -2) {
+						wsgi_req->chunked_input_need++;
 						break;
 					}
 					else if (wsgi_req->chunked_input_chunk_len < 0) {
@@ -139,19 +144,17 @@ char *uwsgi_chunked_read(struct wsgi_request *wsgi_req, size_t *len, int timeout
 						break;
 					}
 					*len = wsgi_req->chunked_input_chunk_len;
-					ret = wsgi_req->chunked_input_buf->buf;
-					if (uwsgi_buffer_decapitate(wsgi_req->chunked_input_buf, wsgi_req->chunked_input_chunk_len+2)) return NULL;
-					return ret;
+					wsgi_req->chunked_input_decapitate = wsgi_req->chunked_input_chunk_len+2;
+					return wsgi_req->chunked_input_buf->buf;
 				case 1:
 					if ((size_t)(wsgi_req->chunked_input_chunk_len+2) > wsgi_req->chunked_input_buf->pos) {
                                                 wsgi_req->chunked_input_need = (wsgi_req->chunked_input_chunk_len+2) - wsgi_req->chunked_input_buf->pos;
 						break;
                                         }	
 					*len = wsgi_req->chunked_input_chunk_len;
-                                        ret = wsgi_req->chunked_input_buf->buf;
-                                        if (uwsgi_buffer_decapitate(wsgi_req->chunked_input_buf, wsgi_req->chunked_input_chunk_len+2)) return NULL;
+					wsgi_req->chunked_input_decapitate = wsgi_req->chunked_input_chunk_len+2;
 					wsgi_req->chunked_input_parser_status = 0;
-                                        return ret;
+                                        return wsgi_req->chunked_input_buf->buf;
 					
 			}
 		}
