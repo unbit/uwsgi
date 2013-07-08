@@ -352,6 +352,9 @@ struct uwsgi_buffer {
 	size_t pos;
 	size_t len;
 	size_t limit;
+#ifdef UWSGI_DEBUG_BUFFER
+	int freed;
+#endif
 };
 
 struct uwsgi_string_list {

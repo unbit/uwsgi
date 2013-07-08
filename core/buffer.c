@@ -270,6 +270,12 @@ int uwsgi_buffer_append_base64(struct uwsgi_buffer *ub, char *s, size_t len) {
 
 
 void uwsgi_buffer_destroy(struct uwsgi_buffer *ub) {
+#ifdef UWSGI_DEBUG_BUFFER
+	if (ub->freed) {
+		uwsgi_log("[BUG] buffer at %p already destroyed !!!\n", ub);
+	}
+	ub->freed = 1;
+#endif
 	if (ub->buf)
 		free(ub->buf);
 	free(ub);
