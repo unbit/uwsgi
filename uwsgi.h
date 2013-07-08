@@ -1103,6 +1103,9 @@ struct uwsgi_route {
 	void *data3;
 	size_t data3_len;
 
+	void *data4;
+	size_t data4_len;
+
 	// 64bit value for custom usage
 	uint64_t custom;
 

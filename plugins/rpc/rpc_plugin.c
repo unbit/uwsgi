@@ -399,6 +399,61 @@ end:
         return ret;
 }
 
+static int uwsgi_routing_func_rpc_var(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        int ret = -1;
+        // this is the list of args
+        char *argv[UMAX8];
+        // this is the size of each argument
+        uint16_t argvs[UMAX8];
+        // this is a placeholder for tmp uwsgi_buffers
+        struct uwsgi_buffer *ubs[UMAX8];
+
+        char **r_argv = (char **) ur->data2;
+        uint16_t *r_argvs = (uint16_t *) ur->data3;
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        uint64_t i;
+        for(i=0;i<ur->custom;i++) {
+                ubs[i] = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, r_argv[i], r_argvs[i]);
+                if (!ubs[i]) goto end;
+                argv[i] = ubs[i]->buf;
+                argvs[i] = ubs[i]->pos;
+        }
+
+        // ok we now need to check it it is a local call or a remote one
+        char *func = uwsgi_str(ur->data);
+        char *remote = NULL;
+        char *at = strchr(func, '@');
+        if (at) {
+                *at = 0;
+                remote = at+1;
+        }
+        uint16_t size;
+        char *response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
+        free(func);
+        if (!response) goto end;
+
+        ret = UWSGI_ROUTE_BREAK;
+        if (size == 0) goto end;
+
+	if (!uwsgi_req_append(wsgi_req, ur->data4, ur->data4_len, response, size)) {
+		free(response);
+		goto end;
+	}
+	free(response);
+	ret = UWSGI_ROUTE_NEXT;
+end:
+        for(i=0;i<ur->custom;i++) {
+                if (ubs[i] != NULL) {
+                        uwsgi_buffer_destroy(ubs[i]);
+                }
+        }
+        return ret;
+}
+
+
 
 // "next" || "continue" || "break(.*)" || "goon" || "goto .+"
 static int uwsgi_routing_func_rpc_ret(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
@@ -497,6 +552,7 @@ end:
         ur->custom = the number of arguments
 	ur->data2 = the pointer to the args
 	ur->data3 = the pointer to the args sizes
+	ur->data4 = func specific
 */
 static int uwsgi_router_rpc_base(struct uwsgi_route *ur, char *args) {
 	ur->custom = 0;
@@ -552,6 +608,14 @@ static int uwsgi_router_rpc_raw(struct uwsgi_route *ur, char *args) {
         return uwsgi_router_rpc_base(ur, args);
 }
 
+static int uwsgi_router_rpc_var(struct uwsgi_route *ur, char *args) {
+        ur->func = uwsgi_routing_func_rpc_var;
+	char *space = strchr(args, ' ');
+	if (!space) return -1;
+	ur->data4 = args;
+	ur->data4_len = space - args;
+        return uwsgi_router_rpc_base(ur, space+1);
+}
 
 static void router_rpc_register() {
         uwsgi_register_router("call", uwsgi_router_rpc);
@@ -560,6 +624,7 @@ static void router_rpc_register() {
         uwsgi_register_router("rpcblob", uwsgi_router_rpc_blob);
         uwsgi_register_router("rpcnext", uwsgi_router_rpc_blob);
         uwsgi_register_router("rpcraw", uwsgi_router_rpc_raw);
+        uwsgi_register_router("rpcvar", uwsgi_router_rpc_var);
 }
 #endif
 
