@@ -152,7 +152,7 @@ struct uwsgi_server {
 };
 struct uwsgi_server uwsgi;
 
-struct uwsgi_plugin *pypy_plugin;
+struct uwsgi_plugin pypy_plugin;
 
 const char *uwsgi_pypy_version;
 
@@ -228,7 +228,7 @@ const char *uwsgi_pypy_version = UWSGI_VERSION;
 %s
 
 extern struct uwsgi_server uwsgi;
-extern struct uwsgi_plugin *pypy_plugin;
+extern struct uwsgi_plugin pypy_plugin;
 %s
 ''' % ('\n'.join(uwsgi_defines), uwsgi_dot_h, hooks)
 
@@ -473,7 +473,8 @@ def uwsgi_pypy_uwsgi_register_rpc(name, func, argc=0):
     rpc_func = uwsgi_pypy_RPC(func)
     cb = ffi.callback("int(int, char*[], int[], char*)", rpc_func)
     uwsgi_gc.append(cb)
-    if lib.uwsgi_register_rpc(ffi.new("char[]", name), lib.pypy_plugin, argc, cb) < 0:
+    print lib.pypy_plugin
+    if lib.uwsgi_register_rpc(ffi.new("char[]", name), ffi.addressof(lib.pypy_plugin), argc, cb) < 0:
         raise Exception("unable to register rpc func %s" % name)
 uwsgi.register_rpc = uwsgi_pypy_uwsgi_register_rpc
 
