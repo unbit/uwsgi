@@ -2833,16 +2833,38 @@ char *uwsgi_check_touches(struct uwsgi_string_list *touch_list) {
 }
 
 char *uwsgi_chomp(char *str) {
-	size_t i;
-	for (i = 0; i < strlen(str); i++) {
+	ssize_t slen = (ssize_t) strlen(str), i ;
+	if (!slen) return str;
+	slen--;
+	for (i = slen; i >= 0; i--) {
 		if (str[i] == '\r' || str[i] == '\n') {
 			str[i] = 0;
+		}
+		else {
 			return str;
 		}
 	}
 
 	return str;
 }
+
+char *uwsgi_chomp2(char *str) {
+        ssize_t slen = (ssize_t) strlen(str), i ;
+        if (!slen) return str;
+        slen--;
+        for (i = slen; i >= 0; i--) {
+                if (str[i] == '\r' || str[i] == '\n' || str[i] == '\t' || str[i] == ' ') {
+                        str[i] = 0;
+                }
+                else {
+                        return str;
+                }
+        }
+
+        return str;
+}
+
+
 
 int uwsgi_tmpfd() {
 	char *tmpdir = getenv("TMPDIR");
@@ -3624,4 +3646,81 @@ void create_msg_pipe(int *fd, int bufsize) {
 
 char *uwsgi_binary_path() {
 	return uwsgi.binary_path ? uwsgi.binary_path : "uwsgi";
+}
+
+void uwsgi_envdir(char *edir) {
+	DIR *d = opendir(edir);
+	if (!d) {
+		uwsgi_error("[uwsgi-envdir] opendir()");
+		exit(1);
+	}
+	struct dirent *de;
+	while ((de = readdir(d)) != NULL) {
+		// skip hidden files
+		if (de->d_name[0] == '.') continue;
+		struct stat st;
+		char *filename = uwsgi_concat3(edir, "/", de->d_name);
+		if (stat(filename, &st)) {
+			uwsgi_log("[uwsgi-envdir] error stating %s\n", filename);
+			uwsgi_error("[uwsgi-envdir] stat()");
+			exit(1);
+		}
+
+		if (!S_ISREG(st.st_mode)) {
+			free(filename);
+			continue;
+		}
+	
+		// unsetenv
+		if (st.st_size == 0) {
+			if (unsetenv(de->d_name)) {
+				uwsgi_log("[uwsgi-envdir] unable to unset %s\n", de->d_name);
+				uwsgi_error("[uwsgi-envdir] unsetenv");
+				exit(1);
+			}
+			free(filename);
+			continue;
+		}
+
+		// read the content of the file
+		size_t size = 0;
+        	char *content = uwsgi_open_and_read(filename, &size, 1, NULL);
+		if (!content) {
+			uwsgi_log("[uwsgi-envdir] unable to open %s\n", filename);
+			uwsgi_error_open(filename);
+			exit(1);
+		}
+		free(filename);
+
+		// HACK, envdir states we only need to strip the end of the string ....
+		uwsgi_chomp2(content);
+		// ... and substitute 0 with \n
+		size_t slen = strlen(content);
+		size_t i;
+		for(i=0;i<slen;i++) {
+			if (content[i] == 0) {
+				content[i] = '\n';
+			}
+		}
+
+		if (setenv(de->d_name, content, 1)) {
+			uwsgi_log("[uwsgi-envdir] unable to set %s\n", de->d_name);
+                        uwsgi_error("[uwsgi-envdir] setenv");
+			exit(1);
+		}
+
+		free(content);
+	}
+}
+
+void uwsgi_envdirs(struct uwsgi_string_list *envdirs) {
+	struct uwsgi_string_list *usl = envdirs;
+	while(usl) {
+		uwsgi_envdir(usl->value);
+		usl = usl->next;
+	}	
+}
+
+void uwsgi_opt_envdir(char *opt, char *value, void *foobar) {
+	uwsgi_envdir(value);
 }

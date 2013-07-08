@@ -642,6 +642,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"close-on-exec", no_argument, 0, "set close-on-exec on sockets (could be required for spawning processes in requests)", uwsgi_opt_true, &uwsgi.close_on_exec, 0},
 	{"mode", required_argument, 0, "set uWSGI custom mode", uwsgi_opt_set_str, &uwsgi.mode, 0},
 	{"env", required_argument, 0, "set environment variable", uwsgi_opt_set_env, NULL, 0},
+	{"envdir", required_argument, 0, "load a daemontools compatible envdir", uwsgi_opt_add_string_list, &uwsgi.envdirs, 0},
+	{"early-envdir", required_argument, 0, "load a daemontools compatible envdir ASAP", uwsgi_opt_envdir, NULL, UWSGI_OPT_IMMEDIATE},
 	{"unenv", required_argument, 0, "unset environment variable", uwsgi_opt_unset_env, NULL, 0},
 	{"vacuum", no_argument, 0, "try to remove all of the generated file/sockets", uwsgi_opt_true, &uwsgi.vacuum, 0},
 	{"file-write", required_argument, 0, "write the specified content to the specified file (syntax: file=value) before privileges drop", uwsgi_opt_add_string_list, &uwsgi.file_write_list, 0},
@@ -1894,6 +1896,9 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();
+
+	// manage envdirs ASAP
+	uwsgi_envdirs(uwsgi.envdirs);
 
 	// --get management
 	struct uwsgi_string_list *get_list = uwsgi.get_list;

@@ -1581,6 +1581,9 @@ struct uwsgi_server {
 	char *procname_master;
 	char *procname;
 
+	// daemontools-like envdir
+	struct uwsgi_string_list *envdirs;
+
 	char *requested_clock;
 	struct uwsgi_clock *clocks;
 	struct uwsgi_clock *clock;
@@ -3412,6 +3415,7 @@ void uwsgi_fixup_routes(struct uwsgi_route *);
 void uwsgi_reload(char **);
 
 char *uwsgi_chomp(char *);
+char *uwsgi_chomp2(char *);
 int uwsgi_file_to_string_list(char *, struct uwsgi_string_list **);
 void uwsgi_backtrace(int);
 void uwsgi_check_logrotate(void);
@@ -4092,6 +4096,10 @@ char *uwsgi_binary_path(void);
 int uwsgi_is_again();
 void uwsgi_disconnect(struct wsgi_request *);
 int uwsgi_ready_fd(struct wsgi_request *);
+
+void uwsgi_envdir(char *);
+void uwsgi_envdirs(struct uwsgi_string_list *);
+void uwsgi_opt_envdir(char *, char *, void *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
