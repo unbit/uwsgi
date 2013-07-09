@@ -1,6 +1,15 @@
+import os
+
 NAME='alarm_speech'
 
-CFLAGS = []
+uwsgi_os = os.uname()[0]
+
 LDFLAGS = []
-LIBS = ['-framework appkit']
+if uwsgi_os == "Darwin":
+    CFLAGS = []
+    LIBS = ['-framework appkit']
+else:
+    CFLAGS = ['-I /usr/include/GNUstep']
+    LIBS = []
+
 GCC_LIST = ['alarm_speech.m']
