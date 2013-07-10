@@ -232,7 +232,7 @@ def build_uwsgi(uc, print_only=False):
                 continue
             p = p.strip()
             if p == 'ugreen':
-                if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku' or uwsgi_os.startswith('CYGWIN'):
+                if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku' or uwsgi_os.startswith('CYGWIN') or (uwsgi_os == 'Darwin' and uwsgi_os_k.startswith('8')):
                     continue
             epc += "UDEP(%s);" % p
             eplc += "ULEP(%s);" % p
@@ -316,7 +316,7 @@ def build_uwsgi(uc, print_only=False):
                 p = p.strip()
 
                 if p == 'ugreen':
-                    if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku' or uwsgi_os.startswith('CYGWIN'):
+                    if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku' or uwsgi_os.startswith('CYGWIN') or (uwsgi_os == 'Darwin' and uwsgi_os_k.startswith('8')):
                         continue
                 path = 'plugins/%s' % p
                 path = path.rstrip('/')
@@ -694,6 +694,11 @@ class uConf(object):
             self.libs.append('-lroot')
 
         if uwsgi_os == 'Darwin':
+            if uwsgi_os_k.startswith('8'):
+                self.cflags.append('-DUNSETENV_VOID')
+                self.cflags.append('-DNO_SENDFILE')
+                self.cflags.append('-DNO_EXECINFO')
+                self.cflags.append('-DOLD_REALPATH')
             self.cflags.append('-mmacosx-version-min=10.5')
             if GCC in ('clang',):
                 self.libs.remove('-rdynamic')

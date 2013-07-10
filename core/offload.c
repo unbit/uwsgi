@@ -345,7 +345,7 @@ static int u_offload_sendfile_do(struct uwsgi_thread *ut, struct uwsgi_offload_r
 		uwsgi_offload_retry
                 uwsgi_error("u_offload_sendfile_do()");
 	}
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) && !defined(NO_SENDFILE)
 	off_t len = 0;
         int ret = sendfile(uor->fd, uor->fd2, uor->pos, &len, NULL, 0);
         // transfer finished

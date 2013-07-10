@@ -909,11 +909,15 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		while (*uenvs) {
 			if (!strncmp(*uenvs, "UWSGI_VASSAL_", 13) && strchr(*uenvs, '=')) {
 				char *oe = uwsgi_concat2n(*uenvs, strchr(*uenvs, '=') - *uenvs, "", 0), *ne;
+#ifdef UNSETENV_VOID
+				unsetenv(oe);
+#else
 				if (unsetenv(oe)) {
 					uwsgi_error("unsetenv()");
 					free(oe);
 					break;
 				}
+#endif
 				free(oe);
 
 				ne = uwsgi_concat2("UWSGI_", *uenvs + 13);

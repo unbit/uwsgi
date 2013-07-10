@@ -2167,11 +2167,14 @@ char *uwsgi_get_binary_path(char *argvzero) {
 	uint32_t len = uwsgi.page_size;
 	if (_NSGetExecutablePath(buf, &len) == 0) {
 		// return only absolute path
+		uwsgi_log("OK\n");
+#ifndef OLD_REALPATH
 		char *newbuf = realpath(buf, NULL);
 		if (newbuf) {
 			free(buf);
 			return newbuf;
 		}
+#endif
 	}
 	free(buf);
 #elif defined(__sun__)
@@ -3673,11 +3676,15 @@ void uwsgi_envdir(char *edir) {
 	
 		// unsetenv
 		if (st.st_size == 0) {
+#ifdef UNSETENV_VOID
+			unsetenv(de->d_name);
+#else
 			if (unsetenv(de->d_name)) {
 				uwsgi_log("[uwsgi-envdir] unable to unset %s\n", de->d_name);
 				uwsgi_error("[uwsgi-envdir] unsetenv");
 				exit(1);
 			}
+#endif
 			free(filename);
 			continue;
 		}
