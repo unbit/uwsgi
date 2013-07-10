@@ -1496,7 +1496,7 @@ void uwsgi_plugins_atexit(void) {
 
 void uwsgi_backtrace(int depth) {
 
-#if defined(__linux__) || defined(__APPLE__) || defined(UWSGI_HAS_EXECINFO)
+#if defined(__linux__) || (defined(__APPLE__) && !defined(NO_EXECINFO)) || defined(UWSGI_HAS_EXECINFO)
 
 #include <execinfo.h>
 
@@ -3668,9 +3668,13 @@ void uwsgi_opt_set_env(char *opt, char *value, void *none) {
 }
 
 void uwsgi_opt_unset_env(char *opt, char *value, void *none) {
+#ifdef UNSETENV_VOID
+	unsetenv(value);
+#else
 	if (unsetenv(value)) {
 		uwsgi_error("unsetenv()");
 	}
+#endif
 }
 
 void uwsgi_opt_pidfile_signal(char *opt, char *pidfile, void *sig) {
