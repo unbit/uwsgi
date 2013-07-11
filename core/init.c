@@ -451,7 +451,7 @@ void sanitize_args() {
 
 	/* here we try to choose if thunder lock is a good thing */
 #ifdef UNBIT
-	if (uwsgi.numproc > 1) {
+	if (uwsgi.numproc > 1 && !uwsgi.map_socket) {
 		uwsgi.use_thunder_lock = 1;
 	}
 #endif
