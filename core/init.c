@@ -449,6 +449,12 @@ void sanitize_args() {
 		exit(1);
 	}
 
+	/* here we try to choose if thunder lock is a good thing */
+#ifdef UNBIT
+	if (uwsgi.numproc > 1) {
+		uwsgi.use_thunder_lock = 1;
+	}
+#endif
 }
 
 const char *uwsgi_http_status_msg(char *status, uint16_t *len) {
