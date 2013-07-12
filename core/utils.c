@@ -2167,7 +2167,6 @@ char *uwsgi_get_binary_path(char *argvzero) {
 	uint32_t len = uwsgi.page_size;
 	if (_NSGetExecutablePath(buf, &len) == 0) {
 		// return only absolute path
-		uwsgi_log("OK\n");
 #ifndef OLD_REALPATH
 		char *newbuf = realpath(buf, NULL);
 		if (newbuf) {
