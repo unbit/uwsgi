@@ -141,7 +141,78 @@ int uwsgi_routing_func_sendfile(struct wsgi_request *wsgi_req, struct uwsgi_rout
                 if (uwsgi_response_add_content_type(wsgi_req, urfc->content_type, urfc->content_type_len)) goto end2;
         }
 
-	uwsgi_simple_sendfile(wsgi_req, fd, 0, st.st_size);
+	if (!uwsgi_simple_sendfile(wsgi_req, fd, 0, st.st_size)) {
+		wsgi_req->via = UWSGI_VIA_SENDFILE;
+		wsgi_req->response_size += st.st_size;
+	}
+
+end2:
+        close(fd);
+end:
+        uwsgi_buffer_destroy(ub);
+        return ret;
+}
+
+int uwsgi_routing_func_fastfile(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+
+        struct stat st;
+        int ret = UWSGI_ROUTE_BREAK;
+
+        struct uwsgi_router_file_conf *urfc = (struct uwsgi_router_file_conf *) ur->data2;
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urfc->filename, urfc->filename_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
+
+        int fd = open(ub->buf, O_RDONLY);
+        if (fd < 0) {
+                if (ur->custom)
+                        ret = UWSGI_ROUTE_NEXT;
+                goto end;
+        }
+
+        if (fstat(fd, &st)) {
+                goto end2;
+        }
+
+        struct uwsgi_buffer *ub_s = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urfc->status, urfc->status_len);
+        if (!ub_s) goto end2;
+
+        if (uwsgi_response_prepare_headers(wsgi_req, ub_s->buf, ub_s->pos)) {
+                uwsgi_buffer_destroy(ub_s);
+                goto end2;
+        }
+        uwsgi_buffer_destroy(ub_s);
+        if (uwsgi_response_add_content_length(wsgi_req, st.st_size)) goto end2;
+        if (urfc->mime) {
+                size_t mime_type_len = 0;
+                char *mime_type = uwsgi_get_mime_type(ub->buf, ub->pos, &mime_type_len);
+                if (mime_type) {
+                        if (uwsgi_response_add_content_type(wsgi_req, mime_type, mime_type_len)) goto end2;
+                }
+                else {
+                        if (uwsgi_response_add_content_type(wsgi_req, urfc->content_type, urfc->content_type_len)) goto end2;
+                }
+        }
+        else {
+                if (uwsgi_response_add_content_type(wsgi_req, urfc->content_type, urfc->content_type_len)) goto end2;
+        }
+
+	if (wsgi_req->socket->can_offload) {
+		if (!uwsgi_offload_request_sendfile_do(wsgi_req, fd, st.st_size)) {
+                        wsgi_req->via = UWSGI_VIA_OFFLOAD;
+                        wsgi_req->response_size += st.st_size;
+                	// the fd will be closed by the offload engine
+			goto end;
+		}
+	}
+
+        if (!uwsgi_simple_sendfile(wsgi_req, fd, 0, st.st_size)) {
+                wsgi_req->via = UWSGI_VIA_SENDFILE;
+                wsgi_req->response_size += st.st_size;
+        }
 
 end2:
         close(fd);
@@ -213,6 +284,19 @@ static int uwsgi_router_sendfile_next(struct uwsgi_route *ur, char *args) {
 	return ret;
 }
 
+static int uwsgi_router_fastfile(struct uwsgi_route *ur, char *args) {
+        int ret =  uwsgi_router_file(ur, args);
+        ur->func = uwsgi_routing_func_fastfile;
+        return ret;
+}
+
+static int uwsgi_router_fastfile_next(struct uwsgi_route *ur, char *args) {
+        ur->custom = 1;
+        int ret =  uwsgi_router_file(ur, args);
+        ur->func = uwsgi_routing_func_fastfile;
+        return ret;
+}
+
 static void router_static_register(void) {
 
 	uwsgi_register_router("static", uwsgi_router_static);
@@ -220,6 +304,8 @@ static void router_static_register(void) {
 	uwsgi_register_router("file-next", uwsgi_router_file_next);
 	uwsgi_register_router("sendfile", uwsgi_router_sendfile);
 	uwsgi_register_router("sendfile-next", uwsgi_router_sendfile_next);
+	uwsgi_register_router("fastfile", uwsgi_router_fastfile);
+	uwsgi_register_router("fastfile-next", uwsgi_router_fastfile_next);
 }
 
 struct uwsgi_plugin router_static_plugin = {
