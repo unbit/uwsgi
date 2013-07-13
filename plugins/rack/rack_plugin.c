@@ -1245,6 +1245,20 @@ void uwsgi_rack_postinit_apps(void) {
 	}
 }
 
+/*
+	If the ruby VM has rb_reserved_fd_p, we avoid closign the filedescriptor needed by
+	modern ruby (the Matz ones) releases.
+*/
+static void uwsgi_ruby_cleanup() {
+	int (*uptr_rb_reserved_fd_p)(int) = dlsym(RTLD_DEFAULT, "rb_reserved_fd_p");
+	if (!uptr_rb_reserved_fd_p) return;
+	int i;
+	for (i = 3; i < (int) uwsgi.max_fd; i++) {
+		if (uptr_rb_reserved_fd_p(i)) {
+			uwsgi_add_safe_fd(i);
+		}
+	}
+}
 
 struct uwsgi_plugin rack_plugin = {
 
@@ -1287,5 +1301,7 @@ struct uwsgi_plugin rack_plugin = {
 	.exception_repr = uwsgi_ruby_exception_repr,
 	.exception_log = uwsgi_ruby_exception_log,
 	.backtrace = uwsgi_ruby_backtrace,
+
+	.master_cleanup = uwsgi_ruby_cleanup,
 };
 
