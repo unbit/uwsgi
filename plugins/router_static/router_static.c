@@ -141,10 +141,7 @@ int uwsgi_routing_func_sendfile(struct wsgi_request *wsgi_req, struct uwsgi_rout
                 if (uwsgi_response_add_content_type(wsgi_req, urfc->content_type, urfc->content_type_len)) goto end2;
         }
 
-	ssize_t rlen = uwsgi_sendfile_do(wsgi_req->fd, fd, 0, st.st_size);
-	if (rlen > 0) {
-		wsgi_req->response_size += rlen;
-	}
+	uwsgi_simple_sendfile(wsgi_req, fd, 0, st.st_size);
 
 end2:
         close(fd);

@@ -71,5 +71,9 @@ int uwsgi_simple_sendfile(struct wsgi_request *wsgi_req, int fd, size_t pos, siz
                         return -1;
                 }
         }
+
+	wsgi_req->response_size += wsgi_req->write_pos;
+        // reset for the next write
+        wsgi_req->write_pos = 0;
 	return 0;
 }
