@@ -9,6 +9,77 @@ uWSGI Servlet 2.5 Container implementation
 
 */
 
+class uWSGIServletContext implements ServletContext {
+	public Object getAttribute(String name) {
+		System.out.println("uWSGIServletContext getAttribute " + name);
+		return null;
+	}
+
+	public void log(java.lang.String message, java.lang.Throwable throwable) {
+		System.out.println("LOG " + message);
+	}
+
+	public String getRealPath(java.lang.String path) {
+		System.out.println("uWSGIServletContext getRealPath " + path);
+		return path;
+	}
+
+	public String getServerInfo() {
+		return "uWSGI";
+	}
+
+	public String getInitParameter(java.lang.String name) {
+		return null;
+	}
+
+	public Enumeration getInitParameterNames() {
+		return null;
+	}
+
+	public java.util.Enumeration getAttributeNames() {
+		System.out.println("uWSGIServletContext getAttributeNames");
+		return null;
+	}
+
+	public String getServletContextName() {
+		System.out.println("uWSGIServletContext getServletContextName");
+		return "/jsp";
+	}
+
+	public void removeAttribute(java.lang.String name) {
+	}
+
+	public void setAttribute(java.lang.String name, java.lang.Object object) {
+		System.out.println("uWSGIServletContext setAttribute " + name);
+	}
+
+}
+
+class uWSGIServletConfig implements ServletConfig {
+
+	uWSGIServletContext context;
+
+	public uWSGIServletConfig() {
+		this.context = new uWSGIServletContext();
+	}
+
+	public String getInitParameter(String name) {
+		System.out.println("ServletConfig getInitParameter " + name);
+		return null;
+	}
+
+	public Enumeration<java.lang.String> getInitParameterNames() {
+		return null;
+	}
+
+	public ServletContext getServletContext() {
+		return this.context;
+	}
+
+	public String getServletName() {
+		return "/jsp";
+	}
+}
 
 class uWSGIServletOutputStream extends ServletOutputStream {
 
@@ -186,6 +257,7 @@ class uWSGIServletRequest implements HttpServletRequest {
 	}
 
 	public String getPathTranslated() {
+		System.out.println("getPathTranslated");
 		return null;
 	}
 

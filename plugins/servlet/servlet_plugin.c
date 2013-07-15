@@ -25,7 +25,7 @@ static int uwsgi_servlet_request(struct wsgi_request *wsgi_req) {
 static int uwsgi_servlet_setup() {
 	uwsgi_log("loading servlet environment...\n");
 
-	jclass servlet = uwsgi_jvm_class("CelsiusToFahrenheit");
+	jclass servlet = uwsgi_jvm_class("org/apache/jasper/servlet/JspServlet");
 	uwsgi_log("jclass = %p\n", servlet);
 
 	jmethodID mid = uwsgi_jvm_get_method_id(servlet, "<init>", "()V");
@@ -33,6 +33,14 @@ static int uwsgi_servlet_setup() {
         jobject instance = (*ujvm_env)->NewObject(ujvm_env, servlet, mid);
 	if (uwsgi_jvm_exception() || !instance) exit(1);
 
+	uwsgi_log("done\n");
+
+	jclass uwsgi_servlet_config = uwsgi_jvm_class("uWSGIServletConfig");
+	mid = uwsgi_jvm_get_method_id(uwsgi_servlet_config, "<init>", "()V");
+	jobject config = (*ujvm_env)->NewObject(ujvm_env, uwsgi_servlet_config, mid);
+
+	mid = uwsgi_jvm_get_method_id(servlet, "init", "(Ljavax/servlet/ServletConfig;)V");
+	uwsgi_jvm_call_object(instance, mid, config );
 
 	jclass uwsgi_request = uwsgi_jvm_class("uWSGIServletRequest");
 	jclass uwsgi_response = uwsgi_jvm_class("uWSGIServletResponse");
