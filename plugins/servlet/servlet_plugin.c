@@ -42,6 +42,8 @@ static int uwsgi_servlet_setup() {
 	mid = uwsgi_jvm_get_method_id(servlet, "init", "(Ljavax/servlet/ServletConfig;)V");
 	uwsgi_jvm_call_object(instance, mid, config );
 
+	uwsgi_log("SERVLET initialized\n");
+
 	jclass uwsgi_request = uwsgi_jvm_class("uWSGIServletRequest");
 	jclass uwsgi_response = uwsgi_jvm_class("uWSGIServletResponse");
 
@@ -61,6 +63,12 @@ static int uwsgi_servlet_setup() {
 	if (uwsgi_jvm_exception() || !mid) exit(1);
 
 	uwsgi_jvm_call_object(instance, mid, request, response);
+
+	uwsgi_log("done\n");
+
+	mid = uwsgi_jvm_get_method_id(uwsgi_response, "flushBuffer", "()V");
+	if (uwsgi_jvm_exception() || !mid) exit(1);
+	uwsgi_jvm_call_object(response, mid);
 
 	uwsgi_log("servlet loaded\n");
 	return 0;

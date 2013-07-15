@@ -2,6 +2,7 @@ import javax.servlet.*;
 import javax.servlet.http.*;
 import java.util.*;
 import java.io.*;
+import java.net.*;
 
 /*
 
@@ -15,11 +16,94 @@ class uWSGIServletContext implements ServletContext {
 		return null;
 	}
 
+	public ServletContext getContext(String uripath) {
+		return this;
+	}
+
+	public String getContextPath() {
+		System.out.println("uWSGIServletContext getContextPath");
+		return "/root/uwsgi";
+	}	
+
+	public int getMajorVersion() {
+		return 2;
+	}
+
+	public int getMinorVersion() {
+		return 5;
+	}
+
+	public String getMimeType(java.lang.String file) {
+		System.out.println("uWSGIServletContext getMimeType " + file);
+		return "text/plain";
+	}
+
+	public java.util.Set getResourcePaths(java.lang.String path) {
+		System.out.println("uWSGIServletContext getResourcePaths " + path);
+                return null;
+	}
+
+	public java.net.URL getResource(java.lang.String path) {
+		System.out.println("uWSGIServletContext getResource " + path);
+		try {
+			File myFile;
+			if (path.equals("/WEB-INF/web.xml")) {
+				myFile = new File("/root/uwsgi/WEB-INF/web.xml");
+			}
+			else {
+				myFile = new File("/root/uwsgi/foo.jsp");
+			}
+			return myFile.toURI().toURL();
+		}
+		catch(MalformedURLException e) {
+			System.out.println("uWSGIServletContext ERROR !!!");
+			return null;
+		}
+	}
+
+	public RequestDispatcher getNamedDispatcher(java.lang.String name) {
+		System.out.println("uWSGIServletContext getNamedDispatcher " + name);
+		return null;
+	}
+
+	public java.io.InputStream getResourceAsStream(java.lang.String path) {
+		System.out.println("uWSGIServletContext getResourceAsStream " + path);
+		try {
+			FileInputStream fis = new FileInputStream(path);
+			return fis;
+		}
+		catch(FileNotFoundException e) {
+			return null;
+		}
+	}
+
+	public RequestDispatcher getRequestDispatcher(java.lang.String path) {
+		System.out.println("uWSGIServletContext getRequestDispatcher " + path);
+		return null;
+	}
+
+	public Servlet getServlet(java.lang.String name) {
+		System.out.println("uWSGIServletContext getServlet");
+		return null;
+	}
+
+	public java.util.Enumeration getServletNames() {
+		return null;
+	}
+
+	public java.util.Enumeration getServlets() {
+		return null;
+	}
+
 	public void log(java.lang.String message, java.lang.Throwable throwable) {
 		System.out.println("LOG " + message);
 	}
 
 	public void log(java.lang.Exception exception, java.lang.String msg) {
+		System.out.println("LOG " + msg);
+	}
+
+	public void log(java.lang.String msg) {
 		System.out.println("LOG " + msg);
 	}
 
@@ -37,6 +121,7 @@ class uWSGIServletContext implements ServletContext {
 	}
 
 	public Enumeration getInitParameterNames() {
+		System.out.println("uWSGIServletContext getInitParameterNames()");
 		return null;
 	}
 
@@ -64,6 +149,8 @@ class uWSGIServletConfig implements ServletConfig {
 	uWSGIServletContext context;
 
 	public uWSGIServletConfig() {
+		super();
+		System.out.println("uWSGIServletConfig allocation");
 		this.context = new uWSGIServletContext();
 	}
 
@@ -73,10 +160,13 @@ class uWSGIServletConfig implements ServletConfig {
 	}
 
 	public Enumeration<java.lang.String> getInitParameterNames() {
-		return null;
+		System.out.println("ServletConfig getInitParameterNames");
+		Vector pNames = new Vector();
+		return pNames.elements();
 	}
 
 	public ServletContext getServletContext() {
+		System.out.println("ServletConfig getServletContext");
 		return this.context;
 	}
 
@@ -89,7 +179,7 @@ class uWSGIServletOutputStream extends ServletOutputStream {
 
 	// append a byte to the writing buffer
 	public void write(int n) {
-		System.out.println("char " + n);
+		System.out.print((char)n);
 	}
 
 	// send them to the client
@@ -99,7 +189,85 @@ class uWSGIServletOutputStream extends ServletOutputStream {
 	
 }
 
+class uWSGIServletSession implements HttpSession {
+
+	HashMap<String,Object> hm;
+
+	public uWSGIServletSession() {
+		this.hm = new HashMap<String,Object>();
+	}
+
+	public String getId() {
+		return "uwsgi";
+	}
+
+	public int getMaxInactiveInterval() {
+		return 3600;
+	}
+
+	public long getLastAccessedTime() {
+		return 1373874485;
+	}
+
+	public long getCreationTime() {
+		return 1373874485;
+	}
+
+	public void setMaxInactiveInterval(int interval) {
+		System.out.println("SESSION INTERVAL " + interval );
+	}
+
+	public HttpSessionContext getSessionContext() {
+		return null;
+	}
+
+	public ServletContext getServletContext() {
+		return null;
+	}
+
+	public String[] getValueNames() {
+		return (String[]) this.hm.keySet().toArray();
+	}
+
+	public void invalidate() {
+	}
+
+	public void removeAttribute(String name) {
+		this.hm.remove(name);
+	}
+
+	public void removeValue(String name) {
+                this.hm.remove(name);
+        }
+
+	public void putValue(String name, Object value) {
+		this.hm.put(name, value);
+	}
+
+	public void setAttribute(String name, Object value) {
+		this.hm.put(name, value);
+	}
+
+	public  Enumeration getAttributeNames() {
+		return Collections.enumeration(this.hm.keySet());
+	}
+
+	public boolean isNew() {
+		return false;
+	}
+
+	public Object getAttribute(String name) {
+		return this.hm.get(name);	
+	}
+
+	public Object getValue(String name) {
+		return this.hm.get(name);	
+	}
+}
+
 class uWSGIServletRequest implements HttpServletRequest {
+
+	uWSGIServletSession session = null;
 
 	public Object getAttribute(String name) {
 		System.out.println("getAttribute " + name);		
@@ -196,6 +364,7 @@ class uWSGIServletRequest implements HttpServletRequest {
 	}
 
 	public RequestDispatcher getRequestDispatcher(String path) {
+		System.out.println("RequestDispatcher getRequestDispatcher " + path);
 		return null;
 	}
 
@@ -266,6 +435,7 @@ class uWSGIServletRequest implements HttpServletRequest {
 	}
 
 	public String getContextPath() {
+		System.out.println("getContextPath");
 		return "";
 	}
 
@@ -286,12 +456,13 @@ class uWSGIServletRequest implements HttpServletRequest {
 	}
 
 	public String getRequestedSessionId() {
+		System.out.println("getRequestedSessionId !!!");
 		return null;
 	}
 
 	public String getRequestURI() {
 		System.out.println("getRequestURI");
-		return "/foobar";
+		return "/foo.jsp";
 	}
 
 	public StringBuffer getRequestURL() {
@@ -302,15 +473,20 @@ class uWSGIServletRequest implements HttpServletRequest {
 
 	public String getServletPath() {
 		System.out.println("getServletPath");
-		return "/foobar";
+		return "/root/uwsgi/foo.jsp";
 	}
 
 	public HttpSession getSession(boolean create) {
+		 System.out.println(" getSession !!!");
 		return null;
 	}
 
 	public HttpSession getSession() {
-		return null;
+		 System.out.println("!!! getSession !!!");
+		if (this.session == null) {
+			this.session = new uWSGIServletSession();
+		}
+		return this.session;
 	}
 
 	public boolean isRequestedSessionIdFromURL() {
@@ -332,6 +508,12 @@ class uWSGIServletRequest implements HttpServletRequest {
 }
 
 class uWSGIServletResponse implements HttpServletResponse {
+
+	PrintWriter pw;	
+
+	public uWSGIServletResponse() {
+		this.pw = new PrintWriter(new uWSGIServletOutputStream());
+	}
 
 	public void addCookie(Cookie cookie) {
 	}
@@ -395,9 +577,12 @@ class uWSGIServletResponse implements HttpServletResponse {
 	}
 
 	public void flushBuffer() {
+		System.out.println("flushBuffer");
+		this.pw.flush();
 	}
 
 	public void resetBuffer() {
+		System.out.println("resetBuffer");
 	}
 
 	public boolean isCommitted() {
@@ -433,8 +618,7 @@ class uWSGIServletResponse implements HttpServletResponse {
 
 	public PrintWriter getWriter() {
 		System.out.println("getWriter()");
-		PrintWriter pw = new PrintWriter(new uWSGIServletOutputStream());
-		return pw;
+		return this.pw;
 	}
 
 	public ServletOutputStream getOutputStream() {
