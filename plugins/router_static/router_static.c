@@ -141,6 +141,10 @@ int uwsgi_routing_func_sendfile(struct wsgi_request *wsgi_req, struct uwsgi_rout
                 if (uwsgi_response_add_content_type(wsgi_req, urfc->content_type, urfc->content_type_len)) goto end2;
         }
 
+	if (!wsgi_req->headers_sent) {
+                if (uwsgi_response_write_headers_do(wsgi_req)) goto end2;
+	}
+
 	if (!uwsgi_simple_sendfile(wsgi_req, fd, 0, st.st_size)) {
 		wsgi_req->via = UWSGI_VIA_SENDFILE;
 		wsgi_req->response_size += st.st_size;
@@ -198,6 +202,10 @@ int uwsgi_routing_func_fastfile(struct wsgi_request *wsgi_req, struct uwsgi_rout
         }
         else {
                 if (uwsgi_response_add_content_type(wsgi_req, urfc->content_type, urfc->content_type_len)) goto end2;
+        }
+
+	if (!wsgi_req->headers_sent) {
+                if (uwsgi_response_write_headers_do(wsgi_req)) goto end2;
         }
 
 	if (wsgi_req->socket->can_offload) {
