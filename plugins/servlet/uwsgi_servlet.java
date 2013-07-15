@@ -19,6 +19,10 @@ class uWSGIServletContext implements ServletContext {
 		System.out.println("LOG " + message);
 	}
 
+	public void log(java.lang.Exception exception, java.lang.String msg) {
+		System.out.println("LOG " + msg);
+	}
+
 	public String getRealPath(java.lang.String path) {
 		System.out.println("uWSGIServletContext getRealPath " + path);
 		return path;
