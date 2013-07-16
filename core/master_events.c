@@ -42,6 +42,69 @@ int uwsgi_master_manage_events(int interesting_fd) {
 		}
 	}
 
+	// reload on fd
+	if (uwsgi.reload_on_fd) {
+		// custom -> fd
+		// custom2 -> len (optional, default 1)
+		// custom_ptr -> log message (optional)
+		struct uwsgi_string_list *usl = uwsgi.reload_on_fd;
+		while(usl) {
+			if (interesting_fd == (int) usl->custom) {
+				char *tmp = uwsgi_malloc(usl->custom2);
+				if (read(interesting_fd, tmp, usl->custom2) <= 0) {
+					uwsgi_error("[reload-on-fd] read()");
+				}
+				free(tmp); // overengineering
+				if (usl->custom_ptr) {
+					uwsgi_log_verbose("*** fd %d ready: %s ***\n", interesting_fd, usl->custom_ptr);
+				}
+				else {
+					uwsgi_log_verbose("*** fd %d ready !!! ***\n", interesting_fd);
+				}
+                                uwsgi_block_signal(SIGHUP);
+                                grace_them_all(0);
+                                uwsgi_unblock_signal(SIGHUP);				
+				return 0;
+			}
+			usl = usl->next;
+		}
+	}
+
+	// brutal reload on fd
+        if (uwsgi.brutal_reload_on_fd) {
+                // custom -> fd
+                // custom2 -> len (optional, default 1)
+                // custom_ptr -> log message (optional)
+                struct uwsgi_string_list *usl = uwsgi.brutal_reload_on_fd;
+                while(usl) {
+                        if (interesting_fd == (int) usl->custom) {
+                                char *tmp = uwsgi_malloc(usl->custom2);
+                                if (read(interesting_fd, tmp, usl->custom2) <= 0) {
+                                        uwsgi_error("[brutal-reload-on-fd] read()");
+                                }
+                                free(tmp); // overengineering
+                                if (usl->custom_ptr) {
+                                        uwsgi_log_verbose("*** fd %d ready: %s ***\n", interesting_fd, usl->custom_ptr);
+                                }
+                                else {
+                                        uwsgi_log_verbose("*** fd %d ready !!! ***\n", interesting_fd);
+                                }
+				if (uwsgi.die_on_term) {
+                                	uwsgi_block_signal(SIGQUIT);
+                                	reap_them_all(0);
+                                	uwsgi_unblock_signal(SIGQUIT);
+				}
+				else {
+                                	uwsgi_block_signal(SIGTERM);
+                                	reap_them_all(0);
+                                	uwsgi_unblock_signal(SIGTERM);
+				}
+                                return 0;
+                        }
+                        usl = usl->next;
+                }
+        }
+
 
 	// wakeup from cheap mode ?
 	if (uwsgi.status.is_cheap) {

@@ -375,6 +375,8 @@ int master_loop(char **argv, char **environ) {
 	uwsgi_start_legions();
 #endif
 
+	uwsgi_add_reload_fds();
+
 	uwsgi_cache_start_sweepers();
 	uwsgi_cache_start_sync_servers();
 

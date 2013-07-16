@@ -1458,3 +1458,30 @@ int uwsgi_cron_task_needs_execution(struct tm *uwsgi_cron_delta, int minute, int
 
 }
 
+static void add_reload_fds(struct uwsgi_string_list *list, char *type) {
+	struct uwsgi_string_list *usl = list;
+	while(usl) {
+		char *strc = uwsgi_str(usl->value);
+		char *space = strchr(strc, ' ');
+		if (space) {
+			*space = 0;
+			usl->custom_ptr = space+1;
+		}
+		char *colon = strchr(strc, ':');
+		if (colon) {
+			*colon = 0;
+			usl->custom2 = strtoul(colon+1, NULL, 10);
+		}
+		usl->custom = strtoul(strc, NULL, 10);
+		if (!usl->custom2) usl->custom2 = 1;
+		event_queue_add_fd_read(uwsgi.master_queue, usl->custom);
+		uwsgi_add_safe_fd(usl->custom);
+		uwsgi_log("added %s reload monitor for fd %d (read size: %llu)\n", type, (int) usl->custom, usl->custom2);
+		usl = usl->next;
+	}
+}
+
+void uwsgi_add_reload_fds() {
+	add_reload_fds(uwsgi.reload_on_fd, "graceful");
+	add_reload_fds(uwsgi.brutal_reload_on_fd, "brutal");
+}

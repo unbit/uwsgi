@@ -336,6 +336,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"evil-reload-on-as", required_argument, 0, "force the master to reload a worker if its address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.evil_reload_on_as, UWSGI_OPT_MASTER | UWSGI_OPT_MEMORY},
 	{"evil-reload-on-rss", required_argument, 0, "force the master to reload a worker if its rss memory is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.evil_reload_on_rss, UWSGI_OPT_MASTER | UWSGI_OPT_MEMORY},
 
+	{"reload-on-fd", required_argument, 0, "reload if the specified file descriptor is ready", uwsgi_opt_add_string_list, &uwsgi.reload_on_fd, UWSGI_OPT_MASTER},
+	{"brutal-reload-on-fd", required_argument, 0, "brutal reload if the specified file descriptor is ready", uwsgi_opt_add_string_list, &uwsgi.brutal_reload_on_fd, UWSGI_OPT_MASTER},
+
 #ifdef __linux__
 #ifdef MADV_MERGEABLE
 	{"ksm", optional_argument, 0, "enable Linux KSM", uwsgi_opt_set_int, &uwsgi.linux_ksm, 0},

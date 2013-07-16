@@ -2017,6 +2017,9 @@ struct uwsgi_server {
 	rlim_t evil_reload_on_as;
 	rlim_t evil_reload_on_rss;
 
+	struct uwsgi_string_list *reload_on_fd;
+	struct uwsgi_string_list *brutal_reload_on_fd;
+
 	struct uwsgi_string_list *touch_reload;
 	struct uwsgi_string_list *touch_chain_reload;
 	struct uwsgi_string_list *touch_workers_reload;
@@ -4100,6 +4103,9 @@ int uwsgi_ready_fd(struct wsgi_request *);
 void uwsgi_envdir(char *);
 void uwsgi_envdirs(struct uwsgi_string_list *);
 void uwsgi_opt_envdir(char *, char *, void *);
+
+void uwsgi_add_reload_fds();
+void uwsgi_add_reload_fds();
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
