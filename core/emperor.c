@@ -1038,6 +1038,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 
 		// close all of the unneded fd
 		for (i = 3; i < (int) uwsgi.max_fd; i++) {
+			if (uwsgi_fd_is_safe(i)) continue;
 			if (n_ui->use_config) {
 				if (i == n_ui->pipe_config[1])
 					continue;
