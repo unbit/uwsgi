@@ -50,11 +50,14 @@ int uwsgi_master_manage_events(int interesting_fd) {
 		struct uwsgi_string_list *usl = uwsgi.reload_on_fd;
 		while(usl) {
 			if (interesting_fd == (int) usl->custom) {
-				char *tmp = uwsgi_malloc(usl->custom2);
+				char stack_tmp[8];
+				char *tmp = stack_tmp;
+				if (usl->custom2 > 8) {
+					tmp = uwsgi_malloc(usl->custom2);
+				}
 				if (read(interesting_fd, tmp, usl->custom2) <= 0) {
 					uwsgi_error("[reload-on-fd] read()");
 				}
-				free(tmp); // overengineering
 				if (usl->custom_ptr) {
 					uwsgi_log_verbose("*** fd %d ready: %s ***\n", interesting_fd, usl->custom_ptr);
 				}
@@ -78,11 +81,14 @@ int uwsgi_master_manage_events(int interesting_fd) {
                 struct uwsgi_string_list *usl = uwsgi.brutal_reload_on_fd;
                 while(usl) {
                         if (interesting_fd == (int) usl->custom) {
-                                char *tmp = uwsgi_malloc(usl->custom2);
+				char stack_tmp[8];
+                                char *tmp = stack_tmp;
+                                if (usl->custom2 > 8) {
+                                        tmp = uwsgi_malloc(usl->custom2);
+                                }
                                 if (read(interesting_fd, tmp, usl->custom2) <= 0) {
                                         uwsgi_error("[brutal-reload-on-fd] read()");
                                 }
-                                free(tmp); // overengineering
                                 if (usl->custom_ptr) {
                                         uwsgi_log_verbose("*** fd %d ready: %s ***\n", interesting_fd, usl->custom_ptr);
                                 }
