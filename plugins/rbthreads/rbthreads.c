@@ -14,10 +14,10 @@ struct uwsgi_rbthreads {
 } urbts;
 
 static struct uwsgi_option rbthreads_options[] = {
-	{"rbthreads", no_argument, 0, "spawn the specified number of ruby native threads", uwsgi_opt_true, &urbts.rbthreads, 0},
-	{"rb-threads", no_argument, 0, "spawn the specified number of ruby native threads", uwsgi_opt_true, &urbts.rbthreads, 0},
-	{"rbthread", no_argument, 0, "spawn the specified number of ruby native threads", uwsgi_opt_true, &urbts.rbthreads, 0},
-	{"rb-thread", no_argument, 0, "spawn the specified number of ruby native threads", uwsgi_opt_true, &urbts.rbthreads, 0},
+	{"rbthreads", no_argument, 0, "enable ruby native threads", uwsgi_opt_true, &urbts.rbthreads, 0},
+	{"rb-threads", no_argument, 0, "enable ruby native threads", uwsgi_opt_true, &urbts.rbthreads, 0},
+	{"rbthread", no_argument, 0, "enable ruby native threads", uwsgi_opt_true, &urbts.rbthreads, 0},
+	{"rb-thread", no_argument, 0, "enable ruby native threads", uwsgi_opt_true, &urbts.rbthreads, 0},
         { 0, 0, 0, 0, 0, 0, 0 }
 };
 
