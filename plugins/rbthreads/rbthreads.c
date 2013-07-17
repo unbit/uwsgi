@@ -1,16 +1,42 @@
 #include <uwsgi.h>
 #include <ruby.h>
 
+/*
+
+	Author: Roberto De Ioris
+
+	Why a loop engine ???
+
+	The ruby 1.9/2.x threading model is very unique
+
+	First of all we cannot attach to already spawned pthread, for this reason
+	the "rbthreads" loop engine must create pthreads with rb_thread_create()
+
+	The second reason is for how the GVL is managed.  We do not have
+	functions (like in CPython) to explicitely release and acquire it.
+	All happens via a function (rb_thread_call_without_gvl) calling the specified hook
+	whenever the code blocks.
+
+	Fortunately, thanks to the 1.9 async api, we can "patch" all of the server blocking parts
+	with 2 simple hooks: uwsgi.wait_write_hook and uwsgi.wait_read_hook
+
+	in addition to this we need to release the GVL in the accept() loop (but this is really easy)
+
+
+*/
+
 extern struct uwsgi_server uwsgi;
 
-void *rb_thread_call_with_gvl(void *(*func)(void *), void *data1);
+/*
+	for some strange reason, some version of ruby 1.9 does not expose this declaration...
+*/
 void *rb_thread_call_without_gvl(void *(*func)(void *), void *data1,
                                  rb_unblock_function_t *ubf, void *data2);
-void *rb_thread_call_without_gvl2(void *(*func)(void *), void *data1,
-                                  rb_unblock_function_t *ubf, void *data2);
 
 struct uwsgi_rbthreads {
 	int rbthreads;
+	int (*orig_wait_write_hook) (int, int);
+        int (*orig_wait_read_hook) (int, int);
 } urbts;
 
 static struct uwsgi_option rbthreads_options[] = {
@@ -26,9 +52,15 @@ struct uwsgi_rbthread {
 	int queue;
 	int core_id;
 	struct wsgi_request *wsgi_req;
+	// return value
 	int ret;
+	// fd to monitor
+	int fd;
+	// non-blockign timeout
+	int timeout;
 };
 
+// this is called without the gvl
 static void * uwsgi_rb_thread_accept(void *arg) {
 	struct uwsgi_rbthread *urbt = (struct uwsgi_rbthread *) arg;
 	urbt->ret = 0;
@@ -42,9 +74,7 @@ static VALUE uwsgi_rb_thread_core(void *arg) {
 	long core_id = (long) arg;
 	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core_id].req;
 
-        if (uwsgi.threads > 1) {
-                uwsgi_setup_thread_req(core_id, wsgi_req);
-        }
+        uwsgi_setup_thread_req(core_id, wsgi_req);
 
 	struct uwsgi_rbthread *urbt = uwsgi_malloc(sizeof(struct uwsgi_rbthread));
         // initialize the main event queue to monitor sockets
@@ -84,12 +114,47 @@ static void rbthread_noop0() {
 static void rbthread_noop(int core_id) {
 }
 
+static void *rbthreads_wait_fd_write_do(void *arg) {
+        struct uwsgi_rbthread *urbt = (struct uwsgi_rbthread *) arg;
+	urbt->ret = urbts.orig_wait_write_hook(urbt->fd, urbt->timeout);
+	return NULL;
+}
+
+static int rbthreads_wait_fd_write(int fd, int timeout) {
+	struct uwsgi_rbthread urbt;
+	urbt.fd = fd;
+	urbt.timeout = timeout;
+	rb_thread_call_without_gvl(rbthreads_wait_fd_write_do, &urbt, NULL, NULL);
+	return urbt.ret;
+}
+
+static void *rbthreads_wait_fd_read_do(void *arg) {
+        struct uwsgi_rbthread *urbt = (struct uwsgi_rbthread *) arg;
+        urbt->ret = urbts.orig_wait_read_hook(urbt->fd, urbt->timeout);
+	return NULL;
+}
+
+static int rbthreads_wait_fd_read(int fd, int timeout) {
+        struct uwsgi_rbthread urbt;
+        urbt.fd = fd;
+        urbt.timeout = timeout;
+        rb_thread_call_without_gvl(rbthreads_wait_fd_read_do, &urbt, NULL, NULL);
+        return urbt.ret;
+}
+
 static void rbthreads_loop() {
 	struct uwsgi_plugin *rup = uwsgi_plugin_get("rack");
 	// disable init_thread warning
 	if (rup) {
 		rup->init_thread = rbthread_noop;
 	}
+
+	// override read/write nb hooks
+	urbts.orig_wait_write_hook = uwsgi.wait_write_hook;
+	urbts.orig_wait_read_hook = uwsgi.wait_read_hook;
+	uwsgi.wait_write_hook = rbthreads_wait_fd_write;
+        uwsgi.wait_read_hook = rbthreads_wait_fd_read;
+
 	int i;
 	for(i=1;i<uwsgi.threads;i++) {
 		long y = i;
