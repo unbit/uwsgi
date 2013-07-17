@@ -74,7 +74,7 @@ int bind_to_unix_dgram(char *socket_name) {
 	}
 
 	if (unlink(socket_name) != 0 && errno != ENOENT) {
-		uwsgi_error("unlink()");
+		uwsgi_error("error removing unix socket, unlink()");
 	}
 
 	uws_addr = uwsgi_calloc(sizeof(struct sockaddr_un));
