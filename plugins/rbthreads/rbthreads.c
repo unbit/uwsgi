@@ -51,7 +51,7 @@ static VALUE uwsgi_rb_thread_core(void *arg) {
         urbt->queue = event_queue_init();
 	urbt->wsgi_req = wsgi_req;
 
-        uwsgi_add_sockets_to_queue(urbt->queue, core_id);
+        uwsgi_add_sockets_to_queue(urbt->queue, (int)core_id);
 
         if (uwsgi.signal_socket > -1) {
                 event_queue_add_fd_read(urbt->queue, uwsgi.signal_socket);
@@ -61,7 +61,7 @@ static VALUE uwsgi_rb_thread_core(void *arg) {
         // ok we are ready, let's start managing requests and signals
         while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
-                wsgi_req_setup(wsgi_req, core_id, NULL);
+                wsgi_req_setup(wsgi_req, (int)core_id, NULL);
 
 		rb_thread_call_without_gvl(uwsgi_rb_thread_accept, urbt, NULL, NULL);
 		// accept failed ?
