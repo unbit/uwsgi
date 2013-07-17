@@ -2,7 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_rack ur;
-extern struct uwsgi_plugin rack_plugin;
+static struct uwsgi_plugin *rack_plugin;
 
 struct ufib {
 	int enabled;
@@ -53,7 +53,7 @@ static void fiber_schedule_to_req() {
         }
 
 	if (error) {
-		rack_plugin.exception_log(NULL);
+		rack_plugin->exception_log(NULL);
 		rb_gc_unregister_address(&ufiber.fib[id]);
 	}
 
@@ -72,6 +72,11 @@ static void fiber_schedule_to_main(struct wsgi_request *wsgi_req) {
 }
 
 static int fiber_init() {
+	rack_plugin = uwsgi_plugin_get("rack");
+	if (!rack_plugin) {
+		uwsgi_log("[ruby-fiber] rack plugin is not loaded !!!\n");
+		exit(1);
+	}
 	return 0;
 }
 

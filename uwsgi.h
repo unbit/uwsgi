@@ -4022,6 +4022,7 @@ void uwsgi_exceptions_handler_thread_start(void);
 struct uwsgi_stats_pusher_instance *uwsgi_stats_pusher_add(struct uwsgi_stats_pusher *, char *);
 
 int plugin_already_loaded(const char *);
+struct uwsgi_plugin *uwsgi_plugin_get(const char *);
 
 struct uwsgi_cache_magic_context {
 	char *cmd;

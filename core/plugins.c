@@ -24,7 +24,7 @@ static void uwsgi_plugin_parse_section(char *filename) {
 }
 #endif
 
-int plugin_already_loaded(const char *plugin) {
+struct uwsgi_plugin *uwsgi_plugin_get(const char *plugin) {
 	int i;
 
 	for (i = 0; i < 256; i++) {
@@ -33,7 +33,7 @@ int plugin_already_loaded(const char *plugin) {
 #ifdef UWSGI_DEBUG
 				uwsgi_log("%s plugin already available\n", plugin);
 #endif
-				return 1;
+				return uwsgi.p[i];
 			}
 		}
 		if (uwsgi.p[i]->alias) {
@@ -41,7 +41,7 @@ int plugin_already_loaded(const char *plugin) {
 #ifdef UWSGI_DEBUG
 				uwsgi_log("%s plugin already available\n", plugin);
 #endif
-				return 1;
+				return uwsgi.p[i];
 			}
 		}
 	}
@@ -53,7 +53,7 @@ int plugin_already_loaded(const char *plugin) {
 #ifdef UWSGI_DEBUG
 				uwsgi_log("%s plugin already available\n", plugin);
 #endif
-				return 1;
+				return uwsgi.p[i];
 			}
 		}
 		if (uwsgi.gp[i]->alias) {
@@ -61,13 +61,20 @@ int plugin_already_loaded(const char *plugin) {
 #ifdef UWSGI_DEBUG
 				uwsgi_log("%s plugin already available\n", plugin);
 #endif
-				return 1;
+				return uwsgi.p[i];
 			}
 		}
 	}
 
+	return NULL;
+}
+
+int plugin_already_loaded(const char *plugin) {
+	struct uwsgi_plugin *up = uwsgi_plugin_get(plugin);
+	if (up) return 1;
 	return 0;
 }
+
 
 void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 

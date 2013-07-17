@@ -48,12 +48,6 @@ struct uwsgi_option uwsgi_rack_options[] = {
         {"rbshell", optional_argument, 0, "run  a ruby/irb shell", uwsgi_opt_rbshell, NULL, 0},
         {"rbshell-oneshot", no_argument, 0, "set ruby/irb shell (one shot)", uwsgi_opt_rbshell, NULL, 0},
 
-#ifdef RUBY19
-        {"rb-threads", required_argument, 0, "set the number of ruby threads to run", uwsgi_opt_set_int, &ur.rb_threads, 0},
-        {"rbthreads", required_argument, 0, "set the number of ruby threads to run", uwsgi_opt_set_int, &ur.rb_threads, 0},
-        {"ruby-threads", required_argument, 0, "set the number of ruby threads to run", uwsgi_opt_set_int, &ur.rb_threads, 0},
-#endif
-
         {0, 0, 0, 0, 0, 0 ,0},
 
 };
@@ -861,6 +855,10 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 	rb_hash_aset(env, rb_str_new2("rack.errors"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(2), rb_str_new("w",1) ));
 
+	rb_hash_aset(env, rb_str_new2("uwsgi.core"), INT2NUM(wsgi_req->async_id));
+	rb_hash_aset(env, rb_str_new2("uwsgi.version"), rb_str_new2(UWSGI_VERSION));
+	rb_hash_aset(env, rb_str_new2("uwsgi.node"), rb_str_new2(uwsgi.hostname));
+
 	// remove HTTP_CONTENT_LENGTH and HTTP_CONTENT_TYPE
 	rb_hash_delete(env, rb_str_new2("HTTP_CONTENT_LENGTH"));
 	rb_hash_delete(env, rb_str_new2("HTTP_CONTENT_TYPE"));
@@ -1240,9 +1238,6 @@ void uwsgi_ruby_init_thread(int core_id) {
 }
 
 void uwsgi_rack_postinit_apps(void) {
-
-	if (ur.rb_threads > 1) {
-	}
 }
 
 /*
