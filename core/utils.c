@@ -1579,8 +1579,6 @@ static char hex2num(char *str) {
 		return 0;
 	}
 
-	uwsgi_log("val = %c\n", val);
-
 	return val;
 }
 
