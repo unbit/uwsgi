@@ -569,8 +569,10 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 		}
 #endif
 		else if (hr->force_chunked) {
+			peer->in->limit = 0;
 			if (uwsgi_buffer_insert_chunked(peer->in, 0, len)) return -1;
 			if (uwsgi_buffer_append(peer->in, "\r\n", 2)) return -1;
+			peer->in->len = UMIN(peer->in->len, UMAX16);
 		}
 	}
 
