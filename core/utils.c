@@ -1557,6 +1557,9 @@ static char hex2num(char *str) {
 	else if (str[0] >= 'A' && str[0] <= 'F') {
 		val += (str[0] & 0x0F) + 9;
 	}
+	else if (str[0] >= 'a' && str[0] <= 'f') {
+		val += (str[0] & 0x0F) + 9;
+	}
 	else {
 		return 0;
 	}
@@ -1569,9 +1572,14 @@ static char hex2num(char *str) {
 	else if (str[1] >= 'A' && str[1] <= 'F') {
 		val += (str[1] & 0x0F) + 9;
 	}
+	else if (str[1] >= 'a' && str[1] <= 'f') {
+		val += (str[1] & 0x0F) + 9;
+	}
 	else {
 		return 0;
 	}
+
+	uwsgi_log("val = %c\n", val);
 
 	return val;
 }
