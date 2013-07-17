@@ -95,6 +95,9 @@ class uWSGIDistribution(Distribution):
         self.cmdclass['install_lib'] = uWSGIInstallLib
         self.cmdclass['build_ext'] = uWSGIBuilder
 
+    def is_pure(self):
+        return False
+
 
 setup(name='uWSGI',
       version=uc.uwsgi_version,
