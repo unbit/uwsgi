@@ -10,6 +10,7 @@
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
+extern struct uwsgi_plugin python_plugin;
 
 extern char **environ;
 
@@ -94,6 +95,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	wi = &uwsgi_apps[id];
 
 	memset(wi, 0, sizeof(struct uwsgi_app));
+	wi->modifier1 = python_plugin.modifier1;
 	wi->mountpoint_len = wsgi_req->appid_len < 0xff ? wsgi_req->appid_len : (0xff-1);
 	strncpy(wi->mountpoint, wsgi_req->appid, wi->mountpoint_len);
 

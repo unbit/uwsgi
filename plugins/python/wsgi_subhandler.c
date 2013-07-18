@@ -2,6 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
+extern struct uwsgi_plugin python_plugin;
 extern PyTypeObject uwsgi_InputType;
 
 /*
@@ -71,7 +72,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
         }
 
         if (wsgi_req->uh->modifier1 == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
-                wsgi_req->uh->modifier1 = 0;
+                wsgi_req->uh->modifier1 = python_plugin.modifier1;
                 pydictkey = PyDict_GetItemString(wsgi_req->async_environ, "SCRIPT_NAME");
                 if (pydictkey) {
                         if (PyString_Check(pydictkey)) {
