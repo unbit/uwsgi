@@ -14,7 +14,7 @@ static int uwsgi_routing_func_xmldir(struct wsgi_request *wsgi_req, struct uwsgi
         if (!ub) return UWSGI_ROUTE_BREAK;
 
 	struct dirent **tasklist;
-        int n = scandir(ub->buf, &tasklist, 0, versionsort);
+        int n = scandir(ub->buf, &tasklist, 0, alphasort);
 	uwsgi_buffer_destroy(ub);
         if (n < 0) return UWSGI_ROUTE_BREAK;
         int i;
