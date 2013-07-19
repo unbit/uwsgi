@@ -29,7 +29,10 @@ static int uwsgi_routing_func_xmldir(struct wsgi_request *wsgi_req, struct uwsgi
         xmlDocSetRootElement(rdoc, rtree);
 
         for(i=0;i<n;i++) {
-                if (tasklist[i]->d_name[0] == '.') goto next;
+		if ((strcmp(tasklist[i]->d_name, ".") == 0) ||
+		    (strcmp(tasklist[i]->d_name, "..") == 0)) {
+			goto next;
+		}
 		switch (tasklist[i]->d_type) {
 			case DT_DIR:
 				xmlNewTextChild(rtree, NULL, BAD_CAST "directory", BAD_CAST tasklist[i]->d_name);
