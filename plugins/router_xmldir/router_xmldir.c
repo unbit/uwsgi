@@ -22,8 +22,6 @@
 #include <locale.h>
 #include <iconv.h>
 #include <langinfo.h>
-#include <sys/stat.h>
-#include <time.h>
 
 #ifndef UWSGI_XML_LIBXML2
 #error you need a libxml2-enabled build of uWSGI to use the router_xmldir plugin
@@ -247,22 +245,14 @@ static void router_xmldir_register(void) {
 		codeset = "ASCII";
 	}
 
-	conf.codeset = strdup(codeset);
+	conf.codeset = uwsgi_str(codeset);
 	if (conf.codeset == NULL) {
 		uwsgi_error("strdup()");
 		exit(1);
 	}
 }
 
-static void
-router_xmldir_exit(void)
-{
-	free(conf.codeset);
-	conf.codeset = NULL;
-}
-
 struct uwsgi_plugin router_xmldir_plugin = {
 	.name = "router_xmldir",
 	.on_load = router_xmldir_register,
-	.atexit = router_xmldir_exit
 };
