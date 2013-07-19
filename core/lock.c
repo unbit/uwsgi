@@ -610,6 +610,32 @@ pid_t uwsgi_rwlock_ipcsem_check(struct uwsgi_lock_item *uli) {
 	return uwsgi_lock_ipcsem_check(uli);
 }
 
+#ifdef UNBIT
+/*
+	Unbit-specific workaround for robust-mutexes
+*/
+void *uwsgi_robust_mutexes_watchdog_loop(void *arg) {
+	for(;;) {
+		uwsgi_lock(uwsgi.the_thunder_lock);
+		uwsgi_unlock(uwsgi.the_thunder_lock);
+	}
+	return NULL;
+}
+void uwsgi_robust_mutexes_watchdog() {
+	pthread_t tid;
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+        // 32K should be more than enough...
+        pthread_attr_setstacksize(&attr, 32 * 1024);
+
+        if (pthread_create(&tid, &attr, uwsgi_robust_mutexes_watchdog_loop, NULL)) {
+                uwsgi_error("uwsgi_robust_mutexes_watchdog()/pthread_create()");
+		exit(1);
+        }
+}
+
+#endif
 
 void uwsgi_setup_locking() {
 
@@ -689,6 +715,14 @@ ready:
 	if (uwsgi.use_thunder_lock) {
 		// process shared thunder lock
 		uwsgi.the_thunder_lock = uwsgi_lock_init("thunder");	
+#ifdef UNBIT
+		// we have a serious bug on Unbit (and very probably on older libc)
+		// when all of the workers die in the same moment the pthread robust mutes is left
+		// in inconsistent state and we have no way to recover
+		// we span a thread in the master constantly ensuring the lock is ok
+		// for now we apply it only for Unbit (where thunder-lock is automatically enabled)
+		uwsgi_robust_mutexes_watchdog();		
+#endif
 	}
 
 	uwsgi.rpc_table_lock = uwsgi_lock_init("rpc");
