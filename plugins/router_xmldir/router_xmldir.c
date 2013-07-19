@@ -22,6 +22,8 @@
 #include <locale.h>
 #include <iconv.h>
 #include <langinfo.h>
+#include <sys/stat.h>
+#include <time.h>
 
 #ifndef UWSGI_XML_LIBXML2
 #error you need a libxml2-enabled build of uWSGI to use the router_xmldir plugin
@@ -122,52 +124,78 @@ static int uwsgi_routing_func_xmldir(struct wsgi_request *wsgi_req, struct uwsgi
 
         char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+	char *dirname;
         struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
         if (!ub) {
 		uwsgi_500(wsgi_req);
 		return UWSGI_ROUTE_BREAK;
 	}
+	dirname = ub->buf;
 
 	char *name = NULL;
+	char *path = NULL;
+	struct stat sb;
+	size_t sizebuf_len;
+	char *sizebuf;
+	char timebuf[20];
 
 	struct dirent **tasklist;
-        int n = scandir(ub->buf, &tasklist, 0, alphasort);
-	uwsgi_buffer_destroy(ub);
+        int n = scandir(dirname, &tasklist, 0, alphasort);
         if (n < 0) {
 		uwsgi_404(wsgi_req);
-		return UWSGI_ROUTE_BREAK;
+		goto out;
 	}
         int i;
 	xmlDoc *rdoc = xmlNewDoc(BAD_CAST "1.0");
-        xmlNode *rtree = xmlNewNode(NULL, BAD_CAST "tree");
+        xmlNode *rtree = xmlNewNode(NULL, BAD_CAST "index");
         xmlDocSetRootElement(rdoc, rtree);
+	xmlNodePtr entrynode;
+
+	char *path_info = uwsgi_concat2n(wsgi_req->path_info, wsgi_req->path_info_len, "", 1);
+	xmlNewProp(rtree, BAD_CAST "path", BAD_CAST path_info);
+	free(path_info);
+	path_info = NULL;
 
         for(i=0;i<n;i++) {
 		if ((strcmp(tasklist[i]->d_name, ".") == 0) ||
 		    (strcmp(tasklist[i]->d_name, "..") == 0)) {
-			goto next;
+			goto next_entry;
+		}
+
+		path = uwsgi_concat3(dirname, "/", tasklist[i]->d_name);
+		if (lstat(path, &sb) == -1) {
+			goto next_entry;
 		}
 
 		name = to_utf8(conf.codeset, tasklist[i]->d_name);
 		if (name == NULL) {
-			goto next;
+			goto next_entry;
 		}
 
-		switch (tasklist[i]->d_type) {
-			case DT_DIR:
-				xmlNewTextChild(rtree, NULL, BAD_CAST "directory", BAD_CAST name);
-				break;
-			case DT_LNK:
-				xmlNewTextChild(rtree, NULL, BAD_CAST "link", BAD_CAST name);
-				break;
-			case DT_REG:
-				xmlNewTextChild(rtree, NULL, BAD_CAST "file", BAD_CAST name);
-				break;
-			default:
-				xmlNewTextChild(rtree, NULL, BAD_CAST "unknown", BAD_CAST name);
-                                break;
+		if (S_ISDIR(sb.st_mode)) {
+			entrynode = xmlNewTextChild(rtree, NULL,
+			    BAD_CAST "directory", BAD_CAST name);
+		} else if (S_ISREG(sb.st_mode)) {
+			entrynode = xmlNewTextChild(rtree, NULL,
+			    BAD_CAST "file", BAD_CAST name);
+		} else {
+			/* skip everything but directories and regular files */
+			goto next_entry;
 		}
-next:
+
+		sizebuf_len = snprintf(NULL, 0, "%jd", (intmax_t) sb.st_size);
+		sizebuf = uwsgi_malloc(sizebuf_len + 1);
+		snprintf(sizebuf, sizebuf_len + 1, "%jd", (intmax_t) sb.st_size);
+		xmlNewProp(entrynode, BAD_CAST "size", BAD_CAST sizebuf);
+		free(sizebuf);
+
+		strftime(timebuf, sizeof (timebuf), "%Y-%m-%dT%H:%M:%S",
+		    localtime(&sb.st_mtime));
+		xmlNewProp(entrynode, BAD_CAST "mtime", BAD_CAST timebuf);
+
+next_entry:
+		free(path);
+		path = NULL;
 		free(tasklist[i]);
 		free(name);
 		name = NULL;
@@ -184,6 +212,8 @@ next:
 
         xmlFreeDoc(rdoc);
         xmlFree(xmlbuf);
+out:
+	uwsgi_buffer_destroy(ub);
 
 	return UWSGI_ROUTE_BREAK;
 }
@@ -196,7 +226,7 @@ static int uwsgi_router_xmldir(struct uwsgi_route *ur, char *args) {
 	return 0;
 }
 
-static void router_xmldir_register() {
+static void router_xmldir_register(void) {
 	char *codeset;
 
         uwsgi_register_router("xmldir", uwsgi_router_xmldir);
