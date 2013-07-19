@@ -11,12 +11,18 @@ static int uwsgi_routing_func_xmldir(struct wsgi_request *wsgi_req, struct uwsgi
         char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
         struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
-        if (!ub) return UWSGI_ROUTE_BREAK;
+        if (!ub) {
+		uwsgi_500(wsgi_req);
+		return UWSGI_ROUTE_BREAK;
+	}
 
 	struct dirent **tasklist;
         int n = scandir(ub->buf, &tasklist, 0, alphasort);
 	uwsgi_buffer_destroy(ub);
-        if (n < 0) return UWSGI_ROUTE_BREAK;
+        if (n < 0) {
+		uwsgi_404(wsgi_req);
+		return UWSGI_ROUTE_BREAK;
+	}
         int i;
 	xmlDoc *rdoc = xmlNewDoc(BAD_CAST "1.0");
         xmlNode *rtree = xmlNewNode(NULL, BAD_CAST "tree");
