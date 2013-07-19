@@ -121,42 +121,50 @@ char *to_utf8(char *codeset, char *in) {
 }
 
 static int uwsgi_routing_func_xmldir(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
-
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+	char **subject;
+	uint16_t *subject_len;
 	char *dirname;
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
-        if (!ub) {
+	struct uwsgi_buffer *ub;
+	char *name = NULL;
+	char *path = NULL;
+	int i;
+	int n;
+	struct dirent **tasklist;
+	xmlDoc *rdoc;
+	xmlNode *rtree;
+	xmlNodePtr entrynode;
+	char *path_info = NULL;
+	struct stat sb;
+	size_t sizebuf_len;
+	char *sizebuf;
+	char timebuf[20];
+	int xlen = 0;
+
+	subject = (char **) (((char *)(wsgi_req))+ur->subject);
+	subject_len = (uint16_t *) (((char *)(wsgi_req))+ur->subject_len);
+	ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len,
+	    ur->data, ur->data_len);
+	if (!ub) {
 		uwsgi_500(wsgi_req);
 		return UWSGI_ROUTE_BREAK;
 	}
 	dirname = ub->buf;
 
-	char *name = NULL;
-	char *path = NULL;
-	struct stat sb;
-	size_t sizebuf_len;
-	char *sizebuf;
-	char timebuf[20];
+	path_info = uwsgi_concat2n(wsgi_req->path_info, wsgi_req->path_info_len,
+	    "", 1);
 
-	struct dirent **tasklist;
-        int n = scandir(dirname, &tasklist, 0, alphasort);
-        if (n < 0) {
+	n = scandir(dirname, &tasklist, 0, alphasort);
+	if (n < 0) {
 		uwsgi_404(wsgi_req);
 		goto out;
 	}
-        int i;
-	xmlDoc *rdoc = xmlNewDoc(BAD_CAST "1.0");
-        xmlNode *rtree = xmlNewNode(NULL, BAD_CAST "index");
-        xmlDocSetRootElement(rdoc, rtree);
-	xmlNodePtr entrynode;
 
-	char *path_info = uwsgi_concat2n(wsgi_req->path_info, wsgi_req->path_info_len, "", 1);
+	rdoc = xmlNewDoc(BAD_CAST "1.0");
+	rtree = xmlNewNode(NULL, BAD_CAST "index");
 	xmlNewProp(rtree, BAD_CAST "path", BAD_CAST path_info);
-	free(path_info);
-	path_info = NULL;
+	xmlDocSetRootElement(rdoc, rtree);
 
-        for(i=0;i<n;i++) {
+	for(i = 0; i < n; i++) {
 		if ((strcmp(tasklist[i]->d_name, ".") == 0) ||
 		    (strcmp(tasklist[i]->d_name, "..") == 0)) {
 			goto next_entry;
@@ -199,37 +207,39 @@ next_entry:
 		free(tasklist[i]);
 		free(name);
 		name = NULL;
-        }
+	}
 
-        free(tasklist);
+	free(tasklist);
 
 	xmlChar *xmlbuf;
-        int xlen = 0;
-        xmlDocDumpFormatMemory(rdoc, &xmlbuf, &xlen, 1);
+	xmlDocDumpFormatMemory(rdoc, &xmlbuf, &xlen, 1);
 
 	uwsgi_response_prepare_headers(wsgi_req,"200 OK", 6);
-        uwsgi_response_write_body_do(wsgi_req, (char *) xmlbuf, xlen);
+	uwsgi_response_write_body_do(wsgi_req, (char *) xmlbuf, xlen);
 
-        xmlFreeDoc(rdoc);
-        xmlFree(xmlbuf);
+	xmlFreeDoc(rdoc);
+	xmlFree(xmlbuf);
+
 out:
 	uwsgi_buffer_destroy(ub);
+	free(path_info);
 
 	return UWSGI_ROUTE_BREAK;
 }
 
 
 static int uwsgi_router_xmldir(struct uwsgi_route *ur, char *args) {
-        ur->func = uwsgi_routing_func_xmldir;
-        ur->data = args;
-        ur->data_len = strlen(args);
+	ur->func = uwsgi_routing_func_xmldir;
+	ur->data = args;
+	ur->data_len = strlen(args);
+
 	return 0;
 }
 
 static void router_xmldir_register(void) {
 	char *codeset;
 
-        uwsgi_register_router("xmldir", uwsgi_router_xmldir);
+	uwsgi_register_router("xmldir", uwsgi_router_xmldir);
 
 	setlocale(LC_ALL, "");
 
