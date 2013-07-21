@@ -81,6 +81,25 @@ int uwsgi_register_fsmon(struct uwsgi_string_list *usl) {
 	return 0;
 #endif
 #endif
+#ifdef UWSGI_EVENT_FILEMONITOR_USE_KQUEUE
+        struct kevent kev;
+        int fd = open(usl->value, O_RDONLY);
+        if (fd < 0) {
+                uwsgi_error_open(usl->value);
+		uwsgi_error("uwsgi_register_fsmon()/open()");	
+                return -1;
+        }
+
+        EV_SET(&kev, fd, EVFILT_VNODE, EV_ADD | EV_CLEAR, NOTE_WRITE | NOTE_DELETE | NOTE_EXTEND | NOTE_ATTRIB | NOTE_RENAME | NOTE_REVOKE, 0, 0);
+        if (kevent(uwsgi.master_queue, &kev, 1, NULL, 0, NULL) < 0) {
+                uwsgi_error("uwsgi_register_fsmon()/kevent()");
+                return -1;
+        }
+	usl->custom = fd;
+	usl->custom2 = fd;
+	return 0;
+#endif
+
 	uwsgi_log("[uwsgi-fsmon] filesystem monitoring interface not available in this platform !!!\n");
 	return 1;
 }
