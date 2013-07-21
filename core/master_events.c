@@ -42,6 +42,10 @@ int uwsgi_master_manage_events(int interesting_fd) {
 		}
 	}
 
+	if (uwsgi_fsmon_event(interesting_fd)) {
+                return 0;
+	}
+
 	// reload on fd
 	if (uwsgi.reload_on_fd) {
 		// custom -> fd

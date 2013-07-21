@@ -500,6 +500,9 @@ int master_loop(char **argv, char **environ) {
         }
         uwsgi_check_touches(uwsgi.touch_signal);
 
+	// fsmon
+	uwsgi_fsmon_setup();
+
 	// setup cheaper algos (can be stacked)
 	uwsgi.cheaper_algo = uwsgi_cheaper_algo_spare;
 	if (uwsgi.requested_cheaper_algo) {

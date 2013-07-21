@@ -2029,6 +2029,10 @@ struct uwsgi_server {
 	struct uwsgi_string_list *touch_exec;
 	struct uwsgi_string_list *touch_signal;
 
+	struct uwsgi_string_list *fs_reload;
+	struct uwsgi_string_list *fs_brutal_reload;
+	struct uwsgi_string_list *fs_signal;
+
 	int propagate_touch;
 
 	// enable grunt mode
@@ -4114,6 +4118,9 @@ int uwsgi_init(int, char **, char **);
 #endif
 
 int uwsgi_master_check_cron_death(int);
+int uwsgi_register_fsmon(struct uwsgi_string_list *);
+int uwsgi_fsmon_event(int);
+void uwsgi_fsmon_setup();
 
 #ifdef __cplusplus
 }
