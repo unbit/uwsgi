@@ -830,7 +830,7 @@ class uConf(object):
                 if int(sun_major) >= 5:
                     if int(sun_minor) >= 10:
                         filemonitor_mode = 'port'
-            elif uwsgi_os in ('Darwin', 'FreeBSD'):
+            elif uwsgi_os in ('Darwin', 'FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly'):
                 filemonitor_mode = 'kqueue'
 
         if filemonitor_mode == 'inotify':
