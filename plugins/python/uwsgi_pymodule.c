@@ -1805,6 +1805,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 		if (PyString_Check(pybody)) {
 			body = PyString_AsString(pybody);
 			body_len = PyString_Size(pybody);
+			Py_INCREF(pybody);
 			uwsgi_py_dict_del(spool_dict, "body");
 		}
 	}
@@ -1896,6 +1897,10 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	i = spool_request(uspool, spool_filename, uwsgi.workers[0].requests + 1, async_id, spool_buffer, cur_buf - spool_buffer, priority, at, body, body_len);
 
 	UWSGI_GET_GIL
+
+	if (pybody) {
+		Py_DECREF(pybody);
+	}
 	
 	if (priority) {
 		free(priority);

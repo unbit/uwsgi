@@ -227,15 +227,18 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 #endif
 
 	if (write(fd, &uh, 4) != 4) {
+		uwsgi_log("[spooler] unable to write header for %s\n", filename);
 		goto clear;
 	}
 
 	if (write(fd, buffer, size) != size) {
+		uwsgi_log("[spooler] unable to write args for %s\n", filename);
 		goto clear;
 	}
 
 	if (body && body_len > 0) {
 		if ((size_t) write(fd, body, body_len) != body_len) {
+			uwsgi_log("[spooler] unable to write body for %s\n", filename);
 			goto clear;
 		}
 	}
