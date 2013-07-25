@@ -465,3 +465,16 @@ add:
 
 }
 
+void uwsgi_fallback_config() {
+	if (uwsgi.fallback_config && uwsgi.last_exit_code == 1) {
+		uwsgi_log_verbose("!!! %s (pid: %d) exited with status %d !!!\n", uwsgi.binary_path, (int) getpid(), uwsgi.last_exit_code);
+		uwsgi_log_verbose("!!! Fallback config to %s !!!\n", uwsgi.fallback_config);
+		char *argv[3];
+		argv[0] = uwsgi.binary_path;
+		argv[1] = uwsgi.fallback_config;
+		argv[2] = NULL;
+        	execvp(uwsgi.binary_path, argv);
+        	uwsgi_error("execvp()");
+        	// never here
+	}
+}

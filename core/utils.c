@@ -3736,3 +3736,9 @@ void uwsgi_envdirs(struct uwsgi_string_list *envdirs) {
 void uwsgi_opt_envdir(char *opt, char *value, void *foobar) {
 	uwsgi_envdir(value);
 }
+
+void uwsgi_exit(int status) {
+	uwsgi.last_exit_code = status;
+	// disable macro expansion
+	(exit)(status);
+}

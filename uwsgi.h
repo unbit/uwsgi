@@ -1561,11 +1561,16 @@ void uwsgi_opt_load_config(char *, char *, void *);
 #define uwsgi_instance_is_dying (uwsgi.status.gracefully_destroying || uwsgi.status.brutally_destroying)
 #define uwsgi_instance_is_reloading (uwsgi.status.gracefully_reloading || uwsgi.status.brutally_reloading)
 
+#define exit(x) uwsgi_exit(x)
+
 struct uwsgi_server {
 
 	// store the machine hostname
 	char hostname[256];
 	int hostname_len;
+
+	// used to store the exit code for atexit hooks
+	int last_exit_code;
 
 	int (*proto_hooks[UWSGI_PROTO_MAX_CHECK]) (struct wsgi_request *, char *, char *, uint16_t);
 	struct uwsgi_configurator *configurators;
@@ -2162,7 +2167,7 @@ struct uwsgi_server {
 	mode_t chmod_logfile_value;
 	int listen_queue;
 
-	char *file_config;
+	char *fallback_config;
 
 #ifdef UWSGI_ROUTING
 	struct uwsgi_router *routers;
@@ -4123,6 +4128,9 @@ int uwsgi_master_check_cron_death(int);
 int uwsgi_register_fsmon(struct uwsgi_string_list *);
 int uwsgi_fsmon_event(int);
 void uwsgi_fsmon_setup();
+
+void uwsgi_exit(int) __attribute__ ((__noreturn__));
+void uwsgi_fallback_config();
 
 #ifdef __cplusplus
 }
