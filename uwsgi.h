@@ -1752,6 +1752,8 @@ struct uwsgi_server {
 	int dump_options;
 	// show ini representation of the current config
 	int show_config;
+	// enable strict mode (only registered options can be used)
+	int strict;
 
 	// list loaded features
 	int cheaper_algo_list;

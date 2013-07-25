@@ -72,6 +72,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"xml", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 	{"config", required_argument, 0, "load configuration using the pluggable system", uwsgi_opt_load_config, NULL, UWSGI_OPT_IMMEDIATE},
+	{"strict", no_argument, 0, "enable strict mode (placeholder cannot be used)", uwsgi_opt_true, &uwsgi.strict, UWSGI_OPT_IMMEDIATE},
 
 	{"skip-zero", no_argument, 0, "skip check of file descriptor 0", uwsgi_opt_true, &uwsgi.skip_zero, 0},
 	{"skip-atexit", no_argument, 0, "skip atexit hooks (ignored by the master)", uwsgi_opt_true, &uwsgi.skip_atexit, 0},

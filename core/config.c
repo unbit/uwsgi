@@ -458,6 +458,10 @@ add:
 			uwsgi.exported_opts[id]->configured = 1;
 		}
 	}
+	else if (uwsgi.strict) {
+		uwsgi_log("[strict-mode] unknown config directive: %s\n", key);
+		exit(1);
+	}
 
 }
 
