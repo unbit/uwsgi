@@ -1640,6 +1640,9 @@ struct uwsgi_server {
 	// kill the stack on SIGTERM (instead of brutal reloading)
 	int die_on_term;
 
+	// force the first gateway without a master
+	int force_gateway;
+
 	// disable fd passing on unix socket
 	int no_fd_passing;
 
