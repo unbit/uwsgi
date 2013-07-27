@@ -455,12 +455,6 @@ static void rack_hack_dollar_zero(VALUE name, ID id) {
 
 int uwsgi_rack_init(){
 
-#ifdef RUBY19
-	int argc = 2;
-	char *sargv[] = { (char *) uwsgi_str("uwsgi"), (char *) uwsgi_str("-e0"), NULL };
-	char **argv = sargv;
-#endif
-
 	if (ur.gemset) {
 		uwsgi_ruby_gemset(ur.gemset);
 	}
@@ -469,8 +463,6 @@ int uwsgi_rack_init(){
 	ruby_sysinit(&argc, &argv);
 	RUBY_INIT_STACK
 	ruby_init();
-	ruby_process_options(0, argv);
-	//ruby_process_options(argc, argv);
 #else
 	ruby_init();
 	ruby_init_loadpath();
