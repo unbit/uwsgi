@@ -470,10 +470,11 @@ int uwsgi_rack_init(){
         RUBY_INIT_STACK
 #endif
 	ruby_init();
+	ruby_init_loadpath();
+
 #ifdef RUBY19
 	ruby_options(argc, argv);
 #endif
-	ruby_init_loadpath();
 
 	ruby_show_version();
 
