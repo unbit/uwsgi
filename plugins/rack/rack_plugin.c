@@ -460,7 +460,11 @@ int uwsgi_rack_init(){
 	}
 
 #ifdef RUBY19
-	ruby_sysinit(&argc, &argv);
+	int argc = 2;
+	char *argv[2];
+	argv[0] = uwsgi.binary_path;
+	argv[1] = (char *) "-e0";
+	ruby_sysinit(&argc, (char ***) &argv);
 	RUBY_INIT_STACK
 	ruby_init();
 #else
