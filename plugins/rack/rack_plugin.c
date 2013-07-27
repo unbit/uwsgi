@@ -457,7 +457,7 @@ int uwsgi_rack_init(){
 
 #ifdef RUBY19
 	int argc = 2;
-	char *sargv[] = { (char *) "uwsgi", (char *) "-e0" };
+	char *sargv[] = { (char *) "uwsgi", (char *) "-e0", NULL };
 	char **argv = sargv;
 #endif
 
