@@ -469,7 +469,7 @@ int uwsgi_rack_init(){
 	ruby_sysinit(&argc, &argv);
 	RUBY_INIT_STACK
 	ruby_init();
-	ruby_process_options(argc, argv);
+	//ruby_process_options(argc, argv);
 #else
 	ruby_init();
 	ruby_init_loadpath();
