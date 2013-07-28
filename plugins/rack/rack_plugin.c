@@ -457,7 +457,7 @@ int uwsgi_rack_init(){
 
 #ifdef RUBY19
         int argc = 2;
-        char *sargv[] = { (char *) "uwsgi", (char *) "-e0" };
+        char *sargv[] = { uwsgi.binary_path, (char *) "-e0" };
         char **argv = sargv;
 #endif
 
@@ -466,10 +466,16 @@ int uwsgi_rack_init(){
 	}
 
 #ifdef RUBY19
-	//ruby_sysinit(&argc, &argv);
+	ruby_sysinit(&argc, &argv);
         RUBY_INIT_STACK
+#ifdef RUBY_EXEC_PREFIX
+	if (!strcmp(RUBY_EXEC_PREFIX, "")) {
+		uwsgi_log("*** detected a ruby vm built with --enable-load-relative ***\n");
+		uwsgi_log("*** if you get errors about rubygems.rb, force the RUBY_EXEC_PREFIX with --chdir ***\n");
+	}
+#endif
 	ruby_init();
-	ruby_process_options(argc, argv);
+	ruby_options(argc, argv);
 #else
 	ruby_init();
 	ruby_init_loadpath();
@@ -487,7 +493,6 @@ int uwsgi_rack_init(){
 	ur.rpc_protector = rb_ary_new();
 	rb_gc_register_address(&ur.signals_protector);
 	rb_gc_register_address(&ur.rpc_protector);
-
 
 	uwsgi_rack_init_api();	
 
