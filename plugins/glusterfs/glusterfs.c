@@ -194,6 +194,8 @@ static int uwsgi_glusterfs_request(struct wsgi_request *wsgi_req) {
         if (mime_type) {
         	if (uwsgi_response_add_content_type(wsgi_req, mime_type, mime_type_len)) goto end;
         }
+
+        if (uwsgi_response_add_last_modified(wsgi_req, (uint64_t) st.st_mtime)) goto end;
 	if (uwsgi_response_add_content_length(wsgi_req, st.st_size)) goto end;
 
 	// skip body on HEAD
