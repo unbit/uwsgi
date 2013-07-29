@@ -54,6 +54,7 @@ struct uwsgi_rack {
 
 	char *gemset;
 
+	struct uwsgi_string_list *libdir;
 };
 
 void uwsgi_rack_init_api(void);
