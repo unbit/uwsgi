@@ -1,6 +1,10 @@
 #include <uwsgi.h>
 #include <api/glfs.h>
 
+#ifdef UWSGI_MATHEVAL
+#error currently the glusterfs plugins is not compatible with uWSGI built with matheval support
+#endif
+
 extern struct uwsgi_server uwsgi;
 
 /*
