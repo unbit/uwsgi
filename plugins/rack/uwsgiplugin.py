@@ -49,6 +49,16 @@ if has_shared == 'yes':
 else:
     rubylibdir = os.popen(RUBYPATH + " -e \"require 'rbconfig';print RbConfig::CONFIG['rubylibdir']\"").read().rstrip()
     rubyarchdir = os.popen(RUBYPATH + " -e \"require 'rbconfig';print RbConfig::CONFIG['archdir']\"").read().rstrip()
+    # detect Heroku system
+    heroku = False
+    if rubylibdir.startswith('/tmp/build_'):
+        heroku = True
+        '/app/' + '/'.join(rubylibdir.split('/')[3:])
+    if rubyarchdir.startswith('/tmp/build_'):
+        heroku = True
+        '/app/' + '/'.join(rubyarchdir.split('/')[3:])
+    if heroku:
+        CFLAGS.append('-DUWSGI_RUBY_HEROKU')
     CFLAGS.append('-DUWSGI_RUBY_LIBDIR="\\"%s\\""' % rubylibdir)
     CFLAGS.append('-DUWSGI_RUBY_ARCHDIR="\\"%s\\""' % rubyarchdir)
     GCC_LIST.append("%s/%s" % (libpath, os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['LIBRUBY_A']\"" % rbconfig).read().rstrip()))

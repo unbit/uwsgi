@@ -473,6 +473,9 @@ int uwsgi_rack_init(){
 #ifdef RUBY19
 	ruby_sysinit(&argc, &argv);
         RUBY_INIT_STACK
+#ifdef UWSGI_RUBY_HEROKU
+	uwsgi_log("*** Heroku system detected ***\n");
+#endif
 #ifdef RUBY_EXEC_PREFIX
 	if (!strcmp(RUBY_EXEC_PREFIX, "")) {
 		uwsgi_log("*** detected a ruby vm built with --enable-load-relative ***\n");
