@@ -53,10 +53,10 @@ else:
     heroku = False
     if rubylibdir.startswith('/tmp/build_'):
         heroku = True
-        '/app/' + '/'.join(rubylibdir.split('/')[3:])
+        rubylibdir = '/app/' + '/'.join(rubylibdir.split('/')[3:])
     if rubyarchdir.startswith('/tmp/build_'):
         heroku = True
-        '/app/' + '/'.join(rubyarchdir.split('/')[3:])
+        rubyarchdir = '/app/' + '/'.join(rubyarchdir.split('/')[3:])
     if heroku:
         CFLAGS.append('-DUWSGI_RUBY_HEROKU')
     CFLAGS.append('-DUWSGI_RUBY_LIBDIR="\\"%s\\""' % rubylibdir)
