@@ -22,7 +22,56 @@ static struct uwsgi_option uwsgi_glusterfs_options[] = {
         {0, 0, 0, 0, 0, 0, 0},
 };
 
+static int uwsgi_glusterfs_try(struct uwsgi_app *ua, char *node) {
+	int ret = -1;
+	char *colon = strchr(node, ':');
+	// unix socket
+	if (!colon) {
+		if (glfs_set_volfile_server((glfs_t *)ua->interpreter, "unix", node, 0)) {
+			uwsgi_error("[glusterfs] glfs_set_volfile_server()");
+			return -1;
+		}
+		goto connect;
+	}
+
+	*colon = 0;
+	if (glfs_set_volfile_server((glfs_t *)ua->interpreter, "tcp", node, atoi(colon+1))) {
+		uwsgi_error("[glusterfs] glfs_set_volfile_server()");
+                return -1;
+	}
+connect:
+	ret = glfs_init((glfs_t *)ua->interpreter);
+        if (ret) { uwsgi_error("[glusterfs] glfs_init()"); }
+	else {
+		if (colon) *colon = ':';
+		uwsgi_log("[glusterfs] worker %d connected to %s\n", uwsgi.mywid, node);
+	}
+        return ret;
+}
+
+static void uwsgi_glusterfs_connect_do(struct uwsgi_app *ua) {
+	char *servers = uwsgi_str(ua->callable);
+	char *p = strtok(servers, ";");
+	while(p) {
+		uwsgi_log("[glusterfs] try connect to %s for mountpoint %.*s on worker %d ...\n", p, ua->mountpoint_len, ua->mountpoint, uwsgi.mywid);
+		if (uwsgi_glusterfs_try(ua, p)) {
+			goto end;
+		}
+		p = strtok(NULL, ";");
+	}
+end:
+	free(servers);
+}
+
 static void uwsgi_glusterfs_connect() {
+	int i;
+	// search for all of the glusterfs apps and connect to the server-based ones
+	for (i = 0; i < uwsgi_apps_cnt; i++) {
+		if (uwsgi_apps[i].modifier1 != glusterfs_plugin.modifier1) continue;
+		if (!uwsgi_apps[i].callable) continue;
+		uwsgi_glusterfs_connect_do(&uwsgi_apps[i]);
+	}
+
 }
 
 static void uwsgi_glusterfs_add_mountpoint(char *arg, size_t arg_len) {
@@ -72,8 +121,6 @@ static void uwsgi_glusterfs_add_mountpoint(char *arg, size_t arg_len) {
 		uwsgi_log("[glusterfs] unable to mount %s\n", ugfs_mountpoint);
 		exit(1);
 	}
-	// update the application on all of the processes
-	uwsgi_emulate_cow_for_apps(id);
 
 	ua->started_at = now;
         ua->startup_time = uwsgi_now() - now;
@@ -90,10 +137,83 @@ static void uwsgi_glusterfs_setup() {
 	}
 }
 
+static int uwsgi_glusterfs_request(struct wsgi_request *wsgi_req) {
+	char filename[PATH_MAX+1];
+	/* Standard GlusterFS request */
+        if (!wsgi_req->uh->pktsize) {
+                uwsgi_log( "Empty GlusterFS request. skip.\n");
+                return -1;
+        }
+
+        if (uwsgi_parse_vars(wsgi_req)) {
+                return -1;
+        }
+
+	// blocks empty paths
+	if (wsgi_req->path_info_len == 0 || wsgi_req->path_info_len > PATH_MAX) {
+                uwsgi_403(wsgi_req);
+                return UWSGI_OK;
+	}
+
+        wsgi_req->app_id = uwsgi_get_app_id(wsgi_req, wsgi_req->appid, wsgi_req->appid_len, glusterfs_plugin.modifier1);
+	if (wsgi_req->app_id == -1 && !uwsgi.no_default_app && uwsgi.default_app > -1) {
+        	if (uwsgi_apps[uwsgi.default_app].modifier1 == glusterfs_plugin.modifier1) {
+                	wsgi_req->app_id = uwsgi.default_app;
+                }
+        }
+        if (wsgi_req->app_id == -1) {
+                uwsgi_404(wsgi_req);
+                return UWSGI_OK;
+        }
+
+        struct uwsgi_app *ua = &uwsgi_apps[wsgi_req->app_id];
+
+	memcpy(filename, wsgi_req->path_info, wsgi_req->path_info_len);
+	filename[wsgi_req->path_info_len] = 0;
+
+	glfs_fd_t *fd = glfs_open((glfs_t *) ua->interpreter, filename, O_RDONLY);
+	if (!fd) {
+                uwsgi_404(wsgi_req);
+                return UWSGI_OK;
+	}
+	
+
+	struct stat st;
+	if (glfs_fstat(fd, &st)) {
+		uwsgi_403(wsgi_req);
+                return UWSGI_OK;
+	}	
+
+	if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto end;
+	size_t mime_type_len = 0;
+        char *mime_type = uwsgi_get_mime_type(wsgi_req->path_info, wsgi_req->path_info_len, &mime_type_len);
+        if (mime_type) {
+        	if (uwsgi_response_add_content_type(wsgi_req, mime_type, mime_type_len)) goto end;
+        }
+	if (uwsgi_response_add_content_length(wsgi_req, st.st_size)) goto end;
+
+	// skip body on HEAD
+	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
+		size_t remains = st.st_size;
+		while(remains > 0) {
+			char buf[8192];
+			ssize_t rlen = glfs_read (fd, buf, UMIN(remains, 8192), 0);
+			if (rlen <= 0) goto end;
+			if (uwsgi_response_write_body_do(wsgi_req, buf, rlen)) goto end;
+			remains -= rlen;
+		}
+	}
+
+end:
+	glfs_close(fd);
+	return UWSGI_OK;
+}
+
 struct uwsgi_plugin glusterfs_plugin = {
 	.name = "glusterfs",
 	.modifier1 = 27,
 	.options = uwsgi_glusterfs_options,
-	.init_apps = uwsgi_glusterfs_setup,
-	.post_fork = uwsgi_glusterfs_connect,
+	.post_fork = uwsgi_glusterfs_setup,
+	.fixup = uwsgi_glusterfs_connect,
+	.request = uwsgi_glusterfs_request,
 };
