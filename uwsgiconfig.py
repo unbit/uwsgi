@@ -1355,6 +1355,7 @@ if __name__ == "__main__":
         os.system("rm -f lib/*.o")
         os.system("rm -f plugins/*/*.o")
         os.system("rm -f build/*.o")
+        os.system("rm -f core/dot_h.c")
     elif cmd == '--check':
         os.system("cppcheck --max-configs=1000 --enable=all -q core/ plugins/ proto/ lib/ apache2/")
 
