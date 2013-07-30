@@ -9,3 +9,5 @@
 /uwsgibuild.*
 
 /t/ring/target
+
+core/dot_h.c
