@@ -18,13 +18,75 @@ extern struct uwsgi_server uwsgi;
 struct uwsgi_plugin glusterfs_plugin;
 
 struct uwsgi_glusterfs {
+	int timeout;
 	struct uwsgi_string_list *mountpoints;
 } uglusterfs;
 
 static struct uwsgi_option uwsgi_glusterfs_options[] = {
 	{"glusterfs-mount", required_argument, 0, "virtual mount the specified glusterfs volume in a uri", uwsgi_opt_add_string_list, &uglusterfs.mountpoints, UWSGI_OPT_MIME},
+	{"glusterfs-timeout", required_argument, 0, "timeout for glusterfs async mode", uwsgi_opt_set_int, &uglusterfs.timeout, 0},
         {0, 0, 0, 0, 0, 0, 0},
 };
+
+
+static int uwsgi_glusterfs_read_sync(struct wsgi_request *wsgi_req, glfs_fd_t *fd, size_t remains) {
+	while(remains > 0) {
+        	char buf[8192];
+                ssize_t rlen = glfs_read (fd, buf, UMIN(remains, 8192), 0);
+                if (rlen <= 0) return -1;
+                if (uwsgi_response_write_body_do(wsgi_req, buf, rlen)) return -1;
+                remains -= rlen;
+	}
+	return 0;
+}
+
+/*
+	async read of a resource
+	the uwsgi_glusterfs_async_io structure is passed between threads
+	the callback simply signal the main core about the availability of data
+*/
+struct uwsgi_glusterfs_async_io {
+	int fd[2];
+	ssize_t rlen;
+};
+
+static void uwsgi_glusterfs_read_async_cb(glfs_fd_t *fd, ssize_t rlen, void *data) {
+	struct uwsgi_glusterfs_async_io *aio = (struct uwsgi_glusterfs_async_io *) data;
+#ifdef UWSGI_DEBUG
+	uwsgi_log("[glusterfs-cb] rlen = %d\n", rlen);
+#endif
+	aio->rlen = rlen;
+	// signal the core
+	if (write(aio->fd[1], "\1", 1) <= 0) {
+		uwsgi_error("uwsgi_glusterfs_read_async_cb()/write()");
+	}
+}
+
+static int uwsgi_glusterfs_read_async(struct wsgi_request *wsgi_req, glfs_fd_t *fd, size_t remains) {
+	char buf[8192];
+	struct uwsgi_glusterfs_async_io aio;
+	int ret = -1;
+	if (pipe(aio.fd)) {
+		uwsgi_error("uwsgi_glusterfs_read_async()/pipe()");
+		return -1;
+	}
+	aio.rlen = -1;
+	while(remains > 0) {
+		// trigger an async read
+		if (glfs_read_async(fd, buf, 8192, 0, uwsgi_glusterfs_read_async_cb, &aio)) goto end;
+		// wait for the callback to be executed
+		if (uwsgi.wait_read_hook(aio.fd[0], uglusterfs.timeout) <= 0) goto end;
+		if (aio.rlen <= 0) goto end;	
+		if (uwsgi_response_write_body_do(wsgi_req, buf, aio.rlen)) goto end;
+		remains -= aio.rlen;
+	}
+	ret = 0;
+end:
+	close(aio.fd[0]);
+	close(aio.fd[1]);
+	return ret;	
+}
+
 
 static int uwsgi_glusterfs_try(struct uwsgi_app *ua, char *node) {
 	int ret = -1;
@@ -134,6 +196,11 @@ static void uwsgi_glusterfs_add_mountpoint(char *arg, size_t arg_len) {
 // we translate the string list to an app representation
 // this happens before fork() if not in lazy/lazy-apps mode
 static void uwsgi_glusterfs_setup() {
+
+	if (!uglusterfs.timeout) {
+		uglusterfs.timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
+	}
+
 	struct uwsgi_string_list *usl = uglusterfs.mountpoints;
 	while(usl) {
 		uwsgi_glusterfs_add_mountpoint(usl->value, usl->len);
@@ -201,12 +268,11 @@ static int uwsgi_glusterfs_request(struct wsgi_request *wsgi_req) {
 	// skip body on HEAD
 	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
 		size_t remains = st.st_size;
-		while(remains > 0) {
-			char buf[8192];
-			ssize_t rlen = glfs_read (fd, buf, UMIN(remains, 8192), 0);
-			if (rlen <= 0) goto end;
-			if (uwsgi_response_write_body_do(wsgi_req, buf, rlen)) goto end;
-			remains -= rlen;
+		if (uwsgi.async > 1) {
+			if (uwsgi_glusterfs_read_async(wsgi_req, fd, remains)) goto end;
+		}
+		else {
+			if (uwsgi_glusterfs_read_sync(wsgi_req, fd, remains)) goto end;
 		}
 	}
 
@@ -222,4 +288,5 @@ struct uwsgi_plugin glusterfs_plugin = {
 	.post_fork = uwsgi_glusterfs_setup,
 	.fixup = uwsgi_glusterfs_connect,
 	.request = uwsgi_glusterfs_request,
+	.after_request = log_request,
 };

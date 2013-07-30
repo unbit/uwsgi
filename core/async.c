@@ -368,7 +368,7 @@ void async_loop() {
 		uwsgi.schedule_to_req = async_schedule_to_req;
 
 	if (!uwsgi.schedule_to_main) {
-		uwsgi_log("*** WARNING *** async mode without coroutine/greenthread engine loaded !!!\n");
+		uwsgi_log("*** DANGER *** async mode without coroutine/greenthread engine loaded !!!\n");
 	}
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
