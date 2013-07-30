@@ -919,11 +919,7 @@ class uConf(object):
             report['capabilities'] = True
 
         if self.get('matheval'):
-            if self.get('matheval') == 'auto' and  self.has_include('matheval.h'):
-                self.cflags.append("-DUWSGI_MATHEVAL")
-                self.libs.append('-lmatheval')
-                report['matheval'] = True
-            else:
+            if (self.get('matheval') == 'auto' and self.has_include('matheval.h')) or self.get('matheval') == 'true':
                 self.cflags.append("-DUWSGI_MATHEVAL")
                 self.libs.append('-lmatheval')
                 report['matheval'] = True
