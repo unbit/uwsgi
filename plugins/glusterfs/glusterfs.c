@@ -139,7 +139,7 @@ static void uwsgi_glusterfs_connect() {
 				uwsgi_error("[glusterfs] glfs_init()");
 				exit(1);
 			}
-			uwsgi_log("[glusterfs] worker %d connected using volfile\n");
+			uwsgi_log("[glusterfs] worker %d connected using volfile\n", uwsgi.mywid);
 			continue;
 		}
 		uwsgi_glusterfs_connect_do(&uwsgi_apps[i]);
