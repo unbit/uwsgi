@@ -9,6 +9,7 @@
 #include "../../uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
+typedef struct wsgi_request wsgi_request;
 
 static sapi_module_struct uwsgi_sapi_module;
 
@@ -26,6 +27,9 @@ struct uwsgi_php {
 	char *docroot;
 	char *app;
 	char *app_qs;
+	char *mule_hook;
+	char *mule_msg;
+	size_t mule_msg_len;
 	char *fallback;
 	size_t ini_size;
 	int dump_config;
@@ -53,6 +57,7 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-server-software", required_argument, 0, "force php SERVER_SOFTWARE", uwsgi_opt_set_str, &uphp.server_software, 0},
         {"php-app", required_argument, 0, "force the php file to run at each request", uwsgi_opt_set_str, &uphp.app, 0},
         {"php-app-qs", required_argument, 0, "when in app mode force QUERY_STRING to the specified value + REQUEST_URI", uwsgi_opt_set_str, &uphp.app_qs, 0},
+        {"php-mule-hook", required_argument, 0, "script to run to handle mule msg", uwsgi_opt_set_str, &uphp.mule_hook, 0},
         {"php-fallback", required_argument, 0, "run the specified php script when the request one does not exist", uwsgi_opt_set_str, &uphp.fallback, 0},
 #ifdef UWSGI_PCRE
         {"php-app-bypass", required_argument, 0, "if the regexp matches the uri the --php-app is bypassed", uwsgi_opt_add_regexp_list, &uphp.app_bypass, 0},
@@ -67,6 +72,18 @@ struct uwsgi_option uwsgi_php_options[] = {
 static int sapi_uwsgi_ub_write(const char *str, uint str_length TSRMLS_DC)
 {
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
+
+	if (!wsgi_req->socket) {
+		// convert str to null terminated string
+		char *out = malloc(str_length + 1);
+		memcpy(out, str, str_length);
+		out[str_length] = 0;
+
+		uwsgi_log(out);
+		free(out);
+
+		return str_length;
+	}
 
 	uwsgi_response_write_body_do(wsgi_req, (char *) str, str_length);
 	if (wsgi_req->write_errors > uwsgi.write_errors_tolerance) {
@@ -86,6 +103,10 @@ static int sapi_uwsgi_send_headers(sapi_headers_struct *sapi_headers)
         }
 
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
+
+	if (!wsgi_req->socket) {
+		return SAPI_HEADER_SENT_SUCCESSFULLY;
+	}
 
 	if (!SG(sapi_headers).http_status_line) {
 		char status[4];
@@ -114,6 +135,10 @@ static int sapi_uwsgi_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 	
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
 
+	if (!wsgi_req->socket) {
+		return read_bytes;
+	}
+
         count_bytes = MIN(count_bytes, wsgi_req->post_cl - SG(read_post_bytes));
 
         while (read_bytes < count_bytes) {
@@ -137,6 +162,10 @@ static char *sapi_uwsgi_read_cookies(void)
 	uint16_t len = 0;
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
 
+	if (!wsgi_req->socket) {
+		return NULL;
+	}
+
 	char *cookie = uwsgi_get_var(wsgi_req, (char *)"HTTP_COOKIE", 11, &len);
 	if (cookie) {
 		return estrndup(cookie, len);
@@ -157,6 +186,10 @@ static void sapi_uwsgi_register_variables(zval *track_vars_array TSRMLS_DC)
 	}
 	else {
 		php_register_variable_safe("SERVER_SOFTWARE", "uWSGI", 5, track_vars_array TSRMLS_CC);
+	}
+
+	if (uphp.mule_msg && uphp.mule_msg_len) {
+		php_register_variable_safe("UWSGI_MULE_MSG", uphp.mule_msg, uphp.mule_msg_len, track_vars_array TSRMLS_CC);
 	}
 
 	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
@@ -362,6 +395,101 @@ PHP_FUNCTION(uwsgi_cache_update) {
 
 }
 
+PHP_FUNCTION(uwsgi_mule_get_msg) {
+	char *message;
+	int len = 0;
+
+	size_t buffer_size = 65536;
+	int timeout = -1;
+	int manage_signals = 1, manage_farms = 1;
+	zend_bool z_manage_signals = 1;
+	zend_bool z_manage_farms = 1;
+	long z_timeout = -1;
+	long z_buffer_size = -1;
+
+	if (uwsgi.muleid == 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "you can receive mule messages only in a mule !!!");
+		RETURN_FALSE;
+	}
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|bbll", &z_manage_signals, &z_manage_farms, &z_timeout, &z_buffer_size) == FAILURE) {
+		RETURN_NULL();
+	}
+
+	manage_signals = z_manage_signals ? 1 : 0;
+	manage_farms = z_manage_farms ? 1 : 0;
+
+	if (z_timeout > 0) {
+		timeout = z_timeout;
+	}
+
+	if (z_buffer_size > 0) {
+		buffer_size = z_buffer_size;
+	}
+
+	message = uwsgi_malloc(buffer_size);
+
+	len = uwsgi_mule_get_msg(manage_signals, manage_farms, message, buffer_size, timeout) ;
+
+	if (len < 0) {
+		free(message);
+		RETURN_FALSE;
+	}
+
+	char *ret = estrndup(message, len);
+	free(message);
+	RETURN_STRING(ret, 0);
+}
+
+PHP_FUNCTION(uwsgi_mule_msg) {
+	char *message = NULL;
+	int message_len = 0;
+	zval *mule_obj = NULL;
+	int fd = -1;
+	int mule_id = -1;
+
+	if (uwsgi.mules_cnt < 1) {
+		RETURN_NULL();
+	}
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|z", &message, &message_len, &mule_obj) == FAILURE) {
+		RETURN_NULL();
+	}
+
+	if (mule_obj == NULL) {
+		mule_send_msg(uwsgi.shared->mule_queue_pipe[0], message, message_len);
+		RETURN_NULL();
+	}
+
+	if (Z_TYPE_P(mule_obj)  == IS_STRING) {
+		struct uwsgi_farm *uf = get_farm_by_name(Z_STRVAL_P(mule_obj));
+		if (uf == NULL) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "unknown farm");
+			RETURN_FALSE;
+		}
+		fd = uf->queue_pipe[0];
+	} else if (Z_TYPE_P(mule_obj)  == IS_LONG) {
+		mule_id = Z_LVAL_P(mule_obj);
+		if (mule_id < 0 && mule_id > uwsgi.mules_cnt) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "invalid mule number");
+			RETURN_FALSE;
+		}
+		if (mule_id == 0) {
+			fd = uwsgi.shared->mule_queue_pipe[0];
+		} else {
+			fd = uwsgi.mules[mule_id-1].queue_pipe[0];
+		}
+	} else {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "invalid mule");
+		RETURN_FALSE;
+	}
+
+	if (fd > -1) {
+		mule_send_msg(fd, message, message_len);
+	}
+
+	RETURN_NULL();
+}
 
 PHP_FUNCTION(uwsgi_rpc) {
 
@@ -462,6 +590,9 @@ zend_function_entry uwsgi_php_functions[] = {
 	PHP_FE(uwsgi_signal,   NULL)
 
 	PHP_FE(uwsgi_rpc,   NULL)
+
+	PHP_FE(uwsgi_mule_msg,   NULL)
+	PHP_FE(uwsgi_mule_get_msg,   NULL)
 
 	PHP_FE(uwsgi_cache_get,   NULL)
 	PHP_FE(uwsgi_cache_set,   NULL)
@@ -900,6 +1031,52 @@ void uwsgi_php_after_request(struct wsgi_request *wsgi_req) {
 	log_request(wsgi_req);
 }
 
+int uwsgi_php_execute(char *filename) {
+	struct wsgi_request wsgi_req;
+
+	memset(&wsgi_req, 0, sizeof(wsgi_request));
+
+	SG(server_context) = (void *) &wsgi_req;
+	wsgi_req.script_name = filename;
+	wsgi_req.script_name_len = strlen(filename);
+	wsgi_req.file = filename;
+	wsgi_req.file_len = strlen(filename);
+
+	zend_file_handle file_handle;
+	file_handle.type = ZEND_HANDLE_FILENAME;
+	file_handle.filename = filename;
+	file_handle.free_filename = 0;
+	file_handle.opened_path = NULL;
+
+	if (php_request_startup(TSRMLS_C) == FAILURE) {
+		return 0;
+	}
+
+	php_execute_script(&file_handle TSRMLS_CC);
+
+	php_request_shutdown(NULL);
+
+	return 1;
+}
+
+int uwsgi_php_mule(char *filename) {
+	if (!uwsgi_endswith(filename, ".php")) {
+		return 0;
+	}
+
+	return uwsgi_php_execute(filename);
+}
+
+int uwsgi_php_mule_msg(char *message, size_t len) {
+	if (!uphp.mule_hook) {
+		return 0;
+	}
+
+	uphp.mule_msg = message;
+	uphp.mule_msg_len = len;
+
+	return uwsgi_php_execute(uphp.mule_hook);
+}
 
 SAPI_API struct uwsgi_plugin php_plugin = {
 	.name = "php",
@@ -908,5 +1085,7 @@ SAPI_API struct uwsgi_plugin php_plugin = {
 	.request = uwsgi_php_request,
 	.after_request = uwsgi_php_after_request,
 	.options = uwsgi_php_options,
+	.mule = uwsgi_php_mule,
+	.mule_msg = uwsgi_php_mule_msg,
 };
 
