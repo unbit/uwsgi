@@ -134,7 +134,14 @@ static void uwsgi_glusterfs_connect() {
 	// search for all of the glusterfs apps and connect to the server-based ones
 	for (i = 0; i < uwsgi_apps_cnt; i++) {
 		if (uwsgi_apps[i].modifier1 != glusterfs_plugin.modifier1) continue;
-		if (!uwsgi_apps[i].callable) continue;
+		if (!uwsgi_apps[i].callable) {
+			if (glfs_init((glfs_t *)uwsgi_apps[i].interpreter)) {
+				uwsgi_error("[glusterfs] glfs_init()");
+				exit(1);
+			}
+			uwsgi_log("[glusterfs] worker %d connected using volfile\n");
+			continue;
+		}
 		uwsgi_glusterfs_connect_do(&uwsgi_apps[i]);
 	}
 

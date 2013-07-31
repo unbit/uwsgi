@@ -77,7 +77,7 @@ struct uwsgi_mono {
 struct uwsgi_option uwsgi_mono_options[] = {
 
         {"mono-app", required_argument, 0, "load a Mono asp.net app from the specified directory", uwsgi_opt_add_string_list, &umono.app, 0},
-        {"mono-gc-freq", required_argument, 0, "run the Mono GC every <n> requests (default, run after every request)", uwsgi_opt_set_64bit, &umono.gc_freq, 0},
+        {"mono-gc-freq", required_argument, 0, "run the Mono GC every <n> requests (default: run after every request)", uwsgi_opt_set_64bit, &umono.gc_freq, 0},
         {"mono-key", required_argument, 0, "select the ApplicationHost based on the specified CGI var", uwsgi_opt_add_string_list, &umono.key, 0},
         {"mono-version", required_argument, 0, "set the Mono jit version", uwsgi_opt_set_str, &umono.version, 0},
         {"mono-config", required_argument, 0, "set the Mono config file", uwsgi_opt_set_str, &umono.config, 0},
