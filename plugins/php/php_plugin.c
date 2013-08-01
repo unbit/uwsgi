@@ -28,7 +28,7 @@ struct uwsgi_php {
 	char *app;
 	char *app_qs;
 	char *mule_hook;
-	char *mule_msg;
+	char *mule_msg;			// we should find a better way to pass the mule message to the mule
 	size_t mule_msg_len;
 	char *fallback;
 	size_t ini_size;
@@ -74,14 +74,7 @@ static int sapi_uwsgi_ub_write(const char *str, uint str_length TSRMLS_DC)
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
 
 	if (!wsgi_req->socket) {
-		// convert str to null terminated string
-		char *out = malloc(str_length + 1);
-		memcpy(out, str, str_length);
-		out[str_length] = 0;
-
-		uwsgi_log(out);
-		free(out);
-
+		uwsgi_log("%.*s\n", str_length, str);
 		return str_length;
 	}
 
@@ -396,8 +389,9 @@ PHP_FUNCTION(uwsgi_cache_update) {
 }
 
 PHP_FUNCTION(uwsgi_mule_get_msg) {
+	ssize_t len = 0;
+	// this buffer is configurable (default 64k)
 	char *message;
-	int len = 0;
 
 	size_t buffer_size = 65536;
 	int timeout = -1;
