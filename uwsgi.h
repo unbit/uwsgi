@@ -609,6 +609,8 @@ struct uwsgi_legion {
 
 	int quorum;
 	int changed;
+	// if set the next packet will be a death-announce
+	int dead;
 
 	// set to 1 first time when quorum is reached
 	int joined;
