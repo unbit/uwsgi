@@ -1106,6 +1106,10 @@ void grace_them_all(int signum) {
 
 	uwsgi_log("...gracefully killing workers...\n");
 
+#ifdef UWSGI_SSL
+	uwsgi_legion_announce_death();
+#endif
+
 	if (uwsgi.unsubscribe_on_graceful_reload) {
 		uwsgi_unsubscribe_all();
 	}
@@ -1174,6 +1178,10 @@ void reap_them_all(int signum) {
 	uwsgi_destroy_processes();
 
 	uwsgi_log("...brutally killing workers...\n");
+
+#ifdef UWSGI_SSL
+        uwsgi_legion_announce_death();
+#endif
 
 	// unsubscribe if needed
 	uwsgi_unsubscribe_all();

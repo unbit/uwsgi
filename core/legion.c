@@ -1136,6 +1136,14 @@ void uwsgi_legion_action_register(char *name, int (*func) (struct uwsgi_legion *
 	}
 }
 
+void uwsgi_legion_announce_death(void) {
+	struct uwsgi_legion *legion = uwsgi.legions;
+        while (legion) {
+                legion->dead = 1;
+                uwsgi_legion_announce(legion);
+                legion = legion->next;
+        }
+}
 
 void uwsgi_legion_atexit(void) {
 	struct uwsgi_legion *legion = uwsgi.legions;
@@ -1154,13 +1162,7 @@ next:
 		legion = legion->next;
 	}
 
-	legion = uwsgi.legions;
-        while (legion) {
-		legion->dead = 1;
-        	uwsgi_legion_announce(legion);
-                legion = legion->next;
-	}
-
+	uwsgi_legion_announce_death();
 }
 
 int uwsgi_legion_i_am_the_lord(char *name) {

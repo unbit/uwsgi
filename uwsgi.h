@@ -3884,6 +3884,7 @@ void uwsgi_opt_legion_hook(char *, char *, void *);
 void uwsgi_legion_register_hook(struct uwsgi_legion *, char *, char *);
 void uwsgi_opt_legion_scroll(char *, char *, void *);
 void uwsgi_legion_add(struct uwsgi_legion *);
+void uwsgi_legion_announce_death(void);
 char *uwsgi_ssl_rand(size_t);
 void uwsgi_start_legions(void);
 int uwsgi_legion_announce(struct uwsgi_legion *);
