@@ -615,7 +615,7 @@ static void *legion_loop(void *foobar) {
 				}
 			}
 			// remove node announcing death
-			else if (ul->dead) {
+			else if (legion_msg.dead) {
 				uwsgi_log("[uwsgi-legion] %s: %.*s valor: %llu uuid: %.*s announced its death to Legion %s\n", node->valor > 0 ? "node" : "arbiter", node->name_len, node->name, node->valor, 36, node->uuid, ul->legion);
                                 uwsgi_wlock(ul->lock);
                                 uwsgi_legion_remove_node(ul, node);
@@ -765,7 +765,7 @@ int uwsgi_legion_announce(struct uwsgi_legion *ul) {
 	}
 
 	if (ul->dead) {
-		if (uwsgi_buffer_append_keyval(ub, "dead", 1, "1", 1))
+		if (uwsgi_buffer_append_keyval(ub, "dead", 4, "1", 1))
                 	goto err;
 	}
 
