@@ -3,6 +3,9 @@
 extern struct uwsgi_server uwsgi;
 
 struct uwsgi_buffer *uwsgi_buffer_new(size_t len) {
+#ifdef UWSGI_DEBUG_BUFFER
+	uwsgi_log("[uwsgi-buffer] allocating a new buffer of %llu\n", (unsigned long long) len);
+#endif
 	struct uwsgi_buffer *ub = uwsgi_calloc(sizeof(struct uwsgi_buffer));
 
 	if (len) {
@@ -271,8 +274,9 @@ int uwsgi_buffer_append_base64(struct uwsgi_buffer *ub, char *s, size_t len) {
 
 void uwsgi_buffer_destroy(struct uwsgi_buffer *ub) {
 #ifdef UWSGI_DEBUG_BUFFER
+	uwsgi_log("[uwsgi-buffer] destroying buffer of %llu bytes\n", (unsigned long long) ub->len);
 	if (ub->freed) {
-		uwsgi_log("[BUG] buffer at %p already destroyed !!!\n", ub);
+		uwsgi_log("[uwsgi-buffer][BUG] buffer at %p already destroyed !!!\n", ub);
 	}
 	ub->freed = 1;
 #endif
