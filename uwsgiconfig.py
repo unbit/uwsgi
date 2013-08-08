@@ -570,6 +570,14 @@ class uConf(object):
         if additional_include_paths:
             for ipath in additional_include_paths.split():
                 self.include_path.append(ipath)
+
+        if 'UWSGI_REMOVE_INCLUDES' in os.environ:
+            for inc in os.environ['UWSGI_REMOVE_INCLUDES'].split(','):
+                try:
+                    self.include_path.remove(inc)
+                except:
+                    pass
+
             
         if not mute:
             print("detected include path: %s" % self.include_path)
