@@ -54,10 +54,13 @@ static int uwsgi_pypy_init() {
 
 	if (upypy.lib) {
 		upypy.handler = dlopen(upypy.lib, RTLD_NOW | RTLD_GLOBAL);
+				uwsgi_log("ËRROR: %s\n", dlerror());
 	}
 	else {
 		if (upypy.home) {
-#ifdef __APPLE__
+#ifdef __CYGWIN__
+                        char *libpath = uwsgi_concat2(upypy.home, "/libpypy-c.dll");
+#elif defined(__APPLE__)
                         char *libpath = uwsgi_concat2(upypy.home, "/libpypy-c.dylib");
 #else
                         char *libpath = uwsgi_concat2(upypy.home, "/libpypy-c.so");
@@ -69,7 +72,9 @@ static int uwsgi_pypy_init() {
 		}
 		// fallback to standard library search path
 		if (!upypy.handler) {
-#ifdef __APPLE__
+#ifdef __CYGWIN__
+			upypy.handler = dlopen("libpypy-c.dll", RTLD_NOW | RTLD_GLOBAL);
+#elif defined(__APPLE__)
 			upypy.handler = dlopen("libpypy-c.dylib", RTLD_NOW | RTLD_GLOBAL);
 #else
 			upypy.handler = dlopen("libpypy-c.so", RTLD_NOW | RTLD_GLOBAL);

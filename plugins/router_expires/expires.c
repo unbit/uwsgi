@@ -20,8 +20,8 @@ struct uwsgi_router_expires_conf {
 	char *filename;
 	size_t filename_len;
 
-	char *unix;
-	size_t unix_len;
+	char *unixt;
+	size_t unixt_len;
 
 	char *value;
 	size_t value_len;
@@ -51,8 +51,8 @@ static int uwsgi_routing_func_expires(struct wsgi_request *wsgi_req, struct uwsg
 		uwsgi_buffer_destroy(ub);
 
 	}
-	else if (urec->unix) {
-		struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urec->unix, urec->unix_len);
+	else if (urec->unixt) {
+		struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urec->unixt, urec->unixt_len);
                 if (!ub) return UWSGI_ROUTE_BREAK;
 
 		expires = strtoul(ub->buf, NULL, 10);
@@ -86,7 +86,7 @@ static int uwsgi_router_expires(struct uwsgi_route *ur, char *args) {
                 if (uwsgi_kvlist_parse(ur->data, ur->data_len, ',', '=',
                         "filename", &urec->filename,
                         "file", &urec->filename,
-                        "unix", &urec->unix,
+                        "unix", &urec->unixt,
                         "value", &urec->value,
                         NULL)) {
                         uwsgi_log("invalid route syntax: %s\n", args);
@@ -97,8 +97,8 @@ static int uwsgi_router_expires(struct uwsgi_route *ur, char *args) {
 			urec->filename_len = strlen(urec->filename);
 		}
 
-		if (urec->unix) {
-                        urec->unix_len = strlen(urec->unix);
+		if (urec->unixt) {
+                        urec->unixt_len = strlen(urec->unixt);
                 }
 
 		if (urec->value) {
