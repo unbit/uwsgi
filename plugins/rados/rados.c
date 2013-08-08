@@ -245,7 +245,7 @@ end:
 
 struct uwsgi_plugin rados_plugin = {
 	.name = "rados",
-	.modifier1 = 9927,		// TODO: get official modifier
+	.modifier1 = 28,
 	.options = uwsgi_rados_options,
 	.post_fork = uwsgi_rados_setup,
 // 	.fixup = uwsgi_rados_connect,
