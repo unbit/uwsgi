@@ -607,6 +607,52 @@ PyObject *uwsgi_file_loader(void *arg1) {
 
 }
 
+PyObject *uwsgi_pecan_loader(void *arg1) {
+
+	char *pecan = (char *) arg1;
+	PyObject *pecan_module, *pecan_dict, *pecan_deploy;
+	PyObject *pecan_arg, *pecan_app;
+
+	uwsgi_log( "Loading pecan environment: %s\n", pecan);
+
+	pecan_module = PyImport_ImportModule("pecan.deploy");
+	if (!pecan_module) {
+		PyErr_Print();
+		exit(UWSGI_FAILED_APP_CODE);
+	}
+
+	pecan_dict = PyModule_GetDict(pecan_module);
+	if (!pecan_dict) {
+		PyErr_Print();
+		exit(UWSGI_FAILED_APP_CODE);
+	}
+
+	pecan_deploy = PyDict_GetItemString(pecan_dict, "deploy");
+	if (!pecan_deploy) {
+		PyErr_Print();
+		exit(UWSGI_FAILED_APP_CODE);
+	}
+
+	pecan_arg = PyTuple_New(1);
+	if (!pecan_arg) {
+		PyErr_Print();
+		exit(UWSGI_FAILED_APP_CODE);
+	}
+
+	if (PyTuple_SetItem(pecan_arg, 0, UWSGI_PYFROMSTRING(pecan))) {
+		PyErr_Print();
+		exit(UWSGI_FAILED_APP_CODE);
+	}
+
+	pecan_app = PyEval_CallObject(pecan_deploy, pecan_arg);
+	if (!pecan_app) {
+		PyErr_Print();
+		exit(UWSGI_FAILED_APP_CODE);
+	}
+
+	return pecan_app;
+}
+
 PyObject *uwsgi_paste_loader(void *arg1) {
 
 	char *paste = (char *) arg1;
@@ -667,7 +713,6 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 		PyErr_Print();
 		exit(UWSGI_FAILED_APP_CODE);
 	}
-
 
 	return paste_app;
 }
