@@ -81,8 +81,9 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LOADER_CALLABLE         5
 #define LOADER_STRING_CALLABLE  6
 #define LOADER_MOUNT            7
+#define LOADER_PECAN            8
 
-#define LOADER_MAX              8
+#define LOADER_MAX              9
 
 typedef struct uwsgi_Input {
         PyObject_HEAD
@@ -123,6 +124,8 @@ struct uwsgi_python {
 
 	PyObject *loader_dict;
 	PyObject* (*loaders[LOADER_MAX]) (void *);
+
+	char *pecan;
 
 	char *wsgi_config;
 	char *file_config;
@@ -218,6 +221,7 @@ PyObject *uwsgi_uwsgi_loader(void *);
 PyObject *uwsgi_dyn_loader(void *);
 PyObject *uwsgi_file_loader(void *);
 PyObject *uwsgi_eval_loader(void *);
+PyObject *uwsgi_pecan_loader(void *);
 PyObject *uwsgi_paste_loader(void *);
 PyObject *uwsgi_callable_loader(void *);
 PyObject *uwsgi_string_callable_loader(void *);
