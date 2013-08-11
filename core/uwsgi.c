@@ -702,6 +702,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"daemons-honour-stdin", no_argument, 0, "do not change the stdin of external daemons to /dev/null", uwsgi_opt_true, &uwsgi.daemons_honour_stdin, UWSGI_OPT_MASTER},
 	{"plugins", required_argument, 0, "load uWSGI plugins", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"plugin", required_argument, 0, "load uWSGI plugins", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
+	{"need-plugins", required_argument, 0, "load uWSGI plugins (exit on error)", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
+	{"need-plugin", required_argument, 0, "load uWSGI plugins (exit on error)", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"plugins-dir", required_argument, 0, "add a directory to uWSGI plugin search path", uwsgi_opt_add_string_list, &uwsgi.plugins_dir, UWSGI_OPT_IMMEDIATE},
 	{"plugin-dir", required_argument, 0, "add a directory to uWSGI plugin search path", uwsgi_opt_add_string_list, &uwsgi.plugins_dir, UWSGI_OPT_IMMEDIATE},
 	{"plugins-list", no_argument, 0, "list enabled plugins", uwsgi_opt_true, &uwsgi.plugins_list, 0},
@@ -3727,6 +3729,10 @@ void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 #endif
 		if (uwsgi_load_plugin(-1, p, NULL)) {
 			build_options();
+		}
+		else if (!uwsgi_startswith(opt, "need-", 5)) {
+			uwsgi_log("unable to load plugin \"%s\"\n", p);
+			exit(1);
 		}
 		p = strtok(NULL, ",");
 	}

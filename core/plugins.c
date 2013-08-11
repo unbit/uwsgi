@@ -98,6 +98,12 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 		colon[0] = ':';
 	}
 
+	char *init_func = strchr(plugin_name, '|');
+	if (init_func) {
+		init_func[0] = 0;
+		init_func++;	
+	}
+
 	if (!uwsgi_endswith(plugin_name, "_plugin.so")) {
 		plugin_name = uwsgi_concat2(plugin_name, "_plugin.so");
 		need_free = 1;
@@ -157,6 +163,12 @@ success:
 			uwsgi_log("!!! UNABLE to load uWSGI plugin: %s !!!\n", dlerror());
 	}
 	else {
+		if (init_func) {
+			void (*plugin_init_func)() = dlsym(plugin_handle, init_func);
+			if (plugin_init_func) {
+				plugin_init_func();
+			}
+		}
 		char *plugin_entry_symbol = uwsgi_concat2n(plugin_symbol_name_start, strlen(plugin_symbol_name_start) - 3, "", 0);
 		up = dlsym(plugin_handle, plugin_entry_symbol);
 		if (!up) {
