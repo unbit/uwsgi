@@ -144,7 +144,13 @@ ready:
 	}
 	else {
 		char *start = dlsym(RTLD_DEFAULT, "uwsgi_pypy_setup_start");
+		if (!start) {
+			start = dlsym(RTLD_DEFAULT, "_uwsgi_pypy_setup_start");
+		}
 		char *end = dlsym(RTLD_DEFAULT, "uwsgi_pypy_setup_end");
+		if (!end) {
+			end = dlsym(RTLD_DEFAULT, "_uwsgi_pypy_setup_end");
+		}
 		if (start && end) {
 			buffer = uwsgi_concat2n(start, end-start, "", 0);
 		}

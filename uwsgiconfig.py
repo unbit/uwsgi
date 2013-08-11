@@ -1122,7 +1122,7 @@ class uConf(object):
                 report['xml'] = 'expat'
 
         if self.get('plugin_dir'):
-            self.cflags.append('-DUWSGI_PLUGIN_DIR=\\"%s\\"' % self.get('plugin_dir'))
+            self.cflags.append('-DUWSGI_PLUGIN_DIR="\\"%s\\""' % self.get('plugin_dir'))
             report['plugin_dir'] = self.get('plugin_dir')
 
         if self.get('debug'):
