@@ -4113,7 +4113,7 @@ void uwsgi_opt_cflags(char *opt, char *filename, void *foobar) {
 }
 
 char *uwsgi_get_cflags() {
-	size_t len = sizeof(UWSGI_CFLAGS);
+	size_t len = sizeof(UWSGI_CFLAGS) -1;
         char *src = UWSGI_CFLAGS;
         char *ptr = uwsgi_malloc((len / 2) + 1);
         char *base = ptr;
