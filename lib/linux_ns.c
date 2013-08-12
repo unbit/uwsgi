@@ -82,6 +82,12 @@ void linux_namespace_start(void *argv) {
                 	usl = usl->next;
         	}
 
+		uwsgi_foreach(usl, uwsgi.call_post_jail) {
+                        if (uwsgi_call_symbol(usl->value)) {
+                                uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                        }
+                }
+
 		uwsgi_log("waiting for jailed master (pid: %d) death...\n", (int) pid);
 		pid = waitpid(pid, &waitpid_status, 0);
 		if (pid < 0) {

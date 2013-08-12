@@ -296,6 +296,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef __linux__
 	{"unshare", required_argument, 0, "unshare() part of the processes and put it in a new namespace", uwsgi_opt_set_unshare, 0},
 #endif
+
 	{"exec-pre-jail", required_argument, 0, "run the specified command before jailing", uwsgi_opt_add_string_list, &uwsgi.exec_pre_jail, 0},
 	{"exec-post-jail", required_argument, 0, "run the specified command after jailing", uwsgi_opt_add_string_list, &uwsgi.exec_post_jail, 0},
 	{"exec-in-jail", required_argument, 0, "run the specified command in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.exec_in_jail, 0},
@@ -304,6 +305,18 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exec-as-user-atexit", required_argument, 0, "run the specified command before app exit and reload", uwsgi_opt_add_string_list, &uwsgi.exec_as_user_atexit, 0},
 	{"exec-pre-app", required_argument, 0, "run the specified command before app loading", uwsgi_opt_add_string_list, &uwsgi.exec_pre_app, 0},
 	{"exec-post-app", required_argument, 0, "run the specified command after app loading", uwsgi_opt_add_string_list, &uwsgi.exec_post_app, 0},
+
+	{"call-pre-jail", required_argument, 0, "call the specified function before jailing", uwsgi_opt_add_string_list, &uwsgi.call_pre_jail, 0},
+	{"call-post-jail", required_argument, 0, "call the specified function after jailing", uwsgi_opt_add_string_list, &uwsgi.call_post_jail, 0},
+	{"call-in-jail", required_argument, 0, "call the specified function in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.call_in_jail, 0},
+	{"call-as-root", required_argument, 0, "call the specified function before privileges drop", uwsgi_opt_add_string_list, &uwsgi.call_as_root, 0},
+	{"call-as-user", required_argument, 0, "call the specified function after privileges drop", uwsgi_opt_add_string_list, &uwsgi.call_as_user, 0},
+	{"call-as-user-atexit", required_argument, 0, "call the specified function before app exit and reload", uwsgi_opt_add_string_list, &uwsgi.call_as_user_atexit, 0},
+	{"call-pre-app", required_argument, 0, "call the specified function before app loading", uwsgi_opt_add_string_list, &uwsgi.call_pre_app, 0},
+	{"call-post-app", required_argument, 0, "call the specified function after app loading", uwsgi_opt_add_string_list, &uwsgi.call_post_app, 0},
+
+
+
 	{"ini", required_argument, 0, "load config from ini file", uwsgi_opt_load_ini, NULL, UWSGI_OPT_IMMEDIATE},
 #ifdef UWSGI_YAML
 	{"yaml", required_argument, 'y', "load config from yaml file", uwsgi_opt_load_yml, NULL, UWSGI_OPT_IMMEDIATE},
@@ -1322,15 +1335,21 @@ struct uwsgi_plugin unconfigured_plugin = {
 void uwsgi_exec_atexit(void) {
 	if (getpid() == masterpid) {
 		// now run exit scripts needed by the user
-		struct uwsgi_string_list *usl = uwsgi.exec_as_user_atexit;
-		while (usl) {
+		struct uwsgi_string_list *usl;
+
+		uwsgi_foreach(usl, uwsgi.exec_as_user_atexit) {
 			uwsgi_log("running \"%s\" (as uid: %d gid: %d) ...\n", usl->value, (int) getuid(), (int) getgid());
 			int ret = uwsgi_run_command_and_wait(NULL, usl->value);
 			if (ret != 0) {
 				uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
 			}
-			usl = usl->next;
 		}
+
+		uwsgi_foreach(usl, uwsgi.call_as_user_atexit) {
+                	if (uwsgi_call_symbol(usl->value)) {
+                        	uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                	}
+        	}
 	}
 }
 
@@ -2119,6 +2138,12 @@ int main(int argc, char *argv[], char *envp[]) {
 		usl = usl->next;
 	}
 
+	uwsgi_foreach(usl, uwsgi.call_pre_jail) {
+		if (uwsgi_call_symbol(usl->value)) {
+			uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+		}
+	}
+
 	// we could now patch the binary
 	if (uwsgi.privileged_binary_patch) {
 		uwsgi.argv[0] = uwsgi.privileged_binary_patch;
@@ -2170,6 +2195,23 @@ int uwsgi_start(void *v_argv) {
 		linux_namespace_jail();
 	}
 #endif
+
+	struct uwsgi_string_list *usl;
+	uwsgi_foreach(usl, uwsgi.exec_in_jail) {
+                uwsgi_log("running \"%s\" (in-jail)...\n", usl->value);
+                int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+                if (ret != 0) {
+                        uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+                        exit(1);
+                }
+        }
+
+        uwsgi_foreach(usl, uwsgi.call_in_jail) {
+                if (uwsgi_call_symbol(usl->value)) {
+                        uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                }
+        }
+
 
 	uwsgi_file_write_do(uwsgi.file_write_list);
 
@@ -3229,6 +3271,12 @@ void uwsgi_init_all_apps() {
 		usl = usl->next;
 	}
 
+	uwsgi_foreach(usl, uwsgi.call_pre_app) {
+                if (uwsgi_call_symbol(usl->value)) {
+                        uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                }
+        }
+
 
 	for (i = 0; i < 256; i++) {
 		if (uwsgi.p[i]->init_apps) {
@@ -3288,6 +3336,11 @@ void uwsgi_init_all_apps() {
                 usl = usl->next;
         }
 
+	uwsgi_foreach(usl, uwsgi.call_post_app) {
+                if (uwsgi_call_symbol(usl->value)) {
+                        uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                }
+        }
 
 }
 

@@ -130,6 +130,7 @@ extern "C" {
 	uwsgi.gp_cnt++;\
 	}\
 
+#define uwsgi_foreach(x, y) for(x=y;x;x = x->next) 
 
 
 #ifndef __need_IOV_MAX
@@ -1889,6 +1890,15 @@ struct uwsgi_server {
 	struct uwsgi_string_list *exec_pre_app;
 	struct uwsgi_string_list *exec_post_app;
 
+	struct uwsgi_string_list *call_pre_jail;
+        struct uwsgi_string_list *call_post_jail;
+        struct uwsgi_string_list *call_in_jail;
+        struct uwsgi_string_list *call_as_root;
+        struct uwsgi_string_list *call_as_user;
+        struct uwsgi_string_list *call_as_user_atexit;
+        struct uwsgi_string_list *call_pre_app;
+        struct uwsgi_string_list *call_post_app;
+
 	char *privileged_binary_patch;
 	char *unprivileged_binary_patch;
 	char *privileged_binary_patch_arg;
@@ -3121,6 +3131,7 @@ void uwsgi_add_sockets_to_queue(int, int);
 void uwsgi_del_sockets_from_queue(int);
 
 int uwsgi_run_command_and_wait(char *, char *);
+int uwsgi_call_symbol(char *);
 
 void uwsgi_manage_signal_cron(time_t);
 pid_t uwsgi_run_command(char *, int *, int);

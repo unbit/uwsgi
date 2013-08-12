@@ -371,16 +371,22 @@ void uwsgi_as_root() {
 		}
 
 		// now run the scripts needed by root
-		struct uwsgi_string_list *usl = uwsgi.exec_as_root;
-		while (usl) {
+		struct uwsgi_string_list *usl;
+		uwsgi_foreach(usl, uwsgi.exec_as_root) {
 			uwsgi_log("running \"%s\" (as root)...\n", usl->value);
 			int ret = uwsgi_run_command_and_wait(NULL, usl->value);
 			if (ret != 0) {
 				uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
 				exit(1);
 			}
-			usl = usl->next;
 		}
+
+		uwsgi_foreach(usl, uwsgi.call_as_root) {
+                        if (uwsgi_call_symbol(usl->value)) {
+                                uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                        }
+                }
+
 
 		if (uwsgi.gidname) {
 			struct group *ugroup = getgrnam(uwsgi.gidname);
@@ -537,16 +543,20 @@ void uwsgi_as_root() {
 #endif
 
 		// now run the scripts needed by the user
-		usl = uwsgi.exec_as_user;
-		while (usl) {
+		uwsgi_foreach(usl, uwsgi.exec_as_user) {
 			uwsgi_log("running \"%s\" (as uid: %d gid: %d) ...\n", usl->value, (int) getuid(), (int) getgid());
 			int ret = uwsgi_run_command_and_wait(NULL, usl->value);
 			if (ret != 0) {
 				uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
 				exit(1);
 			}
-			usl = usl->next;
 		}
+
+		uwsgi_foreach(usl, uwsgi.call_as_user) {
+                        if (uwsgi_call_symbol(usl->value)) {
+                                uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                        }
+                }
 
 		// we could now patch the binary
 		if (uwsgi.unprivileged_binary_patch) {
@@ -3302,6 +3312,13 @@ int uwsgi_send_http_stats(int fd) {
 error:
 	uwsgi_buffer_destroy(ub);
 	return -1;
+}
+
+int uwsgi_call_symbol(char *symbol) {
+	void (*func)(void) = dlsym(RTLD_DEFAULT, symbol);
+	if (!func) return -1;
+	func();
+	return 0;
 }
 
 int uwsgi_plugin_modifier1(char *plugin) {
