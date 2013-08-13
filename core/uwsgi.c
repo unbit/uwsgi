@@ -2920,6 +2920,12 @@ next2:
 		}
 	}
 
+	for (i = 0; i < uwsgi.gp_cnt; i++) {
+                if (uwsgi.gp[i]->post_fork) {
+                        uwsgi.gp[i]->post_fork();
+                }
+        }
+
 	uwsgi_worker_run();
 	// never here
 	_exit(0);

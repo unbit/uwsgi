@@ -393,7 +393,7 @@ int master_loop(char **argv, char **environ) {
 	}
 
 	if (uwsgi.stats) {
-		char *tcp_port = strchr(uwsgi.stats, ':');
+		char *tcp_port = strrchr(uwsgi.stats, ':');
 		if (tcp_port) {
 			// disable deferred accept for this socket
 			int current_defer_accept = uwsgi.no_defer_accept;
