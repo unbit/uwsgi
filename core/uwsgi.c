@@ -704,6 +704,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"loop-list", no_argument, 0, "list enabled loop engines", uwsgi_opt_true, &uwsgi.loop_list, 0},
 	{"loops-list", no_argument, 0, "list enabled loop engines", uwsgi_opt_true, &uwsgi.loop_list, 0},
 	{"worker-exec", required_argument, 0, "run the specified command as worker", uwsgi_opt_set_str, &uwsgi.worker_exec, 0},
+	{"worker-exec2", required_argument, 0, "run the specified command as worker (after post_fork hook)", uwsgi_opt_set_str, &uwsgi.worker_exec2, 0},
 	{"attach-daemon", required_argument, 0, "attach a command/daemon to the master process (the command has to not go in background)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
 	{"smart-attach-daemon", required_argument, 0, "attach a command/daemon to the master process managed by a pidfile (the command has to daemonize)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
 	{"smart-attach-daemon2", required_argument, 0, "attach a command/daemon to the master process managed by a pidfile (the command has to NOT daemonize)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
@@ -2882,7 +2883,7 @@ next2:
 			exit(1);
 		}
 
-		if (uwsgi.sockets->fd != 0) {
+		if (uwsgi.sockets->fd != 0 && !uwsgi.honour_stdin) {
 			if (dup2(uwsgi.sockets->fd, 0) < 0) {
 				uwsgi_error("dup2()");
 			}
@@ -2924,6 +2925,28 @@ next2:
                 if (uwsgi.gp[i]->post_fork) {
                         uwsgi.gp[i]->post_fork();
                 }
+        }
+
+	if (uwsgi.worker_exec2) {
+                char *w_argv[2];
+                w_argv[0] = uwsgi.worker_exec2;
+                w_argv[1] = NULL;
+
+                uwsgi.sockets->arg &= (~O_NONBLOCK);
+                if (fcntl(uwsgi.sockets->fd, F_SETFL, uwsgi.sockets->arg) < 0) {
+                        uwsgi_error("fcntl()");
+                        exit(1);
+                }
+
+                if (uwsgi.sockets->fd != 0 && !uwsgi.honour_stdin) {
+                        if (dup2(uwsgi.sockets->fd, 0) < 0) {
+                                uwsgi_error("dup2()");
+                        }
+                }
+                execvp(w_argv[0], w_argv);
+                // never here
+                uwsgi_error("execvp()");
+                exit(1);
         }
 
 	uwsgi_worker_run();

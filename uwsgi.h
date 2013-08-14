@@ -1822,8 +1822,9 @@ struct uwsgi_server {
 	// mostly useless
 	char *mode;
 
-	// binary path the worker image
+	// binary patch the worker image
 	char *worker_exec;
+	char *worker_exec2;
 
 	// this must be UN-shared
 	struct uwsgi_gateway_socket *gateway_sockets;
