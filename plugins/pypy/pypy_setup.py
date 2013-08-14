@@ -332,7 +332,7 @@ class WSGIinput(object):
         self.wsgi_req = wsgi_req
 
     def read(self, size=0):
-        rlen = ffi.new('int64_t*')
+        rlen = ffi.new('ssize_t*')
         chunk = lib.uwsgi_request_body_read(self.wsgi_req, size, rlen)
         if chunk != ffi.NULL:
             return ffi.string(chunk, rlen[0])
