@@ -27,9 +27,20 @@ char *uwsgi_python_get_exception_type(PyObject *exc) {
 
 		PyObject *module_name = PyObject_GetAttrString(exc, "__module__");
 		if (module_name) {
+#ifdef PYTHREE
+			char *mod_name = NULL;
+			PyObject *zero = PyUnicode_AsUTF8String(module_name);
+			if (zero) {
+				mod_name = PyString_AsString(zero);
+			}
+#else
 			char *mod_name = PyString_AsString(module_name);
+#endif
 			if (mod_name && strcmp(mod_name, "exceptions") ) {
 				char *ret = uwsgi_concat3(mod_name, ".", class_name);
+#ifdef PYTHREE
+				Py_DECREF(zero);
+#endif
 				Py_DECREF(module_name);
 				return ret;
 			}
@@ -81,6 +92,38 @@ struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *wsgi_req) {
 
 		int64_t line_no = PyInt_AsLong(tb_lineno);
 
+#ifdef PYTHREE
+		PyObject *zero = PyUnicode_AsUTF8String(tb_filename);
+		if (!zero) goto end0;
+
+		// filename
+                if (uwsgi_buffer_u16le(ub, PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
+                if (uwsgi_buffer_append(ub, PyString_AsString(zero), PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
+
+		Py_DECREF(zero);
+
+                // lineno
+                if (uwsgi_buffer_append_valnum(ub, line_no)) goto end0;
+
+		zero = PyUnicode_AsUTF8String(tb_function);
+                if (!zero) goto end0;
+
+                // function
+                if (uwsgi_buffer_u16le(ub, PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
+                if (uwsgi_buffer_append(ub, PyString_AsString(zero), PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
+
+		Py_DECREF(zero);
+
+		zero = PyUnicode_AsUTF8String(tb_text);
+                if (!zero) goto end0;
+
+                // text
+                if (uwsgi_buffer_u16le(ub, PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
+                if (uwsgi_buffer_append(ub, PyString_AsString(zero), PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
+
+		Py_DECREF(zero);
+		
+#else
 		// filename
 		if (uwsgi_buffer_u16le(ub, PyString_Size(tb_filename))) goto end0;
 		if (uwsgi_buffer_append(ub, PyString_AsString(tb_filename), PyString_Size(tb_filename))) goto end0;
@@ -95,6 +138,7 @@ struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *wsgi_req) {
 		// text
 		if (uwsgi_buffer_u16le(ub, PyString_Size(tb_text))) goto end0;
                 if (uwsgi_buffer_append(ub, PyString_AsString(tb_text), PyString_Size(tb_text))) goto end0;
+#endif
 
 		// custom (unused)
 		if (uwsgi_buffer_u16le(ub, 0)) goto end0;
@@ -152,15 +196,29 @@ struct uwsgi_buffer *uwsgi_python_exception_msg(struct wsgi_request *wsgi_req) {
 	// value could be NULL ?
 	if (!value) goto end;
 
+#ifdef PYTHREE
+	char *msg = NULL;
+	PyObject *zero = PyUnicode_AsUTF8String( PyObject_Str(value) );
+	if (zero) {
+        	msg = PyString_AsString( zero );
+	}
+#else
         char *msg = PyString_AsString( PyObject_Str(value) );
+#endif
         if (msg) {
                 size_t msg_len = strlen(msg);
                 ub = uwsgi_buffer_new(msg_len);
                 if (uwsgi_buffer_append(ub, msg, msg_len)) {
+#ifdef PYTHREE
+			Py_DECREF(zero);
+#endif
                         uwsgi_buffer_destroy(ub);
                         ub = NULL;
                         goto end;
                 }
+#ifdef PYTHREE
+		Py_DECREF(zero);
+#endif
         }
 end:
         PyErr_Restore(type, value, traceback);
