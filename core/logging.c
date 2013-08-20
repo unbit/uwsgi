@@ -1060,6 +1060,19 @@ static ssize_t uwsgi_lf_ltime(struct wsgi_request * wsgi_req, char **buf) {
 	return ret;
 }
 
+static ssize_t uwsgi_lf_ftime(struct wsgi_request * wsgi_req, char **buf) {
+	if (!uwsgi.log_strftime) {
+		return uwsgi_lf_ltime(wsgi_req, buf);
+	}
+	*buf = uwsgi_malloc(64);
+	time_t now = wsgi_req->start_of_request / 1000000;
+	size_t ret = strftime(*buf, 64, uwsgi.log_strftime, localtime(&now));
+	if (ret == 0) {
+		*buf[0] = 0;
+		return 0;
+	}
+	return ret;
+}
 
 static ssize_t uwsgi_lf_micros(struct wsgi_request * wsgi_req, char **buf) {
 	*buf = uwsgi_num2str(wsgi_req->end_of_request - wsgi_req->start_of_request);
@@ -1244,6 +1257,11 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 		else if (!uwsgi_strncmp(ptr, len, "ltime", 5)) {
 			logchunk->type = 3;
 			logchunk->func = uwsgi_lf_ltime;
+			logchunk->free = 1;
+		}
+		else if (!uwsgi_strncmp(ptr, len, "ftime", 5)) {
+			logchunk->type = 3;
+			logchunk->func = uwsgi_lf_ftime;
 			logchunk->free = 1;
 		}
 		else if (!uwsgi_strncmp(ptr, len, "ctime", 5)) {
