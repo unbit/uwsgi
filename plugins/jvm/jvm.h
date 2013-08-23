@@ -28,6 +28,7 @@ struct uwsgi_jvm {
 	jclass list_class;
 	jclass set_class;
 	jclass iterator_class;
+	jclass bool_class;
 
 	jclass runtime_exception;
 	jclass io_exception;
@@ -101,6 +102,7 @@ int uwsgi_jvm_call_bool(jobject, jmethodID, ...);
 int uwsgi_jvm_consume_input_stream(struct wsgi_request *, size_t, jobject);
 jobject uwsgi_jvm_num(long);
 jobject uwsgi_jvm_request_body_input_stream(void);
+jobject uwsgi_jvm_bool(long);
 
 size_t uwsgi_jvm_array_len(jobject);
 jobject uwsgi_jvm_array_get(jobject, long);
