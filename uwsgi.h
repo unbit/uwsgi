@@ -4151,6 +4151,9 @@ void uwsgi_exit(int) __attribute__ ((__noreturn__));
 void uwsgi_fallback_config();
 
 struct uwsgi_cache_item *uwsgi_cache_keys(struct uwsgi_cache *, uint64_t *, struct uwsgi_cache_item **);
+void uwsgi_cache_rlock(struct uwsgi_cache *);
+void uwsgi_cache_rwunlock(struct uwsgi_cache *);
+char *uwsgi_cache_item_key(struct uwsgi_cache_item *);
 
 #ifdef __cplusplus
 }
