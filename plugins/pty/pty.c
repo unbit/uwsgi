@@ -191,7 +191,7 @@ static void uwsgi_pty_init() {
 
 	if (!upty.addr) return;
 	if (!uwsgi.master_process) return;
-	if (uwsgi.mywid > 0) return;
+	if (uwsgi.mywid > 1) return;
 
 	char *tcp_port = strrchr(upty.addr, ':');
         if (tcp_port) {
@@ -219,7 +219,7 @@ static void uwsgi_pty_init() {
 	}
 
 
-	uwsgi_log("pty server enabled on %s master: %d slave: %d\n", ttyname(upty.slave_fd), upty.master_fd, upty.slave_fd);
+	uwsgi_log("pty server %s (fd: %d) enabled on %s master: %d slave: %d\n", upty.addr, upty.server_fd, ttyname(upty.slave_fd), upty.master_fd, upty.slave_fd);
 
 	upty.queue = event_queue_init();
 
