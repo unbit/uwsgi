@@ -287,6 +287,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"chroot", required_argument, 0, "chroot() to the specified directory", uwsgi_opt_set_str, &uwsgi.chroot, 0},
 	{"uid", required_argument, 0, "setuid to the specified user/uid", uwsgi_opt_set_uid, NULL, 0},
 	{"gid", required_argument, 0, "setgid to the specified group/gid", uwsgi_opt_set_gid, NULL, 0},
+	{"add-gid", required_argument, 0, "add the specified group id to the process credentials", uwsgi_opt_add_string_list, &uwsgi.additional_gids, 0},
 	{"immediate-uid", required_argument, 0, "setuid to the specified user/uid IMMEDIATELY", uwsgi_opt_set_immediate_uid, NULL, UWSGI_OPT_IMMEDIATE},
 	{"immediate-gid", required_argument, 0, "setgid to the specified group/gid IMMEDIATELY", uwsgi_opt_set_immediate_gid, NULL, UWSGI_OPT_IMMEDIATE},
 	{"no-initgroups", no_argument, 0, "disable additional groups set via initgroups()", uwsgi_opt_true, &uwsgi.no_initgroups, 0},

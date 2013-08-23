@@ -488,6 +488,31 @@ void uwsgi_as_root() {
 					exit(1);
 				}
 			}
+			struct uwsgi_string_list *usl;
+			size_t ags = 0;
+			uwsgi_foreach(usl, uwsgi.additional_gids) ags++;
+			if (ags > 0) {
+				gid_t *ags_list = uwsgi_calloc(sizeof(gid_t) * ags);
+				size_t g_pos = 0;
+				uwsgi_foreach(usl, uwsgi.additional_gids) {
+					ags_list[g_pos] = atoi(usl->value);
+					if (!ags_list[g_pos]) {
+						struct group *g = getgrnam(usl->value);
+						if (g) {
+							ags_list[g_pos] = g->gr_gid;
+						}
+						else {
+							uwsgi_log("unable to find group %s\n", usl->value);
+							exit(1);
+						}
+					}
+					g_pos++;
+				}
+				if (setgroups(ags, ags_list)) {
+					uwsgi_error("setgroups()");
+					exit(1);
+				}
+			}
 			int additional_groups = getgroups(0, NULL);
 			if (additional_groups > 0) {
 				gid_t *gids = uwsgi_calloc(sizeof(gid_t) * additional_groups);

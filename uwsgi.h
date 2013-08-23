@@ -1799,6 +1799,7 @@ struct uwsgi_server {
 	char *uidname;
 	char *gidname;
 	int no_initgroups;
+	struct uwsgi_string_list *additional_gids;
 
 #ifdef UWSGI_CAP
 	cap_value_t *cap;
