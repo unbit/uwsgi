@@ -1,5 +1,7 @@
 #include <uwsgi.h>
+#ifdef __linux__
 #include <pty.h>
+#endif
 #include <utmp.h>
 
 extern struct uwsgi_server uwsgi;
