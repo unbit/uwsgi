@@ -4150,6 +4150,8 @@ void uwsgi_fsmon_setup();
 void uwsgi_exit(int) __attribute__ ((__noreturn__));
 void uwsgi_fallback_config();
 
+struct uwsgi_cache_item *uwsgi_cache_keys(struct uwsgi_cache *, uint64_t *, struct uwsgi_cache_item **);
+
 #ifdef __cplusplus
 }
 #endif

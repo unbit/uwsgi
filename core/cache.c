@@ -204,6 +204,7 @@ static void uwsgi_cache_add_items(struct uwsgi_cache *uc) {
 next:
                 usl = usl->next;
         }
+
 }
 
 static void uwsgi_cache_load_files(struct uwsgi_cache *uc) {
@@ -1920,3 +1921,24 @@ void uwsgi_cache_setup_nodes(struct uwsgi_cache *uc) {
 	}
 }
 
+struct uwsgi_cache_item *uwsgi_cache_keys(struct uwsgi_cache *uc, uint64_t *pos, struct uwsgi_cache_item **uci) {
+
+	// security check
+	if (*pos >= uc->hashsize) return NULL;
+	// iterate hashtable
+	uint64_t orig_pos = *pos;
+	for(;*pos<uc->hashsize;(*pos)++) {
+		// get the cache slot
+		uint64_t slot = uc->hashtable[*pos];
+		if (*pos == orig_pos && *uci) {
+			slot = (*uci)->next;	
+		}
+		if (slot == 0) continue;
+
+		*uci = cache_item(slot);
+		return *uci;
+	}
+
+	(*pos)++;
+	return NULL;
+}
