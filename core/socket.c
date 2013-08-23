@@ -1714,6 +1714,10 @@ void uwsgi_bind_sockets() {
 					uwsgi_chown(uwsgi_sock->name, uwsgi.chown_socket);
 				}
 				uwsgi_log("uwsgi socket %d bound to UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+				struct stat st;
+				if (uwsgi_sock->name[0] != '@' && !stat(uwsgi_sock->name, &st)) {
+					uwsgi_sock->inode = st.st_ino;
+				}
 			}
 			else {
 #ifdef AF_INET6

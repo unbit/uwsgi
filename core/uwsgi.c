@@ -526,6 +526,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-micros", no_argument, 0, "report response time in microseconds instead of milliseconds", uwsgi_opt_true, &uwsgi.log_micros, 0},
 	{"log-x-forwarded-for", no_argument, 0, "use the ip from X-Forwarded-For header instead of REMOTE_ADDR", uwsgi_opt_true, &uwsgi.log_x_forwarded_for, 0},
 	{"master-as-root", no_argument, 0, "leave master process running as root", uwsgi_opt_true, &uwsgi.master_as_root, 0},
+	{"force-cwd", required_argument, 0, "force the initial working directory to the specified value", uwsgi_opt_set_str, &uwsgi.force_cwd, 0},
 	{"chdir", required_argument, 0, "chdir to specified directory before apps loading", uwsgi_opt_set_str, &uwsgi.chdir, 0},
 	{"chdir2", required_argument, 0, "chdir to specified directory after apps loading", uwsgi_opt_set_str, &uwsgi.chdir2, 0},
 	{"lazy", no_argument, 0, "set lazy mode (load apps in workers instead of master)", uwsgi_opt_true, &uwsgi.lazy, 0},
@@ -1392,6 +1393,13 @@ static void vacuum(void) {
 			}
 			while (uwsgi_sock) {
 				if (uwsgi_sock->family == AF_UNIX && uwsgi_sock->name[0] != '@') {
+					struct stat st;
+					if (!stat(uwsgi_sock->name, &st)) {
+						if (st.st_ino != uwsgi_sock->inode) {
+							uwsgi_log("VACUUM WARNING: unix socket %s changed inode. Skip removal\n", uwsgi_sock->name);
+							goto next;
+						}
+					}
 					if (unlink(uwsgi_sock->name)) {
 						uwsgi_error("unlink()");
 					}
@@ -1399,6 +1407,7 @@ static void vacuum(void) {
 						uwsgi_log("VACUUM: unix socket %s removed.\n", uwsgi_sock->name);
 					}
 				}
+next:
 				uwsgi_sock = uwsgi_sock->next;
 			}
 		}

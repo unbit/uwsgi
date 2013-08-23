@@ -929,6 +929,9 @@ struct uwsgi_socket {
 	int lazy;
 	int shared;
 	int from_shared;
+
+	// used for avoiding vacuum mess
+	ino_t inode;
 };
 
 struct uwsgi_server;
@@ -2203,6 +2206,7 @@ struct uwsgi_server {
 	int skip_zero;
 	int skip_atexit;
 
+	char *force_cwd;
 	char *chdir;
 	char *chdir2;
 
