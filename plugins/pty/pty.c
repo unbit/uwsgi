@@ -190,6 +190,8 @@ static void *uwsgi_pty_loop(void *arg) {
 static void uwsgi_pty_init() {
 
 	if (!upty.addr) return;
+	if (!uwsgi.master_process) return;
+	if (uwsgi.mywid > 0) return;
 
 	char *tcp_port = strrchr(upty.addr, ':');
         if (tcp_port) {
