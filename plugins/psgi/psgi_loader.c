@@ -483,6 +483,16 @@ void uwsgi_psgi_app() {
 		//load app in the main interpreter list
 		init_psgi_app(NULL, uperl.psgi, strlen(uperl.psgi), uperl.main);
         }
+	// create a perl environment (if needed)
+	else if (uperl.exec) {
+		PERL_SET_CONTEXT(uperl.main[0]);
+                perl_parse(uperl.main[0], xs_init, 2, uperl.embedding, NULL);
+	}
+
+	struct uwsgi_string_list *usl;
+        uwsgi_foreach(usl, uperl.exec) {
+                uwsgi_perl_exec(usl->value);
+        }
 
 }
 
@@ -502,3 +512,10 @@ int uwsgi_perl_mule(char *opt) {
 
 }
 
+
+void uwsgi_perl_exec(char *filename) {
+	size_t size = 0;
+        char *buf = uwsgi_open_and_read(filename, &size, 1, NULL);
+        perl_eval_pv(buf, 0);
+	free(buf);
+}

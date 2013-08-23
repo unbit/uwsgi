@@ -21,6 +21,8 @@ struct uwsgi_option uwsgi_perl_options[] = {
 #endif
         {"perl-args", required_argument, 0, "add items (space separated) to @ARGV", uwsgi_opt_set_str, &uperl.argv_items, 0},
         {"perl-arg", required_argument, 0, "add an item to @ARGV", uwsgi_opt_add_string_list, &uperl.argv_item, 0},
+        {"perl-exec", required_argument, 0, "exec the specified perl file before fork()", uwsgi_opt_add_string_list, &uperl.exec, 0},
+        {"perl-exec-post-fork", required_argument, 0, "exec the specified perl file after fork()", uwsgi_opt_add_string_list, &uperl.exec_post_fork, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -586,6 +588,11 @@ void uwsgi_perl_post_fork() {
 		SvREADONLY_off(GvSV(tmpgv));
 		sv_setiv(GvSV(tmpgv), (IV)getpid());
 		SvREADONLY_on(GvSV(tmpgv));
+	}
+
+	struct uwsgi_string_list *usl;
+	uwsgi_foreach(usl, uperl.exec_post_fork) {
+		uwsgi_perl_exec(usl->value);
 	}
 
 	if (uperl.postfork) {

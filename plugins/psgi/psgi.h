@@ -1,5 +1,5 @@
 #undef __USE_GNU
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 #ifdef __APPLE__
 #define HAS_BOOL 1
@@ -50,6 +50,9 @@ struct uwsgi_perl {
 	SV *atexit;
 
 	int loaded;
+
+	struct uwsgi_string_list *exec;
+	struct uwsgi_string_list *exec_post_fork;
 };
 
 void init_perl_embedded_module(void);
@@ -66,3 +69,4 @@ int init_psgi_app(struct wsgi_request *, char *, uint16_t, PerlInterpreter **);
 PerlInterpreter *uwsgi_perl_new_interpreter(void);
 int uwsgi_perl_mule(char *);
 void uwsgi_perl_run_hook(SV *);
+void uwsgi_perl_exec(char *);
