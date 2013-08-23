@@ -201,7 +201,18 @@ edge:
         // mark core as used
         uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
 
-        wsgi_req->start_of_request = uwsgi_micros();
+	// accept the connection
+        if (wsgi_req_simple_accept(wsgi_req, uwsgi_sock->fd)) {
+                free_req_queue;
+                if (uwsgi_sock->retry && uwsgi_sock->retry[wsgi_req->async_id]) {
+                        goto edge;
+                }
+		// in case of errors (or thundering herd, just rest it)
+                uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
+                goto clear;
+        }
+
+	wsgi_req->start_of_request = uwsgi_micros();
         wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request/1000000;
 
         // enter harakiri mode
@@ -209,14 +220,6 @@ edge:
                 set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
         }
 
-	// accept the connection
-        if (wsgi_req_simple_accept(wsgi_req, uwsgi_sock->fd)) {
-                free_req_queue;
-                if (uwsgi_sock->retry && uwsgi_sock->retry[wsgi_req->async_id]) {
-                        goto edge;
-                }
-                goto clear;
-        }
 
 	// here we spawn an async {} block
 	CV *async_xs_call = newXS(NULL, XS_coroae_accept_request, "uwsgi::coroae");

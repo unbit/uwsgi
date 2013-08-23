@@ -164,14 +164,6 @@ edge:
 	// mark core as used
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
 
-	wsgi_req->start_of_request = uwsgi_micros();
-	wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request/1000000;
-
-	// enter harakiri mode
-        if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-                set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
-        }
-
 	// accept the connection (since uWSGI 1.5 all of the sockets are non-blocking)
 	if (wsgi_req_simple_accept(wsgi_req, uwsgi_sock->fd)) {
 		free_req_queue;
@@ -182,6 +174,14 @@ edge:
 		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
 		goto clear;
 	}
+
+	wsgi_req->start_of_request = uwsgi_micros();
+	wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request/1000000;
+
+	// enter harakiri mode
+        if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+                set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
+        }
 
 	// hack to easily pass wsgi_req pointer to the greenlet
 	PyTuple_SetItem(ugevent.greenlet_args, 1, PyLong_FromLong((long)wsgi_req));
