@@ -248,6 +248,7 @@ static int uwsgi_pty_client() {
 	upty.server_fd = uwsgi_connect(upty.remote, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
 	if (upty.server_fd < 0) {
 		uwsgi_error("uwsgi_pty_client()/connect()");
+		exit(1);
 	}
 
 	uwsgi_socket_nb(upty.server_fd);
