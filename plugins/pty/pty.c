@@ -1,7 +1,7 @@
 #include <uwsgi.h>
 #ifdef __linux__
 #include <pty.h>
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) || defined(__OpenBSD__)
 #include <util.h>
 #endif
 #include <utmp.h>
