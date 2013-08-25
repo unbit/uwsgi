@@ -657,6 +657,10 @@ class uConf(object):
 
         kvm_list = ['FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
 
+        if 'UWSGI_AS_LIB' in os.environ:
+            self.set('as_shared_library', 'true')
+            self.set('bin_name', os.environ['UWSGI_AS_LIB'])
+
         if self.has_include('ifaddrs.h'):
             self.cflags.append('-DUWSGI_HAS_IFADDRS')
             report['ifaddrs'] = True
