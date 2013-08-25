@@ -3,8 +3,12 @@
 #include <pty.h>
 #elif defined(__APPLE__) || defined(__OpenBSD__)
 #include <util.h>
+#elif defined(__FreeBSD__)
+#include <libutil.h>
 #endif
+#ifndef __FreeBSD__
 #include <utmp.h>
+#endif
 
 extern struct uwsgi_server uwsgi;
 
