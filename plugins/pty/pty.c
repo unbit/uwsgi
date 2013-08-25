@@ -131,7 +131,7 @@ static void *uwsgi_pty_loop(void *arg) {
                         ssize_t rlen = read(upty.master_fd, buf, 8192);
                         if (rlen == 0) exit(1);
                         if (rlen < 0) {
-                                uwsgi_error("uwsgi_pty_init()/read()");
+                                uwsgi_error("uwsgi_pty_loop()/read()");
                         }
 			if (upty.log && upty.original_log >= 0) {
                         	if (write(upty.original_log, buf, rlen) != rlen) {
@@ -240,6 +240,8 @@ static void uwsgi_pty_init() {
 static int uwsgi_pty_client() {
 	if (!upty.remote) return 0;
 
+	uwsgi_log("[pty] connecting to %s ...\n", upty.remote);
+
 	// save current terminal settings
 	if (!tcgetattr(0, &uwsgi.termios)) {
         	uwsgi.restore_tc = 1;
@@ -253,6 +255,8 @@ static int uwsgi_pty_client() {
 
 	uwsgi_socket_nb(upty.server_fd);
 	uwsgi_socket_nb(0);
+
+	uwsgi_log("[pty] connected.\n");
 
 	uwsgi_pty_setterm(0);
 
