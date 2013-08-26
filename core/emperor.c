@@ -1058,6 +1058,34 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 			int start_hook_ret = uwsgi_run_command_and_wait(uwsgi.vassals_start_hook, n_ui->name);
 			uwsgi_log("[emperor] %s start-hook returned %d\n", n_ui->name, start_hook_ret);
 		}
+	
+		// run low-level hooks
+		uwsgi_foreach(usl, uwsgi.call_as_vassal) {
+			void (*func)(void) = dlsym(RTLD_DEFAULT, usl->value);
+			if (!func) {
+                                uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+				exit(1);
+                        }
+			func();
+                }
+
+		uwsgi_foreach(usl, uwsgi.call_as_vassal1) {
+                        void (*func)(char *) = dlsym(RTLD_DEFAULT, usl->value);
+                        if (!func) {
+                                uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                                exit(1);
+                        }
+                        func(n_ui->name);
+                }
+
+		uwsgi_foreach(usl, uwsgi.call_as_vassal3) {
+                        void (*func)(char *, uid_t, gid_t) = dlsym(RTLD_DEFAULT, usl->value);
+                        if (!func) {
+                                uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                                exit(1);
+                        }
+                        func(n_ui->name, n_ui->uid, n_ui->gid);
+                }
 
 		// start !!!
 		if (execvp(vassal_argv[0], vassal_argv)) {

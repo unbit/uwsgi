@@ -318,6 +318,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"call-pre-app", required_argument, 0, "call the specified function before app loading", uwsgi_opt_add_string_list, &uwsgi.call_pre_app, 0},
 	{"call-post-app", required_argument, 0, "call the specified function after app loading", uwsgi_opt_add_string_list, &uwsgi.call_post_app, 0},
 
+	{"call-as-vassal", required_argument, 0, "call the specified function() before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.call_as_vassal, 0},
+	{"call-as-vassal1", required_argument, 0, "call the specified function(char *) before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.call_as_vassal1, 0},
+	{"call-as-vassal3", required_argument, 0, "call the specified function(char *, uid_t, gid_t) before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.call_as_vassal3, 0},
+
 
 
 	{"ini", required_argument, 0, "load config from ini file", uwsgi_opt_load_ini, NULL, UWSGI_OPT_IMMEDIATE},
