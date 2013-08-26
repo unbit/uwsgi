@@ -5,7 +5,7 @@ uwsgi_os = os.uname()[0]
 
 CFLAGS = []
 LDFLAGS = []
-if uwsgi_os == 'Linux':
+if uwsgi_os in ('Linux', 'FreeBSD'):
     LIBS = ['-lutil']
 else:
     LIBS = []
