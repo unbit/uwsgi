@@ -492,7 +492,6 @@ def uwsgi_pypy_uwsgi_register_rpc(name, func, argc=0):
     rpc_func = uwsgi_pypy_RPC(func)
     cb = ffi.callback("int(int, char*[], int[], char*)", rpc_func)
     uwsgi_gc.append(cb)
-    print lib.pypy_plugin
     if lib.uwsgi_register_rpc(ffi.new("char[]", name), ffi.addressof(lib.pypy_plugin), argc, cb) < 0:
         raise Exception("unable to register rpc func %s" % name)
 uwsgi.register_rpc = uwsgi_pypy_uwsgi_register_rpc

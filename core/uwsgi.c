@@ -1466,13 +1466,16 @@ void signal_pidfile(int sig, char *filename) {
 	exit(0);
 }
 
-void fixup_argv_and_environ(int argc, char **argv, char **environ) {
-
+static void fixup_argv_and_environ(int argc, char **argv, char **environ, char **envp) {
 
 	uwsgi.orig_argv = argv;
 	uwsgi.argv = argv;
 	uwsgi.argc = argc;
 	uwsgi.environ = environ;
+
+	// avoid messing with fake environ
+	if (envp && *environ != *envp) return;
+	
 
 #if defined(__linux__) || defined(__sun__)
 
@@ -1887,7 +1890,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.binary_path = uwsgi_get_binary_path(argv[0]);
 
 	// ok we can now safely play with argv and environ
-	fixup_argv_and_environ(argc, argv, environ);
+	fixup_argv_and_environ(argc, argv, environ, envp);
 
 	if (gethostname(uwsgi.hostname, 255)) {
 		uwsgi_error("gethostname()");

@@ -25,11 +25,11 @@ struct uwsgi_pypy {
 } upypy;
 
 // the functions exposed by libpypy-c
-char *(*rpython_startup_code)(void);
-int (*pypy_setup_home)(char *, int);
-int (*pypy_execute_source)(char *);
-void (*pypy_thread_attach)(void);
-void (*pypy_init_threads)(void);
+char *(*u_rpython_startup_code)(void);
+int (*u_pypy_setup_home)(char *, int);
+int (*u_pypy_execute_source)(char *);
+void (*u_pypy_thread_attach)(void);
+void (*u_pypy_init_threads)(void);
 
 // the hooks you can override with pypy
 void (*uwsgi_pypy_hook_loader)(char *);
@@ -52,9 +52,12 @@ static int uwsgi_pypy_init() {
 		exit(1);
 	}
 
-	if (upypy.lib) {
+	if (dlsym(RTLD_DEFAULT, "rpython_startup_code")) {
+		uwsgi_log("PyPy runtime detected, skipping libpypy-c loading\n");
+		goto ready;
+	}
+	else if (upypy.lib) {
 		upypy.handler = dlopen(upypy.lib, RTLD_NOW | RTLD_GLOBAL);
-				uwsgi_log("ËRROR: %s\n", dlerror());
 	}
 	else {
 		if (upypy.home) {
@@ -87,35 +90,24 @@ static int uwsgi_pypy_init() {
 		exit(1);
 	}
 
-	rpython_startup_code = dlsym(upypy.handler, "rpython_startup_code");
-	if (!rpython_startup_code) {
+	u_rpython_startup_code = dlsym(upypy.handler, "rpython_startup_code");
+	if (!u_rpython_startup_code) {
 		uwsgi_log("unable to find rpython_startup_code() symbol\n");
 		exit(1);
 	}
 
-	pypy_setup_home = dlsym(upypy.handler, "pypy_setup_home");
-	if (!pypy_setup_home) {
+	u_pypy_setup_home = dlsym(upypy.handler, "pypy_setup_home");
+	if (!u_pypy_setup_home) {
 		uwsgi_log("unable to find pypy_setup_home() symbol\n");
 		exit(1);
 	}
 
-	pypy_execute_source = dlsym(upypy.handler, "pypy_execute_source");
-	if (!pypy_execute_source) {
-		uwsgi_log("unable to find pypy_execute_source() symbol\n");
-		exit(1);
-	}
-
-	pypy_thread_attach = dlsym(upypy.handler, "pypy_thread_attach");
-        if (!pypy_thread_attach) {
-                uwsgi_log("!!! WARNING your libpypy-c does not export pypy_thread_attach, multithreading will not work !!!\n");
-        }
-
-	pypy_init_threads = dlsym(upypy.handler, "pypy_init_threads");
-        if (!pypy_init_threads) {
+	u_pypy_init_threads = dlsym(upypy.handler, "pypy_init_threads");
+        if (!u_pypy_init_threads) {
                 uwsgi_log("!!! WARNING your libpypy-c does not export pypy_init_threads, multithreading will not work !!!\n");
         }
 	
-	rpython_startup_code();
+	u_rpython_startup_code();
 
 	if (!upypy.home) {
 		upypy.home = getenv("PYPY_HOME");
@@ -125,11 +117,11 @@ static int uwsgi_pypy_init() {
 		}
 	}
 
-	if (pypy_setup_home(upypy.home, 0)) {
+	if (u_pypy_setup_home(upypy.home, 0)) {
 		char *retry = uwsgi_concat2(upypy.home, "/lib_pypy");
 		if (uwsgi_is_dir(retry)) {
 			// this time we use debug
-			if (!pypy_setup_home(retry, 1)) {
+			if (!u_pypy_setup_home(retry, 1)) {
 				free(retry);
 				goto ready;
 			}
@@ -139,6 +131,17 @@ static int uwsgi_pypy_init() {
         }
 
 ready:
+	u_pypy_execute_source = dlsym(upypy.handler, "pypy_execute_source");
+	if (!u_pypy_execute_source) {
+		uwsgi_log("unable to find pypy_execute_source() symbol\n");
+		exit(1);
+	}
+
+	u_pypy_thread_attach = dlsym(upypy.handler, "pypy_thread_attach");
+        if (!u_pypy_thread_attach) {
+                uwsgi_log("!!! WARNING your libpypy-c does not export pypy_thread_attach, multithreading will not work !!!\n");
+        }
+
 	if (upypy.setup) {
 		buffer = uwsgi_open_and_read(upypy.setup, &rlen, 1, NULL);
 	}
@@ -160,7 +163,7 @@ ready:
 		uwsgi_log("you have to load a pypy setup file with --pypy-setup\n");
 		exit(1);
 	}
-	if (pypy_execute_source(buffer)) {
+	if (u_pypy_execute_source(buffer)) {
 		exit(1);
 	}
 	free(buffer);
@@ -181,7 +184,7 @@ static void uwsgi_pypy_preinit_apps() {
 
 	struct uwsgi_string_list *usl = upypy.eval;
 	while(usl) {
-		if (pypy_execute_source(usl->value)) {
+		if (u_pypy_execute_source(usl->value)) {
 			exit(1);
 		}
 		usl = usl->next;
@@ -191,7 +194,7 @@ static void uwsgi_pypy_preinit_apps() {
 	while(usl) {
 		size_t rlen = 0;
 		char *buffer = uwsgi_open_and_read(usl->value, &rlen, 1, NULL);
-		if (pypy_execute_source(buffer)) {
+		if (u_pypy_execute_source(buffer)) {
 			exit(1);
 		}
 		free(buffer);
@@ -254,14 +257,14 @@ static struct uwsgi_option uwsgi_pypy_options[] = {
 };
 
 static void uwsgi_pypy_enable_threads() {
-	if (pypy_init_threads) {
-		pypy_init_threads();
+	if (u_pypy_init_threads) {
+		u_pypy_init_threads();
 	}
 }
 
 static void uwsgi_pypy_init_thread() {
-	if (pypy_thread_attach) {
-		pypy_thread_attach();
+	if (u_pypy_thread_attach) {
+		u_pypy_thread_attach();
 	}
 }
 
@@ -285,7 +288,7 @@ static uint16_t uwsgi_pypy_rpc(void *func, uint8_t argc, char **argv, uint16_t a
 static void uwsgi_pypy_post_fork() {
 	struct uwsgi_string_list *usl = upypy.eval_post_fork;
         while(usl) {
-                if (pypy_execute_source(usl->value)) {
+                if (u_pypy_execute_source(usl->value)) {
 			exit(1);
 		}
                 usl = usl->next;
@@ -294,7 +297,7 @@ static void uwsgi_pypy_post_fork() {
         while(usl) {
                 size_t rlen = 0;
                 char *buffer = uwsgi_open_and_read(usl->value, &rlen, 1, NULL);
-                if (pypy_execute_source(buffer)) {
+                if (u_pypy_execute_source(buffer)) {
 			exit(1);
 		}
                 free(buffer);
@@ -317,7 +320,7 @@ static int uwsgi_pypy_mule(char *opt) {
         if (uwsgi_endswith(opt, ".py")) {
                 size_t rlen = 0;
                 char *buffer = uwsgi_open_and_read(opt, &rlen, 1, NULL);
-                pypy_execute_source(buffer);
+                u_pypy_execute_source(buffer);
 		free(buffer);
                 return 1;
         }
