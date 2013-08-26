@@ -1809,6 +1809,7 @@ struct uwsgi_server {
 #ifdef __linux__
 	int unshare;
 #endif
+	int refork;
 
 	int ignore_sigpipe;
 	int ignore_write_errors;
@@ -1903,6 +1904,10 @@ struct uwsgi_server {
         struct uwsgi_string_list *call_as_user_atexit;
         struct uwsgi_string_list *call_pre_app;
         struct uwsgi_string_list *call_post_app;
+
+        struct uwsgi_string_list *call_as_vassal;
+        struct uwsgi_string_list *call_as_vassal1;
+        struct uwsgi_string_list *call_as_vassal3;
 
 	char *privileged_binary_patch;
 	char *unprivileged_binary_patch;

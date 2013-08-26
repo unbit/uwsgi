@@ -569,6 +569,26 @@ void uwsgi_as_root() {
 		}
 #endif
 
+		if (uwsgi.refork) {
+			uwsgi_log("re-fork()ing...\n");
+			pid_t pid = fork();
+			if (pid < 0) {
+				uwsgi_error("fork()");
+				exit(1);
+			}
+			if (pid > 0) {
+				// block all signals
+        			sigset_t smask;
+        			sigfillset(&smask);
+        			sigprocmask(SIG_BLOCK, &smask, NULL);
+				int status;
+				if (waitpid(pid, &status, 0) < 0) {
+					uwsgi_error("waitpid()");
+				}
+				_exit(0);
+			}
+		}	
+
 		// now run the scripts needed by the user
 		uwsgi_foreach(usl, uwsgi.exec_as_user) {
 			uwsgi_log("running \"%s\" (as uid: %d gid: %d) ...\n", usl->value, (int) getuid(), (int) getgid());
