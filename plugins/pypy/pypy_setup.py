@@ -263,8 +263,9 @@ it sucks, i will fix it in the near future...
 """
 wsgi_application = None
 
-
-sys.argv.insert(0, ffi.string(lib.uwsgi_binary_path()))
+# fix argv if needed
+if len(sys.argv) == 0:
+    sys.argv.insert(0, ffi.string(lib.uwsgi_binary_path()))
 
 
 """
