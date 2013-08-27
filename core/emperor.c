@@ -790,15 +790,10 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 	}
 }
 
+static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *);
 
 int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 
-	int i;
-	char *colon = NULL;
-	int counter;
-	char **uenvs;
-	char *uef;
-	char **vassal_argv;
 	pid_t pid;
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, n_ui->pipe)) {
@@ -822,7 +817,17 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 	// TODO pre-start hook
 
 	// a new uWSGI instance will start 
+#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
+	if (uwsgi.emperor_clone) {
+		char stack[PTHREAD_STACK_MIN];
+		pid = clone((int (*)(void *))uwsgi_emperor_spawn_vassal, stack + PTHREAD_STACK_MIN, SIGCHLD | uwsgi.emperor_clone, (void *) n_ui);
+	}
+	else {
+#endif
 	pid = fork();
+#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
+	}
+#endif
 	if (pid < 0) {
 		uwsgi_error("fork()")
 	}
@@ -857,6 +862,12 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		return 0;
 	}
 	else {
+		uwsgi_emperor_spawn_vassal(n_ui);
+	}
+	return -1;
+}
+
+static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 
 		if (uwsgi.emperor_tyrant) {
 			uwsgi_log("[emperor-tyrant] dropping privileges to %d %d for instance %s\n", (int) n_ui->uid, (int) n_ui->gid, n_ui->name);
@@ -879,7 +890,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		unsetenv("UWSGI_RELOADS");
 		unsetenv("NOTIFY_SOCKET");
 
-		uef = uwsgi_num2str(n_ui->pipe[1]);
+		char *uef = uwsgi_num2str(n_ui->pipe[1]);
 		if (setenv("UWSGI_EMPEROR_FD", uef, 1)) {
 			uwsgi_error("setenv()");
 			exit(1);
@@ -905,7 +916,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 			free(uef);
 		}
 
-		uenvs = environ;
+		char **uenvs = environ;
 		while (*uenvs) {
 			if (!strncmp(*uenvs, "UWSGI_VASSAL_", 13) && strchr(*uenvs, '=')) {
 				char *oe = uwsgi_concat2n(*uenvs, strchr(*uenvs, '=') - *uenvs, "", 0), *ne;
@@ -942,16 +953,18 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 			close(n_ui->pipe_config[0]);
 		}
 
-		counter = 4;
+		int counter = 4;
 		struct uwsgi_string_list *uct = uwsgi.vassals_templates;
 		while (uct) {
 			counter += 2;
 			uct = uct->next;
 		}
 
-		vassal_argv = uwsgi_malloc(sizeof(char *) * counter);
+		char **vassal_argv = uwsgi_malloc(sizeof(char *) * counter);
 		// set args
 		vassal_argv[0] = uwsgi.binary_path;
+
+		char *colon = NULL;
 
 		if (uwsgi.emperor_broodlord) {
 			colon = strchr(n_ui->name, ':');
@@ -1037,6 +1050,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		}
 
 		// close all of the unneded fd
+		int i;
 		for (i = 3; i < (int) uwsgi.max_fd; i++) {
 			if (uwsgi_fd_is_safe(i)) continue;
 			if (n_ui->use_config) {
@@ -1094,9 +1108,6 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		uwsgi_log("[emperor] is the uwsgi binary in your system PATH ?\n");
 		// never here
 		exit(UWSGI_EXILE_CODE);
-	}
-
-	return -1;
 }
 
 void uwsgi_imperial_monitor_glob_init(struct uwsgi_emperor_scanner *ues) {

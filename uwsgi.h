@@ -1808,6 +1808,7 @@ struct uwsgi_server {
 
 #ifdef __linux__
 	int unshare;
+	int emperor_clone;
 #endif
 	int refork;
 
@@ -3283,7 +3284,7 @@ int uwsgi_is_bad_connection(int);
 int uwsgi_long2str2n(unsigned long long, char *, int);
 
 #ifdef __linux__
-void uwsgi_build_unshare(char *);
+void uwsgi_build_unshare(char *, int *);
 #ifdef MADV_MERGEABLE
 void uwsgi_linux_ksm_map(void);
 #endif

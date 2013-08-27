@@ -2413,7 +2413,7 @@ static int uwsgi_get_unshare_id(char *name) {
 	return -1;
 }
 
-void uwsgi_build_unshare(char *what) {
+void uwsgi_build_unshare(char *what, int *mask) {
 
 	char *list = uwsgi_str(what);
 
@@ -2421,7 +2421,7 @@ void uwsgi_build_unshare(char *what) {
 	while (p != NULL) {
 		int u_id = uwsgi_get_unshare_id(p);
 		if (u_id != -1) {
-			uwsgi.unshare |= u_id;
+			*mask |= u_id;
 		}
 		p = strtok(NULL, ",");
 	}

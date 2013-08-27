@@ -194,6 +194,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-on-demand-exec", required_argument, 0, "use the output of the specified command as on demand socket name (the vassal name is passed as the only argument)", uwsgi_opt_set_str, &uwsgi.emperor_on_demand_exec, 0},
 	{"emperor-extra-extension", required_argument, 0, "allows the specified extension in the Emperor (vassal will be called with --config)", uwsgi_opt_add_string_list, &uwsgi.emperor_extra_extension, 0},
 	{"emperor-extra-ext", required_argument, 0, "allows the specified extension in the Emperor (vassal will be called with --config)", uwsgi_opt_add_string_list, &uwsgi.emperor_extra_extension, 0},
+#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
+	{"emperor-use-clone", required_argument, 0, "use clone() instead of fork() passing the specified unshare() flags", uwsgi_opt_set_unshare, &uwsgi.emperor_clone, 0},
+#endif
 	{"imperial-monitor-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"imperial-monitors-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"vassals-inherit", required_argument, 0, "add config templates to vassals config", uwsgi_opt_add_string_list, &uwsgi.vassals_templates, 0},
@@ -295,7 +298,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cap", required_argument, 0, "set process capability", uwsgi_opt_set_cap, NULL, 0},
 #endif
 #ifdef __linux__
-	{"unshare", required_argument, 0, "unshare() part of the processes and put it in a new namespace", uwsgi_opt_set_unshare, NULL, 0},
+	{"unshare", required_argument, 0, "unshare() part of the processes and put it in a new namespace", uwsgi_opt_set_unshare, &uwsgi.unshare, 0},
 #endif
 	{"refork", no_argument, 0, "fork() again after privileges drop. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork, 0},
 	{"re-fork", no_argument, 0, "fork() again after privileges drop. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork, 0},
@@ -3785,8 +3788,8 @@ void uwsgi_opt_set_cap(char *opt, char *value, void *none) {
 }
 #endif
 #ifdef __linux__
-void uwsgi_opt_set_unshare(char *opt, char *value, void *none) {
-	uwsgi_build_unshare(value);
+void uwsgi_opt_set_unshare(char *opt, char *value, void *mask) {
+	uwsgi_build_unshare(value, (int *) mask);
 }
 #endif
 
