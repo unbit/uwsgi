@@ -865,12 +865,57 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		struct uwsgi_string_list *usl;
 		uwsgi_foreach(usl, uwsgi.exec_as_emperor) {
 			uwsgi_log("running \"%s\" (as-emperor for vassal \"%s\" pid: %d uid: %d gid: %d)...\n", usl->value, n_ui->name, n_ui->pid, n_ui->uid, n_ui->gid);
-                        int ret = uwsgi_run_command_putenv_and_wait(NULL, usl->value, NULL, 0);
+			char *argv[4];
+			argv[0] = uwsgi_concat2("UWSGI_VASSAL_CONFIG=", n_ui->name);
+			char argv_pid[17+11]; snprintf(argv_pid, 17 + 11, "UWSGI_VASSAL_PID=%d", n_ui->pid); argv[1] = argv_pid;
+			char argv_uid[17+11]; snprintf(argv_uid, 17 + 11, "UWSGI_VASSAL_UID=%d", n_ui->uid); argv[2] = argv_uid;
+			char argv_gid[17+11]; snprintf(argv_gid, 17 + 11, "UWSGI_VASSAL_GID=%d", n_ui->gid); argv[3] = argv_gid;
+                        int ret = uwsgi_run_command_putenv_and_wait(NULL, usl->value, argv, 4);
                         uwsgi_log("command \"%s\" exited with code: %d\n", usl->value, ret);
+			free(argv[0]);
 		}
 		// 4 call hooks
 		// config / config + pid / config + pid + uid + gid
 		// call
+		uwsgi_foreach(usl, uwsgi.call_as_emperor) {
+			void (*func)(void) = dlsym(RTLD_DEFAULT, usl->value);
+			if (!func) {
+                                uwsgi_log("unable to call function \"%s\"\n", usl->value);
+                        }
+			else {
+				func();
+			}
+                }
+
+		uwsgi_foreach(usl, uwsgi.call_as_emperor1) {
+                        void (*func)(char *) = dlsym(RTLD_DEFAULT, usl->value);
+                        if (!func) {
+                                uwsgi_log("unable to call function \"%s\"\n", usl->value);
+                        }
+                        else {
+                                func(n_ui->name);
+                        }
+                }
+
+		uwsgi_foreach(usl, uwsgi.call_as_emperor2) {
+                        void (*func)(char *, pid_t) = dlsym(RTLD_DEFAULT, usl->value);
+                        if (!func) {
+                                uwsgi_log("unable to call function \"%s\"\n", usl->value);
+                        }
+                        else {
+                                func(n_ui->name, n_ui->pid);
+                        }
+                }
+
+		uwsgi_foreach(usl, uwsgi.call_as_emperor4) {
+                        void (*func)(char *, pid_t, uid_t, gid_t) = dlsym(RTLD_DEFAULT, usl->value);
+                        if (!func) {
+                                uwsgi_log("unable to call function \"%s\"\n", usl->value);
+                        }
+                        else {
+                                func(n_ui->name, n_ui->pid, n_ui->uid, n_ui->gid);
+                        }
+                }
 		return 0;
 	}
 	else {
@@ -1100,7 +1145,7 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 		uwsgi_foreach(usl, uwsgi.call_as_vassal) {
 			void (*func)(void) = dlsym(RTLD_DEFAULT, usl->value);
 			if (!func) {
-                                uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                                uwsgi_log("unable to call function \"%s\"\n", usl->value);
 				exit(1);
                         }
 			func();
@@ -1109,7 +1154,7 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 		uwsgi_foreach(usl, uwsgi.call_as_vassal1) {
                         void (*func)(char *) = dlsym(RTLD_DEFAULT, usl->value);
                         if (!func) {
-                                uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                                uwsgi_log("unable to call function \"%s\"\n", usl->value);
                                 exit(1);
                         }
                         func(n_ui->name);
@@ -1118,7 +1163,7 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 		uwsgi_foreach(usl, uwsgi.call_as_vassal3) {
                         void (*func)(char *, uid_t, gid_t) = dlsym(RTLD_DEFAULT, usl->value);
                         if (!func) {
-                                uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                                uwsgi_log("unable to call function \"%s\"\n", usl->value);
                                 exit(1);
                         }
                         func(n_ui->name, n_ui->uid, n_ui->gid);
