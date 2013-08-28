@@ -2376,9 +2376,6 @@ static struct uwsgi_unshare_id uwsgi_unshare_list[] = {
 #ifdef CLONE_FILES
 	{"files", CLONE_FILES},
 #endif
-#ifdef CLONE_FS
-	{"fs", CLONE_FS},
-#endif
 #ifdef CLONE_NEWIPC
 	{"ipc", CLONE_NEWIPC},
 #endif
@@ -2390,6 +2387,7 @@ static struct uwsgi_unshare_id uwsgi_unshare_list[] = {
 #endif
 #ifdef CLONE_NEWNS
 	{"ns", CLONE_NEWNS},
+	{"fs", CLONE_NEWNS},
 	{"mount", CLONE_NEWNS},
 #endif
 #ifdef CLONE_SYSVSEM

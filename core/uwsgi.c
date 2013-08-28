@@ -312,6 +312,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exec-pre-app", required_argument, 0, "run the specified command before app loading", uwsgi_opt_add_string_list, &uwsgi.exec_pre_app, 0},
 	{"exec-post-app", required_argument, 0, "run the specified command after app loading", uwsgi_opt_add_string_list, &uwsgi.exec_post_app, 0},
 
+	{"exec-as-vassal", required_argument, 0, "run the specified command before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.exec_as_vassal, 0},
+
 	{"call-pre-jail", required_argument, 0, "call the specified function before jailing", uwsgi_opt_add_string_list, &uwsgi.call_pre_jail, 0},
 	{"call-post-jail", required_argument, 0, "call the specified function after jailing", uwsgi_opt_add_string_list, &uwsgi.call_post_jail, 0},
 	{"call-in-jail", required_argument, 0, "call the specified function in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.call_in_jail, 0},

@@ -829,7 +829,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 	}
 #endif
 	if (pid < 0) {
-		uwsgi_error("fork()")
+		uwsgi_error("uwsgi_emperor_spawn_vassal()/fork()")
 	}
 	else if (pid > 0) {
 		n_ui->pid = pid;
@@ -1062,6 +1062,7 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 			}
 		}
 
+		// run start hook (can fail)
 		if (uwsgi.vassals_start_hook) {
 			uwsgi_log("[emperor] running vassal start-hook: %s %s\n", uwsgi.vassals_start_hook, n_ui->name);
 			if (uwsgi.emperor_absolute_dir) {
@@ -1072,6 +1073,16 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 			int start_hook_ret = uwsgi_run_command_and_wait(uwsgi.vassals_start_hook, n_ui->name);
 			uwsgi_log("[emperor] %s start-hook returned %d\n", n_ui->name, start_hook_ret);
 		}
+
+		// run exec hooks (cannot fail)
+		uwsgi_foreach(usl, uwsgi.exec_as_vassal) {
+                        uwsgi_log("running \"%s\" (as-vassal)...\n", usl->value);
+                        int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+                        if (ret != 0) {
+                                uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+                                exit(1);
+                        }
+                }
 	
 		// run low-level hooks
 		uwsgi_foreach(usl, uwsgi.call_as_vassal) {

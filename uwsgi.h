@@ -1897,6 +1897,8 @@ struct uwsgi_server {
 	struct uwsgi_string_list *exec_pre_app;
 	struct uwsgi_string_list *exec_post_app;
 
+        struct uwsgi_string_list *exec_as_vassal;
+
 	struct uwsgi_string_list *call_pre_jail;
         struct uwsgi_string_list *call_post_jail;
         struct uwsgi_string_list *call_in_jail;
