@@ -2684,7 +2684,7 @@ unsafe:
 		}
 	}
 
-	// initialize locks and socket as soon as possibile, as the master could enqueue tasks
+	// initialize locks and socket as soon as possible, as the master could enqueue tasks
 	if (uwsgi.spoolers != NULL && (uwsgi.sockets || uwsgi.loop)) {
 		create_signal_pipe(uwsgi.shared->spooler_signal_pipe);
 		struct uwsgi_spooler *uspool = uwsgi.spoolers;
@@ -3268,7 +3268,7 @@ void build_options() {
 
 /*
 
-this function build the help output from the uwsgi.options structure
+this function builds the help output from the uwsgi.options structure
 
 */
 void uwsgi_help(char *opt, char *val, void *none) {
