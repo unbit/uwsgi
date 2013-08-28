@@ -859,6 +859,18 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
                 	}
 
 		}
+
+		// once the config is sent we can run hooks (they can fail)
+		// exec hooks have access to all of the currently defined vars + UWSGI_VASSAL_PID, UWSGI_VASSAL_UID, UWSGI_VASSAL_GID, UWSGI_VASSAL_CONFIG
+		struct uwsgi_string_list *usl;
+		uwsgi_foreach(usl, uwsgi.exec_as_emperor) {
+			uwsgi_log("running \"%s\" (as-emperor for vassal \"%s\" pid: %d uid: %d gid: %d)...\n", usl->value, n_ui->name, n_ui->pid, n_ui->uid, n_ui->gid);
+                        int ret = uwsgi_run_command_putenv_and_wait(NULL, usl->value, NULL, 0);
+                        uwsgi_log("command \"%s\" exited with code: %d\n", usl->value, ret);
+		}
+		// 4 call hooks
+		// config / config + pid / config + pid + uid + gid
+		// call
 		return 0;
 	}
 	else {

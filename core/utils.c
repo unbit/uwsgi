@@ -2014,23 +2014,9 @@ void uwsgi_exec_command_with_args(char *cmdline) {
 	exit(1);
 }
 
-int uwsgi_run_command_and_wait(char *command, char *arg) {
+static int uwsgi_run_command_do(char *command, char *arg) {
 
 	char *argv[4];
-	int waitpid_status = 0;
-	pid_t pid = fork();
-	if (pid < 0) {
-		return -1;
-	}
-
-	if (pid > 0) {
-		if (waitpid(pid, &waitpid_status, 0) < 0) {
-			uwsgi_error("waitpid()");
-			return -1;
-		}
-
-		return WEXITSTATUS(waitpid_status);
-	}
 
 #ifdef __linux__
 	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
@@ -2057,6 +2043,54 @@ int uwsgi_run_command_and_wait(char *command, char *arg) {
 	//never here
 	exit(1);
 }
+
+int uwsgi_run_command_and_wait(char *command, char *arg) {
+
+        int waitpid_status = 0;
+        pid_t pid = fork();
+        if (pid < 0) {
+                return -1;
+        }
+
+        if (pid > 0) {
+                if (waitpid(pid, &waitpid_status, 0) < 0) {
+                        uwsgi_error("uwsgi_run_command_and_wait()/waitpid()");
+                        return -1;
+                }
+
+                return WEXITSTATUS(waitpid_status);
+        }
+	return uwsgi_run_command_do(command, arg);
+}
+
+int uwsgi_run_command_putenv_and_wait(char *command, char *arg, char **envs, unsigned int nenvs) {
+
+        int waitpid_status = 0;
+        pid_t pid = fork();
+        if (pid < 0) {
+                return -1; 
+        }
+
+        if (pid > 0) {
+                if (waitpid(pid, &waitpid_status, 0) < 0) {
+                        uwsgi_error("uwsgi_run_command_and_wait()/waitpid()");
+                        return -1;
+                }
+
+                return WEXITSTATUS(waitpid_status);
+        }
+
+	unsigned int i;
+	for(i=0;i<nenvs;i++) {
+		if (putenv(envs[i])) {
+			uwsgi_error("uwsgi_run_command_putenv_and_wait()/putenv()");
+			exit(1);
+		}
+	}
+
+        return uwsgi_run_command_do(command, arg);
+}
+
 
 pid_t uwsgi_run_command(char *command, int *stdin_fd, int stdout_fd) {
 

@@ -1899,6 +1899,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *exec_post_app;
 
         struct uwsgi_string_list *exec_as_vassal;
+        struct uwsgi_string_list *exec_as_emperor;
 
 	struct uwsgi_string_list *call_pre_jail;
         struct uwsgi_string_list *call_post_jail;
@@ -1912,6 +1913,11 @@ struct uwsgi_server {
         struct uwsgi_string_list *call_as_vassal;
         struct uwsgi_string_list *call_as_vassal1;
         struct uwsgi_string_list *call_as_vassal3;
+
+        struct uwsgi_string_list *call_as_emperor;
+        struct uwsgi_string_list *call_as_emperor1;
+        struct uwsgi_string_list *call_as_emperor2;
+        struct uwsgi_string_list *call_as_emperor4;
 
 	struct uwsgi_string_list *wait_for_interface;
 	int wait_for_interface_timeout;
@@ -3149,6 +3155,7 @@ void uwsgi_add_sockets_to_queue(int, int);
 void uwsgi_del_sockets_from_queue(int);
 
 int uwsgi_run_command_and_wait(char *, char *);
+int uwsgi_run_command_putenv_and_wait(char *, char *, char **, unsigned int);
 int uwsgi_call_symbol(char *);
 
 void uwsgi_manage_signal_cron(time_t);

@@ -313,6 +313,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exec-post-app", required_argument, 0, "run the specified command after app loading", uwsgi_opt_add_string_list, &uwsgi.exec_post_app, 0},
 
 	{"exec-as-vassal", required_argument, 0, "run the specified command before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.exec_as_vassal, 0},
+	{"exec-as-emperor", required_argument, 0, "run the specified command in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.exec_as_emperor, 0},
 
 	{"wait-for-interface", required_argument, 0, "wait for the specified network interface to come up before running root hooks", uwsgi_opt_add_string_list, &uwsgi.wait_for_interface, 0},
 	{"wait-for-interface-timeout", required_argument, 0, "set the timeout for wait-for-interface", uwsgi_opt_set_int, &uwsgi.wait_for_interface_timeout, 0},
@@ -338,6 +339,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"call-as-vassal", required_argument, 0, "call the specified function() before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.call_as_vassal, 0},
 	{"call-as-vassal1", required_argument, 0, "call the specified function(char *) before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.call_as_vassal1, 0},
 	{"call-as-vassal3", required_argument, 0, "call the specified function(char *, uid_t, gid_t) before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.call_as_vassal3, 0},
+
+	{"call-as-emperor", required_argument, 0, "call the specified function() in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.call_as_emperor, 0},
+	{"call-as-emperor1", required_argument, 0, "call the specified function(char *) in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.call_as_emperor1, 0},
+	{"call-as-emperor2", required_argument, 0, "call the specified function(char *, pid_t) in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.call_as_emperor2, 0},
+	{"call-as-emperor4", required_argument, 0, "call the specified function(char *, pid_t, uid_t, gid_t) in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.call_as_emperor4, 0},
 
 
 
