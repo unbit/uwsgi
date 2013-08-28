@@ -166,6 +166,7 @@ extern "C" {
 #endif
 #endif
 #include <sys/socket.h>
+#include <net/if.h>
 #ifdef __linux__
 #ifndef MSG_FASTOPEN
 #define MSG_FASTOPEN   0x20000000
@@ -1911,6 +1912,9 @@ struct uwsgi_server {
         struct uwsgi_string_list *call_as_vassal;
         struct uwsgi_string_list *call_as_vassal1;
         struct uwsgi_string_list *call_as_vassal3;
+
+	struct uwsgi_string_list *wait_for_interface;
+	int wait_for_interface_timeout;
 
 	char *privileged_binary_patch;
 	char *unprivileged_binary_patch;

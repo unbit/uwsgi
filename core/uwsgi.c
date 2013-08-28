@@ -314,6 +314,18 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"exec-as-vassal", required_argument, 0, "run the specified command before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.exec_as_vassal, 0},
 
+	{"wait-for-interface", required_argument, 0, "wait for the specified network interface to come up before running root hooks", uwsgi_opt_add_string_list, &uwsgi.wait_for_interface, 0},
+	{"wait-for-interface-timeout", required_argument, 0, "set the timeout for wait-for-interface", uwsgi_opt_set_int, &uwsgi.wait_for_interface_timeout, 0},
+
+	{"wait-interface", required_argument, 0, "wait for the specified network interface to come up before running root hooks", uwsgi_opt_add_string_list, &uwsgi.wait_for_interface, 0},
+	{"wait-interface-timeout", required_argument, 0, "set the timeout for wait-for-interface", uwsgi_opt_set_int, &uwsgi.wait_for_interface_timeout, 0},
+
+	{"wait-for-iface", required_argument, 0, "wait for the specified network interface to come up before running root hooks", uwsgi_opt_add_string_list, &uwsgi.wait_for_interface, 0},
+	{"wait-for-iface-timeout", required_argument, 0, "set the timeout for wait-for-interface", uwsgi_opt_set_int, &uwsgi.wait_for_interface_timeout, 0},
+
+	{"wait-iface", required_argument, 0, "wait for the specified network interface to come up before running root hooks", uwsgi_opt_add_string_list, &uwsgi.wait_for_interface, 0},
+	{"wait-iface-timeout", required_argument, 0, "set the timeout for wait-for-interface", uwsgi_opt_set_int, &uwsgi.wait_for_interface_timeout, 0},
+
 	{"call-pre-jail", required_argument, 0, "call the specified function before jailing", uwsgi_opt_add_string_list, &uwsgi.call_pre_jail, 0},
 	{"call-post-jail", required_argument, 0, "call the specified function after jailing", uwsgi_opt_add_string_list, &uwsgi.call_post_jail, 0},
 	{"call-in-jail", required_argument, 0, "call the specified function in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.call_in_jail, 0},

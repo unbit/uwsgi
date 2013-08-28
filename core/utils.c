@@ -372,8 +372,33 @@ void uwsgi_as_root() {
 #endif
 		}
 
-		// now run the scripts needed by root
+
 		struct uwsgi_string_list *usl;
+		uwsgi_foreach(usl, uwsgi.wait_for_interface) {
+			if (!uwsgi.wait_for_interface_timeout) {
+				uwsgi.wait_for_interface_timeout = 60;
+			}
+			uwsgi_log("waiting for interface %s (max %d seconds) ...\n", usl->value, uwsgi.wait_for_interface_timeout);
+			int counter = 0;
+			for(;;) {
+				if (counter > uwsgi.wait_for_interface_timeout) {
+					uwsgi_log("interface %s unavailable after %d seconds\n", usl->value, counter);
+					exit(1);
+				}
+				unsigned int index = if_nametoindex(usl->value);
+				if (index > 0) {
+					uwsgi_log("interface %s found with index %u\n", usl->value, index);
+					break;
+				}	
+				else {
+					sleep(1);
+					counter++;
+				}
+			}
+		}
+		
+
+		// now run the scripts needed by root
 		uwsgi_foreach(usl, uwsgi.exec_as_root) {
 			uwsgi_log("running \"%s\" (as root)...\n", usl->value);
 			int ret = uwsgi_run_command_and_wait(NULL, usl->value);
