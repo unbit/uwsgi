@@ -73,7 +73,7 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 
 	// drop newline
 	if (message[len-1] == '\n') len--;
-#ifdef __sun__
+#if defined(__sun__) && !defined(__clang__)
 	ctime_r(&current_time, ctime_storage, 26);
 #else
 	ctime_r(&current_time, ctime_storage);

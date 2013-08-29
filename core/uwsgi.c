@@ -1311,7 +1311,7 @@ void what_i_am_doing() {
 		for (i = 0; i < uwsgi.cores; i++) {
 			wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[i].req;
 			if (wsgi_req->uri_len > 0) {
-#ifdef __sun__
+#if defined(__sun__) && !defined(__clang__)
 				ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, ctime_storage, 26);
 #else
 				ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, ctime_storage);
@@ -1328,7 +1328,7 @@ void what_i_am_doing() {
 	else {
 		wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[0].req;
 		if (wsgi_req->uri_len > 0) {
-#ifdef __sun__
+#if defined(__sun__) && !defined(__clang__)
 			ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, ctime_storage, 26);
 #else
 			ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, ctime_storage);

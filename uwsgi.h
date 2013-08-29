@@ -138,8 +138,12 @@ extern "C" {
 #endif
 
 #ifdef __sun__
+#ifndef _XPG4_2
 #define _XPG4_2
+#endif
+#ifndef __EXTENSIONS__
 #define __EXTENSIONS__
+#endif
 #endif
 
 #ifndef _GNU_SOURCE

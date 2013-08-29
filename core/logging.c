@@ -45,7 +45,7 @@ void uwsgi_log(const char *fmt, ...) {
 		}
 		else {
 			gettimeofday(&tv, NULL);
-#ifdef __sun__
+#if defined(__sun__) && !defined(__clang__)
 			ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
 #else
 			ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
@@ -97,7 +97,7 @@ void uwsgi_log_verbose(const char *fmt, ...) {
 	}
 	else {
 		gettimeofday(&tv, NULL);
-#ifdef __sun__
+#if defined(__sun__) && !defined(__clang__)
 		ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
 #else
 		ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
@@ -616,7 +616,7 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 			break;	
 	}
 
-#ifdef __sun__
+#if defined(__sun__) && !defined(__clang__)
 	ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, time_request, 26);
 #else
 	ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, time_request);
@@ -1035,7 +1035,7 @@ static ssize_t uwsgi_lf_epoch(struct wsgi_request * wsgi_req, char **buf) {
 
 static ssize_t uwsgi_lf_ctime(struct wsgi_request * wsgi_req, char **buf) {
 	*buf = uwsgi_malloc(26);
-#ifdef __sun__
+#if defined(__sun__) && !defined(__clang__)
 	ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, *buf, 26);
 #else
 	ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, *buf);

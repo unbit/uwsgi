@@ -1335,10 +1335,10 @@ if __name__ == "__main__":
         bconf = os.environ.get('UWSGI_PROFILE','default.ini')
         try:
             bconf = sys.argv[3]
-            if not bconf.endswith('.ini'):
-                bconf += '.ini'
         except:
             pass
+        if not bconf.endswith('.ini'):
+            bconf += '.ini'
         if not '/' in bconf:
             bconf = 'buildconf/%s' % bconf
         uc = uConf(bconf)
