@@ -818,6 +818,18 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	uwsgi_apps[wsgi_req->app_id].requests++;
 
         env = rb_hash_new();
+	// the following vars have to always been defined (we skip REQUEST_METHOD and PATH_INFO as they should always be available)
+	rb_hash_aset(env, rb_str_new2("SCRIPT_NAME"), rb_str_new2(""));
+	rb_hash_aset(env, rb_str_new2("QUERY_STRING"), rb_str_new2(""));
+	rb_hash_aset(env, rb_str_new2("SERVER_NAME"), rb_str_new2(uwsgi.hostname));
+	// SERVER_PORT
+        char *server_port = strchr(wsgi_req->socket->name, ':');
+        if (server_port) {
+		rb_hash_aset(env, rb_str_new2("SERVER_PORT"), rb_str_new(server_port+1, strlen(server_port+1)));
+        }
+        else {
+		rb_hash_aset(env, rb_str_new2("SERVER_PORT"), rb_str_new2("80"));
+        }
 
         // fill ruby hash
         for(i=0;i<wsgi_req->var_cnt;i++) {
