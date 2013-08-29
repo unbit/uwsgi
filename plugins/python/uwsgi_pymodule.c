@@ -394,6 +394,7 @@ PyObject *py_uwsgi_register_rpc(PyObject * self, PyObject * args) {
 		return NULL;
 	}
 
+	Py_INCREF(func);
 
 	if (uwsgi_register_rpc(name, &python_plugin, argc, func)) {
 		return PyErr_Format(PyExc_ValueError, "unable to register rpc function");
@@ -497,6 +498,8 @@ PyObject *py_uwsgi_register_signal(PyObject * self, PyObject * args) {
 	if (!PyArg_ParseTuple(args, "BsO:register_signal", &uwsgi_signal, &signal_kind, &handler)) {
 		return NULL;
 	}
+
+	Py_INCREF(handler);
 
 	if (uwsgi_register_signal(uwsgi_signal, signal_kind, handler, 0)) {
 		return PyErr_Format(PyExc_ValueError, "unable to register signal");
