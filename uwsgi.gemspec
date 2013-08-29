@@ -2,7 +2,7 @@ Gem::Specification.new do |s|
   s.name        = 'uwsgi'
   s.license     = 'GPL-2'
   s.version     = `python -c "import uwsgiconfig as uc; print uc.uwsgi_version"`.sub(/-dev-.*/,'')
-  s.date        = '2013-07-21'
+  s.date        = '2013-08-29'
   s.summary     = "uWSGI"
   s.description = "The uWSGI server for Ruby/Rack"
   s.authors     = ["Unbit"]
