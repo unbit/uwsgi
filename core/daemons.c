@@ -77,8 +77,14 @@ void uwsgi_daemons_smart_check() {
 				else {
 					ud->pidfile_checks++;
 					if (ud->pidfile_checks >= (unsigned int) ud->freq) {
-						uwsgi_log("[uwsgi-daemons] found changed pidfile for \"%s\" (old_pid: %d new_pid: %d)\n", ud->command, (int) ud->pid, (int) checked_pid);
-						uwsgi_spawn_daemon(ud);
+						if (!ud->has_daemonized) {
+							uwsgi_log_verbose("[uwsgi-daemons] \"%s\" (pid: %d) did not daemonize !!!\n", ud->command, (int) ud->pid);
+							ud->pidfile_checks = 0;
+						}
+						else {
+							uwsgi_log("[uwsgi-daemons] found changed pidfile for \"%s\" (old_pid: %d new_pid: %d)\n", ud->command, (int) ud->pid, (int) checked_pid);
+							uwsgi_spawn_daemon(ud);
+						}
 					}
 				}
 			}
@@ -99,10 +105,20 @@ void uwsgi_daemons_smart_check() {
 int uwsgi_daemon_check_pid_death(pid_t diedpid) {
 	struct uwsgi_daemon *ud = uwsgi.daemons;
 	while (ud) {
-		if (ud->pid == diedpid && !ud->pidfile) {
-			uwsgi_log("daemon \"%s\" (pid: %d) annihilated\n", ud->command, (int) diedpid);
-			ud->pid = -1;
-			return -1;
+		if (ud->pid == diedpid) {
+			if (!ud->pidfile) {
+				uwsgi_log("daemon \"%s\" (pid: %d) annihilated\n", ud->command, (int) diedpid);
+				ud->pid = -1;
+				return -1;
+			}
+			else {
+				if (!ud->has_daemonized) {
+					ud->has_daemonized = 1;
+				}
+				else {
+					uwsgi_log("[uwsgi-daemons] BUG !!!\n");
+				}
+			}
 		}
 		ud = ud->next;
 	}
@@ -251,6 +267,7 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 	}
 
 	if (pid > 0) {
+		ud->has_daemonized = 0;
 		ud->pid = pid;
 		ud->status = 1;
 		ud->pidfile_checks = 0;

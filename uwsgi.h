@@ -553,6 +553,7 @@ struct uwsgi_daemon {
 	int status;
 	int registered;
 
+	int has_daemonized;
 
 	char *pidfile;
 	int daemonize;
