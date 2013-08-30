@@ -620,7 +620,7 @@ void emperor_stop(struct uwsgi_instance *c_ui) {
 	// remove uWSGI instance
 
 	if (write(c_ui->pipe[0], "\0", 1) != 1) {
-		uwsgi_error("write()");
+		uwsgi_error("emperor_stop()/write()");
 	}
 
 	c_ui->status = 1;
@@ -634,7 +634,7 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 
 	// reload the uWSGI instance
 	if (write(c_ui->pipe[0], "\1", 1) != 1) {
-		uwsgi_error("write()");
+		uwsgi_error("emperor_respawn/write()");
 	}
 
 	// push the config to the config pipe (if needed)

@@ -261,7 +261,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"spooler-external", required_argument, 0, "map spoolers requests to a spooler directory managed by an external instance", uwsgi_opt_add_spooler, (void *) UWSGI_SPOOLER_EXTERNAL, UWSGI_OPT_MASTER},
 	{"spooler-ordered", no_argument, 0, "try to order the execution of spooler tasks", uwsgi_opt_true, &uwsgi.spooler_ordered, 0},
 	{"spooler-chdir", required_argument, 0, "chdir() to specified directory before each spooler task", uwsgi_opt_set_str, &uwsgi.spooler_chdir, 0},
-	{"spooler-processes", required_argument, 0, "set the number of processes for spoolers", uwsgi_opt_set_int, &uwsgi.spooler_numproc, 0},
+	{"spooler-processes", required_argument, 0, "set the number of processes for spoolers", uwsgi_opt_set_int, &uwsgi.spooler_numproc, UWSGI_OPT_IMMEDIATE},
 	{"spooler-quiet", no_argument, 0, "do not be verbose with spooler tasks", uwsgi_opt_true, &uwsgi.spooler_quiet, 0},
 	{"spooler-max-tasks", required_argument, 0, "set the maximum number of tasks to run before recycling a spooler", uwsgi_opt_set_int, &uwsgi.spooler_max_tasks, 0},
 	{"spooler-harakiri", required_argument, 0, "set harakiri timeout for spooler tasks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_SPOOLER_HARAKIRI, 0},
@@ -2161,6 +2161,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_ROUTING
 	uwsgi_routing_dump();
+#else
+	uwsgi_log("!!! no internal routing support, rebuild with pcre support !!!\n");
 #endif
 
 	// initialize shared sockets
