@@ -116,7 +116,7 @@ int uwsgi_daemon_check_pid_death(pid_t diedpid) {
 					ud->has_daemonized = 1;
 				}
 				else {
-					uwsgi_log("[uwsgi-daemons] BUG !!!\n");
+					uwsgi_log("[uwsgi-daemons] BUG !!! daemon \"%s\" has already daemonized !!!\n", ud->command);
 				}
 			}
 		}
