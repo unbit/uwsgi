@@ -1879,6 +1879,8 @@ struct uwsgi_server {
 	int log_master;
 	char *log_master_buf;
 	size_t log_master_bufsize;
+	int log_master_stream;
+	int log_master_req_stream;
 
 	int log_reopen;
 	int log_truncate;

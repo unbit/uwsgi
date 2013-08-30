@@ -120,17 +120,54 @@ void uwsgi_log_verbose(const char *fmt, ...) {
 
 
 
+static void fix_logpipe_buf(int *fd) {
+	int so_bufsize;
+        socklen_t so_bufsize_len = sizeof(int);
+
+        if (getsockopt(fd[0], SOL_SOCKET, SO_RCVBUF, &so_bufsize, &so_bufsize_len)) {
+                uwsgi_error("fix_logpipe_buf()/getsockopt()");
+		return;
+        }
+
+	if ((size_t)so_bufsize < uwsgi.log_master_bufsize) {
+		so_bufsize = uwsgi.log_master_bufsize;
+		if (setsockopt(fd[0], SOL_SOCKET, SO_RCVBUF, &so_bufsize, so_bufsize_len)) {
+                        uwsgi_error("fix_logpipe_buf()/setsockopt()");
+        	}
+	}
+
+	if (getsockopt(fd[1], SOL_SOCKET, SO_SNDBUF, &so_bufsize, &so_bufsize_len)) {
+                uwsgi_error("fix_logpipe_buf()/getsockopt()");
+                return;
+        }
+
+        if ((size_t)so_bufsize < uwsgi.log_master_bufsize) {
+                so_bufsize = uwsgi.log_master_bufsize;
+                if (setsockopt(fd[1], SOL_SOCKET, SO_SNDBUF, &so_bufsize, so_bufsize_len)) {
+                        uwsgi_error("fix_logpipe_buf()/setsockopt()");
+                }
+        }
+}
 
 // create the logpipe
 void create_logpipe(void) {
 
+	if (uwsgi.log_master_stream) {
+		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.shared->worker_log_pipe)) {
+			uwsgi_error("create_logpipe()/socketpair()\n");
+			exit(1);
+		}
+	}
+	else {
 #if defined(SOCK_SEQPACKET) && defined(__linux__)
-	if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, uwsgi.shared->worker_log_pipe)) {
+		if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, uwsgi.shared->worker_log_pipe)) {
 #else
-	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_log_pipe)) {
+		if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_log_pipe)) {
 #endif
-		uwsgi_error("socketpair()\n");
-		exit(1);
+			uwsgi_error("create_logpipe()/socketpair()\n");
+			exit(1);
+		}
+		fix_logpipe_buf(uwsgi.shared->worker_log_pipe);
 	}
 
 	uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[0]);
@@ -149,13 +186,22 @@ void create_logpipe(void) {
 	}
 
 	if (uwsgi.req_log_master) {
+		if (uwsgi.log_master_req_stream) {
+			if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.shared->worker_req_log_pipe)) {
+				uwsgi_error("create_logpipe()/socketpair()\n");
+				exit(1);
+			}
+		}
+		else {
 #if defined(SOCK_SEQPACKET) && defined(__linux__)
-		if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, uwsgi.shared->worker_req_log_pipe)) {
+			if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, uwsgi.shared->worker_req_log_pipe)) {
 #else
-		if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_req_log_pipe)) {
+			if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_req_log_pipe)) {
 #endif
-			uwsgi_error("socketpair()\n");
-			exit(1);
+				uwsgi_error("create_logpipe()/socketpair()\n");
+				exit(1);
+			}
+			fix_logpipe_buf(uwsgi.shared->worker_req_log_pipe);
 		}
 
 		uwsgi_socket_nb(uwsgi.shared->worker_req_log_pipe[0]);
