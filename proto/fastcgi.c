@@ -265,8 +265,8 @@ int uwsgi_proto_fastcgi_write(struct wsgi_request *wsgi_req, char *buf, size_t l
 }
 
 void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
-	// special case here, we run i nvoid context, so we need to wait directly here
-	(void) uwsgi_write_true_nb(wsgi_req->fd, (char *) FCGI_END_REQUEST, sizeof(FCGI_END_REQUEST), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+	// special case here, we run in void context, so we need to wait directly here
+	(void) uwsgi_write_true_nb(wsgi_req->fd, (char *) FCGI_END_REQUEST, sizeof(FCGI_END_REQUEST)-1, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 	uwsgi_proto_base_close(wsgi_req);
 }
 
