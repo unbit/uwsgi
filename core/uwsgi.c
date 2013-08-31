@@ -226,7 +226,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"locks", required_argument, 0, "create the specified number of shared locks", uwsgi_opt_set_int, &uwsgi.locks, 0},
 	{"lock-engine", required_argument, 0, "set the lock engine", uwsgi_opt_set_str, &uwsgi.lock_engine, 0},
 	{"ftok", required_argument, 0, "set the ipcsem key via ftok() for avoiding duplicates", uwsgi_opt_set_str, &uwsgi.ftok, 0},
-	{"persistent-ipcsem", required_argument, 0, "do not remove ipcsem's on shutdown", uwsgi_opt_true, &uwsgi.persistent_ipcsem, 0},
+	{"persistent-ipcsem", no_argument, 0, "do not remove ipcsem's on shutdown", uwsgi_opt_true, &uwsgi.persistent_ipcsem, 0},
 	{"sharedarea", required_argument, 'A', "create a raw shared memory area of specified pages", uwsgi_opt_set_int, &uwsgi.sharedareasize, 0},
 
 	{"safe-fd", required_argument, 0, "do not close the specified file descriptor", uwsgi_opt_safe_fd, NULL, 0},
