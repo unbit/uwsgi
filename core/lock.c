@@ -493,7 +493,7 @@ struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *id) {
 	if (uwsgi.ftok) {
 		myKey = ftok(uwsgi.ftok, counter);
 		if (myKey < 0) {
-			uwsgi_error("ftok()");
+			uwsgi_error("uwsgi_lock_ipcsem_init()/ftok()");
 			exit(1);
 		}
 		counter++;
@@ -504,7 +504,7 @@ struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *id) {
 	}
 
 	if (semid < 0) {
-		uwsgi_error("semget()");
+		uwsgi_error("uwsgi_lock_ipcsem_init()/semget()");
 		exit(1);
 	}
 	// do this now, to allows triggering of atexit hook in case of problems
@@ -512,7 +512,7 @@ struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *id) {
 
 	semu.val = 1;
 	if (semctl(semid, 0, SETVAL, semu)) {
-		uwsgi_error("semctl()");
+		uwsgi_error("uwsgi_lock_ipcsem_init()/semctl()");
 		exit(1);
 	}
 
@@ -532,7 +532,13 @@ void uwsgi_lock_ipcsem(struct uwsgi_lock_item *uli) {
 retry:
 	if (semop(semid, &sb, 1)) {
 		if (errno == EINTR) goto retry; 
-		uwsgi_error("semop()");
+		uwsgi_error("uwsgi_lock_ipcsem()/semop()");
+#ifdef EIDRM
+		if (errno == EIDRM) {
+			exit(UWSGI_BRUTAL_RELOAD_CODE);
+		}
+#endif
+		exit(1);
 	}
 }
 
@@ -549,7 +555,13 @@ void uwsgi_unlock_ipcsem(struct uwsgi_lock_item *uli) {
 retry:
 	if (semop(semid, &sb, 1)) {
 		if (errno == EINTR) goto retry; 
-		uwsgi_error("semop()");
+		uwsgi_error("uwsgi_unlock_ipcsem()/semop()");
+#ifdef EIDRM
+		if (errno == EIDRM) {
+			exit(UWSGI_BRUTAL_RELOAD_CODE);
+		}
+#endif
+		exit(1);
 	}
 
 }
@@ -574,6 +586,8 @@ pid_t uwsgi_lock_ipcsem_check(struct uwsgi_lock_item *uli) {
 
 void uwsgi_ipcsem_clear(void) {
 
+	if (uwsgi.persistent_ipcsem) return;
+
 	struct uwsgi_lock_item *uli = uwsgi.registered_locks;
 
 	if (!uwsgi.workers)
@@ -595,11 +609,26 @@ clear:
 #ifdef UWSGI_DEBUG
 	uwsgi_log("removing sysvipc semaphores...\n");
 #endif
+#ifdef GETPID
+	while (uli) {
+		int semid = 0;
+		memcpy(&semid, uli->lock_ptr, sizeof(int));
+		int ret = semctl(semid, 0, GETPID);
+		if (ret > 0) {
+			if (ret != (int) getpid() && !kill((pid_t) ret, 0)) {
+				uwsgi_log("found ipcsem mapped to alive pid %d. skipping ipcsem removal.\n", ret);
+				return;
+			}
+		}
+		uli = uli->next;
+	}
+	uli = uwsgi.registered_locks;
+#endif
 	while (uli) {
 		int semid = 0;
 		memcpy(&semid, uli->lock_ptr, sizeof(int));
 		if (semctl(semid, 0, IPC_RMID)) {
-			uwsgi_error("semctl()");
+			uwsgi_error("uwsgi_ipcsem_clear()/semctl()");
 		}
 		uli = uli->next;
 	}

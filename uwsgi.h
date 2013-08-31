@@ -854,6 +854,7 @@ struct uwsgi_opt {
 #define UWSGI_DE_HIJACKED_CODE 173
 #define UWSGI_EXCEPTION_CODE 5
 #define UWSGI_QUIET_CODE 29
+#define UWSGI_BRUTAL_RELOAD_CODE 31
 
 #define MAX_VARS 64
 
@@ -2361,6 +2362,7 @@ struct uwsgi_server {
 
 
 	int locks;
+	int persistent_ipcsem;
 
 	struct uwsgi_lock_item *queue_lock;
 	struct uwsgi_lock_item **user_lock;

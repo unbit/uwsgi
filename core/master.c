@@ -905,6 +905,11 @@ next:
 		else if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_QUIET_CODE) {
 			// noop
 		}
+		else if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_BRUTAL_RELOAD_CODE) {
+			uwsgi_log("!!! inconsistent state reported by worker %d (pid: %d) !!!\n", thewid, (int) diedpid);
+			reap_them_all(0);
+			continue;
+		}
 		else if (uwsgi.workers[thewid].manage_next_request) {
 			if (WIFSIGNALED(waitpid_status)) {
 				uwsgi_log("DAMN ! worker %d (pid: %d) died, killed by signal %d :( trying respawn ...\n", thewid, (int) diedpid, (int) WTERMSIG(waitpid_status));
