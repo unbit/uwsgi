@@ -103,6 +103,9 @@ parse:
 			uint16_t fcgi_len = uwsgi_be16((char *)&fr->cl1);
 			uint32_t fcgi_all_len = sizeof(struct fcgi_record) + fcgi_len + fr->pad;
 			uint8_t fcgi_type = fr->type;
+			uint8_t *sid = (uint8_t *) &wsgi_req->stream_id;
+			sid[0] = fr->req0;
+			sid[1] = fr->req1;
 			// if STDIN, end of the loop
 			if (fcgi_type == 5) {
 				wsgi_req->uh->modifier1 = uwsgi.fastcgi_modifier1;
@@ -235,8 +238,9 @@ int uwsgi_proto_fastcgi_write(struct wsgi_request *wsgi_req, char *buf, size_t l
 		struct fcgi_record fr;
 		fr.version = 1;
 		fr.type = 6;
-		fr.req1 = 0;
-		fr.req0 = 1;
+		uint8_t *sid = (uint8_t *) &wsgi_req->stream_id;
+		fr.req1 = sid[1];
+		fr.req0 = sid[0];
 		fr.pad = 0;
 		fr.reserved = 0;
 		fr.cl0 = (uint8_t) (fcgi_len & 0xff);
@@ -266,7 +270,15 @@ int uwsgi_proto_fastcgi_write(struct wsgi_request *wsgi_req, char *buf, size_t l
 
 void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
 	// special case here, we run in void context, so we need to wait directly here
-	(void) uwsgi_write_true_nb(wsgi_req->fd, (char *) FCGI_END_REQUEST, sizeof(FCGI_END_REQUEST)-1, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+	char end_request[24];
+	memcpy(end_request, FCGI_END_REQUEST, 24);
+	char *sid = (char *) &wsgi_req->stream_id;
+	// update with request id
+	end_request[2] = sid[1];
+	end_request[3] = sid[0];
+	end_request[10] = sid[1];
+	end_request[11] = sid[0];
+	(void) uwsgi_write_true_nb(wsgi_req->fd, end_request, 24, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 	uwsgi_proto_base_close(wsgi_req);
 }
 
@@ -279,8 +291,9 @@ int uwsgi_proto_fastcgi_sendfile(struct wsgi_request *wsgi_req, int fd, size_t p
                 struct fcgi_record fr;
                 fr.version = 1;
                 fr.type = 6;
-                fr.req1 = 0;
-                fr.req0 = 1;
+		uint8_t *sid = (uint8_t *) &wsgi_req->stream_id;
+                fr.req1 = sid[1];
+                fr.req0 = sid[0];
                 fr.pad = 0;
                 fr.reserved = 0;
                 fr.cl0 = (uint8_t) (fcgi_len & 0xff);
