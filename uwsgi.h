@@ -1650,6 +1650,10 @@ struct uwsgi_server {
 
 	// leave master running as root
 	int master_as_root;
+	// postpone privileges drop
+	int drop_after_init;
+	int drop_after_apps;
+
 	// kill the stack on SIGTERM (instead of brutal reloading)
 	int die_on_term;
 

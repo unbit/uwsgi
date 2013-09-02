@@ -559,6 +559,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-micros", no_argument, 0, "report response time in microseconds instead of milliseconds", uwsgi_opt_true, &uwsgi.log_micros, 0},
 	{"log-x-forwarded-for", no_argument, 0, "use the ip from X-Forwarded-For header instead of REMOTE_ADDR", uwsgi_opt_true, &uwsgi.log_x_forwarded_for, 0},
 	{"master-as-root", no_argument, 0, "leave master process running as root", uwsgi_opt_true, &uwsgi.master_as_root, 0},
+
+	{"drop-after-init", no_argument, 0, "run privileges drop after plugin initialization", uwsgi_opt_true, &uwsgi.drop_after_init, 0},
+	{"drop-after-apps", no_argument, 0, "run privileges drop after apps loading", uwsgi_opt_true, &uwsgi.drop_after_apps, 0},
+
 	{"force-cwd", required_argument, 0, "force the initial working directory to the specified value", uwsgi_opt_set_str, &uwsgi.force_cwd, 0},
 	{"chdir", required_argument, 0, "chdir to specified directory before apps loading", uwsgi_opt_set_str, &uwsgi.chdir, 0},
 	{"chdir2", required_argument, 0, "chdir to specified directory after apps loading", uwsgi_opt_set_str, &uwsgi.chdir2, 0},
@@ -2263,7 +2267,7 @@ int uwsgi_start(void *v_argv) {
 
 	uwsgi_file_write_do(uwsgi.file_write_list);
 
-	if (!uwsgi.master_as_root && !uwsgi.chown_socket) {
+	if (!uwsgi.master_as_root && !uwsgi.chown_socket && !uwsgi.drop_after_init && !uwsgi.drop_after_apps) {
 		uwsgi_as_root();
 	}
 
@@ -2503,6 +2507,11 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 
+	if (uwsgi.drop_after_init) {
+		uwsgi_as_root();
+	}
+
+
 	/* gp/plugin initialization */
 	for (i = 0; i < uwsgi.gp_cnt; i++) {
 		if (uwsgi.gp[i]->post_init) {
@@ -2740,6 +2749,10 @@ next:
 	//init apps hook (if not lazy)
 	if (!uwsgi.lazy && !uwsgi.lazy_apps) {
 		uwsgi_init_all_apps();
+	}
+
+	if (uwsgi.drop_after_apps) {
+		uwsgi_as_root();
 	}
 
 	// postinit apps (setup specific features after app initialization)
