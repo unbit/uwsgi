@@ -354,6 +354,24 @@ void uwsgi_as_root() {
 			else {
 				uwsgi_log("[linux-namespace] applied unshare() mask: %d\n", uwsgi.unshare);
 			}
+
+			struct uwsgi_string_list *usl = uwsgi.exec_post_jail;
+                	while(usl) {
+                        	uwsgi_log("running \"%s\" (post-jail)...\n", usl->value);
+                        	int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+                        	if (ret != 0) {
+                                	uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+                                	exit(1);
+                        	}
+                        	usl = usl->next;
+                	}
+
+                	uwsgi_foreach(usl, uwsgi.call_post_jail) {
+                        	if (uwsgi_call_symbol(usl->value)) {
+                                	uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                        	}
+                	}
+
 		}
 #endif
 
@@ -371,6 +389,26 @@ void uwsgi_as_root() {
 			}
 #endif
 		}
+
+#ifdef __linux__
+	if (uwsgi.pivot_root && !uwsgi.reloads) {
+		char *arg = uwsgi_str(uwsgi.pivot_root);
+		char *space = strchr(arg, ' ');
+		if (!space) {
+			uwsgi_log("invalid pivot_root syntax, new_root and put_old must be separated by a space\n");
+			exit(1);
+		}
+		*space = 0;
+        	if (pivot_root(arg, space+1)) {
+                	uwsgi_error("pivot_root()");
+                        exit(1);
+                }
+                if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG]) {
+                	uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
+                }
+		free(arg);
+	}
+#endif
 
 
 		struct uwsgi_string_list *usl;
