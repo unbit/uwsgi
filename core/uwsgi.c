@@ -290,6 +290,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"pidfile2", required_argument, 0, "create pidfile (after privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile2, 0},
 	{"chroot", required_argument, 0, "chroot() to the specified directory", uwsgi_opt_set_str, &uwsgi.chroot, 0},
 #ifdef __linux__
+	{"pivot-root", required_argument, 0, "pivot_root() to the specified directories (new_root and put_old must be separated with a space)", uwsgi_opt_set_str, &uwsgi.pivot_root, 0},
 	{"pivot_root", required_argument, 0, "pivot_root() to the specified directories (new_root and put_old must be separated with a space)", uwsgi_opt_set_str, &uwsgi.pivot_root, 0},
 #endif
 
