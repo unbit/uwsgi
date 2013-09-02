@@ -2037,6 +2037,7 @@ struct uwsgi_server {
 	struct uwsgi_thread **offload_thread;
 
 	int check_static_docroot;
+	int disable_sendfile;
 
 	char *daemonize;
 	char *daemonize2;

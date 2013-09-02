@@ -705,6 +705,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"file-serve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL, UWSGI_OPT_MIME},
 	{"fileserve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL, UWSGI_OPT_MIME},
 
+	{"disable-sendfile", no_argument, 0, "disable sendfile() and rely on boring read()/write()", uwsgi_opt_true, &uwsgi.disable_sendfile, 0},
+
 	{"check-cache", optional_argument, 0, "check for response data in the specified cache (empty for default cache)", uwsgi_opt_set_str, &uwsgi.use_check_cache, 0},
 	{"close-on-exec", no_argument, 0, "set close-on-exec on sockets (could be required for spawning processes in requests)", uwsgi_opt_true, &uwsgi.close_on_exec, 0},
 	{"mode", required_argument, 0, "set uWSGI custom mode", uwsgi_opt_set_str, &uwsgi.mode, 0},
