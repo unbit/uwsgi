@@ -378,9 +378,9 @@ class harakiri(object):
     def __init__(self, seconds):
         self.s = seconds
 
-    def real_call(self, *args):
+    def real_call(self, *args, **kwargs):
         uwsgi.set_user_harakiri(self.s)
-        r = self.f(*args)
+        r = self.f(*args, **kwargs)
         uwsgi.set_user_harakiri(0)
         return r
 
