@@ -10,7 +10,7 @@ extern "C" {
 #define UMAX8	256
 
 #define UMAX64_STR "18446744073709551615"
-#define MAX64_STR "−9223372036854775808"
+#define MAX64_STR "-9223372036854775808"
 
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_error_realpath(x)  uwsgi_log("realpath() of %s failed: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
