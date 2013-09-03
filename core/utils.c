@@ -3027,12 +3027,20 @@ char *uwsgi_chomp2(char *str) {
 
 
 int uwsgi_tmpfd() {
+	int fd = -1;
 	char *tmpdir = getenv("TMPDIR");
 	if (!tmpdir) {
 		tmpdir = "/tmp";
 	}
+#ifdef O_TMPFILE
+	fd = open(tmpdir, O_TMPFILE | O_RDWR);
+	if (fd >= 0) {
+		return fd;
+	}
+	// fallback to old style
+#endif
 	char *template = uwsgi_concat2(tmpdir, "/uwsgiXXXXXX");
-	int fd = mkstemp(template);
+	fd = mkstemp(template);
 	unlink(template);
 	free(template);
 	return fd;
