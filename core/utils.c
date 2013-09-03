@@ -375,6 +375,91 @@ void uwsgi_as_root() {
 		}
 #endif
 
+#if defined(__FreeBSD__)
+                if (uwsgi.jail && !uwsgi.reloads) {
+
+			struct jail ujail;
+			char *jarg = uwsgi_str(uwsgi.jail);
+			char *j_hostname = NULL;
+			char *j_name = NULL;
+
+			char *space = strchr(jarg, ' ');
+			if (space) {
+				*space = 0;
+				j_hostname = space + 1;
+				space = strchr(j_hostname, ' ');
+				if (space) {
+					*space = 0;
+					j_name = space + 1;
+				}
+			}
+			ujail.version = JAIL_API_VERSION;
+			ujail.path = jarg;
+			ujail.hostname = j_hostname ? j_hostname : "";
+			ujail.jailname = j_name;
+			ujail.ip4s = 0;
+			ujail.ip6s = 0;
+
+                        struct uwsgi_string_list *usl = NULL;
+
+			uwsgi_foreach(usl, uwsgi.jail_ip4) {
+				ujail.ip4s++;
+			}
+			struct in_addr *saddr = uwsgi_calloc(sizeof(struct in_addr) * ujail.ip4s);
+			int i = 0;
+			uwsgi_foreach(usl, uwsgi.jail_ip4) {
+				if (!inet_pton(AF_INET, usl->value, &saddr[i].s_addr)) {
+					uwsgi_error("jail()/inet_pton()");
+					exit(1);
+				}
+				i++;
+			}
+			ujail.ip4 = saddr;
+#ifdef AF_INET6
+			uwsgi_foreach(usl, uwsgi.jail_ip6) {
+				ujail.ip6s++;
+			}
+
+			struct in6_addr *saddr6 = uwsgi_calloc(sizeof(struct in6_addr) * ujail.ip6s);
+                        i = 0;
+                        uwsgi_foreach(usl, uwsgi.jail_ip6) {
+                                if (!inet_pton(AF_INET6, usl->value, &saddr6[i].s6_addr)) {
+                                        uwsgi_error("jail()/inet_pton()");
+                                        exit(1);
+                                }
+                                i++;
+                        }
+			ujail.ip6 = saddr6;
+#endif
+
+			int jail_id = jail(&ujail);
+			if (jail_id < 0) {
+				uwsgi_error("jail()");
+				exit(1);
+			}
+
+			uwsgi_log("--- running in FreeBSD jail %d ---\n", jail_id);
+			
+                        usl = uwsgi.exec_post_jail;
+                        while(usl) {
+                                uwsgi_log("running \"%s\" (post-jail)...\n", usl->value);
+                                int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+                                if (ret != 0) {
+                                        uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+                                        exit(1);
+                                }
+                                usl = usl->next;
+                        }
+
+                        uwsgi_foreach(usl, uwsgi.call_post_jail) {
+                                if (uwsgi_call_symbol(usl->value)) {
+                                        uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                                }
+                        }
+
+                }
+#endif
+
 
 		if (uwsgi.chroot && !uwsgi.reloads) {
 			if (!uwsgi.master_as_root)

@@ -199,6 +199,7 @@ extern "C" {
 #include <sys/sysctl.h>
 #include <sys/param.h>
 #include <sys/cpuset.h>
+#include <sys/jail.h>
 #endif
 
 #include <sys/ipc.h>
@@ -1821,6 +1822,14 @@ struct uwsgi_server {
 	int unshare;
 	int emperor_clone;
 	char *pivot_root;
+#endif
+
+#ifdef __FreeBSD__
+	char *jail;
+	struct uwsgi_string_list *jail_ip4;
+#ifdef AF_INET6
+	struct uwsgi_string_list *jail_ip6;
+#endif
 #endif
 	int refork;
 
