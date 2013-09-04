@@ -1835,6 +1835,7 @@ struct uwsgi_server {
 #endif
 	struct uwsgi_string_list *jail2;
 	char *jidfile;
+	char *jail_attach;
 #endif
 	int refork;
 

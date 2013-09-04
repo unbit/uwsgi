@@ -315,6 +315,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef UWSGI_HAS_FREEBSD_LIBJAIL
 	{"jail2", required_argument, 0, "add an option to the FreeBSD jail", uwsgi_opt_add_string_list, &uwsgi.jail2, 0},
 	{"libjail", required_argument, 0, "add an option to the FreeBSD jail", uwsgi_opt_add_string_list, &uwsgi.jail2, 0},
+	{"jail-attach", required_argument, 0, "attach to the FreeBSD jail", uwsgi_opt_set_str, &uwsgi.jail_attach, 0},
 #endif
 #endif
 	{"refork", no_argument, 0, "fork() again after privileges drop. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork, 0},

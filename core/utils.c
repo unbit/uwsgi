@@ -435,6 +435,33 @@ void uwsgi_as_root() {
                 }
 
 #ifdef UWSGI_HAS_FREEBSD_LIBJAIL
+		if (uwsgi.jail_attach && !uwsgi.reloads) {
+			struct jailparam jparam;
+			uwsgi_log("attaching to FreeBSD jail %s ...\n", uwsgi.jail_attach);
+			if (!is_a_number(uwsgi.jail_attach)) {
+				if (jailparam_init(&jparam, "name")) {
+                        		uwsgi_error("jailparam_init()");
+                                	exit(1);
+                        	}
+			}
+			else {
+				if (jailparam_init(&jparam, "jid")) {
+                        		uwsgi_error("jailparam_init()");
+                                	exit(1);
+                        	}
+			}
+			jailparam_import(&jparam, uwsgi.jail_attach);
+			int jail_id = jailparam_set(&jparam, 1, JAIL_UPDATE|JAIL_ATTACH);
+			if (jail_id < 0) {
+                                uwsgi_error("jailparam_set()");
+                                exit(1);
+                        }
+
+			jailparam_free(&jparam, 1);
+                        uwsgi_log("--- running in FreeBSD jail %d ---\n", jail_id);
+			in_jail = 1;
+		}
+
 		if (uwsgi.jail2 && !uwsgi.reloads) {
 			struct uwsgi_string_list *usl = NULL;
 			unsigned nparams = 0;
