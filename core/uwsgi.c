@@ -2196,21 +2196,23 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi_emperor_start();
 	}
 
-	// run the pre-jail scripts
-	struct uwsgi_string_list *usl = uwsgi.exec_pre_jail;
-	while (usl) {
-		uwsgi_log("running \"%s\" (pre-jail)...\n", usl->value);
-		int ret = uwsgi_run_command_and_wait(NULL, usl->value);
-		if (ret != 0) {
-			uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
-			exit(1);
+	if (!uwsgi.reloads) {
+		// run the pre-jail scripts
+		struct uwsgi_string_list *usl = uwsgi.exec_pre_jail;
+		while (usl) {
+			uwsgi_log("running \"%s\" (pre-jail)...\n", usl->value);
+			int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+			if (ret != 0) {
+				uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+				exit(1);
+			}
+			usl = usl->next;
 		}
-		usl = usl->next;
-	}
 
-	uwsgi_foreach(usl, uwsgi.call_pre_jail) {
-		if (uwsgi_call_symbol(usl->value)) {
-			uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+		uwsgi_foreach(usl, uwsgi.call_pre_jail) {
+			if (uwsgi_call_symbol(usl->value)) {
+				uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+			}
 		}
 	}
 
