@@ -951,6 +951,9 @@ class uConf(object):
             uwsgi_version += self.get('append_version')
 
 
+        if uwsgi_os == 'FreeBSD' and self.has_include('jail.h'):
+            self.cflags.append('-DUWSGI_HAS_FREEBSD_LIBJAIL')
+            self.libs.append('-ljail')
 
         if uwsgi_os == 'Linux':
             if self.get('embed_config'):

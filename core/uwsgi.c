@@ -310,6 +310,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"jail", required_argument, 0, "put the instance in a FreeBSD jail", uwsgi_opt_set_str, &uwsgi.jail, 0},
 	{"jail-ip4", required_argument, 0, "add an ipv4 address to the FreeBSD jail", uwsgi_opt_add_string_list, &uwsgi.jail_ip4, 0},
 	{"jail-ip6", required_argument, 0, "add an ipv6 address to the FreeBSD jail", uwsgi_opt_add_string_list, &uwsgi.jail_ip6, 0},
+	{"jidfile", required_argument, 0, "save the jid of a FreeBSD jail in the specified file", uwsgi_opt_set_str, &uwsgi.jidfile, 0},
+	{"jid-file", required_argument, 0, "save the jid of a FreeBSD jail in the specified file", uwsgi_opt_set_str, &uwsgi.jidfile, 0},
+#ifdef UWSGI_HAS_FREEBSD_LIBJAIL
+	{"jail2", required_argument, 0, "add an option to the FreeBSD jail", uwsgi_opt_add_string_list, &uwsgi.jail2, 0},
+	{"libjail", required_argument, 0, "add an option to the FreeBSD jail", uwsgi_opt_add_string_list, &uwsgi.jail2, 0},
+#endif
 #endif
 	{"refork", no_argument, 0, "fork() again after privileges drop. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork, 0},
 	{"re-fork", no_argument, 0, "fork() again after privileges drop. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork, 0},

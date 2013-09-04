@@ -344,6 +344,8 @@ void uwsgi_as_root() {
 		}
 #endif
 
+		int in_jail = 0;
+
 #if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
 		if (uwsgi.unshare && !uwsgi.reloads) {
 
@@ -354,24 +356,7 @@ void uwsgi_as_root() {
 			else {
 				uwsgi_log("[linux-namespace] applied unshare() mask: %d\n", uwsgi.unshare);
 			}
-
-			struct uwsgi_string_list *usl = uwsgi.exec_post_jail;
-                	while(usl) {
-                        	uwsgi_log("running \"%s\" (post-jail)...\n", usl->value);
-                        	int ret = uwsgi_run_command_and_wait(NULL, usl->value);
-                        	if (ret != 0) {
-                                	uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
-                                	exit(1);
-                        	}
-                        	usl = usl->next;
-                	}
-
-                	uwsgi_foreach(usl, uwsgi.call_post_jail) {
-                        	if (uwsgi_call_symbol(usl->value)) {
-                                	uwsgi_log("unaable to call function \"%s\"\n", usl->value);
-                        	}
-                	}
-
+			in_jail = 1;
 		}
 #endif
 
@@ -438,9 +423,68 @@ void uwsgi_as_root() {
 				exit(1);
 			}
 
+			if (uwsgi.jidfile) {
+                                if (uwsgi_write_intfile(uwsgi.jidfile, jail_id)) {
+                                        uwsgi_log("unable to write jidfile\n");
+                                        exit(1);
+                                }
+                        }
+
 			uwsgi_log("--- running in FreeBSD jail %d ---\n", jail_id);
-			
-                        usl = uwsgi.exec_post_jail;
+			in_jail = 1;
+                }
+
+#ifdef UWSGI_HAS_FREEBSD_LIBJAIL
+		if (uwsgi.jail2 && !uwsgi.reloads) {
+			struct uwsgi_string_list *usl = NULL;
+			unsigned nparams = 0;
+			uwsgi_foreach(usl, uwsgi.jail2) {
+				nparams++;
+			}
+			struct jailparam *params = uwsgi_malloc(sizeof(struct jailparam) * nparams);
+			int i = 0;
+			uwsgi_foreach(usl, uwsgi.jail2) {
+				uwsgi_log("FreeBSD libjail applying %s\n", usl->value);
+				char *equal = strchr(usl->value, '=');
+				if (equal) {
+					*equal = 0;
+				}
+				if (jailparam_init(&params[i], usl->value)) {
+					uwsgi_error("jailparam_init()");
+					exit(1);
+				}
+				if (equal) {
+					jailparam_import(&params[i], equal+1);
+					*equal = '=';
+				}
+				else {
+					jailparam_import(&params[i], "1");
+				}
+				i++;
+			}
+			int jail_id = jailparam_set(params, nparams, JAIL_CREATE|JAIL_ATTACH);
+			if (jail_id < 0) {
+                                uwsgi_error("jailparam_set()");
+                                exit(1);
+                        }
+
+			jailparam_free(params, nparams);
+
+			if (uwsgi.jidfile) {
+				if (uwsgi_write_intfile(uwsgi.jidfile, jail_id)) {
+					uwsgi_log("unable to write jidfile\n");
+					exit(1);
+				}
+			}
+
+                        uwsgi_log("--- running in FreeBSD jail %d ---\n", jail_id);
+                        in_jail = 1;	
+		}
+#endif
+#endif
+
+		if (in_jail) {
+			struct uwsgi_string_list *usl = uwsgi.exec_post_jail;
                         while(usl) {
                                 uwsgi_log("running \"%s\" (post-jail)...\n", usl->value);
                                 int ret = uwsgi_run_command_and_wait(NULL, usl->value);
@@ -457,9 +501,7 @@ void uwsgi_as_root() {
                                 }
                         }
 
-                }
-#endif
-
+		}
 
 		if (uwsgi.chroot && !uwsgi.reloads) {
 			if (!uwsgi.master_as_root)
@@ -3176,15 +3218,21 @@ void uwsgi_emulate_cow_for_apps(int id) {
 	}
 }
 
+int uwsgi_write_intfile(char *filename, int n) {
+	FILE *pidfile = fopen(filename, "w");
+        if (!pidfile) {
+                uwsgi_error_open(filename);
+                exit(1);
+        }
+        if (fprintf(pidfile, "%d\n", n) <= 0 || ferror(pidfile) || fclose(pidfile)) {
+		return -1;
+        }
+	return 0;
+}
 
 void uwsgi_write_pidfile(char *pidfile_name) {
 	uwsgi_log("writing pidfile to %s\n", pidfile_name);
-	FILE *pidfile = fopen(pidfile_name, "w");
-	if (!pidfile) {
-		uwsgi_error_open(pidfile_name);
-		exit(1);
-	}
-	if (fprintf(pidfile, "%d\n", (int) getpid()) <= 0 || ferror(pidfile) || fclose(pidfile)) {
+	if (uwsgi_write_intfile(pidfile_name, (int) getpid())) {
 		uwsgi_log("could not write pidfile.\n");
 	}
 }

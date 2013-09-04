@@ -200,6 +200,9 @@ extern "C" {
 #include <sys/param.h>
 #include <sys/cpuset.h>
 #include <sys/jail.h>
+#ifdef UWSGI_HAS_FREEBSD_LIBJAIL
+#include <jail.h>
+#endif
 #endif
 
 #include <sys/ipc.h>
@@ -1830,6 +1833,8 @@ struct uwsgi_server {
 #ifdef AF_INET6
 	struct uwsgi_string_list *jail_ip6;
 #endif
+	struct uwsgi_string_list *jail2;
+	char *jidfile;
 #endif
 	int refork;
 
@@ -3528,6 +3533,7 @@ void uwsgi_setup_post_buffering(void);
 struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *);
 
 void uwsgi_write_pidfile(char *);
+int uwsgi_write_intfile(char *, int);
 
 void uwsgi_protected_close(int);
 ssize_t uwsgi_protected_read(int, void *, size_t);
