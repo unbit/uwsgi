@@ -66,7 +66,10 @@ void linux_namespace_start(void *argv) {
 			uwsgi_error("clone()");
 			exit(1);
 		}
-
+		if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL)) {
+			uwsgi_error("mount()");
+			exit(1);
+		}
 		// run the post-jail scripts
 		if (setenv("UWSGI_JAIL_PID", uwsgi_num2str((int) pid), 1)) {
 			uwsgi_error("setenv()");
@@ -173,6 +176,7 @@ void linux_namespace_jail() {
 	uwsgi_log("remounting /proc\n");
 	if (mount("proc", "/proc", "proc", 0, NULL)) {
 		uwsgi_error("mount()");
+		exit(1);
 	}
 
 	struct uwsgi_string_list *usl = uwsgi.ns_keep_mount;
