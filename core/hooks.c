@@ -78,22 +78,36 @@ static int uwsgi_hook_print(char *arg) {
 	return 0;
 }
 
+static int uwsgi_hook_callint(char *arg) {
+        char *space = strchr(arg, ' ');
+        if (space) {
+                *space = 0;
+                int num = atoi(space+1);
+                void (*func)(int) = dlsym(RTLD_DEFAULT, arg);
+                if (!func) {
+                	uwsgi_log("unable to call function \"%s(%d)\"\n", arg, num);
+                        *space = ' ';
+                        return -1;
+		}
+                *space = ' ';
+                func(num);
+        }
+        else {
+                void (*func)(void) = dlsym(RTLD_DEFAULT, arg);
+                if (!func) {
+                        uwsgi_log("unable to call function \"%s\"\n", arg);
+                        return -1;
+                }
+                func();
+        }
+        return 0;
+}
+
+
 static int uwsgi_hook_call(char *arg) {
 	char *space = strchr(arg, ' ');
 	if (space) {
 		*space = 0;
-		if (is_a_number(space+1)) {
-			int num = atoi(space+1);
-			void (*func)(int) = dlsym(RTLD_DEFAULT, arg);
-               		if (!func) {
-                        	uwsgi_log("unable to call function \"%s(%d)\"\n", arg, num);
-                        	*space = ' ';
-                        	return -1;
-                	}
-                	*space = ' ';
-                	func(num);
-			return 0;
-		}
 		void (*func)(char *) = dlsym(RTLD_DEFAULT, arg);
                 if (!func) {
                 	uwsgi_log("unable to call function \"%s(%s)\"\n", arg, space + 1);
@@ -114,6 +128,51 @@ static int uwsgi_hook_call(char *arg) {
 	return 0;
 }
 
+static int uwsgi_hook_callintret(char *arg) {
+        char *space = strchr(arg, ' ');
+        if (space) {
+                *space = 0;
+                int num = atoi(space+1);
+                int (*func)(int) = dlsym(RTLD_DEFAULT, arg);
+                if (!func) {
+                        uwsgi_log("unable to call function \"%s(%d)\"\n", arg, num);
+                        *space = ' ';
+                        return -1;
+                }
+                *space = ' ';
+                return func(num);
+        }
+        int (*func)(void) = dlsym(RTLD_DEFAULT, arg);
+        if (!func) {
+        	uwsgi_log("unable to call function \"%s\"\n", arg);
+                return -1;
+        }
+	return func();
+}
+
+
+static int uwsgi_hook_callret(char *arg) {
+        char *space = strchr(arg, ' ');
+        if (space) {
+                *space = 0;
+                int (*func)(char *) = dlsym(RTLD_DEFAULT, arg);
+                if (!func) {
+                        uwsgi_log("unable to call function \"%s(%s)\"\n", arg, space + 1);
+                        *space = ' ';
+                        return -1;
+                }
+                *space = ' ';
+                return func(space + 1);
+        }
+        int (*func)(void) = dlsym(RTLD_DEFAULT, arg);
+        if (!func) {
+        	uwsgi_log("unable to call function \"%s\"\n", arg);
+                return -1;
+        }
+        return func();
+}
+
+
 void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("cd", uwsgi_hook_chdir);
 	uwsgi_register_hook("exec", uwsgi_hook_exec);
@@ -122,6 +181,10 @@ void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("umount", uwsgi_umount_hook);
 
 	uwsgi_register_hook("call", uwsgi_hook_call);
+	uwsgi_register_hook("callret", uwsgi_hook_callret);
+
+	uwsgi_register_hook("callint", uwsgi_hook_callint);
+	uwsgi_register_hook("callintret", uwsgi_hook_callintret);
 
 	// for testing
 	uwsgi_register_hook("exit", uwsgi_hook_exit);
