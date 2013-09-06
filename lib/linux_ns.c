@@ -74,6 +74,7 @@ void linux_namespace_start(void *argv) {
 		if (setenv("UWSGI_JAIL_PID", uwsgi_num2str((int) pid), 1)) {
 			uwsgi_error("setenv()");
 		}
+		uwsgi_hooks_run(uwsgi.hook_post_jail, "post-jail", 1);
         	struct uwsgi_string_list *usl = uwsgi.exec_post_jail;
         	while(usl) {
                 	uwsgi_log("running \"%s\" (post-jail)...\n", usl->value);
@@ -87,7 +88,8 @@ void linux_namespace_start(void *argv) {
 
 		uwsgi_foreach(usl, uwsgi.call_post_jail) {
                         if (uwsgi_call_symbol(usl->value)) {
-                                uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                                uwsgi_log("unable to call function \"%s\"\n", usl->value);
+				exit(1);
                         }
                 }
 

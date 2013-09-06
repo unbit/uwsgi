@@ -511,6 +511,7 @@ void uwsgi_as_root() {
 #endif
 
 		if (in_jail) {
+			uwsgi_hooks_run(uwsgi.hook_post_jail, "post-jail", 1);
 			struct uwsgi_string_list *usl = NULL;
 			uwsgi_foreach(usl, uwsgi.mount_post_jail) {
 				uwsgi_log("mounting \"%s\" (post-jail)...\n", usl->value);
@@ -537,7 +538,8 @@ void uwsgi_as_root() {
 
                         uwsgi_foreach(usl, uwsgi.call_post_jail) {
                                 if (uwsgi_call_symbol(usl->value)) {
-                                        uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                                        uwsgi_log("unable to call function \"%s\"\n", usl->value);
+					exit(1);
                                 }
                         }
 
@@ -607,6 +609,8 @@ void uwsgi_as_root() {
 				}
 			}
 		}
+
+		uwsgi_hooks_run(uwsgi.hook_as_root, "as root", 1);
 		
 		uwsgi_foreach(usl, uwsgi.mount_as_root) {
                                 uwsgi_log("mounting \"%s\" (as root)...\n", usl->value);
@@ -838,6 +842,8 @@ void uwsgi_as_root() {
 			}
 		}	
 
+		uwsgi_hooks_run(uwsgi.hook_as_user, "as user", 1);
+
 		// now run the scripts needed by the user
 		uwsgi_foreach(usl, uwsgi.exec_as_user) {
 			uwsgi_log("running \"%s\" (as uid: %d gid: %d) ...\n", usl->value, (int) getuid(), (int) getgid());
@@ -851,6 +857,7 @@ void uwsgi_as_root() {
 		uwsgi_foreach(usl, uwsgi.call_as_user) {
                         if (uwsgi_call_symbol(usl->value)) {
                                 uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+				exit(1);
                         }
                 }
 

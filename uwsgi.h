@@ -449,7 +449,7 @@ struct uwsgi_dyn_dict {
 
 struct uwsgi_hook {
 	char *name;
-	int (*hook)(char *);
+	int (*func)(char *);
 	struct uwsgi_hook *next;
 };
 
@@ -4255,6 +4255,11 @@ int uwsgi_mount(char *, char *, char *, char *);
 int uwsgi_umount(char *, char *);
 int uwsgi_mount_hook(char *);
 int uwsgi_umount_hook(char *);
+
+void uwsgi_hooks_run(struct uwsgi_string_list *, char *, int);
+void uwsgi_register_hook(char *, int (*)(char *));
+struct uwsgi_hook *uwsgi_hook_by_name(char *);
+void uwsgi_register_base_hooks(void);
 
 #ifdef __cplusplus
 }

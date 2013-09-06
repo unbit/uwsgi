@@ -321,6 +321,18 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"refork", no_argument, 0, "fork() again after privileges drop. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork, 0},
 	{"re-fork", no_argument, 0, "fork() again after privileges drop. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork, 0},
 
+	{"hook-pre-jail", required_argument, 0, "run the specified hook before jailing", uwsgi_opt_add_string_list, &uwsgi.hook_pre_jail, 0},
+        {"hook-post-jail", required_argument, 0, "run the specified hook after jailing", uwsgi_opt_add_string_list, &uwsgi.hook_post_jail, 0},
+        {"hook-in-jail", required_argument, 0, "run the specified hook in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.hook_in_jail, 0},
+        {"hook-as-root", required_argument, 0, "run the specified hook before privileges drop", uwsgi_opt_add_string_list, &uwsgi.hook_as_root, 0},
+        {"hook-as-user", required_argument, 0, "run the specified hook after privileges drop", uwsgi_opt_add_string_list, &uwsgi.hook_as_user, 0},
+        {"hook-as-user-atexit", required_argument, 0, "run the specified hook before app exit and reload", uwsgi_opt_add_string_list, &uwsgi.hook_as_user_atexit, 0},
+        {"hook-pre-app", required_argument, 0, "run the specified hook before app loading", uwsgi_opt_add_string_list, &uwsgi.hook_pre_app, 0},
+        {"hook-post-app", required_argument, 0, "run the specified hook after app loading", uwsgi_opt_add_string_list, &uwsgi.hook_post_app, 0},
+
+        {"hook-as-vassal", required_argument, 0, "run the specified command before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.hook_as_vassal, 0},
+        {"hook-as-emperor", required_argument, 0, "run the specified command in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.hook_as_emperor, 0},
+
 	{"exec-pre-jail", required_argument, 0, "run the specified command before jailing", uwsgi_opt_add_string_list, &uwsgi.exec_pre_jail, 0},
 	{"exec-post-jail", required_argument, 0, "run the specified command after jailing", uwsgi_opt_add_string_list, &uwsgi.exec_post_jail, 0},
 	{"exec-in-jail", required_argument, 0, "run the specified command in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.exec_in_jail, 0},
@@ -1414,6 +1426,8 @@ struct uwsgi_plugin unconfigured_plugin = {
 
 void uwsgi_exec_atexit(void) {
 	if (getpid() == masterpid) {
+	
+		uwsgi_hooks_run(uwsgi.hook_as_user_atexit, "atexit", 0);
 		// now run exit scripts needed by the user
 		struct uwsgi_string_list *usl;
 
@@ -1983,6 +1997,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_register_embedded_routers();
 #endif
 
+	// call here to allows plugin to override hooks
+	uwsgi_register_base_hooks();
+
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS
 		// now a bit of magic, if the executable basename contains a 'uwsgi_' string,
@@ -2220,6 +2237,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	if (!uwsgi.reloads) {
+		uwsgi_hooks_run(uwsgi.hook_pre_jail, "pre-jail", 1);
 		struct uwsgi_string_list *usl = NULL;
 		uwsgi_foreach(usl, uwsgi.mount_pre_jail) {
                                 uwsgi_log("mounting \"%s\" (pre-jail)...\n", usl->value);
@@ -2247,6 +2265,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi_foreach(usl, uwsgi.call_pre_jail) {
 			if (uwsgi_call_symbol(usl->value)) {
 				uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+				exit(1);
 			}
 		}
 	}
@@ -2303,6 +2322,8 @@ int uwsgi_start(void *v_argv) {
 	}
 #endif
 
+	uwsgi_hooks_run(uwsgi.hook_in_jail, "in-jail", 1);
+
 	struct uwsgi_string_list *usl;
 
 	uwsgi_foreach(usl, uwsgi.mount_in_jail) {
@@ -2331,6 +2352,7 @@ int uwsgi_start(void *v_argv) {
         uwsgi_foreach(usl, uwsgi.call_in_jail) {
                 if (uwsgi_call_symbol(usl->value)) {
                         uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+			exit(1);
                 }
         }
 
@@ -3422,6 +3444,8 @@ void uwsgi_init_all_apps() {
 
 	int i, j;
 
+	uwsgi_hooks_run(uwsgi.hook_pre_app, "pre app", 1);
+
 	// now run the pre-app scripts
 	struct uwsgi_string_list *usl = uwsgi.exec_pre_app;
 	while (usl) {
@@ -3437,6 +3461,7 @@ void uwsgi_init_all_apps() {
 	uwsgi_foreach(usl, uwsgi.call_pre_app) {
                 if (uwsgi_call_symbol(usl->value)) {
                         uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+			exit(1);
                 }
         }
 
@@ -3487,6 +3512,8 @@ void uwsgi_init_all_apps() {
 			uwsgi_log("*** no app loaded. going in full dynamic mode ***\n");
 		}
 	}
+
+	uwsgi_hooks_run(uwsgi.hook_post_app, "post app", 1);
 
 	usl = uwsgi.exec_post_app;
         while (usl) {
