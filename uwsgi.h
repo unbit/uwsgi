@@ -447,6 +447,12 @@ struct uwsgi_dyn_dict {
 	struct uwsgi_dyn_dict *next;
 };
 
+struct uwsgi_hook {
+	char *name;
+	int (*hook)(char *);
+	struct uwsgi_hook *next;
+};
+
 #ifdef UWSGI_PCRE
 struct uwsgi_regexp_list {
 
@@ -1917,6 +1923,21 @@ struct uwsgi_server {
 
 	struct uwsgi_string_list *mime_file;
 
+	struct uwsgi_hook *hooks;
+
+	struct uwsgi_string_list *hook_pre_jail;
+        struct uwsgi_string_list *hook_post_jail;
+        struct uwsgi_string_list *hook_in_jail;
+        struct uwsgi_string_list *hook_as_root;
+        struct uwsgi_string_list *hook_as_user;
+        struct uwsgi_string_list *hook_as_user_atexit;
+        struct uwsgi_string_list *hook_pre_app;
+        struct uwsgi_string_list *hook_post_app;
+
+        struct uwsgi_string_list *hook_as_vassal;
+        struct uwsgi_string_list *hook_as_emperor;
+	
+
 	struct uwsgi_string_list *exec_pre_jail;
 	struct uwsgi_string_list *exec_post_jail;
 	struct uwsgi_string_list *exec_in_jail;
@@ -1946,6 +1967,22 @@ struct uwsgi_server {
         struct uwsgi_string_list *call_as_emperor1;
         struct uwsgi_string_list *call_as_emperor2;
         struct uwsgi_string_list *call_as_emperor4;
+
+	struct uwsgi_string_list *mount_pre_jail;
+        struct uwsgi_string_list *mount_post_jail;
+        struct uwsgi_string_list *mount_in_jail;
+        struct uwsgi_string_list *mount_as_root;
+
+        struct uwsgi_string_list *mount_as_vassal;
+        struct uwsgi_string_list *mount_as_emperor;
+
+	struct uwsgi_string_list *umount_pre_jail;
+        struct uwsgi_string_list *umount_post_jail;
+        struct uwsgi_string_list *umount_in_jail;
+        struct uwsgi_string_list *umount_as_root;
+
+        struct uwsgi_string_list *umount_as_vassal;
+        struct uwsgi_string_list *umount_as_emperor;
 
 	struct uwsgi_string_list *wait_for_interface;
 	int wait_for_interface_timeout;
@@ -2257,6 +2294,7 @@ struct uwsgi_server {
 	char *force_cwd;
 	char *chdir;
 	char *chdir2;
+	struct uwsgi_string_list *binsh;
 
 	int vacuum;
 	int no_server;
@@ -4209,6 +4247,14 @@ struct uwsgi_cache_item *uwsgi_cache_keys(struct uwsgi_cache *, uint64_t *, stru
 void uwsgi_cache_rlock(struct uwsgi_cache *);
 void uwsgi_cache_rwunlock(struct uwsgi_cache *);
 char *uwsgi_cache_item_key(struct uwsgi_cache_item *);
+
+char *uwsgi_binsh(void);
+int uwsgi_file_executable(char *);
+
+int uwsgi_mount(char *, char *, char *, char *);
+int uwsgi_umount(char *, char *);
+int uwsgi_mount_hook(char *);
+int uwsgi_umount_hook(char *);
 
 #ifdef __cplusplus
 }

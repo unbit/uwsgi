@@ -511,15 +511,28 @@ void uwsgi_as_root() {
 #endif
 
 		if (in_jail) {
-			struct uwsgi_string_list *usl = uwsgi.exec_post_jail;
-                        while(usl) {
+			struct uwsgi_string_list *usl = NULL;
+			uwsgi_foreach(usl, uwsgi.mount_post_jail) {
+				uwsgi_log("mounting \"%s\" (post-jail)...\n", usl->value);
+				if (uwsgi_mount_hook(usl->value)) {
+					exit(1);
+				}
+			}
+
+			uwsgi_foreach(usl, uwsgi.umount_post_jail) {
+                                uwsgi_log("un-mounting \"%s\" (post-jail)...\n", usl->value);
+                                if (uwsgi_umount_hook(usl->value)) {
+                                        exit(1);
+                                }
+                        }
+
+                        uwsgi_foreach(usl, uwsgi.exec_post_jail) {
                                 uwsgi_log("running \"%s\" (post-jail)...\n", usl->value);
                                 int ret = uwsgi_run_command_and_wait(NULL, usl->value);
                                 if (ret != 0) {
                                         uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
                                         exit(1);
                                 }
-                                usl = usl->next;
                         }
 
                         uwsgi_foreach(usl, uwsgi.call_post_jail) {
@@ -553,7 +566,13 @@ void uwsgi_as_root() {
 			exit(1);
 		}
 		*space = 0;
-        	if (pivot_root(arg, space+1)) {
+		if (chdir(arg)) {
+			uwsgi_error("pivot_root()/chdir()");
+			exit(1);
+		}
+		space += 1+strlen(arg);
+		if (space[0] == '/') space++;
+        	if (pivot_root(".", space)) {
                 	uwsgi_error("pivot_root()");
                         exit(1);
                 }
@@ -589,6 +608,19 @@ void uwsgi_as_root() {
 			}
 		}
 		
+		uwsgi_foreach(usl, uwsgi.mount_as_root) {
+                                uwsgi_log("mounting \"%s\" (as root)...\n", usl->value);
+                                if (uwsgi_mount_hook(usl->value)) {
+                                        exit(1);
+                                }
+                        }
+
+                        uwsgi_foreach(usl, uwsgi.umount_as_root) {
+                                uwsgi_log("un-mounting \"%s\" (as root)...\n", usl->value);
+                                if (uwsgi_umount_hook(usl->value)) {
+                                        exit(1);
+                                }
+                        }
 
 		// now run the scripts needed by root
 		uwsgi_foreach(usl, uwsgi.exec_as_root) {
@@ -1635,6 +1667,11 @@ int uwsgi_file_exists(char *filename) {
 	return !access(filename, R_OK);
 }
 
+int uwsgi_file_executable(char *filename) {
+        // TODO check for http url or stdin
+        return !access(filename, R_OK|X_OK);
+}
+
 char *magic_sub(char *buffer, size_t len, size_t *size, char *magic_table[]) {
 
 	size_t i;
@@ -2195,9 +2232,19 @@ void uwsgi_sig_pause() {
 	sigsuspend(&mask);
 }
 
+char *uwsgi_binsh() {
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, uwsgi.binsh) {
+		if (uwsgi_file_executable(usl->value)) {
+			return usl->value;
+		}
+	}
+	return "/bin/sh";
+}
+
 void uwsgi_exec_command_with_args(char *cmdline) {
 	char *argv[4];
-	argv[0] = "/bin/sh";
+	argv[0] = uwsgi_binsh();
 	argv[1] = "-c";
 	argv[2] = cmdline;
 	argv[3] = NULL;
@@ -2217,7 +2264,7 @@ static int uwsgi_run_command_do(char *command, char *arg) {
 #endif
 
 	if (command == NULL) {
-		argv[0] = "/bin/sh";
+		argv[0] = uwsgi_binsh();
 		argv[1] = "-c";
 		argv[2] = arg;
 		argv[3] = NULL;
@@ -2370,12 +2417,12 @@ pid_t uwsgi_run_command(char *command, int *stdin_fd, int stdout_fd) {
 		exit(1);
 	}
 
-	argv[0] = "/bin/sh";
+	argv[0] = uwsgi_binsh();
 	argv[1] = "-c";
 	argv[2] = command;
 	argv[3] = NULL;
 
-	execvp("/bin/sh", argv);
+	execvp(uwsgi_binsh(), argv);
 
 	uwsgi_error("execvp()");
 	//never here

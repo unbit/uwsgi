@@ -333,6 +333,22 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exec-as-vassal", required_argument, 0, "run the specified command before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.exec_as_vassal, 0},
 	{"exec-as-emperor", required_argument, 0, "run the specified command in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.exec_as_emperor, 0},
 
+	{"mount-pre-jail", required_argument, 0, "mount filesystem before jailing", uwsgi_opt_add_string_list, &uwsgi.mount_pre_jail, 0},
+        {"mount-post-jail", required_argument, 0, "mount filesystem after jailing", uwsgi_opt_add_string_list, &uwsgi.mount_post_jail, 0},
+        {"mount-in-jail", required_argument, 0, "mount filesystem in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.mount_in_jail, 0},
+        {"mount-as-root", required_argument, 0, "mount filesystem before privileges drop", uwsgi_opt_add_string_list, &uwsgi.mount_as_root, 0},
+
+        {"mount-as-vassal", required_argument, 0, "mount filesystem before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.mount_as_vassal, 0},
+        {"mount-as-emperor", required_argument, 0, "mount filesystem in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.mount_as_emperor, 0},
+
+	{"umount-pre-jail", required_argument, 0, "unmount filesystem before jailing", uwsgi_opt_add_string_list, &uwsgi.umount_pre_jail, 0},
+        {"umount-post-jail", required_argument, 0, "unmount filesystem after jailing", uwsgi_opt_add_string_list, &uwsgi.umount_post_jail, 0},
+        {"umount-in-jail", required_argument, 0, "unmount filesystem in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.umount_in_jail, 0},
+        {"umount-as-root", required_argument, 0, "unmount filesystem before privileges drop", uwsgi_opt_add_string_list, &uwsgi.umount_as_root, 0},
+
+        {"umount-as-vassal", required_argument, 0, "unmount filesystem before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.umount_as_vassal, 0},
+        {"umount-as-emperor", required_argument, 0, "unmount filesystem in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.umount_as_emperor, 0},
+
 	{"wait-for-interface", required_argument, 0, "wait for the specified network interface to come up before running root hooks", uwsgi_opt_add_string_list, &uwsgi.wait_for_interface, 0},
 	{"wait-for-interface-timeout", required_argument, 0, "set the timeout for wait-for-interface", uwsgi_opt_set_int, &uwsgi.wait_for_interface_timeout, 0},
 
@@ -581,6 +597,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"drop-after-apps", no_argument, 0, "run privileges drop after apps loading", uwsgi_opt_true, &uwsgi.drop_after_apps, 0},
 
 	{"force-cwd", required_argument, 0, "force the initial working directory to the specified value", uwsgi_opt_set_str, &uwsgi.force_cwd, 0},
+	{"binsh", required_argument, 0, "override /bin/sh (used by exec hooks, it always fallback to /bin/sh)", uwsgi_opt_add_string_list, &uwsgi.binsh, 0},
 	{"chdir", required_argument, 0, "chdir to specified directory before apps loading", uwsgi_opt_set_str, &uwsgi.chdir, 0},
 	{"chdir2", required_argument, 0, "chdir to specified directory after apps loading", uwsgi_opt_set_str, &uwsgi.chdir2, 0},
 	{"lazy", no_argument, 0, "set lazy mode (load apps in workers instead of master)", uwsgi_opt_true, &uwsgi.lazy, 0},
@@ -686,8 +703,13 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"static-safe", required_argument, 0, "skip security checks if the file is under the specified path", uwsgi_opt_add_string_list, &uwsgi.static_safe, UWSGI_OPT_MIME},
 	{"static-cache-paths", required_argument, 0, "put resolved paths in the uWSGI cache for the specified amount of seconds", uwsgi_opt_set_int, &uwsgi.use_static_cache_paths, UWSGI_OPT_MIME|UWSGI_OPT_MASTER},
 	{"static-cache-paths-name", required_argument, 0, "use the specified cache for static paths", uwsgi_opt_set_str, &uwsgi.static_cache_paths_name, UWSGI_OPT_MIME|UWSGI_OPT_MASTER},
+#ifdef __APPLE__
+	{"mimefile", required_argument, 0, "set mime types file path (default /etc/apache2/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
+	{"mime-file", required_argument, 0, "set mime types file path (default /etc/apache2/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
+#else
 	{"mimefile", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
 	{"mime-file", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
+#endif
 
 	{"static-expires-type", required_argument, 0, "set the Expires header based on content type", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type, UWSGI_OPT_MIME},
 	{"static-expires-type-mtime", required_argument, 0, "set the Expires header based on content type and file mtime", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type_mtime, UWSGI_OPT_MIME},
@@ -2198,16 +2220,28 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	if (!uwsgi.reloads) {
+		struct uwsgi_string_list *usl = NULL;
+		uwsgi_foreach(usl, uwsgi.mount_pre_jail) {
+                                uwsgi_log("mounting \"%s\" (pre-jail)...\n", usl->value);
+                                if (uwsgi_mount_hook(usl->value)) {
+                                        exit(1);
+                                }
+                        }
+
+                        uwsgi_foreach(usl, uwsgi.umount_pre_jail) {
+                                uwsgi_log("un-mounting \"%s\" (pre-jail)...\n", usl->value);
+                                if (uwsgi_umount_hook(usl->value)) {
+                                        exit(1);
+                                }
+                        }
 		// run the pre-jail scripts
-		struct uwsgi_string_list *usl = uwsgi.exec_pre_jail;
-		while (usl) {
+		uwsgi_foreach(usl, uwsgi.exec_pre_jail) {
 			uwsgi_log("running \"%s\" (pre-jail)...\n", usl->value);
 			int ret = uwsgi_run_command_and_wait(NULL, usl->value);
 			if (ret != 0) {
 				uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
 				exit(1);
 			}
-			usl = usl->next;
 		}
 
 		uwsgi_foreach(usl, uwsgi.call_pre_jail) {
@@ -2270,6 +2304,21 @@ int uwsgi_start(void *v_argv) {
 #endif
 
 	struct uwsgi_string_list *usl;
+
+	uwsgi_foreach(usl, uwsgi.mount_in_jail) {
+                                uwsgi_log("mounting \"%s\" (in-jail)...\n", usl->value);
+                                if (uwsgi_mount_hook(usl->value)) {
+                                        exit(1);
+                                }
+                        }
+
+                        uwsgi_foreach(usl, uwsgi.umount_in_jail) {
+                                uwsgi_log("un-mounting \"%s\" (in-jail)...\n", usl->value);
+                                if (uwsgi_umount_hook(usl->value)) {
+                                        exit(1);
+                                }
+                        }
+
 	uwsgi_foreach(usl, uwsgi.exec_in_jail) {
                 uwsgi_log("running \"%s\" (in-jail)...\n", usl->value);
                 int ret = uwsgi_run_command_and_wait(NULL, usl->value);
@@ -2393,7 +2442,11 @@ int uwsgi_start(void *v_argv) {
 	// build mime.types dictionary
 	if (uwsgi.build_mime_dict) {
 		if (!uwsgi.mime_file)
+#ifdef __APPLE__
+			uwsgi_string_new_list(&uwsgi.mime_file, "/etc/apache2/mime.types");
+#else
 			uwsgi_string_new_list(&uwsgi.mime_file, "/etc/mime.types");
+#endif
 		struct uwsgi_string_list *umd = uwsgi.mime_file;
 		while (umd) {
 			if (!access(umd->value, R_OK)) {

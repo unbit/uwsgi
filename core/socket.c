@@ -1785,7 +1785,8 @@ void uwsgi_bind_sockets() {
 			int fd = open("/dev/null", O_RDONLY);
 			if (fd < 0) {
 				uwsgi_error_open("/dev/null");
-				exit(1);
+				uwsgi_log("WARNING: unable to remap stdin, /dev/null not available\n");
+				goto stdin_done;
 			}
 			if (fd != 0) {
 				if (dup2(fd, 0) < 0) {
@@ -1802,6 +1803,8 @@ void uwsgi_bind_sockets() {
 		}
 
 	}
+
+stdin_done:
 
 	// check for auto_port socket
 	uwsgi_sock = uwsgi.sockets;
