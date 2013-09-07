@@ -4277,6 +4277,8 @@ void uwsgi_register_base_hooks(void);
 void uwsgi_setup_log_encoders(void);
 void uwsgi_log_encoders_register_embedded(void);
 
+void uwsgi_register_log_encoder(char *, char *(*)(struct uwsgi_log_encoder *, char *, size_t, size_t *));
+
 #ifdef __cplusplus
 }
 #endif
