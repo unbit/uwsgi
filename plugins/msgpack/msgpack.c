@@ -18,6 +18,7 @@ enum {
 	MSGPACK_BIN,
 	MSGPACK_ARRAY,
 	MSGPACK_MAP,
+	MSGPACK_EXT,
 	MSGPACK_MAGIC,
 };
 
@@ -26,6 +27,7 @@ struct uwsgi_msgpack_item {
 	char *str;
 	uint32_t str_len;
 	int64_t num;
+	double fnum;
 	int (*func)(char *);
 	struct uwsgi_msgpack_item *next;
 };
@@ -78,7 +80,7 @@ int uwsgi_buffer_msgpack_str(struct uwsgi_buffer *ub, char *str, uint32_t len) {
         if (len <= 31) {
                 if (uwsgi_buffer_byte(ub, 0xA0 + len)) return -1;
         }
-	// this is annoying, D9 does not work for older SPEC
+	// this is annoying, D9 does not work for older SPEC :(
 /*
         else if (len <= 0xff) {
                 if (uwsgi_buffer_byte(ub, 0xD9)) return -1;
@@ -119,8 +121,32 @@ int uwsgi_buffer_msgpack_int(struct uwsgi_buffer *ub, int64_t num) {
 	if (num > 0 && num <= 127) {
 		return uwsgi_buffer_byte(ub, (uint8_t) num);
 	}
+	else if (num < 0 && num >= 31) {
+		return uwsgi_buffer_byte(ub, 224 | (int8_t) num);
+	}
+	else if (num <= 127 && num >= -127) {
+		if (uwsgi_buffer_byte(ub, 0xD0)) return -1;
+		return uwsgi_buffer_byte(ub, (int8_t) num);
+	}
+	else if (num <= 32767 && num >= -32767) {
+		if (uwsgi_buffer_byte(ub, 0xD1)) return -1;
+		return uwsgi_buffer_u16be(ub, (uint16_t) num);
+	}
+	else if (num <= 2147483647 && num >= - 2147483648) {
+		if (uwsgi_buffer_byte(ub, 0xD2)) return -1;
+		return uwsgi_buffer_u32be(ub, (uint32_t) num);
+	}
 	if (uwsgi_buffer_byte(ub, 0xD3)) return -1;
-	return uwsgi_buffer_u32be(ub, num);
+	return uwsgi_buffer_u64be(ub, (uint64_t)num);
+}
+
+int uwsgi_buffer_msgpack_float(struct uwsgi_buffer *ub, double num) {
+	if (num >= -126.0 && num <= 127.0) {
+        	if (uwsgi_buffer_byte(ub, 0xCA)) return -1;
+        	return uwsgi_buffer_f32be(ub, (float) num);
+	}
+	if (uwsgi_buffer_byte(ub, 0xCB)) return -1;
+        return uwsgi_buffer_f64be(ub, num);
 }
 
 int uwsgi_buffer_msgpack_nil(struct uwsgi_buffer *ub) {
@@ -146,13 +172,13 @@ static char *uwsgi_msgpack_log_encoder(struct uwsgi_log_encoder *ule, char *msg,
 			if (!strcmp(p, "map")) {
 				struct uwsgi_msgpack_item *new_umi = uwsgi_msgpack_item_add((struct uwsgi_msgpack_item**)&ule->data, MSGPACK_MAP);
 				if (colon) {
-					new_umi->num = strtol(colon+1, NULL, 10);
+					new_umi->num = strtoull(colon+1, NULL, 10);
 				}
 			}
 			else if (!strcmp(p, "array")) {
                                 struct uwsgi_msgpack_item *new_umi = uwsgi_msgpack_item_add((struct uwsgi_msgpack_item**)&ule->data, MSGPACK_ARRAY);
                                 if (colon) {
-                                        new_umi->num = strtol(colon+1, NULL, 10);
+                                        new_umi->num = strtoull(colon+1, NULL, 10);
                                 }
                         }
 			else if (!strcmp(p, "nil")) {
@@ -164,6 +190,18 @@ static char *uwsgi_msgpack_log_encoder(struct uwsgi_log_encoder *ule, char *msg,
 			else if (!strcmp(p, "false")) {
 				uwsgi_msgpack_item_add((struct uwsgi_msgpack_item**)&ule->data, MSGPACK_FALSE);
 			}
+			else if (!strcmp(p, "int")) {
+				struct uwsgi_msgpack_item *new_umi = uwsgi_msgpack_item_add((struct uwsgi_msgpack_item**)&ule->data, MSGPACK_INT);
+				if (colon) {
+                                        new_umi->num = strtoll(colon+1, NULL, 10);
+                                }	
+			}
+			else if (!strcmp(p, "float")) {
+                                struct uwsgi_msgpack_item *new_umi = uwsgi_msgpack_item_add((struct uwsgi_msgpack_item**)&ule->data, MSGPACK_FLOAT);
+                                if (colon) {
+                                        new_umi->fnum = strtod(colon+1, NULL);
+                                }
+                        }
 			else if (!strcmp(p, "str")) {
                                 struct uwsgi_msgpack_item *new_umi = uwsgi_msgpack_item_add((struct uwsgi_msgpack_item**)&ule->data, MSGPACK_STR);
                                 if (colon) {
@@ -233,6 +271,12 @@ static char *uwsgi_msgpack_log_encoder(struct uwsgi_log_encoder *ule, char *msg,
 			case(MSGPACK_ARRAY):
 				if (uwsgi_buffer_msgpack_array(ub, umi->num)) goto end;
 				break;
+			case(MSGPACK_INT):
+				if (uwsgi_buffer_msgpack_int(ub, umi->num)) goto end;
+				break;
+			case(MSGPACK_FLOAT):
+				if (uwsgi_buffer_msgpack_float(ub, umi->fnum)) goto end;
+				break;
 			case(MSGPACK_MAGIC):
 				// msg
 				tmp_len = len;
@@ -270,7 +314,6 @@ end:
 
 static void uwsgi_msgpack_register() {
 	uwsgi_register_log_encoder("msgpack", uwsgi_msgpack_log_encoder);
-	uwsgi_register_log_encoder("msgpack5", uwsgi_msgpack_log_encoder);
 }
 
 struct uwsgi_plugin msgpack_plugin = {
