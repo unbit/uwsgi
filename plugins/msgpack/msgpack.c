@@ -238,6 +238,25 @@ static char *uwsgi_msgpack_log_encoder(struct uwsgi_log_encoder *ule, char *msg,
                                 struct uwsgi_msgpack_item *new_umi = uwsgi_msgpack_item_add((struct uwsgi_msgpack_item**)&ule->data, MSGPACK_MAGIC);
                                 new_umi->num = 3;
                         }
+			else if (!strcmp(p, "unix")) {
+                                struct uwsgi_msgpack_item *new_umi = uwsgi_msgpack_item_add((struct uwsgi_msgpack_item**)&ule->data, MSGPACK_MAGIC);
+                                new_umi->num = 4;
+                        }
+			else if (!strcmp(p, "micros")) {
+                                struct uwsgi_msgpack_item *new_umi = uwsgi_msgpack_item_add((struct uwsgi_msgpack_item**)&ule->data, MSGPACK_MAGIC);
+                                new_umi->num = 5;
+                        }
+			else if (!strcmp(p, "strftime")) {
+                                struct uwsgi_msgpack_item *new_umi = uwsgi_msgpack_item_add((struct uwsgi_msgpack_item**)&ule->data, MSGPACK_MAGIC);
+                                new_umi->num = 6;
+				if (colon) {
+                                        new_umi->str = colon+1;
+                                        new_umi->str_len = strlen(colon+1);
+                                }
+                                else {
+                                        new_umi->str = "";
+                                }
+                        }
 		
 			if (colon) *colon = ':';
 			p = strtok(NULL, "|");
@@ -296,6 +315,26 @@ static char *uwsgi_msgpack_log_encoder(struct uwsgi_log_encoder *ule, char *msg,
                                 // msgbinnl
                                 else if (umi->num == 3) {
                                         if (uwsgi_buffer_msgpack_bin(ub, msg, tmp_len)) goto end;
+                                }
+				// unix
+                                else if (umi->num == 4) {
+                                        if (uwsgi_buffer_msgpack_int(ub, (int64_t)uwsgi_now())) goto end;
+                                }
+				// micros
+                                else if (umi->num == 5) {
+                                        if (uwsgi_buffer_msgpack_int(ub, (int64_t)uwsgi_micros())) goto end;
+                                }
+				// strftime
+                                else if (umi->num == 6) {
+					char sftime[64];
+					time_t now = uwsgi_now();
+                        		int rlen = strftime(sftime, 64, umi->str, localtime(&now));
+					if (rlen > 0) {
+                                        	if (uwsgi_buffer_msgpack_str(ub, sftime, rlen)) goto end;
+					}
+					else {
+                                        	if (uwsgi_buffer_msgpack_str(ub, "", 0)) goto end;
+					}
                                 }
 				break;
 			default:
