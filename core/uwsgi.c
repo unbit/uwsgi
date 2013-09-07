@@ -556,6 +556,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"logger-list", no_argument, 0, "list enabled loggers", uwsgi_opt_true, &uwsgi.loggers_list, 0},
 	{"loggers-list", no_argument, 0, "list enabled loggers", uwsgi_opt_true, &uwsgi.loggers_list, 0},
 	{"threaded-logger", no_argument, 0, "offload log writing to a thread", uwsgi_opt_true, &uwsgi.threaded_logger, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+
+
+	{"log-encoder", required_argument, 0, "add an item in the log encoder chain", uwsgi_opt_add_string_list, &uwsgi.requested_log_encoders, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+	{"log-req-encoder", required_argument, 0, "add an item in the log req encoder chain", uwsgi_opt_add_string_list, &uwsgi.requested_log_req_encoders, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+	
+
 #ifdef UWSGI_PCRE
 	{"log-drain", required_argument, 0, "drain (do not show) log lines matching the specified regexp", uwsgi_opt_add_regexp_list, &uwsgi.log_drain_rules, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"log-filter", required_argument, 0, "show only log lines matching the specified regexp", uwsgi_opt_add_regexp_list, &uwsgi.log_filter_rules, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -1999,6 +2005,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	// call here to allows plugin to override hooks
 	uwsgi_register_base_hooks();
+	uwsgi_log_encoders_register_embedded();
 
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS

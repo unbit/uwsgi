@@ -1245,6 +1245,15 @@ struct uwsgi_logvar {
 	struct uwsgi_logvar *next;
 };
 
+struct uwsgi_log_encoder {
+	char *name;
+	char *(*func)(struct uwsgi_log_encoder *, char *, size_t, size_t *);
+	int configured;
+	char *args;
+	void *data;
+	struct uwsgi_log_encoder *next;
+};
+
 struct uwsgi_transformation {
 	int (*func)(struct wsgi_request *, struct uwsgi_transformation *);
 	struct uwsgi_buffer *chunk;
@@ -1997,6 +2006,10 @@ struct uwsgi_server {
 	struct uwsgi_logger *choosen_req_logger;
 	struct uwsgi_string_list *requested_logger;
 	struct uwsgi_string_list *requested_req_logger;
+
+	struct uwsgi_log_encoder *log_encoders;
+	struct uwsgi_string_list *requested_log_encoders;
+	struct uwsgi_string_list *requested_log_req_encoders;
 
 #ifdef UWSGI_PCRE
 	int pcre_jit;
@@ -4260,6 +4273,9 @@ void uwsgi_hooks_run(struct uwsgi_string_list *, char *, int);
 void uwsgi_register_hook(char *, int (*)(char *));
 struct uwsgi_hook *uwsgi_hook_by_name(char *);
 void uwsgi_register_base_hooks(void);
+
+void uwsgi_setup_log_encoders(void);
+void uwsgi_log_encoders_register_embedded(void);
 
 #ifdef __cplusplus
 }
