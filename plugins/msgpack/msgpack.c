@@ -132,7 +132,7 @@ int uwsgi_buffer_msgpack_int(struct uwsgi_buffer *ub, int64_t num) {
 		if (uwsgi_buffer_byte(ub, 0xD1)) return -1;
 		return uwsgi_buffer_u16be(ub, (uint16_t) num);
 	}
-	else if (num <= 2147483647 && num >= - 2147483648) {
+	else if (num <= 2147483647LL && num >= -2147483648LL) {
 		if (uwsgi_buffer_byte(ub, 0xD2)) return -1;
 		return uwsgi_buffer_u32be(ub, (uint32_t) num);
 	}
