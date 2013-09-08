@@ -47,6 +47,7 @@ static struct uwsgi_mount_flag umflags[] = {
 #endif
 #ifdef MS_RDONLY
 	{"rdonly", MS_RDONLY},
+	{"readonly", MS_RDONLY},
 	{"ro", MS_RDONLY},
 #endif
 #ifdef MS_REMOUNT
@@ -71,6 +72,23 @@ static struct uwsgi_mount_flag umflags[] = {
 #ifdef MS_SHARED
 	{"shared", MS_SHARED},
 #endif
+#ifdef MNT_RDONLY
+	{"rdonly", MNT_RDONLY},
+	{"readonly", MNT_RDONLY},
+	{"ro", MNT_RDONLY},
+#endif
+#ifdef MNT_NOEXEC
+	{"noexec", MNT_NOEXEC},
+#endif
+#ifdef MNT_NOSUID
+	{"nosuid", MNT_NOSUID},
+#endif
+#ifdef MNT_NOATIME
+	{"noatime", MNT_NOATIME},
+#endif
+#ifdef MNT_SNAPSHOT
+	{"snapshot", MNT_SNAPSHOT},
+#endif
 	{NULL, 0},
 };
 
@@ -84,6 +102,9 @@ uint64_t uwsgi_mount_flag(char *mflag) {
 }
 
 int uwsgi_mount(char *fs, char *what, char *where, char *flags) {
+#ifdef __FreeBSD__
+	struct iovec iov[6];
+#endif
 	unsigned long mountflags = 0;
 	if (!flags) goto parsed;
 	char *mflags = uwsgi_str(flags);
@@ -102,7 +123,22 @@ parsed:
 #ifdef __linux__
 	return mount(what, where, fs, mountflags, NULL);
 #elif defined(__FreeBSD__)
-	return mount(fs, where, (int) mountflags, what);
+	iov[0].iov_base = "fstype";
+	iov[0].iov_len = 7;
+	iov[1].iov_base = fs;
+	iov[1].iov_len = strlen(fs) + 1;
+
+	iov[2].iov_base = "fspath";
+	iov[2].iov_len = 7;
+	iov[3].iov_base = where;
+	iov[3].iov_len = strlen(where) + 1;
+
+	iov[4].iov_base = "target";
+        iov[4].iov_len = 7;
+        iov[5].iov_base = what;
+        iov[5].iov_len = strlen(what) + 1;
+
+	return nmount(iov, 6, (int) mountflags);
 #endif
 	return -1;
 }
@@ -156,6 +192,7 @@ unmountable:
 	}
         return umount2(where, mountflags);
 #elif defined(__FreeBSD__)
+	return unmount(where, mountflags);
 #endif
         return -1;
 }
