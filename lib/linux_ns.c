@@ -66,10 +66,12 @@ void linux_namespace_start(void *argv) {
 			uwsgi_error("clone()");
 			exit(1);
 		}
+#if defined(MS_REC) && defined(MS_PRIVATE)
 		if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL)) {
 			uwsgi_error("mount()");
 			exit(1);
 		}
+#endif
 		// run the post-jail scripts
 		if (setenv("UWSGI_JAIL_PID", uwsgi_num2str((int) pid), 1)) {
 			uwsgi_error("setenv()");
