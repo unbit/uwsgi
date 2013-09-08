@@ -233,7 +233,13 @@ extern "C" {
 #include <sched.h>
 #include <sys/prctl.h>
 #include <linux/limits.h>
+#endif
+
+#if defined(__linux) || defined(__FreeBSD__)
 #include <sys/mount.h>
+#endif
+
+#ifdef __linux__
 extern int pivot_root(const char *new_root, const char *put_old);
 #endif
 

@@ -12,6 +12,12 @@
 
 */
 
+#ifdef __linux__
+#ifndef MS_REC
+#define MS_REC 16384
+#endif
+#endif
+
 struct uwsgi_mount_flag {
 	char *key;
 	uint64_t value;
@@ -96,6 +102,7 @@ parsed:
 #ifdef __linux__
 	return mount(what, where, fs, mountflags, NULL);
 #elif defined(__FreeBSD__)
+	return mount(fs, where, (int) mountflags, what);
 #endif
 	return -1;
 }
