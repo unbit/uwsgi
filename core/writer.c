@@ -120,6 +120,19 @@ error:
 
 //each protocol has its header generator
 static int uwsgi_response_add_header_do(struct wsgi_request *wsgi_req, char *key, uint16_t key_len, char *value, uint16_t value_len) {
+
+
+	// collect the header ?
+	struct uwsgi_string_list *usl = NULL;
+
+	uwsgi_foreach(usl, uwsgi.collect_headers) {
+		if (!uwsgi_strnicmp(key, key_len, usl->value, usl->custom)) {
+			if (!uwsgi_req_append(wsgi_req, usl->custom_ptr, usl->custom2, value, value_len)) {
+				wsgi_req->write_errors++ ; return -1;
+			}
+		}
+	}
+
         if (!wsgi_req->headers) {
                 wsgi_req->headers = uwsgi_buffer_new(uwsgi.page_size);
                 wsgi_req->headers->limit = UMAX16;
@@ -171,6 +184,16 @@ int uwsgi_response_write_headers_do(struct wsgi_request *wsgi_req) {
 		return UWSGI_OK;
 	}
 
+#ifdef UWSGI_ROUTING
+        // apply response routes
+        if (uwsgi_apply_response_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
+                // from now on ignore write body requests...
+                wsgi_req->ignore_body = 1;
+                return -1;
+        }
+        wsgi_req->is_response_routing = 0;
+#endif
+
 	struct uwsgi_string_list *ah = uwsgi.additional_headers;
 	while(ah) {
 		if (uwsgi_response_add_header(wsgi_req, NULL, 0, ah->value, ah->len)) return -1;
@@ -220,6 +243,19 @@ int uwsgi_response_write_body_do(struct wsgi_request *wsgi_req, char *buf, size_
 
 	if (wsgi_req->write_errors) return -1;
 	if (wsgi_req->ignore_body) return UWSGI_OK;
+
+#ifdef UWSGI_ROUTING
+	// special case here, we could need to set transformations before
+	if (!wsgi_req->headers_sent) {
+        	// apply response routes
+        	if (uwsgi_apply_response_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
+                	// from now on ignore write body requests...
+                	wsgi_req->ignore_body = 1;
+                	return -1;
+        	}
+        	wsgi_req->is_response_routing = 0;
+	}
+#endif
 
 	// if the transformation chain returns 1, we are in buffering mode
 	if (wsgi_req->transformed_chunk_len == 0 && wsgi_req->transformations) {

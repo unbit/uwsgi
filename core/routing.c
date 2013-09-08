@@ -180,6 +180,10 @@ int uwsgi_apply_routes_do(struct uwsgi_route *routes, struct wsgi_request *wsgi_
 		r_goto = &wsgi_req->error_route_goto;
 		r_pc = &wsgi_req->error_route_pc;
 	}
+	else if (routes == uwsgi.response_routes) {
+                r_goto = &wsgi_req->response_route_goto;
+                r_pc = &wsgi_req->response_route_pc;
+        }
 	else if (routes == uwsgi.final_routes) {
 		r_goto = &wsgi_req->final_route_goto;
 		r_pc = &wsgi_req->final_route_pc;
@@ -306,6 +310,20 @@ int uwsgi_apply_error_routes(struct wsgi_request *wsgi_req) {
 	return uwsgi_apply_routes_do(uwsgi.error_routes, wsgi_req, NULL, 0);
 }
 
+int uwsgi_apply_response_routes(struct wsgi_request *wsgi_req) {
+
+        if (!uwsgi.response_routes) return 0;
+        if (wsgi_req->response_routes_applied) return 0;
+
+        // do not forget to check it !!!
+        if (wsgi_req->is_response_routing) return 0;
+
+        wsgi_req->is_response_routing = 1;
+
+        int ret = uwsgi_apply_routes_do(uwsgi.response_routes, wsgi_req, NULL, 0);
+	wsgi_req->response_routes_applied = 1;
+	return ret;
+}
 
 static void *uwsgi_route_get_condition_func(char *name) {
 	struct uwsgi_route_condition *urc = uwsgi.route_conditions;
@@ -337,6 +355,9 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 	else if (!uwsgi_starts_with(opt, strlen(opt), "error", 5)) {
                 ur = uwsgi.error_routes;
         }
+	else if (!uwsgi_starts_with(opt, strlen(opt), "response", 8)) {
+                ur = uwsgi.response_routes;
+        }
 	uint64_t pos = 0;
 	while(ur) {
 		old_ur = ur;
@@ -353,6 +374,9 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 		}
 		else if (!uwsgi_starts_with(opt, strlen(opt), "error", 5)) {
                         uwsgi.error_routes = ur;
+                }
+		else if (!uwsgi_starts_with(opt, strlen(opt), "response", 8)) {
+                        uwsgi.response_routes = ur;
                 }
 		else {
 			uwsgi.routes = ur;
@@ -701,6 +725,11 @@ static int uwsgi_router_goto_func(struct wsgi_request *wsgi_req, struct uwsgi_ro
 		r_goto = &wsgi_req->final_route_goto;
 		r_pc = &wsgi_req->final_route_pc;
 	}
+	else if (wsgi_req->is_response_routing) {
+                routes = uwsgi.response_routes;
+                r_goto = &wsgi_req->response_route_goto;
+                r_pc = &wsgi_req->response_route_pc;
+        }
 	while(routes) {
 		if (!routes->label) goto next;
 		if (!uwsgi_strncmp(routes->label, routes->label_len, ub->buf, ub->pos)) {
@@ -806,6 +835,31 @@ static int uwsgi_router_remheader(struct uwsgi_route *ur, char *arg) {
         return 0;
 }
 
+// clearheaders route
+static int uwsgi_router_clearheaders_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
+
+	if (uwsgi_response_prepare_headers(wsgi_req, ub->buf, ub->pos)) {
+        	uwsgi_buffer_destroy(ub);
+        	return UWSGI_ROUTE_BREAK;
+	}
+	
+        uwsgi_buffer_destroy(ub);
+        return UWSGI_ROUTE_NEXT;
+}
+
+
+static int uwsgi_router_clearheaders(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_clearheaders_func;
+        ur->data = arg;
+        ur->data_len = strlen(arg);
+        return 0;
+}
 
 
 // signal route
@@ -1630,6 +1684,8 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("addheader", uwsgi_router_addheader);
         uwsgi_register_router("delheader", uwsgi_router_remheader);
         uwsgi_register_router("remheader", uwsgi_router_remheader);
+        uwsgi_register_router("clearheaders", uwsgi_router_clearheaders);
+        uwsgi_register_router("resetheaders", uwsgi_router_clearheaders);
         uwsgi_register_router("signal", uwsgi_router_signal);
         uwsgi_register_router("send", uwsgi_router_send);
         uwsgi_register_router("send-crnl", uwsgi_router_send_crnl);
@@ -1750,6 +1806,7 @@ struct uwsgi_route_condition *uwsgi_register_route_condition(char *name, int (*f
 }
 
 void uwsgi_routing_dump() {
+	struct uwsgi_string_list *usl = NULL;
 	struct uwsgi_route *routes = uwsgi.routes;
 	if (!routes) goto next;
 	uwsgi_log("*** dumping internal routing table ***\n");
@@ -1784,8 +1841,25 @@ next:
         }
         uwsgi_log("*** end of the internal error routing table ***\n");
 next2:
+	routes = uwsgi.response_routes;
+        if (!routes) goto next3;
+        uwsgi_log("*** dumping internal response routing table ***\n");
+        while(routes) {
+                if (routes->label) {
+                        uwsgi_log("[rule: %llu] label: %s\n", (unsigned long long ) routes->pos, routes->label);
+                }
+                else if (!routes->subject_str && !routes->if_func) {
+                        uwsgi_log("[rule: %llu] action: %s\n", (unsigned long long ) routes->pos, routes->action);
+                }
+                else {
+                        uwsgi_log("[rule: %llu] subject: %s %s: %s%s action: %s\n", (unsigned long long ) routes->pos, routes->subject_str, routes->if_func ? "func" : "regexp", routes->if_negate ? "!" : "", routes->regexp, routes->action);
+                }
+                routes = routes->next;
+        }
+        uwsgi_log("*** end of the internal response routing table ***\n");
+next3:
 	routes = uwsgi.final_routes;
-	if (!routes) return;
+	if (!routes) goto next4;
         uwsgi_log("*** dumping internal final routing table ***\n");
         while(routes) {
                 if (routes->label) {
@@ -1800,5 +1874,20 @@ next2:
                 routes = routes->next;
         }
         uwsgi_log("*** end of the internal final routing table ***\n");
+
+next4:
+	uwsgi_foreach(usl, uwsgi.collect_headers) {
+		char *space = strchr(usl->value, ' ');
+		if (!space) {
+			uwsgi_log("invalid collect header syntax, must be <header> <var>\n");
+			exit(1);
+		}
+		*space = 0;
+		usl->custom = strlen(usl->value);
+		*space = ' ';
+		usl->custom_ptr = space+1;
+		usl->custom2 = strlen(space+1);
+		uwsgi_log("collecting header %.*s to var %s\n", usl->custom, usl->value, usl->custom_ptr);
+	}
 }
 #endif

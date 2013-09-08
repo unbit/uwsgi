@@ -686,6 +686,20 @@ static struct uwsgi_option uwsgi_base_options[] = {
         {"error-route-if-not", required_argument, 0, "add an error route based on condition (negate version)", uwsgi_opt_add_route, "if-not", 0},
         {"error-route-run", required_argument, 0, "always run the specified error route action", uwsgi_opt_add_route, "run", 0},
 
+	{"response-route", required_argument, 0, "add a response route", uwsgi_opt_add_route, "path_info", 0},
+        {"response-route-status", required_argument, 0, "add a response route for the specified status", uwsgi_opt_add_route, "status", 0},
+        {"response-route-host", required_argument, 0, "add a response route based on Host header", uwsgi_opt_add_route, "http_host", 0},
+        {"response-route-uri", required_argument, 0, "add a response route based on REQUEST_URI", uwsgi_opt_add_route, "request_uri", 0},
+        {"response-route-qs", required_argument, 0, "add a response route based on QUERY_STRING", uwsgi_opt_add_route, "query_string", 0},
+        {"response-route-remote-addr", required_argument, 0, "add a response route based on REMOTE_ADDR", uwsgi_opt_add_route, "remote_addr", 0},
+        {"response-route-user-agent", required_argument, 0, "add a response route based on HTTP_USER_AGENT", uwsgi_opt_add_route, "user_agent", 0},
+        {"response-route-remote-user", required_argument, 0, "add a response route based on REMOTE_USER", uwsgi_opt_add_route, "remote_user", 0},
+        {"response-route-referer", required_argument, 0, "add a response route based on HTTP_REFERER", uwsgi_opt_add_route, "referer", 0},
+        {"response-route-label", required_argument, 0, "add a response routing label (for use with goto)", uwsgi_opt_add_route, NULL, 0},
+        {"response-route-if", required_argument, 0, "add a response route based on condition", uwsgi_opt_add_route, "if", 0},
+        {"response-route-if-not", required_argument, 0, "add a response route based on condition (negate version)", uwsgi_opt_add_route, "if-not", 0},
+        {"response-route-run", required_argument, 0, "always run the specified response route action", uwsgi_opt_add_route, "run", 0},
+
 	{"router-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 	{"routers-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 #endif
@@ -710,6 +724,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"add-header", required_argument, 0, "automatically add HTTP headers to response", uwsgi_opt_add_string_list, &uwsgi.additional_headers, 0},
 	{"rem-header", required_argument, 0, "automatically remove specified HTTP header from the response", uwsgi_opt_add_string_list, &uwsgi.remove_headers, 0},
 	{"del-header", required_argument, 0, "automatically remove specified HTTP header from the response", uwsgi_opt_add_string_list, &uwsgi.remove_headers, 0},
+	{"collect-header", required_argument, 0, "store the specified response header in a request var (syntax: header var)", uwsgi_opt_add_string_list, &uwsgi.collect_headers, 0},
+	{"response-header-collect", required_argument, 0, "store the specified response header in a request var (syntax: header var)", uwsgi_opt_add_string_list, &uwsgi.collect_headers, 0},
 
 	{"check-static", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, UWSGI_OPT_MIME},
 	{"check-static-docroot", no_argument, 0, "check for static files in the requested DOCUMENT_ROOT", uwsgi_opt_true, &uwsgi.check_static_docroot, UWSGI_OPT_MIME},

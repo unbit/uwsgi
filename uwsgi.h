@@ -1486,14 +1486,18 @@ struct wsgi_request {
 	int is_routing;
 	int is_final_routing;
 	int is_error_routing;
+	int is_response_routing;
 	int routes_applied;
+	int response_routes_applied;
 	// internal routing vm program counter
 	uint32_t route_pc;
 	uint32_t error_route_pc;
+	uint32_t response_route_pc;
 	uint32_t final_route_pc;
 	// internal routing goto instruction
 	uint32_t route_goto;
 	uint32_t error_route_goto;
+	uint32_t response_route_goto;
 	uint32_t final_route_goto;
 
 	int ignore_body;
@@ -1768,6 +1772,7 @@ struct uwsgi_server {
 
 	struct uwsgi_string_list *additional_headers;
 	struct uwsgi_string_list *remove_headers;
+	struct uwsgi_string_list *collect_headers;
 
 	// set cpu affinity
 	int cpu_affinity;
@@ -2291,6 +2296,7 @@ struct uwsgi_server {
 	struct uwsgi_route *routes;
 	struct uwsgi_route *final_routes;
 	struct uwsgi_route *error_routes;
+	struct uwsgi_route *response_routes;
 	struct uwsgi_route_condition *route_conditions;
 	struct uwsgi_route_var *route_vars;
 #endif
@@ -3539,6 +3545,7 @@ void uwsgi_opt_add_route(char *, char *, void *);
 int uwsgi_apply_routes(struct wsgi_request *);
 void uwsgi_apply_final_routes(struct wsgi_request *);
 int uwsgi_apply_error_routes(struct wsgi_request *);
+int uwsgi_apply_response_routes(struct wsgi_request *);
 int uwsgi_apply_routes_do(struct uwsgi_route *, struct wsgi_request *, char *, uint16_t);
 void uwsgi_register_embedded_routers(void);
 void uwsgi_routing_dump();
