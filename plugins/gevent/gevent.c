@@ -19,13 +19,39 @@ static void uwsgi_opt_setup_gevent(char *opt, char *value, void *null) {
 static struct uwsgi_option gevent_options[] = {
         {"gevent", required_argument, 0, "a shortcut enabling gevent loop engine with the specified number of async cores and optimal parameters", uwsgi_opt_setup_gevent, NULL, UWSGI_OPT_THREADS},
         {"gevent-monkey-patch", no_argument, 0, "call gevent.monkey.patch_all() automatically on startup", uwsgi_opt_true, &ugevent.monkey, 0},
+        {"gevent-wait-for-hub", no_argument, 0, "wait for gevent hub's death instead of the control greenlet", uwsgi_opt_true, &ugevent.wait_for_hub, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
 
 
+/*
+	Dumb greenlet used for controlling the shutdown (originally uWSGI only wait for the hub)
+*/
+PyObject *py_uwsgi_gevent_ctrl_gl(PyObject *self, PyObject *args) {
+	for(;;) {
+		PyObject *gevent_sleep_args = PyTuple_New(1);
+                PyTuple_SetItem(gevent_sleep_args, 0, PyInt_FromLong(60));
+                PyObject *gswitch = PyEval_CallObject(ugevent.greenlet_switch, gevent_sleep_args);
+		// could be NULL on exception
+		if (!gswitch) {
+			// just for being paranid
+			if (PyErr_Occurred()) {
+				PyErr_Clear();
+				break;
+			}
+		}
+                Py_XDECREF(gswitch);
+                Py_DECREF(gevent_sleep_args);
+	}
+	Py_INCREF(Py_None);
+	return Py_None;
+}
 
 PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
+
+	int running_cores = 0;
+	int rounds = 0;
 
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
         uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
@@ -41,29 +67,34 @@ PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
 	}
 	uwsgi_log_verbose("main gevent watchers stopped for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 
-	int running_cores = 0;
+retry:
+	running_cores = 0;
 	for(i=0;i<uwsgi.async;i++) {
 		if (uwsgi.workers[uwsgi.mywid].cores[i].in_request) {
 			struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[i].req;
-			uwsgi_log_verbose("worker %d (pid: %d) core %d is managing \"%.*s %.*s\" for %.*s\n", uwsgi.mywid, uwsgi.mypid, i, 
-				wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri,
-				wsgi_req->remote_addr_len, wsgi_req->remote_addr);
+			if (!rounds) {
+				uwsgi_log_verbose("worker %d (pid: %d) core %d is managing \"%.*s %.*s\" for %.*s\n", uwsgi.mywid, uwsgi.mypid, i, 
+					wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri,
+					wsgi_req->remote_addr_len, wsgi_req->remote_addr);
+			}
 			running_cores++;
 		}
 	}
 
 	if (running_cores > 0) {
 		uwsgi_log_verbose("waiting for %d running requests on worker %d (pid: %d)...\n", running_cores, uwsgi.mywid, uwsgi.mypid);
-	} else {
-            // no need to worry about freeing memory
-            PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
-            if (uwsgi_dict) {
-              PyObject *ae = PyDict_GetItemString(uwsgi_dict, "atexit");
-              if (ae) {
-                python_call(ae, PyTuple_New(0), 0, NULL);
-              }
-            }
-        }
+		PyObject *gevent_sleep_args = PyTuple_New(1);
+		PyTuple_SetItem(gevent_sleep_args, 0, PyInt_FromLong(1));
+		PyObject *gswitch = python_call(ugevent.greenlet_switch, gevent_sleep_args, 0, NULL);
+		Py_DECREF(gswitch);
+		Py_DECREF(gevent_sleep_args);
+		rounds++;
+		goto retry;
+	}
+
+	if (!ugevent.wait_for_hub) {
+		PyObject_CallMethod(ugevent.ctrl_gl, "kill", NULL);
+	}
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -300,6 +331,7 @@ PyMethodDef uwsgi_gevent_signal_def[] = { {"uwsgi_gevent_signal", py_uwsgi_geven
 PyMethodDef uwsgi_gevent_my_signal_def[] = { {"uwsgi_gevent_my_signal", py_uwsgi_gevent_my_signal, METH_VARARGS, ""} };
 PyMethodDef uwsgi_gevent_signal_handler_def[] = { {"uwsgi_gevent_signal_handler", py_uwsgi_gevent_signal_handler, METH_VARARGS, ""} };
 PyMethodDef uwsgi_gevent_unix_signal_handler_def[] = { {"uwsgi_gevent_unix_signal_handler", py_uwsgi_gevent_graceful, METH_VARARGS, ""} };
+PyMethodDef uwsgi_gevent_ctrl_gl_def[] = { {"uwsgi_gevent_ctrl_gl_handler", py_uwsgi_gevent_ctrl_gl, METH_VARARGS, ""} };
 
 static void gil_gevent_get() {
 	pthread_setspecific(up.upt_gil_key, (void *) PyGILState_Ensure());
@@ -450,14 +482,36 @@ static void gevent_loop() {
 
 	python_call(ugevent.signal, ge_signal_tuple, 0, NULL);
 
+	PyObject *wait_for_me = ugevent.hub;
+
+	if (!ugevent.wait_for_hub) {
+		// spawn the control greenlet
+		PyObject *uwsgi_greenlet_ctrl_gl_handler = PyCFunction_New(uwsgi_gevent_ctrl_gl_def, NULL);
+                Py_INCREF(uwsgi_greenlet_ctrl_gl_handler);
+		PyObject *ctrl_gl_args = PyTuple_New(1);
+                PyTuple_SetItem(ctrl_gl_args, 0, uwsgi_greenlet_ctrl_gl_handler);
+        	ugevent.ctrl_gl = python_call(ugevent.spawn, ctrl_gl_args, 0, NULL);
+		Py_INCREF(ugevent.ctrl_gl);
+		wait_for_me = ugevent.ctrl_gl;
+	}
+
 	for(;;) {
-		if (!PyObject_CallMethod(ugevent.hub, "join", NULL)) {
+		if (!PyObject_CallMethod(wait_for_me, "join", NULL)) {
 			PyErr_Print();
 		}
 		else {
 			break;
 		}
 	}
+
+	// no need to worry about freeing memory
+        PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
+        if (uwsgi_dict) {
+                PyObject *ae = PyDict_GetItemString(uwsgi_dict, "atexit");
+                if (ae) {
+                        python_call(ae, PyTuple_New(0), 0, NULL);
+                }
+        }
 
 	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {
 		uwsgi_log("goodbye to the gevent Hub on worker %d (pid: %d)\n", uwsgi.mywid, uwsgi.mypid);
