@@ -1739,8 +1739,8 @@ void uwsgi_log_encoder_parse_vars(struct uwsgi_log_encoder *ule) {
 			else if (status == 2) {
 				if (b == '}') {
 					status = 0;
-					uwsgi_string_new_list((struct uwsgi_string_list **) &ule->data, strndup(base, base_len));
-					struct uwsgi_string_list *usl = uwsgi_string_new_list((struct uwsgi_string_list **) &ule->data, strndup(var, var_len));
+					uwsgi_string_new_list((struct uwsgi_string_list **) &ule->data, uwsgi_concat2n(base, base_len, "", 0));
+					struct uwsgi_string_list *usl = uwsgi_string_new_list((struct uwsgi_string_list **) &ule->data, uwsgi_concat2n(var, var_len, "", 0));
 					usl->custom = 1;
 					var = NULL;
 					var_len = 0;
@@ -1769,7 +1769,7 @@ void uwsgi_log_encoder_parse_vars(struct uwsgi_log_encoder *ule) {
 			else if (status == 2) {
 				base_len+=3;
 			}
-			uwsgi_string_new_list((struct uwsgi_string_list **) &ule->data, strndup(base, base_len));
+			uwsgi_string_new_list((struct uwsgi_string_list **) &ule->data, uwsgi_concat2n(base, base_len, "", 0));
 		}
 }
 
@@ -1813,7 +1813,7 @@ static char *uwsgi_log_encoder_format(struct uwsgi_log_encoder *ule, char *msg, 
 			else if (!uwsgi_starts_with(usl->value, usl->len, "strftime:", 9)) {
 				char sftime[64];
                                 time_t now = uwsgi_now();
-				char *buf = strndup(usl->value+9, usl->len-9);
+				char *buf = uwsgi_concat2n(usl->value+9, usl->len-9,"", 0);
                                 int strftime_len = strftime(sftime, 64, buf, localtime(&now));
 				free(buf);
 				if (strftime_len > 0) {
@@ -1875,7 +1875,7 @@ static char *uwsgi_log_encoder_json(struct uwsgi_log_encoder *ule, char *msg, si
                         else if (!uwsgi_starts_with(usl->value, usl->len, "strftime:", 9)) {
                                 char sftime[64];
                                 time_t now = uwsgi_now();
-                                char *buf = strndup(usl->value+9, usl->len-9);
+                                char *buf = uwsgi_concat2n(usl->value+9, usl->len-9, "", 0);
                                 int strftime_len = strftime(sftime, 64, buf, localtime(&now));
                                 free(buf);
                                 if (strftime_len > 0) {
