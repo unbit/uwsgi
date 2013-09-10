@@ -94,6 +94,7 @@ end:
 	return ret;	
 }
 
+
 static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 	char *rad_mountpoint = NULL;
 	char *rad_config = NULL;
@@ -116,7 +117,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 	
 	rados_t cluster;
 	if (rados_create(&cluster, NULL) < 0) {
-		uwsgi_error("Can't create Ceph cluster handle.\n");
+		uwsgi_error("Can't create Ceph cluster handle");
 		exit(1);
 	}
 	if (rad_config)
@@ -124,22 +125,21 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 	else
 		uwsgi_log("Using default Ceph conf.\n");
 	if (rados_conf_read_file(cluster, rad_config) < 0) {
-		uwsgi_error("Can't configure Ceph cluster handle.\n");
+		uwsgi_error("Can't configure Ceph cluster handle");
 		exit(1);
 	}
 	if (rados_connect(cluster) < 0) {
-		uwsgi_error("Can't connect with Ceph cluster.\n");
+		uwsgi_error("Can't connect with Ceph cluster");
 		exit(1);
 	}
 	
 	rados_ioctx_t ctx;
-	uwsgi_log("Ceph pool: %s", rad_poolname);
+	uwsgi_log("Ceph pool: %s\n", rad_poolname);
 	if (rados_ioctx_create(cluster, rad_poolname, &ctx) < 0) {
 		uwsgi_error("Can't open rados pool")
 		rados_shutdown(cluster);
 		exit(1);
 	}
-	
 	
 	int id = uwsgi_apps_cnt;
 	struct uwsgi_app *ua = uwsgi_add_app(id, rados_plugin.modifier1, rad_mountpoint, strlen(rad_mountpoint), NULL, NULL);
@@ -200,7 +200,13 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 
 	struct uwsgi_app *ua = &uwsgi_apps[wsgi_req->app_id];
 
-	memcpy(filename, wsgi_req->path_info, wsgi_req->path_info_len);
+	if (wsgi_req->path_info_len > ua->mountpoint_len &&
+		memcmp(wsgi_req->path_info, ua->mountpoint, ua->mountpoint_len) == 0) 
+	{
+		memcpy(filename, wsgi_req->path_info+ua->mountpoint_len, wsgi_req->path_info_len-ua->mountpoint_len);
+	} else {
+		memcpy(filename, wsgi_req->path_info, wsgi_req->path_info_len);
+	}
 	filename[wsgi_req->path_info_len] = 0;
 	
 	struct {
@@ -208,9 +214,10 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 		time_t mtime;
 	} st;
 	rados_ioctx_t ctx = ua->responder1;
+	
 	int r = rados_stat(ctx, filename, &st.size, &st.mtime);
 	if (r < 0) {
-		if (r == ENOENT)
+		if (r == -ENOENT)
 			uwsgi_404(wsgi_req);
 		else
 			uwsgi_403(wsgi_req);
