@@ -1,15 +1,13 @@
 #include <uwsgi.h>
 #include <rados/librados.h>
 
-#ifdef UWSGI_MATHEVAL
-#error currently the glusterfs plugins is not compatible with uWSGI built with matheval support
-#endif
-
 extern struct uwsgi_server uwsgi;
 
 /*
 
-	Author: Roberto De Ioris / Javier Guerra
+	Author: Javier Guerra
+
+	based on the uWSGI GlusterFS plugin by Roberto De Ioris
 
 	--rados-mount mountpoint=/foo,pool=unbit001,config=/etc/ceph.conf
 
@@ -255,7 +253,6 @@ struct uwsgi_plugin rados_plugin = {
 	.modifier1 = 28,
 	.options = uwsgi_rados_options,
 	.post_fork = uwsgi_rados_setup,
-// 	.fixup = uwsgi_rados_connect,
 	.request = uwsgi_rados_request,
 	.after_request = log_request,
 };
