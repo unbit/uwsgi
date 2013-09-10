@@ -2534,6 +2534,12 @@ int uwsgi_start(void *v_argv) {
 
 	// setup locking
 	uwsgi_setup_locking();
+	if (uwsgi.use_thunder_lock) {
+		uwsgi_log("thunder lock: enabled\n");
+	}
+	else {
+		uwsgi_log("thunder lock: disabled (you can enable it with --thunder-lock)\n");
+	}
 
 	// allocate rpc structures
         uwsgi_rpc_init();
