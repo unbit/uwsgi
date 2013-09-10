@@ -1680,6 +1680,11 @@ static char *uwsgi_log_encoder_gzip(struct uwsgi_log_encoder *ule, char *msg, si
 }
 #endif
 
+/*
+
+really fast encoder adding only a prefix
+
+*/
 static char *uwsgi_log_encoder_prefix(struct uwsgi_log_encoder *ule, char *msg, size_t len, size_t *rlen) {
 	char *buf = NULL;
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(len + strlen(ule->args));
@@ -1693,8 +1698,146 @@ end:
 	return buf;
 }
 
+/*
+
+really fast encoder adding only a newline
+
+*/
+static char *uwsgi_log_encoder_nl(struct uwsgi_log_encoder *ule, char *msg, size_t len, size_t *rlen) {
+        char *buf = NULL;
+        struct uwsgi_buffer *ub = uwsgi_buffer_new(len + 1);
+        if (uwsgi_buffer_append(ub, msg, len)) goto end;
+        if (uwsgi_buffer_byte(ub, '\n')) goto end;
+        *rlen = ub->pos;
+        buf = ub->buf;
+        ub->buf = NULL;
+end:
+        uwsgi_buffer_destroy(ub);
+        return buf;
+}
+
+
+void uwsgi_log_encoder_parse_vars(struct uwsgi_log_encoder *ule) {
+		char *ptr = ule->args;
+		size_t remains = strlen(ptr);
+		char *base = ptr;
+		size_t base_len = 0;
+		char *var = NULL;
+		size_t var_len = 0;
+		int status = 0; // 1 -> $ 2-> { end -> }
+		while(remains--) {
+			char b = *ptr++;
+			if (status == 1) {
+				if (b == '{') {
+					status = 2;
+					continue;
+				}
+				base_len+=2;
+				status = 0;
+				continue;
+			}
+			else if (status == 2) {
+				if (b == '}') {
+					status = 0;
+					uwsgi_string_new_list((struct uwsgi_string_list **) &ule->data, strndup(base, base_len));
+					struct uwsgi_string_list *usl = uwsgi_string_new_list((struct uwsgi_string_list **) &ule->data, strndup(var, var_len));
+					usl->custom = 1;
+					var = NULL;
+					var_len = 0;
+					base = NULL;
+					base_len = 0;
+					continue;
+				}
+				if (!var) var = (ptr-1);
+				var_len++;
+				continue;
+			}
+			// status == 0
+			if (b == '$') {
+				status = 1;
+			}
+			else {
+				if (!base) base = (ptr-1);
+				base_len++;
+			}
+		}
+
+		if (base) {
+			if (status == 1) {
+				base_len+=2;
+			}
+			else if (status == 2) {
+				base_len+=3;
+			}
+			uwsgi_string_new_list((struct uwsgi_string_list **) &ule->data, strndup(base, base_len));
+		}
+}
+
+/*
+        // format: foo ${var} bar
+        msg (the logline)
+        msgnl (the logine with newline)
+        unix (the time_t value)
+        micros (current microseconds)
+        strftime (strftime)
+*/
+static char *uwsgi_log_encoder_format(struct uwsgi_log_encoder *ule, char *msg, size_t len, size_t *rlen) {
+	
+	if (!ule->configured) {
+		uwsgi_log_encoder_parse_vars(ule);
+		ule->configured = 1;
+	}
+
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(strlen(ule->args) + len);
+	struct uwsgi_string_list *usl = (struct uwsgi_string_list *) ule->data;
+	char *buf = NULL;
+	while(usl) {
+		if (usl->custom) {
+			if (!uwsgi_strncmp(usl->value, usl->len, "msg", 3)) {
+				if (msg[len-1] == '\n') {
+					if (uwsgi_buffer_append(ub, msg, len-1)) goto end;
+				}
+				else {
+					if (uwsgi_buffer_append(ub, msg, len)) goto end;
+				}
+			}
+			else if (!uwsgi_strncmp(usl->value, usl->len, "msgnl", 5)) {
+				if (uwsgi_buffer_append(ub, msg, len)) goto end;
+			}
+			else if (!uwsgi_strncmp(usl->value, usl->len, "unix", 4)) {
+				if (uwsgi_buffer_num64(ub, uwsgi_now())) goto end;
+			}
+			else if (!uwsgi_strncmp(usl->value, usl->len, "micros", 6)) {
+				if (uwsgi_buffer_num64(ub, uwsgi_micros())) goto end;
+			}
+			else if (!uwsgi_starts_with(usl->value, usl->len, "strftime:", 9)) {
+				char sftime[64];
+                                time_t now = uwsgi_now();
+				char *buf = strndup(usl->value+9, usl->len-9);
+                                int strftime_len = strftime(sftime, 64, buf, localtime(&now));
+				free(buf);
+				if (strftime_len > 0) {
+					if (uwsgi_buffer_append(ub, sftime, strftime_len)) goto end;
+				}
+			}
+		}
+		else {
+			if (uwsgi_buffer_append(ub, usl->value, usl->len)) goto end;
+		}
+		usl = usl->next;
+	}
+	buf = ub->buf;
+	*rlen = ub->pos;
+	ub->buf = NULL;
+end:
+	uwsgi_buffer_destroy(ub);
+	return buf;
+}
+
 void uwsgi_log_encoders_register_embedded() {
 	uwsgi_register_log_encoder("prefix", uwsgi_log_encoder_prefix);
+	uwsgi_register_log_encoder("nl", uwsgi_log_encoder_nl);
+	uwsgi_register_log_encoder("format", uwsgi_log_encoder_format);
 #ifdef UWSGI_ZLIB
 	uwsgi_register_log_encoder("gzip", uwsgi_log_encoder_gzip);
 #endif
