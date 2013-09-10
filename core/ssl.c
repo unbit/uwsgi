@@ -71,7 +71,11 @@ SSL_SESSION *uwsgi_ssl_session_get_cb(SSL *ssl, unsigned char *key, int keylen, 
                 }
                 return NULL;
         }
+#if (OPENSSL_VERSION_NUMBER >= 0x0090800fL)
         SSL_SESSION *sess = d2i_SSL_SESSION(NULL, (const unsigned char **)&value, valsize);
+#else
+        SSL_SESSION *sess = d2i_SSL_SESSION(NULL, (unsigned char **)&value, valsize);
+#endif
         uwsgi_rwunlock(uwsgi.ssl_sessions_cache->lock);
         return sess;
 }

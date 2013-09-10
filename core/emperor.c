@@ -881,9 +881,9 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 			uwsgi_log("running \"%s\" (as-emperor for vassal \"%s\" pid: %d uid: %d gid: %d)...\n", usl->value, n_ui->name, n_ui->pid, n_ui->uid, n_ui->gid);
 			char *argv[4];
 			argv[0] = uwsgi_concat2("UWSGI_VASSAL_CONFIG=", n_ui->name);
-			char argv_pid[17+11]; snprintf(argv_pid, 17 + 11, "UWSGI_VASSAL_PID=%d", n_ui->pid); argv[1] = argv_pid;
-			char argv_uid[17+11]; snprintf(argv_uid, 17 + 11, "UWSGI_VASSAL_UID=%d", n_ui->uid); argv[2] = argv_uid;
-			char argv_gid[17+11]; snprintf(argv_gid, 17 + 11, "UWSGI_VASSAL_GID=%d", n_ui->gid); argv[3] = argv_gid;
+			char argv_pid[17+11]; snprintf(argv_pid, 17 + 11, "UWSGI_VASSAL_PID=%d", (int) n_ui->pid); argv[1] = argv_pid;
+			char argv_uid[17+11]; snprintf(argv_uid, 17 + 11, "UWSGI_VASSAL_UID=%d", (int) n_ui->uid); argv[2] = argv_uid;
+			char argv_gid[17+11]; snprintf(argv_gid, 17 + 11, "UWSGI_VASSAL_GID=%d", (int) n_ui->gid); argv[3] = argv_gid;
                         int ret = uwsgi_run_command_putenv_and_wait(NULL, usl->value, argv, 4);
                         uwsgi_log("command \"%s\" exited with code: %d\n", usl->value, ret);
 			free(argv[0]);
