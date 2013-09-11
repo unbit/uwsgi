@@ -1,7 +1,7 @@
 import os
 NAME='rados'
 
-CFLAGS = []	# os.popen('pkg-config --cflags glusterfs-api').read().rstrip().split()
+CFLAGS = []
 LDFLAGS = []
-LIBS = ['-lrados']	#os.popen('pkg-config --libs glusterfs-api').read().rstrip().split() 
+LIBS = ['-lrados']
 GCC_LIST = ['rados']
