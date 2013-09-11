@@ -1678,6 +1678,18 @@ static char *uwsgi_log_encoder_gzip(struct uwsgi_log_encoder *ule, char *msg, si
 	uwsgi_buffer_destroy(ub);
 	return buf;
 }
+
+static char *uwsgi_log_encoder_compress(struct uwsgi_log_encoder *ule, char *msg, size_t len, size_t *rlen) {
+	size_t c_len = (size_t) compressBound(len);
+	uLongf destLen = c_len;
+	char *buf = uwsgi_malloc(c_len);
+	if (compress((Bytef *) buf, &destLen, (Bytef *)msg, (uLong) len) == Z_OK) {
+		*rlen = destLen;
+		return buf;
+	}
+	free(buf);
+	return NULL;
+}
 #endif
 
 /*
@@ -1715,6 +1727,25 @@ end:
         uwsgi_buffer_destroy(ub);
         return buf;
 }
+
+/*
+
+really fast encoder adding only a suffix
+
+*/
+static char *uwsgi_log_encoder_suffix(struct uwsgi_log_encoder *ule, char *msg, size_t len, size_t *rlen) {
+        char *buf = NULL;
+        struct uwsgi_buffer *ub = uwsgi_buffer_new(len + strlen(ule->args));
+        if (uwsgi_buffer_append(ub, msg, len)) goto end;
+        if (uwsgi_buffer_append(ub, ule->args, strlen(ule->args))) goto end;
+        *rlen = ub->pos;
+        buf = ub->buf;
+        ub->buf = NULL;
+end:
+        uwsgi_buffer_destroy(ub);
+        return buf;
+}
+
 
 
 void uwsgi_log_encoder_parse_vars(struct uwsgi_log_encoder *ule) {
@@ -1905,10 +1936,12 @@ end:
 
 void uwsgi_log_encoders_register_embedded() {
 	uwsgi_register_log_encoder("prefix", uwsgi_log_encoder_prefix);
+	uwsgi_register_log_encoder("suffix", uwsgi_log_encoder_suffix);
 	uwsgi_register_log_encoder("nl", uwsgi_log_encoder_nl);
 	uwsgi_register_log_encoder("format", uwsgi_log_encoder_format);
 	uwsgi_register_log_encoder("json", uwsgi_log_encoder_json);
 #ifdef UWSGI_ZLIB
 	uwsgi_register_log_encoder("gzip", uwsgi_log_encoder_gzip);
+	uwsgi_register_log_encoder("compress", uwsgi_log_encoder_compress);
 #endif
 }
