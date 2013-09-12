@@ -4256,7 +4256,6 @@ void uwsgi_envdirs(struct uwsgi_string_list *);
 void uwsgi_opt_envdir(char *, char *, void *);
 
 void uwsgi_add_reload_fds();
-void uwsgi_add_reload_fds();
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
