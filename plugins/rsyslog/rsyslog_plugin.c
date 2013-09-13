@@ -39,10 +39,17 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 
 		uwsgi_socket_nb(ul->fd);
 
+		ul->count = 29;
+
                 char *comma = strchr(ul->arg, ',');
 		if (comma) {
 			ul->data = comma+1;
                 	*comma = 0;
+			char *prisev = strchr(ul->data, ',');
+			if (prisev) {
+				*prisev = 0;
+				ul->count = atoi(prisev+1);
+			}
 		}
 		else {
 			ul->data = uwsgi_concat2(uwsgi.hostname," uwsgi");
@@ -83,7 +90,7 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 	for (pos=0 ; pos < (int) len ;) {
 		if (pos > 0 && !u_rsyslog.split_msg) return pos;
 		msg_len = ( ((int)len)-pos > u_rsyslog.msg_size ? u_rsyslog.msg_size : ((int)len)-pos);
-		rlen = snprintf(ul->buf, u_rsyslog.packet_size, "<29>%.*s %s: %.*s", 15, ctime_storage+4, (char *) ul->data, msg_len, &message[pos]);
+		rlen = snprintf(ul->buf, u_rsyslog.packet_size, "<%d>%.*s %s: %.*s", ul->count, 15, ctime_storage+4, (char *) ul->data, msg_len, &message[pos]);
 		if (rlen > 0 && rlen <= u_rsyslog.packet_size) {
 			ret = sendto(ul->fd, ul->buf, rlen, 0, (const struct sockaddr *) &ul->addr, ul->addr_len);
 			if (ret <= 0) return ret;
