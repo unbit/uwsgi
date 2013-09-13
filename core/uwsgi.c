@@ -629,6 +629,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cheaper-algo-list", no_argument, 0, "list enabled cheapers algorithms", uwsgi_opt_true, &uwsgi.cheaper_algo_list, 0},
 	{"cheaper-algos-list", no_argument, 0, "list enabled cheapers algorithms", uwsgi_opt_true, &uwsgi.cheaper_algo_list, 0},
 	{"cheaper-list", no_argument, 0, "list enabled cheapers algorithms", uwsgi_opt_true, &uwsgi.cheaper_algo_list, 0},
+	{"cheaper-rss-limit-soft", required_argument, 0, "don't spawn new workers if total resident memory usage of all workers is higher than this limit", uwsgi_opt_set_64bit, &uwsgi.cheaper_rss_limit_soft, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
+	{"cheaper-rss-limit-hard", required_argument, 0, "if total workers resident memory usage is higher try to stop workers", uwsgi_opt_set_64bit, &uwsgi.cheaper_rss_limit_hard, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
 	{"idle", required_argument, 0, "set idle mode (put uWSGI in cheap mode after inactivity)", uwsgi_opt_set_int, &uwsgi.idle, UWSGI_OPT_MASTER},
 	{"die-on-idle", no_argument, 0, "shutdown uWSGI when idle", uwsgi_opt_true, &uwsgi.die_on_idle, 0},
 	{"mount", required_argument, 0, "load application under mountpoint", uwsgi_opt_add_string_list, &uwsgi.mounts, 0},

@@ -452,6 +452,19 @@ void sanitize_args() {
 		exit(1);
 	}
 
+	if (uwsgi.cheaper_rss_limit_soft && uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] != 1 && uwsgi.force_get_memusage != 1) {
+		uwsgi_log("enabling cheaper-rss-limit-soft requires enabling also memory-report\n");
+		exit(1);
+	}
+	if (uwsgi.cheaper_rss_limit_hard && !uwsgi.cheaper_rss_limit_soft) {
+		uwsgi_log("enabling cheaper-rss-limit-hard requires setting also cheaper-rss-limit-soft\n");
+		exit(1);
+	}
+	if ( uwsgi.cheaper_rss_limit_soft && uwsgi.cheaper_rss_limit_hard <= uwsgi.cheaper_rss_limit_soft) {
+		uwsgi_log("cheaper-rss-limit-hard value must be higher than cheaper-rss-limit-soft value\n");
+		exit(1);
+	}
+
 	/* here we try to choose if thunder lock is a good thing */
 #ifdef UNBIT
 	if (uwsgi.numproc > 1 && !uwsgi.map_socket) {
