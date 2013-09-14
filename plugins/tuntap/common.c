@@ -264,7 +264,7 @@ int uwsgi_tuntap_device(char *name) {
         ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
         strncpy(ifr.ifr_name, name, IFNAMSIZ);
 
-        if (ioctl(utt.fd, TUNSETIFF, (void *) &ifr) < 0) {
+        if (ioctl(fd, TUNSETIFF, (void *) &ifr) < 0) {
                 uwsgi_error("uwsgi_tuntap_device()/ioctl()");
                 exit(1);
         }

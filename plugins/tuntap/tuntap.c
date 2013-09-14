@@ -53,12 +53,15 @@ struct uwsgi_tuntap utt;
 	- some form of security to disallow raw access to the tuntap router unix socket
 	- multiple devices
 	- stats server
+	- port to other platforms ?
 
 */
 
 static struct uwsgi_option uwsgi_tuntap_options[] = {
 	{"tuntap-router", required_argument, 0, "run the tuntap router (syntax: <device> <socket>)", uwsgi_opt_set_str, &utt.addr, 0},
 	{"tuntap-device", required_argument, 0, "add a tuntap device to the instance (syntax: <device>[ <socket>])", uwsgi_opt_set_str, &utt.device, 0},
+	{"tuntap-router-firewall-in", required_argument, 0, "add a firewall rule to the tuntap router (syntax: <action> <src/mask> <dst/mask>)", uwsgi_tuntap_opt_firewall, &utt.fw_in, 0},
+	{"tuntap-router-firewall-out", required_argument, 0, "add a firewall rule to the tuntap router (syntax: <action> <src/mask> <dst/mask>)", uwsgi_tuntap_opt_firewall, &utt.fw_out, 0},
 	{NULL, 0, 0, NULL, NULL, NULL, 0},
 };
 

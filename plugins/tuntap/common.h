@@ -68,3 +68,5 @@ struct uwsgi_tuntap_peer *uwsgi_tuntap_peer_get_by_addr(uint32_t);
 void uwsgi_tuntap_peer_destroy(struct uwsgi_tuntap_peer *);
 
 int uwsgi_tuntap_device(char *);
+
+void uwsgi_tuntap_opt_firewall(char *, char *, void *);
