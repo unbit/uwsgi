@@ -47,6 +47,7 @@ void uwsgi_tuntap_peer_destroy(struct uwsgi_tuntap_peer *uttp) {
 
 	free(uttp->buf);
 	free(uttp->write_buf);
+	close(uttp->fd);
 	free(uttp);
 }
 
@@ -157,6 +158,9 @@ int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_peer *uttp) {
 		// a whole pkt has been received
 		if (uttp->buf_pos >= uttp->buf_pktsize) {
 
+			uttp->header_pos = 0;
+			uttp->buf_pos = 0;
+
 			if (uwsgi_tuntap_firewall_check(utt.fw_out, uttp->buf, uttp->buf_pktsize)) return 0;
 
 			// if there is no associated address store the source
@@ -166,19 +170,23 @@ int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_peer *uttp) {
 				// drop invalid ip addresses
 				if (!uttp->addr)
 					return -1;
+
+				struct uwsgi_tuntap_peer *tmp_uttp = uwsgi_tuntap_peer_get_by_addr(uttp->addr);
 				char ip[INET_ADDRSTRLEN + 1];
 				memset(ip, 0, INET_ADDRSTRLEN + 1);
 				if (!inet_ntop(AF_INET, &uttp->addr, ip, INET_ADDRSTRLEN)) {
 					uwsgi_error("inet_ntop()");
 					return -1;
 				}
+				if (uttp != tmp_uttp) {
+					uwsgi_log("[tuntap-router] detected ip collision for %s\n", ip);
+					uwsgi_tuntap_peer_destroy(tmp_uttp);
+				}
 				uwsgi_log("[tuntap-router] registered new peer %s (fd: %d)\n", ip, uttp->fd);
 			}
 
 			memcpy(utt.write_buf, uttp->buf, uttp->buf_pktsize);
 			utt.write_pktsize = uttp->buf_pktsize;
-			uttp->header_pos = 0;
-			uttp->buf_pos = 0;
 			uwsgi_tuntap_enqueue();
 		}
 		return 0;
@@ -224,6 +232,10 @@ int uwsgi_tuntap_peer_enqueue(struct uwsgi_tuntap_peer *uttp) {
 			// if the write ends while we are writing to the tuntap, block the reads
 			if (utt.wait_for_write) {
 				uttp->blocked_read = 1;
+				if (event_queue_del_fd(utt.queue, uttp->fd, event_queue_write())) {
+					uwsgi_error("uwsgi_tuntap_peer_enqueue()/event_queue_del_fd()");
+					return -1;
+				}
 			}
 			else {
 				if (event_queue_fd_write_to_read(utt.queue, uttp->fd)) {

@@ -232,10 +232,8 @@ void uwsgi_tuntap_router_loop(int id, void *foobar) {
 					// read from the client
 					if (!uttp->wait_for_write) {
 						if (uwsgi_tuntap_peer_dequeue(uttp)) {
-							struct uwsgi_tuntap_peer *tmp_uttp = uttp;
-							uttp = uttp->next;
-							uwsgi_tuntap_peer_destroy(tmp_uttp);
-							continue;
+							uwsgi_tuntap_peer_destroy(uttp);
+							break;
 						}
 					}
 					else {
@@ -245,10 +243,8 @@ void uwsgi_tuntap_router_loop(int id, void *foobar) {
 
 						// write to the client
 						if (uwsgi_tuntap_peer_enqueue(uttp)) {
-							struct uwsgi_tuntap_peer *tmp_uttp = uttp;
-							uttp = uttp->next;
-							uwsgi_tuntap_peer_destroy(tmp_uttp);
-							continue;
+							uwsgi_tuntap_peer_destroy(uttp);
+							break;
 						}
 					}
 					break;
