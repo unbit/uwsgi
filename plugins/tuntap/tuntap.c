@@ -51,14 +51,13 @@ struct uwsgi_tuntap utt;
 	TODO:
 
 	- some form of security to disallow raw access to the tuntap router unix socket
-	- multiple devices
 	- stats server
 	- port to other platforms ?
 
 */
 
 static struct uwsgi_option uwsgi_tuntap_options[] = {
-	{"tuntap-router", required_argument, 0, "run the tuntap router (syntax: <device> <socket>)", uwsgi_opt_add_string_list, &utt.routers, 0},
+	{"tuntap-router", required_argument, 0, "run the tuntap router (syntax: <device> <socket> [stats])", uwsgi_opt_add_string_list, &utt.routers, 0},
 	{"tuntap-device", required_argument, 0, "add a tuntap device to the instance (syntax: <device>[ <socket>])", uwsgi_opt_add_string_list, &utt.devices, 0},
 	{"tuntap-router-firewall-in", required_argument, 0, "add a firewall rule to the tuntap router (syntax: <action> <src/mask> <dst/mask>)", uwsgi_tuntap_opt_firewall, &utt.fw_in, 0},
 	{"tuntap-router-firewall-out", required_argument, 0, "add a firewall rule to the tuntap router (syntax: <action> <src/mask> <dst/mask>)", uwsgi_tuntap_opt_firewall, &utt.fw_out, 0},
@@ -86,19 +85,16 @@ static void *uwsgi_tuntap_loop(void *arg) {
 
 	uttr->queue = event_queue_init();
 
-	event_queue_add_fd_read(uttr->queue, uttr->fd);
-	int server_fd = uwsgi_connect("/tmp/tuntap.socket", 30, 0);
-	if (server_fd < 0) {
-		uwsgi_error("uwsgi_tuntap_loop()/uwsgi_connect()");
+	if (event_queue_add_fd_read(uttr->queue, uttr->fd)) {
 		exit(1);
 	}
-	if (event_queue_add_fd_read(uttr->queue, server_fd)) {
+	if (event_queue_add_fd_read(uttr->queue, uttr->server_fd)) {
 		exit(1);
 	}
 
-	uwsgi_socket_nb(server_fd);
+	uwsgi_socket_nb(uttr->server_fd);
 
-	struct uwsgi_tuntap_peer *uttp = uwsgi_tuntap_peer_create(uttr, server_fd);
+	struct uwsgi_tuntap_peer *uttp = uwsgi_tuntap_peer_create(uttr, uttr->server_fd);
 
 	for (;;) {
 		int interesting_fd = -1;
@@ -133,7 +129,7 @@ static void *uwsgi_tuntap_loop(void *arg) {
 		}
 
 
-		if (interesting_fd == server_fd) {
+		if (interesting_fd == uttr->server_fd) {
 			// read from the client
 			if (!uttp->wait_for_write) {
 				if (uwsgi_tuntap_peer_dequeue(uttr, uttp)) {
@@ -165,11 +161,27 @@ static void uwsgi_tuntap_client() {
 
 	struct uwsgi_string_list *usl;
 	uwsgi_foreach(usl, utt.devices) {
-		struct uwsgi_tuntap_router *uttr = uwsgi_calloc(sizeof(struct uwsgi_tuntap_router));
-		uttr->fd = uwsgi_tuntap_device(usl->value);
+		char *space = strchr(usl->value, ' ');
+		if (space) {
+			*space = 0;
+			struct uwsgi_tuntap_router *uttr = uwsgi_calloc(sizeof(struct uwsgi_tuntap_router));
+			uttr->fd = uwsgi_tuntap_device(usl->value);
 
-		pthread_t t;
-		pthread_create(&t, NULL, uwsgi_tuntap_loop, uttr);
+			uttr->server_fd = uwsgi_connect(space+1, 30, 0);
+        		if (uttr->server_fd < 0) {
+                		uwsgi_error("uwsgi_tuntap_client()/uwsgi_connect()");
+                		exit(1);
+        		}
+			*space = ' ';
+
+			pthread_t t;
+			pthread_create(&t, NULL, uwsgi_tuntap_loop, uttr);
+		}
+		else {
+			if (uwsgi_tuntap_device(usl->value) < 0) {
+				// foo
+			}
+		}
 	}
 }
 
@@ -284,7 +296,7 @@ static void uwsgi_tuntap_router() {
 	uwsgi_foreach(usl, utt.routers) {
 		char *space = strchr(usl->value, ' ');
 		if (!space) {
-			uwsgi_log("invalid tuntap router syntax, must be <device> <socket>\n");
+			uwsgi_log("invalid tuntap router syntax, must be <device> <socket> [stats]\n");
 			exit(1);
 		}
 
