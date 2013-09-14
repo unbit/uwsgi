@@ -1726,6 +1726,10 @@ struct uwsgi_server {
 	// enable idle mode
 	int idle;
 
+	// cheaper mode memory usage limits
+	uint64_t cheaper_rss_limit_soft;
+	uint64_t cheaper_rss_limit_hard;
+
 	// destroy the stack when idle
 	int die_on_idle;
 
