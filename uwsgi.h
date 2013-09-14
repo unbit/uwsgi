@@ -1003,6 +1003,7 @@ struct uwsgi_plugin {
 	uint16_t(*rpc) (void *, uint8_t, char **, uint16_t *, char *);
 
 	void (*jail) (int (*)(void *), char **);
+	void (*post_jail) (void);
 	void (*before_privileges_drop) (void);
 
 	int (*mule) (char *);
@@ -4292,6 +4293,8 @@ void uwsgi_setup_log_encoders(void);
 void uwsgi_log_encoders_register_embedded(void);
 
 void uwsgi_register_log_encoder(char *, char *(*)(struct uwsgi_log_encoder *, char *, size_t, size_t *));
+
+int uwsgi_accept(int);
 
 #ifdef __cplusplus
 }

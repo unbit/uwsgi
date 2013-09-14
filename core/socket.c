@@ -1958,3 +1958,21 @@ void uwsgi_tcp_nodelay(int fd) {
 #endif
 }
 
+int uwsgi_accept(int server_fd) {
+	struct sockaddr_un client_src;
+        memset(&client_src, 0, sizeof(struct sockaddr_un));
+        socklen_t client_src_len = 0;
+#if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
+        return accept4(server_fd, (struct sockaddr *) &client_src, &client_src_len, SOCK_NONBLOCK);
+#elif defined(__linux__)
+        int client_fd = accept(server_fd, (struct sockaddr *) &client_src, &client_src_len);
+        if (client_fd >= 0) {
+                uwsgi_socket_nb(client_fd);
+        }
+        return client_fd;
+#else
+ 	return accept(server_fd, (struct sockaddr *) &client_src, &client_src_len);
+#endif
+
+
+}

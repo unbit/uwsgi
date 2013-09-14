@@ -543,6 +543,13 @@ void uwsgi_as_root() {
                                 }
                         }
 
+
+                	int i;
+                	for (i = 0; i < uwsgi.gp_cnt; i++) {
+                        	if (uwsgi.gp[i]->post_jail) {
+                                	uwsgi.gp[i]->post_jail();
+                        	}
+                	}
 		}
 
 		if (uwsgi.chroot && !uwsgi.reloads) {

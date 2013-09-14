@@ -118,6 +118,14 @@ static void *uwsgi_pty_loop(void *arg) {
                 if client is ready we have something to write to the master pty
         */
 
+	// block signals on this thread
+        sigset_t smask;
+        sigfillset(&smask);
+#ifndef UWSGI_DEBUG
+        sigdelset(&smask, SIGSEGV);
+#endif
+        pthread_sigmask(SIG_BLOCK, &smask, NULL);
+
         for(;;) {
                 char buf[8192];
                 int interesting_fd = -1;

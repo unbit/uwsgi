@@ -2374,7 +2374,7 @@ int uwsgi_start(void *v_argv) {
 
         uwsgi_foreach(usl, uwsgi.call_in_jail) {
                 if (uwsgi_call_symbol(usl->value)) {
-                        uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                        uwsgi_log("unable to call function \"%s\"\n", usl->value);
 			exit(1);
                 }
         }
