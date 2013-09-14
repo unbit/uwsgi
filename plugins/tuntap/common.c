@@ -250,3 +250,27 @@ retry:
 
 	return 0;
 }
+
+int uwsgi_tuntap_device(char *name) {
+	struct ifreq ifr;
+        int fd = open(UWSGI_TUNTAP_DEVICE, O_RDWR);
+        if (fd < 0) {
+                uwsgi_error_open(UWSGI_TUNTAP_DEVICE);
+                exit(1);
+        }
+
+        memset(&ifr, 0, sizeof(struct ifreq));
+
+        ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
+        strncpy(ifr.ifr_name, name, IFNAMSIZ);
+
+        if (ioctl(utt.fd, TUNSETIFF, (void *) &ifr) < 0) {
+                uwsgi_error("uwsgi_tuntap_device()/ioctl()");
+                exit(1);
+        }
+
+	uwsgi_log("initialized tuntap device %s (fd: %d)\n", ifr.ifr_name, fd);
+
+	return fd;
+}
+

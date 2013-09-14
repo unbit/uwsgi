@@ -153,24 +153,8 @@ static void uwsgi_tuntap_client() {
 
 	if (!utt.device) return;
 
-	struct ifreq ifr;
-	utt.fd = open(UWSGI_TUNTAP_DEVICE, O_RDWR);
-	if (utt.fd < 0) {
-		uwsgi_error_open(UWSGI_TUNTAP_DEVICE);
-		exit(1);
-	}
 
-	memset(&ifr, 0, sizeof(struct ifreq));
-
-	ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
-	strncpy(ifr.ifr_name, utt.device, IFNAMSIZ);
-
-	if (ioctl(utt.fd, TUNSETIFF, (void *) &ifr) < 0) {
-		uwsgi_error("uwsgi_tuntap_init()/ioctl()");
-		exit(1);
-	}
-
-	uwsgi_log("initialized tuntap device %s\n", ifr.ifr_name);
+	utt.fd = uwsgi_tuntap_device(utt.device);
 
 	pthread_t t;
 	pthread_create(&t, NULL, uwsgi_tuntap_loop, NULL);
@@ -287,26 +271,10 @@ static void uwsgi_tuntap_router() {
 
 	utt.server_fd = bind_to_unix(space+1, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 
-	struct ifreq ifr;
-	utt.fd = open(UWSGI_TUNTAP_DEVICE, O_RDWR);
-	if (utt.fd < 0) {
-		uwsgi_error_open(UWSGI_TUNTAP_DEVICE);
-		exit(1);
-	}
-
-	memset(&ifr, 0, sizeof(struct ifreq));
-
-	ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
 	*space = 0 ;
-	strncpy(ifr.ifr_name, utt.addr, IFNAMSIZ);
+	utt.fd = uwsgi_tuntap_device(utt.addr);
 	*space = ' ';
 
-	if (ioctl(utt.fd, TUNSETIFF, (void *) &ifr) < 0) {
-		uwsgi_error("uwsgi_tuntap_server()/ioctl()");
-		exit(1);
-	}
-
-	uwsgi_log("initialized tuntap device %s\n", ifr.ifr_name);
 	if (register_gateway("uWSGI tuntap router", uwsgi_tuntap_router_loop, NULL) == NULL) {
 		uwsgi_log("unable to register the tuntap server gateway\n");
 		exit(1);
