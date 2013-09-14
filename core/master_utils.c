@@ -115,7 +115,34 @@ int uwsgi_calc_cheaper(void) {
 
 	last_check = now;
 
-	int needed_workers = uwsgi.cheaper_algo();
+	int ignore_algo = 0;
+	int needed_workers = 0;
+
+	// first check if memory usage is not exceeded
+	if (uwsgi.cheaper_rss_limit_soft) {
+		unsigned long long total_rss = 0;
+		int i;
+		int active_workers = 0;
+		for(i=1;i<=uwsgi.numproc;i++) {
+			if (!uwsgi.workers[i].cheaped) {
+				total_rss += uwsgi.workers[i].rss_size;
+				active_workers++;
+			}
+		}
+		if (uwsgi.cheaper_rss_limit_hard && active_workers > 1 && total_rss >= uwsgi.cheaper_rss_limit_hard) {
+			uwsgi_log("cheaper hard rss memory limit exceeded, cheap one of %d workers\n", active_workers);
+			needed_workers = -1;
+			ignore_algo = 1;
+		}
+		else if (total_rss >= uwsgi.cheaper_rss_limit_soft) {
+#ifdef UWSGI_DEBUG
+			uwsgi_log("cheaper soft rss memory limit exceeded, can't spawn more workers\n");
+#endif
+			ignore_algo = 1;
+		}
+	}
+
+	if (!ignore_algo) needed_workers = uwsgi.cheaper_algo();
 
 	if (needed_workers > 0) {
 		for (i = 1; i <= uwsgi.numproc; i++) {
