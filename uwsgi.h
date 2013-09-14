@@ -1869,6 +1869,8 @@ struct uwsgi_server {
 	char *jail_attach;
 #endif
 	int refork;
+	int refork_as_root;
+	int refork_post_jail;
 
 	int ignore_sigpipe;
 	int ignore_write_errors;

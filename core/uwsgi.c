@@ -320,6 +320,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 	{"refork", no_argument, 0, "fork() again after privileges drop. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork, 0},
 	{"re-fork", no_argument, 0, "fork() again after privileges drop. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork, 0},
+	{"refork-as-root", no_argument, 0, "fork() again before privileges drop. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork_as_root, 0},
+	{"re-fork-as-root", no_argument, 0, "fork() again before privileges drop. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork_as_root, 0},
+	{"refork-post-jail", no_argument, 0, "fork() again after jailing. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork_post_jail, 0},
+	{"re-fork-post-jail", no_argument, 0, "fork() again after jailing. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork_post_jail, 0},
 
 	{"hook-pre-jail", required_argument, 0, "run the specified hook before jailing", uwsgi_opt_add_string_list, &uwsgi.hook_pre_jail, 0},
         {"hook-post-jail", required_argument, 0, "run the specified hook after jailing", uwsgi_opt_add_string_list, &uwsgi.hook_post_jail, 0},

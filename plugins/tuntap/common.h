@@ -28,6 +28,10 @@ struct uwsgi_tuntap_peer {
         uint16_t write_buf_pos;
         struct uwsgi_tuntap_peer *prev;
         struct uwsgi_tuntap_peer *next;
+	// counters
+	uint64_t tx;
+	uint64_t rx;
+	uint64_t dropped;
 };
 
 struct uwsgi_tuntap_firewall_rule {

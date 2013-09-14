@@ -88,9 +88,15 @@ static void *uwsgi_tuntap_loop(void *arg) {
 
 	event_queue_add_fd_read(utt.queue, fd);
 	int server_fd = uwsgi_connect("/tmp/tuntap.socket", 30, 0);
-	if (event_queue_add_fd_read(utt.queue, server_fd)) {
-		// retry;
+	if (server_fd < 0) {
+		uwsgi_error("uwsgi_tuntap_loop()/uwsgi_connect()");
+		exit(1);
 	}
+	if (event_queue_add_fd_read(utt.queue, server_fd)) {
+		exit(1);
+	}
+
+	uwsgi_socket_nb(server_fd);
 
 	struct uwsgi_tuntap_peer *uttp = uwsgi_tuntap_peer_create(server_fd);
 
@@ -137,8 +143,9 @@ static void *uwsgi_tuntap_loop(void *arg) {
 			}
 			else {
 				// something is wrong (the tuntap device is blocked)
-				if (utt.wait_for_write)
+				if (utt.wait_for_write) {
 					continue;
+				}
 
 				// write to the client
 				if (uwsgi_tuntap_peer_enqueue(uttp)) {
@@ -197,7 +204,10 @@ void uwsgi_tuntap_router_loop(int id, void *foobar) {
 					continue;
 
 				// check for full write buffer
-				if (uttp->write_buf_pktsize + 4 + rlen > utt.buffer_size) continue;
+				if (uttp->write_buf_pktsize + 4 + rlen > utt.buffer_size) {
+					uttp->dropped++;
+					continue;
+				}
 
 				uint16_t pktsize = rlen;
                         	char *ptr = uttp->write_buf + uttp->write_buf_pktsize;
@@ -230,13 +240,14 @@ void uwsgi_tuntap_router_loop(int id, void *foobar) {
 			while (uttp) {
 				if (interesting_fd == uttp->fd) {
 					// read from the client
-					if (!uttp->wait_for_write) {
+					if (event_queue_interesting_fd_is_read(events, i)) {
 						if (uwsgi_tuntap_peer_dequeue(uttp)) {
 							uwsgi_tuntap_peer_destroy(uttp);
 							break;
 						}
 					}
-					else {
+
+					if (event_queue_interesting_fd_is_write(events, i)) {
 						// something is wrong (the tuntap device is blocked)
 						if (utt.wait_for_write)
 							break;
