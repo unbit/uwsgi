@@ -3,7 +3,7 @@
 extern struct uwsgi_tuntap utt;
 
 // create a new peer
-struct uwsgi_tuntap_peer *uwsgi_tuntap_peer_create(int fd) {
+struct uwsgi_tuntap_peer *uwsgi_tuntap_peer_create(struct uwsgi_tuntap_router *uttr, int fd) {
 
 	struct uwsgi_tuntap_peer *uttp = uwsgi_calloc(sizeof(struct uwsgi_tuntap_peer));
 	uttp->fd = fd;
@@ -11,21 +11,21 @@ struct uwsgi_tuntap_peer *uwsgi_tuntap_peer_create(int fd) {
 	uttp->buf = uwsgi_malloc(utt.buffer_size + 4);
 	uttp->write_buf = uwsgi_malloc(utt.buffer_size);
 
-	if (utt.peers_tail) {
-		utt.peers_tail->next = uttp;
-		uttp->prev = utt.peers_tail;
-		utt.peers_tail = uttp;
+	if (uttr->peers_tail) {
+		uttr->peers_tail->next = uttp;
+		uttp->prev = uttr->peers_tail;
+		uttr->peers_tail = uttp;
 	}
 	else {
-		utt.peers_head = uttp;
-		utt.peers_tail = uttp;
+		uttr->peers_head = uttp;
+		uttr->peers_tail = uttp;
 	}
 
 	return uttp;
 }
 
 // destroy a peer
-void uwsgi_tuntap_peer_destroy(struct uwsgi_tuntap_peer *uttp) {
+void uwsgi_tuntap_peer_destroy(struct uwsgi_tuntap_router *uttr, struct uwsgi_tuntap_peer *uttp) {
 	struct uwsgi_tuntap_peer *prev = uttp->prev;
 	struct uwsgi_tuntap_peer *next = uttp->next;
 
@@ -37,12 +37,12 @@ void uwsgi_tuntap_peer_destroy(struct uwsgi_tuntap_peer *uttp) {
 		next->prev = prev;
 	}
 
-	if (uttp == utt.peers_head) {
-		utt.peers_head = next;
+	if (uttp == uttr->peers_head) {
+		uttr->peers_head = next;
 	}
 
-	if (uttp == utt.peers_tail) {
-		utt.peers_tail = prev;
+	if (uttp == uttr->peers_tail) {
+		uttr->peers_tail = prev;
 	}
 
 	free(uttp->buf);
@@ -53,8 +53,8 @@ void uwsgi_tuntap_peer_destroy(struct uwsgi_tuntap_peer *uttp) {
 
 
 // get a peer by addr
-struct uwsgi_tuntap_peer *uwsgi_tuntap_peer_get_by_addr(uint32_t addr) {
-	struct uwsgi_tuntap_peer *uttp = utt.peers_head;
+struct uwsgi_tuntap_peer *uwsgi_tuntap_peer_get_by_addr(struct uwsgi_tuntap_router *uttr, uint32_t addr) {
+	struct uwsgi_tuntap_peer *uttp = uttr->peers_head;
 	while (uttp) {
 		if (uttp->addr == addr)
 			return uttp;
@@ -65,23 +65,23 @@ struct uwsgi_tuntap_peer *uwsgi_tuntap_peer_get_by_addr(uint32_t addr) {
 }
 
 // block all reading peers
-void uwsgi_tuntap_block_reads() {
-	struct uwsgi_tuntap_peer *uttp = utt.peers_head;
+void uwsgi_tuntap_block_reads(struct uwsgi_tuntap_router *uttr) {
+	struct uwsgi_tuntap_peer *uttp = uttr->peers_head;
 	while (uttp) {
 		if (!uttp->blocked_read) {
 			if (!uttp->wait_for_write) {
-				if (event_queue_del_fd(utt.queue, uttp->fd, event_queue_read())) {
+				if (event_queue_del_fd(uttr->queue, uttp->fd, event_queue_read())) {
 					struct uwsgi_tuntap_peer *tmp_uttp = uttp;
 					uttp = uttp->next;
-					uwsgi_tuntap_peer_destroy(tmp_uttp);
+					uwsgi_tuntap_peer_destroy(uttr, tmp_uttp);
 					continue;
 				}
 			}
 			else {
-				if (event_queue_fd_readwrite_to_write(utt.queue, uttp->fd)) {
+				if (event_queue_fd_readwrite_to_write(uttr->queue, uttp->fd)) {
                                         struct uwsgi_tuntap_peer *tmp_uttp = uttp;
                                         uttp = uttp->next;
-                                        uwsgi_tuntap_peer_destroy(tmp_uttp);
+                                        uwsgi_tuntap_peer_destroy(uttr, tmp_uttp);
                                         continue;
                                 }
 			}
@@ -92,23 +92,23 @@ void uwsgi_tuntap_block_reads() {
 }
 
 //unblock all reading peers
-void uwsgi_tuntap_unblock_reads() {
-	struct uwsgi_tuntap_peer *uttp = utt.peers_head;
+void uwsgi_tuntap_unblock_reads(struct uwsgi_tuntap_router *uttr) {
+	struct uwsgi_tuntap_peer *uttp = uttr->peers_head;
 	while (uttp) {
 		if (uttp->blocked_read) {
 			if (!uttp->wait_for_write) {
-				if (event_queue_add_fd_read(utt.queue, uttp->fd)) {
+				if (event_queue_add_fd_read(uttr->queue, uttp->fd)) {
 					struct uwsgi_tuntap_peer *tmp_uttp = uttp;
 					uttp = uttp->next;
-					uwsgi_tuntap_peer_destroy(tmp_uttp);
+					uwsgi_tuntap_peer_destroy(uttr, tmp_uttp);
 					continue;
 				}
 			}
 			else {
-				if (event_queue_fd_write_to_readwrite(utt.queue, uttp->fd)) {
+				if (event_queue_fd_write_to_readwrite(uttr->queue, uttp->fd)) {
 					struct uwsgi_tuntap_peer *tmp_uttp = uttp;
 					uttp = uttp->next;
-					uwsgi_tuntap_peer_destroy(tmp_uttp);
+					uwsgi_tuntap_peer_destroy(uttr, tmp_uttp);
 					continue;
 				}
 			}
@@ -119,8 +119,8 @@ void uwsgi_tuntap_unblock_reads() {
 }
 
 // enqueue a packet in the tuntap device
-void uwsgi_tuntap_enqueue() {
-	ssize_t rlen = write(utt.fd, utt.write_buf + utt.write_pos, utt.write_pktsize - utt.write_pos);
+void uwsgi_tuntap_enqueue(struct uwsgi_tuntap_router *uttr) {
+	ssize_t rlen = write(uttr->fd, uttr->write_buf + uttr->write_pos, uttr->write_pktsize - uttr->write_pos);
 	// error on the tuntap device, destroy !!!
 	if (rlen == 0) {
 		uwsgi_error("uwsgi_tuntap_enqueue()/write()");
@@ -134,33 +134,33 @@ void uwsgi_tuntap_enqueue() {
 		exit(1);
 	}
 
-	utt.write_pos += rlen;
-	if (utt.write_pos >= utt.write_pktsize) {
-		utt.write_pos = 0;
-		if (utt.wait_for_write) {
-			if (event_queue_fd_write_to_read(utt.queue, utt.fd)) {
+	uttr->write_pos += rlen;
+	if (uttr->write_pos >= uttr->write_pktsize) {
+		uttr->write_pos = 0;
+		if (uttr->wait_for_write) {
+			if (event_queue_fd_write_to_read(uttr->queue, uttr->fd)) {
 				uwsgi_error("uwsgi_tuntap_enqueue()/event_queue_fd_read_to_write()");
 				exit(1);
 			}
-			utt.wait_for_write = 0;
+			uttr->wait_for_write = 0;
 		}
-		uwsgi_tuntap_unblock_reads();
+		uwsgi_tuntap_unblock_reads(uttr);
 		return;
 	}
 
 retry:
-	if (!utt.wait_for_write) {
-		uwsgi_tuntap_block_reads();
-		if (event_queue_fd_read_to_write(utt.queue, utt.fd)) {
+	if (!uttr->wait_for_write) {
+		uwsgi_tuntap_block_reads(uttr);
+		if (event_queue_fd_read_to_write(uttr->queue, uttr->fd)) {
 			uwsgi_error("uwsgi_tuntap_enqueue()/event_queue_fd_read_to_write()");
 			exit(1);
 		}
-		utt.wait_for_write = 1;
+		uttr->wait_for_write = 1;
 	}
 }
 
 // receive a packet from the client
-int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_peer *uttp) {
+int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tuntap_peer *uttp) {
 	// get body
 	if (uttp->header_pos >= 4) {
 		ssize_t rlen = read(uttp->fd, uttp->buf + uttp->buf_pos, uttp->buf_pktsize - uttp->buf_pos);
@@ -190,7 +190,7 @@ int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_peer *uttp) {
 				if (!uttp->addr)
 					return -1;
 
-				struct uwsgi_tuntap_peer *tmp_uttp = uwsgi_tuntap_peer_get_by_addr(uttp->addr);
+				struct uwsgi_tuntap_peer *tmp_uttp = uwsgi_tuntap_peer_get_by_addr(uttr, uttp->addr);
 				char ip[INET_ADDRSTRLEN + 1];
 				memset(ip, 0, INET_ADDRSTRLEN + 1);
 				if (!inet_ntop(AF_INET, &uttp->addr, ip, INET_ADDRSTRLEN)) {
@@ -199,14 +199,14 @@ int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_peer *uttp) {
 				}
 				if (uttp != tmp_uttp) {
 					uwsgi_log("[tuntap-router] detected ip collision for %s\n", ip);
-					uwsgi_tuntap_peer_destroy(tmp_uttp);
+					uwsgi_tuntap_peer_destroy(uttr, tmp_uttp);
 				}
 				uwsgi_log("[tuntap-router] registered new peer %s (fd: %d)\n", ip, uttp->fd);
 			}
 
-			memcpy(utt.write_buf, uttp->buf, uttp->buf_pktsize);
-			utt.write_pktsize = uttp->buf_pktsize;
-			uwsgi_tuntap_enqueue();
+			memcpy(uttr->write_buf, uttp->buf, uttp->buf_pktsize);
+			uttr->write_pktsize = uttp->buf_pktsize;
+			uwsgi_tuntap_enqueue(uttr);
 		}
 		return 0;
 	}
@@ -229,7 +229,7 @@ int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_peer *uttp) {
 }
 
 // enqueue a packet to the client
-int uwsgi_tuntap_peer_enqueue(struct uwsgi_tuntap_peer *uttp) {
+int uwsgi_tuntap_peer_enqueue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tuntap_peer *uttp) {
 
 	ssize_t rlen = write(uttp->fd, uttp->write_buf + uttp->written, uttp->write_buf_pktsize - uttp->written);
 	if (rlen == 0) {
@@ -251,15 +251,15 @@ int uwsgi_tuntap_peer_enqueue(struct uwsgi_tuntap_peer *uttp) {
 		uttp->write_buf_pktsize = 0;
 		if (uttp->wait_for_write) {
 			// if the write ends while we are writing to the tuntap, block the reads
-			if (utt.wait_for_write) {
+			if (uttr->wait_for_write) {
 				uttp->blocked_read = 1;
-				if (event_queue_del_fd(utt.queue, uttp->fd, event_queue_write())) {
+				if (event_queue_del_fd(uttr->queue, uttp->fd, event_queue_write())) {
 					uwsgi_error("uwsgi_tuntap_peer_enqueue()/event_queue_del_fd()");
 					return -1;
 				}
 			}
 			else {
-				if (event_queue_fd_readwrite_to_read(utt.queue, uttp->fd)) {
+				if (event_queue_fd_readwrite_to_read(uttr->queue, uttp->fd)) {
 					uwsgi_error("uwsgi_tuntap_peer_enqueue()/event_queue_fd_write_to_read()");
 					return -1;
 				}
@@ -274,7 +274,7 @@ int uwsgi_tuntap_peer_enqueue(struct uwsgi_tuntap_peer *uttp) {
 
 retry:
 	if (!uttp->wait_for_write) {
-		if (event_queue_fd_read_to_readwrite(utt.queue, uttp->fd)) {
+		if (event_queue_fd_read_to_readwrite(uttr->queue, uttp->fd)) {
 			uwsgi_error("uwsgi_tuntap_peer_enqueue()/event_queue_fd_read_to_write()");
 			return -1;
 		}
