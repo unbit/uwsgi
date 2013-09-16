@@ -187,6 +187,14 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		return -1;
 	}
 
+#ifdef __linux__
+        long somaxconn = uwsgi_num_from_file("/proc/sys/net/core/somaxconn", 1);
+        if (somaxconn > 0 && uwsgi.listen_queue > somaxconn) {
+                uwsgi_log("Listen queue size is greater than the system max net.core.somaxconn (%li).\n", somaxconn);
+                uwsgi_nuclear_blast();
+                return -1;
+        }
+#endif
 
 	if (listen(serverfd, listen_queue) != 0) {
 		uwsgi_error("listen()");
