@@ -14,7 +14,9 @@ static void uwsgi_plugin_parse_section(char *filename) {
 			if (equal) {
 				*equal = 0;
 				if (!strcmp(p, "requires")) {
-					uwsgi_load_plugin(-1, equal + 1, NULL);
+					if (!plugin_already_loaded(equal+1)) {	
+						uwsgi_load_plugin(-1, equal + 1, NULL);
+					}
 				}
 			}
 			p = strtok_r(NULL, "\n", &ctx);

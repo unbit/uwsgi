@@ -1,0 +1,179 @@
+/*
+
+   uWSGI forkpty-router
+
+*/
+
+#include <uwsgi.h>
+#include "../corerouter/cr.h"
+
+extern struct uwsgi_server uwsgi;
+
+#ifdef __linux__
+#include <pty.h>
+#elif defined(__APPLE__) || defined(__OpenBSD__)
+#include <util.h>
+#elif defined(__FreeBSD__)
+#include <libutil.h>
+#endif
+#ifndef __FreeBSD__
+#include <utmp.h>
+#endif
+
+
+static struct uwsgi_forkptyrouter {
+	struct uwsgi_corerouter cr;
+} ufpty;
+
+extern struct uwsgi_server uwsgi;
+
+struct forkptyrouter_session {
+	struct corerouter_session session;
+	pid_t pid;
+};
+
+static struct uwsgi_option forkptyrouter_options[] = {
+	{"forkptyrouter", required_argument, 0, "run the forkptyrouter on the specified port", uwsgi_opt_undeferred_corerouter, &ufpty, 0},
+	{"forkpty-router", required_argument, 0, "run the forkptyrouter on the specified port", uwsgi_opt_undeferred_corerouter, &ufpty, 0},
+	{"forkptyrouter-processes", required_argument, 0, "prefork the specified number of forkptyrouter processes", uwsgi_opt_set_int, &ufpty.cr.processes, 0},
+	{"forkptyrouter-workers", required_argument, 0, "prefork the specified number of forkptyrouter processes", uwsgi_opt_set_int, &ufpty.cr.processes, 0},
+	{"forkptyrouter-zerg", required_argument, 0, "attach the forkptyrouter to a zerg server", uwsgi_opt_corerouter_zerg, &ufpty, 0},
+
+	{"forkptyrouter-fallback", required_argument, 0, "fallback to the specified node in case of error", uwsgi_opt_add_string_list, &ufpty.cr.fallback, 0},
+
+	{"forkptyrouter-events", required_argument, 0, "set the maximum number of concufptyent events", uwsgi_opt_set_int, &ufpty.cr.nevents, 0},
+	{"forkptyrouter-cheap", no_argument, 0, "run the forkptyrouter in cheap mode", uwsgi_opt_true, &ufpty.cr.cheap, 0},
+
+	{"forkptyrouter-timeout", required_argument, 0, "set forkptyrouter timeout", uwsgi_opt_set_int, &ufpty.cr.socket_timeout, 0},
+
+	{"forkptyrouter-stats", required_argument, 0, "run the forkptyrouter stats server", uwsgi_opt_set_str, &ufpty.cr.stats_server, 0},
+	{"forkptyrouter-stats-server", required_argument, 0, "run the forkptyrouter stats server", uwsgi_opt_set_str, &ufpty.cr.stats_server, 0},
+	{"forkptyrouter-ss", required_argument, 0, "run the forkptyrouter stats server", uwsgi_opt_set_str, &ufpty.cr.stats_server, 0},
+	{"forkptyrouter-harakiri", required_argument, 0, "enable forkptyrouter harakiri", uwsgi_opt_set_int, &ufpty.cr.harakiri, 0},
+
+	{0, 0, 0, 0, 0, 0, 0},
+};
+
+// write to backend
+static ssize_t fpty_instance_write(struct corerouter_peer *peer) {
+	ssize_t len = cr_write(peer, "fpty_instance_write()");
+	// end on empty write
+	if (!len) return 0;
+
+	// the chunk has been sent, start (again) reading from client and instances
+	if (cr_write_complete(peer)) {
+		// reset the buffer
+		peer->out->pos = 0;
+		cr_reset_hooks(peer);
+	}
+
+	return len;
+}
+
+// write to client
+static ssize_t fpty_write(struct corerouter_peer *main_peer) {
+	ssize_t len = cr_write(main_peer, "fpty_write()");
+	// end on empty write
+	if (!len) return 0;
+
+	// ok this response chunk is sent, let's start reading again
+	if (cr_write_complete(main_peer)) {
+		// reset the buffer
+		main_peer->out->pos = 0;
+                cr_reset_hooks(main_peer);
+        } 
+
+	return len;
+}
+
+// read from backend
+static ssize_t fpty_instance_read(struct corerouter_peer *peer) {
+	ssize_t len = cr_read(peer, "fpty_instance_read()");
+	if (!len) return 0;
+
+	// set the input buffer as the main output one
+	peer->session->main_peer->out = peer->in;
+	peer->session->main_peer->out_pos = 0;
+
+	cr_write_to_main(peer, fpty_write);
+	return len;
+}
+
+// read from client
+static ssize_t fpty_read(struct corerouter_peer *main_peer) {
+	ssize_t len = cr_read(main_peer, "fpty_read()");
+	if (!len) return 0;
+
+	main_peer->session->peers->out = main_peer->in;
+	main_peer->session->peers->out_pos = 0;
+
+	cr_write_to_backend(main_peer->session->peers, fpty_instance_write);
+	return len;
+}
+
+static void fpty_session_close(struct corerouter_session *cs) {
+        struct forkptyrouter_session *fpty_session = (struct forkptyrouter_session *) cs;
+	if (fpty_session->pid > 0) {
+		int waitpid_status = 0;
+		if (waitpid(fpty_session->pid, &waitpid_status, WNOHANG) < 0) {
+			uwsgi_error("fpty_session_close()/waitpid()");
+		}
+	}
+}
+
+
+// allocate a new session
+static int forkptyrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, struct corerouter_session *cs, struct sockaddr *sa, socklen_t s_len) {
+
+	// set default read hook
+	cs->main_peer->last_hook_read = fpty_read;
+
+	// wait4() on close
+	cs->close = fpty_session_close;
+
+	struct forkptyrouter_session *fpty_session = (struct forkptyrouter_session *) cs;
+
+	// add a new peer
+	struct corerouter_peer *peer = uwsgi_cr_peer_add(cs);
+
+	// on new connection generate a new pty
+	fpty_session->pid = forkpty(&peer->fd, NULL, NULL, NULL);
+	if (fpty_session->pid < 0) {
+		uwsgi_error("forkpty()");
+		return -1;
+	}
+	else if (fpty_session->pid == 0) {
+		char *argv[2];
+		argv[0] = "/bin/bash";
+		argv[1] = NULL;	
+		execve(argv[0], argv, uwsgi.environ);
+		// never here;
+		exit(1);
+	}
+
+	ucr->cr_table[peer->fd] = peer;
+	cr_reset_hooks_and_read(peer, fpty_instance_read);
+	return 0;
+}
+
+static int forkptyrouter_init() {
+
+	ufpty.cr.session_size = sizeof(struct forkptyrouter_session);
+	ufpty.cr.alloc_session = forkptyrouter_alloc_session;
+	uwsgi_corerouter_init((struct uwsgi_corerouter *) &ufpty);
+
+	return 0;
+}
+
+static void forkptyrouter_setup() {
+	ufpty.cr.name = uwsgi_str("uWSGI forkptyrouter");
+	ufpty.cr.short_name = uwsgi_str("forkptyrouter");
+}
+
+struct uwsgi_plugin forkptyrouter_plugin = {
+
+	.name = "forkptyrouter",
+	.options = forkptyrouter_options,
+	.init = forkptyrouter_init,
+	.on_load = forkptyrouter_setup
+};
