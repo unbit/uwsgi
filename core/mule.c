@@ -453,8 +453,8 @@ void uwsgi_setup_mules_and_farms() {
 			create_signal_pipe(uwsgi.farms[i].signal_pipe);
 			create_msg_pipe(uwsgi.farms[i].queue_pipe, uwsgi.mule_msg_size);
 
-			char *p = strtok(mules_list, ",");
-			while (p != NULL) {
+			char *p, *ctx = NULL;
+			uwsgi_foreach_token(mules_list, ",", p, ctx) {
 				struct uwsgi_mule *um = get_mule_by_id(atoi(p));
 				if (!um) {
 					uwsgi_log("invalid mule id: %s\n", p);
@@ -462,8 +462,6 @@ void uwsgi_setup_mules_and_farms() {
 				}
 
 				uwsgi_mule_farm_new(&uwsgi.farms[i].mules, um);
-
-				p = strtok(NULL, ",");
 			}
 			uwsgi_log("created farm %d name: %s mules:%s\n", i + 1, uwsgi.farms[i].name, strchr(farm_name->value, ':') + 1);
 

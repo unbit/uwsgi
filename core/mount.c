@@ -108,15 +108,14 @@ int uwsgi_mount(char *fs, char *what, char *where, char *flags) {
 	unsigned long mountflags = 0;
 	if (!flags) goto parsed;
 	char *mflags = uwsgi_str(flags);
-	char *p = strtok(mflags, ",");
-	while(p) {
+	char *p, *ctx = NULL;
+	uwsgi_foreach_token(mflags, ",", p, ctx) {
 		unsigned long flag = (unsigned long) uwsgi_mount_flag(p);
 		if (!flag) {
 			uwsgi_log("unknown mount flag \"%s\"\n", p);
 			exit(1);
 		}
 		mountflags |= flag;
-		p = strtok(NULL, ",");
 	}
 	free(mflags);
 parsed:
@@ -147,15 +146,14 @@ int uwsgi_umount(char *where, char *flags) {
 	unsigned long mountflags = 0;
         if (!flags) goto parsed;
         char *mflags = uwsgi_str(flags);
-        char *p = strtok(mflags, ",");
-        while(p) {
+        char *p, *ctx = NULL;
+	uwsgi_foreach_token(mflags, ",", p, ctx) {
                 unsigned long flag = (unsigned long) uwsgi_mount_flag(p);
                 if (!flag) {
                         uwsgi_log("unknown umount flag \"%s\"\n", p);
                         exit(1);
                 }
                 mountflags |= flag;
-                p = strtok(NULL, ",");
         }
         free(mflags);
 parsed:
