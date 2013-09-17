@@ -1031,6 +1031,12 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 			uct = uct->next;
 		}
 
+		uct = uwsgi.vassals_includes;
+                while (uct) {
+                        counter += 2;
+                        uct = uct->next;
+                }
+
 		char **vassal_argv = uwsgi_malloc(sizeof(char *) * counter);
 		// set args
 		vassal_argv[0] = uwsgi.binary_path;
@@ -1093,6 +1099,15 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 			counter += 2;
 			uct = uct->next;
 		}
+
+		uct = uwsgi.vassals_includes;
+                while (uct) {
+                        vassal_argv[counter] = "--include";
+                        vassal_argv[counter + 1] = uct->value;
+                        counter += 2;
+                        uct = uct->next;
+                }
+
 		vassal_argv[counter] = NULL;
 
 		// disable stdin OR map it to the "on demand" socket

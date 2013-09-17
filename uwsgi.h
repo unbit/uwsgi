@@ -1774,6 +1774,7 @@ struct uwsgi_server {
 	char *emperor_stats;
 	int emperor_stats_fd;
 	struct uwsgi_string_list *vassals_templates;
+	struct uwsgi_string_list *vassals_includes;
 	// true if loyal to the emperor
 	int loyal;
 
