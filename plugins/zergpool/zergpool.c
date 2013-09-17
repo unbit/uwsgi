@@ -91,18 +91,17 @@ struct zergpool_socket *add_zergpool_socket(char *name, char *sockets) {
 	}
 
 	char *sock_list = uwsgi_str(sockets);
-	char *p = strtok(sock_list, ",");
-	while(p) {
+	char *p, *ctx = NULL;
+	uwsgi_foreach_token(sock_list, ",", p, ctx) {
 		z_sock->num_sockets++;
-		p = strtok(NULL, ",");
 	}
 	free(sock_list);
 	z_sock->sockets = uwsgi_calloc(sizeof(int) * (z_sock->num_sockets + 1));
 
 	sock_list = uwsgi_str(sockets);
 	int pos = 0;
-	p = strtok(sock_list, ",");
-	while(p) {
+	ctx = NULL;
+	uwsgi_foreach_token(sock_list, ",", p, ctx) {
 		char *port = strchr(p, ':');
 		char *sockname;
 		if (!port) {
@@ -117,7 +116,6 @@ struct zergpool_socket *add_zergpool_socket(char *name, char *sockets) {
 			uwsgi_log("zergpool %s bound to TCP socket %s (fd: %d)\n", name, sockname, z_sock->sockets[pos]);
 		}
 		pos++;
-		p = strtok(NULL, ",");
 		free(sockname);
 	}
 	free(sock_list);

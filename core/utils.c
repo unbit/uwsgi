@@ -2873,6 +2873,7 @@ void uwsgi_build_cap(char *what) {
 	uwsgi.cap = uwsgi_malloc(sizeof(cap_value_t) * uwsgi.cap_count);
 
 	caps = uwsgi_str(what);
+	ctx = NULL;
 	uwsgi_foreach_token(caps, ",", p, ctx) {
 		if (is_a_number(p)) {
 			cap_id = atoi(p);

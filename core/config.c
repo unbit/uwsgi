@@ -55,10 +55,9 @@ int uwsgi_logic_opt_if_not_exists(char *key, char *value) {
 
 int uwsgi_logic_opt_for(char *key, char *value) {
 
-        char *p = strtok(uwsgi.logic_opt_data, " ");
-        while (p) {
+        char *p, *ctx = NULL;
+	uwsgi_foreach_token(uwsgi.logic_opt_data, " ", p, ctx) {
                 add_exported_option(key, uwsgi_substitute(value, "%(_)", p), 0);
-                p = strtok(NULL, " ");
         }
 
         return 1;

@@ -216,21 +216,19 @@ void uwsgi_autoload_plugins_by_name(char *argv_zero) {
 		p = original_proc_name;
 	p = strstr(p, "uwsgi_");
 	if (p != NULL) {
-		plugins_requested = strtok(uwsgi_str(p + 6), "_");
-		while (plugins_requested) {
+		char *ctx = NULL;
+		uwsgi_foreach_token(uwsgi_str(p + 6), "_", plugins_requested, ctx) {
 			uwsgi_log("[uwsgi] implicit plugin requested %s\n", plugins_requested);
 			uwsgi_load_plugin(-1, plugins_requested, NULL);
-			plugins_requested = strtok(NULL, "_");
 		}
 	}
 
 	plugins_requested = getenv("UWSGI_PLUGINS");
 	if (plugins_requested) {
 		plugins_requested = uwsgi_concat2(plugins_requested, "");
-		char *p = strtok(plugins_requested, ",");
-		while (p != NULL) {
+		char *p, *ctx = NULL;
+		uwsgi_foreach_token(plugins_requested, ",", p, ctx) {
 			uwsgi_load_plugin(-1, p, NULL);
-			p = strtok(NULL, ",");
 		}
 	}
 
