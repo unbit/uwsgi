@@ -1952,6 +1952,7 @@ struct uwsgi_server {
 
 	struct uwsgi_hook *hooks;
 
+	struct uwsgi_string_list *hook_asap;
 	struct uwsgi_string_list *hook_pre_jail;
         struct uwsgi_string_list *hook_post_jail;
         struct uwsgi_string_list *hook_in_jail;
@@ -1965,6 +1966,7 @@ struct uwsgi_server {
         struct uwsgi_string_list *hook_as_emperor;
 	
 
+	struct uwsgi_string_list *exec_asap;
 	struct uwsgi_string_list *exec_pre_jail;
 	struct uwsgi_string_list *exec_post_jail;
 	struct uwsgi_string_list *exec_in_jail;
@@ -1977,6 +1979,7 @@ struct uwsgi_server {
         struct uwsgi_string_list *exec_as_vassal;
         struct uwsgi_string_list *exec_as_emperor;
 
+	struct uwsgi_string_list *call_asap;
 	struct uwsgi_string_list *call_pre_jail;
         struct uwsgi_string_list *call_post_jail;
         struct uwsgi_string_list *call_in_jail;
@@ -1995,6 +1998,7 @@ struct uwsgi_server {
         struct uwsgi_string_list *call_as_emperor2;
         struct uwsgi_string_list *call_as_emperor4;
 
+	struct uwsgi_string_list *mount_asap;
 	struct uwsgi_string_list *mount_pre_jail;
         struct uwsgi_string_list *mount_post_jail;
         struct uwsgi_string_list *mount_in_jail;
@@ -2003,6 +2007,7 @@ struct uwsgi_server {
         struct uwsgi_string_list *mount_as_vassal;
         struct uwsgi_string_list *mount_as_emperor;
 
+	struct uwsgi_string_list *umount_asap;
 	struct uwsgi_string_list *umount_pre_jail;
         struct uwsgi_string_list *umount_post_jail;
         struct uwsgi_string_list *umount_in_jail;

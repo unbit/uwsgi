@@ -325,6 +325,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"refork-post-jail", no_argument, 0, "fork() again after jailing. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork_post_jail, 0},
 	{"re-fork-post-jail", no_argument, 0, "fork() again after jailing. Useful for jailing systems", uwsgi_opt_true, &uwsgi.refork_post_jail, 0},
 
+	{"hook-asap", required_argument, 0, "run the specified hook as soon as possible", uwsgi_opt_add_string_list, &uwsgi.hook_asap, 0},
 	{"hook-pre-jail", required_argument, 0, "run the specified hook before jailing", uwsgi_opt_add_string_list, &uwsgi.hook_pre_jail, 0},
         {"hook-post-jail", required_argument, 0, "run the specified hook after jailing", uwsgi_opt_add_string_list, &uwsgi.hook_post_jail, 0},
         {"hook-in-jail", required_argument, 0, "run the specified hook in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.hook_in_jail, 0},
@@ -337,6 +338,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
         {"hook-as-vassal", required_argument, 0, "run the specified command before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.hook_as_vassal, 0},
         {"hook-as-emperor", required_argument, 0, "run the specified command in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.hook_as_emperor, 0},
 
+	{"exec-asap", required_argument, 0, "run the specified command as soon as possible", uwsgi_opt_add_string_list, &uwsgi.exec_asap, 0},
 	{"exec-pre-jail", required_argument, 0, "run the specified command before jailing", uwsgi_opt_add_string_list, &uwsgi.exec_pre_jail, 0},
 	{"exec-post-jail", required_argument, 0, "run the specified command after jailing", uwsgi_opt_add_string_list, &uwsgi.exec_post_jail, 0},
 	{"exec-in-jail", required_argument, 0, "run the specified command in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.exec_in_jail, 0},
@@ -349,6 +351,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exec-as-vassal", required_argument, 0, "run the specified command before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.exec_as_vassal, 0},
 	{"exec-as-emperor", required_argument, 0, "run the specified command in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.exec_as_emperor, 0},
 
+	{"mount-asap", required_argument, 0, "mount filesystem as soon as possible", uwsgi_opt_add_string_list, &uwsgi.mount_asap, 0},
 	{"mount-pre-jail", required_argument, 0, "mount filesystem before jailing", uwsgi_opt_add_string_list, &uwsgi.mount_pre_jail, 0},
         {"mount-post-jail", required_argument, 0, "mount filesystem after jailing", uwsgi_opt_add_string_list, &uwsgi.mount_post_jail, 0},
         {"mount-in-jail", required_argument, 0, "mount filesystem in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.mount_in_jail, 0},
@@ -357,6 +360,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
         {"mount-as-vassal", required_argument, 0, "mount filesystem before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.mount_as_vassal, 0},
         {"mount-as-emperor", required_argument, 0, "mount filesystem in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.mount_as_emperor, 0},
 
+	{"umount-asap", required_argument, 0, "unmount filesystem as soon as possible", uwsgi_opt_add_string_list, &uwsgi.umount_asap, 0},
 	{"umount-pre-jail", required_argument, 0, "unmount filesystem before jailing", uwsgi_opt_add_string_list, &uwsgi.umount_pre_jail, 0},
         {"umount-post-jail", required_argument, 0, "unmount filesystem after jailing", uwsgi_opt_add_string_list, &uwsgi.umount_post_jail, 0},
         {"umount-in-jail", required_argument, 0, "unmount filesystem in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.umount_in_jail, 0},
@@ -377,6 +381,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"wait-iface", required_argument, 0, "wait for the specified network interface to come up before running root hooks", uwsgi_opt_add_string_list, &uwsgi.wait_for_interface, 0},
 	{"wait-iface-timeout", required_argument, 0, "set the timeout for wait-for-interface", uwsgi_opt_set_int, &uwsgi.wait_for_interface_timeout, 0},
 
+	{"call-asap", required_argument, 0, "call the specified function as soon as possible", uwsgi_opt_add_string_list, &uwsgi.call_asap, 0},
 	{"call-pre-jail", required_argument, 0, "call the specified function before jailing", uwsgi_opt_add_string_list, &uwsgi.call_pre_jail, 0},
 	{"call-post-jail", required_argument, 0, "call the specified function after jailing", uwsgi_opt_add_string_list, &uwsgi.call_post_jail, 0},
 	{"call-in-jail", required_argument, 0, "call the specified function in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.call_in_jail, 0},
@@ -2076,6 +2081,32 @@ int main(int argc, char *argv[], char *envp[]) {
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();
 
+	// run "asap" hooks
+	uwsgi_hooks_run(uwsgi.hook_asap, "asap", 1);
+        struct uwsgi_string_list *usl = NULL;
+        uwsgi_foreach(usl, uwsgi.mount_asap) {
+        	uwsgi_log("mounting \"%s\" (asap)...\n", usl->value);
+                if (uwsgi_mount_hook(usl->value)) exit(1);
+	}
+        uwsgi_foreach(usl, uwsgi.umount_asap) {
+        	uwsgi_log("un-mounting \"%s\" (asap)...\n", usl->value);
+                if (uwsgi_umount_hook(usl->value)) exit(1);
+	}
+        uwsgi_foreach(usl, uwsgi.exec_asap) {
+        	uwsgi_log("running \"%s\" (asap)...\n", usl->value);
+                int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+                if (ret != 0) {
+                	uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+                        exit(1);
+                }
+	}
+        uwsgi_foreach(usl, uwsgi.call_asap) {
+        	if (uwsgi_call_symbol(usl->value)) {
+                	uwsgi_log("unable to call function \"%s\"\n", usl->value);
+                        exit(1);
+                }
+	}
+
 	// manage envdirs ASAP
 	uwsgi_envdirs(uwsgi.envdirs);
 
@@ -2293,7 +2324,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 		uwsgi_foreach(usl, uwsgi.call_pre_jail) {
 			if (uwsgi_call_symbol(usl->value)) {
-				uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+				uwsgi_log("unable to call function \"%s\"\n", usl->value);
 				exit(1);
 			}
 		}
