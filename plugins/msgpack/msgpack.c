@@ -164,8 +164,8 @@ int uwsgi_buffer_msgpack_false(struct uwsgi_buffer *ub) {
 static char *uwsgi_msgpack_log_encoder(struct uwsgi_log_encoder *ule, char *msg, size_t len, size_t *rlen) {
 	char *buf = NULL;
 	if (!ule->configured) {
-		char *p = strtok(ule->args, "|");
-		while(p) {
+		char *p, *ctx = NULL;
+		uwsgi_foreach_token(ule->args, "|", p, ctx) {
 			char *colon = strchr(p, ':');
 			if (colon) *colon = 0;	
 			// find the type of item
@@ -259,7 +259,6 @@ static char *uwsgi_msgpack_log_encoder(struct uwsgi_log_encoder *ule, char *msg,
                         }
 		
 			if (colon) *colon = ':';
-			p = strtok(NULL, "|");
 		}
 		ule->configured = 1;
 	}

@@ -200,7 +200,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"imperial-monitor-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"imperial-monitors-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"vassals-inherit", required_argument, 0, "add config templates to vassals config (uses --inherit)", uwsgi_opt_add_string_list, &uwsgi.vassals_templates, 0},
-	{"vassals-include", required_argument, 0, "inclue config templates to vassals config (uses --include instead of --inherit)", uwsgi_opt_add_string_list, &uwsgi.vassals_includes, 0},
+	{"vassals-include", required_argument, 0, "include config templates to vassals config (uses --include instead of --inherit)", uwsgi_opt_add_string_list, &uwsgi.vassals_includes, 0},
 	{"vassals-start-hook", required_argument, 0, "run the specified command before each vassal starts", uwsgi_opt_set_str, &uwsgi.vassals_start_hook, 0},
 	{"vassals-stop-hook", required_argument, 0, "run the specified command after vassal's death", uwsgi_opt_set_str, &uwsgi.vassals_stop_hook, 0},
 	{"vassal-sos-backlog", required_argument, 0, "ask emperor for sos if backlog queue has more items than the value specified", uwsgi_opt_set_int, &uwsgi.vassal_sos_backlog, 0},
@@ -920,8 +920,8 @@ int uwsgi_manage_custom_option(struct uwsgi_custom_option *uco, char *key, char 
 	// now make a copy of the option template
 	char *tmp_opt = uwsgi_str(uco->value);
 	// split it
-	p = strtok(tmp_opt, ";");
-	while (p) {
+	char *ctx = NULL;
+	uwsgi_foreach_token(tmp_opt, ";", p, ctx) {
 		char *equal = strchr(p, '=');
 		if (!equal)
 			goto clear;
@@ -954,7 +954,6 @@ int uwsgi_manage_custom_option(struct uwsgi_custom_option *uco, char *key, char 
 		}
 		// we can ignore its return value
 		(void) uwsgi_manage_opt(new_key, new_value);
-		p = strtok(NULL, ";");
 	}
 
 clear:
@@ -1065,11 +1064,15 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 
 	int base = '0';
 	char *to_split = uwsgi_str(magic_table['d']);
-	char *p = strtok(to_split, "/");
-	while (p && base <= '9') {
-		magic_table[base] = p;
-		base++;
-		p = strtok(NULL, "/");
+	char *p, *ctx = NULL;
+	uwsgi_foreach_token(to_split, "/", p, ctx) {
+		if (base <= '9') {
+			magic_table[base] = p;
+			base++;
+		}
+		else {
+			break;
+		}
 	}
 
 	if (tmp)
@@ -3247,8 +3250,8 @@ void uwsgi_worker_run() {
 
 	// eventually remap plugins
 	if (uwsgi.remap_modifier) {
-		char *map = strtok(uwsgi.remap_modifier, ",");
-		while (map != NULL) {
+		char *map, *ctx = NULL;
+		uwsgi_foreach_token(uwsgi.remap_modifier, ",", map, ctx) {
 			char *colon = strchr(map, ':');
 			if (colon) {
 				colon[0] = 0;
@@ -3257,7 +3260,6 @@ void uwsgi_worker_run() {
 				uwsgi.p[rm_dst]->request = uwsgi.p[rm_src]->request;
 				uwsgi.p[rm_dst]->after_request = uwsgi.p[rm_src]->after_request;
 			}
-			map = strtok(NULL, ",");
 		}
 	}
 
@@ -4031,8 +4033,8 @@ void uwsgi_opt_load_dl(char *opt, char *value, void *none) {
 void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 
 	char *plugins_list = uwsgi_concat2(value, "");
-	char *p = strtok(plugins_list, ",");
-	while (p != NULL) {
+	char *p, *ctx = NULL;
+	uwsgi_foreach_token(plugins_list, ",", p, ctx) {
 #ifdef UWSGI_DEBUG
 		uwsgi_debug("loading plugin %s\n", p);
 #endif
@@ -4043,7 +4045,6 @@ void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 			uwsgi_log("unable to load plugin \"%s\"\n", p);
 			exit(1);
 		}
-		p = strtok(NULL, ",");
 	}
 	free(p);
 	free(plugins_list);

@@ -828,8 +828,8 @@ clear2:
 			// set the start position of args in argv
 			i = 1;
 			if (helper) i = 2;
-			char *p = strtok(qs, "+");
-			while(p) {
+			char *p, *ctx = NULL;
+			uwsgi_foreach_token(qs, "+", p, ctx) {
 				// create a copy for the url_decoded string
 				char *arg_copy = uwsgi_str(p);
 				uint16_t arg_copy_len = strlen(p);
@@ -838,7 +838,6 @@ clear2:
 				argv[i] = uwsgi_malloc( (arg_copy_len * 2) +1);
 				escape_shell_arg(arg_copy, arg_copy_len, argv[i]);	
 				i++;
-				p = strtok(NULL, "+");
 			}
 			free(qs);
 		}

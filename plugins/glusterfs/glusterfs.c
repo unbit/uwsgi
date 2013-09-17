@@ -117,13 +117,12 @@ connect:
 
 static void uwsgi_glusterfs_connect_do(struct uwsgi_app *ua) {
 	char *servers = uwsgi_str(ua->callable);
-	char *p = strtok(servers, ";");
-	while(p) {
+	char *p, *ctx = NULL;
+	uwsgi_foreach_token(servers, ";", p, ctx) {
 		uwsgi_log("[glusterfs] try connect to %s for mountpoint %.*s on worker %d ...\n", p, ua->mountpoint_len, ua->mountpoint, uwsgi.mywid);
 		if (uwsgi_glusterfs_try(ua, p)) {
 			goto end;
 		}
-		p = strtok(NULL, ";");
 	}
 end:
 	free(servers);

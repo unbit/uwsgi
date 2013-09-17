@@ -71,8 +71,8 @@ static void carbon_post_init() {
 		u_server->healthy = 1;
 		u_server->errors = 0;
 
-		char *p = strtok(usl->value, ":");
-		while (p) {
+		char *p, *ctx = NULL;
+		uwsgi_foreach_token(usl->value, ":", p, ctx) {
 			if (!u_server->hostname) {
 				u_server->hostname = uwsgi_str(p);
 			}
@@ -81,7 +81,6 @@ static void carbon_post_init() {
 			}
 			else
 				break;
-			p = strtok(NULL, ":");
 		}
 		if (!u_server->hostname || !u_server->port) {
 			uwsgi_log("[carbon] invalid carbon server address (%s)\n", usl->value);

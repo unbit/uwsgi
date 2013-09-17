@@ -158,18 +158,19 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 		}
 
 		argc = 0;
-		argv[0] = strtok(args, "/");
+		char *ctx = NULL;
+		argv[0] = strtok_r(args, "/", &ctx);
 		if (!argv[0]) {
 			free(args);
 			uwsgi_500(wsgi_req);
 			return UWSGI_OK;
 		}
-		char *p = strtok(NULL, "/");
+		char *p = strtok_r(NULL, "/", &ctx);
 		while(p) {
 			argc++;
 			argv[argc] = p;
 			argvs[argc] = strlen(p);
-			p = strtok(NULL, "/");
+			p = strtok_r(NULL, "/", &ctx);
 		}
 		
 		wsgi_req->uh->pktsize = uwsgi_rpc(argv[0], argc, argv+1, argvs+1, response_buf);
@@ -558,8 +559,8 @@ static int uwsgi_router_rpc_base(struct uwsgi_route *ur, char *args) {
 	ur->custom = 0;
 	ur->data2 = uwsgi_calloc(sizeof(char *) * UMAX8);
 	ur->data3 = uwsgi_calloc(sizeof(uint16_t) * UMAX8);
-	char *p = strtok(args, " ");
-	while(p) {
+	char *p, *ctx = NULL;
+	uwsgi_foreach_token(args, " ", p, ctx) {
 		if (!ur->data) {
 			ur->data = p;
 		}
@@ -576,7 +577,6 @@ static int uwsgi_router_rpc_base(struct uwsgi_route *ur, char *args) {
 			argvs[ur->custom] = strlen(p);
 			ur->custom++;	
 		}
-		p = strtok(NULL, " ");
 	}
 
 	if (!ur->data) {

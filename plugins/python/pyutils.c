@@ -320,8 +320,9 @@ void init_pyargv() {
 		char *tmp_ptr = uwsgi_str(up.argv);
 #ifdef __sun__
                 // FIX THIS !!!
-                ap = strtok(tmp_ptr, " ");
-                while ((ap = strtok(NULL, " ")) != NULL) {
+		char *ctx = NULL;
+                ap = strtok_r(tmp_ptr, " ", &ctx);
+                while ((ap = strtok_r(NULL, " ", &ctx)) != NULL) {
 #else
                 while ((ap = strsep(&tmp_ptr, " \t")) != NULL) {
 #endif
@@ -352,8 +353,9 @@ void init_pyargv() {
 
 #ifdef __sun__
 		// FIX THIS !!!
-		ap = strtok(py_argv_copy, " ");
-		while ((ap = strtok(NULL, " ")) != NULL) {
+		char *ctx = NULL;
+		ap = strtok_r(py_argv_copy, " ", &ctx);
+		while ((ap = strtok_r(NULL, " ", &ctx)) != NULL) {
 #else
 		while ((ap = strsep(&py_argv_copy, " \t")) != NULL) {
 #endif

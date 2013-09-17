@@ -123,10 +123,9 @@ static void uwsgi_gccgo_initialize() {
 	int argc = 0;
 	if (ugccgo.args) {
         	char *argv_list = uwsgi_str(ugccgo.args);
-                char *p = strtok(argv_list, " ");
-                while(p) {
+                char *p, *ctx = NULL;
+		uwsgi_foreach_token(argv_list, " ", p, ctx) {
 			argc++;
-                        p = strtok(NULL, " ");
                 }
 		free(argv_list);
         }
@@ -134,12 +133,11 @@ static void uwsgi_gccgo_initialize() {
 	if (argc > 0) {
 		char **argv = uwsgi_calloc(sizeof(char *) * (argc + 1));
 		char *argv_list = uwsgi_str(ugccgo.args);
-		char *p = strtok(argv_list, " ");
+		char *p, *ctx = NULL;
 		int n = 0;
-                while(p) {
+		uwsgi_foreach_token(argv_list, " ", p, ctx) {
 			argv[n] = p;
 			n++;
-                        p = strtok(NULL, " ");
                 }
         	runtime_args(argc, argv);
 	}

@@ -158,11 +158,10 @@ static void uwsgi_webdav_add_a_prop(xmlNode *node, char *opt, xmlNode *req_prop,
 		else if (type == 2) {
 			new_node = xmlNewChild(node, NULL, BAD_CAST first_space + 1, NULL);
 			char *comps = uwsgi_str(second_space + 1);
-			char *p = strtok(comps, ",");
-			while(p) {
+			char *p, *ctx = NULL;
+			uwsgi_foreach_token(comps, ",", p, ctx) {
 				xmlNode *comp = xmlNewChild(new_node, NULL, BAD_CAST "comp", NULL);
 				xmlNewProp(comp, BAD_CAST "name", BAD_CAST p);
-				p = strtok(NULL, ",");
 			}
 			free(comps);
 		}
