@@ -1653,8 +1653,8 @@ void uwsgi_map_sockets() {
 			}
 			if ((int) uwsgi_str_num(usl->value, colon - usl->value) == uwsgi_get_socket_num(uwsgi_sock)) {
 				enabled = 0;
-				char *p = strtok(colon + 1, ",");
-				while (p != NULL) {
+				char *p, *ctx = NULL;
+				uwsgi_foreach_token(colon + 1, ",", p, ctx) {
 					int w = atoi(p);
 					if (w < 1 || w > uwsgi.numproc) {
 						uwsgi_log("invalid worker num: %d\n", w);
@@ -1665,7 +1665,6 @@ void uwsgi_map_sockets() {
 						uwsgi_log("mapped socket %d (%s) to worker %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi.mywid);
 						break;
 					}
-					p = strtok(NULL, ",");
 				}
 			}
 

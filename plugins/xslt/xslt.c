@@ -72,16 +72,15 @@ static char *uwsgi_xslt_apply(xmlDoc *doc, char *xsltfile, char *params, int *rl
 		}
 		vparams = uwsgi_calloc( sizeof(char *) * ((count * 2) + 1));
 		tmp_params = uwsgi_str(params);
-		char *p = strtok(tmp_params, "&");
 		int pos = 0;
-		while(p) {
+		char *p, *ctx = NULL;
+		uwsgi_foreach_token(tmp_params, "&", p, ctx) {
 			char *equal = strchr(p, '=');
 			if (equal) {
 				*equal = 0;
 				vparams[pos] = p; pos++;
 				vparams[pos] = uwsgi_concat3("\"", equal+1, "\""); pos++;	
 			}
-			p = strtok(NULL, "&");
 		}
 	}
 

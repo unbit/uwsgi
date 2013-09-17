@@ -1191,26 +1191,23 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		uc->store = c_store;
 
 		if (c_nodes) {
-			char *p = strtok(c_nodes, ";");
-			while(p) {
+			char *p, *ctx = NULL;
+			uwsgi_foreach_token(c_nodes, ";", p, ctx) {
 				uwsgi_string_new_list(&uc->nodes, p);
-				p = strtok(NULL, ";");
 			}
 		}
 
 		if (c_sync) {
-			char *p = strtok(c_sync, ";");
-                        while(p) {
+			char *p, *ctx = NULL;
+			uwsgi_foreach_token(c_sync, ";", p, ctx) {
                                 uwsgi_string_new_list(&uc->sync_nodes, p);
-                                p = strtok(NULL, ";");
                         }
 		}
 
 		if (c_udp_servers) {
-                        char *p = strtok(c_udp_servers, ";");
-                        while(p) {
+			char *p, *ctx = NULL;
+                        uwsgi_foreach_token(c_udp_servers, ";", p, ctx) {
                                 uwsgi_string_new_list(&uc->udp_servers, p);
-                                p = strtok(NULL, ";");
                         }
                 }
 		

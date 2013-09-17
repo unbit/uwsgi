@@ -383,10 +383,9 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 			AV *uperl_argv = GvAV(PL_argvgv);
 			if (uperl.argv_items) {
 				char *argv_list = uwsgi_str(uperl.argv_items);
-				char *p = strtok(argv_list, " ");
-				while(p) {
+				char *p, *ctx = NULL;
+				uwsgi_foreach_token(argv_list, " ", p, ctx) {
 					av_push(uperl_argv, newSVpv(p, 0));
-					p = strtok(NULL, " ");
 				}
 			}
 			struct uwsgi_string_list *usl = uperl.argv_item;

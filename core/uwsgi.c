@@ -902,11 +902,10 @@ int uwsgi_manage_custom_option(struct uwsgi_custom_option *uco, char *key, char 
 	if (value_len > 0) {
 		tmp_val = uwsgi_str(value);
 		// fill the array of options
-		p = strtok(tmp_val, " ");
-		while (p) {
+		char *p, *ctx = NULL;
+		uwsgi_foreach_token(tmp_val, " ", p, ctx) {
 			opt_argv[pos] = p;
 			pos++;
-			p = strtok(NULL, " ");
 		}
 	}
 	else {

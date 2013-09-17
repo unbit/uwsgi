@@ -132,6 +132,8 @@ extern "C" {
 
 #define uwsgi_foreach(x, y) for(x=y;x;x = x->next) 
 
+#define uwsgi_foreach_token(x, y, z, w) for(z=strtok_r(x, y, &w);z;z = strtok_r(NULL, y, &w))
+
 
 #ifndef __need_IOV_MAX
 #define __need_IOV_MAX

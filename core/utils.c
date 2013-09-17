@@ -1879,14 +1879,12 @@ char *uwsgi_get_optname_by_index(int index) {
 int uwsgi_list_has_num(char *list, int num) {
 
 	char *list2 = uwsgi_concat2(list, "");
-
-	char *p = strtok(list2, ",");
-	while (p != NULL) {
+	char *p, *ctx = NULL;
+	uwsgi_foreach_token(list2, ",", p, ctx) {
 		if (atoi(p) == num) {
 			free(list2);
 			return 1;
 		}
-		p = strtok(NULL, ",");
 	}
 
 	free(list2);
@@ -1896,14 +1894,12 @@ int uwsgi_list_has_num(char *list, int num) {
 int uwsgi_list_has_str(char *list, char *str) {
 
 	char *list2 = uwsgi_str(list);
-
-	char *p = strtok(list2, " ");
-	while (p != NULL) {
+	char *p, *ctx = NULL;
+	uwsgi_foreach_token(list2, " ", p, ctx) {
 		if (!strcasecmp(p, str)) {
 			free(list2);
 			return 1;
 		}
-		p = strtok(NULL, " ");
 	}
 
 	free(list2);
@@ -2766,14 +2762,12 @@ static int uwsgi_get_unshare_id(char *name) {
 void uwsgi_build_unshare(char *what, int *mask) {
 
 	char *list = uwsgi_str(what);
-
-	char *p = strtok(list, ",");
-	while (p != NULL) {
+	char *p, *ctx = NULL;
+	uwsgi_foreach_token(list, ",", p, ctx) {
 		int u_id = uwsgi_get_unshare_id(p);
 		if (u_id != -1) {
 			*mask |= u_id;
 		}
-		p = strtok(NULL, ",");
 	}
 	free(list);
 }
@@ -2862,8 +2856,8 @@ void uwsgi_build_cap(char *what) {
 	int pos = 0;
 	uwsgi.cap_count = 0;
 
-	char *p = strtok(caps, ",");
-	while (p != NULL) {
+	char *p, *ctx = NULL;
+	uwsgi_foreach_token(caps, ",", p, ctx) {
 		if (is_a_number(p)) {
 			uwsgi.cap_count++;
 		}
@@ -2873,15 +2867,13 @@ void uwsgi_build_cap(char *what) {
 				uwsgi.cap_count++;
 			}
 		}
-		p = strtok(NULL, ",");
 	}
 	free(caps);
 
 	uwsgi.cap = uwsgi_malloc(sizeof(cap_value_t) * uwsgi.cap_count);
 
 	caps = uwsgi_str(what);
-	p = strtok(caps, ",");
-	while (p != NULL) {
+	uwsgi_foreach_token(caps, ",", p, ctx) {
 		if (is_a_number(p)) {
 			cap_id = atoi(p);
 		}
@@ -2893,7 +2885,6 @@ void uwsgi_build_cap(char *what) {
 			uwsgi_log("setting capability %s [%d]\n", p, cap_id);
 			pos++;
 		}
-		p = strtok(NULL, ",");
 	}
 	free(caps);
 
