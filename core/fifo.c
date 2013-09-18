@@ -25,6 +25,8 @@ void uwsgi_master_fifo_prepare() {
 		uwsgi_fifo_table[i] = NULL;
 	}
 
+	uwsgi_fifo_table['-'] = uwsgi_cheaper_decrease;
+	uwsgi_fifo_table['+'] = uwsgi_cheaper_increase;
 	uwsgi_fifo_table['c'] = uwsgi_chain_reload;
 	uwsgi_fifo_table['f'] = uwsgi_refork_master;
 	uwsgi_fifo_table['l'] = uwsgi_log_reopen;

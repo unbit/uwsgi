@@ -142,6 +142,15 @@ int uwsgi_calc_cheaper(void) {
 		}
 	}
 
+	// then check for fifo
+	if (uwsgi.cheaper_fifo_delta != 0) {
+		if (!ignore_algo) {
+			needed_workers = uwsgi.cheaper_fifo_delta;
+			ignore_algo = 1;
+		}
+		uwsgi.cheaper_fifo_delta = 0;
+	}
+
 	if (!ignore_algo) needed_workers = uwsgi.cheaper_algo();
 
 	if (needed_workers > 0) {
@@ -177,6 +186,11 @@ int uwsgi_calc_cheaper(void) {
 	}
 
 	return 1;
+}
+
+// fake algo to allow control with the fifo
+int uwsgi_cheaper_algo_manual(void) {
+	return 0;
 }
 
 /*
@@ -1540,4 +1554,12 @@ void uwsgi_refork_master() {
 	uwsgi_reload(uwsgi.argv);
 	// never here
 	exit(1);
+}
+
+void uwsgi_cheaper_increase() {
+	uwsgi.cheaper_fifo_delta++;
+}
+
+void uwsgi_cheaper_decrease() {
+        uwsgi.cheaper_fifo_delta--;
 }

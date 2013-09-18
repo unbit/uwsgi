@@ -1737,6 +1737,8 @@ struct uwsgi_server {
 	uint64_t cheaper_rss_limit_soft;
 	uint64_t cheaper_rss_limit_hard;
 
+	int cheaper_fifo_delta;
+
 	// destroy the stack when idle
 	int die_on_idle;
 
@@ -3598,6 +3600,7 @@ int uwsgi_calc_cheaper(void);
 int uwsgi_cheaper_algo_spare(void);
 int uwsgi_cheaper_algo_backlog(void);
 int uwsgi_cheaper_algo_backlog2(void);
+int uwsgi_cheaper_algo_manual(void);
 
 int uwsgi_master_log(void);
 int uwsgi_master_req_log(void);
@@ -4328,6 +4331,9 @@ void uwsgi_refork_master();
 void uwsgi_update_pidfiles();
 void gracefully_kill_them_all(int);
 void uwsgi_brutally_reload_workers();
+
+void uwsgi_cheaper_increase();
+void uwsgi_cheaper_decrease();
 
 #ifdef __cplusplus
 }

@@ -2184,6 +2184,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	// setup cheaper algos
 	uwsgi_register_cheaper_algo("spare", uwsgi_cheaper_algo_spare);
 	uwsgi_register_cheaper_algo("backlog", uwsgi_cheaper_algo_backlog);
+	uwsgi_register_cheaper_algo("manual", uwsgi_cheaper_algo_manual);
 
 	// setup imperial monitors
 	uwsgi_register_imperial_monitor("dir", uwsgi_imperial_monitor_directory_init, uwsgi_imperial_monitor_directory);
