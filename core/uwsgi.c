@@ -4535,3 +4535,12 @@ void uwsgi_print_sym(char *opt, char *symbol, void *foobar) {
 
 	exit(0);
 }
+
+void uwsgi_update_pidfiles() {
+	if (uwsgi.pidfile) {
+		uwsgi_write_pidfile(uwsgi.pidfile);
+	}
+	if (uwsgi.pidfile2) {
+		uwsgi_write_pidfile(uwsgi.pidfile2);
+	}
+}

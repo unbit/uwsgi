@@ -30,6 +30,7 @@ void uwsgi_master_fifo_prepare() {
 	uwsgi_fifo_table['l'] = uwsgi_log_reopen;
 	uwsgi_fifo_table['L'] = uwsgi_log_rotate;
 	uwsgi_fifo_table['p'] = suspend_resume_them_all;
+	uwsgi_fifo_table['P'] = uwsgi_update_pidfiles;
 	uwsgi_fifo_table['Q'] = kill_them_all;
 	uwsgi_fifo_table['r'] = grace_them_all;
 	uwsgi_fifo_table['R'] = reap_them_all;

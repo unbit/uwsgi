@@ -4325,6 +4325,7 @@ void uwsgi_log_reopen();
 void uwsgi_reload_workers();
 void uwsgi_chain_reload();
 void uwsgi_refork_master();
+void uwsgi_update_pidfiles();
 
 #ifdef __cplusplus
 }
