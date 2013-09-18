@@ -78,7 +78,7 @@ static struct uwsgi_option uwsgi_pty_options[] = {
 	{"pty-input", no_argument, 0, "read from original stdin in addition to pty", uwsgi_opt_true, &upty.input, 0},
 	{"pty-connect", required_argument, 0, "connect the current terminal to a pty server", uwsgi_opt_set_str, &upty.remote, 0},
 	{"pty-no-isig", no_argument, 0, "disable ISIG terminal attribute in client mode", uwsgi_opt_true, &upty.no_isig, 0},
-	{"pty-exec", no_argument, 0, "run the specified command soon after the pty thread is spawned", uwsgi_opt_set_str, &upty.command, 0},
+	{"pty-exec", required_argument, 0, "run the specified command soon after the pty thread is spawned", uwsgi_opt_set_str, &upty.command, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
