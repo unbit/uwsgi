@@ -1686,6 +1686,11 @@ struct uwsgi_server {
 	int drop_after_init;
 	int drop_after_apps;
 
+	int master_is_reforked;
+
+	char *master_fifo;
+	int master_fifo_fd;
+
 	// kill the stack on SIGTERM (instead of brutal reloading)
 	int die_on_term;
 
@@ -4309,6 +4314,17 @@ void uwsgi_log_encoders_register_embedded(void);
 void uwsgi_register_log_encoder(char *, char *(*)(struct uwsgi_log_encoder *, char *, size_t, size_t *));
 
 int uwsgi_accept(int);
+void suspend_resume_them_all(int);
+
+void uwsgi_master_fifo_prepare();
+int uwsgi_master_fifo(char *);
+int uwsgi_master_fifo_manage(int);
+
+void uwsgi_log_rotate();
+void uwsgi_log_reopen();
+void uwsgi_reload_workers();
+void uwsgi_chain_reload();
+void uwsgi_refork_master();
 
 #ifdef __cplusplus
 }

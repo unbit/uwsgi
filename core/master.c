@@ -306,7 +306,6 @@ int master_loop(char **argv, char **environ) {
 	struct uwsgi_rb_timer *min_timeout;
 	struct uwsgi_rbtree *rb_timers = uwsgi_init_rb_timer();
 
-
 	if (uwsgi.procname_master) {
 		uwsgi_set_processname(uwsgi.procname_master);
 	}
@@ -345,6 +344,11 @@ int master_loop(char **argv, char **environ) {
 	uwsgi_log("adding %d to signal poll\n", uwsgi.shared->worker_signal_pipe[0]);
 #endif
 	event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_signal_pipe[0]);
+
+	if (uwsgi.master_fifo) {
+		uwsgi.master_fifo_fd = uwsgi_master_fifo(uwsgi.master_fifo);
+		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.master_fifo_fd);
+	}
 
 	if (uwsgi.spoolers) {
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->spooler_signal_pipe[0]);
@@ -766,13 +770,7 @@ int master_loop(char **argv, char **environ) {
 				touched = uwsgi_check_touches(uwsgi.touch_workers_reload);
 				if (touched) {
                                         uwsgi_log_verbose("*** %s has been touched... workers reload !!! ***\n", touched);
-					uwsgi_block_signal(SIGHUP);
-					for(i=1;i<=uwsgi.numproc;i++) {
-						if (uwsgi.workers[i].pid > 0) {
-							uwsgi_curse(i, SIGHUP);
-						}
-					}
-					uwsgi_unblock_signal(SIGHUP);
+					uwsgi_reload_workers();
                                         continue;
                                 }
 				touched = uwsgi_check_touches(uwsgi.touch_chain_reload);
@@ -963,4 +961,25 @@ next:
 	}
 
 	// never here
+}
+
+void uwsgi_reload_workers() {
+	int i;
+	uwsgi_block_signal(SIGHUP);
+                                        for(i=1;i<=uwsgi.numproc;i++) {
+                                                if (uwsgi.workers[i].pid > 0) {
+                                                        uwsgi_curse(i, SIGHUP);
+                                                }
+                                        }
+                                        uwsgi_unblock_signal(SIGHUP);
+}
+
+void uwsgi_chain_reload() {
+	if (!uwsgi.status.chain_reloading) {
+		uwsgi_log_verbose("chain reload starting...\n");
+		uwsgi.status.chain_reloading = 1;
+	}
+	else {
+		uwsgi_log_verbose("chain reload already running...\n");
+	}
 }

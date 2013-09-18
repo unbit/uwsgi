@@ -488,7 +488,6 @@ void uwsgi_logvar_add(struct wsgi_request *wsgi_req, char *key, uint8_t keylen, 
 
 void uwsgi_check_logrotate(void) {
 
-	char message[1024];
 	int need_rotation = 0;
 	int need_reopen = 0;
 
@@ -512,68 +511,79 @@ void uwsgi_check_logrotate(void) {
 	}
 
 	if (need_rotation) {
-
-		char *rot_name = uwsgi.log_backupname;
-		int need_free = 0;
-		if (rot_name == NULL) {
-			char *ts_str = uwsgi_num2str((int) uwsgi_now());
-			rot_name = uwsgi_concat3(uwsgi.logfile, ".", ts_str);
-			free(ts_str);
-			need_free = 1;
-		}
-		int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering rotation to %s...\n", (int) uwsgi_now(), (unsigned long long) uwsgi.shared->logsize, rot_name);
-		if (ret > 0) {
-			if (write(uwsgi.original_log_fd, message, ret) != ret) {
-				// very probably this will never be printed
-				uwsgi_error("write()");
-			}
-		}
-		if (rename(uwsgi.logfile, rot_name) == 0) {
-			// reopen logfile dup'it and eventually gracefully reload workers;
-			int fd = open(uwsgi.logfile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP);
-			if (fd < 0) {
-				uwsgi_error_open(uwsgi.logfile);
-				grace_them_all(0);
-			}
-			else {
-				if (dup2(fd, uwsgi.original_log_fd) < 0) {
-					uwsgi_error("dup2()");
-					grace_them_all(0);
-				}
-				close(fd);
-			}
-		}
-		else {
-			uwsgi_error("unable to rotate log: rename()");
-		}
-		if (need_free)
-			free(rot_name);
+		uwsgi_log_rotate();
 	}
 	else if (need_reopen) {
-		int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering log-reopen...\n", (int) uwsgi_now(), (unsigned long long) uwsgi.shared->logsize);
-		if (ret > 0) {
-			if (write(uwsgi.original_log_fd, message, ret) != ret) {
-				// very probably this will never be printed
-				uwsgi_error("write()");
-			}
-		}
-
-		// reopen logfile;
-		close(uwsgi.original_log_fd);
-		uwsgi.original_log_fd = open(uwsgi.logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
-		if (uwsgi.original_log_fd < 0) {
-			uwsgi_error_open(uwsgi.logfile);
-			grace_them_all(0);
-		}
-		ret = snprintf(message, 1024, "[%d] %s reopened.\n", (int) uwsgi_now(), uwsgi.logfile);
-		if (ret > 0) {
-			if (write(uwsgi.original_log_fd, message, ret) != ret) {
-				// very probably this will never be printed
-				uwsgi_error("write()");
-			}
-		}
-		uwsgi.shared->logsize = lseek(uwsgi.original_log_fd, 0, SEEK_CUR);
+		uwsgi_log_reopen();
 	}
+}
+
+void uwsgi_log_rotate() {
+	char message[1024];
+	if (!uwsgi.logfile) return;
+	char *rot_name = uwsgi.log_backupname;
+                int need_free = 0;
+                if (rot_name == NULL) {
+                        char *ts_str = uwsgi_num2str((int) uwsgi_now());
+                        rot_name = uwsgi_concat3(uwsgi.logfile, ".", ts_str);
+                        free(ts_str);
+                        need_free = 1;
+                }
+                int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering rotation to %s...\n", (int) uwsgi_now(), (unsigned long long) uwsgi.shared->logsize, rot_name);
+                if (ret > 0) {
+                        if (write(uwsgi.original_log_fd, message, ret) != ret) {
+                                // very probably this will never be printed
+                                uwsgi_error("write()");
+                        }
+                }
+                if (rename(uwsgi.logfile, rot_name) == 0) {
+                        // reopen logfile dup'it and eventually gracefully reload workers;
+                        int fd = open(uwsgi.logfile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP);
+                        if (fd < 0) {
+                                uwsgi_error_open(uwsgi.logfile);
+                                grace_them_all(0);
+                        }
+                        else {
+                                if (dup2(fd, uwsgi.original_log_fd) < 0) {
+                                        uwsgi_error("dup2()");
+                                        grace_them_all(0);
+                                }
+                                close(fd);
+                        }
+                }
+                else {
+                        uwsgi_error("unable to rotate log: rename()");
+                }
+                if (need_free)
+                        free(rot_name);
+}
+
+void uwsgi_log_reopen() {
+	char message[1024];
+	if (!uwsgi.logfile) return;
+	int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering log-reopen...\n", (int) uwsgi_now(), (unsigned long long) uwsgi.shared->logsize);
+        if (ret > 0) {
+                        if (write(uwsgi.original_log_fd, message, ret) != ret) {
+                                // very probably this will never be printed
+                                uwsgi_error("write()");
+                        }
+                }
+
+                // reopen logfile;
+                close(uwsgi.original_log_fd);
+                uwsgi.original_log_fd = open(uwsgi.logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
+                if (uwsgi.original_log_fd < 0) {
+                        uwsgi_error_open(uwsgi.logfile);
+                        grace_them_all(0);
+                }
+                ret = snprintf(message, 1024, "[%d] %s reopened.\n", (int) uwsgi_now(), uwsgi.logfile);
+                if (ret > 0) {
+                        if (write(uwsgi.original_log_fd, message, ret) != ret) {
+                                // very probably this will never be printed
+                                uwsgi_error("write()");
+                        }
+                }
+                uwsgi.shared->logsize = lseek(uwsgi.original_log_fd, 0, SEEK_CUR);
 }
 
 

@@ -18,6 +18,10 @@ int uwsgi_master_manage_events(int interesting_fd) {
 		}
 	}
 
+	if (uwsgi.master_fifo_fd > -1 && interesting_fd == uwsgi.master_fifo_fd) {
+		return uwsgi_master_fifo_manage(uwsgi.master_fifo_fd);
+	}
+
 	// stats server ?
 	if (uwsgi.stats && uwsgi.stats_fd > -1) {
 		if (interesting_fd == uwsgi.stats_fd) {

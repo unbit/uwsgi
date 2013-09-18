@@ -353,23 +353,30 @@ void uwsgi_reload(char **argv) {
 	int i;
 	int waitpid_status;
 
-	// call a series of waitpid to ensure all processes (gateways, mules and daemons) are dead
-	for (i = 0; i < (ushared->gateways_cnt + uwsgi.daemons_cnt + uwsgi.mules_cnt); i++) {
-		waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
+	if (!uwsgi.master_is_reforked) {
+
+		// call a series of waitpid to ensure all processes (gateways, mules and daemons) are dead
+		for (i = 0; i < (ushared->gateways_cnt + uwsgi.daemons_cnt + uwsgi.mules_cnt); i++) {
+			waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
+		}
+
+		// call master cleanup hooks
+		uwsgi_master_cleanup_hooks();
+
+		// call atexit user exec
+		uwsgi_exec_atexit();
+
+		if (uwsgi.exit_on_reload) {
+			uwsgi_log("uWSGI: GAME OVER (insert coin)\n");
+			exit(0);
+		}
+
+		uwsgi_log("binary reloading uWSGI...\n");
+	}
+	else {
+		uwsgi_log("fork()'ing uWSGI...\n");
 	}
 
-	// call master cleanup hooks
-	uwsgi_master_cleanup_hooks();
-
-	// call atexit user exec
-	uwsgi_exec_atexit();
-
-	if (uwsgi.exit_on_reload) {
-		uwsgi_log("uWSGI: GAME OVER (insert coin)\n");
-		exit(0);
-	}
-
-	uwsgi_log("binary reloading uWSGI...\n");
 	uwsgi_log("chdir() to %s\n", uwsgi.cwd);
 	if (chdir(uwsgi.cwd)) {
 		uwsgi_error("chdir()");
@@ -556,6 +563,7 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 			}
 		}
 
+		if (uwsgi.master_fifo_fd > -1) close(uwsgi.master_fifo_fd);
 	}
 
 
@@ -1511,4 +1519,25 @@ static void add_reload_fds(struct uwsgi_string_list *list, char *type) {
 void uwsgi_add_reload_fds() {
 	add_reload_fds(uwsgi.reload_on_fd, "graceful");
 	add_reload_fds(uwsgi.brutal_reload_on_fd, "brutal");
+}
+
+void uwsgi_refork_master() {
+	pid_t pid = fork();
+	if (pid < 0) {
+		uwsgi_error("uwsgi_refork_master()/fork()");
+		return;
+	}
+
+	if (pid > 0) {
+		uwsgi_log_verbose("new master copy spawned with pid %d\n", (int) pid);
+		return;
+	}
+
+	// detach from the old master
+	setsid();
+
+	uwsgi.master_is_reforked = 1;
+	uwsgi_reload(uwsgi.argv);
+	// never here
+	exit(1);
 }

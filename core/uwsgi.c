@@ -462,7 +462,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"fs-brutal-reload", required_argument, 0, "brutal reload when the specified filesystem object is modified", uwsgi_opt_add_string_list, &uwsgi.fs_brutal_reload, UWSGI_OPT_MASTER},
 	{"fs-signal", required_argument, 0, "raise a uwsgi signal when the specified filesystem object is modified (syntax: file signal)", uwsgi_opt_add_string_list, &uwsgi.fs_signal, UWSGI_OPT_MASTER},
 
-	{"propagate-touch", no_argument, 0, "over-engineering option for system with flaky signal mamagement", uwsgi_opt_true, &uwsgi.propagate_touch, 0},
+	{"propagate-touch", no_argument, 0, "over-engineering option for system with flaky signal management", uwsgi_opt_true, &uwsgi.propagate_touch, 0},
 	{"limit-post", required_argument, 0, "limit request body", uwsgi_opt_set_64bit, &uwsgi.limit_post, 0},
 	{"no-orphans", no_argument, 0, "automatically kill workers if master dies (can be dangerous for availability)", uwsgi_opt_true, &uwsgi.no_orphans, 0},
 	{"prio", required_argument, 0, "set processes/threads priority", uwsgi_opt_set_rawint, &uwsgi.prio, 0},
@@ -494,6 +494,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"multicast", required_argument, 0, "subscribe to specified multicast group", uwsgi_opt_set_str, &uwsgi.multicast_group, UWSGI_OPT_MASTER},
 	{"multicast-ttl", required_argument, 0, "set multicast ttl", uwsgi_opt_set_int, &uwsgi.multicast_ttl, 0},
 	{"multicast-loop", required_argument, 0, "set multicast loop (default 1)", uwsgi_opt_set_int, &uwsgi.multicast_loop, 0},
+
+	{"master-fifo", required_argument, 0, "enable the master fifo", uwsgi_opt_set_str, &uwsgi.master_fifo, UWSGI_OPT_MASTER},
 
 #ifdef UWSGI_SSL
 	{"legion", required_argument, 0, "became a member of a legion", uwsgi_opt_legion, NULL, UWSGI_OPT_MASTER},

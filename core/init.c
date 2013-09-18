@@ -172,6 +172,11 @@ void uwsgi_init_default() {
 	
 	// 1 MB default limit
 	uwsgi.chunked_input_limit = 1024*1024;
+
+	// clear reforked status
+	uwsgi.master_is_reforked = 0;
+
+	uwsgi_master_fifo_prepare();
 }
 
 void uwsgi_setup_reload() {
