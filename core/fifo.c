@@ -37,6 +37,7 @@ void uwsgi_master_fifo_prepare() {
 	uwsgi_fifo_table['R'] = reap_them_all;
 	uwsgi_fifo_table['s'] = stats;
 	uwsgi_fifo_table['w'] = uwsgi_reload_workers;
+	uwsgi_fifo_table['W'] = uwsgi_brutally_reload_workers;
 
 }
 
