@@ -1563,3 +1563,24 @@ void uwsgi_cheaper_increase() {
 void uwsgi_cheaper_decrease() {
         uwsgi.cheaper_fifo_delta--;
 }
+
+void uwsgi_go_cheap() {
+	int i;
+	int waitpid_status;
+	if (uwsgi.status.is_cheap) return;
+	uwsgi_log_verbose("going cheap...\n");
+	uwsgi.status.is_cheap = 1;
+                for (i = 1; i <= uwsgi.numproc; i++) {
+                        uwsgi.workers[i].cheaped = 1;
+                        if (uwsgi.workers[i].pid == 0)
+                                continue;
+			uwsgi_log("killing worker %d (pid: %d)\n", i, (int) uwsgi.workers[i].pid);
+                        kill(uwsgi.workers[i].pid, SIGKILL);
+                        if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
+                                if (errno != ECHILD)
+                                        uwsgi_error("uwsgi_go_cheap()/waitpid()");
+                        }
+                }
+                uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
+                uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
+}

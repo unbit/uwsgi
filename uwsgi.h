@@ -4334,6 +4334,7 @@ void uwsgi_brutally_reload_workers();
 
 void uwsgi_cheaper_increase();
 void uwsgi_cheaper_decrease();
+void uwsgi_go_cheap();
 
 #ifdef __cplusplus
 }
