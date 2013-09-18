@@ -1227,6 +1227,28 @@ void kill_them_all(int signum) {
 	uwsgi_destroy_processes();
 }
 
+// gracefully destroy
+void gracefully_kill_them_all(int signum) {
+
+        if (uwsgi_instance_is_dying) return;
+        uwsgi.status.gracefully_destroying = 1;
+
+        // unsubscribe if needed
+        uwsgi_unsubscribe_all();
+
+        uwsgi_log_verbose("graceful shutdown triggered...\n");
+
+        int i;
+        for (i = 1; i <= uwsgi.numproc; i++) {
+                if (uwsgi.workers[i].pid > 0) {
+                        uwsgi_curse(i, SIGHUP);
+                }
+        }
+
+        uwsgi_destroy_processes();
+}
+
+
 // graceful reload
 void grace_them_all(int signum) {
 	if (uwsgi_instance_is_reloading || uwsgi_instance_is_dying)
