@@ -2082,6 +2082,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.magic_table['v'] = uwsgi.cwd;
 	uwsgi.magic_table['h'] = uwsgi.hostname;
 	uwsgi.magic_table['V'] = UWSGI_VERSION;
+	uwsgi.magic_table['['] = "\033";
 
 	// you can embed a ini file in the uWSGi binary with default options
 #ifdef UWSGI_EMBED_CONFIG
