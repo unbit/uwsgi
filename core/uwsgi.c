@@ -879,6 +879,7 @@ void show_config(void) {
 }
 
 int uwsgi_manage_custom_option(struct uwsgi_custom_option *uco, char *key, char *value) {
+	int configured;
 	size_t i, count = 1;
 	size_t value_len = 0;
 	if (value)
@@ -954,8 +955,11 @@ int uwsgi_manage_custom_option(struct uwsgi_custom_option *uco, char *key, char 
 				free(old_value);
 			free(placeholder);
 		}
-		// we can ignore its return value
-		(void) uwsgi_manage_opt(new_key, new_value);
+retry:
+		configured = uwsgi_manage_opt(new_key, new_value);
+		if (!configured && uwsgi.autoload) {
+			if (uwsgi_try_autoload(new_key)) goto retry;
+		}
 	}
 
 clear:
