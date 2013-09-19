@@ -1258,6 +1258,7 @@ struct uwsgi_log_encoder {
 	char *name;
 	char *(*func)(struct uwsgi_log_encoder *, char *, size_t, size_t *);
 	int configured;
+	char *use_for;
 	char *args;
 	void *data;
 	struct uwsgi_log_encoder *next;

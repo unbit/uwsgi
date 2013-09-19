@@ -1411,6 +1411,16 @@ static void uwsgi_log_func_do(struct uwsgi_string_list *encoders, struct uwsgi_l
 	size_t new_msg_len = len;
 	while(usl) {
 		struct uwsgi_log_encoder *ule = (struct uwsgi_log_encoder *) usl->custom_ptr;
+		if (ule->use_for) {
+			if (ul && ul->id) {
+				if (strcmp(ule->use_for, ul->id)) {
+					goto next;
+				}
+			}
+			else {
+				goto next;
+			}
+		}
 		size_t rlen = 0;
 		char *buf = ule->func(ule, new_msg, new_msg_len, &rlen);
 		if (new_msg != msg) {
@@ -1418,6 +1428,7 @@ static void uwsgi_log_func_do(struct uwsgi_string_list *encoders, struct uwsgi_l
         	}
 		new_msg = buf;
 		new_msg_len = rlen;
+next:
 		usl = usl->next;
 	}
 	if (ul) {
@@ -1635,21 +1646,28 @@ void uwsgi_setup_log_encoders() {
 	uwsgi_foreach(usl, uwsgi.requested_log_encoders) {
 		char *space = strchr(usl->value, ' ');
 		if (space) *space = 0;
+		char *use_for = strchr(usl->value, ':');
+		if (use_for) *use_for = 0;
 		struct uwsgi_log_encoder *ule = uwsgi_log_encoder_by_name(usl->value);
 		if (!ule) {
 			uwsgi_log("log encoder \"%s\" not found\n", usl->value);
 			exit(1);
 		}
-		if (space) *space = ' ';
 		struct uwsgi_log_encoder *ule2 = uwsgi_malloc(sizeof(struct uwsgi_log_encoder));
 		memcpy(ule2, ule, sizeof(struct uwsgi_log_encoder)); 
+		if (use_for) {
+			ule2->use_for = uwsgi_str(use_for+1);
+			*use_for = ':';
+		}
 		// we use a copy
 		if (space) {
+			*space = ' ';
 			ule2->args = uwsgi_str(space+1);
 		}
 		else {
 			ule2->args = uwsgi_str("");
 		}
+
 		usl->custom_ptr = ule2;
 		uwsgi_log("[log-encoder] registered %s\n", usl->value);
 	}
@@ -1657,21 +1675,27 @@ void uwsgi_setup_log_encoders() {
 	uwsgi_foreach(usl, uwsgi.requested_log_req_encoders) {
                 char *space = strchr(usl->value, ' ');
                 if (space) *space = 0;
+		char *use_for = strchr(usl->value, ':');
+		if (use_for) *use_for = 0;
                 struct uwsgi_log_encoder *ule = uwsgi_log_encoder_by_name(usl->value);
                 if (!ule) {
                         uwsgi_log("log encoder \"%s\" not found\n", usl->value);
                         exit(1);
                 }
-                if (space) *space = ' ';
-                struct uwsgi_log_encoder *ule2 = uwsgi_malloc(sizeof(struct uwsgi_log_encoder));
+		struct uwsgi_log_encoder *ule2 = uwsgi_malloc(sizeof(struct uwsgi_log_encoder));
                 memcpy(ule2, ule, sizeof(struct uwsgi_log_encoder));
+                if (use_for) {
+			ule2->use_for = uwsgi_str(use_for+1);
+                        *use_for = ':';
+                }
                 // we use a copy
-		if (space) {
-                	ule2->args = uwsgi_str(space+1);
-		}
-		else {
-			ule2->args = uwsgi_str("");
-		}
+                if (space) {
+                        *space = ' ';
+                        ule2->args = uwsgi_str(space+1);
+                }
+                else {
+                        ule2->args = uwsgi_str("");
+                }
                 usl->custom_ptr = ule2;
 		uwsgi_log("[log-req-encoder] registered %s\n", usl->value);
         }
