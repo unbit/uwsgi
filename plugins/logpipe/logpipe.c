@@ -18,11 +18,11 @@ static ssize_t uwsgi_pipe_logger(struct uwsgi_logger *ul, char *message, size_t 
 	if (!ul->configured) {
 		if (ul->arg) {
 			int pipefd[2];
-			if (-1 == pipe(pipefd)) {
-				uwsgi_error("uwsgi_pipe_logger()/pipe()");
-				return -1;
-			}
-			if (fork()) {
+			// retry later...
+			if (pipe(pipefd) < 0) return -1;
+			pid_t pid = fork();
+			if (pid < 0) return -1;
+			if (pid > 0) {
 				close(pipefd[0]);
 				ul->fd = pipefd[1];
 			}
@@ -43,7 +43,6 @@ static ssize_t uwsgi_pipe_logger(struct uwsgi_logger *ul, char *message, size_t 
 	int err = write(ul->fd, message, len);
 	// on failed writes, re-configure the logger
 	if (err <= 0) {
-		uwsgi_error("uwsgi_pipe_logger()/write()");
 		close(ul->fd);
 		ul->configured = 0;
 		return err;
