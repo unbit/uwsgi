@@ -23,6 +23,7 @@ extern struct uwsgi_server uwsgi;
 
 static struct uwsgi_forkptyrouter {
 	struct uwsgi_corerouter cr;
+	char *cmd;
 } ufpty;
 
 extern struct uwsgi_server uwsgi;
@@ -33,8 +34,12 @@ struct forkptyrouter_session {
 };
 
 static struct uwsgi_option forkptyrouter_options[] = {
-	{"forkptyrouter", required_argument, 0, "run the forkptyrouter on the specified port", uwsgi_opt_undeferred_corerouter, &ufpty, 0},
-	{"forkpty-router", required_argument, 0, "run the forkptyrouter on the specified port", uwsgi_opt_undeferred_corerouter, &ufpty, 0},
+	{"forkptyrouter", required_argument, 0, "run the forkptyrouter on the specified address", uwsgi_opt_undeferred_corerouter, &ufpty, 0},
+	{"forkpty-router", required_argument, 0, "run the forkptyrouter on the specified address", uwsgi_opt_undeferred_corerouter, &ufpty, 0},
+	{"forkptyrouter-command", required_argument, 0, "run the specified command on every connection (default: /bin/sh)", uwsgi_opt_set_str, &ufpty.cmd, 0},
+	{"forkpty-router-command", required_argument, 0, "run the specified command on every connection (default: /bin/sh)", uwsgi_opt_set_str, &ufpty.cmd, 0},
+	{"forkptyrouter-cmd", required_argument, 0, "run the specified command on every connection (default: /bin/sh)", uwsgi_opt_set_str, &ufpty.cmd, 0},
+	{"forkpty-router-cmd", required_argument, 0, "run the specified command on every connection (default: /bin/sh)", uwsgi_opt_set_str, &ufpty.cmd, 0},
 	{"forkptyrouter-processes", required_argument, 0, "prefork the specified number of forkptyrouter processes", uwsgi_opt_set_int, &ufpty.cr.processes, 0},
 	{"forkptyrouter-workers", required_argument, 0, "prefork the specified number of forkptyrouter processes", uwsgi_opt_set_int, &ufpty.cr.processes, 0},
 	{"forkptyrouter-zerg", required_argument, 0, "attach the forkptyrouter to a zerg server", uwsgi_opt_corerouter_zerg, &ufpty, 0},
@@ -143,11 +148,31 @@ static int forkptyrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsg
 		return -1;
 	}
 	else if (fpty_session->pid == 0) {
-		char *argv[2];
-		argv[0] = "/bin/bash";
-		argv[1] = NULL;	
-		execve(argv[0], argv, uwsgi.environ);
+		if (ufpty.cmd) {
+			char *space = strchr(ufpty.cmd, ' ');
+			if (space) {
+				char *argv[4];
+				argv[0] = uwsgi_binsh();
+				argv[1] = "-c";	
+				argv[2] = ufpty.cmd;	
+				argv[3] = NULL;	
+				execve(argv[0], argv, uwsgi.environ);
+			}
+			else {
+				char *argv[2];
+				argv[0] = ufpty.cmd;
+				argv[1] = NULL;	
+				execve(argv[0], argv, uwsgi.environ);
+			}
+		}
+		else {
+			char *argv[2];
+			argv[0] = "/bin/sh";
+			argv[1] = NULL;	
+			execve(argv[0], argv, uwsgi.environ);
+		}
 		// never here;
+		uwsgi_error("forkptyrouter_alloc_session()/execve()");
 		exit(1);
 	}
 

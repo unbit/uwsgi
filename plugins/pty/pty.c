@@ -272,8 +272,8 @@ static int uwsgi_pty_client() {
 		exit(1);
 	}
 
-	uwsgi_socket_nb(upty.server_fd);
-	uwsgi_socket_nb(0);
+	//uwsgi_socket_nb(upty.server_fd);
+	//uwsgi_socket_nb(0);
 
 	uwsgi_log("[pty] connected.\n");
 
