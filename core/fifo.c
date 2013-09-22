@@ -14,6 +14,27 @@ extern struct uwsgi_server uwsgi;
 // this var can be accessed by plugins and hooks
 void (*uwsgi_fifo_table[256])(int);
 
+static char *uwsgi_fifo_by_slot() {
+	int count = 0;
+	struct uwsgi_string_list *usl;
+	uwsgi_foreach(usl, uwsgi.master_fifo) {
+		if (count == uwsgi.master_fifo_slot) return usl->value;
+		count++;
+	}
+	return uwsgi.master_fifo->value;
+}
+
+static void uwsgi_fifo_set_slot_zero() { uwsgi.master_fifo_slot = 0; }
+static void uwsgi_fifo_set_slot_one() { uwsgi.master_fifo_slot = 1; }
+static void uwsgi_fifo_set_slot_two() { uwsgi.master_fifo_slot = 2; }
+static void uwsgi_fifo_set_slot_three() { uwsgi.master_fifo_slot = 3; }
+static void uwsgi_fifo_set_slot_four() { uwsgi.master_fifo_slot = 4; }
+static void uwsgi_fifo_set_slot_five() { uwsgi.master_fifo_slot = 5; }
+static void uwsgi_fifo_set_slot_six() { uwsgi.master_fifo_slot = 6; }
+static void uwsgi_fifo_set_slot_seven() { uwsgi.master_fifo_slot = 7; }
+static void uwsgi_fifo_set_slot_eight() { uwsgi.master_fifo_slot = 8; }
+static void uwsgi_fifo_set_slot_nine() { uwsgi.master_fifo_slot = 9; }
+
 /*
 
 this is called as soon as possibile allowing plugins (or hooks) to override it
@@ -24,6 +45,17 @@ void uwsgi_master_fifo_prepare() {
 	for(i=0;i<256;i++) {
 		uwsgi_fifo_table[i] = NULL;
 	}
+
+	uwsgi_fifo_table['0'] = uwsgi_fifo_set_slot_zero;
+	uwsgi_fifo_table['1'] = uwsgi_fifo_set_slot_one;
+	uwsgi_fifo_table['2'] = uwsgi_fifo_set_slot_two;
+	uwsgi_fifo_table['3'] = uwsgi_fifo_set_slot_three;
+	uwsgi_fifo_table['4'] = uwsgi_fifo_set_slot_four;
+	uwsgi_fifo_table['5'] = uwsgi_fifo_set_slot_five;
+	uwsgi_fifo_table['6'] = uwsgi_fifo_set_slot_six;
+	uwsgi_fifo_table['7'] = uwsgi_fifo_set_slot_seven;
+	uwsgi_fifo_table['8'] = uwsgi_fifo_set_slot_eight;
+	uwsgi_fifo_table['9'] = uwsgi_fifo_set_slot_nine;
 
 	uwsgi_fifo_table['-'] = uwsgi_cheaper_decrease;
 	uwsgi_fifo_table['+'] = uwsgi_cheaper_increase;
@@ -44,7 +76,9 @@ void uwsgi_master_fifo_prepare() {
 
 }
 
-int uwsgi_master_fifo(char *path) {
+int uwsgi_master_fifo() {
+
+	char *path = uwsgi_fifo_by_slot();
 
 	unlink(path);
 
@@ -75,7 +109,7 @@ int uwsgi_master_fifo_manage(int fd) {
 	// fifo destroyed, recreate it
 	else if (rlen == 0) {
 		close(fd);
-		uwsgi.master_fifo_fd = uwsgi_master_fifo(uwsgi.master_fifo);
+		uwsgi.master_fifo_fd = uwsgi_master_fifo();
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.master_fifo_fd);
 		return 0;
 	}

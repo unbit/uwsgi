@@ -346,7 +346,7 @@ int master_loop(char **argv, char **environ) {
 	event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_signal_pipe[0]);
 
 	if (uwsgi.master_fifo) {
-		uwsgi.master_fifo_fd = uwsgi_master_fifo(uwsgi.master_fifo);
+		uwsgi.master_fifo_fd = uwsgi_master_fifo();
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.master_fifo_fd);
 	}
 

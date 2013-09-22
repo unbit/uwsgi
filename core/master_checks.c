@@ -35,11 +35,17 @@ int uwsgi_master_check_reload(char **argv) {
 // check for chain reload
 void uwsgi_master_check_chain() {
 	if (!uwsgi.status.chain_reloading) return;
-	if (uwsgi.status.chain_reloading > uwsgi.numproc) {
+	int i;
+	int needed_procs = 0;
+	for(i=1;i<=uwsgi.numproc;i++) {
+                if (uwsgi.workers[i].pid > 0 && uwsgi.workers[i].cheaped == 0) {
+			needed_procs++;
+                }
+        }
+	if (uwsgi.status.chain_reloading > needed_procs) {
 		uwsgi.status.chain_reloading = 0;
                 uwsgi_log_verbose("chain reloading complete\n");
 	}
-	int i;
 	uwsgi_block_signal(SIGHUP);
 	for(i=1;i<=uwsgi.numproc;i++) {
 		if (uwsgi.workers[i].pid > 0 && uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].cursed_at == 0 && i == uwsgi.status.chain_reloading) {

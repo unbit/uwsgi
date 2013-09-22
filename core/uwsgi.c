@@ -495,7 +495,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"multicast-ttl", required_argument, 0, "set multicast ttl", uwsgi_opt_set_int, &uwsgi.multicast_ttl, 0},
 	{"multicast-loop", required_argument, 0, "set multicast loop (default 1)", uwsgi_opt_set_int, &uwsgi.multicast_loop, 0},
 
-	{"master-fifo", required_argument, 0, "enable the master fifo", uwsgi_opt_set_str, &uwsgi.master_fifo, UWSGI_OPT_MASTER},
+	{"master-fifo", required_argument, 0, "enable the master fifo", uwsgi_opt_add_string_list, &uwsgi.master_fifo, UWSGI_OPT_MASTER},
 
 #ifdef UWSGI_SSL
 	{"legion", required_argument, 0, "became a member of a legion", uwsgi_opt_legion, NULL, UWSGI_OPT_MASTER},

@@ -1689,8 +1689,10 @@ struct uwsgi_server {
 
 	int master_is_reforked;
 
-	char *master_fifo;
+	struct uwsgi_string_list *master_fifo;
 	int master_fifo_fd;
+	int master_fifo_slot;
+
 
 	// kill the stack on SIGTERM (instead of brutal reloading)
 	int die_on_term;
@@ -4321,7 +4323,7 @@ int uwsgi_accept(int);
 void suspend_resume_them_all(int);
 
 void uwsgi_master_fifo_prepare();
-int uwsgi_master_fifo(char *);
+int uwsgi_master_fifo();
 int uwsgi_master_fifo_manage(int);
 
 void uwsgi_log_rotate();
