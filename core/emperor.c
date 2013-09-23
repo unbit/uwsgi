@@ -1039,7 +1039,7 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 
 		char **vassal_argv = uwsgi_malloc(sizeof(char *) * counter);
 		// set args
-		vassal_argv[0] = uwsgi.binary_path;
+		vassal_argv[0] = uwsgi.emperor_wrapper ? uwsgi.emperor_wrapper: uwsgi.binary_path;
 
 		char *colon = NULL;
 

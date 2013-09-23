@@ -1870,6 +1870,7 @@ struct uwsgi_server {
 	int emperor_clone;
 	char *pivot_root;
 #endif
+	char *emperor_wrapper;
 
 #ifdef __FreeBSD__
 	char *jail;
