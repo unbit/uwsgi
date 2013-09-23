@@ -406,7 +406,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ini", required_argument, 0, "load config from ini file", uwsgi_opt_load_ini, NULL, UWSGI_OPT_IMMEDIATE},
 #ifdef UWSGI_YAML
 	{"yaml", required_argument, 'y', "load config from yaml file", uwsgi_opt_load_yml, NULL, UWSGI_OPT_IMMEDIATE},
-	{"yal", required_argument, 'y', "load config from yaml file", uwsgi_opt_load_yml, NULL, UWSGI_OPT_IMMEDIATE},
+	{"yml", required_argument, 'y', "load config from yaml file", uwsgi_opt_load_yml, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 #ifdef UWSGI_JSON
 	{"json", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL, UWSGI_OPT_IMMEDIATE},
