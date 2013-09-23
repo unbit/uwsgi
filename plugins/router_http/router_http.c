@@ -18,8 +18,10 @@ static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_r
 	struct uwsgi_buffer *ub_url = NULL;
 	if (ur->data3_len) {
 		ub_url = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data3, ur->data3_len);
-		uwsgi_buffer_destroy(ub_addr);
-        	if (!ub_url) return UWSGI_ROUTE_BREAK;
+        	if (!ub_url) {
+			uwsgi_buffer_destroy(ub_addr);
+			return UWSGI_ROUTE_BREAK;
+		}
 	}
 
 
@@ -82,7 +84,7 @@ static int uwsgi_router_http(struct uwsgi_route *ur, char *args) {
 	ur->func = uwsgi_routing_func_http;
 	ur->data = (void *) args;
 	ur->data_len = strlen(args);
-	
+
 	char *comma = strchr(ur->data, ',');
 	if (comma) {
 		*comma = 0;
