@@ -176,6 +176,7 @@ void uwsgi_init_default() {
 	// clear reforked status
 	uwsgi.master_is_reforked = 0;
 
+	uwsgi.master_fifo_fd = -1;
 	uwsgi_master_fifo_prepare();
 }
 
