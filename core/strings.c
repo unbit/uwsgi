@@ -379,3 +379,107 @@ char *uwsgi_cheap_string(char *buf, int len) {
         return buf - 1;
 }
 
+/*
+	status 0: append mode
+	status 1: single quote found
+	status 2: double quote found
+	status 3: backslash found (on 0)
+	status 4: backslash found (on 1)
+	status 5: backslash found (on 2)
+	
+*/
+char ** uwsgi_split_quoted(char *what, size_t what_len, char *sep, size_t *rlen) {
+	size_t i;
+	int status = 0;
+	char *base = uwsgi_concat2n(what, what_len, "", 0);
+	char *item = NULL;
+	char *ptr = NULL;
+	*rlen = 0;
+	char **ret = (char **) uwsgi_malloc(sizeof(char *) * (what_len+1));
+
+	for(i=0;i<what_len;i++) {
+		if (!item) {
+			item = uwsgi_malloc((what_len - i)+1);
+			ptr = item;
+		}
+
+		if (status == 0) {
+			if (base[i] == '\\') {
+				status = 3;
+			}	
+			else if (base[i] == '"') {
+				status = 2;
+			}
+			else if (base[i] == '\'') {
+				status = 1;
+			}
+			else if (strchr(sep, base[i])) {
+				*ptr++= 0;
+				ret[(*rlen)] = item; (*rlen)++;
+				item = NULL;
+			}
+			else {
+				*ptr++= base[i];
+			}
+			continue;
+		}
+
+		// backslash
+		if (status == 3) {
+			*ptr++= base[i];
+			status = 0;
+			continue;
+		}
+
+		// single quote
+		if (status == 1) {
+			if (base[i] == '\\') {
+				status = 4;
+			}
+			else if (base[i] == '\'') {
+				status = 0;
+			}
+			else {
+				*ptr++= base[i];
+			}
+			continue;
+		}
+
+		// double quote
+		if (status == 2) {
+			if (base[i] == '\\') {
+                                status = 5;
+                        }
+                        else if (base[i] == '"') {
+                        	status = 0;
+                        }
+                        else {
+                                *ptr++= base[i];
+                        }
+			continue;
+		}
+
+		// backslash single quote
+                if (status == 4) {
+                        *ptr++= base[i];
+                        status = 1;
+			continue;
+                }
+
+		// backslash double quote
+                if (status == 5) {
+                        *ptr++= base[i];
+                        status = 2;
+			continue;
+                }
+	}
+
+	if (item) {
+		*ptr++= 0;
+		ret[(*rlen)] = item; (*rlen)++;
+	}
+
+	free(base);
+
+	return ret;
+}

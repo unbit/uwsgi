@@ -4340,6 +4340,8 @@ void uwsgi_cheaper_increase();
 void uwsgi_cheaper_decrease();
 void uwsgi_go_cheap();
 
+char **uwsgi_split_quoted(char *, size_t, char *, size_t *);
+
 #ifdef __cplusplus
 }
 #endif
