@@ -57,7 +57,7 @@ void uwsgi_init_queue() {
 		uwsgi.queue_header->pos = 0;
 		uwsgi.queue_header->pull_pos = 0;
 	}
-	if (!uwsgi.queue) {
+	if (uwsgi.queue == MAP_FAILED) {
 		uwsgi_error("mmap()");
 		exit(1);
 	}

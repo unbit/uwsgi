@@ -325,7 +325,7 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 			exit(1);
 		}
 		uc->items = (struct uwsgi_cache_item *) mmap(NULL, uc->filesize, PROT_READ | PROT_WRITE, MAP_SHARED, cache_fd, 0);
-		if (!uc->items) {
+		if (uc->items == MAP_FAILED) {
 			uwsgi_error("uwsgi_cache_init()/mmap() [with store]");
 			exit(1);
 		}
@@ -335,7 +335,7 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 	}
 	else {
 		uc->items = (struct uwsgi_cache_item *) mmap(NULL, uc->filesize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-		if (!uc->items) {
+		if (uc->items == MAP_FAILED) {
 			uwsgi_error("uwsgi_cache_init()/mmap()");
 			exit(1);
 		}

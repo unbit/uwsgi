@@ -104,7 +104,7 @@ static int u_green_init() {
 
 		ug.contexts[i].uc_stack.ss_sp = mmap(NULL, ug.u_stack_size + (uwsgi.page_size*2) , PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0) + uwsgi.page_size;
 
-		if (!ug.contexts[i].uc_stack.ss_sp) {
+		if (ug.contexts[i].uc_stack.ss_sp == MAP_FAILED) {
 			uwsgi_error("mmap()");
 			exit(1);
 		}
