@@ -323,7 +323,7 @@ static int u_offload_sendfile_do(struct uwsgi_thread *ut, struct uwsgi_offload_r
 		if (event_queue_add_fd_write(ut->queue, uor->fd2)) return -1;
 		return 0;
 	}
-#if defined(__linux__) || defined(__sun__)
+#if defined(__linux__) || defined(__sun__) || defined(__FreeBSD_kernel__)
 	ssize_t len = sendfile(uor->fd2, uor->fd, &uor->pos, 128 * 1024);
 	if (len > 0) {
         	uor->written += len;

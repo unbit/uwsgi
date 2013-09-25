@@ -674,6 +674,11 @@ class uConf(object):
                 self.libs.append('-lexecinfo')
                 report['execinfo'] = True
 
+        if uwsgi_os == 'GNU/kFreeBSD':
+            if self.has_include('execinfo.h'):
+                self.cflags.append('-DUWSGI_HAS_EXECINFO')
+                report['execinfo'] = True
+
         if self.has_include('zlib.h'):
             self.cflags.append('-DUWSGI_ZLIB')
             self.libs.append('-lz')
@@ -697,6 +702,10 @@ class uConf(object):
             self.ldflags.append('-L/lib')
             if not uwsgi_os_v.startswith('Nexenta'):
                 self.libs.remove('-rdynamic')
+
+        if uwsgi_os == 'GNU/kFreeBSD':
+            if self.has_include('kvm.h'):
+                kvm_list.append('GNU/kFreeBSD')
 
         if uwsgi_os in kvm_list:
             self.libs.append('-lkvm')
@@ -730,7 +739,7 @@ class uConf(object):
                 locking_mode = 'pthread_mutex'
             # FreeBSD umtx is still not ready for process shared locking
             # starting from FreeBSD 9 posix semaphores can be shared between processes
-            elif uwsgi_os == 'FreeBSD':
+            elif uwsgi_os in ('FreeBSD', 'GNU/kFreeBSD'):
                  try:
                      fbsd_major = int(uwsgi_os_k.split('.')[0])
                      if fbsd_major >= 9:
@@ -773,7 +782,7 @@ class uConf(object):
                 if int(sun_major) >= 5:
                     if int(sun_minor) >= 10:
                         event_mode = 'port'
-            elif uwsgi_os in ('Darwin', 'FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly'):
+            elif uwsgi_os in ('Darwin', 'FreeBSD', 'GNU/kFreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly'):
                 event_mode = 'kqueue'
             elif uwsgi_os.startswith('CYGWIN') or uwsgi_os == 'GNU':
                 event_mode = 'poll'
@@ -816,7 +825,7 @@ class uConf(object):
                     if int(sun_minor) >= 10:
                         timer_mode = 'port'
 
-            elif uwsgi_os in ('Darwin', 'FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly'):
+            elif uwsgi_os in ('Darwin', 'FreeBSD', 'GNU/kFreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly'):
                 timer_mode = 'kqueue'
 
         if timer_mode == 'timerfd':
@@ -843,7 +852,7 @@ class uConf(object):
                 if int(sun_major) >= 5:
                     if int(sun_minor) >= 10:
                         filemonitor_mode = 'port'
-            elif uwsgi_os in ('Darwin', 'FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly'):
+            elif uwsgi_os in ('Darwin', 'FreeBSD', 'GNU/kFreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly'):
                 filemonitor_mode = 'kqueue'
 
         if filemonitor_mode == 'inotify':
@@ -952,7 +961,7 @@ class uConf(object):
             uwsgi_version += self.get('append_version')
 
 
-        if uwsgi_os == 'FreeBSD' and self.has_include('jail.h'):
+        if uwsgi_os in ('FreeBSD','GNU/kFreeBSD') and self.has_include('jail.h'):
             self.cflags.append('-DUWSGI_HAS_FREEBSD_LIBJAIL')
             self.libs.append('-ljail')
 

@@ -197,7 +197,11 @@ extern "C" {
 #endif
 #include <netdb.h>
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD_kernel__)
+#include <bsd/unistd.h>
+#endif
+
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 #include <sys/sysctl.h>
 #include <sys/param.h>
 #include <sys/cpuset.h>
@@ -237,7 +241,7 @@ extern "C" {
 #include <linux/limits.h>
 #endif
 
-#if defined(__linux) || defined(__FreeBSD__)
+#if defined(__linux) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 #include <sys/mount.h>
 #endif
 
@@ -308,6 +312,9 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #ifdef __linux__
 #include <sys/sendfile.h>
 #include <sys/epoll.h>
+#elif defined(__FreeBSD_kernel__)
+#include <sys/sendfile.h>
+#include <sys/event.h>
 #elif defined(__sun__)
 #include <sys/sendfile.h>
 #include <sys/devpoll.h>
@@ -1872,7 +1879,7 @@ struct uwsgi_server {
 #endif
 	char *emperor_wrapper;
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 	char *jail;
 	struct uwsgi_string_list *jail_ip4;
 #ifdef AF_INET6
