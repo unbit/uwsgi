@@ -308,6 +308,10 @@ realstuff:
 	// this time we use this higher level function
 	// as this code can be executed in a signal handler
 
+#ifdef __FreeBSD_kernel__
+	return;
+#endif
+
 	if (!Py_IsInitialized()) {
 		return;
 	}
