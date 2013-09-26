@@ -592,6 +592,7 @@ struct uwsgi_daemon {
 	char *legion;
 #endif
 
+	int control;
 	struct uwsgi_daemon *next;
 };
 

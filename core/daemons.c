@@ -139,6 +139,10 @@ int uwsgi_daemon_check_pid_reload(pid_t diedpid) {
 		}
 #endif
 		if (ud->pid == diedpid && !ud->pidfile) {
+			if (ud->control) {
+				gracefully_kill_them_all(0);
+				return 0;
+			}
 			uwsgi_spawn_daemon(ud);
 			return 1;
 		}
@@ -412,6 +416,10 @@ void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
 	uwsgi_ud->last_spawn = 0;
 	uwsgi_ud->daemonize = daemonize;
 	uwsgi_ud->pidfile = pidfile;
+	uwsgi_ud->control = 0;
+	if (!strcmp(opt, "attach-control-daemon")) {
+		uwsgi_ud->control = 1;
+	}
 #ifdef UWSGI_SSL
 	uwsgi_ud->legion = legion;
 #endif
