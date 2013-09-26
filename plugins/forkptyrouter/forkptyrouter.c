@@ -31,22 +31,35 @@ extern struct uwsgi_server uwsgi;
 static struct uwsgi_forkptyrouter {
 	struct uwsgi_corerouter cr;
 	char *cmd;
-	// use the uwsgi protocol ?
-	int uwsgi;
 } ufpty;
 
 extern struct uwsgi_server uwsgi;
 
 struct forkptyrouter_session {
 	struct corerouter_session session;
+	// use the uwsgi protocol ?
+	int uwsgi;
 	size_t restore_size;
 	struct winsize w;
 	pid_t pid;
 };
 
+static void uwsgi_opt_forkpty_urouter(char *opt, char *value, void *cr) {
+        struct uwsgi_corerouter *ucr = (struct uwsgi_corerouter *) cr;
+        struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(value, ucr->name);
+        ugs->no_defer = 1;
+	ugs->mode = 1;
+        ucr->has_sockets++;
+}
+
+
 static struct uwsgi_option forkptyrouter_options[] = {
 	{"forkptyrouter", required_argument, 0, "run the forkptyrouter on the specified address", uwsgi_opt_undeferred_corerouter, &ufpty, 0},
 	{"forkpty-router", required_argument, 0, "run the forkptyrouter on the specified address", uwsgi_opt_undeferred_corerouter, &ufpty, 0},
+
+	{"forkptyurouter", required_argument, 0, "run the forkptyrouter on the specified address", uwsgi_opt_forkpty_urouter, &ufpty, 0},
+	{"forkpty-urouter", required_argument, 0, "run the forkptyrouter on the specified address", uwsgi_opt_forkpty_urouter, &ufpty, 0},
+
 	{"forkptyrouter-command", required_argument, 0, "run the specified command on every connection (default: /bin/sh)", uwsgi_opt_set_str, &ufpty.cmd, 0},
 	{"forkpty-router-command", required_argument, 0, "run the specified command on every connection (default: /bin/sh)", uwsgi_opt_set_str, &ufpty.cmd, 0},
 	{"forkptyrouter-cmd", required_argument, 0, "run the specified command on every connection (default: /bin/sh)", uwsgi_opt_set_str, &ufpty.cmd, 0},
@@ -80,8 +93,13 @@ static ssize_t fpty_instance_write(struct corerouter_peer *peer) {
 	// the chunk has been sent, start (again) reading from client and instances
 	if (cr_write_complete(peer)) {
 		// reset the buffer
-		if (uwsgi_buffer_decapitate(peer->out, peer->out->pos)) return -1;
-		peer->out->pos = fpty_session->restore_size;
+		if (fpty_session->uwsgi) {
+			if (uwsgi_buffer_decapitate(peer->out, peer->out->pos)) return -1;
+			peer->out->pos = fpty_session->restore_size;
+		}
+		else {
+			peer->out->pos = 0;
+		}
 		cr_reset_hooks(peer);
 	}
 
@@ -159,14 +177,18 @@ static ssize_t fpty_read(struct corerouter_peer *main_peer) {
 	ssize_t len = cr_read(main_peer, "fpty_read()");
 	if (!len) return 0;
 
-	ssize_t rlen = fpty_parse_uwsgi(main_peer);
-	if (rlen < 0) return -1;
-	if (rlen == 0) return 1;
+	if (fpty_session->uwsgi) {
+		ssize_t rlen = fpty_parse_uwsgi(main_peer);
+		if (rlen < 0) return -1;
+		if (rlen == 0) return 1;
 
-	fpty_session->restore_size = main_peer->in->pos - rlen;	
-
-	main_peer->session->peers->out = main_peer->in;
-	main_peer->session->peers->out->pos = rlen;
+		fpty_session->restore_size = main_peer->in->pos - rlen;	
+		main_peer->session->peers->out = main_peer->in;
+		main_peer->session->peers->out->pos = rlen;
+	}
+	else {
+		main_peer->session->peers->out = main_peer->in;
+	}
 	main_peer->session->peers->out_pos = 0;
 
 	cr_write_to_backend(main_peer->session->peers, fpty_instance_write);
@@ -194,6 +216,10 @@ static int forkptyrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsg
 	cs->close = fpty_session_close;
 
 	struct forkptyrouter_session *fpty_session = (struct forkptyrouter_session *) cs;
+	if (ugs->mode == 1) {
+		fpty_session->uwsgi = 1;
+	}
+
 	// default terminal size
 	fpty_session->w.ws_row = 24;
 	fpty_session->w.ws_col = 80;

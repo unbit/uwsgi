@@ -561,7 +561,7 @@ struct uwsgi_gateway_socket {
 
 	// could be useful for ssl
 	void *ctx;
-	// could be useful ofr plugins
+	// could be useful for plugins
 	int mode;
 
 };
