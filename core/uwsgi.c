@@ -2581,7 +2581,7 @@ int uwsgi_start(void *v_argv) {
 
 	if (uwsgi.async > 1) {
 		if ((unsigned long) uwsgi.max_fd < (unsigned long) uwsgi.async) {
-			uwsgi_log("- your current max open files limit is %lu, this is lower than requested async cores !!! -\n", (unsigned long) uwsgi.max_fd);
+			uwsgi_log_initial("- your current max open files limit is %lu, this is lower than requested async cores !!! -\n", (unsigned long) uwsgi.max_fd);
 			uwsgi.rl.rlim_cur = uwsgi.async;
 			uwsgi.rl.rlim_max = uwsgi.async;
 			if (!setrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
@@ -2593,7 +2593,7 @@ int uwsgi_start(void *v_argv) {
 				uwsgi.async = (int) uwsgi.max_fd;
 			}
 		}
-		uwsgi_log("- async cores set to %d - fd table size: %d\n", uwsgi.async, (int) uwsgi.max_fd);
+		uwsgi_log_initial("- async cores set to %d - fd table size: %d\n", uwsgi.async, (int) uwsgi.max_fd);
 		// optimization, this array maps file descriptor to requests
 		uwsgi.async_waiting_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
 		uwsgi.async_proto_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
@@ -2604,16 +2604,16 @@ int uwsgi_start(void *v_argv) {
 #endif
 
 	if (uwsgi.vhost) {
-		uwsgi_log("VirtualHosting mode enabled.\n");
+		uwsgi_log_initial("VirtualHosting mode enabled.\n");
 	}
 
 	// setup locking
 	uwsgi_setup_locking();
 	if (uwsgi.use_thunder_lock) {
-		uwsgi_log("thunder lock: enabled\n");
+		uwsgi_log_initial("thunder lock: enabled\n");
 	}
 	else {
-		uwsgi_log("thunder lock: disabled (you can enable it with --thunder-lock)\n");
+		uwsgi_log_initial("thunder lock: disabled (you can enable it with --thunder-lock)\n");
 	}
 
 	// allocate rpc structures
