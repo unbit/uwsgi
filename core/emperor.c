@@ -1719,6 +1719,8 @@ void emperor_send_stats(int fd) {
 			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "last_run", (unsigned long long) c_ui->last_run))
 			goto end0;
+		if (uwsgi_stats_keylong_comma(us, "cursed", (unsigned long long) c_ui->cursed_at))
+			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "zerg", (unsigned long long) c_ui->zerg))
 			goto end0;
 
