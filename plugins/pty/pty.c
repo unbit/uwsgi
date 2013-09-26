@@ -280,16 +280,18 @@ static void uwsgi_pty_winch() {
 }
 
 static int uwsgi_pty_client() {
-	if (!upty.remote) return 0;
+	if (!upty.remote && !upty.uremote) return 0;
 
-	uwsgi_log("[pty] connecting to %s ...\n", upty.remote);
+	char *remote = upty.uremote ? upty.uremote : upty.remote;
+
+	uwsgi_log("[pty] connecting to %s ...\n", remote);
 
 	// save current terminal settings
 	if (!tcgetattr(0, &uwsgi.termios)) {
         	uwsgi.restore_tc = 1;
         }
 
-	upty.server_fd = uwsgi_connect(upty.remote, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
+	upty.server_fd = uwsgi_connect(remote, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
 	if (upty.server_fd < 0) {
 		uwsgi_error("uwsgi_pty_client()/connect()");
 		exit(1);
@@ -303,10 +305,11 @@ static int uwsgi_pty_client() {
 
 	uwsgi_pty_setterm(0);
 
-	signal(SIGWINCH, uwsgi_pty_winch);
-
-	// send current terminal size
-	uwsgi_pty_winch();
+	if (upty.uremote) {
+		signal(SIGWINCH, uwsgi_pty_winch);
+		// send current terminal size
+		uwsgi_pty_winch();
+	}
 
 	upty.queue = event_queue_init();
 	event_queue_add_fd_read(upty.queue, upty.server_fd);
@@ -324,11 +327,13 @@ static int uwsgi_pty_client() {
 		if (interesting_fd == 0) {
 			ssize_t rlen = read(0, buf, 8192);
 			if (rlen <= 0) break;
-			struct uwsgi_header uh;
-			uh.modifier1 = 0;
-			uh.pktsize = rlen;
-			uh.modifier2 = 0;
-			if (write(upty.server_fd, &uh, 4) != 4) break;
+			if (upty.uremote) {
+				struct uwsgi_header uh;
+				uh.modifier1 = 0;
+				uh.pktsize = rlen;
+				uh.modifier2 = 0;
+				if (write(upty.server_fd, &uh, 4) != 4) break;
+			}
 			if (write(upty.server_fd, buf, rlen) != rlen) break;
 			continue;
 		}	
