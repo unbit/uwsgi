@@ -79,6 +79,7 @@ void uwsgi_init_default() {
 	uwsgi.emperor_freq = 3;
 	uwsgi.emperor_throttle = 1000;
 	uwsgi.emperor_heartbeat = 30;
+	uwsgi.emperor_curse_tolerance = 30;
 	// max 3 minutes throttling
 	uwsgi.emperor_max_throttle = 1000 * 180;
 	uwsgi.emperor_pid = -1;

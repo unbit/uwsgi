@@ -178,6 +178,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-procname", required_argument, 0, "set the Emperor process name", uwsgi_opt_set_str, &uwsgi.emperor_procname, 0},
 	{"emperor-freq", required_argument, 0, "set the Emperor scan frequency (default 3 seconds)", uwsgi_opt_set_int, &uwsgi.emperor_freq, 0},
 	{"emperor-required-heartbeat", required_argument, 0, "set the Emperor tolerance about heartbeats", uwsgi_opt_set_int, &uwsgi.emperor_heartbeat, 0},
+	{"emperor-curse-tolerance", required_argument, 0, "set the Emperor tolerance about cursed vassals", uwsgi_opt_set_int, &uwsgi.emperor_curse_tolerance, 0},
 	{"emperor-pidfile", required_argument, 0, "write the Emperor pid in the specified file", uwsgi_opt_set_str, &uwsgi.emperor_pidfile, 0},
 	{"emperor-tyrant", no_argument, 0, "put the Emperor in Tyrant mode", uwsgi_opt_true, &uwsgi.emperor_tyrant, 0},
 	{"emperor-tyrant-nofollow", no_argument, 0, "do not follow symlinks when checking for uid/gid in Tyrant mode", uwsgi_opt_true, &uwsgi.emperor_tyrant_nofollow, 0},

@@ -1770,6 +1770,7 @@ struct uwsgi_server {
 	int emperor_max_throttle;
 	int emperor_magic_exec;
 	int emperor_heartbeat;
+	int emperor_curse_tolerance;
 	struct uwsgi_string_list *emperor_extra_extension;
 	// search for a file with the specified extension at the same level of the vassal file
 	char *emperor_on_demand_extension;
@@ -3826,11 +3827,13 @@ struct uwsgi_instance {
 
 	int on_demand_fd;
 	char *socket_name;
+	time_t cursed_at;
 };
 
 struct uwsgi_instance *emperor_get_by_fd(int);
 struct uwsgi_instance *emperor_get(char *);
 void emperor_stop(struct uwsgi_instance *);
+void emperor_curse(struct uwsgi_instance *);
 void emperor_respawn(struct uwsgi_instance *, time_t);
 void emperor_add(struct uwsgi_emperor_scanner *, char *, time_t, char *, uint32_t, uid_t, gid_t, char *);
 

@@ -617,6 +617,7 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 }
 
 void emperor_stop(struct uwsgi_instance *c_ui) {
+	if (c_ui->status == 1) return;
 	// remove uWSGI instance
 
 	if (write(c_ui->pipe[0], "\0", 1) != 1) {
@@ -624,9 +625,22 @@ void emperor_stop(struct uwsgi_instance *c_ui) {
 	}
 
 	c_ui->status = 1;
+	c_ui->cursed_at = uwsgi_now();
 
 	uwsgi_log("[emperor] stop the uwsgi instance %s\n", c_ui->name);
 }
+
+void emperor_curse(struct uwsgi_instance *c_ui) {
+	if (c_ui->status == 1) return;
+        // curse uWSGI instance
+
+        c_ui->status = 1;
+        c_ui->cursed_at = uwsgi_now();
+
+        uwsgi_log("[emperor] curse the uwsgi instance %s (pid: %d)\n", c_ui->name, (int) c_ui->pid);
+
+}
+
 
 void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 
@@ -1471,7 +1485,8 @@ void emperor_loop() {
 				ssize_t rlen = read(interesting_fd, &byte, 1);
 				if (rlen <= 0) {
 					// SAFE
-					emperor_del(ui_current);
+					event_queue_del_fd(uwsgi.emperor_queue, interesting_fd, event_queue_read());
+					emperor_curse(ui_current);
 				}
 				else {
 					if (byte == 17) {
@@ -1577,14 +1592,8 @@ void emperor_loop() {
 		ui_current = ui;
 		while (ui_current->ui_next) {
 			ui_current = ui_current->ui_next;
-			if (ui_current->status == 1) {
-				if (ui_current->config)
-					free(ui_current->config);
-				// SAFE
-				emperor_del(ui_current);
-				break;
-			}
-			else if (ui_current->pid == diedpid) {
+			time_t now = uwsgi_now();
+			if (ui_current->pid == diedpid) {
 				if (ui_current->status == 0) {
 					// respawn an accidentally dead instance if its exit code is not UWSGI_EXILE_CODE
 					if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_EXILE_CODE) {
@@ -1606,6 +1615,13 @@ void emperor_loop() {
 					emperor_del(ui_current);
 					break;
 				}
+			}
+			else if (ui_current->cursed_at > 0 && now - ui_current->cursed_at >= uwsgi.emperor_curse_tolerance) {
+				ui_current->cursed_at = now;
+				if (kill(ui_current->pid, SIGKILL)) {
+					uwsgi_error("[emperor] kill");
+				}
+				break;
 			}
 		}
 
@@ -1846,6 +1862,45 @@ void uwsgi_emperor_start() {
 }
 
 void uwsgi_check_emperor() {
+	char *emperor_fd_pass = getenv("UWSGI_EMPEROR_PROXY");
+	if (emperor_fd_pass) {
+		for(;;) {
+			int proxy_fd = uwsgi_connect(emperor_fd_pass, 30, 0);
+			if (proxy_fd < 0) {
+				uwsgi_error("uwsgi_check_emperor()/uwsgi_connect()");
+				sleep(1);
+				continue;
+			}
+			int count = 2;
+			int *fds = uwsgi_attach_fd(proxy_fd, &count, "uwsgi-emperor", 13);
+			if (fds && count > 0) {
+				char *env_emperor_fd = uwsgi_num2str(fds[0]);
+				if (setenv("UWSGI_EMPEROR_FD", env_emperor_fd, 1)) {
+					uwsgi_error("uwsgi_check_emperor()/setenv(UWSGI_EMPEROR_FD)");
+					free(env_emperor_fd);
+					int i; for(i=0;i<count;i++) close(fds[i]);
+					goto next;	
+				}
+				free(env_emperor_fd);
+				if (count > 1) {
+					char *env_emperor_fd_config = uwsgi_num2str(fds[1]);
+					if (setenv("UWSGI_EMPEROR_FD_CONFIG", env_emperor_fd_config, 1)) {
+						uwsgi_error("uwsgi_check_emperor()/setenv(UWSGI_EMPEROR_FD_CONFIG)");
+						free(env_emperor_fd_config);
+						int i; for(i=0;i<count;i++) close(fds[i]);
+						goto next;	
+					}
+					free(env_emperor_fd_config);
+				}
+				break;
+			}
+next:
+			if (fds) free(fds);
+			close(proxy_fd);
+			sleep(1);
+		}
+	}
+
 	char *emperor_env = getenv("UWSGI_EMPEROR_FD");
 	if (emperor_env) {
 		uwsgi.has_emperor = 1;
