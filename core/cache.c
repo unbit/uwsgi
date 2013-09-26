@@ -7,7 +7,7 @@ extern struct uwsgi_server uwsgi;
 
 /* how the cache bitmap works:
 
-	a bitmap is a shared mempry area allocated when requested by the user with --cache2
+	a bitmap is a shared memory area allocated when requested by the user with --cache2
 
 	Each block maps to a bit in the bitmap. If the corresponding bit is cleared
 	the block is usable otherwise the block scanner will search for the next one.
@@ -773,7 +773,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 			cache_unmark_blocks(uc, uci->first_block, uci->valsize);
 		}
 		if ( !(flags & UWSGI_CACHE_FLAG_MATH)) {
-			memcpy(uc->data + (uci->first_block * uc->blocksize), val, vallen);
+			memcpy(((char *) uc->data) + (uci->first_block * uc->blocksize), val, vallen);
 		}
 		else {
 			int64_t *num = (int64_t *)(((char *) uc->data) + (uci->first_block * uc->blocksize));
