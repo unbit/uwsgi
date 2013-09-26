@@ -1958,3 +1958,89 @@ void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char
 		emperor_add(ues, name, ts, new_config, new_config_len, uid, gid, socket_name);
 	}
 }
+
+void uwsgi_master_manage_emperor() {
+        char byte;
+        ssize_t rlen = read(uwsgi.emperor_fd, &byte, 1);
+        if (rlen > 0) {
+                uwsgi_log_verbose("received message %d from emperor\n", byte);
+                // remove me
+                if (byte == 0) {
+                        close(uwsgi.emperor_fd);
+                        if (!uwsgi.status.brutally_reloading)
+                                kill_them_all(0);
+                }
+                // reload me
+                else if (byte == 1) {
+                        // un-lazy the stack to trigger a real reload
+                        uwsgi.lazy = 0;
+                        uwsgi_block_signal(SIGHUP);
+                        grace_them_all(0);
+                        uwsgi_unblock_signal(SIGHUP);
+                }
+        }
+        else {
+                uwsgi_log("lost connection with my emperor !!!\n");
+                close(uwsgi.emperor_fd);
+                if (!uwsgi.status.brutally_reloading)
+                        kill_them_all(0);
+                sleep(2);
+                exit(1);
+        }
+
+}
+
+void uwsgi_master_manage_emperor_proxy() {
+
+	struct sockaddr_un epsun;
+        socklen_t epsun_len = sizeof(struct sockaddr_un);
+
+        int ep_client = accept(uwsgi.emperor_fd_proxy, (struct sockaddr *) &epsun, &epsun_len);
+        if (ep_client < 0) {
+                uwsgi_error("uwsgi_master_manage_emperor_proxy()/accept()");
+                return;
+        }
+
+	int num_fds = 1;
+	if (uwsgi.emperor_fd_config > -1) num_fds++;
+
+        struct msghdr ep_msg;
+        void *ep_msg_control = uwsgi_malloc(CMSG_SPACE(sizeof(int) * num_fds));
+        struct iovec ep_iov[2];
+        struct cmsghdr *cmsg;
+
+        ep_iov[0].iov_base = "uwsgi-emperor";
+        ep_iov[0].iov_len = 13;
+        ep_iov[1].iov_base = &num_fds;
+        ep_iov[1].iov_len = sizeof(int);
+
+        ep_msg.msg_name = NULL;
+        ep_msg.msg_namelen = 0;
+
+        ep_msg.msg_iov = ep_iov;
+        ep_msg.msg_iovlen = 2;
+
+        ep_msg.msg_flags = 0;
+        ep_msg.msg_control = ep_msg_control;
+        ep_msg.msg_controllen = CMSG_SPACE(sizeof(int) * num_fds);
+
+        cmsg = CMSG_FIRSTHDR(&ep_msg);
+        cmsg->cmsg_len = CMSG_LEN(sizeof(int) * num_fds);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+
+        unsigned char *ep_fd_ptr = CMSG_DATA(cmsg);
+
+        memcpy(ep_fd_ptr, &uwsgi.emperor_fd, sizeof(int));
+	if (num_fds > 1) {
+        	memcpy(ep_fd_ptr + sizeof(int), &uwsgi.emperor_fd_config, sizeof(int));
+	}
+
+        if (sendmsg(ep_client, &ep_msg, 0) < 0) {
+                uwsgi_error("uwsgi_master_manage_emperor_proxy()/sendmsg()");
+        }
+
+        free(ep_msg_control);
+
+        close(ep_client);
+}

@@ -1758,7 +1758,9 @@ struct uwsgi_server {
 	// true if run under the emperor
 	int has_emperor;
 	char *emperor_procname;
+	char *emperor_proxy;
 	int emperor_fd;
+	int emperor_fd_proxy;
 	int emperor_queue;
 	int emperor_nofollow;
 	int emperor_tyrant;
@@ -4351,6 +4353,8 @@ void uwsgi_cheaper_decrease();
 void uwsgi_go_cheap();
 
 char **uwsgi_split_quoted(char *, size_t, char *, size_t *);
+
+void uwsgi_master_manage_emperor_proxy();
 
 #ifdef __cplusplus
 }

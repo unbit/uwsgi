@@ -77,38 +77,6 @@ void uwsgi_master_manage_udp(int udp_fd) {
 	}
 }
 
-void uwsgi_master_manage_emperor() {
-	char byte;
-	ssize_t rlen = read(uwsgi.emperor_fd, &byte, 1);
-	if (rlen > 0) {
-		uwsgi_log_verbose("received message %d from emperor\n", byte);
-		// remove me
-		if (byte == 0) {
-			close(uwsgi.emperor_fd);
-			if (!uwsgi.status.brutally_reloading)
-				kill_them_all(0);
-		}
-		// reload me
-		else if (byte == 1) {
-			// un-lazy the stack to trigger a real reload
-			uwsgi.lazy = 0;
-			uwsgi_block_signal(SIGHUP);
-			grace_them_all(0);
-			uwsgi_unblock_signal(SIGHUP);
-		}
-	}
-	else {
-		uwsgi_log("lost connection with my emperor !!!\n");
-		close(uwsgi.emperor_fd);
-		if (!uwsgi.status.brutally_reloading)
-			kill_them_all(0);
-		sleep(2);
-		exit(1);
-	}
-
-}
-
-
 void uwsgi_master_restore_snapshot() {
 	int i, waitpid_status;
 	uwsgi_log("[snapshot] restoring workers...\n");
@@ -387,7 +355,18 @@ int master_loop(char **argv, char **environ) {
 	uwsgi.wsgi_req->buffer = uwsgi.workers[0].cores[0].buffer;
 
 	if (uwsgi.has_emperor) {
-		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.emperor_fd);
+		if (uwsgi.emperor_proxy) {
+			uwsgi.emperor_fd_proxy = bind_to_unix(uwsgi.emperor_proxy, uwsgi.listen_queue, 0, 0);
+			if (uwsgi.emperor_fd_proxy < 0) exit(1);
+			if (chmod(uwsgi.emperor_proxy, S_IRUSR|S_IWUSR)) {
+				uwsgi_error("[emperor-proxy] chmod()");
+				exit(1);
+			}
+			event_queue_add_fd_read(uwsgi.master_queue, uwsgi.emperor_fd_proxy);
+		}
+		else {
+			event_queue_add_fd_read(uwsgi.master_queue, uwsgi.emperor_fd);
+		}
 	}
 
 	if (uwsgi.zerg_server) {

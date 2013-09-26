@@ -75,6 +75,7 @@ void uwsgi_init_default() {
 	uwsgi.original_log_fd = -1;
 
 	uwsgi.emperor_fd_config = -1;
+	uwsgi.emperor_fd_proxy = -1;
 	// default emperor scan frequency
 	uwsgi.emperor_freq = 3;
 	uwsgi.emperor_throttle = 1000;
