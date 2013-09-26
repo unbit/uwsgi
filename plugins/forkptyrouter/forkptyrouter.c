@@ -2,6 +2,13 @@
 
    uWSGI forkpty-router
 
+   can use the uwsgi protocol, modifier2 means:
+
+	0 -> stdin
+	1-99 -> UNIX signal
+	100 -> window rows (pktsize is the window size)
+	101 -> window cols (pktsize is the window size)
+
 */
 
 #include <uwsgi.h>
@@ -24,12 +31,16 @@ extern struct uwsgi_server uwsgi;
 static struct uwsgi_forkptyrouter {
 	struct uwsgi_corerouter cr;
 	char *cmd;
+	// use the uwsgi protocol ?
+	int uwsgi;
 } ufpty;
 
 extern struct uwsgi_server uwsgi;
 
 struct forkptyrouter_session {
 	struct corerouter_session session;
+	size_t restore_size;
+	struct winsize w;
 	pid_t pid;
 };
 
@@ -61,6 +72,7 @@ static struct uwsgi_option forkptyrouter_options[] = {
 
 // write to backend
 static ssize_t fpty_instance_write(struct corerouter_peer *peer) {
+	struct forkptyrouter_session *fpty_session = (struct forkptyrouter_session *) peer->session;
 	ssize_t len = cr_write(peer, "fpty_instance_write()");
 	// end on empty write
 	if (!len) return 0;
@@ -68,7 +80,8 @@ static ssize_t fpty_instance_write(struct corerouter_peer *peer) {
 	// the chunk has been sent, start (again) reading from client and instances
 	if (cr_write_complete(peer)) {
 		// reset the buffer
-		peer->out->pos = 0;
+		if (uwsgi_buffer_decapitate(peer->out, peer->out->pos)) return -1;
+		peer->out->pos = fpty_session->restore_size;
 		cr_reset_hooks(peer);
 	}
 
@@ -91,6 +104,42 @@ static ssize_t fpty_write(struct corerouter_peer *main_peer) {
 	return len;
 }
 
+static ssize_t fpty_parse_uwsgi(struct corerouter_peer *peer) {
+	
+	struct forkptyrouter_session *fpty_session = (struct forkptyrouter_session *) peer->session;
+	for(;;) {
+	if (peer->in->pos < 4) return 0;
+	struct uwsgi_header *uh = (struct uwsgi_header *) peer->in->buf;
+	uint16_t pktsize = uh->pktsize;
+	switch(uh->modifier2) {
+		case 0:
+			// stdin
+			if ((size_t) (pktsize+4) > peer->in->pos) return 0;
+			if (uwsgi_buffer_decapitate(peer->in, 4)) return -1;
+			return pktsize;		
+		case 100:	
+			if (uwsgi_buffer_decapitate(peer->in, 4)) return -1;
+			fpty_session->w.ws_row = pktsize;
+			ioctl(peer->session->peers->fd, TIOCSWINSZ, &fpty_session->w);
+			// rows
+			break;
+		case 101:
+			if (uwsgi_buffer_decapitate(peer->in, 4)) return -1;
+			fpty_session->w.ws_col = pktsize;
+			ioctl(peer->session->peers->fd, TIOCSWINSZ, &fpty_session->w);
+			// cols
+			break;
+		default:
+			if (uwsgi_buffer_decapitate(peer->in, 4)) return -1;
+			// send signal
+			kill(fpty_session->pid, uh->modifier2);
+			break;
+	}
+	}
+
+	return 0;
+}
+
 // read from backend
 static ssize_t fpty_instance_read(struct corerouter_peer *peer) {
 	ssize_t len = cr_read(peer, "fpty_instance_read()");
@@ -106,10 +155,18 @@ static ssize_t fpty_instance_read(struct corerouter_peer *peer) {
 
 // read from client
 static ssize_t fpty_read(struct corerouter_peer *main_peer) {
+        struct forkptyrouter_session *fpty_session = (struct forkptyrouter_session *) main_peer->session;
 	ssize_t len = cr_read(main_peer, "fpty_read()");
 	if (!len) return 0;
 
+	ssize_t rlen = fpty_parse_uwsgi(main_peer);
+	if (rlen < 0) return -1;
+	if (rlen == 0) return 1;
+
+	fpty_session->restore_size = main_peer->in->pos - rlen;	
+
 	main_peer->session->peers->out = main_peer->in;
+	main_peer->session->peers->out->pos = rlen;
 	main_peer->session->peers->out_pos = 0;
 
 	cr_write_to_backend(main_peer->session->peers, fpty_instance_write);
@@ -137,12 +194,15 @@ static int forkptyrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsg
 	cs->close = fpty_session_close;
 
 	struct forkptyrouter_session *fpty_session = (struct forkptyrouter_session *) cs;
+	// default terminal size
+	fpty_session->w.ws_row = 24;
+	fpty_session->w.ws_col = 80;
 
 	// add a new peer
 	struct corerouter_peer *peer = uwsgi_cr_peer_add(cs);
 
 	// on new connection generate a new pty
-	fpty_session->pid = forkpty(&peer->fd, NULL, NULL, NULL);
+	fpty_session->pid = forkpty(&peer->fd, NULL, NULL, &fpty_session->w);
 	if (fpty_session->pid < 0) {
 		uwsgi_error("forkpty()");
 		return -1;

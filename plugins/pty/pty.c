@@ -21,6 +21,7 @@ struct uwsgi_pty_client {
 static struct uwsgi_pty {
 	char *addr;
 	char *remote;
+	char *uremote;
 	int queue;
 	int server_fd;
 	int master_fd;
@@ -77,6 +78,7 @@ static struct uwsgi_option uwsgi_pty_options[] = {
 	{"pty-log", no_argument, 0, "send stdout/stderr to the log engine too", uwsgi_opt_true, &upty.log, 0},
 	{"pty-input", no_argument, 0, "read from original stdin in addition to pty", uwsgi_opt_true, &upty.input, 0},
 	{"pty-connect", required_argument, 0, "connect the current terminal to a pty server", uwsgi_opt_set_str, &upty.remote, 0},
+	{"pty-uconnect", required_argument, 0, "connect the current terminal to a pty server (using uwsgi protocol)", uwsgi_opt_set_str, &upty.uremote, 0},
 	{"pty-no-isig", no_argument, 0, "disable ISIG terminal attribute in client mode", uwsgi_opt_true, &upty.no_isig, 0},
 	{"pty-exec", required_argument, 0, "run the specified command soon after the pty thread is spawned", uwsgi_opt_set_str, &upty.command, 0},
 	{0, 0, 0, 0, 0, 0, 0},
@@ -256,6 +258,27 @@ static void uwsgi_pty_init() {
 
 }
 
+static void uwsgi_pty_winch() {
+	// 2 uwsgi packets
+	char uwsgi_pkt[8];
+#ifdef TIOCGWINSZ
+	struct winsize w;
+	ioctl(0, TIOCGWINSZ, &w);
+	uwsgi_pkt[0] = 0;
+	uwsgi_pkt[1] = (uint8_t) (w.ws_row & 0xff);
+        uwsgi_pkt[2] = (uint8_t) ((w.ws_row >> 8) & 0xff);
+	uwsgi_pkt[3] = 100;
+	uwsgi_pkt[4] = 0;
+	uwsgi_pkt[5] = (uint8_t) (w.ws_col & 0xff);
+        uwsgi_pkt[6] = (uint8_t) ((w.ws_col >> 8) & 0xff);
+	uwsgi_pkt[7] = 101;
+#endif
+	if (write(upty.server_fd, uwsgi_pkt, 8) != 8) {
+		uwsgi_error("uwsgi_pty_winch()/write()");
+		exit(1);
+	}
+}
+
 static int uwsgi_pty_client() {
 	if (!upty.remote) return 0;
 
@@ -277,7 +300,13 @@ static int uwsgi_pty_client() {
 
 	uwsgi_log("[pty] connected.\n");
 
+
 	uwsgi_pty_setterm(0);
+
+	signal(SIGWINCH, uwsgi_pty_winch);
+
+	// send current terminal size
+	uwsgi_pty_winch();
 
 	upty.queue = event_queue_init();
 	event_queue_add_fd_read(upty.queue, upty.server_fd);
@@ -287,10 +316,19 @@ static int uwsgi_pty_client() {
 		char buf[8192];
 		int interesting_fd = -1;
                 int ret = event_queue_wait(upty.queue, -1, &interesting_fd);		
-		if (ret <= 0) break;
+		if (ret == 0) break;
+		if (ret < 0) {
+			if (errno == EINTR) continue;
+			break;
+		}
 		if (interesting_fd == 0) {
 			ssize_t rlen = read(0, buf, 8192);
 			if (rlen <= 0) break;
+			struct uwsgi_header uh;
+			uh.modifier1 = 0;
+			uh.pktsize = rlen;
+			uh.modifier2 = 0;
+			if (write(upty.server_fd, &uh, 4) != 4) break;
 			if (write(upty.server_fd, buf, rlen) != rlen) break;
 			continue;
 		}	
