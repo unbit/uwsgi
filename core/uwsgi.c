@@ -1055,6 +1055,7 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 		fullname = minimal_name;
 	}
 
+	magic_table['b'] = uwsgi.binary_path;
 	magic_table['p'] = fullname;
 	magic_table['s'] = uwsgi_get_last_char(fullname, '/') + 1;
 	magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s'] - magic_table['p'], "", 0);

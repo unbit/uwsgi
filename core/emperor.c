@@ -1901,6 +1901,7 @@ next:
 			close(proxy_fd);
 			sleep(1);
 		}
+		unsetenv("UWSGI_EMPEROR_PROXY");
 	}
 
 	char *emperor_env = getenv("UWSGI_EMPEROR_FD");
