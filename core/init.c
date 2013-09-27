@@ -466,7 +466,7 @@ void sanitize_args() {
 		uwsgi_log("enabling cheaper-rss-limit-hard requires setting also cheaper-rss-limit-soft\n");
 		exit(1);
 	}
-	if ( uwsgi.cheaper_rss_limit_soft && uwsgi.cheaper_rss_limit_hard <= uwsgi.cheaper_rss_limit_soft) {
+	if ( uwsgi.cheaper_rss_limit_hard && uwsgi.cheaper_rss_limit_hard <= uwsgi.cheaper_rss_limit_soft) {
 		uwsgi_log("cheaper-rss-limit-hard value must be higher than cheaper-rss-limit-soft value\n");
 		exit(1);
 	}
