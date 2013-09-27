@@ -31,6 +31,8 @@ extern struct uwsgi_server uwsgi;
 static struct uwsgi_forkptyrouter {
 	struct uwsgi_corerouter cr;
 	char *cmd;
+	uint16_t win_rows;
+	uint16_t win_cols;
 } ufpty;
 
 extern struct uwsgi_server uwsgi;
@@ -64,6 +66,10 @@ static struct uwsgi_option forkptyrouter_options[] = {
 	{"forkpty-router-command", required_argument, 0, "run the specified command on every connection (default: /bin/sh)", uwsgi_opt_set_str, &ufpty.cmd, 0},
 	{"forkptyrouter-cmd", required_argument, 0, "run the specified command on every connection (default: /bin/sh)", uwsgi_opt_set_str, &ufpty.cmd, 0},
 	{"forkpty-router-cmd", required_argument, 0, "run the specified command on every connection (default: /bin/sh)", uwsgi_opt_set_str, &ufpty.cmd, 0},
+
+	{"forkptyrouter-rows", required_argument, 0, "set forkptyrouter default pty window rows", uwsgi_opt_set_16bit, &ufpty.win_rows, 0},
+	{"forkptyrouter-cols", required_argument, 0, "set forkptyrouter default pty window cols", uwsgi_opt_set_16bit, &ufpty.win_cols, 0},
+
 	{"forkptyrouter-processes", required_argument, 0, "prefork the specified number of forkptyrouter processes", uwsgi_opt_set_int, &ufpty.cr.processes, 0},
 	{"forkptyrouter-workers", required_argument, 0, "prefork the specified number of forkptyrouter processes", uwsgi_opt_set_int, &ufpty.cr.processes, 0},
 	{"forkptyrouter-zerg", required_argument, 0, "attach the forkptyrouter to a zerg server", uwsgi_opt_corerouter_zerg, &ufpty, 0},
@@ -221,8 +227,8 @@ static int forkptyrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsg
 	}
 
 	// default terminal size
-	fpty_session->w.ws_row = 24;
-	fpty_session->w.ws_col = 80;
+	fpty_session->w.ws_row = ufpty.win_rows ? ufpty.win_rows : 24;
+	fpty_session->w.ws_col = ufpty.win_cols ? ufpty.win_cols : 80;
 
 	// add a new peer
 	struct corerouter_peer *peer = uwsgi_cr_peer_add(cs);
