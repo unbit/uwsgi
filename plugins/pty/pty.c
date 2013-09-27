@@ -1,5 +1,5 @@
 #include <uwsgi.h>
-#ifdef __linux__
+#if defined(__linux__) || defined(__FreeBSD_kernel__)
 #include <pty.h>
 #elif defined(__APPLE__) || defined(__OpenBSD__)
 #include <util.h>
