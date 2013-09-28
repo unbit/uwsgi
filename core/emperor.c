@@ -831,7 +831,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 	// TODO pre-start hook
 
 	// a new uWSGI instance will start 
-#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
+#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL) && !defined(__ia64__)
 	if (uwsgi.emperor_clone) {
 		char stack[PTHREAD_STACK_MIN];
 		pid = clone((int (*)(void *))uwsgi_emperor_spawn_vassal, stack + PTHREAD_STACK_MIN, SIGCHLD | uwsgi.emperor_clone, (void *) n_ui);
@@ -839,7 +839,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 	else {
 #endif
 	pid = fork();
-#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
+#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL) && !defined(__ia64__)
 	}
 #endif
 	if (pid < 0) {

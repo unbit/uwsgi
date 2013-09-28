@@ -2390,7 +2390,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 	// TODO pluginize basic Linux namespace support
-#ifdef __linux__
+#if defined(__linux__) && !defined(__ia64__)
 	if (uwsgi.ns) {
 		linux_namespace_start((void *) uwsgi.argv);
 		// never here
@@ -2398,7 +2398,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	else {
 #endif
 		uwsgi_start((void *) uwsgi.argv);
-#ifdef __linux__
+#if defined(__linux__) && !defined(__ia64__)
 	}
 #endif
 

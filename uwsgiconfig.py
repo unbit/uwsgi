@@ -529,7 +529,7 @@ class uConf(object):
 
         report['kernel'] = uwsgi_os
 
-        if uwsgi_os == 'Linux':
+        if uwsgi_os == 'Linux' and uwsgi_cpu != 'ia64':
             self.gcc_list.append('lib/linux_ns')
             try:
                 lk_ver = uwsgi_os_k.split('.')
@@ -597,8 +597,10 @@ class uConf(object):
 
         self.ldflags = os.environ.get("LDFLAGS", "").split()
         self.libs = ['-lpthread', '-lm', '-rdynamic']
-        if uwsgi_os == 'Linux':
+        if uwsgi_os in ('Linux', 'GNU', 'GNU/kFreeBSD'):
             self.libs.append('-ldl')
+        if uwsgi_os == 'GNU/kFreeBSD':
+            self.libs.append('-lbsd')
 
         # check for inherit option
         inherit = self.get('inherit')
@@ -952,7 +954,7 @@ class uConf(object):
         if self.has_include('uuid/uuid.h'):
             has_uuid = True
             self.cflags.append("-DUWSGI_UUID")
-            if uwsgi_os == 'Linux' or uwsgi_os.startswith('CYGWIN') or os.path.exists('/usr/lib/libuuid.so') or os.path.exists('/usr/local/lib/libuuid.so') or os.path.exists('/usr/lib64/libuuid.so') or os.path.exists('/usr/local/lib64/libuuid.so'):
+            if uwsgi_os in ('Linux', 'GNU', 'GNU/kFreeBSD') or uwsgi_os.startswith('CYGWIN') or os.path.exists('/usr/lib/libuuid.so') or os.path.exists('/usr/local/lib/libuuid.so') or os.path.exists('/usr/lib64/libuuid.so') or os.path.exists('/usr/local/lib64/libuuid.so'):
                 self.libs.append('-luuid')
 
         if self.get('append_version'):
