@@ -70,6 +70,7 @@ void gateway_respawn(int id) {
 
 	if (gw_pid == 0) {
 		uwsgi_fixup_fds(0, 0, ug);
+		uwsgi_close_all_sockets();
 		if (uwsgi.master_as_root)
 			uwsgi_as_root();
 #ifdef __linux__
