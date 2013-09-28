@@ -248,23 +248,23 @@ static int forkptyrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsg
 				argv[1] = "-c";	
 				argv[2] = ufpty.cmd;	
 				argv[3] = NULL;	
-				execve(argv[0], argv, uwsgi.environ);
+				execv(argv[0], argv);
 			}
 			else {
 				char *argv[2];
 				argv[0] = ufpty.cmd;
 				argv[1] = NULL;	
-				execve(argv[0], argv, uwsgi.environ);
+				execv(argv[0], argv);
 			}
 		}
 		else {
 			char *argv[2];
 			argv[0] = "/bin/sh";
 			argv[1] = NULL;	
-			execve(argv[0], argv, uwsgi.environ);
+			execv(argv[0], argv);
 		}
 		// never here;
-		uwsgi_error("forkptyrouter_alloc_session()/execve()");
+		uwsgi_error("forkptyrouter_alloc_session()/execv()");
 		exit(1);
 	}
 
