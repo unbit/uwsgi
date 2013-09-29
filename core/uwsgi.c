@@ -2415,9 +2415,11 @@ int uwsgi_start(void *v_argv) {
 #ifdef __linux__
 	uwsgi_set_cgroup();
 
+#if !defined(__ia64__)
 	if (uwsgi.ns) {
 		linux_namespace_jail();
 	}
+#endif
 #endif
 
 	uwsgi_hooks_run(uwsgi.hook_in_jail, "in-jail", 1);
