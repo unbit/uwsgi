@@ -529,8 +529,9 @@ class uConf(object):
 
         report['kernel'] = uwsgi_os
 
-        if uwsgi_os == 'Linux' and uwsgi_cpu != 'ia64':
-            self.gcc_list.append('lib/linux_ns')
+        if uwsgi_os == 'Linux':
+            if uwsgi_cpu != 'ia64':
+                self.gcc_list.append('lib/linux_ns')
             try:
                 lk_ver = uwsgi_os_k.split('.')
                 if int(lk_ver[0]) <= 2 and int(lk_ver[1]) <= 6 and int(lk_ver[2]) <= 9:
