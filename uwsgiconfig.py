@@ -215,7 +215,7 @@ def compile(cflags, last_cflags_ts, objfile, srcfile):
     push_command(objfile, cmdline)
 
 
-def build_uwsgi(uc, print_only=False):
+def build_uwsgi(uc, print_only=False, gcll=None):
 
     global print_lock, compile_queue, thread_compilers
 
@@ -228,7 +228,10 @@ def build_uwsgi(uc, print_only=False):
             t.start()
             thread_compilers.append(t)
 
-    gcc_list, cflags, ldflags, libs = uc.get_gcll()
+    if not gcll:
+        gcc_list, cflags, ldflags, libs = uc.get_gcll()
+    else:
+        gcc_list, cflags, ldflags, libs = gcll
 
     if 'UWSGI_EMBED_PLUGINS' in os.environ:
         uc.set('embedded_plugins', uc.get('embedded_plugins') + ',' + os.environ['UWSGI_EMBED_PLUGINS'])
@@ -1352,32 +1355,50 @@ if __name__ == "__main__":
     parser.add_option("-c", "--clean", action="store_true", dest="clean", help="clean the build")
     parser.add_option("-e", "--check", action="store_true", dest="check", help="run cppcheck")
     parser.add_option("-v", "--verbose", action="store_true", dest="verbose", help="more verbose build")
+    parser.add_option("-g", "--debug", action="store_true", dest="debug", help="build with debug symbols, affects only full build")
+    parser.add_option("-a", "--asan", action="store_true", dest="asan", help="build with address sanitizer, it's a debug option and affects only full build")
 
     (options, args) = parser.parse_args()
 
     if options.verbose:
         verbose_build = True
 
-    if options.build is not None:
+    add_cflags = []
+    add_ldflags = []
+
+    if options.debug:
+       add_cflags.append('-g')
+       add_ldflags.append('-g')
+
+    if options.asan:
+       add_cflags.extend(['-g', '-fsanitize=address', '-fno-omit-frame-pointer'])
+       add_ldflags.extend(['-g', '-fsanitize=address'])
+
+    if options.build is not None or options.cflags is not None:
+        is_cflags = options.cflags is not None
         try:
-            bconf = options.build[0]
+            if not is_cflags:
+                bconf = options.build[0]
+            else:
+                bconf = options.cflags[0]
         except:
             bconf = os.environ.get('UWSGI_PROFILE','default.ini')
         if not bconf.endswith('.ini'):
             bconf += '.ini'
         if not '/' in bconf:
             bconf = 'buildconf/%s' % bconf
-        build_uwsgi(uConf(bconf))
-    elif options.cflags is not None:
-        try:
-            bconf = options.cflags[0]
-        except:
-            bconf = os.environ.get('UWSGI_PROFILE','default.ini')
-        if not bconf.endswith('.ini'):
-            bconf += '.ini'
-        if not '/' in bconf:
-            bconf = 'buildconf/%s' % bconf
-        build_uwsgi(uConf(bconf, True), True)
+
+        uc = uConf(bconf, is_cflags)
+        if add_cflags or add_ldflags:
+            gcc_list, cflags, ldflags, libs = uc.get_gcll()
+            if add_cflags:
+                cflags.extend(add_cflags)
+            if add_ldflags:
+                ldflags.extend(add_ldflags)
+            gcll = (gcc_list, cflags, ldflags, libs)
+        else:
+            gcll = None
+        build_uwsgi(uc, is_cflags, gcll=gcll)
     elif options.unbit:
         build_uwsgi(uConf('buildconf/unbit.ini'))
     elif options.plugin:
