@@ -56,26 +56,27 @@ binary_list = []
 
 # this is used for reporting (at the end of the build)
 # the server configuration
-report = {}
-report['kernel'] = False
-report['execinfo'] = False
-report['ifaddrs'] = False
-report['locking'] = False
-report['event'] = False
-report['timer'] = False
-report['filemonitor'] = False
-report['pcre'] = False
-report['matheval'] = False
-report['routing'] = False
-report['capabilities'] = False
-report['yaml'] = False
-report['json'] = False
-report['ssl'] = False
-report['zeromq'] = False
-report['xml'] = False
-report['debug'] = False
-report['plugin_dir'] = False
-report['zlib'] = False
+report = {
+    'kernel': False,
+    'execinfo': False,
+    'ifaddrs': False,
+    'locking': False,
+    'event': False,
+    'timer': False,
+    'filemonitor': False,
+    'pcre': False,
+    'matheval': False,
+    'routing': False,
+    'capabilities': False,
+    'yaml': False,
+    'json': False,
+    'ssl': False,
+    'zeromq': False,
+    'xml': False,
+    'debug': False,
+    'plugin_dir': False,
+    'zlib': False,
+}
 
 compile_queue = None
 print_lock = None
