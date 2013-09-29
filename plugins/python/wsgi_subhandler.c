@@ -166,14 +166,29 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
-	PyObject *pychunk;
+	PyObject *pychunk = NULL;
+	const char* chunk = NULL;
+	Py_ssize_t chunk_size = 0;
 
 	// return or yield ?
-	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
-		char *content = PyString_AsString((PyObject *)wsgi_req->async_result);
-		size_t content_len = PyString_Size((PyObject *)wsgi_req->async_result);
+	PyObject *async_result = wsgi_req->async_result;
+
+	if (PyObject_AsCharBuffer(async_result,	&chunk, &chunk_size)<0) {
+		PyErr_Clear();
+
+		// is one element list
+		if (PyList_Check(async_result) &&
+			PyList_GET_SIZE(async_result)==1) {
+			PyObject *elem = PyList_GET_ITEM(async_result, 0);
+			if (PyObject_AsCharBuffer(elem, &chunk, &chunk_size)<0) {
+				PyErr_Clear();
+			}
+		}
+	}
+
+	if(chunk) {
 		UWSGI_RELEASE_GIL
-		uwsgi_response_write_body_do(wsgi_req, content, content_len);
+		uwsgi_response_write_body_do(wsgi_req, (char*)chunk, chunk_size);
 		UWSGI_GET_GIL
 		uwsgi_py_check_write_errors {
 			uwsgi_py_write_exception(wsgi_req);
@@ -181,16 +196,15 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 		goto clear;
 	}
 
-
-	if (wsgi_req->sendfile_obj == wsgi_req->async_result) {
+	if (wsgi_req->sendfile_obj == async_result) {
 		if (wsgi_req->sendfile_fd >= 0) {
 			UWSGI_RELEASE_GIL
 			uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
 			UWSGI_GET_GIL
 		}
-                // we do not have an iterable, check for read() method
-		else if (PyObject_HasAttrString((PyObject *)wsgi_req->async_result, "read")) {
-			uwsgi_python_consume_file_wrapper_read(wsgi_req, (PyObject *)wsgi_req->async_result);
+		// we do not have an iterable, check for read() method
+		else if (PyObject_HasAttrString(async_result, "read")) {
+			uwsgi_python_consume_file_wrapper_read(wsgi_req, async_result);
 		}
 		uwsgi_py_check_write_errors {
 			uwsgi_py_write_exception(wsgi_req);
@@ -200,7 +214,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 	// ok its a yield
 	if (!wsgi_req->async_placeholder) {
-		wsgi_req->async_placeholder = PyObject_GetIter(wsgi_req->async_result);
+		wsgi_req->async_placeholder = PyObject_GetIter(async_result);
 		if (!wsgi_req->async_placeholder) {
 			goto exception;
 		}
@@ -219,14 +233,9 @@ exception:
 		goto clear;
 	}
 
-
-
-
-	if (PyString_Check(pychunk)) {
-		char *content = PyString_AsString(pychunk);
-		size_t content_len = PyString_Size(pychunk);
+	if (PyObject_AsCharBuffer(pychunk, &chunk, &chunk_size)==0) {
 		UWSGI_RELEASE_GIL
-		uwsgi_response_write_body_do(wsgi_req, content, content_len);
+		uwsgi_response_write_body_do(wsgi_req, (char*)chunk, chunk_size);
 		UWSGI_GET_GIL
 		uwsgi_py_check_write_errors {
 			uwsgi_py_write_exception(wsgi_req);
@@ -234,25 +243,27 @@ exception:
 			goto clear;
 		}
 	}
+	else {
+		PyErr_Clear();
 
-	else if (wsgi_req->sendfile_obj == pychunk) {
-		if (wsgi_req->sendfile_fd >= 0) {
-			UWSGI_RELEASE_GIL
-			uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
-			UWSGI_GET_GIL
-		}
-		// we do not have an iterable, check for read() method
-		else if (PyObject_HasAttrString(pychunk, "read")) {
-			uwsgi_python_consume_file_wrapper_read(wsgi_req, pychunk);
-		}
+		if (wsgi_req->sendfile_obj == pychunk) {
+			if (wsgi_req->sendfile_fd >= 0) {
+				UWSGI_RELEASE_GIL
+				uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
+				UWSGI_GET_GIL
+			}
+			// we do not have an iterable, check for read() method
+			else if (PyObject_HasAttrString(pychunk, "read")) {
+				uwsgi_python_consume_file_wrapper_read(wsgi_req, pychunk);
+			}
 
-		uwsgi_py_check_write_errors {
-			uwsgi_py_write_exception(wsgi_req);
-			Py_DECREF(pychunk);
-			goto clear;
+			uwsgi_py_check_write_errors {
+				uwsgi_py_write_exception(wsgi_req);
+				Py_DECREF(pychunk);
+				goto clear;
+			}
 		}
 	}
-
 
 	Py_DECREF(pychunk);
 	return UWSGI_AGAIN;
