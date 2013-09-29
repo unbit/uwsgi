@@ -1563,7 +1563,7 @@ struct uwsgi_signal_rb_timer {
 struct uwsgi_cheaper_algo {
 
 	char *name;
-	int (*func) (void);
+	int (*func) (int);
 	struct uwsgi_cheaper_algo *next;
 };
 
@@ -1735,7 +1735,7 @@ struct uwsgi_server {
 	int cheaper;
 	char *requested_cheaper_algo;
 	struct uwsgi_cheaper_algo *cheaper_algos;
-	int (*cheaper_algo) (void);
+	int (*cheaper_algo) (int);
 	int cheaper_step;
 	uint64_t cheaper_overload;
 	// minimal number of running workers in cheaper mode
@@ -3612,16 +3612,16 @@ void uwsgi_manage_zerg(int, int, int *);
 time_t uwsgi_now(void);
 
 int uwsgi_calc_cheaper(void);
-int uwsgi_cheaper_algo_spare(void);
-int uwsgi_cheaper_algo_backlog(void);
-int uwsgi_cheaper_algo_backlog2(void);
-int uwsgi_cheaper_algo_manual(void);
+int uwsgi_cheaper_algo_spare(int);
+int uwsgi_cheaper_algo_backlog(int);
+int uwsgi_cheaper_algo_backlog2(int);
+int uwsgi_cheaper_algo_manual(int);
 
 int uwsgi_master_log(void);
 int uwsgi_master_req_log(void);
 void uwsgi_flush_logs(void);
 
-void uwsgi_register_cheaper_algo(char *, int (*)(void));
+void uwsgi_register_cheaper_algo(char *, int (*)(int));
 
 void uwsgi_setup_locking(void);
 int uwsgi_fcntl_lock(int);
