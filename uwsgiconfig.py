@@ -79,6 +79,14 @@ report = {
     'zlib': False,
 }
 
+verbose_build = False
+
+def print_compilation_output(default_str, verbose_str):
+    if verbose_build:
+        print(verbose_str)
+    elif default_str is not None:
+        print(default_str)
+
 compile_queue = None
 print_lock = None
 thread_compilers = []
@@ -87,8 +95,8 @@ def thread_compiler(num):
     while True:
         (objfile, cmdline) = compile_queue.get()
         if objfile:
-            print_lock.acquire()    
-            print("[thread %d][%s] %s" % (num, GCC, objfile))
+            print_lock.acquire()
+            print_compilation_output("[thread %d][%s] %s" % (num, GCC, objfile), "[thread %d] %s" % (num, cmdline))
             print_lock.release()    
             ret = os.system(cmdline)
             if ret != 0:
@@ -172,7 +180,7 @@ def push_print(msg):
 
 def push_command(objfile, cmdline):
     if not compile_queue:
-        print("[%s] %s" % (GCC, objfile))
+        print_compilation_output("[%s] %s" % (GCC, objfile), cmdline)
         ret = os.system(cmdline)
         if ret != 0:
             sys.exit(1)
@@ -1294,7 +1302,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         need_pic = ' -L. -luwsgi'
 
     gccline = "%s%s %s -o %s.so %s %s %s %s" % (GCC, need_pic, shared_flag, plugin_dest, ' '.join(uniq_warnings(p_cflags)), ' '.join(gcc_list), ' '.join(uniq_warnings(p_ldflags)), ' '.join(uniq_warnings(p_libs)) )
-    print("[%s] %s.so" % (GCC, plugin_dest))
+    print_compilation_output("[%s] %s.so" % (GCC, plugin_dest), gccline)
 
     ret = os.system(gccline)
     if ret != 0:
@@ -1307,7 +1315,9 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
             for rp in requires:
                 f.write("requires=%s\n" % rp)
             f.close()
-            os.system("objcopy %s.so --add-section uwsgi=.uwsgi_plugin_section %s.so" % (plugin_dest, plugin_dest))
+            objline = "objcopy %s.so --add-section uwsgi=.uwsgi_plugin_section %s.so" % (plugin_dest, plugin_dest)
+            print_compilation_output(None, objline)
+            os.system(objline)
             os.unlink('.uwsgi_plugin_section')
     except:
         pass
@@ -1341,8 +1351,12 @@ if __name__ == "__main__":
     parser.add_option("-x", "--extra-plugin", action="callback", callback=vararg_callback,  dest="extra_plugin", help="build an external plugin as shared library, takes an optional include dir", metavar="PLUGIN [INCLUDE_DIR]")
     parser.add_option("-c", "--clean", action="store_true", dest="clean", help="clean the build")
     parser.add_option("-e", "--check", action="store_true", dest="check", help="run cppcheck")
+    parser.add_option("-v", "--verbose", action="store_true", dest="verbose", help="more verbose build")
 
     (options, args) = parser.parse_args()
+
+    if options.verbose:
+        verbose_build = True
 
     if options.build is not None:
         try:
