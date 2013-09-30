@@ -292,6 +292,8 @@ PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
 
 int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
+	if (wsgi_req->is_raw) return uwsgi_request_python_raw(wsgi_req);
+
 	struct uwsgi_app *wi;
 
 	if (wsgi_req->async_force_again) {

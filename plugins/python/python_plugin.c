@@ -160,6 +160,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 
 	{"python-version", no_argument, 0, "report python version", uwsgi_opt_pyver, NULL, UWSGI_OPT_IMMEDIATE},
 
+	{"python-raw", required_argument, 0, "load a python file for managing raw requests", uwsgi_opt_set_str, &up.raw, 0},
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -1074,7 +1076,6 @@ void uwsgi_python_init_apps() {
         up.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
         up.loaders[LOADER_STRING_CALLABLE] = uwsgi_string_callable_loader;
 
-
 	struct uwsgi_string_list *upli = up.import_list;
 	while(upli) {
 		if (strchr(upli->value, '/') || uwsgi_endswith(upli->value, ".py")) {
@@ -1125,6 +1126,12 @@ next:
 		uppa = uppa->next;
         }
 
+	if (up.raw) {
+		up.raw_callable = uwsgi_file_loader(up.raw);
+		if (up.raw_callable) {
+			Py_INCREF(up.raw_callable);
+		}
+	}
 
 	if (up.wsgi_config != NULL) {
 		init_uwsgi_app(LOADER_UWSGI, up.wsgi_config, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);

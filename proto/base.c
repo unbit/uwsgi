@@ -1,7 +1,13 @@
-
-#include "../uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
+
+int uwsgi_proto_raw_parser(struct wsgi_request *wsgi_req) {
+	wsgi_req->is_raw = 1;
+	wsgi_req->uh->modifier1 = uwsgi.raw_modifier1;
+	wsgi_req->uh->modifier2 = uwsgi.raw_modifier2;
+	return UWSGI_OK;
+}
 
 uint16_t proto_base_add_uwsgi_header(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
 

@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 #include <Python.h>
 
 #include <frameobject.h>
@@ -181,6 +181,9 @@ struct uwsgi_python {
 
 	char *programname;
 	int wsgi_strict;
+
+	char *raw;
+	PyObject *raw_callable;
 };
 
 
@@ -276,6 +279,8 @@ struct uwsgi_buffer *uwsgi_python_exception_msg(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_python_exception_repr(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *);
 void uwsgi_python_exception_log(struct wsgi_request *);
+
+int uwsgi_request_python_raw(struct wsgi_request *);
 
 #define py_current_wsgi_req() current_wsgi_req();\
 			if (!wsgi_req) {\

@@ -1524,6 +1524,8 @@ struct wsgi_request {
 	char *transformed_chunk;
 	size_t transformed_chunk_len;
 
+	int is_raw;
+
 	struct msghdr msg;
 	union {
 		struct cmsghdr cmsg;
@@ -1726,6 +1728,8 @@ struct uwsgi_server {
 	uint64_t http_modifier2;
 	uint64_t scgi_modifier1;
 	uint64_t scgi_modifier2;
+	uint64_t raw_modifier1;
+	uint64_t raw_modifier2;
 
 	// enable lazy mode
 	int lazy;
@@ -3203,6 +3207,7 @@ int uwsgi_proto_scgi_parser(struct wsgi_request *);
 
 
 int uwsgi_proto_base_accept(struct wsgi_request *, int);
+int uwsgi_proto_raw_parser(struct wsgi_request *);
 void uwsgi_proto_base_close(struct wsgi_request *);
 uint16_t proto_base_add_uwsgi_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 uint16_t proto_base_add_uwsgi_var(struct wsgi_request *, char *, uint16_t, char *, uint16_t);

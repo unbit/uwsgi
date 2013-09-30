@@ -1877,7 +1877,20 @@ setup_proto:
 			if (uwsgi.offload_threads > 0)
 				uwsgi_sock->can_offload = 1;
 		}
-
+		else if (requested_protocol && !strcmp("raw", requested_protocol)) {
+			uwsgi_sock->proto = uwsgi_proto_raw_parser;
+                        uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
+                        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
+                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
+                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
+                        uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
+                        uwsgi_sock->proto_write = uwsgi_proto_base_write;
+                        uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
+                        uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
+                        uwsgi_sock->proto_close = uwsgi_proto_base_close;
+                        if (uwsgi.offload_threads > 0)
+                                uwsgi_sock->can_offload = 1;
+		}
 		else if (requested_protocol && (!strcmp("fastcgi", requested_protocol) || !strcmp("fcgi", requested_protocol))) {
 			uwsgi_sock->proto = uwsgi_proto_fastcgi_parser;
 			uwsgi_sock->proto_accept = uwsgi_proto_base_accept;

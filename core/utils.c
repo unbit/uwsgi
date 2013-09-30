@@ -1029,7 +1029,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// after_request hook
-	if (uwsgi.p[wsgi_req->uh->modifier1]->after_request)
+	if (!wsgi_req->is_raw && uwsgi.p[wsgi_req->uh->modifier1]->after_request)
 		uwsgi.p[wsgi_req->uh->modifier1]->after_request(wsgi_req);
 
 	if (uwsgi.threads > 1) {
