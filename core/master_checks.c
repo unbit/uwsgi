@@ -118,6 +118,9 @@ void uwsgi_master_check_idle() {
 				if (errno != ECHILD)
 					uwsgi_error("uwsgi_master_check_idle()/waitpid()");
 			}
+			else {
+				uwsgi.workers[i].pid = 0;
+			}
 		}
 		uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
 		uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
