@@ -53,7 +53,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"scgi-modifier1", required_argument, 0, "force the specified modifier1 when using SCGI protocol", uwsgi_opt_set_64bit, &uwsgi.scgi_modifier1, 0},
 	{"scgi-modifier2", required_argument, 0, "force the specified modifier2 when using SCGI protocol", uwsgi_opt_set_64bit, &uwsgi.scgi_modifier2, 0},
 
-	{"raw-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using RAW protocol", uwsgi_opt_add_socket, "raw", 0},
+	{"raw-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using RAW protocol", uwsgi_opt_add_socket_no_defer, "raw", 0},
 	{"raw-modifier1", required_argument, 0, "force the specified modifier1 when using RAW protocol", uwsgi_opt_set_64bit, &uwsgi.raw_modifier1, 0},
 	{"raw-modifier2", required_argument, 0, "force the specified modifier2 when using RAW protocol", uwsgi_opt_set_64bit, &uwsgi.raw_modifier2, 0},
 
@@ -3930,6 +3930,13 @@ void uwsgi_opt_add_socket(char *opt, char *value, void *protocol) {
 	struct uwsgi_socket *uwsgi_sock = uwsgi_new_socket(generate_socket_name(value));
 	uwsgi_sock->name_len = strlen(uwsgi_sock->name);
 	uwsgi_sock->proto_name = protocol;
+}
+
+void uwsgi_opt_add_socket_no_defer(char *opt, char *value, void *protocol) {
+        struct uwsgi_socket *uwsgi_sock = uwsgi_new_socket(generate_socket_name(value));
+        uwsgi_sock->name_len = strlen(uwsgi_sock->name);
+        uwsgi_sock->proto_name = protocol;
+	uwsgi_sock->no_defer = 1;
 }
 
 void uwsgi_opt_add_lazy_socket(char *opt, char *value, void *protocol) {

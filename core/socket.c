@@ -1714,6 +1714,10 @@ void uwsgi_bind_sockets() {
 	while (uwsgi_sock) {
 		if (!uwsgi_sock->bound && !uwsgi_socket_is_already_bound(uwsgi_sock->name)) {
 			char *tcp_port = strrchr(uwsgi_sock->name, ':');
+			int current_defer_accept = uwsgi.no_defer_accept;
+                        if (uwsgi_sock->no_defer) {
+                                uwsgi.no_defer_accept = 1;
+                        }
 			if (tcp_port == NULL) {
 				uwsgi_sock->fd = bind_to_unix(uwsgi_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 				uwsgi_sock->family = AF_UNIX;
@@ -1747,6 +1751,7 @@ void uwsgi_bind_sockets() {
 				uwsgi_log("unable to create server socket on: %s\n", uwsgi_sock->name);
 				exit(1);
 			}
+			uwsgi.no_defer_accept = current_defer_accept;
 		}
 		uwsgi_sock->bound = 1;
 		uwsgi_sock = uwsgi_sock->next;
