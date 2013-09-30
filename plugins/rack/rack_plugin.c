@@ -416,6 +416,18 @@ void uwsgi_ruby_gem_set_apply(char *gemset) {
 
 void uwsgi_ruby_gemset(char *gemset) {
 
+	struct uwsgi_string_list *rvm_paths = ur.rvm_path;
+	while(rvm_paths) {
+		char *filename = uwsgi_concat3(rvm_paths->value, "/environments/", gemset);
+                if (uwsgi_file_exists(filename)) {
+			uwsgi_ruby_gem_set_apply(filename);
+                        free(filename);
+                        return;
+                }
+                free(filename);
+		rvm_paths = rvm_paths->next;
+	}
+
 	char *home = getenv("HOME");
 
 	if (home) {
@@ -435,18 +447,6 @@ void uwsgi_ruby_gemset(char *gemset) {
                 return;
         }
         free(filename);
-
-	struct uwsgi_string_list *rvm_paths = ur.rvm_path;
-	while(rvm_paths) {
-		char *filename = uwsgi_concat3(rvm_paths->value, "/environments/", gemset);
-                if (uwsgi_file_exists(filename)) {
-			uwsgi_ruby_gem_set_apply(filename);
-                        free(filename);
-                        return;
-                }
-                free(filename);
-		rvm_paths = rvm_paths->next;
-	}
 
 	uwsgi_log("ERROR: unable to load gemset %s !!!\n", gemset);
 	exit(1);
