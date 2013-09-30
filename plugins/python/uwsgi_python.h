@@ -180,6 +180,7 @@ struct uwsgi_python {
 	int start_response_nodelay;
 
 	char *programname;
+	int wsgi_strict;
 };
 
 

@@ -156,6 +156,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"wsgi-env-behavior", required_argument, 0, "set the strategy for allocating/deallocating the WSGI env", uwsgi_opt_set_str, &up.wsgi_env_behaviour, 0},
 	{"start_response-nodelay", no_argument, 0, "send WSGI http headers as soon as possible (PEP violation)", uwsgi_opt_true, &up.start_response_nodelay, 0},
 
+	{"wsgi-strict", no_argument, 0, "expect the WSGI callable to return ONLY strings (python 2.x) or bytes (python 3.x)", uwsgi_opt_true, &up.wsgi_strict, 0},
+
 	{"python-version", no_argument, 0, "report python version", uwsgi_opt_pyver, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{0, 0, 0, 0, 0, 0, 0},

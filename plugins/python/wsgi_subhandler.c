@@ -6,6 +6,57 @@ extern struct uwsgi_plugin python_plugin;
 extern PyTypeObject uwsgi_InputType;
 
 /*
+
+	Albeit PEP 333/3333 is clear about what kind of return object we must
+	expect from a WSGI callable, we use the buffer api to optimize for lower-level
+	returns type: bytes, bytearray, array.array
+
+	the "strict" can behavhiour can be forced with --wsgi-strict
+
+*/
+
+int uwsgi_python_send_body(struct wsgi_request *wsgi_req, PyObject *chunk) {
+	char *content = NULL;
+	size_t content_len = 0;
+	if (!up.wsgi_strict) {
+#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
+		if (PyObject_CheckBuffer(chunk)) {
+			Py_buffer pbuf;
+			if (!PyObject_GetBuffer(chunk, &pbuf, PyBUF_SIMPLE)) {
+				content = (char *) pbuf.buf;
+				content_len = (size_t) pbuf.len;
+				goto found;
+			}
+		}
+#else
+		if (PyObject_CheckReadBuffer(chunk)) {
+			if (!PyObject_AsCharBuffer(chunk, (const char **) &content, (Py_ssize_t *) &content_len)) {
+				goto found;
+			}
+		}
+#endif
+	}
+	// fallback
+	if (PyString_Check(chunk)) {
+               	content = PyString_AsString(chunk);
+               	content_len = PyString_Size(chunk);
+	}
+
+found:
+	if (content) {
+                UWSGI_RELEASE_GIL
+                uwsgi_response_write_body_do(wsgi_req, content, content_len);
+                UWSGI_GET_GIL
+                uwsgi_py_check_write_errors {
+                       	uwsgi_py_write_exception(wsgi_req);
+			return -1;
+                }
+		return 1;
+	}
+	return 0;
+} 
+
+/*
 this is a hack for supporting non-file object passed to wsgi.file_wrapper
 */
 static void uwsgi_python_consume_file_wrapper_read(struct wsgi_request *wsgi_req, PyObject *pychunk) {
@@ -169,18 +220,9 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 	PyObject *pychunk;
 
 	// return or yield ?
-	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
-		char *content = PyString_AsString((PyObject *)wsgi_req->async_result);
-		size_t content_len = PyString_Size((PyObject *)wsgi_req->async_result);
-		UWSGI_RELEASE_GIL
-		uwsgi_response_write_body_do(wsgi_req, content, content_len);
-		UWSGI_GET_GIL
-		uwsgi_py_check_write_errors {
-			uwsgi_py_write_exception(wsgi_req);
-		}
+	if (uwsgi_python_send_body(wsgi_req, (PyObject *)wsgi_req->async_result)) {
 		goto clear;
 	}
-
 
 	if (wsgi_req->sendfile_obj == wsgi_req->async_result) {
 		if (wsgi_req->sendfile_fd >= 0) {
@@ -222,19 +264,13 @@ exception:
 
 
 
-	if (PyString_Check(pychunk)) {
-		char *content = PyString_AsString(pychunk);
-		size_t content_len = PyString_Size(pychunk);
-		UWSGI_RELEASE_GIL
-		uwsgi_response_write_body_do(wsgi_req, content, content_len);
-		UWSGI_GET_GIL
-		uwsgi_py_check_write_errors {
-			uwsgi_py_write_exception(wsgi_req);
+	int ret = uwsgi_python_send_body(wsgi_req, pychunk);
+	if (ret != 0) {
+		if (ret < 0) {
 			Py_DECREF(pychunk);
 			goto clear;
 		}
 	}
-
 	else if (wsgi_req->sendfile_obj == pychunk) {
 		if (wsgi_req->sendfile_fd >= 0) {
 			UWSGI_RELEASE_GIL
