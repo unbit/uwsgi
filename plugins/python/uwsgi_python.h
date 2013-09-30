@@ -280,6 +280,8 @@ struct uwsgi_buffer *uwsgi_python_exception_repr(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *);
 void uwsgi_python_exception_log(struct wsgi_request *);
 
+int uwsgi_python_send_body(struct wsgi_request *, PyObject *);
+
 int uwsgi_request_python_raw(struct wsgi_request *);
 
 #define py_current_wsgi_req() current_wsgi_req();\

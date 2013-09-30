@@ -4,21 +4,64 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
 static int manage_raw_response(struct wsgi_request *wsgi_req) {
-	return 0;
+	int ret = 0;
+	if (!wsgi_req->async_force_again) {
+		ret = uwsgi_python_send_body(wsgi_req, (PyObject *) wsgi_req->async_result);
+	}	
+	if (ret == 0) {
+		if (!wsgi_req->async_placeholder) {
+			wsgi_req->async_placeholder = PyObject_GetIter((PyObject *)wsgi_req->async_result);
+			if (!wsgi_req->async_placeholder) return UWSGI_OK;
+		}
+
+		PyObject *pychunk = PyIter_Next((PyObject *)wsgi_req->async_placeholder);
+		if (!pychunk) return UWSGI_OK;
+		ret = uwsgi_python_send_body(wsgi_req, pychunk);
+		Py_DECREF(pychunk);
+		return UWSGI_AGAIN;
+	}
+	return UWSGI_OK;
 }
 
 int uwsgi_request_python_raw(struct wsgi_request *wsgi_req) {
 	if (!up.raw_callable) return UWSGI_OK;
 
+	// back from async
+	if (wsgi_req->async_force_again) {
+		UWSGI_GET_GIL
+		int ret = manage_raw_response(wsgi_req);
+		if (ret == UWSGI_AGAIN) {
+			wsgi_req->async_force_again = 1;
+			UWSGI_RELEASE_GIL
+			return UWSGI_AGAIN;
+		}
+		goto end;
+	}
+
 	UWSGI_GET_GIL
 	PyObject *args = PyTuple_New(1);
 	PyTuple_SetItem(args, 0, PyInt_FromLong(wsgi_req->fd));
 	wsgi_req->async_result = PyEval_CallObject(up.raw_callable, args);
+	Py_DECREF(args);
 	if (wsgi_req->async_result) {
-		manage_raw_response(wsgi_req);
+		for(;;) {
+			int ret = manage_raw_response(wsgi_req);
+			if (ret == UWSGI_AGAIN) {
+				wsgi_req->async_force_again = 1;
+				if (uwsgi.async > 1) {
+					UWSGI_RELEASE_GIL
+					return UWSGI_AGAIN;
+				}
+				continue;
+			}
+			break;
+		}
+	}
+end:
+	if (PyErr_Occurred()) PyErr_Print();
+	if (wsgi_req->async_result) {
 		Py_DECREF((PyObject *) wsgi_req->async_result);
 	}
-	Py_DECREF(args);
 	UWSGI_RELEASE_GIL;
 	return UWSGI_OK;
 }
