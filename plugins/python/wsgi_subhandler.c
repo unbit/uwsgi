@@ -16,15 +16,19 @@ extern PyTypeObject uwsgi_InputType;
 */
 
 int uwsgi_python_send_body(struct wsgi_request *wsgi_req, PyObject *chunk) {
+#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
+	Py_buffer pbuf;
+	int has_buffer = 0;
+#endif
 	char *content = NULL;
 	size_t content_len = 0;
 	if (!up.wsgi_strict) {
 #if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
 		if (PyObject_CheckBuffer(chunk)) {
-			Py_buffer pbuf;
 			if (!PyObject_GetBuffer(chunk, &pbuf, PyBUF_SIMPLE)) {
 				content = (char *) pbuf.buf;
 				content_len = (size_t) pbuf.len;
+				has_buffer = 1;
 				goto found;
 			}
 		}
@@ -48,6 +52,9 @@ found:
                 UWSGI_RELEASE_GIL
                 uwsgi_response_write_body_do(wsgi_req, content, content_len);
                 UWSGI_GET_GIL
+#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
+		if (has_buffer) PyBuffer_Release(&pbuf);
+#endif
                 uwsgi_py_check_write_errors {
                        	uwsgi_py_write_exception(wsgi_req);
 			return -1;
