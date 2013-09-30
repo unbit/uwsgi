@@ -142,7 +142,7 @@ int spawn_emergency_worker(int backlog) {
 #endif
 
 
-int cheaper_busyness_algo(void) {
+int cheaper_busyness_algo(int can_spawn) {
 
 	int i;
 	// we use microseconds
@@ -243,11 +243,12 @@ int cheaper_busyness_algo(void) {
 			uwsgi_cheaper_busyness_global.tolerance_counter = 0;
 
 			int decheaped = 0;
-			for (i = 1; i <= uwsgi.numproc; i++) {
-				
-				if (uwsgi.workers[i].cheaped == 1 && uwsgi.workers[i].pid == 0) {
-					decheaped++;
-					if (decheaped >= uwsgi.cheaper_step) break;
+			if (can_spawn) {
+				for (i = 1; i <= uwsgi.numproc; i++) {
+					if (uwsgi.workers[i].cheaped == 1 && uwsgi.workers[i].pid == 0) {
+						decheaped++;
+						if (decheaped >= uwsgi.cheaper_step) break;
+					}
 				}
 			}
 
@@ -271,15 +272,15 @@ int cheaper_busyness_algo(void) {
 				uwsgi_log("[busyness] %llus average busyness is at %llu%%, will spawn %d new worker(s)\n",
 					uwsgi.cheaper_overload, avg_busyness, decheaped);
 			} else {
-				uwsgi_log("[busyness] %llus average busyness is at %llu%% but we already started maximum number of workers (%d)\n",
-					uwsgi.cheaper_overload, avg_busyness, uwsgi.numproc);
+				uwsgi_log("[busyness] %llus average busyness is at %llu%% but we already started maximum number of workers available with current limits (%d)\n",
+					uwsgi.cheaper_overload, avg_busyness, active_workers);
 			}
 
 			// return the maximum number of workers to spawn
 			return decheaped;
 
 #ifdef __linux__
-		} else if (backlog > uwsgi_cheaper_busyness_global.backlog_alert && active_workers < uwsgi.numproc) {
+		} else if (can_spawn && backlog > uwsgi_cheaper_busyness_global.backlog_alert && active_workers < uwsgi.numproc) {
 			return spawn_emergency_worker(backlog);
 #endif
 
@@ -347,14 +348,14 @@ int cheaper_busyness_algo(void) {
 	}
 
 #ifdef __linux__
-	else if (backlog > uwsgi_cheaper_busyness_global.backlog_alert && active_workers < uwsgi.numproc) {
+	else if (can_spawn && backlog > uwsgi_cheaper_busyness_global.backlog_alert && active_workers < uwsgi.numproc) {
 		// we check for backlog overload every cycle
 		return spawn_emergency_worker(backlog);
 	}
 	else if (backlog > 0) {
 		if (uwsgi_cheaper_busyness_global.backlog_is_nonzero) {
 			// backlog was > 0 last time, check timestamp and spawn workers if needed
-			if ((now - uwsgi_cheaper_busyness_global.backlog_nonzero_since)/1000000 >= uwsgi_cheaper_busyness_global.backlog_nonzero_alert) {
+			if (can_spawn && (now - uwsgi_cheaper_busyness_global.backlog_nonzero_since)/1000000 >= uwsgi_cheaper_busyness_global.backlog_nonzero_alert) {
 				uwsgi_log("[busyness] backlog was non-zero for %llu second(s), spawning new worker(s)\n", (now - uwsgi_cheaper_busyness_global.backlog_nonzero_since)/1000000);
 				uwsgi_cheaper_busyness_global.backlog_nonzero_since = now;
 				return spawn_emergency_worker(backlog);
@@ -391,4 +392,3 @@ struct uwsgi_plugin cheaper_busyness_plugin = {
 	.options = uwsgi_cheaper_busyness_options,
 	
 };
-
