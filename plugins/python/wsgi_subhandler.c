@@ -11,7 +11,7 @@ extern PyTypeObject uwsgi_InputType;
 	expect from a WSGI callable, we use the buffer api to optimize for lower-level
 	returns type: bytes, bytearray, array.array
 
-	the "strict" can behavhiour can be forced with --wsgi-strict
+	the "strict" behaviour can be forced with --wsgi-strict
 
 */
 
