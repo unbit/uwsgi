@@ -3163,8 +3163,10 @@ int uwsgi_str3_num(char *);
 int uwsgi_str4_num(char *);
 
 #ifdef __linux__
+#if !defined(__ia64__)
 	void linux_namespace_start(void *);
 	void linux_namespace_jail(void);
+#endif
 	int uwsgi_netlink_veth(char *, char *);
 	int uwsgi_netlink_veth_attach(char *, pid_t);
 	int uwsgi_netlink_ifup(char *);
