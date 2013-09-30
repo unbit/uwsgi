@@ -31,6 +31,7 @@ int uwsgi_python_send_body(struct wsgi_request *wsgi_req, PyObject *chunk) {
 #else
 		if (PyObject_CheckReadBuffer(chunk)) {
 			if (!PyObject_AsCharBuffer(chunk, (const char **) &content, (Py_ssize_t *) &content_len)) {
+				PyErr_Clear();
 				goto found;
 			}
 		}
