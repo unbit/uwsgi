@@ -2277,6 +2277,7 @@ struct uwsgi_server {
 	int harakiri_verbose;
 	int harakiri_no_arh;
 
+	int magic_table_first_round;
 	char *magic_table[256];
 
 	int numproc;

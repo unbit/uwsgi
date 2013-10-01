@@ -1051,7 +1051,9 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 
 	magic_table['b'] = uwsgi.binary_path;
 	magic_table['p'] = fullname;
+
 	magic_table['s'] = uwsgi_get_last_char(fullname, '/') + 1;
+
 	magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s'] - magic_table['p'], "", 0);
 	if (magic_table['d'][strlen(magic_table['d']) - 1] == '/') {
 		tmp = magic_table['d'] + (strlen(magic_table['d']) - 1);
@@ -1093,6 +1095,20 @@ reuse:
 		magic_table['x'] = section+1;
 		*section = ':';
 	}
+
+	// first round ?
+	if (!uwsgi.magic_table_first_round) { 
+		magic_table['O'] = magic_table['o'];
+                magic_table['D'] = magic_table['d'];
+                magic_table['S'] = magic_table['s'];
+                magic_table['P'] = magic_table['p'];
+                if (magic_table['c']) magic_table['C'] = magic_table['c'];
+                if (magic_table['e']) magic_table['E'] = magic_table['e'];
+                if (magic_table['n']) magic_table['N'] = magic_table['n'];
+                if (magic_table['x']) magic_table['X'] = magic_table['x'];
+		uwsgi.magic_table_first_round = 1;
+        }
+
 }
 
 int find_worker_id(pid_t pid) {
