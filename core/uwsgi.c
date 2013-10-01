@@ -2122,6 +2122,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();
 
+	// fixup cwd
+	if (uwsgi.force_cwd) uwsgi.cwd = uwsgi.force_cwd;
+
 	// run "asap" hooks
 	uwsgi_hooks_run(uwsgi.hook_asap, "asap", 1);
         struct uwsgi_string_list *usl = NULL;

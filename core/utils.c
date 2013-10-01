@@ -191,8 +191,6 @@ void daemonize(char *logfile) {
 // get current working directory
 char *uwsgi_get_cwd() {
 
-	if (uwsgi.force_cwd) return uwsgi.force_cwd;
-
 	// set this to static to avoid useless reallocations in stats mode
 	static size_t newsize = 256;
 
