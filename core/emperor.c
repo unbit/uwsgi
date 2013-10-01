@@ -339,8 +339,13 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 	struct stat st;
 	struct uwsgi_instance *ui_current;
 
+	if (chdir(uwsgi.cwd)) {
+		uwsgi_error("uwsgi_imperial_monitor_glob()/chdir()");
+		exit(1);
+	}
+
 	if (glob(ues->arg, GLOB_MARK | GLOB_NOCHECK, NULL, &g)) {
-		uwsgi_error("glob()");
+		uwsgi_error("uwsgi_imperial_monitor_glob()/glob()");
 		return;
 	}
 
