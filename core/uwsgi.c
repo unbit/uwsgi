@@ -886,7 +886,8 @@ void show_config(void) {
 
 }
 
-int uwsgi_manage_custom_option(struct uwsgi_custom_option *uco, char *key, char *value) {
+void uwsgi_opt_custom(char *key, char *value, void *data ) {
+	struct uwsgi_custom_option *uco = (struct uwsgi_custom_option *)data;
 	int configured;
 	size_t i, count = 1;
 	size_t value_len = 0;
@@ -895,10 +896,6 @@ int uwsgi_manage_custom_option(struct uwsgi_custom_option *uco, char *key, char 
 	off_t pos = 0;
 	char **opt_argv;
 	char *tmp_val = NULL, *p = NULL;
-
-	if (strcmp(uco->name, key)) {
-		return 0;
-	}
 
 	// now count the number of args
 	for (i = 0; i < value_len; i++) {
@@ -974,7 +971,6 @@ clear:
 	free(tmp_val);
 	free(tmp_opt);
 	free(opt_argv);
-	return 1;
 
 }
 
@@ -987,14 +983,6 @@ int uwsgi_manage_opt(char *key, char *value) {
 			return 1;
 		}
 		op++;
-	}
-
-	struct uwsgi_custom_option *uco = uwsgi.custom_options;
-	while (uco) {
-		if (uwsgi_manage_custom_option(uco, key, value)) {
-			return 1;
-		}
-		uco = uco->next;
 	}
 	return 0;
 
@@ -3457,7 +3445,26 @@ void build_options() {
 			pos += c;
 		}
 	}
-	// custom_options are not added to uwsgi.options
+
+	uco = uwsgi.custom_options;
+        while (uco) {
+                uwsgi.options[pos].name = uco->name;
+                if (uco->has_args) {
+                        uwsgi.options[pos].type = required_argument;
+                }
+                else {
+                        uwsgi.options[pos].type = no_argument;
+                }
+                // custom options should be immediate
+                uwsgi.options[pos].flags = UWSGI_OPT_IMMEDIATE;
+                // help shows the option definition
+                uwsgi.options[pos].help = uco->value;
+                uwsgi.options[pos].data = uco;
+                uwsgi.options[pos].func = uwsgi_opt_custom;
+
+                pos++;
+                uco = uco->next;
+        }
 
 
 	pos = 0;
@@ -3495,21 +3502,6 @@ void build_options() {
 		}
 		op++;
 		pos++;
-	}
-	uco = uwsgi.custom_options;
-	while (uco) {
-		uwsgi.long_options[pos].name = uco->name;
-		if (uco->has_args) {
-			uwsgi.long_options[pos].has_arg = required_argument;
-		}
-		else {
-			uwsgi.long_options[pos].has_arg = no_argument;
-		}
-		uwsgi.long_options[pos].flag = 0;
-		// add 1000 to avoid short_options collision
-		uwsgi.long_options[pos].val = 1000 + pos;
-		pos++;
-		uco = uco->next;
 	}
 }
 

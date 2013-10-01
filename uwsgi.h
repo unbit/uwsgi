@@ -3474,6 +3474,7 @@ int uwsgi_manage_opt(char *, char *);
 void uwsgi_opt_print(char *, char *, void *);
 void uwsgi_opt_true(char *, char *, void *);
 void uwsgi_opt_set_str(char *, char *, void *);
+void uwsgi_opt_custom(char *, char *, void *);
 void uwsgi_opt_set_null(char *, char *, void *);
 void uwsgi_opt_set_logger(char *, char *, void *);
 void uwsgi_opt_set_req_logger(char *, char *, void *);
