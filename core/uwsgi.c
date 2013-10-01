@@ -1102,10 +1102,10 @@ reuse:
                 magic_table['D'] = magic_table['d'];
                 magic_table['S'] = magic_table['s'];
                 magic_table['P'] = magic_table['p'];
-                if (magic_table['c']) magic_table['C'] = magic_table['c'];
-                if (magic_table['e']) magic_table['E'] = magic_table['e'];
-                if (magic_table['n']) magic_table['N'] = magic_table['n'];
-                if (magic_table['x']) magic_table['X'] = magic_table['x'];
+                magic_table['C'] = magic_table['c'];
+                magic_table['E'] = magic_table['e'];
+                magic_table['N'] = magic_table['n'];
+                magic_table['X'] = magic_table['x'];
 		uwsgi.magic_table_first_round = 1;
         }
 
@@ -4323,39 +4323,45 @@ void uwsgi_opt_deprecated(char *opt, char *value, void *message) {
 
 void uwsgi_opt_load(char *opt, char *filename, void *none) {
 
+	// here we need to avoid setting upper magic vars
+	int orig_magic = uwsgi.magic_table_first_round;
+	uwsgi.magic_table_first_round = 1;
+
 	if (uwsgi_endswith(filename, ".ini")) {
 		uwsgi_opt_load_ini(opt, filename, none);
-		return;
+		goto end;
 	}
 #ifdef UWSGI_XML
 	if (uwsgi_endswith(filename, ".xml")) {
 		uwsgi_opt_load_xml(opt, filename, none);
-		return;
+		goto end;
 	}
 #endif
 #ifdef UWSGI_YAML
 	if (uwsgi_endswith(filename, ".yaml")) {
 		uwsgi_opt_load_yml(opt, filename, none);
-		return;
+		goto end;
 	}
 	if (uwsgi_endswith(filename, ".yml")) {
 		uwsgi_opt_load_yml(opt, filename, none);
-		return;
+		goto end;
 	}
 #endif
 #ifdef UWSGI_JSON
 	if (uwsgi_endswith(filename, ".json")) {
 		uwsgi_opt_load_json(opt, filename, none);
-		return;
+		goto end;
 	}
 	if (uwsgi_endswith(filename, ".js")) {
 		uwsgi_opt_load_json(opt, filename, none);
-		return;
+		goto end;
 	}
 #endif
 
 	// fallback to pluggable system
 	uwsgi_opt_load_config(opt, filename, none);
+end:
+	uwsgi.magic_table_first_round = orig_magic;
 }
 
 void uwsgi_opt_logic(char *opt, char *arg, void *func) {
