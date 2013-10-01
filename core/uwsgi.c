@@ -3961,7 +3961,11 @@ void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
 	}
 
 	p[0] = 0;
+	// store the current strict status and disable it
+	int tmp = uwsgi.strict; uwsgi.strict = 0;
 	add_exported_option(uwsgi_str(value), p + 1, 1);
+	// reset the old strict status
+	uwsgi.strict = tmp;
 	p[0] = '=';
 
 }
