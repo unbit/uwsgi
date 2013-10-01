@@ -2977,6 +2977,7 @@ void uwsgi_register_loop(char *, void (*)(void));
 void *uwsgi_get_loop(char *);
 
 void add_exported_option(char *, char *, int);
+void add_exported_option_do(char *, char *, int, int);
 
 ssize_t uwsgi_send_empty_pkt(int, char *, uint8_t, uint8_t);
 

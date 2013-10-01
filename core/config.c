@@ -306,7 +306,13 @@ struct uwsgi_option *uwsgi_opt_get(char *name) {
         return NULL;
 }
 
+
+
 void add_exported_option(char *key, char *value, int configured) {
+	add_exported_option_do(key, value, configured, 0);
+}
+
+void add_exported_option_do(char *key, char *value, int configured, int placeholder_only) {
 
 	struct uwsgi_string_list *blacklist = uwsgi.blacklist;
 	struct uwsgi_string_list *whitelist = uwsgi.whitelist;
@@ -393,6 +399,8 @@ add:
 	uwsgi.exported_opts[id]->configured = configured;
 	uwsgi.exported_opts_cnt++;
 	uwsgi.dirty_config = 1;
+
+	if (placeholder_only) return;
 
 	struct uwsgi_option *op = uwsgi_opt_get(key);
 	if (op) {
