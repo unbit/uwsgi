@@ -82,7 +82,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"skip-zero", no_argument, 0, "skip check of file descriptor 0", uwsgi_opt_true, &uwsgi.skip_zero, 0},
 	{"skip-atexit", no_argument, 0, "skip atexit hooks (ignored by the master)", uwsgi_opt_true, &uwsgi.skip_atexit, 0},
 
-	{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
+	{"set", required_argument, 'S', "set a placeholder or an option", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
+	{"set-placeholder", required_argument, 0, "set a placeholder", uwsgi_opt_set_placeholder, (void *) 1, UWSGI_OPT_IMMEDIATE},
+	{"set-ph", required_argument, 0, "set a placeholder", uwsgi_opt_set_placeholder, (void *) 1, UWSGI_OPT_IMMEDIATE},
 	{"get", required_argument, 0, "print the specified option value and exit", uwsgi_opt_add_string_list, &uwsgi.get_list, UWSGI_OPT_NO_INITIAL},
 	{"declare-option", required_argument, 0, "declare a new uWSGI custom option", uwsgi_opt_add_custom_option, NULL, UWSGI_OPT_IMMEDIATE},
 
@@ -3944,7 +3946,7 @@ void uwsgi_opt_add_lazy_socket(char *opt, char *value, void *protocol) {
 }
 
 
-void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
+void uwsgi_opt_set_placeholder(char *opt, char *value, void *ph) {
 
 	char *p = strchr(value, '=');
 	if (!p) {
@@ -3953,7 +3955,7 @@ void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
 	}
 
 	p[0] = 0;
-	add_exported_option_do(uwsgi_str(value), p + 1, 0, uwsgi.strict);
+	add_exported_option_do(uwsgi_str(value), p + 1, 0, ph ? 1 : uwsgi.strict);
 	p[0] = '=';
 
 }
