@@ -446,8 +446,8 @@ def build_uwsgi(uc, print_only=False, gcll=None):
 
     bin_name = os.environ.get('UWSGI_BIN_NAME', uc.get('bin_name'))
 
-    if uc.get('embed_config'):
-        gcc_list.append(uc.get('embed_config'))
+    if uc.embed_config:
+        gcc_list.append(uc.embed_config)
     for ef in binary_list:
         gcc_list.append("build/%s" % ef)
 
@@ -981,13 +981,18 @@ class uConf(object):
             self.cflags.append('-DUWSGI_HAS_FREEBSD_LIBJAIL')
             self.libs.append('-ljail')
 
+        uc.embed_config = None
+
         if uwsgi_os == 'Linux':
-            if self.get('embed_config'):
-                binary_link_cmd = "ld -r -b binary -o %s.o %s" % (self.get('embed_config'), self.get('embed_config'))
+            uc.embed_config = os.environ.get('UWSGI_EMBED_CONFIG')
+            if not uc.embed_config:
+                uc.embed_config = self.get('embed_config')
+            if uc.embed_config:
+                binary_link_cmd = "ld -r -b binary -o %s.o %s" % (uc.embed_config, uc.embed_config)
                 print(binary_link_cmd)
                 os.system(binary_link_cmd)
-                self.cflags.append("-DUWSGI_EMBED_CONFIG=_binary_%s_start" % self.get('embed_config').replace('.','_'))
-                self.cflags.append("-DUWSGI_EMBED_CONFIG_END=_binary_%s_end" % self.get('embed_config').replace('.','_'))
+                self.cflags.append("-DUWSGI_EMBED_CONFIG=_binary_%s_start" % uc.embed_config.replace('.','_'))
+                self.cflags.append("-DUWSGI_EMBED_CONFIG_END=_binary_%s_end" % uc.embed_config.replace('.','_'))
             if self.get('embed_files'):
                 for ef in self.get('embed_files').split(','):
                     ef_parts = ef.split('=')
