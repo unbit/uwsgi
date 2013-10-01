@@ -400,7 +400,10 @@ add:
 	uwsgi.exported_opts_cnt++;
 	uwsgi.dirty_config = 1;
 
-	if (placeholder_only) return;
+	if (placeholder_only) {
+		uwsgi.exported_opts[id]->configured = 1;
+		return;
+	}
 
 	struct uwsgi_option *op = uwsgi_opt_get(key);
 	if (op) {

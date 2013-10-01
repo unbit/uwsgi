@@ -3961,7 +3961,7 @@ void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
 	}
 
 	p[0] = 0;
-	add_exported_option_do(uwsgi_str(value), p + 1, 1, uwsgi.strict);
+	add_exported_option_do(uwsgi_str(value), p + 1, 0, uwsgi.strict);
 	p[0] = '=';
 
 }
