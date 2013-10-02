@@ -373,7 +373,9 @@ void init_pyargv() {
 
 	}
 
-	PySys_SetArgv(up.argc, up.py_argv);
+	// http://docs.python.org/2/c-api/init.html#PySys_SetArgvEx
+	// http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2008-5983
+	PySys_SetArgvEx(up.argc, up.py_argv, 0);
 
 	PyObject *sys_dict = get_uwsgi_pydict("sys");
 	if (!sys_dict) {
