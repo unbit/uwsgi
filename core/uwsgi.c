@@ -1062,6 +1062,23 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 #endif
 		*tmp = 0;
 	}
+
+	// clear optional vars
+	magic_table['c'] = "";
+	magic_table['e'] = "";
+	magic_table['n'] = "";
+
+	magic_table['0'] = "";
+	magic_table['1'] = "";
+	magic_table['2'] = "";
+	magic_table['3'] = "";
+	magic_table['4'] = "";
+	magic_table['5'] = "";
+	magic_table['6'] = "";
+	magic_table['7'] = "";
+	magic_table['8'] = "";
+	magic_table['9'] = "";
+
 	if (uwsgi_get_last_char(magic_table['d'], '/')) {
 		magic_table['c'] = uwsgi_str(uwsgi_get_last_char(magic_table['d'], '/') + 1);
 		if (magic_table['c'][strlen(magic_table['c']) - 1] == '/') {
@@ -1091,6 +1108,7 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 		magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.') - magic_table['s'], "", 0);
 
 reuse:
+	magic_table['x'] = "";
 	if (section) {
 		magic_table['x'] = section+1;
 		*section = ':';
