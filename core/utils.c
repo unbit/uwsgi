@@ -292,6 +292,12 @@ void uwsgi_set_cgroup() {
 #endif
 
 // drop privileges (as root)
+/*
+
+	here we manage jails/namespaces too
+	it is a pretty huge function... refactory is needed
+
+*/
 void uwsgi_as_root() {
 
 
@@ -595,6 +601,12 @@ void uwsgi_as_root() {
 			exit(1);
 		}
 		*space = 0;
+#if defined(MS_REC) && defined(MS_PRIVATE)
+                if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL)) {
+                        uwsgi_error("mount()");
+                        exit(1);
+                }
+#endif
 		if (chdir(arg)) {
 			uwsgi_error("pivot_root()/chdir()");
 			exit(1);
@@ -610,6 +622,10 @@ void uwsgi_as_root() {
 			uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
 		}
 		free(arg);
+		if (chdir("/")) {
+			uwsgi_error("chdir()");
+			exit(1);
+		}
 	}
 #endif
 
