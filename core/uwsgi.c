@@ -981,7 +981,7 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 		*tmp = '/';
 
 	if (uwsgi_get_last_char(magic_table['s'], '.'))
-		magic_table['e'] = uwsgi_get_last_char(filename, '.') + 1;
+		magic_table['e'] = uwsgi_get_last_char(magic_table['s'], '.') + 1;
 	if (uwsgi_get_last_char(magic_table['s'], '.'))
 		magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.') - magic_table['s'], "", 0);
 
@@ -1868,6 +1868,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.cwd = uwsgi_get_cwd();
 
 	init_magic_table(uwsgi.magic_table);
+
+	// initialize schemes
+	uwsgi_setup_schemes();
 
 	// initialize the clock
 	uwsgi_register_clock(&uwsgi_unix_clock);

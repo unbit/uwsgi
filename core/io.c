@@ -116,48 +116,31 @@ end:
 
 }
 
-/*
-	extremely complex function for reading resources (files, url...)
-	need a lot of refactoring...
-*/
-char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_table[]) {
+static char *uwsgi_scheme_fd(char *url, size_t *size, int add_zero) {
+	int fd = atoi(url);
+	return uwsgi_read_fd(fd, size, add_zero);
+}
 
-	int fd;
-	struct stat sb;
-	char *buffer = NULL;
+static char *uwsgi_scheme_exec(char *url, size_t *size, int add_zero) {
+	int cpipe[2];
+	if (pipe(cpipe)) {
+		uwsgi_error("pipe()");
+		exit(1);
+	}
+	uwsgi_run_command(url, NULL, cpipe[1]);
+	char *buffer = uwsgi_read_fd(cpipe[0], size, add_zero);
+	close(cpipe[0]);
+	close(cpipe[1]);
+	return buffer;
+}
+
+static char *uwsgi_scheme_http(char *url, size_t *size, int add_zero) {
 	char byte;
-	ssize_t len;
-	char *uri, *colon;
-	char *domain;
-	char *ip;
-	int body = 0;
-	char *magic_buf;
+        int body = 0;
+	char *buffer = NULL;
 
-	// stdin ?
-	if (!strcmp(url, "-")) {
-		buffer = uwsgi_read_fd(0, size, add_zero);
-	}
-	// fd ?
-	else if (!strncmp("fd://", url, 5)) {
-		fd = atoi(url + 5);
-		buffer = uwsgi_read_fd(fd, size, add_zero);
-	}
-	// exec ?
-	else if (!strncmp("exec://", url, 5)) {
-		int cpipe[2];
-		if (pipe(cpipe)) {
-			uwsgi_error("pipe()");
-			exit(1);
-		}
-		uwsgi_run_command(url + 7, NULL, cpipe[1]);
-		buffer = uwsgi_read_fd(cpipe[0], size, add_zero);
-		close(cpipe[0]);
-		close(cpipe[1]);
-	}
-	// http url ?
-	else if (!strncmp("http://", url, 7)) {
-		domain = url + 7;
-		uri = strchr(domain, '/');
+		char *domain = url;
+		char *uri = strchr(domain, '/');
 		if (!uri) {
 			uwsgi_log("invalid http url\n");
 			exit(1);
@@ -165,14 +148,14 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
 		uri[0] = 0;
 		uwsgi_log("domain: %s\n", domain);
 
-		colon = uwsgi_get_last_char(domain, ':');
+		char *colon = uwsgi_get_last_char(domain, ':');
 
 		if (colon) {
 			colon[0] = 0;
 		}
 
 
-		ip = uwsgi_resolve_ip(domain);
+		char *ip = uwsgi_resolve_ip(domain);
 		if (!ip) {
 			uwsgi_log("unable to resolve address %s\n", domain);
 			exit(1);
@@ -186,7 +169,7 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
 			ip = uwsgi_concat2(ip, ":80");
 		}
 
-		fd = uwsgi_connect(ip, 0, 0);
+		int fd = uwsgi_connect(ip, 0, 0);
 
 		if (fd < 0) {
 			exit(1);
@@ -196,18 +179,18 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
 
 		uri[0] = '/';
 
-		len = write(fd, "GET ", 4);
-		len = write(fd, uri, strlen(uri));
-		len = write(fd, " HTTP/1.0\r\n", 11);
-		len = write(fd, "Host: ", 6);
+		if (write(fd, "GET ", 4) != 4) { uwsgi_error("uwsgi_scheme_http()/write()"); exit(1);}
+		if (write(fd, uri, strlen(uri)) != (ssize_t) strlen(uri)) { uwsgi_error("uwsgi_scheme_http()/write()"); exit(1);}
+		if (write(fd, " HTTP/1.0\r\n", 11) != 11) { uwsgi_error("uwsgi_scheme_http()/write()"); exit(1);}
+		if (write(fd, "Host: ", 6) != 6) { uwsgi_error("uwsgi_scheme_http()/write()"); exit(1);}
 
 		uri[0] = 0;
-		len = write(fd, domain, strlen(domain));
+		if (write(fd, domain, strlen(domain)) != (ssize_t) strlen(domain)) { uwsgi_error("uwsgi_scheme_http()/write()"); exit(1);}
 		uri[0] = '/';
 
-		len = write(fd, "\r\nUser-Agent: uWSGI on ", 23);
-		len = write(fd, uwsgi.hostname, uwsgi.hostname_len);
-		len = write(fd, "\r\n\r\n", 4);
+		if (write(fd, "\r\nUser-Agent: uWSGI on ", 23) != 23) { uwsgi_error("uwsgi_scheme_http()/write()"); exit(1);}
+		if (write(fd, uwsgi.hostname, uwsgi.hostname_len) != uwsgi.hostname_len) { uwsgi_error("uwsgi_scheme_http()/write()"); exit(1);}
+		if (write(fd, "\r\n\r\n", 4) != 4) { uwsgi_error("uwsgi_scheme_http()/write()"); exit(1);}
 
 		int http_status_code_ptr = 0;
 
@@ -264,57 +247,198 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
 			buffer[*size - 1] = 0;
 		}
 
+	return buffer;
+}
+
+
+static char *uwsgi_scheme_emperor(char *url, size_t *size, int add_zero) {
+
+	if (uwsgi.emperor_fd_config < 0) {
+		uwsgi_log("this is not a vassal instance\n");
+		exit(1);
 	}
-	else if (!strncmp("emperor://", url, 10)) {
-		if (uwsgi.emperor_fd_config < 0) {
-			uwsgi_log("this is not a vassal instance\n");
+	ssize_t rlen;
+	*size = 0;
+	struct uwsgi_header uh;
+	size_t remains = 4;
+	char *ptr = (char *) &uh;
+	while(remains) {
+		int ret = uwsgi_waitfd(uwsgi.emperor_fd_config, 5);
+		if (ret <= 0) {
+			uwsgi_log("[uwsgi-vassal] error waiting for config header %s !!!\n", url);
 			exit(1);
 		}
-		ssize_t rlen;
-		*size = 0;
-		struct uwsgi_header uh;
-		size_t remains = 4;
-		char *ptr = (char *) &uh;
-		while(remains) {
-			int ret = uwsgi_waitfd(uwsgi.emperor_fd_config, 5);
-			if (ret <= 0) {
-				uwsgi_log("[uwsgi-vassal] error waiting for config header %s !!!\n", url);
-				exit(1);
-			}
-			rlen = read(uwsgi.emperor_fd_config, ptr, remains);
-			if (rlen <= 0) {
-				uwsgi_log("[uwsgi-vassal] error reading config header from !!!\n", url);
-				exit(1);
-			}
-			ptr+=rlen;
-			remains-=rlen;
+		rlen = read(uwsgi.emperor_fd_config, ptr, remains);
+		if (rlen <= 0) {
+			uwsgi_log("[uwsgi-vassal] error reading config header from !!!\n", url);
+			exit(1);
 		}
+		ptr+=rlen;
+		remains-=rlen;
+	}
 
-		remains = uh.pktsize;
-		if (!remains) {
-			uwsgi_log("[uwsgi-vassal] invalid config from %s\n", url);
+	remains = uh.pktsize;
+	if (!remains) {
+		uwsgi_log("[uwsgi-vassal] invalid config from %s\n", url);
+		exit(1);
+	}
+
+	char *buffer = uwsgi_calloc(remains + add_zero);
+	ptr = buffer;
+	while (remains) {
+		int ret = uwsgi_waitfd(uwsgi.emperor_fd_config, 5);
+                if (ret <= 0) {
+                	uwsgi_log("[uwsgi-vassal] error waiting for config %s !!!\n", url);
+                        exit(1);
+                }
+		rlen = read(uwsgi.emperor_fd_config, ptr, remains);
+		if (rlen <= 0) {
+                	uwsgi_log("[uwsgi-vassal] error reading config from !!!\n", url);
+                        exit(1);
+                }
+                ptr+=rlen;
+                remains-=rlen;
+	}
+
+	*size = uh.pktsize + add_zero;
+	return buffer;
+}
+
+static char *uwsgi_scheme_data(char *url, size_t *size, int add_zero) {
+	char *buffer = NULL;
+	int fd = open(uwsgi.binary_path, O_RDONLY);
+	if (fd < 0) {
+		uwsgi_error_open(uwsgi.binary_path);
+		exit(1);
+	}
+	int slot = atoi(url);
+	if (slot < 0) {
+		uwsgi_log("invalid binary data slot requested\n");
+		exit(1);
+	}
+	uwsgi_log("requesting binary data slot %d\n", slot);
+	off_t fo = lseek(fd, 0, SEEK_END);
+	if (fo < 0) {
+		uwsgi_error("lseek()");
+		uwsgi_log("invalid binary data slot requested\n");
+		exit(1);
+	}
+	int i = 0;
+	uint64_t datasize = 0;
+	for (i = 0; i <= slot; i++) {
+		fo = lseek(fd, -9, SEEK_CUR);
+		if (fo < 0) {
+			uwsgi_error("lseek()");
+			uwsgi_log("invalid binary data slot requested\n");
+			exit(1);
+		}
+		ssize_t len = read(fd, &datasize, 8);
+		if (len != 8) {
+			uwsgi_error("read()");
+			uwsgi_log("invalid binary data slot requested\n");
+			exit(1);
+		}
+		if (datasize == 0) {
+			uwsgi_log("0 size binary data !!!\n");
+			exit(1);
+		}
+		fo = lseek(fd, -(datasize + 9), SEEK_CUR);
+		if (fo < 0) {
+			uwsgi_error("lseek()");
+			uwsgi_log("invalid binary data slot requested\n");
 			exit(1);
 		}
 
-		buffer = uwsgi_calloc(remains + add_zero);
-		ptr = buffer;
-		while (remains) {
-			int ret = uwsgi_waitfd(uwsgi.emperor_fd_config, 5);
-                        if (ret <= 0) {
-                                uwsgi_log("[uwsgi-vassal] error waiting for config %s !!!\n", url);
-                                exit(1);
-                        }
-			rlen = read(uwsgi.emperor_fd_config, ptr, remains);
-			if (rlen <= 0) {
-                                uwsgi_log("[uwsgi-vassal] error reading config from !!!\n", url);
-                                exit(1);
-                        }
-                        ptr+=rlen;
-                        remains-=rlen;
+		if (i == slot) {
+			*size = datasize;
+			if (add_zero) {
+				*size += 1;
+			}
+			buffer = uwsgi_malloc(*size);
+			memset(buffer, 0, *size);
+			len = read(fd, buffer, datasize);
+			if (len != (ssize_t) datasize) {
+				uwsgi_error("read()");
+				uwsgi_log("invalid binary data slot requested\n");
+				exit(1);
+			}
 		}
-
-		*size = uh.pktsize + add_zero;
 	}
+	return buffer;
+}
+
+static char *uwsgi_scheme_sym(char *url, size_t *size, int add_zero) {
+	void *sym_start_ptr = NULL, *sym_end_ptr = NULL;
+	char *raw_symbol = dlsym(RTLD_DEFAULT, url);
+	if (raw_symbol) {
+		sym_start_ptr = raw_symbol;
+		sym_end_ptr = sym_start_ptr + strlen(sym_start_ptr);
+		goto found;
+	}
+	char *symbol = uwsgi_concat3("_binary_", url, "_start");
+	sym_start_ptr = dlsym(RTLD_DEFAULT, symbol);
+	if (!sym_start_ptr) {
+		uwsgi_log("unable to find symbol %s\n", symbol);
+		exit(1);
+	}
+	free(symbol);
+	symbol = uwsgi_concat3("_binary_", url, "_end");
+	sym_end_ptr = dlsym(RTLD_DEFAULT, symbol);
+	if (!sym_end_ptr) {
+		uwsgi_log("unable to find symbol %s\n", symbol);
+		exit(1);
+	}
+	free(symbol);
+
+found:
+
+	*size = sym_end_ptr - sym_start_ptr;
+	if (add_zero) {
+		*size += 1;
+	}
+	char *buffer = uwsgi_malloc(*size);
+	memset(buffer, 0, *size);
+	memcpy(buffer, sym_start_ptr, sym_end_ptr - sym_start_ptr);
+
+	return buffer;
+}
+
+static char *uwsgi_scheme_section(char *url, size_t *size, int add_zero) {
+#ifdef UWSGI_ELF
+	size_t s_len = 0;
+	char *buffer = uwsgi_elf_section(uwsgi.binary_path, url, &s_len);
+	if (!buffer) {
+		uwsgi_log("unable to find section %s in %s\n", url + 10, uwsgi.binary_path);
+		exit(1);
+	}
+	*size = s_len;
+	if (add_zero)
+		*size += 1;
+	return buffer;
+#else
+	uwsgi_log("section:// scheme not supported on this platform\n");
+	exit(1);
+#endif
+}
+
+struct uwsgi_string_list *uwsgi_register_scheme(char *name, char * (*func)(char *, size_t *, int)) {
+	struct uwsgi_string_list *usl = uwsgi_string_new_list(&uwsgi.schemes, name); 	
+	usl->custom_ptr = func;
+	return usl;
+}
+
+char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_table[]) {
+
+        struct stat sb;
+        char *buffer = NULL;
+        ssize_t len;
+        char *magic_buf;
+	int fd;
+
+        // stdin ?
+        if (!strcmp(url, "-")) {
+                buffer = uwsgi_read_fd(0, size, add_zero);
+        }
 #ifdef UWSGI_EMBED_CONFIG
 	else if (url[0] == 0) {
 		*size = &UWSGI_EMBED_CONFIG_END - &UWSGI_EMBED_CONFIG;
@@ -326,106 +450,19 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
 		memcpy(buffer, &UWSGI_EMBED_CONFIG, &UWSGI_EMBED_CONFIG_END - &UWSGI_EMBED_CONFIG);
 	}
 #endif
-	else if (!strncmp("data://", url, 7)) {
-		fd = open(uwsgi.binary_path, O_RDONLY);
-		if (fd < 0) {
-			uwsgi_error_open(uwsgi.binary_path);
-			exit(1);
-		}
-		int slot = atoi(url + 7);
-		if (slot < 0) {
-			uwsgi_log("invalid binary data slot requested\n");
-			exit(1);
-		}
-		uwsgi_log("requesting binary data slot %d\n", slot);
-		off_t fo = lseek(fd, 0, SEEK_END);
-		if (fo < 0) {
-			uwsgi_error("lseek()");
-			uwsgi_log("invalid binary data slot requested\n");
-			exit(1);
-		}
-		int i = 0;
-		uint64_t datasize = 0;
-		for (i = 0; i <= slot; i++) {
-			fo = lseek(fd, -9, SEEK_CUR);
-			if (fo < 0) {
-				uwsgi_error("lseek()");
-				uwsgi_log("invalid binary data slot requested\n");
-				exit(1);
-			}
-			ssize_t len = read(fd, &datasize, 8);
-			if (len != 8) {
-				uwsgi_error("read()");
-				uwsgi_log("invalid binary data slot requested\n");
-				exit(1);
-			}
-			if (datasize == 0) {
-				uwsgi_log("0 size binary data !!!\n");
-				exit(1);
-			}
-			fo = lseek(fd, -(datasize + 9), SEEK_CUR);
-			if (fo < 0) {
-				uwsgi_error("lseek()");
-				uwsgi_log("invalid binary data slot requested\n");
-				exit(1);
-			}
 
-			if (i == slot) {
-				*size = datasize;
-				if (add_zero) {
-					*size += 1;
-				}
-				buffer = uwsgi_malloc(*size);
-				memset(buffer, 0, *size);
-				len = read(fd, buffer, datasize);
-				if (len != (ssize_t) datasize) {
-					uwsgi_error("read()");
-					uwsgi_log("invalid binary data slot requested\n");
-					exit(1);
-				}
-			}
-		}
-	}
-	else if (!strncmp("sym://", url, 6)) {
-		char *symbol = uwsgi_concat3("_binary_", url + 6, "_start");
-		void *sym_start_ptr = dlsym(RTLD_DEFAULT, symbol);
-		if (!sym_start_ptr) {
-			uwsgi_log("unable to find symbol %s\n", symbol);
-			exit(1);
-		}
-		free(symbol);
-		symbol = uwsgi_concat3("_binary_", url + 6, "_end");
-		void *sym_end_ptr = dlsym(RTLD_DEFAULT, symbol);
-		if (!sym_end_ptr) {
-			uwsgi_log("unable to find symbol %s\n", symbol);
-			exit(1);
-		}
-		free(symbol);
+	struct uwsgi_string_list *usl = uwsgi_check_scheme(url);
+	if (!usl) goto fallback;
 
-		*size = sym_end_ptr - sym_start_ptr;
-		if (add_zero) {
-			*size += 1;
-		}
-		buffer = uwsgi_malloc(*size);
-		memset(buffer, 0, *size);
-		memcpy(buffer, sym_start_ptr, sym_end_ptr - sym_start_ptr);
-
-	}
-#ifdef UWSGI_ELF
-	else if (!strncmp("section://", url, 10)) {
-		size_t s_len = 0;
-		buffer = uwsgi_elf_section(uwsgi.binary_path, url + 10, &s_len);
-		if (!buffer) {
-			uwsgi_log("unable to find section %s in %s\n", url + 10, uwsgi.binary_path);
-			exit(1);
-		}
-		*size = s_len;
-		if (add_zero)
-			*size += 1;
-	}
-#endif
+	char *(*func)(char *, size_t *, int) = (char *(*)(char *, size_t *, int)) usl->custom_ptr;
+	buffer = func(url + usl->len + 3, size, add_zero);
+	if (buffer) goto end;
+	// never here !!!
+	uwsgi_log("unable to parse config file %s\n", url);
+	exit(1);
+	
 	// fallback to file
-	else {
+fallback:
 		fd = open(url, O_RDONLY);
 		if (fd < 0) {
 			uwsgi_error_open(url);
@@ -457,7 +494,6 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
 
 		if (add_zero)
 			buffer[sb.st_size] = 0;
-	}
 
 end:
 
@@ -1096,4 +1132,25 @@ void uwsgi_disconnect(struct wsgi_request *wsgi_req) {
 int uwsgi_ready_fd(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->async_ready_fd) return wsgi_req->async_last_ready_fd;
 	return -1;
+}
+
+void uwsgi_setup_schemes() {
+	uwsgi_register_scheme("emperor", uwsgi_scheme_emperor);	
+	uwsgi_register_scheme("http", uwsgi_scheme_http);	
+	uwsgi_register_scheme("data", uwsgi_scheme_data);	
+	uwsgi_register_scheme("sym", uwsgi_scheme_sym);	
+	uwsgi_register_scheme("section", uwsgi_scheme_section);	
+	uwsgi_register_scheme("fd", uwsgi_scheme_fd);	
+	uwsgi_register_scheme("exec", uwsgi_scheme_exec);	
+}
+
+struct uwsgi_string_list *uwsgi_check_scheme(char *file) {
+	struct uwsgi_string_list *usl;
+	uwsgi_foreach(usl, uwsgi.schemes) {
+		char *url = uwsgi_concat2(usl->value, "://");
+		int ret = uwsgi_startswith(file, url, strlen(url));
+		free(url);
+		if (!ret) return usl;
+	}
+	return NULL;
 }

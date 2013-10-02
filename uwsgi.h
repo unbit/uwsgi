@@ -53,8 +53,6 @@ extern "C" {
                         }
 
 
-#define uwsgi_check_scheme(file) (!uwsgi_startswith(file, "emperor://", 10) || !uwsgi_startswith(file, "http://", 7) || !uwsgi_startswith(file, "data://", 7) || !uwsgi_startswith(file, "sym://", 6) || !uwsgi_startswith(file, "fd://", 5) || !uwsgi_startswith(file, "exec://", 7) || !uwsgi_startswith(file, "section://", 10))
-
 #define uwsgi_n64(x) strtoul(x, NULL, 10)
 
 #define ushared uwsgi.shared
@@ -2564,6 +2562,8 @@ struct uwsgi_server {
 	int (*wait_write_hook) (int, int);
 	int (*wait_read_hook) (int, int);
 
+	struct uwsgi_string_list *schemes;
+
 };
 
 struct uwsgi_rpc {
@@ -4368,6 +4368,10 @@ void uwsgi_go_cheap();
 char **uwsgi_split_quoted(char *, size_t, char *, size_t *);
 
 void uwsgi_master_manage_emperor_proxy();
+struct uwsgi_string_list *uwsgi_register_scheme(char *, char * (*)(char *, size_t *, int));
+void uwsgi_setup_schemes(void);
+
+struct uwsgi_string_list *uwsgi_check_scheme(char *);
 
 #ifdef __cplusplus
 }
