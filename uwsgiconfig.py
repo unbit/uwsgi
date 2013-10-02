@@ -304,6 +304,15 @@ def build_uwsgi(uc, print_only=False, gcll=None):
     open('core/dot_h.c', 'w').write('char *uwsgi_dot_h = "%s";\n' % uwsgi_dot_h);
     gcc_list.append('core/dot_h') 
     
+    additional_sources = os.environ.get('UWSGI_ADDITIONAL_SOURCES')
+    if not additional_sources:
+        additional_sources = uc.get('additional_sources')
+    if additional_sources:
+        for item in additional_sources.split(','):
+            if item.endswith('.c'):
+                gcc_list.append(item[:-2])
+            else:
+                gcc_list.append(item)
 
     cflags.append('-DUWSGI_CFLAGS=\\"%s\\"' % uwsgi_cflags)
     cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))

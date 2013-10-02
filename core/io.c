@@ -369,9 +369,9 @@ static char *uwsgi_scheme_data(char *url, size_t *size, int add_zero) {
 
 static char *uwsgi_scheme_sym(char *url, size_t *size, int add_zero) {
 	void *sym_start_ptr = NULL, *sym_end_ptr = NULL;
-	char *raw_symbol = dlsym(RTLD_DEFAULT, url);
+	char **raw_symbol = dlsym(RTLD_DEFAULT, url);
 	if (raw_symbol) {
-		sym_start_ptr = raw_symbol;
+		sym_start_ptr = *raw_symbol;
 		sym_end_ptr = sym_start_ptr + strlen(sym_start_ptr);
 		goto found;
 	}
