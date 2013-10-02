@@ -4080,6 +4080,7 @@ void uwsgi_legion_atexit(void);
 #endif
 
 struct uwsgi_option *uwsgi_opt_get(char *);
+int uwsgi_opt_exists(char *);
 int uwsgi_valid_fd(int);
 void uwsgi_close_all_fds(void);
 

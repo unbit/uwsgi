@@ -293,6 +293,15 @@ int uwsgi_count_options(struct uwsgi_option *uopt) {
         return count;
 }
 
+int uwsgi_opt_exists(char *name) {
+	struct uwsgi_option *op = uwsgi.options;
+	while (op->name) {
+		if (!strcmp(name, op->name)) return 1;
+		op++;
+	}
+	return 0;	
+}
+
 /*
 	avoid loops here !!!
 */
@@ -419,6 +428,10 @@ add:
 	uwsgi.dirty_config = 1;
 
 	if (placeholder_only) {
+		if (uwsgi_opt_exists(key)) {
+			uwsgi_log("you cannot use %s as a placeholder, it is already available as an option\n");
+			exit(1);
+		}
 		uwsgi.exported_opts[id]->configured = 1;
 		return;
 	}
