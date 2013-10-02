@@ -74,7 +74,7 @@ void set_user_harakiri(int sec) {
 	// a 0 seconds value, reset the timer
 	if (sec == 0) {
 		if (uwsgi.muleid > 0) {
-			uwsgi.mules[uwsgi.muleid-1].user_harakiri = 0;
+			uwsgi.mules[uwsgi.muleid - 1].user_harakiri = 0;
 		}
 		else if (uwsgi.i_am_a_spooler) {
 			struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
@@ -86,13 +86,13 @@ void set_user_harakiri(int sec) {
 	}
 	else {
 		if (uwsgi.muleid > 0) {
-                        uwsgi.mules[uwsgi.muleid-1].user_harakiri = uwsgi_now() + sec;
-                }
-                else if (uwsgi.i_am_a_spooler) {
-                        struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
-                        uspool->user_harakiri = uwsgi_now() + sec;
-                }
-                else {
+			uwsgi.mules[uwsgi.muleid - 1].user_harakiri = uwsgi_now() + sec;
+		}
+		else if (uwsgi.i_am_a_spooler) {
+			struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
+			uspool->user_harakiri = uwsgi_now() + sec;
+		}
+		else {
 			uwsgi.workers[uwsgi.mywid].user_harakiri = uwsgi_now() + sec;
 		}
 	}
@@ -295,294 +295,296 @@ void uwsgi_set_cgroup() {
 void uwsgi_as_root() {
 
 
-	if (!getuid()) {
-		if (!uwsgi.master_as_root && !uwsgi.uidname) {
-			uwsgi_log_initial("uWSGI running as root, you can use --uid/--gid/--chroot options\n");
-		}
+	if (getuid() > 0)
+		goto nonroot;
+
+	if (!uwsgi.master_as_root && !uwsgi.uidname) {
+		uwsgi_log_initial("uWSGI running as root, you can use --uid/--gid/--chroot options\n");
+	}
 
 #ifdef UWSGI_CAP
-		if (uwsgi.cap && uwsgi.cap_count > 0 && !uwsgi.reloads) {
+	if (uwsgi.cap && uwsgi.cap_count > 0 && !uwsgi.reloads) {
 
-			cap_value_t minimal_cap_values[] = { CAP_SYS_CHROOT, CAP_SETUID, CAP_SETGID, CAP_SETPCAP };
+		cap_value_t minimal_cap_values[] = { CAP_SYS_CHROOT, CAP_SETUID, CAP_SETGID, CAP_SETPCAP };
 
-			cap_t caps = cap_init();
+		cap_t caps = cap_init();
 
-			if (!caps) {
-				uwsgi_error("cap_init()");
-				exit(1);
-			}
-			cap_clear(caps);
+		if (!caps) {
+			uwsgi_error("cap_init()");
+			exit(1);
+		}
+		cap_clear(caps);
 
-			cap_set_flag(caps, CAP_EFFECTIVE, 4, minimal_cap_values, CAP_SET);
+		cap_set_flag(caps, CAP_EFFECTIVE, 4, minimal_cap_values, CAP_SET);
 
-			cap_set_flag(caps, CAP_PERMITTED, 4, minimal_cap_values, CAP_SET);
-			cap_set_flag(caps, CAP_PERMITTED, uwsgi.cap_count, uwsgi.cap, CAP_SET);
+		cap_set_flag(caps, CAP_PERMITTED, 4, minimal_cap_values, CAP_SET);
+		cap_set_flag(caps, CAP_PERMITTED, uwsgi.cap_count, uwsgi.cap, CAP_SET);
 
-			cap_set_flag(caps, CAP_INHERITABLE, uwsgi.cap_count, uwsgi.cap, CAP_SET);
+		cap_set_flag(caps, CAP_INHERITABLE, uwsgi.cap_count, uwsgi.cap, CAP_SET);
 
-			if (cap_set_proc(caps) < 0) {
-				uwsgi_error("cap_set_proc()");
-				exit(1);
-			}
-			cap_free(caps);
+		if (cap_set_proc(caps) < 0) {
+			uwsgi_error("cap_set_proc()");
+			exit(1);
+		}
+		cap_free(caps);
 
 #ifdef __linux__
 #ifdef SECBIT_KEEP_CAPS
-			if (prctl(SECBIT_KEEP_CAPS, 1, 0, 0, 0) < 0) {
-				uwsgi_error("prctl()");
-				exit(1);
-			}
+		if (prctl(SECBIT_KEEP_CAPS, 1, 0, 0, 0) < 0) {
+			uwsgi_error("prctl()");
+			exit(1);
+		}
 #else
-			if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
-				uwsgi_error("prctl()");
-				exit(1);
-			}
-#endif
-#endif
+		if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
+			uwsgi_error("prctl()");
+			exit(1);
 		}
 #endif
+#endif
+	}
+#endif
 
-		int in_jail = 0;
+	int in_jail = 0;
 
 #if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
-		if (uwsgi.unshare && !uwsgi.reloads) {
+	if (uwsgi.unshare && !uwsgi.reloads) {
 
-			if (unshare(uwsgi.unshare)) {
-				uwsgi_error("unshare()");
-				exit(1);
-			}
-			else {
-				uwsgi_log("[linux-namespace] applied unshare() mask: %d\n", uwsgi.unshare);
-			}
-			in_jail = 1;
+		if (unshare(uwsgi.unshare)) {
+			uwsgi_error("unshare()");
+			exit(1);
 		}
+		else {
+			uwsgi_log("[linux-namespace] applied unshare() mask: %d\n", uwsgi.unshare);
+		}
+		in_jail = 1;
+	}
 #endif
 
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-                if (uwsgi.jail && !uwsgi.reloads) {
+	if (uwsgi.jail && !uwsgi.reloads) {
 
-			struct jail ujail;
-			char *jarg = uwsgi_str(uwsgi.jail);
-			char *j_hostname = NULL;
-			char *j_name = NULL;
+		struct jail ujail;
+		char *jarg = uwsgi_str(uwsgi.jail);
+		char *j_hostname = NULL;
+		char *j_name = NULL;
 
-			char *space = strchr(jarg, ' ');
+		char *space = strchr(jarg, ' ');
+		if (space) {
+			*space = 0;
+			j_hostname = space + 1;
+			space = strchr(j_hostname, ' ');
 			if (space) {
 				*space = 0;
-				j_hostname = space + 1;
-				space = strchr(j_hostname, ' ');
-				if (space) {
-					*space = 0;
-					j_name = space + 1;
-				}
+				j_name = space + 1;
 			}
-			ujail.version = JAIL_API_VERSION;
-			ujail.path = jarg;
-			ujail.hostname = j_hostname ? j_hostname : "";
-			ujail.jailname = j_name;
-			ujail.ip4s = 0;
-			ujail.ip6s = 0;
+		}
+		ujail.version = JAIL_API_VERSION;
+		ujail.path = jarg;
+		ujail.hostname = j_hostname ? j_hostname : "";
+		ujail.jailname = j_name;
+		ujail.ip4s = 0;
+		ujail.ip6s = 0;
 
-                        struct uwsgi_string_list *usl = NULL;
+		struct uwsgi_string_list *usl = NULL;
 
-			uwsgi_foreach(usl, uwsgi.jail_ip4) {
-				ujail.ip4s++;
-			}
-			struct in_addr *saddr = uwsgi_calloc(sizeof(struct in_addr) * ujail.ip4s);
-			int i = 0;
-			uwsgi_foreach(usl, uwsgi.jail_ip4) {
-				if (!inet_pton(AF_INET, usl->value, &saddr[i].s_addr)) {
-					uwsgi_error("jail()/inet_pton()");
-					exit(1);
-				}
-				i++;
-			}
-			ujail.ip4 = saddr;
-#ifdef AF_INET6
-			uwsgi_foreach(usl, uwsgi.jail_ip6) {
-				ujail.ip6s++;
-			}
-
-			struct in6_addr *saddr6 = uwsgi_calloc(sizeof(struct in6_addr) * ujail.ip6s);
-                        i = 0;
-                        uwsgi_foreach(usl, uwsgi.jail_ip6) {
-                                if (!inet_pton(AF_INET6, usl->value, &saddr6[i].s6_addr)) {
-                                        uwsgi_error("jail()/inet_pton()");
-                                        exit(1);
-                                }
-                                i++;
-                        }
-			ujail.ip6 = saddr6;
-#endif
-
-			int jail_id = jail(&ujail);
-			if (jail_id < 0) {
-				uwsgi_error("jail()");
+		uwsgi_foreach(usl, uwsgi.jail_ip4) {
+			ujail.ip4s++;
+		}
+		struct in_addr *saddr = uwsgi_calloc(sizeof(struct in_addr) * ujail.ip4s);
+		int i = 0;
+		uwsgi_foreach(usl, uwsgi.jail_ip4) {
+			if (!inet_pton(AF_INET, usl->value, &saddr[i].s_addr)) {
+				uwsgi_error("jail()/inet_pton()");
 				exit(1);
 			}
+			i++;
+		}
+		ujail.ip4 = saddr;
+#ifdef AF_INET6
+		uwsgi_foreach(usl, uwsgi.jail_ip6) {
+			ujail.ip6s++;
+		}
 
-			if (uwsgi.jidfile) {
-                                if (uwsgi_write_intfile(uwsgi.jidfile, jail_id)) {
-                                        uwsgi_log("unable to write jidfile\n");
-                                        exit(1);
-                                }
-                        }
+		struct in6_addr *saddr6 = uwsgi_calloc(sizeof(struct in6_addr) * ujail.ip6s);
+		i = 0;
+		uwsgi_foreach(usl, uwsgi.jail_ip6) {
+			if (!inet_pton(AF_INET6, usl->value, &saddr6[i].s6_addr)) {
+				uwsgi_error("jail()/inet_pton()");
+				exit(1);
+			}
+			i++;
+		}
+		ujail.ip6 = saddr6;
+#endif
 
-			uwsgi_log("--- running in FreeBSD jail %d ---\n", jail_id);
-			in_jail = 1;
-                }
+		int jail_id = jail(&ujail);
+		if (jail_id < 0) {
+			uwsgi_error("jail()");
+			exit(1);
+		}
+
+		if (uwsgi.jidfile) {
+			if (uwsgi_write_intfile(uwsgi.jidfile, jail_id)) {
+				uwsgi_log("unable to write jidfile\n");
+				exit(1);
+			}
+		}
+
+		uwsgi_log("--- running in FreeBSD jail %d ---\n", jail_id);
+		in_jail = 1;
+	}
 
 #ifdef UWSGI_HAS_FREEBSD_LIBJAIL
-		if (uwsgi.jail_attach && !uwsgi.reloads) {
-			struct jailparam jparam;
-			uwsgi_log("attaching to FreeBSD jail %s ...\n", uwsgi.jail_attach);
-			if (!is_a_number(uwsgi.jail_attach)) {
-				if (jailparam_init(&jparam, "name")) {
-                        		uwsgi_error("jailparam_init()");
-                                	exit(1);
-                        	}
-			}
-			else {
-				if (jailparam_init(&jparam, "jid")) {
-                        		uwsgi_error("jailparam_init()");
-                                	exit(1);
-                        	}
-			}
-			jailparam_import(&jparam, uwsgi.jail_attach);
-			int jail_id = jailparam_set(&jparam, 1, JAIL_UPDATE|JAIL_ATTACH);
-			if (jail_id < 0) {
-                                uwsgi_error("jailparam_set()");
-                                exit(1);
-                        }
-
-			jailparam_free(&jparam, 1);
-                        uwsgi_log("--- running in FreeBSD jail %d ---\n", jail_id);
-			in_jail = 1;
-		}
-
-		if (uwsgi.jail2 && !uwsgi.reloads) {
-			struct uwsgi_string_list *usl = NULL;
-			unsigned nparams = 0;
-			uwsgi_foreach(usl, uwsgi.jail2) {
-				nparams++;
-			}
-			struct jailparam *params = uwsgi_malloc(sizeof(struct jailparam) * nparams);
-			int i = 0;
-			uwsgi_foreach(usl, uwsgi.jail2) {
-				uwsgi_log("FreeBSD libjail applying %s\n", usl->value);
-				char *equal = strchr(usl->value, '=');
-				if (equal) {
-					*equal = 0;
-				}
-				if (jailparam_init(&params[i], usl->value)) {
-					uwsgi_error("jailparam_init()");
-					exit(1);
-				}
-				if (equal) {
-					jailparam_import(&params[i], equal+1);
-					*equal = '=';
-				}
-				else {
-					jailparam_import(&params[i], "1");
-				}
-				i++;
-			}
-			int jail_id = jailparam_set(params, nparams, JAIL_CREATE|JAIL_ATTACH);
-			if (jail_id < 0) {
-                                uwsgi_error("jailparam_set()");
-                                exit(1);
-                        }
-
-			jailparam_free(params, nparams);
-
-			if (uwsgi.jidfile) {
-				if (uwsgi_write_intfile(uwsgi.jidfile, jail_id)) {
-					uwsgi_log("unable to write jidfile\n");
-					exit(1);
-				}
-			}
-
-                        uwsgi_log("--- running in FreeBSD jail %d ---\n", jail_id);
-                        in_jail = 1;	
-		}
-#endif
-#endif
-
-		if (in_jail) {
-			uwsgi_hooks_run(uwsgi.hook_post_jail, "post-jail", 1);
-			struct uwsgi_string_list *usl = NULL;
-			uwsgi_foreach(usl, uwsgi.mount_post_jail) {
-				uwsgi_log("mounting \"%s\" (post-jail)...\n", usl->value);
-				if (uwsgi_mount_hook(usl->value)) {
-					exit(1);
-				}
-			}
-
-			uwsgi_foreach(usl, uwsgi.umount_post_jail) {
-                                uwsgi_log("un-mounting \"%s\" (post-jail)...\n", usl->value);
-                                if (uwsgi_umount_hook(usl->value)) {
-                                        exit(1);
-                                }
-                        }
-
-                        uwsgi_foreach(usl, uwsgi.exec_post_jail) {
-                                uwsgi_log("running \"%s\" (post-jail)...\n", usl->value);
-                                int ret = uwsgi_run_command_and_wait(NULL, usl->value);
-                                if (ret != 0) {
-                                        uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
-                                        exit(1);
-                                }
-                        }
-
-                        uwsgi_foreach(usl, uwsgi.call_post_jail) {
-                                if (uwsgi_call_symbol(usl->value)) {
-                                        uwsgi_log("unable to call function \"%s\"\n", usl->value);
-					exit(1);
-                                }
-                        }
-
-		if (uwsgi.refork_post_jail) {
-                        uwsgi_log("re-fork()ing...\n");
-                        pid_t pid = fork();
-                        if (pid < 0) {
-                                uwsgi_error("fork()");
-                                exit(1);
-                        }
-                        if (pid > 0) {
-                                // block all signals
-                                sigset_t smask;
-                                sigfillset(&smask);
-                                sigprocmask(SIG_BLOCK, &smask, NULL);
-                                int status;
-                                if (waitpid(pid, &status, 0) < 0) {
-                                        uwsgi_error("waitpid()");
-                                }
-                                _exit(0);
-                        }
-                }
-
-
-                	int i;
-                	for (i = 0; i < uwsgi.gp_cnt; i++) {
-                        	if (uwsgi.gp[i]->post_jail) {
-                                	uwsgi.gp[i]->post_jail();
-                        	}
-                	}
-		}
-
-		if (uwsgi.chroot && !uwsgi.reloads) {
-			if (!uwsgi.master_as_root)
-				uwsgi_log("chroot() to %s\n", uwsgi.chroot);
-			if (chroot(uwsgi.chroot)) {
-				uwsgi_error("chroot()");
+	if (uwsgi.jail_attach && !uwsgi.reloads) {
+		struct jailparam jparam;
+		uwsgi_log("attaching to FreeBSD jail %s ...\n", uwsgi.jail_attach);
+		if (!is_a_number(uwsgi.jail_attach)) {
+			if (jailparam_init(&jparam, "name")) {
+				uwsgi_error("jailparam_init()");
 				exit(1);
 			}
-#ifdef __linux__
-			if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG]) {
-				uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
-			}
-#endif
 		}
+		else {
+			if (jailparam_init(&jparam, "jid")) {
+				uwsgi_error("jailparam_init()");
+				exit(1);
+			}
+		}
+		jailparam_import(&jparam, uwsgi.jail_attach);
+		int jail_id = jailparam_set(&jparam, 1, JAIL_UPDATE | JAIL_ATTACH);
+		if (jail_id < 0) {
+			uwsgi_error("jailparam_set()");
+			exit(1);
+		}
+
+		jailparam_free(&jparam, 1);
+		uwsgi_log("--- running in FreeBSD jail %d ---\n", jail_id);
+		in_jail = 1;
+	}
+
+	if (uwsgi.jail2 && !uwsgi.reloads) {
+		struct uwsgi_string_list *usl = NULL;
+		unsigned nparams = 0;
+		uwsgi_foreach(usl, uwsgi.jail2) {
+			nparams++;
+		}
+		struct jailparam *params = uwsgi_malloc(sizeof(struct jailparam) * nparams);
+		int i = 0;
+		uwsgi_foreach(usl, uwsgi.jail2) {
+			uwsgi_log("FreeBSD libjail applying %s\n", usl->value);
+			char *equal = strchr(usl->value, '=');
+			if (equal) {
+				*equal = 0;
+			}
+			if (jailparam_init(&params[i], usl->value)) {
+				uwsgi_error("jailparam_init()");
+				exit(1);
+			}
+			if (equal) {
+				jailparam_import(&params[i], equal + 1);
+				*equal = '=';
+			}
+			else {
+				jailparam_import(&params[i], "1");
+			}
+			i++;
+		}
+		int jail_id = jailparam_set(params, nparams, JAIL_CREATE | JAIL_ATTACH);
+		if (jail_id < 0) {
+			uwsgi_error("jailparam_set()");
+			exit(1);
+		}
+
+		jailparam_free(params, nparams);
+
+		if (uwsgi.jidfile) {
+			if (uwsgi_write_intfile(uwsgi.jidfile, jail_id)) {
+				uwsgi_log("unable to write jidfile\n");
+				exit(1);
+			}
+		}
+
+		uwsgi_log("--- running in FreeBSD jail %d ---\n", jail_id);
+		in_jail = 1;
+	}
+#endif
+#endif
+
+	if (in_jail) {
+		uwsgi_hooks_run(uwsgi.hook_post_jail, "post-jail", 1);
+		struct uwsgi_string_list *usl = NULL;
+		uwsgi_foreach(usl, uwsgi.mount_post_jail) {
+			uwsgi_log("mounting \"%s\" (post-jail)...\n", usl->value);
+			if (uwsgi_mount_hook(usl->value)) {
+				exit(1);
+			}
+		}
+
+		uwsgi_foreach(usl, uwsgi.umount_post_jail) {
+			uwsgi_log("un-mounting \"%s\" (post-jail)...\n", usl->value);
+			if (uwsgi_umount_hook(usl->value)) {
+				exit(1);
+			}
+		}
+
+		uwsgi_foreach(usl, uwsgi.exec_post_jail) {
+			uwsgi_log("running \"%s\" (post-jail)...\n", usl->value);
+			int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+			if (ret != 0) {
+				uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+				exit(1);
+			}
+		}
+
+		uwsgi_foreach(usl, uwsgi.call_post_jail) {
+			if (uwsgi_call_symbol(usl->value)) {
+				uwsgi_log("unable to call function \"%s\"\n", usl->value);
+				exit(1);
+			}
+		}
+
+		if (uwsgi.refork_post_jail) {
+			uwsgi_log("re-fork()ing...\n");
+			pid_t pid = fork();
+			if (pid < 0) {
+				uwsgi_error("fork()");
+				exit(1);
+			}
+			if (pid > 0) {
+				// block all signals
+				sigset_t smask;
+				sigfillset(&smask);
+				sigprocmask(SIG_BLOCK, &smask, NULL);
+				int status;
+				if (waitpid(pid, &status, 0) < 0) {
+					uwsgi_error("waitpid()");
+				}
+				_exit(0);
+			}
+		}
+
+
+		int i;
+		for (i = 0; i < uwsgi.gp_cnt; i++) {
+			if (uwsgi.gp[i]->post_jail) {
+				uwsgi.gp[i]->post_jail();
+			}
+		}
+	}
+
+	if (uwsgi.chroot && !uwsgi.reloads) {
+		if (!uwsgi.master_as_root)
+			uwsgi_log("chroot() to %s\n", uwsgi.chroot);
+		if (chroot(uwsgi.chroot)) {
+			uwsgi_error("chroot()");
+			exit(1);
+		}
+#ifdef __linux__
+		if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG]) {
+			uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
+		}
+#endif
+	}
 
 #ifdef __linux__
 	if (uwsgi.pivot_root && !uwsgi.reloads) {
@@ -597,340 +599,341 @@ void uwsgi_as_root() {
 			uwsgi_error("pivot_root()/chdir()");
 			exit(1);
 		}
-		space += 1+strlen(arg);
-		if (space[0] == '/') space++;
-        	if (pivot_root(".", space)) {
-                	uwsgi_error("pivot_root()");
-                        exit(1);
-                }
-                if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG]) {
-                	uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
-                }
+		space += 1 + strlen(arg);
+		if (space[0] == '/')
+			space++;
+		if (pivot_root(".", space)) {
+			uwsgi_error("pivot_root()");
+			exit(1);
+		}
+		if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG]) {
+			uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
+		}
 		free(arg);
 	}
 #endif
 
-		if (uwsgi.refork_as_root) {
-                        uwsgi_log("re-fork()ing...\n");
-                        pid_t pid = fork();
-                        if (pid < 0) {
-                                uwsgi_error("fork()");
-                                exit(1);
-                        }
-                        if (pid > 0) {
-                                // block all signals
-                                sigset_t smask;
-                                sigfillset(&smask);
-                                sigprocmask(SIG_BLOCK, &smask, NULL);
-                                int status;
-                                if (waitpid(pid, &status, 0) < 0) {
-                                        uwsgi_error("waitpid()");
-                                }
-                                _exit(0);
-                        }
-                }
+	if (uwsgi.refork_as_root) {
+		uwsgi_log("re-fork()ing...\n");
+		pid_t pid = fork();
+		if (pid < 0) {
+			uwsgi_error("fork()");
+			exit(1);
+		}
+		if (pid > 0) {
+			// block all signals
+			sigset_t smask;
+			sigfillset(&smask);
+			sigprocmask(SIG_BLOCK, &smask, NULL);
+			int status;
+			if (waitpid(pid, &status, 0) < 0) {
+				uwsgi_error("waitpid()");
+			}
+			_exit(0);
+		}
+	}
 
 
+	struct uwsgi_string_list *usl;
+	uwsgi_foreach(usl, uwsgi.wait_for_interface) {
+		if (!uwsgi.wait_for_interface_timeout) {
+			uwsgi.wait_for_interface_timeout = 60;
+		}
+		uwsgi_log("waiting for interface %s (max %d seconds) ...\n", usl->value, uwsgi.wait_for_interface_timeout);
+		int counter = 0;
+		for (;;) {
+			if (counter > uwsgi.wait_for_interface_timeout) {
+				uwsgi_log("interface %s unavailable after %d seconds\n", usl->value, counter);
+				exit(1);
+			}
+			unsigned int index = if_nametoindex(usl->value);
+			if (index > 0) {
+				uwsgi_log("interface %s found with index %u\n", usl->value, index);
+				break;
+			}
+			else {
+				sleep(1);
+				counter++;
+			}
+		}
+	}
+
+	uwsgi_hooks_run(uwsgi.hook_as_root, "as root", 1);
+
+	uwsgi_foreach(usl, uwsgi.mount_as_root) {
+		uwsgi_log("mounting \"%s\" (as root)...\n", usl->value);
+		if (uwsgi_mount_hook(usl->value)) {
+			exit(1);
+		}
+	}
+
+	uwsgi_foreach(usl, uwsgi.umount_as_root) {
+		uwsgi_log("un-mounting \"%s\" (as root)...\n", usl->value);
+		if (uwsgi_umount_hook(usl->value)) {
+			exit(1);
+		}
+	}
+
+	// now run the scripts needed by root
+	uwsgi_foreach(usl, uwsgi.exec_as_root) {
+		uwsgi_log("running \"%s\" (as root)...\n", usl->value);
+		int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+		if (ret != 0) {
+			uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+			exit(1);
+		}
+	}
+
+	uwsgi_foreach(usl, uwsgi.call_as_root) {
+		if (uwsgi_call_symbol(usl->value)) {
+			uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+		}
+	}
+
+
+	if (uwsgi.gidname) {
+		struct group *ugroup = getgrnam(uwsgi.gidname);
+		if (ugroup) {
+			uwsgi.gid = ugroup->gr_gid;
+		}
+		else {
+			uwsgi_log("group %s not found.\n", uwsgi.gidname);
+			exit(1);
+		}
+	}
+	if (uwsgi.uidname) {
+		struct passwd *upasswd = getpwnam(uwsgi.uidname);
+		if (upasswd) {
+			uwsgi.uid = upasswd->pw_uid;
+		}
+		else {
+			uwsgi_log("user %s not found.\n", uwsgi.uidname);
+			exit(1);
+		}
+	}
+
+	if (uwsgi.logfile_chown) {
+		if (fchown(2, uwsgi.uid, uwsgi.gid)) {
+			uwsgi_error("fchown()");
+			exit(1);
+		}
+	}
+
+	// fix ipcsem owner
+	if (uwsgi.lock_ops.lock_init == uwsgi_lock_ipcsem_init) {
+		struct uwsgi_lock_item *uli = uwsgi.registered_locks;
+
+		while (uli) {
+			union semun {
+				int val;
+				struct semid_ds *buf;
+				ushort *array;
+			} semu;
+
+			struct semid_ds sds;
+			memset(&sds, 0, sizeof(sds));
+			semu.buf = &sds;
+			int semid = 0;
+			memcpy(&semid, uli->lock_ptr, sizeof(int));
+
+			if (semctl(semid, 0, IPC_STAT, semu)) {
+				uwsgi_error("semctl()");
+				exit(1);
+			}
+
+			semu.buf->sem_perm.uid = uwsgi.uid;
+			semu.buf->sem_perm.gid = uwsgi.gid;
+
+			if (semctl(semid, 0, IPC_SET, semu)) {
+				uwsgi_error("semctl()");
+				exit(1);
+			}
+			uli = uli->next;
+		}
+
+	}
+
+	// ok try to call some special hook before finally dropping privileges
+	int i;
+	for (i = 0; i < uwsgi.gp_cnt; i++) {
+		if (uwsgi.gp[i]->before_privileges_drop) {
+			uwsgi.gp[i]->before_privileges_drop();
+		}
+	}
+
+	if (uwsgi.gid) {
+		if (!uwsgi.master_as_root)
+			uwsgi_log("setgid() to %d\n", uwsgi.gid);
+		if (setgid(uwsgi.gid)) {
+			uwsgi_error("setgid()");
+			exit(1);
+		}
+		if (uwsgi.no_initgroups || !uwsgi.uid) {
+			if (setgroups(0, NULL)) {
+				uwsgi_error("setgroups()");
+				exit(1);
+			}
+		}
+		else {
+			char *uidname = uwsgi.uidname;
+			if (!uidname) {
+				struct passwd *pw = getpwuid(uwsgi.uid);
+				if (pw)
+					uidname = pw->pw_name;
+
+			}
+			if (!uidname)
+				uidname = uwsgi_num2str(uwsgi.uid);
+			if (initgroups(uidname, uwsgi.gid)) {
+				uwsgi_error("setgroups()");
+				exit(1);
+			}
+		}
 		struct uwsgi_string_list *usl;
-		uwsgi_foreach(usl, uwsgi.wait_for_interface) {
-			if (!uwsgi.wait_for_interface_timeout) {
-				uwsgi.wait_for_interface_timeout = 60;
-			}
-			uwsgi_log("waiting for interface %s (max %d seconds) ...\n", usl->value, uwsgi.wait_for_interface_timeout);
-			int counter = 0;
-			for(;;) {
-				if (counter > uwsgi.wait_for_interface_timeout) {
-					uwsgi_log("interface %s unavailable after %d seconds\n", usl->value, counter);
-					exit(1);
-				}
-				unsigned int index = if_nametoindex(usl->value);
-				if (index > 0) {
-					uwsgi_log("interface %s found with index %u\n", usl->value, index);
-					break;
-				}	
-				else {
-					sleep(1);
-					counter++;
-				}
-			}
-		}
-
-		uwsgi_hooks_run(uwsgi.hook_as_root, "as root", 1);
-		
-		uwsgi_foreach(usl, uwsgi.mount_as_root) {
-                                uwsgi_log("mounting \"%s\" (as root)...\n", usl->value);
-                                if (uwsgi_mount_hook(usl->value)) {
-                                        exit(1);
-                                }
-                        }
-
-                        uwsgi_foreach(usl, uwsgi.umount_as_root) {
-                                uwsgi_log("un-mounting \"%s\" (as root)...\n", usl->value);
-                                if (uwsgi_umount_hook(usl->value)) {
-                                        exit(1);
-                                }
-                        }
-
-		// now run the scripts needed by root
-		uwsgi_foreach(usl, uwsgi.exec_as_root) {
-			uwsgi_log("running \"%s\" (as root)...\n", usl->value);
-			int ret = uwsgi_run_command_and_wait(NULL, usl->value);
-			if (ret != 0) {
-				uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
-				exit(1);
-			}
-		}
-
-		uwsgi_foreach(usl, uwsgi.call_as_root) {
-                        if (uwsgi_call_symbol(usl->value)) {
-                                uwsgi_log("unaable to call function \"%s\"\n", usl->value);
-                        }
-                }
-
-
-		if (uwsgi.gidname) {
-			struct group *ugroup = getgrnam(uwsgi.gidname);
-			if (ugroup) {
-				uwsgi.gid = ugroup->gr_gid;
-			}
-			else {
-				uwsgi_log("group %s not found.\n", uwsgi.gidname);
-				exit(1);
-			}
-		}
-		if (uwsgi.uidname) {
-			struct passwd *upasswd = getpwnam(uwsgi.uidname);
-			if (upasswd) {
-				uwsgi.uid = upasswd->pw_uid;
-			}
-			else {
-				uwsgi_log("user %s not found.\n", uwsgi.uidname);
-				exit(1);
-			}
-		}
-
-		if (uwsgi.logfile_chown) {
-			if (fchown(2, uwsgi.uid, uwsgi.gid)) {
-				uwsgi_error("fchown()");
-				exit(1);
-			}
-		}
-
-		// fix ipcsem owner
-		if (uwsgi.lock_ops.lock_init == uwsgi_lock_ipcsem_init) {
-			struct uwsgi_lock_item *uli = uwsgi.registered_locks;
-
-			while (uli) {
-				union semun {
-					int val;
-					struct semid_ds *buf;
-					ushort *array;
-				} semu;
-
-				struct semid_ds sds;
-				memset(&sds, 0, sizeof(sds));
-				semu.buf = &sds;
-				int semid = 0;
-				memcpy(&semid, uli->lock_ptr, sizeof(int));
-
-				if (semctl(semid, 0, IPC_STAT, semu)) {
-					uwsgi_error("semctl()");
-					exit(1);
-				}
-
-				semu.buf->sem_perm.uid = uwsgi.uid;
-				semu.buf->sem_perm.gid = uwsgi.gid;
-
-				if (semctl(semid, 0, IPC_SET, semu)) {
-					uwsgi_error("semctl()");
-					exit(1);
-				}
-				uli = uli->next;
-			}
-
-		}
-
-		// ok try to call some special hook before finally dropping privileges
-		int i;
-		for (i = 0; i < uwsgi.gp_cnt; i++) {
-			if (uwsgi.gp[i]->before_privileges_drop) {
-				uwsgi.gp[i]->before_privileges_drop();
-			}
-		}
-
-		if (uwsgi.gid) {
-			if (!uwsgi.master_as_root)
-				uwsgi_log("setgid() to %d\n", uwsgi.gid);
-			if (setgid(uwsgi.gid)) {
-				uwsgi_error("setgid()");
-				exit(1);
-			}
-			if (uwsgi.no_initgroups || !uwsgi.uid) {
-				if (setgroups(0, NULL)) {
-					uwsgi_error("setgroups()");
-					exit(1);
-				}
-			}
-			else {
-				char *uidname = uwsgi.uidname;
-				if (!uidname) {
-					struct passwd *pw = getpwuid(uwsgi.uid);
-					if (pw)
-						uidname = pw->pw_name;
-
-				}
-				if (!uidname)
-					uidname = uwsgi_num2str(uwsgi.uid);
-				if (initgroups(uidname, uwsgi.gid)) {
-					uwsgi_error("setgroups()");
-					exit(1);
-				}
-			}
-			struct uwsgi_string_list *usl;
-			size_t ags = 0;
-			uwsgi_foreach(usl, uwsgi.additional_gids) ags++;
-			if (ags > 0) {
-				gid_t *ags_list = uwsgi_calloc(sizeof(gid_t) * ags);
-				size_t g_pos = 0;
-				uwsgi_foreach(usl, uwsgi.additional_gids) {
-					ags_list[g_pos] = atoi(usl->value);
-					if (!ags_list[g_pos]) {
-						struct group *g = getgrnam(usl->value);
-						if (g) {
-							ags_list[g_pos] = g->gr_gid;
-						}
-						else {
-							uwsgi_log("unable to find group %s\n", usl->value);
-							exit(1);
-						}
+		size_t ags = 0;
+		uwsgi_foreach(usl, uwsgi.additional_gids) ags++;
+		if (ags > 0) {
+			gid_t *ags_list = uwsgi_calloc(sizeof(gid_t) * ags);
+			size_t g_pos = 0;
+			uwsgi_foreach(usl, uwsgi.additional_gids) {
+				ags_list[g_pos] = atoi(usl->value);
+				if (!ags_list[g_pos]) {
+					struct group *g = getgrnam(usl->value);
+					if (g) {
+						ags_list[g_pos] = g->gr_gid;
 					}
-					g_pos++;
+					else {
+						uwsgi_log("unable to find group %s\n", usl->value);
+						exit(1);
+					}
 				}
-				if (setgroups(ags, ags_list)) {
-					uwsgi_error("setgroups()");
-					exit(1);
-				}
+				g_pos++;
 			}
-			int additional_groups = getgroups(0, NULL);
-			if (additional_groups > 0) {
-				gid_t *gids = uwsgi_calloc(sizeof(gid_t) * additional_groups);
-				if (getgroups(additional_groups, gids) > 0) {
-					int i;
-					for (i = 0; i < additional_groups; i++) {
-						if (gids[i] == uwsgi.gid)
-							continue;
-						struct group *gr = getgrgid(gids[i]);
-						if (gr) {
-							uwsgi_log("set additional group %d (%s)\n", gids[i], gr->gr_name);
-						}
-						else {
-							uwsgi_log("set additional group %d\n", gids[i]);
-						}
+			if (setgroups(ags, ags_list)) {
+				uwsgi_error("setgroups()");
+				exit(1);
+			}
+		}
+		int additional_groups = getgroups(0, NULL);
+		if (additional_groups > 0) {
+			gid_t *gids = uwsgi_calloc(sizeof(gid_t) * additional_groups);
+			if (getgroups(additional_groups, gids) > 0) {
+				int i;
+				for (i = 0; i < additional_groups; i++) {
+					if (gids[i] == uwsgi.gid)
+						continue;
+					struct group *gr = getgrgid(gids[i]);
+					if (gr) {
+						uwsgi_log("set additional group %d (%s)\n", gids[i], gr->gr_name);
+					}
+					else {
+						uwsgi_log("set additional group %d\n", gids[i]);
 					}
 				}
 			}
 		}
-		if (uwsgi.uid) {
-			if (!uwsgi.master_as_root)
-				uwsgi_log("setuid() to %d\n", uwsgi.uid);
-			if (setuid(uwsgi.uid)) {
-				uwsgi_error("setuid()");
-				exit(1);
-			}
+	}
+	if (uwsgi.uid) {
+		if (!uwsgi.master_as_root)
+			uwsgi_log("setuid() to %d\n", uwsgi.uid);
+		if (setuid(uwsgi.uid)) {
+			uwsgi_error("setuid()");
+			exit(1);
 		}
+	}
 
-		if (!getuid()) {
-			uwsgi_log_initial("*** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
-		}
+	if (!getuid()) {
+		uwsgi_log_initial("*** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
+	}
 
 #ifdef UWSGI_CAP
 
-		if (uwsgi.cap && uwsgi.cap_count > 0 && !uwsgi.reloads) {
+	if (uwsgi.cap && uwsgi.cap_count > 0 && !uwsgi.reloads) {
 
-			cap_t caps = cap_init();
+		cap_t caps = cap_init();
 
-			if (!caps) {
-				uwsgi_error("cap_init()");
-				exit(1);
-			}
-			cap_clear(caps);
-
-			cap_set_flag(caps, CAP_EFFECTIVE, uwsgi.cap_count, uwsgi.cap, CAP_SET);
-			cap_set_flag(caps, CAP_PERMITTED, uwsgi.cap_count, uwsgi.cap, CAP_SET);
-			cap_set_flag(caps, CAP_INHERITABLE, uwsgi.cap_count, uwsgi.cap, CAP_SET);
-
-			if (cap_set_proc(caps) < 0) {
-				uwsgi_error("cap_set_proc()");
-				exit(1);
-			}
-			cap_free(caps);
+		if (!caps) {
+			uwsgi_error("cap_init()");
+			exit(1);
 		}
+		cap_clear(caps);
+
+		cap_set_flag(caps, CAP_EFFECTIVE, uwsgi.cap_count, uwsgi.cap, CAP_SET);
+		cap_set_flag(caps, CAP_PERMITTED, uwsgi.cap_count, uwsgi.cap, CAP_SET);
+		cap_set_flag(caps, CAP_INHERITABLE, uwsgi.cap_count, uwsgi.cap, CAP_SET);
+
+		if (cap_set_proc(caps) < 0) {
+			uwsgi_error("cap_set_proc()");
+			exit(1);
+		}
+		cap_free(caps);
+	}
 #endif
 
-		if (uwsgi.refork) {
-			uwsgi_log("re-fork()ing...\n");
-			pid_t pid = fork();
-			if (pid < 0) {
-				uwsgi_error("fork()");
-				exit(1);
-			}
-			if (pid > 0) {
-				// block all signals
-        			sigset_t smask;
-        			sigfillset(&smask);
-        			sigprocmask(SIG_BLOCK, &smask, NULL);
-				int status;
-				if (waitpid(pid, &status, 0) < 0) {
-					uwsgi_error("waitpid()");
-				}
-				_exit(0);
-			}
-		}	
-
-		uwsgi_hooks_run(uwsgi.hook_as_user, "as user", 1);
-
-		// now run the scripts needed by the user
-		uwsgi_foreach(usl, uwsgi.exec_as_user) {
-			uwsgi_log("running \"%s\" (as uid: %d gid: %d) ...\n", usl->value, (int) getuid(), (int) getgid());
-			int ret = uwsgi_run_command_and_wait(NULL, usl->value);
-			if (ret != 0) {
-				uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
-				exit(1);
-			}
-		}
-
-		uwsgi_foreach(usl, uwsgi.call_as_user) {
-                        if (uwsgi_call_symbol(usl->value)) {
-                                uwsgi_log("unaable to call function \"%s\"\n", usl->value);
-				exit(1);
-                        }
-                }
-
-		// we could now patch the binary
-		if (uwsgi.unprivileged_binary_patch) {
-			uwsgi.argv[0] = uwsgi.unprivileged_binary_patch;
-			execvp(uwsgi.unprivileged_binary_patch, uwsgi.argv);
-			uwsgi_error("execvp()");
+	if (uwsgi.refork) {
+		uwsgi_log("re-fork()ing...\n");
+		pid_t pid = fork();
+		if (pid < 0) {
+			uwsgi_error("fork()");
 			exit(1);
 		}
-
-		if (uwsgi.unprivileged_binary_patch_arg) {
-			uwsgi_exec_command_with_args(uwsgi.unprivileged_binary_patch_arg);
+		if (pid > 0) {
+			// block all signals
+			sigset_t smask;
+			sigfillset(&smask);
+			sigprocmask(SIG_BLOCK, &smask, NULL);
+			int status;
+			if (waitpid(pid, &status, 0) < 0) {
+				uwsgi_error("waitpid()");
+			}
+			_exit(0);
 		}
 	}
-	else {
-		if (uwsgi.chroot && !uwsgi.is_a_reload) {
-			uwsgi_log("cannot chroot() as non-root user\n");
+
+	uwsgi_hooks_run(uwsgi.hook_as_user, "as user", 1);
+
+	// now run the scripts needed by the user
+	uwsgi_foreach(usl, uwsgi.exec_as_user) {
+		uwsgi_log("running \"%s\" (as uid: %d gid: %d) ...\n", usl->value, (int) getuid(), (int) getgid());
+		int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+		if (ret != 0) {
+			uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
 			exit(1);
 		}
-		if (uwsgi.gid && getgid() != uwsgi.gid) {
-			uwsgi_log("cannot setgid() as non-root user\n");
+	}
+
+	uwsgi_foreach(usl, uwsgi.call_as_user) {
+		if (uwsgi_call_symbol(usl->value)) {
+			uwsgi_log("unaable to call function \"%s\"\n", usl->value);
 			exit(1);
 		}
-		if (uwsgi.uid && getuid() != uwsgi.uid) {
-			uwsgi_log("cannot setuid() as non-root user\n");
-			exit(1);
-		}
+	}
+
+	// we could now patch the binary
+	if (uwsgi.unprivileged_binary_patch) {
+		uwsgi.argv[0] = uwsgi.unprivileged_binary_patch;
+		execvp(uwsgi.unprivileged_binary_patch, uwsgi.argv);
+		uwsgi_error("execvp()");
+		exit(1);
+	}
+
+	if (uwsgi.unprivileged_binary_patch_arg) {
+		uwsgi_exec_command_with_args(uwsgi.unprivileged_binary_patch_arg);
+	}
+	return;
+
+nonroot:
+	if (uwsgi.chroot && !uwsgi.is_a_reload) {
+		uwsgi_log("cannot chroot() as non-root user\n");
+		exit(1);
+	}
+	if (uwsgi.gid && getgid() != uwsgi.gid) {
+		uwsgi_log("cannot setgid() as non-root user\n");
+		exit(1);
+	}
+	if (uwsgi.uid && getuid() != uwsgi.uid) {
+		uwsgi_log("cannot setuid() as non-root user\n");
+		exit(1);
 	}
 }
 
@@ -1079,16 +1082,16 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	// free remove headers
 	ah = wsgi_req->remove_headers;
 	while (ah) {
-                struct uwsgi_string_list *ptr = ah;
-                ah = ah->next;
-                free(ptr->value);
-                free(ptr);
-        }
+		struct uwsgi_string_list *ptr = ah;
+		ah = ah->next;
+		free(ptr->value);
+		free(ptr);
+	}
 
 	// free chunked input
 	if (wsgi_req->chunked_input_buf) {
-                uwsgi_buffer_destroy(wsgi_req->chunked_input_buf);
-        }
+		uwsgi_buffer_destroy(wsgi_req->chunked_input_buf);
+	}
 
 	// free websocket engine
 	if (wsgi_req->websocket_buf) {
@@ -1105,19 +1108,16 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	// yes, this is pretty useless but we cannot ensure all of the plugin have the same behaviour
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
 
-	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0
-	    && uwsgi.workers[uwsgi.mywid].delta_requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]
-	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn*1000000) >= uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME]*1000000)) {
+	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi.workers[uwsgi.mywid].delta_requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]
+	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] * 1000000)) {
 		goodbye_cruel_world();
 	}
 
-	if (uwsgi.reload_on_as && (rlim_t) vsz >= uwsgi.reload_on_as
-	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn*1000000) >= uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME]*1000000)) {
+	if (uwsgi.reload_on_as && (rlim_t) vsz >= uwsgi.reload_on_as && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] * 1000000)) {
 		goodbye_cruel_world();
 	}
 
-	if (uwsgi.reload_on_rss && (rlim_t) rss >= uwsgi.reload_on_rss
-	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn*1000000) >= uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME]*1000000)) {
+	if (uwsgi.reload_on_rss && (rlim_t) rss >= uwsgi.reload_on_rss && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] * 1000000)) {
 		goodbye_cruel_world();
 	}
 
@@ -1258,7 +1258,7 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_so
 	wsgi_req->hvec = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].hvec;
 	// skip the first 4 bytes;
 	wsgi_req->uh = (struct uwsgi_header *) uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].buffer;
-	wsgi_req->buffer = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].buffer+4;
+	wsgi_req->buffer = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].buffer + 4;
 
 	if (uwsgi.post_buffering > 0) {
 		wsgi_req->post_buffering_buf = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].post_buf;
@@ -1315,12 +1315,14 @@ int wsgi_req_recv(int queue, struct wsgi_request *wsgi_req) {
 
 	// edge triggered sockets get the whole request during accept() phase
 	if (!wsgi_req->socket->edge_trigger) {
-		for(;;) {
+		for (;;) {
 			int ret = wsgi_req->socket->proto(wsgi_req);
-			if (ret == UWSGI_OK) break;
+			if (ret == UWSGI_OK)
+				break;
 			if (ret == UWSGI_AGAIN) {
 				ret = uwsgi_wait_read_req(wsgi_req);
-				if (ret <= 0) return -1;	
+				if (ret <= 0)
+					return -1;
 				continue;
 			}
 			return -1;
@@ -1543,8 +1545,8 @@ int uwsgi_get_app_id(struct wsgi_request *wsgi_req, char *key, uint16_t key_len,
 			}
 
 			if (uwsgi.vhost) {
-				char *vhost_name = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|",1, wsgi_req->script_name, wsgi_req->script_name_len);
-                        	app_name_len = wsgi_req->host_len + 1 + wsgi_req->script_name_len;
+				char *vhost_name = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|", 1, wsgi_req->script_name, wsgi_req->script_name_len);
+				app_name_len = wsgi_req->host_len + 1 + wsgi_req->script_name_len;
 				app_name = uwsgi_req_append(wsgi_req, "UWSGI_APPID", 11, vhost_name, app_name_len);
 				free(vhost_name);
 				if (!app_name) {
@@ -1552,13 +1554,13 @@ int uwsgi_get_app_id(struct wsgi_request *wsgi_req, char *key, uint16_t key_len,
 					return -1;
 				}
 #ifdef UWSGI_DEBUG
-                        	uwsgi_debug("VirtualHost KEY=%.*s\n", app_name_len, app_name);
+				uwsgi_debug("VirtualHost KEY=%.*s\n", app_name_len, app_name);
 #endif
 			}
 			wsgi_req->appid = app_name;
 			wsgi_req->appid_len = app_name_len;
-                }
-        }
+		}
+	}
 
 
 	for (i = 0; i < uwsgi_apps_cnt; i++) {
@@ -1591,8 +1593,10 @@ int uwsgi_get_app_id(struct wsgi_request *wsgi_req, char *key, uint16_t key_len,
 					}
 				}
 			}
-			if (modifier1 == -1) return i;
-			if (modifier1 == uwsgi_apps[i].modifier1) return i;
+			if (modifier1 == -1)
+				return i;
+			if (modifier1 == uwsgi_apps[i].modifier1)
+				return i;
 		}
 	}
 
@@ -1648,12 +1652,12 @@ int uwsgi_is_file(char *filename) {
 }
 
 int uwsgi_is_file2(char *filename, struct stat *st) {
-        if (stat(filename, st)) {
-                return 0;
-        }
-        if (S_ISREG(st->st_mode))
-                return 1;
-        return 0;
+	if (stat(filename, st)) {
+		return 0;
+	}
+	if (S_ISREG(st->st_mode))
+		return 1;
+	return 0;
 }
 
 
@@ -1720,11 +1724,11 @@ int uwsgi_file_exists(char *filename) {
 }
 
 int uwsgi_file_executable(char *filename) {
-        // TODO check for http url or stdin
-        return !access(filename, R_OK|X_OK);
+	// TODO check for http url or stdin
+	return !access(filename, R_OK | X_OK);
 }
 
-char *magic_sub(char *buffer, size_t len, size_t *size, char *magic_table[]) {
+char *magic_sub(char *buffer, size_t len, size_t * size, char *magic_table[]) {
 
 	size_t i;
 	size_t magic_len = 0;
@@ -1767,17 +1771,19 @@ void init_magic_table(char *magic_table[]) {
 
 char *uwsgi_get_last_char(char *what, char c) {
 	size_t len = strlen(what);
-	while(len--) {
-		if (what[len] == c) return what + len;
+	while (len--) {
+		if (what[len] == c)
+			return what + len;
 	}
 	return NULL;
 }
 
 char *uwsgi_get_last_charn(char *what, size_t len, char c) {
-        while(len--) {
-                if (what[len] == c) return what + len;
-        }
-        return NULL;
+	while (len--) {
+		if (what[len] == c)
+			return what + len;
+	}
+	return NULL;
 }
 
 
@@ -1790,8 +1796,8 @@ char *uwsgi_num2str(int num) {
 }
 
 char *uwsgi_64bit2str(int64_t num) {
-	char *str = uwsgi_malloc(sizeof(MAX64_STR)+1);
-	snprintf(str, sizeof(MAX64_STR)+1, "%lld", (long long) num);
+	char *str = uwsgi_malloc(sizeof(MAX64_STR) + 1);
+	snprintf(str, sizeof(MAX64_STR) + 1, "%lld", (long long) num);
 	return str;
 }
 
@@ -2333,49 +2339,49 @@ static int uwsgi_run_command_do(char *command, char *arg) {
 
 int uwsgi_run_command_and_wait(char *command, char *arg) {
 
-        int waitpid_status = 0;
-        pid_t pid = fork();
-        if (pid < 0) {
-                return -1;
-        }
+	int waitpid_status = 0;
+	pid_t pid = fork();
+	if (pid < 0) {
+		return -1;
+	}
 
-        if (pid > 0) {
-                if (waitpid(pid, &waitpid_status, 0) < 0) {
-                        uwsgi_error("uwsgi_run_command_and_wait()/waitpid()");
-                        return -1;
-                }
+	if (pid > 0) {
+		if (waitpid(pid, &waitpid_status, 0) < 0) {
+			uwsgi_error("uwsgi_run_command_and_wait()/waitpid()");
+			return -1;
+		}
 
-                return WEXITSTATUS(waitpid_status);
-        }
+		return WEXITSTATUS(waitpid_status);
+	}
 	return uwsgi_run_command_do(command, arg);
 }
 
 int uwsgi_run_command_putenv_and_wait(char *command, char *arg, char **envs, unsigned int nenvs) {
 
-        int waitpid_status = 0;
-        pid_t pid = fork();
-        if (pid < 0) {
-                return -1; 
-        }
+	int waitpid_status = 0;
+	pid_t pid = fork();
+	if (pid < 0) {
+		return -1;
+	}
 
-        if (pid > 0) {
-                if (waitpid(pid, &waitpid_status, 0) < 0) {
-                        uwsgi_error("uwsgi_run_command_and_wait()/waitpid()");
-                        return -1;
-                }
+	if (pid > 0) {
+		if (waitpid(pid, &waitpid_status, 0) < 0) {
+			uwsgi_error("uwsgi_run_command_and_wait()/waitpid()");
+			return -1;
+		}
 
-                return WEXITSTATUS(waitpid_status);
-        }
+		return WEXITSTATUS(waitpid_status);
+	}
 
 	unsigned int i;
-	for(i=0;i<nenvs;i++) {
+	for (i = 0; i < nenvs; i++) {
 		if (putenv(envs[i])) {
 			uwsgi_error("uwsgi_run_command_putenv_and_wait()/putenv()");
 			exit(1);
 		}
 	}
 
-        return uwsgi_run_command_do(command, arg);
+	return uwsgi_run_command_do(command, arg);
 }
 
 
@@ -2411,7 +2417,7 @@ pid_t uwsgi_run_command(char *command, int *stdin_fd, int stdout_fd) {
 		if (stdin_fd) {
 			if (i == stdin_fd[0] || i == stdin_fd[1]) {
 				continue;
-			} 
+			}
 		}
 		if (stdout_fd > -1) {
 			if (i == stdout_fd) {
@@ -2419,13 +2425,13 @@ pid_t uwsgi_run_command(char *command, int *stdin_fd, int stdout_fd) {
 			}
 		}
 #ifdef __APPLE__
-                fcntl(i, F_SETFD, FD_CLOEXEC);
+		fcntl(i, F_SETFD, FD_CLOEXEC);
 #else
-                close(i);
+		close(i);
 #endif
-        }
+	}
 
-	
+
 
 	if (stdin_fd) {
 		close(stdin_fd[1]);
@@ -3146,8 +3152,8 @@ char *uwsgi_get_var(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, u
 
 	int i;
 
-	for (i = wsgi_req->var_cnt-1; i > 0; i -= 2) {
-		if (!uwsgi_strncmp(key, keylen, wsgi_req->hvec[i-1].iov_base, wsgi_req->hvec[i-1].iov_len)) {
+	for (i = wsgi_req->var_cnt - 1; i > 0; i -= 2) {
+		if (!uwsgi_strncmp(key, keylen, wsgi_req->hvec[i - 1].iov_base, wsgi_req->hvec[i - 1].iov_len)) {
 			*len = wsgi_req->hvec[i].iov_len;
 			return wsgi_req->hvec[i].iov_base;
 		}
@@ -3182,9 +3188,9 @@ struct uwsgi_app *uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int
 		}
 	}
 
-	if ((mountpoint_len == 0 || (mountpoint_len =- 1 && mountpoint[0] == '/')) && uwsgi.default_app == -1) {
-                uwsgi.default_app = id;
-        }
+	if ((mountpoint_len == 0 || (mountpoint_len = -1 && mountpoint[0] == '/')) && uwsgi.default_app == -1) {
+		uwsgi.default_app = id;
+	}
 
 	return wi;
 }
@@ -3238,8 +3244,9 @@ char *uwsgi_check_touches(struct uwsgi_string_list *touch_list) {
 }
 
 char *uwsgi_chomp(char *str) {
-	ssize_t slen = (ssize_t) strlen(str), i ;
-	if (!slen) return str;
+	ssize_t slen = (ssize_t) strlen(str), i;
+	if (!slen)
+		return str;
 	slen--;
 	for (i = slen; i >= 0; i--) {
 		if (str[i] == '\r' || str[i] == '\n') {
@@ -3254,19 +3261,20 @@ char *uwsgi_chomp(char *str) {
 }
 
 char *uwsgi_chomp2(char *str) {
-        ssize_t slen = (ssize_t) strlen(str), i ;
-        if (!slen) return str;
-        slen--;
-        for (i = slen; i >= 0; i--) {
-                if (str[i] == '\r' || str[i] == '\n' || str[i] == '\t' || str[i] == ' ') {
-                        str[i] = 0;
-                }
-                else {
-                        return str;
-                }
-        }
+	ssize_t slen = (ssize_t) strlen(str), i;
+	if (!slen)
+		return str;
+	slen--;
+	for (i = slen; i >= 0; i--) {
+		if (str[i] == '\r' || str[i] == '\n' || str[i] == '\t' || str[i] == ' ') {
+			str[i] = 0;
+		}
+		else {
+			return str;
+		}
+	}
 
-        return str;
+	return str;
 }
 
 
@@ -3293,7 +3301,8 @@ int uwsgi_tmpfd() {
 
 FILE *uwsgi_tmpfile() {
 	int fd = uwsgi_tmpfd();
-	if (fd < 0) return NULL;
+	if (fd < 0)
+		return NULL;
 	return fdopen(fd, "w+");
 }
 
@@ -3338,13 +3347,13 @@ void uwsgi_emulate_cow_for_apps(int id) {
 
 int uwsgi_write_intfile(char *filename, int n) {
 	FILE *pidfile = fopen(filename, "w");
-        if (!pidfile) {
-                uwsgi_error_open(filename);
-                exit(1);
-        }
-        if (fprintf(pidfile, "%d\n", n) <= 0 || ferror(pidfile) || fclose(pidfile)) {
+	if (!pidfile) {
+		uwsgi_error_open(filename);
+		exit(1);
+	}
+	if (fprintf(pidfile, "%d\n", n) <= 0 || ferror(pidfile) || fclose(pidfile)) {
 		return -1;
-        }
+	}
 	return 0;
 }
 
@@ -3669,9 +3678,9 @@ int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, char kv_separ
 
 	// destroy the list (no need to destroy the value as it is a pointer to buf)
 	usl = itemlist;
-	while(usl) {
+	while (usl) {
 		struct uwsgi_string_list *tmp_usl = usl;
-		usl = usl->next;	
+		usl = usl->next;
 		free(tmp_usl);
 	}
 
@@ -3716,8 +3725,9 @@ error:
 }
 
 int uwsgi_call_symbol(char *symbol) {
-	void (*func)(void) = dlsym(RTLD_DEFAULT, symbol);
-	if (!func) return -1;
+	void (*func) (void) = dlsym(RTLD_DEFAULT, symbol);
+	if (!func)
+		return -1;
 	func();
 	return 0;
 }
@@ -3735,21 +3745,21 @@ end:
 }
 
 char *uwsgi_strip(char *src) {
-	char *dst = src ;
+	char *dst = src;
 	size_t len = strlen(src);
 	int i;
 
-	for(i=0;i<(ssize_t)len;i++) {
+	for (i = 0; i < (ssize_t) len; i++) {
 		if (src[i] == ' ' || src[i] == '\t') {
 			dst++;
-		}	
+		}
 	}
 
-	len -= (dst-src);
+	len -= (dst - src);
 
-	for(i=len;i>=0;i--) {
+	for (i = len; i >= 0; i--) {
 		if (dst[i] == ' ' || dst[i] == '\t') {
-			dst[i] = 0;	
+			dst[i] = 0;
 		}
 		else {
 			break;
@@ -3761,28 +3771,17 @@ char *uwsgi_strip(char *src) {
 
 void uwsgi_uuid(char *buf) {
 #ifdef UWSGI_UUID
-        uuid_t uuid_zmq;
-        uuid_generate(uuid_zmq);
-        uuid_unparse(uuid_zmq, buf);
+	uuid_t uuid_zmq;
+	uuid_generate(uuid_zmq);
+	uuid_unparse(uuid_zmq, buf);
 #else
-	snprintf(buf, 37, "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-		rand(),
-		rand(),
-		rand(),
-		rand(),
-		rand(),
-		rand(),
-		rand(),
-		rand(),
-		rand(),
-		rand(),
-		rand());
+	snprintf(buf, 37, "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x", rand(), rand(), rand(), rand(), rand(), rand(), rand(), rand(), rand(), rand(), rand());
 #endif
 }
 
 int uwsgi_uuid_cmp(char *x, char *y) {
 	int i;
-	for(i=0;i<36;i++) {
+	for (i = 0; i < 36; i++) {
 		if (x[i] != y[i]) {
 			if (x[i] > y[i]) {
 				return 1;
@@ -3807,105 +3806,106 @@ void uwsgi_remove_header(struct wsgi_request *wsgi_req, char *hh, uint16_t hh_le
 // based on nginx implementation
 
 static uint8_t b64_table64[] = {
-                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 62, 77, 77, 77, 63,
-                52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 77, 77, 77, 77, 77, 77,
-                77,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
-                15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 77, 77, 77, 77, 77,
-                77, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
-                41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 77, 77, 77, 77, 77,
+	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 62, 77, 77, 77, 63,
+	52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 77, 77, 77, 77, 77, 77,
+	77, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+	15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 77, 77, 77, 77, 77,
+	77, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+	41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 77, 77, 77, 77, 77,
 
-                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77
-        };
+	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+	77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77
+};
 
 static char b64_table64_2[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-char *uwsgi_base64_decode(char *buf, size_t len, size_t *d_len) {
+char *uwsgi_base64_decode(char *buf, size_t len, size_t * d_len) {
 
 	// find the real size and check for invalid values
-        size_t i;
-        for (i = 0; i < len; i++) {
-                if (buf[i] == '=')
-                        break;
+	size_t i;
+	for (i = 0; i < len; i++) {
+		if (buf[i] == '=')
+			break;
 
-                // check for invalid content
-                if (b64_table64[ (uint8_t) buf[i] ] == 77) {
-                        return NULL;
-                }
-        }
+		// check for invalid content
+		if (b64_table64[(uint8_t) buf[i]] == 77) {
+			return NULL;
+		}
+	}
 
 	// check for invalid size
-        if (i % 4 == 1)
-                return NULL;
+	if (i % 4 == 1)
+		return NULL;
 
 	// compute the new size
-        *d_len = (((len+3)/4) * 3);
-        char *dst = uwsgi_malloc(*d_len + 1);
+	*d_len = (((len + 3) / 4) * 3);
+	char *dst = uwsgi_malloc(*d_len + 1);
 
-        char *ptr = dst;
-        uint8_t *src = (uint8_t *) buf;
-        while(i > 3) {
-                *ptr++= (char) ( b64_table64[src[0]] << 2 | b64_table64[src[1]] >> 4);
-                *ptr++= (char) ( b64_table64[src[1]] << 4 | b64_table64[src[2]] >> 2);
-                *ptr++= (char) ( b64_table64[src[2]] << 6 | b64_table64[src[3]]);
+	char *ptr = dst;
+	uint8_t *src = (uint8_t *) buf;
+	while (i > 3) {
+		*ptr++ = (char) (b64_table64[src[0]] << 2 | b64_table64[src[1]] >> 4);
+		*ptr++ = (char) (b64_table64[src[1]] << 4 | b64_table64[src[2]] >> 2);
+		*ptr++ = (char) (b64_table64[src[2]] << 6 | b64_table64[src[3]]);
 
-                src+=4;
-                i-=4;
-        }
+		src += 4;
+		i -= 4;
+	}
 
-        if (i > 1) {
-                *ptr++= (char) ( b64_table64[src[0]] << 2 | b64_table64[src[1]] >> 4);
-        }
+	if (i > 1) {
+		*ptr++ = (char) (b64_table64[src[0]] << 2 | b64_table64[src[1]] >> 4);
+	}
 
-        if (i > 2) {
-                *ptr++= (char) ( b64_table64[src[1]] << 4 | b64_table64[src[2]] >> 2);
-        }
+	if (i > 2) {
+		*ptr++ = (char) (b64_table64[src[1]] << 4 | b64_table64[src[2]] >> 2);
+	}
 
 	*d_len = (ptr - dst);
-	*ptr++= 0;
+	*ptr++ = 0;
 
-        return dst;
+	return dst;
 
 }
 
-char *uwsgi_base64_encode(char *buf, size_t len, size_t *d_len) {
-	*d_len = ((len * 4)/3) + 5;
+char *uwsgi_base64_encode(char *buf, size_t len, size_t * d_len) {
+	*d_len = ((len * 4) / 3) + 5;
 	uint8_t *src = (uint8_t *) buf;
 	char *dst = uwsgi_malloc(*d_len);
 	char *ptr = dst;
-	while(len >= 3) {
-		*ptr++= b64_table64_2[ src[0]  >> 2];
-		*ptr++= b64_table64_2[((src[0] << 4) & 0x30) | (src[1] >> 4)];
-        	*ptr++= b64_table64_2[((src[1] << 2) & 0x3C) | (src[2] >> 6)];
-        	*ptr++= b64_table64_2[src[2] & 0x3F];
-        	src += 3;
-        	len -= 3;
-    	}
+	while (len >= 3) {
+		*ptr++ = b64_table64_2[src[0] >> 2];
+		*ptr++ = b64_table64_2[((src[0] << 4) & 0x30) | (src[1] >> 4)];
+		*ptr++ = b64_table64_2[((src[1] << 2) & 0x3C) | (src[2] >> 6)];
+		*ptr++ = b64_table64_2[src[2] & 0x3F];
+		src += 3;
+		len -= 3;
+	}
 
 	if (len > 0) {
-		*ptr++= b64_table64_2[ src[0]  >> 2];
+		*ptr++ = b64_table64_2[src[0] >> 2];
 		uint8_t tmp = (src[0] << 4) & 0x30;
-		if (len > 1) tmp |= src[1] >> 4;
-		*ptr++= b64_table64_2[tmp];
+		if (len > 1)
+			tmp |= src[1] >> 4;
+		*ptr++ = b64_table64_2[tmp];
 		if (len < 2) {
-			*ptr++= '=';
+			*ptr++ = '=';
 		}
 		else {
-			*ptr++= b64_table64_2[(src[1] << 2) & 0x3C];
+			*ptr++ = b64_table64_2[(src[1] << 2) & 0x3C];
 		}
-		*ptr++= '=';
+		*ptr++ = '=';
 	}
 
 	*ptr = 0;
-	*d_len = ((char *)ptr - dst);
+	*d_len = ((char *) ptr - dst);
 
 	return dst;
 }
@@ -3913,27 +3913,27 @@ char *uwsgi_base64_encode(char *buf, size_t len, size_t *d_len) {
 uint16_t uwsgi_be16(char *buf) {
 	uint16_t *src = (uint16_t *) buf;
 	uint16_t ret = 0;
-	uint8_t *ptr = (uint8_t *) &ret;
+	uint8_t *ptr = (uint8_t *) & ret;
 	ptr[0] = (uint8_t) ((*src >> 8) & 0xff);
-        ptr[1] = (uint8_t) (*src & 0xff);
+	ptr[1] = (uint8_t) (*src & 0xff);
 	return ret;
 }
 
 uint32_t uwsgi_be32(char *buf) {
 	uint32_t *src = (uint32_t *) buf;
 	uint32_t ret = 0;
-	uint8_t *ptr = (uint8_t *) &ret;
+	uint8_t *ptr = (uint8_t *) & ret;
 	ptr[0] = (uint8_t) ((*src >> 24) & 0xff);
 	ptr[1] = (uint8_t) ((*src >> 16) & 0xff);
 	ptr[2] = (uint8_t) ((*src >> 8) & 0xff);
-        ptr[3] = (uint8_t) (*src & 0xff);
+	ptr[3] = (uint8_t) (*src & 0xff);
 	return ret;
 }
 
 uint64_t uwsgi_be64(char *buf) {
 	uint64_t *src = (uint64_t *) buf;
 	uint64_t ret = 0;
-	uint8_t *ptr = (uint8_t *) &ret;
+	uint8_t *ptr = (uint8_t *) & ret;
 	ptr[0] = (uint8_t) ((*src >> 56) & 0xff);
 	ptr[1] = (uint8_t) ((*src >> 48) & 0xff);
 	ptr[2] = (uint8_t) ((*src >> 40) & 0xff);
@@ -3941,35 +3941,35 @@ uint64_t uwsgi_be64(char *buf) {
 	ptr[4] = (uint8_t) ((*src >> 24) & 0xff);
 	ptr[5] = (uint8_t) ((*src >> 16) & 0xff);
 	ptr[6] = (uint8_t) ((*src >> 8) & 0xff);
-        ptr[7] = (uint8_t) (*src & 0xff);
+	ptr[7] = (uint8_t) (*src & 0xff);
 	return ret;
 }
 
-char *uwsgi_get_header(struct wsgi_request *wsgi_req, char *hh, uint16_t len, uint16_t *rlen) {
+char *uwsgi_get_header(struct wsgi_request *wsgi_req, char *hh, uint16_t len, uint16_t * rlen) {
 	char *key = uwsgi_malloc(len + 6);
 	uint16_t key_len = len;
-	char *ptr = key;	
+	char *ptr = key;
 	*rlen = 0;
 	if (uwsgi_strncmp(hh, len, "Content-Length", 14) && uwsgi_strncmp(hh, len, "Content-Type", 12)) {
 		memcpy(ptr, "HTTP_", 5);
-		ptr+=5;
+		ptr += 5;
 		key_len += 5;
 	}
 
 	uint16_t i;
-	for(i=0;i<len;i++) {
+	for (i = 0; i < len; i++) {
 		if (hh[i] == '-') {
-			*ptr++= '_';
+			*ptr++ = '_';
 		}
 		else {
-			*ptr++= toupper((int)hh[i]);
+			*ptr++ = toupper((int) hh[i]);
 		}
 	}
 
-	char *value = uwsgi_get_var(wsgi_req, key, key_len, rlen); 
+	char *value = uwsgi_get_var(wsgi_req, key, key_len, rlen);
 	free(key);
 	return value;
-	
+
 }
 
 static char *uwsgi_hex_table[] = {
@@ -3992,37 +3992,34 @@ static char *uwsgi_hex_table[] = {
 };
 
 char *uwsgi_str_to_hex(char *src, size_t slen) {
-	char *dst = uwsgi_malloc(slen*2);
+	char *dst = uwsgi_malloc(slen * 2);
 	char *ptr = dst;
 	size_t i;
-	for(i=0;i<slen;i++) {
-		memcpy(ptr, uwsgi_hex_table[ (int) src[i] ], 2);
-		ptr+=2;
+	for (i = 0; i < slen; i++) {
+		memcpy(ptr, uwsgi_hex_table[(int) src[i]], 2);
+		ptr += 2;
 	}
 	return dst;
 }
 
 // dst has to be 3 times buf size (USE IT ONLY FOR PATH_INFO !!!)
-void http_url_encode(char *buf, uint16_t *len, char *dst) {
+void http_url_encode(char *buf, uint16_t * len, char *dst) {
 
-        uint16_t i;
-        char *ptr = dst;
-        for(i=0;i<*len;i++) {
-                if ((buf[i] >= 'A' && buf[i] <= 'Z') ||
-                        (buf[i] >= 'a' && buf[i] <= 'z') ||
-                        (buf[i] >= '0' && buf[i] <= '9') ||
-                        buf[i] == '-' || buf[i] == '_' || buf[i] == '.' || buf[i] == '~' || buf[i] == '/' ) {
-                        *ptr++= buf[i];
-                }
-                else {
-                        char *h = uwsgi_hex_table[(int) buf[i]];
-                        *ptr++= '%';
-                        *ptr++= h[0];
-                        *ptr++= h[1];
-                }
-        }
+	uint16_t i;
+	char *ptr = dst;
+	for (i = 0; i < *len; i++) {
+		if ((buf[i] >= 'A' && buf[i] <= 'Z') || (buf[i] >= 'a' && buf[i] <= 'z') || (buf[i] >= '0' && buf[i] <= '9') || buf[i] == '-' || buf[i] == '_' || buf[i] == '.' || buf[i] == '~' || buf[i] == '/') {
+			*ptr++ = buf[i];
+		}
+		else {
+			char *h = uwsgi_hex_table[(int) buf[i]];
+			*ptr++ = '%';
+			*ptr++ = h[0];
+			*ptr++ = h[1];
+		}
+	}
 
-        *len = ptr-dst;
+	*len = ptr - dst;
 
 }
 
@@ -4042,32 +4039,32 @@ void uwsgi_takeover() {
 void create_msg_pipe(int *fd, int bufsize) {
 
 #if defined(SOCK_SEQPACKET) && defined(__linux__)
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, fd)) {
+	if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, fd)) {
 #else
-        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, fd)) {
+	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, fd)) {
 #endif
 		uwsgi_error("create_msg_pipe()/socketpair()");
 		exit(1);
 	}
 
 	uwsgi_socket_nb(fd[0]);
-        uwsgi_socket_nb(fd[1]);
+	uwsgi_socket_nb(fd[1]);
 
-        if (bufsize) {
-                if (setsockopt(fd[0], SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(int))) {
-                        uwsgi_error("create_msg_pipe()/setsockopt()");
-                }
-                if (setsockopt(fd[0], SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(int))) {
-                        uwsgi_error("create_msg_pipe()/setsockopt()");
-                }
+	if (bufsize) {
+		if (setsockopt(fd[0], SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(int))) {
+			uwsgi_error("create_msg_pipe()/setsockopt()");
+		}
+		if (setsockopt(fd[0], SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(int))) {
+			uwsgi_error("create_msg_pipe()/setsockopt()");
+		}
 
-                if (setsockopt(fd[1], SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(int))) {
-                        uwsgi_error("create_msg_pipe()/setsockopt()");
-                }
-                if (setsockopt(fd[1], SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(int))) {
-                        uwsgi_error("create_msg_pipe()/setsockopt()");
-                }
-        }
+		if (setsockopt(fd[1], SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(int))) {
+			uwsgi_error("create_msg_pipe()/setsockopt()");
+		}
+		if (setsockopt(fd[1], SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(int))) {
+			uwsgi_error("create_msg_pipe()/setsockopt()");
+		}
+	}
 }
 
 char *uwsgi_binary_path() {
@@ -4083,7 +4080,8 @@ void uwsgi_envdir(char *edir) {
 	struct dirent *de;
 	while ((de = readdir(d)) != NULL) {
 		// skip hidden files
-		if (de->d_name[0] == '.') continue;
+		if (de->d_name[0] == '.')
+			continue;
 		struct stat st;
 		char *filename = uwsgi_concat3(edir, "/", de->d_name);
 		if (stat(filename, &st)) {
@@ -4096,7 +4094,7 @@ void uwsgi_envdir(char *edir) {
 			free(filename);
 			continue;
 		}
-	
+
 		// unsetenv
 		if (st.st_size == 0) {
 #ifdef UNSETENV_VOID
@@ -4114,7 +4112,7 @@ void uwsgi_envdir(char *edir) {
 
 		// read the content of the file
 		size_t size = 0;
-        	char *content = uwsgi_open_and_read(filename, &size, 1, NULL);
+		char *content = uwsgi_open_and_read(filename, &size, 1, NULL);
 		if (!content) {
 			uwsgi_log("[uwsgi-envdir] unable to open %s\n", filename);
 			uwsgi_error_open(filename);
@@ -4127,7 +4125,7 @@ void uwsgi_envdir(char *edir) {
 		// ... and substitute 0 with \n
 		size_t slen = strlen(content);
 		size_t i;
-		for(i=0;i<slen;i++) {
+		for (i = 0; i < slen; i++) {
 			if (content[i] == 0) {
 				content[i] = '\n';
 			}
@@ -4135,7 +4133,7 @@ void uwsgi_envdir(char *edir) {
 
 		if (setenv(de->d_name, content, 1)) {
 			uwsgi_log("[uwsgi-envdir] unable to set %s\n", de->d_name);
-                        uwsgi_error("[uwsgi-envdir] setenv");
+			uwsgi_error("[uwsgi-envdir] setenv");
 			exit(1);
 		}
 
@@ -4145,10 +4143,10 @@ void uwsgi_envdir(char *edir) {
 
 void uwsgi_envdirs(struct uwsgi_string_list *envdirs) {
 	struct uwsgi_string_list *usl = envdirs;
-	while(usl) {
+	while (usl) {
 		uwsgi_envdir(usl->value);
 		usl = usl->next;
-	}	
+	}
 }
 
 void uwsgi_opt_envdir(char *opt, char *value, void *foobar) {
@@ -4158,5 +4156,5 @@ void uwsgi_opt_envdir(char *opt, char *value, void *foobar) {
 void uwsgi_exit(int status) {
 	uwsgi.last_exit_code = status;
 	// disable macro expansion
-	(exit)(status);
+	(exit) (status);
 }
