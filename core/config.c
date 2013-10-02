@@ -293,14 +293,32 @@ int uwsgi_count_options(struct uwsgi_option *uopt) {
         return count;
 }
 
+/*
+	avoid loops here !!!
+*/
 struct uwsgi_option *uwsgi_opt_get(char *name) {
-        struct uwsgi_option *op = uwsgi.options;
+        struct uwsgi_option *op;
+	int round = 0;
+retry:
+	round++;
+	if (round > 2) goto end;
+	op = uwsgi.options;
 
         while (op->name) {
                 if (!strcmp(name, op->name)) {
                         return op;
                 }
                 op++;
+        }
+
+	if (uwsgi.autoload) {
+		if (uwsgi_try_autoload(name)) goto retry;
+	}
+
+end:
+	if (uwsgi.strict) {
+                uwsgi_log("[strict-mode] unknown config directive: %s\n", name);
+                exit(1);
         }
 
         return NULL;
@@ -468,11 +486,6 @@ add:
 			uwsgi.exported_opts[id]->configured = 1;
 		}
 	}
-	else if (uwsgi.strict) {
-		uwsgi_log("[strict-mode] unknown config directive: %s\n", key);
-		exit(1);
-	}
-
 }
 
 void uwsgi_fallback_config() {
@@ -488,3 +501,118 @@ void uwsgi_fallback_config() {
         	// never here
 	}
 }
+
+int uwsgi_manage_opt(char *key, char *value) {
+
+        struct uwsgi_option *op = uwsgi_opt_get(key);
+	if (op) {
+        	op->func(key, value, op->data);
+                return 1;
+        }
+        return 0;
+
+}
+
+void uwsgi_configure() {
+
+        int i;
+
+        // and now apply the remaining configs
+restart:
+        for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+                if (uwsgi.exported_opts[i]->configured)
+                        continue;
+                uwsgi.dirty_config = 0;
+                uwsgi.exported_opts[i]->configured = uwsgi_manage_opt(uwsgi.exported_opts[i]->key, uwsgi.exported_opts[i]->value);
+		// some option could cause a dirty config tree
+                if (uwsgi.dirty_config)
+                        goto restart;
+        }
+
+}
+
+
+void uwsgi_opt_custom(char *key, char *value, void *data ) {
+        struct uwsgi_custom_option *uco = (struct uwsgi_custom_option *)data;
+        size_t i, count = 1;
+        size_t value_len = 0;
+        if (value)
+                value_len = strlen(value);
+        off_t pos = 0;
+        char **opt_argv;
+        char *tmp_val = NULL, *p = NULL;
+
+        // now count the number of args
+        for (i = 0; i < value_len; i++) {
+                if (value[i] == ' ') {
+                        count++;
+                }
+        }
+
+        // allocate a tmp array
+        opt_argv = uwsgi_calloc(sizeof(char *) * count);
+        //make a copy of the value;
+        if (value_len > 0) {
+                tmp_val = uwsgi_str(value);
+                // fill the array of options
+                char *p, *ctx = NULL;
+                uwsgi_foreach_token(tmp_val, " ", p, ctx) {
+                        opt_argv[pos] = p;
+                        pos++;
+                }
+        }
+        else {
+                // no argument specified
+                opt_argv[0] = "";
+        }
+
+#ifdef UWSGI_DEBUG
+        uwsgi_log("found custom option %s with %d args\n", key, count);
+#endif
+
+        // now make a copy of the option template
+        char *tmp_opt = uwsgi_str(uco->value);
+        // split it
+        char *ctx = NULL;
+        uwsgi_foreach_token(tmp_opt, ";", p, ctx) {
+                char *equal = strchr(p, '=');
+                if (!equal)
+                        goto clear;
+                *equal = '\0';
+
+                // build the key
+                char *new_key = uwsgi_str(p);
+                for (i = 0; i < count; i++) {
+                        char *old_key = new_key;
+                        char *tmp_num = uwsgi_num2str(i + 1);
+                        char *placeholder = uwsgi_concat2((char *) "$", tmp_num);
+                        free(tmp_num);
+                        new_key = uwsgi_substitute(old_key, placeholder, opt_argv[i]);
+                        if (new_key != old_key)
+                                free(old_key);
+                        free(placeholder);
+                }
+
+                // build the value
+                char *new_value = uwsgi_str(equal + 1);
+                for (i = 0; i < count; i++) {
+                        char *old_value = new_value;
+                        char *tmp_num = uwsgi_num2str(i + 1);
+                        char *placeholder = uwsgi_concat2((char *) "$", tmp_num);
+                        free(tmp_num);
+                        new_value = uwsgi_substitute(old_value, placeholder, opt_argv[i]);
+                        if (new_value != old_value)
+                                free(old_value);
+                        free(placeholder);
+                }
+                // ignore return value here
+                uwsgi_manage_opt(new_key, new_value);
+        }
+
+clear:
+        free(tmp_val);
+        free(tmp_opt);
+        free(opt_argv);
+
+}
+
