@@ -367,6 +367,30 @@ static char *uwsgi_scheme_data(char *url, size_t *size, int add_zero) {
 	return buffer;
 }
 
+static char *uwsgi_scheme_call(char *url, size_t *size, int add_zero) {
+        char *(*func)(void) = dlsym(RTLD_DEFAULT, url);
+	if (!func) {
+		uwsgi_log("unable to find symbol %s\n", url);
+                exit(1);
+	}
+
+	char *s = func();
+	if (!s) {
+		uwsgi_log("called symbol %s did not return a string\n", url);
+                exit(1);
+	}
+        *size = strlen(s);
+        if (add_zero) {
+                *size += 1;
+        }
+        char *buffer = uwsgi_malloc(*size);
+        memset(buffer, 0, *size);
+        memcpy(buffer, s, strlen(s));
+
+        return buffer;
+}
+
+
 static char *uwsgi_scheme_sym(char *url, size_t *size, int add_zero) {
 	void *sym_start_ptr = NULL, *sym_end_ptr = NULL;
 	char **raw_symbol = dlsym(RTLD_DEFAULT, url);
@@ -1149,6 +1173,7 @@ void uwsgi_setup_schemes() {
 	uwsgi_register_scheme("section", uwsgi_scheme_section);	
 	uwsgi_register_scheme("fd", uwsgi_scheme_fd);	
 	uwsgi_register_scheme("exec", uwsgi_scheme_exec);	
+	uwsgi_register_scheme("call", uwsgi_scheme_call);	
 }
 
 struct uwsgi_string_list *uwsgi_check_scheme(char *file) {
