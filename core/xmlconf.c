@@ -151,6 +151,8 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, char *magic
 	}
 	/* We can safely free resources */
 
+	if (colon) colon[0] = ':';
+
 	xmlFreeDoc(doc);
 	xmlCleanupParser();
 
@@ -267,6 +269,7 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, char *magic
 
 	} while (!done);
 
+	if (colon) colon[0] = ':';
 
 	// we can safely free, as we have a copy of datas
 	XML_ParserFree(parser);

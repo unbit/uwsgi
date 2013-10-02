@@ -106,6 +106,8 @@ void uwsgi_json_config(char *file, char *magic_table[]) {
 		config_iter = json_object_iter_next(config, config_iter);
 	}
 
+	if (colon) colon[0] = ':';
+
 }
 
 #endif

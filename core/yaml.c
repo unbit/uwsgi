@@ -280,6 +280,7 @@ next:
 	}
 #endif
 
+	if (colon) colon[0] = ':';
 
 }
 
