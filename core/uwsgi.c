@@ -944,7 +944,7 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 	// clear optional vars
 	magic_table['c'] = "";
 	magic_table['e'] = "";
-	magic_table['n'] = "";
+	magic_table['n'] = magic_table['s'];
 
 	magic_table['0'] = "";
 	magic_table['1'] = "";
@@ -980,7 +980,7 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 	if (tmp)
 		*tmp = '/';
 
-	if (uwsgi_get_last_char(filename, '.'))
+	if (uwsgi_get_last_char(magic_table['s'], '.'))
 		magic_table['e'] = uwsgi_get_last_char(filename, '.') + 1;
 	if (uwsgi_get_last_char(magic_table['s'], '.'))
 		magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.') - magic_table['s'], "", 0);
