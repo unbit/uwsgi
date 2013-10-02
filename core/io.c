@@ -422,7 +422,14 @@ static char *uwsgi_scheme_section(char *url, size_t *size, int add_zero) {
 }
 
 struct uwsgi_string_list *uwsgi_register_scheme(char *name, char * (*func)(char *, size_t *, int)) {
-	struct uwsgi_string_list *usl = uwsgi_string_new_list(&uwsgi.schemes, name); 	
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, uwsgi.schemes) {
+		if (!strcmp(usl->value, name)) goto found;
+	}
+
+	usl = uwsgi_string_new_list(&uwsgi.schemes, name); 	
+
+found:
 	usl->custom_ptr = func;
 	return usl;
 }
