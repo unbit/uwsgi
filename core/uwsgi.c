@@ -867,6 +867,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"dump-options", no_argument, 0, "dump the full list of available options", uwsgi_opt_true, &uwsgi.dump_options, 0},
 	{"show-config", no_argument, 0, "show the current config reformatted as ini", uwsgi_opt_true, &uwsgi.show_config, 0},
 	{"print", required_argument, 0, "simple print", uwsgi_opt_print, NULL, 0},
+	{"exit", optional_argument, 0, "force exit() of the instance", uwsgi_opt_exit, NULL, UWSGI_OPT_IMMEDIATE},
 	{"cflags", no_argument, 0, "report uWSGI CFLAGS (useful for building external plugins)", uwsgi_opt_cflags, NULL, UWSGI_OPT_IMMEDIATE},
 	{"dot-h", no_argument, 0, "dump the uwsgi.h used for building the core  (useful for building external plugins)", uwsgi_opt_dot_h, NULL, UWSGI_OPT_IMMEDIATE},
 	{"version", no_argument, 0, "print uWSGI version", uwsgi_opt_print, UWSGI_VERSION, 0},
@@ -3927,6 +3928,14 @@ void uwsgi_opt_set_umask(char *opt, char *value, void *mode) {
 
 	uwsgi.do_not_change_umask = 1;
 
+}
+
+void uwsgi_opt_exit(char *opt, char *value, void *none) {
+	int exit_code = 1;
+	if (value) {
+		exit_code = atoi(value);
+	}
+	exit(exit_code);
 }
 
 void uwsgi_opt_print(char *opt, char *value, void *str) {
