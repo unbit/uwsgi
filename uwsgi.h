@@ -1880,6 +1880,7 @@ struct uwsgi_server {
 
 #ifdef __linux__
 	int unshare;
+	int unshare2;
 	int emperor_clone;
 	char *pivot_root;
 #endif

@@ -615,6 +615,20 @@ void uwsgi_as_root() {
 	}
 #endif
 
+#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
+        if (uwsgi.unshare2 && !uwsgi.reloads) {
+
+                if (unshare(uwsgi.unshare2)) {
+                        uwsgi_error("unshare()");
+                        exit(1);
+                }
+                else {
+                        uwsgi_log("[linux-namespace] applied unshare() mask: %d\n", uwsgi.unshare2);
+                }
+                in_jail = 1;
+        }
+#endif
+
 	if (uwsgi.refork_as_root) {
 		uwsgi_log("re-fork()ing...\n");
 		pid_t pid = fork();
