@@ -959,6 +959,12 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 
 static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 
+#ifdef __linux__
+        if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
+                uwsgi_error("prctl()");
+        }
+#endif
+
 		if (uwsgi.emperor_tyrant) {
 			uwsgi_log("[emperor-tyrant] dropping privileges to %d %d for instance %s\n", (int) n_ui->uid, (int) n_ui->gid, n_ui->name);
 			if (setgid(n_ui->gid)) {
