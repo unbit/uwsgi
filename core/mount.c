@@ -16,6 +16,7 @@
 #ifndef MS_REC
 #define MS_REC 16384
 #endif
+#include <sys/statfs.h>
 #endif
 
 struct uwsgi_mount_flag {
@@ -235,4 +236,19 @@ int uwsgi_umount_hook(char *arg) {
         }       
         free(tmp_arg);
         return 0;
+}
+
+int uwsgi_check_mountpoint(char *mountpoint) {
+#ifdef __linux__
+	struct statfs sfs;
+	int ret = statfs(mountpoint, &sfs);
+	if (ret) {
+		uwsgi_error("uwsgi_check_mountpoint()/statfs()");
+		return -1;
+	}
+	return 0;
+#else
+	uwsgi_log("this platform does not support mountpoints check !!!\n");
+	return -1;
+#endif
 }

@@ -2207,6 +2207,8 @@ struct uwsgi_server {
 	struct uwsgi_string_list *fs_brutal_reload;
 	struct uwsgi_string_list *fs_signal;
 
+	struct uwsgi_string_list *mountpoints_check;
+
 	int propagate_touch;
 
 	// enable grunt mode
@@ -4375,6 +4377,8 @@ struct uwsgi_string_list *uwsgi_check_scheme(char *);
 
 void uwsgi_remap_fd(int, char *);
 void uwsgi_opt_exit(char *, char *, void *);
+int uwsgi_check_mountpoint(char *);
+void uwsgi_master_check_mountpoints(void);
 
 #ifdef __cplusplus
 }

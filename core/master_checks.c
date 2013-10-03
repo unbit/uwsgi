@@ -325,3 +325,15 @@ void uwsgi_master_check_crons_deadline() {
 	}
 }
 
+void uwsgi_master_check_mountpoints() {
+	struct uwsgi_string_list *usl;
+	uwsgi_foreach(usl, uwsgi.mountpoints_check) {
+		if (uwsgi_check_mountpoint(usl->value)) {
+			uwsgi_log_verbose("mountpoint %s failed, triggering detonation...\n");
+			uwsgi_nuclear_blast();
+			//never here
+			exit(1);
+		}
+	}
+	uwsgi_check_mountpoint("/app");
+}

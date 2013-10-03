@@ -471,6 +471,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"fs-brutal-reload", required_argument, 0, "brutal reload when the specified filesystem object is modified", uwsgi_opt_add_string_list, &uwsgi.fs_brutal_reload, UWSGI_OPT_MASTER},
 	{"fs-signal", required_argument, 0, "raise a uwsgi signal when the specified filesystem object is modified (syntax: file signal)", uwsgi_opt_add_string_list, &uwsgi.fs_signal, UWSGI_OPT_MASTER},
 
+	{"check-mountpoint", required_argument, 0, "destroy the instance if a filesystem is no more reachable (useful for reliable Fuse management)", uwsgi_opt_add_string_list, &uwsgi.mountpoints_check, UWSGI_OPT_MASTER},
+	{"mountpoint-check", required_argument, 0, "destroy the instance if a filesystem is no more reachable (useful for reliable Fuse management)", uwsgi_opt_add_string_list, &uwsgi.mountpoints_check, UWSGI_OPT_MASTER},
+	{"check-mount", required_argument, 0, "destroy the instance if a filesystem is no more reachable (useful for reliable Fuse management)", uwsgi_opt_add_string_list, &uwsgi.mountpoints_check, UWSGI_OPT_MASTER},
+	{"mount-check", required_argument, 0, "destroy the instance if a filesystem is no more reachable (useful for reliable Fuse management)", uwsgi_opt_add_string_list, &uwsgi.mountpoints_check, UWSGI_OPT_MASTER},
+
 	{"propagate-touch", no_argument, 0, "over-engineering option for system with flaky signal management", uwsgi_opt_true, &uwsgi.propagate_touch, 0},
 	{"limit-post", required_argument, 0, "limit request body", uwsgi_opt_set_64bit, &uwsgi.limit_post, 0},
 	{"no-orphans", no_argument, 0, "automatically kill workers if master dies (can be dangerous for availability)", uwsgi_opt_true, &uwsgi.no_orphans, 0},
