@@ -259,7 +259,6 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 	// skip unregistered daemons
 	if (!ud->registered) return;
 
-	int devnull = -1;
 	int throttle = 0;
 
 	if (uwsgi.current_time - ud->last_spawn <= 3) {
@@ -305,18 +304,7 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 
 		if (!uwsgi.daemons_honour_stdin) {
 			// /dev/null will became stdin
-			devnull = open("/dev/null", O_RDONLY);
-			if (devnull < 0) {
-				uwsgi_error("/dev/null open()");
-				exit(1);
-			}
-			if (devnull != 0) {
-				if (dup2(devnull, 0) < 0) {
-					uwsgi_error("dup2()");
-					exit(1);
-				}
-				close(devnull);
-			}
+			uwsgi_remap_fd(0, "/dev/null");
 		}
 
 		if (setsid() < 0) {

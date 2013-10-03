@@ -1140,18 +1140,7 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 			}
 		}
 		else {
-			int stdin_fd = open("/dev/null", O_RDONLY);
-			if (stdin_fd < 0) {
-				uwsgi_error_open("/dev/null");
-				exit(1);
-			}
-			if (stdin_fd != 0) {
-				if (dup2(stdin_fd, 0) < 0) {
-					uwsgi_error("dup2()");
-					exit(1);
-				}
-				close(stdin_fd);
-			}
+			uwsgi_remap_fd(0, "/dev/null");
 		}
 
 		// close all of the unneded fd

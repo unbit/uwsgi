@@ -1673,18 +1673,7 @@ void uwsgi_map_sockets() {
 
 		if (!enabled) {
 			close(uwsgi_sock->fd);
-			int fd = open("/dev/null", O_RDONLY);
-			if (fd < 0) {
-				uwsgi_error_open("/dev/null");
-				exit(1);
-			}
-			if (fd != uwsgi_sock->fd) {
-				if (dup2(fd, uwsgi_sock->fd) < 0) {
-					uwsgi_error("dup2()");
-					exit(1);
-				}
-				close(fd);
-			}
+			uwsgi_remap_fd(uwsgi_sock->fd, "/dev/null");
 			uwsgi_sock->disabled = 1;
 		}
 

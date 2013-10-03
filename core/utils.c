@@ -128,7 +128,6 @@ void set_spooler_harakiri(int sec) {
 // daemonize to the specified logfile
 void daemonize(char *logfile) {
 	pid_t pid;
-	int fdin;
 
 	// do not daemonize under emperor
 	if (uwsgi.has_emperor) {
@@ -169,21 +168,7 @@ void daemonize(char *logfile) {
 	   exit(1);
 	   } */
 
-	fdin = open("/dev/null", O_RDWR);
-	if (fdin < 0) {
-		uwsgi_error_open("/dev/null");
-		exit(1);
-	}
-
-	/* stdin */
-	if (fdin != 0) {
-		if (dup2(fdin, 0) < 0) {
-			uwsgi_error("dup2()");
-			exit(1);
-		}
-		close(fdin);
-	}
-
+	uwsgi_remap_fd(0, "/dev/null");
 
 	logto(logfile);
 }
@@ -626,6 +611,7 @@ void uwsgi_as_root() {
 			uwsgi_error("chdir()");
 			exit(1);
 		}
+
 	}
 #endif
 
@@ -2749,6 +2735,12 @@ static struct uwsgi_unshare_id uwsgi_unshare_list[] = {
 #endif
 #ifdef CLONE_NEWNET
 	{"net", CLONE_NEWNET},
+#endif
+#ifdef CLONE_IO
+	{"io", CLONE_IO},
+#endif
+#ifdef CLONE_PARENT
+	{"parent", CLONE_PARENT},
 #endif
 #ifdef CLONE_NEWPID
 	{"pid", CLONE_NEWPID},

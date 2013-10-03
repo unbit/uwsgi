@@ -1186,3 +1186,22 @@ struct uwsgi_string_list *uwsgi_check_scheme(char *file) {
 	}
 	return NULL;
 }
+
+void uwsgi_remap_fd(int fd, char *filename) {
+
+	int fdin = open(filename, O_RDWR);
+        if (fdin < 0) {
+                uwsgi_error_open(filename);
+                exit(1);
+        }
+
+        /* stdin */
+        if (fdin != fd) {
+                if (dup2(fdin, fd) < 0) {
+                        uwsgi_error("uwsgi_remap_fd()/dup2()");
+                        exit(1);
+                }
+                close(fdin);
+        }
+}
+

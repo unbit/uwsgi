@@ -4373,6 +4373,8 @@ void uwsgi_setup_schemes(void);
 
 struct uwsgi_string_list *uwsgi_check_scheme(char *);
 
+void uwsgi_remap_fd(int, char *);
+
 #ifdef __cplusplus
 }
 #endif
