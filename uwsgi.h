@@ -1876,6 +1876,8 @@ struct uwsgi_server {
 #ifdef UWSGI_CAP
 	cap_value_t *cap;
 	int cap_count;
+	cap_value_t *emperor_cap;
+	int emperor_cap_count;
 #endif
 
 #ifdef __linux__
@@ -3446,7 +3448,8 @@ void uwsgi_linux_ksm_map(void);
 #endif
 
 #ifdef UWSGI_CAP
-void uwsgi_build_cap(char *);
+int uwsgi_build_cap(char *, cap_value_t **);
+void uwsgi_apply_cap(cap_value_t *, int);
 #endif
 
 void uwsgi_register_logger(char *, ssize_t(*func) (struct uwsgi_logger *, char *, size_t));
@@ -3588,6 +3591,7 @@ int uwsgi_logic_opt_if_not_plugin(char *, char *);
 
 #ifdef UWSGI_CAP
 void uwsgi_opt_set_cap(char *, char *, void *);
+void uwsgi_opt_set_emperor_cap(char *, char *, void *);
 #endif
 #ifdef __linux__
 void uwsgi_opt_set_unshare(char *, char *, void *);

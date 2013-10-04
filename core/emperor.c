@@ -959,10 +959,57 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 
 static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 
+
 #ifdef __linux__
         if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
                 uwsgi_error("prctl()");
         }
+#ifdef CLONE_NEWUSER
+	if (uwsgi.emperor_clone & CLONE_NEWUSER) {
+		if (setuid(0)) {
+			uwsgi_error("uwsgi_emperor_spawn_vassal()/setuid(0)");
+			exit(1);
+		}
+	}
+#endif
+
+#ifdef UWSGI_CAP
+        if (uwsgi.emperor_cap && uwsgi.emperor_cap_count > 0) {
+		int i;
+		for(i=0;i<=CAP_LAST_CAP;i++) {
+			
+			int has_cap = prctl(PR_CAPBSET_READ, i, 0, 0, 0);
+			if (has_cap == 1) {
+				if (i == CAP_SETPCAP) continue;
+				int j;int found = 0;
+				for(j=0;j<uwsgi.emperor_cap_count;j++) {
+					if (uwsgi.emperor_cap[j] == (int) i) {
+						found = 1; break;
+					}
+				}
+				if (found) continue;
+				if (prctl(PR_CAPBSET_DROP, i, 0, 0, 0)) {
+					uwsgi_error("uwsgi_emperor_spawn_vassal()/prctl()");
+					uwsgi_log_verbose("unable to drop capability %lu\n", i);
+					exit(1);
+				}
+			}
+		}
+		// just for being paranoid
+#ifdef SECBIT_KEEP_CAPS
+                if (prctl(SECBIT_KEEP_CAPS, 1, 0, 0, 0) < 0) {
+                        uwsgi_error("prctl()");
+                        exit(1);
+                }
+#else
+                if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
+                        uwsgi_error("prctl()");
+                        exit(1);
+                }
+#endif
+		uwsgi_log("capabilities applied for vassal %s (pid: %d)\n", n_ui->name, (int) getpid());
+        }
+#endif
 #endif
 
 		if (uwsgi.emperor_tyrant) {

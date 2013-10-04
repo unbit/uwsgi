@@ -206,6 +206,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
 	{"emperor-use-clone", required_argument, 0, "use clone() instead of fork() passing the specified unshare() flags", uwsgi_opt_set_unshare, &uwsgi.emperor_clone, 0},
 #endif
+#ifdef UWSGI_CAP
+	{"emperor-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},
+	{"vassals-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},
+	{"vassal-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},
+#endif
 	{"imperial-monitor-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"imperial-monitors-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"vassals-inherit", required_argument, 0, "add config templates to vassals config (uses --inherit)", uwsgi_opt_add_string_list, &uwsgi.vassals_templates, 0},
@@ -3968,7 +3973,18 @@ void uwsgi_opt_set_gid(char *opt, char *value, void *none) {
 
 #ifdef UWSGI_CAP
 void uwsgi_opt_set_cap(char *opt, char *value, void *none) {
-	uwsgi_build_cap(value);
+	uwsgi.cap_count = uwsgi_build_cap(value, &uwsgi.cap);
+	if (uwsgi.cap_count == 0) {
+		uwsgi_log("[security] empty capabilities mask !!!\n");
+		exit(1);
+	}
+}
+void uwsgi_opt_set_emperor_cap(char *opt, char *value, void *none) {
+	uwsgi.emperor_cap_count = uwsgi_build_cap(value, &uwsgi.emperor_cap);
+	if (uwsgi.emperor_cap_count == 0) {
+		uwsgi_log("[security] empty capabilities mask !!!\n");
+		exit(1);
+	}
 }
 #endif
 #ifdef __linux__

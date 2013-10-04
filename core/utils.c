@@ -276,6 +276,47 @@ void uwsgi_set_cgroup() {
 }
 #endif
 
+#ifdef UWSGI_CAP
+void uwsgi_apply_cap(cap_value_t *cap, int caps_count) {
+	 cap_value_t minimal_cap_values[] = { CAP_SYS_CHROOT, CAP_SETUID, CAP_SETGID, CAP_SETPCAP };
+
+                cap_t caps = cap_init();
+
+                if (!caps) {
+                        uwsgi_error("cap_init()");
+                        exit(1);
+                }
+                cap_clear(caps);
+
+                cap_set_flag(caps, CAP_EFFECTIVE, 4, minimal_cap_values, CAP_SET);
+
+                cap_set_flag(caps, CAP_PERMITTED, 4, minimal_cap_values, CAP_SET);
+                cap_set_flag(caps, CAP_PERMITTED, caps_count, cap, CAP_SET);
+
+                cap_set_flag(caps, CAP_INHERITABLE, caps_count, cap, CAP_SET);
+
+                if (cap_set_proc(caps) < 0) {
+                        uwsgi_error("cap_set_proc()");
+                        exit(1);
+                }
+                cap_free(caps);
+
+#ifdef __linux__
+#ifdef SECBIT_KEEP_CAPS
+                if (prctl(SECBIT_KEEP_CAPS, 1, 0, 0, 0) < 0) {
+                        uwsgi_error("prctl()");
+                        exit(1);
+                }
+#else
+                if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
+                        uwsgi_error("prctl()");
+                        exit(1);
+                }
+#endif
+#endif
+}
+#endif
+
 // drop privileges (as root)
 /*
 
@@ -293,48 +334,6 @@ void uwsgi_as_root() {
 		uwsgi_log_initial("uWSGI running as root, you can use --uid/--gid/--chroot options\n");
 	}
 
-#ifdef UWSGI_CAP
-	if (uwsgi.cap && uwsgi.cap_count > 0 && !uwsgi.reloads) {
-
-		cap_value_t minimal_cap_values[] = { CAP_SYS_CHROOT, CAP_SETUID, CAP_SETGID, CAP_SETPCAP };
-
-		cap_t caps = cap_init();
-
-		if (!caps) {
-			uwsgi_error("cap_init()");
-			exit(1);
-		}
-		cap_clear(caps);
-
-		cap_set_flag(caps, CAP_EFFECTIVE, 4, minimal_cap_values, CAP_SET);
-
-		cap_set_flag(caps, CAP_PERMITTED, 4, minimal_cap_values, CAP_SET);
-		cap_set_flag(caps, CAP_PERMITTED, uwsgi.cap_count, uwsgi.cap, CAP_SET);
-
-		cap_set_flag(caps, CAP_INHERITABLE, uwsgi.cap_count, uwsgi.cap, CAP_SET);
-
-		if (cap_set_proc(caps) < 0) {
-			uwsgi_error("cap_set_proc()");
-			exit(1);
-		}
-		cap_free(caps);
-
-#ifdef __linux__
-#ifdef SECBIT_KEEP_CAPS
-		if (prctl(SECBIT_KEEP_CAPS, 1, 0, 0, 0) < 0) {
-			uwsgi_error("prctl()");
-			exit(1);
-		}
-#else
-		if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
-			uwsgi_error("prctl()");
-			exit(1);
-		}
-#endif
-#endif
-	}
-#endif
-
 	int in_jail = 0;
 
 #if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
@@ -347,9 +346,25 @@ void uwsgi_as_root() {
 		else {
 			uwsgi_log("[linux-namespace] applied unshare() mask: %d\n", uwsgi.unshare);
 		}
+
+#ifdef CLONE_NEWUSER
+		if (uwsgi.unshare & CLONE_NEWUSER) {
+			if (setuid(0)) {
+				uwsgi_error("uwsgi_as_root()/setuid(0)");
+				exit(1);
+			}
+		}
+#endif
 		in_jail = 1;
 	}
 #endif
+
+#ifdef UWSGI_CAP
+	if (uwsgi.cap && uwsgi.cap_count > 0 && !uwsgi.reloads) {
+		uwsgi_apply_cap(uwsgi.cap, uwsgi.cap_count);
+	}
+#endif
+
 
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 	if (uwsgi.jail && !uwsgi.reloads) {
@@ -625,6 +640,14 @@ void uwsgi_as_root() {
                 else {
                         uwsgi_log("[linux-namespace] applied unshare() mask: %d\n", uwsgi.unshare2);
                 }
+#ifdef CLONE_NEWUSER
+                if (uwsgi.unshare2 & CLONE_NEWUSER) {
+                        if (setuid(0)) {
+                                uwsgi_error("uwsgi_as_root()/setuid(0)");
+                                exit(1);
+                        }
+                }
+#endif
                 in_jail = 1;
         }
 #endif
@@ -2770,6 +2793,9 @@ static struct uwsgi_unshare_id uwsgi_unshare_list[] = {
 #ifdef CLONE_NEWUTS
 	{"uts", CLONE_NEWUTS},
 #endif
+#ifdef CLONE_NEWUSER
+	{"user", CLONE_NEWUSER},
+#endif
 	{NULL, -1}
 };
 
@@ -2793,6 +2819,10 @@ void uwsgi_build_unshare(char *what, int *mask) {
 		int u_id = uwsgi_get_unshare_id(p);
 		if (u_id != -1) {
 			*mask |= u_id;
+		}
+		else {
+			uwsgi_log("unknown namespace subsystem: %s\n", p);
+			exit(1);
 		}
 	}
 	free(list);
@@ -2875,28 +2905,31 @@ static int uwsgi_get_cap_id(char *name) {
 	return -1;
 }
 
-void uwsgi_build_cap(char *what) {
+int uwsgi_build_cap(char *what, cap_value_t **cap) {
 
 	int cap_id;
 	char *caps = uwsgi_str(what);
 	int pos = 0;
-	uwsgi.cap_count = 0;
+	int count = 0;
 
 	char *p, *ctx = NULL;
 	uwsgi_foreach_token(caps, ",", p, ctx) {
 		if (is_a_number(p)) {
-			uwsgi.cap_count++;
+			count++;
 		}
 		else {
 			cap_id = uwsgi_get_cap_id(p);
 			if (cap_id != -1) {
-				uwsgi.cap_count++;
+				count++;
+			}
+			else {
+				uwsgi_log("[security] unknown capability: %s\n", p);
 			}
 		}
 	}
 	free(caps);
 
-	uwsgi.cap = uwsgi_malloc(sizeof(cap_value_t) * uwsgi.cap_count);
+	*cap = uwsgi_malloc(sizeof(cap_value_t) * count);
 
 	caps = uwsgi_str(what);
 	ctx = NULL;
@@ -2908,13 +2941,17 @@ void uwsgi_build_cap(char *what) {
 			cap_id = uwsgi_get_cap_id(p);
 		}
 		if (cap_id != -1) {
-			uwsgi.cap[pos] = cap_id;
+			(*cap)[pos] = cap_id;
 			uwsgi_log("setting capability %s [%d]\n", p, cap_id);
 			pos++;
+		}
+		else {
+			uwsgi_log("[security] unknown capability: %s\n", p);
 		}
 	}
 	free(caps);
 
+	return count;
 }
 
 #endif
