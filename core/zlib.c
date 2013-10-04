@@ -123,12 +123,13 @@ int uwsgi_gzip_fix(z_stream *z, uint32_t crc32, struct uwsgi_buffer *ub, size_t 
         if (!gzipped0) goto end;
 	if (uwsgi_buffer_append(ub, gzipped0, dlen0)) goto end;
 	free(gzipped0);
-	if (uwsgi_buffer_u32le(ub, crc32)) goto end;
-        if (uwsgi_buffer_u32le(ub, len)) goto end;
+	if (uwsgi_buffer_u32le(ub, crc32)) goto end2;
+        if (uwsgi_buffer_u32le(ub, len)) goto end2;
 	deflateEnd(z);
 	return 0;
 end:
 	if (gzipped0) free(gzipped0);
+end2:
 	deflateEnd(z);
 	return -1;
 }
