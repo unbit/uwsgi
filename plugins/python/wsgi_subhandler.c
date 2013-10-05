@@ -228,8 +228,9 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 	PyObject *pychunk;
 
 	// return or yield ?
-	if (uwsgi_python_send_body(wsgi_req, (PyObject *)wsgi_req->async_result)) {
-		goto clear;
+	// in strict mode we do not optimize apps directly returning strings (or bytes)
+	if (!up.wsgi_strict) {
+		if (uwsgi_python_send_body(wsgi_req, (PyObject *)wsgi_req->async_result)) goto clear;
 	}
 
 	if (wsgi_req->sendfile_obj == wsgi_req->async_result) {
