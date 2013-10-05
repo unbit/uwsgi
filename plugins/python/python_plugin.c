@@ -158,6 +158,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 
 	{"wsgi-strict", no_argument, 0, "try to be fully PEP compliant disabling optimizations", uwsgi_opt_true, &up.wsgi_strict, 0},
 	{"wsgi-accept-buffer", no_argument, 0, "accept CPython buffer-compliant objects as WSGI response in addition to string/bytes", uwsgi_opt_true, &up.wsgi_accept_buffer, 0},
+	{"wsgi-accept-buffers", no_argument, 0, "accept CPython buffer-compliant objects as WSGI response in addition to string/bytes", uwsgi_opt_true, &up.wsgi_accept_buffer, 0},
 
 	{"python-version", no_argument, 0, "report python version", uwsgi_opt_pyver, NULL, UWSGI_OPT_IMMEDIATE},
 
