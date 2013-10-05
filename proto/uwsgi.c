@@ -10,6 +10,9 @@ int uwsgi_proto_uwsgi_parser(struct wsgi_request *wsgi_req) {
 	if (len > 0) {
 		wsgi_req->proto_parser_pos += len;
 		if (wsgi_req->proto_parser_pos >= 4) {
+#ifdef __BIG_ENDIAN__
+			wsgi_req->uh->pktsize = uwsgi_swap16(wsgi_req->uh->pktsize);
+#endif
 			if ((wsgi_req->proto_parser_pos-4) == wsgi_req->uh->pktsize) {
 				return UWSGI_OK;	
 			}
