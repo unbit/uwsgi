@@ -8,39 +8,42 @@ extern PyTypeObject uwsgi_InputType;
 /*
 
 	Albeit PEP 333/3333 is clear about what kind of return object we must
-	expect from a WSGI callable, we use the buffer api to optimize for lower-level
+	expect from a WSGI callable, we CAN use the buffer api to optimize for lower-level
 	returns type: bytes, bytearray, array.array
 
-	the "strict" behaviour can be forced with --wsgi-strict
+	to enable this optimization add --wsgi-accept-buffer
+
+	NOTE: this is a violation of the standards !!! use only if you know the implications !!!
 
 */
 
 int uwsgi_python_send_body(struct wsgi_request *wsgi_req, PyObject *chunk) {
+	if (!up.wsgi_accept_buffer && !wsgi_req->is_raw) goto strict;
 #if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
 	Py_buffer pbuf;
 	int has_buffer = 0;
 #endif
 	char *content = NULL;
 	size_t content_len = 0;
-	if (!up.wsgi_strict) {
 #if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
-		if (PyObject_CheckBuffer(chunk)) {
-			if (!PyObject_GetBuffer(chunk, &pbuf, PyBUF_SIMPLE)) {
-				content = (char *) pbuf.buf;
-				content_len = (size_t) pbuf.len;
-				has_buffer = 1;
-				goto found;
-			}
+	if (PyObject_CheckBuffer(chunk)) {
+		if (!PyObject_GetBuffer(chunk, &pbuf, PyBUF_SIMPLE)) {
+			content = (char *) pbuf.buf;
+			content_len = (size_t) pbuf.len;
+			has_buffer = 1;
+			goto found;
 		}
-#else
-		if (PyObject_CheckReadBuffer(chunk)) {
-			if (!PyObject_AsCharBuffer(chunk, (const char **) &content, (Py_ssize_t *) &content_len)) {
-				PyErr_Clear();
-				goto found;
-			}
-		}
-#endif
 	}
+#else
+	if (PyObject_CheckReadBuffer(chunk)) {
+		if (!PyObject_AsCharBuffer(chunk, (const char **) &content, (Py_ssize_t *) &content_len)) {
+			PyErr_Clear();
+			goto found;
+		}
+	}
+#endif
+
+strict:
 	// fallback
 	if (PyString_Check(chunk)) {
                	content = PyString_AsString(chunk);

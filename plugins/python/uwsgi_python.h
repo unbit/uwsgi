@@ -181,6 +181,7 @@ struct uwsgi_python {
 
 	char *programname;
 	int wsgi_strict;
+	int wsgi_accept_buffer;
 
 	char *raw;
 	PyObject *raw_callable;
