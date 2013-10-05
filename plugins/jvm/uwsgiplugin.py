@@ -7,12 +7,14 @@ JVM_INCPATH = None
 JVM_LIBPATH = None
 
 operating_system = os.uname()[0].lower()
-arch = os.uname()[4]
+arch = os.uname()[4].lower()
 
 if arch in ('i686', 'x86', 'x86_32'):
     arch = 'i386'
 elif arch in ('x86_64',):
     arch = 'amd64'
+elif arch.startswith('arm'):
+    arch = 'arm'
 
 # try to detect the JVM
 if operating_system == 'darwin':
