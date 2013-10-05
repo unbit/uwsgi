@@ -215,6 +215,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"imperial-monitors-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"vassals-inherit", required_argument, 0, "add config templates to vassals config (uses --inherit)", uwsgi_opt_add_string_list, &uwsgi.vassals_templates, 0},
 	{"vassals-include", required_argument, 0, "include config templates to vassals config (uses --include instead of --inherit)", uwsgi_opt_add_string_list, &uwsgi.vassals_includes, 0},
+	{"vassals-inherit-before", required_argument, 0, "add config templates to vassals config (uses --inherit, parses before the vassal file)", uwsgi_opt_add_string_list, &uwsgi.vassals_templates_before, 0},
+	{"vassals-include-before", required_argument, 0, "include config templates to vassals config (uses --include instead of --inherit, parses before the vassal file)", uwsgi_opt_add_string_list, &uwsgi.vassals_includes_before, 0},
 	{"vassals-start-hook", required_argument, 0, "run the specified command before each vassal starts", uwsgi_opt_set_str, &uwsgi.vassals_start_hook, 0},
 	{"vassals-stop-hook", required_argument, 0, "run the specified command after vassal's death", uwsgi_opt_set_str, &uwsgi.vassals_stop_hook, 0},
 	{"vassal-sos-backlog", required_argument, 0, "ask emperor for sos if backlog queue has more items than the value specified", uwsgi_opt_set_int, &uwsgi.vassal_sos_backlog, 0},
