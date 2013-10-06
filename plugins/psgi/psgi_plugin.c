@@ -32,7 +32,8 @@ struct uwsgi_option uwsgi_perl_options[] = {
 int uwsgi_perl_check_mtime(time_t now, HV *list, SV *key) {
 	// insert item with the current time
 	if (!hv_exists_ent(list, key, 0)) {
-		hv_store_ent(list, key, newSViv(now), 0);
+		// useless if...
+		if (hv_store_ent(list, key, newSViv(now), 0)) return 0;
 	}
 	else {
 		// compare mtime
