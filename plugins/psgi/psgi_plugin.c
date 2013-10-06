@@ -23,9 +23,57 @@ struct uwsgi_option uwsgi_perl_options[] = {
         {"perl-arg", required_argument, 0, "add an item to @ARGV", uwsgi_opt_add_string_list, &uperl.argv_item, 0},
         {"perl-exec", required_argument, 0, "exec the specified perl file before fork()", uwsgi_opt_add_string_list, &uperl.exec, 0},
         {"perl-exec-post-fork", required_argument, 0, "exec the specified perl file after fork()", uwsgi_opt_add_string_list, &uperl.exec_post_fork, 0},
+        {"perl-auto-reload", required_argument, 0, "enable perl auto-reloader with the specified frequency", uwsgi_opt_set_int, &uperl.auto_reload, UWSGI_OPT_MASTER},
+        {"perl-auto-reload-ignore", required_argument, 0, "ignore the specified files when auto-reload is enabled", uwsgi_opt_add_string_list, &uperl.auto_reload_ignore, UWSGI_OPT_MASTER},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
+
+int uwsgi_perl_check_mtime(time_t now, HV *list, SV *key) {
+	// insert item with the current time
+	if (!hv_exists_ent(list, key, 0)) {
+		hv_store_ent(list, key, newSViv(now), 0);
+	}
+	else {
+		// compare mtime
+		struct stat st;
+		if (stat(SvPV_nolen(key), &st)) return 0;
+		HE *mtime = hv_fetch_ent(list, key, 0, 0);
+		if (!mtime) return 0;
+		if (st.st_mtime > SvIV(HeVAL(mtime))) {
+			uwsgi_log_verbose("[perl-auto-reloader] %s has been modified !!!\n", SvPV_nolen(key));
+			kill(uwsgi.workers[0].pid, SIGHUP);
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+void uwsgi_perl_check_auto_reload() {
+	time_t now = uwsgi_now();
+	HE *he;
+	if (!uperl.auto_reload_hash) {
+		uperl.auto_reload_hash = newHV();
+		SvREFCNT_inc(uperl.auto_reload_hash);	
+	}
+	GV *gv_inc = gv_fetchpv("INC", TRUE, SVt_PV);
+	if (!gv_inc) return;
+	HV *inc = GvHV(gv_inc);
+	hv_iterinit(inc);
+	while((he = hv_iternext(inc))) {
+		SV *filename = hv_iterval(inc, he);
+		struct uwsgi_string_list *usl;
+		int found = 0;
+		uwsgi_foreach(usl, uperl.auto_reload_ignore) {
+			if (!strcmp(usl->value, SvPV_nolen(filename))) {
+				found = 1; break;
+			}
+		}	
+		if (found) continue;
+		if (uwsgi_perl_check_mtime(now, uperl.auto_reload_hash, filename)) return;
+	}
+}
 
 SV *uwsgi_perl_obj_new(char *class, size_t class_len) {
 
@@ -562,6 +610,14 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 
 	// clear the env
 	SvREFCNT_dec(wsgi_req->async_environ);
+
+	// now we can check for changed files
+        if (uperl.auto_reload) {
+                time_t now = uwsgi_now();
+                if (now - uperl.last_auto_reload > uperl.auto_reload) {
+                        uwsgi_perl_check_auto_reload();
+                }
+        }
 
 }
 
