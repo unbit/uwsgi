@@ -1398,6 +1398,17 @@ void what_i_am_doing() {
 
 
 int unconfigured_hook(struct wsgi_request *wsgi_req) {
+	if (!uwsgi.no_default_app) {
+		if (uwsgi_apps_cnt > 0 && wsgi_req->app_id > -1 && wsgi_req->app_id < uwsgi.max_apps) {
+			struct uwsgi_app *ua = &uwsgi_apps[wsgi_req->app_id];
+			if (ua->callable) {
+				if (uwsgi.p[ua->modifier1]->request != unconfigured_hook) {
+					wsgi_req->uh->modifier1 = ua->modifier1;
+					return uwsgi.p[ua->modifier1]->request(wsgi_req);
+				}
+			}
+		}
+	}
 	uwsgi_log("-- unavailable modifier requested: %d --\n", wsgi_req->uh->modifier1);
 	return -1;
 }
