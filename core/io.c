@@ -173,6 +173,7 @@ static char *uwsgi_scheme_http(char *url, size_t *size, int add_zero) {
 		int fd = uwsgi_connect(ip, 0, 0);
 
 		if (fd < 0) {
+			uwsgi_error("uwsgi_scheme_http()/connect()");
 			exit(1);
 		}
 
