@@ -78,8 +78,14 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
         // generate headers
         for(i=0; i<=av_len(headers); i++) {
                 hitem = av_fetch(headers,i,0);
+		if (!*hitem) {
+			uwsgi_log("invalid PSGI headers\n"); return UWSGI_OK;
+		}
                 chitem = SvPV(*hitem, hlen);
                 hitem = av_fetch(headers,i+1,0);
+		if (!*hitem) {
+			uwsgi_log("invalid PSGI headers\n"); return UWSGI_OK;
+		}
                 chitem2 = SvPV(*hitem, hlen2);
 		if (uwsgi_response_add_header(wsgi_req, chitem, hlen, chitem2, hlen2)) return UWSGI_OK;
 		i++;

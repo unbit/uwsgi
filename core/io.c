@@ -249,8 +249,6 @@ static char *uwsgi_scheme_http(char *url, size_t *size, int add_zero) {
 			buffer[*size - 1] = 0;
 		}
 
-	uwsgi_log("buf: %s\n", buffer);
-
 	return buffer;
 }
 
