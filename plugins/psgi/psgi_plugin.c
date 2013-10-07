@@ -56,7 +56,8 @@ void uwsgi_perl_check_auto_reload() {
 	HE *he;
 	if (!uperl.auto_reload_hash) {
 		uperl.auto_reload_hash = newHV();
-		SvREFCNT_inc(uperl.auto_reload_hash);	
+		// useless return value
+		if (!SvREFCNT_inc(uperl.auto_reload_hash)) return;
 	}
 	GV *gv_inc = gv_fetchpv("INC", TRUE, SVt_PV);
 	if (!gv_inc) return;
