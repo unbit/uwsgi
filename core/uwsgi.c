@@ -879,6 +879,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"dump-options", no_argument, 0, "dump the full list of available options", uwsgi_opt_true, &uwsgi.dump_options, 0},
 	{"show-config", no_argument, 0, "show the current config reformatted as ini", uwsgi_opt_true, &uwsgi.show_config, 0},
+	{"binary-append-data", required_argument, 0, "return the content of a resource to stdout for appending to a uwsgi binary (for data:// usage)", uwsgi_opt_binary_append_data, NULL, UWSGI_OPT_IMMEDIATE},
 	{"print", required_argument, 0, "simple print", uwsgi_opt_print, NULL, 0},
 	{"exit", optional_argument, 0, "force exit() of the instance", uwsgi_opt_exit, NULL, UWSGI_OPT_IMMEDIATE},
 	{"cflags", no_argument, 0, "report uWSGI CFLAGS (useful for building external plugins)", uwsgi_opt_cflags, NULL, UWSGI_OPT_IMMEDIATE},
@@ -4553,4 +4554,24 @@ void uwsgi_update_pidfiles() {
 	if (uwsgi.pidfile2) {
 		uwsgi_write_pidfile(uwsgi.pidfile2);
 	}
+}
+
+void uwsgi_opt_binary_append_data(char *opt, char *value, void *none) {
+
+	size_t size;
+	char *buf = uwsgi_open_and_read(value, &size, 0, NULL);
+
+	uint64_t file_len = size;
+
+	if (write(1, buf, size) != (ssize_t) size) {
+		uwsgi_error("uwsgi_opt_binary_append_data()/write()");
+		exit(1);
+	}
+
+	if (write(1, &file_len, 8) != 8) {
+		uwsgi_error("uwsgi_opt_binary_append_data()/write()");
+		exit(1);
+	}
+
+	exit(0);
 }

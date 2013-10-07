@@ -3492,6 +3492,7 @@ void uwsgi_opt_add_string_list(char *, char *, void *);
 void uwsgi_opt_add_addr_list(char *, char *, void *);
 void uwsgi_opt_add_string_list_custom(char *, char *, void *);
 void uwsgi_opt_add_dyn_dict(char *, char *, void *);
+void uwsgi_opt_binary_append_data(char *, char *, void *);
 #ifdef UWSGI_PCRE
 void uwsgi_opt_pcre_jit(char *, char *, void *);
 void uwsgi_opt_add_regexp_dyn_dict(char *, char *, void *);

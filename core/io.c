@@ -138,7 +138,6 @@ static char *uwsgi_scheme_http(char *url, size_t *size, int add_zero) {
 	char byte;
         int body = 0;
 	char *buffer = NULL;
-	*size = 0;
 
 		char *domain = url;
 		char *uri = strchr(domain, '/');
@@ -260,7 +259,6 @@ static char *uwsgi_scheme_emperor(char *url, size_t *size, int add_zero) {
 		exit(1);
 	}
 	ssize_t rlen;
-	*size = 0;
 	struct uwsgi_header uh;
 	size_t remains = 4;
 	char *ptr = (char *) &uh;
@@ -328,7 +326,7 @@ static char *uwsgi_scheme_data(char *url, size_t *size, int add_zero) {
 	int i = 0;
 	uint64_t datasize = 0;
 	for (i = 0; i <= slot; i++) {
-		fo = lseek(fd, -9, SEEK_CUR);
+		fo = lseek(fd, -8, SEEK_CUR);
 		if (fo < 0) {
 			uwsgi_error("lseek()");
 			uwsgi_log("invalid binary data slot requested\n");
@@ -344,7 +342,7 @@ static char *uwsgi_scheme_data(char *url, size_t *size, int add_zero) {
 			uwsgi_log("0 size binary data !!!\n");
 			exit(1);
 		}
-		fo = lseek(fd, -(datasize + 9), SEEK_CUR);
+		fo = lseek(fd, -(datasize + 8), SEEK_CUR);
 		if (fo < 0) {
 			uwsgi_error("lseek()");
 			uwsgi_log("invalid binary data slot requested\n");
@@ -366,6 +364,7 @@ static char *uwsgi_scheme_data(char *url, size_t *size, int add_zero) {
 			}
 		}
 	}
+
 	return buffer;
 }
 
@@ -467,6 +466,8 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
         ssize_t len;
         char *magic_buf;
 	int fd;
+
+	*size = 0;
 
         // stdin ?
         if (!strcmp(url, "-")) {
