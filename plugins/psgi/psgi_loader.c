@@ -260,7 +260,6 @@ static void uwsgi_perl_free_stashes(void) {
 
 int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, PerlInterpreter **interpreters) {
 
-	struct stat st;
 	int i;
 	SV **callables;
 
@@ -271,27 +270,8 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 	// prepare for $0
 	uperl.embedding[1] = app_name;
 		
-	int fd = open(app_name, O_RDONLY);
-	if (fd < 0) {
-		uwsgi_error_open(app_name);
-		goto clear2;
-	}
-
-	if (fstat(fd, &st)) {
-		uwsgi_error("fstat()");
-		close(fd);
-		goto clear2;
-	}
-
-	char *buf = uwsgi_calloc(st.st_size+1);
-	if (read(fd, buf, st.st_size) != st.st_size) {
-		uwsgi_error("read()");
-		close(fd);
-		free(buf);
-		goto clear2;
-	}
-
-	close(fd);
+	size_t size;
+	char *buf = uwsgi_open_and_read(app_name, &size, 1, NULL);
 
 	// the first (default) app, should always be loaded in the main interpreter
 	if (interpreters == NULL) {
@@ -309,10 +289,7 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 		}		
 	}
 
-	if (!interpreters) {
-		goto clear2;
-	}
-
+	if (!interpreters) goto clear2;
 
 	callables = uwsgi_calloc(sizeof(SV *) * uwsgi.threads);
 	uperl.tmp_streaming_stash = uwsgi_calloc(sizeof(HV *) * uwsgi.threads);
