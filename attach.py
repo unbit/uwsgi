@@ -7,7 +7,7 @@ filename = sys.argv[1]
 size = os.path.getsize(filename)
 
 f = open(filename, 'r')
-print(f.read())
+os.write(1, f.read())
 f.close()
 
-print(struct.pack("<Q", size))
+os.write(1, (struct.pack("<Q", size)))
