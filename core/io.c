@@ -138,6 +138,7 @@ static char *uwsgi_scheme_http(char *url, size_t *size, int add_zero) {
 	char byte;
         int body = 0;
 	char *buffer = NULL;
+	*size = 0;
 
 		char *domain = url;
 		char *uri = strchr(domain, '/');
@@ -246,6 +247,8 @@ static char *uwsgi_scheme_http(char *url, size_t *size, int add_zero) {
 			buffer = tmp;
 			buffer[*size - 1] = 0;
 		}
+
+	uwsgi_log("buf: %s\n", buffer);
 
 	return buffer;
 }

@@ -267,11 +267,13 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 
 	char *app_name = uwsgi_concat2n(app, app_len, "", 0);
 
-	// prepare for $0
-	uperl.embedding[1] = app_name;
-		
 	size_t size;
 	char *buf = uwsgi_open_and_read(app_name, &size, 1, NULL);
+
+	if (uwsgi_file_exists(app_name)) {
+		// prepare for $0 (if the file is local)
+		uperl.embedding[1] = app_name;
+	}
 
 	// the first (default) app, should always be loaded in the main interpreter
 	if (interpreters == NULL) {
