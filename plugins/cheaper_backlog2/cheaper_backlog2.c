@@ -13,7 +13,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-int cheaper_backlog2_algo(void) {
+int cheaper_backlog2_algo(int can_spawn) {
 
         int i;
 #ifdef __linux__
@@ -22,7 +22,9 @@ int cheaper_backlog2_algo(void) {
         int backlog = 0;
 #endif
 
-        if (backlog > (int)uwsgi.cheaper_overload) {
+        // if can_spawn == 0 we cannot spawn any new worker
+        // this is set to 1 if --cheaper-rss-limit-* options are used and running workers are exceeding resources limit
+        if (can_spawn && backlog > (int)uwsgi.cheaper_overload) {
                 // activate the first available worker (taking step into account)
                 int decheaped = 0;
                 // search for cheaped workers
