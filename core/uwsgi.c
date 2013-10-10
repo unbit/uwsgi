@@ -1399,7 +1399,7 @@ void what_i_am_doing() {
 
 
 int unconfigured_hook(struct wsgi_request *wsgi_req) {
-	if (!uwsgi.no_default_app) {
+	if (wsgi_req->uh->modifier1 == 0 && !uwsgi.no_default_app) {
 		if (uwsgi_apps_cnt > 0 && wsgi_req->app_id > -1 && wsgi_req->app_id < uwsgi.max_apps) {
 			struct uwsgi_app *ua = &uwsgi_apps[wsgi_req->app_id];
 			if (uwsgi.p[ua->modifier1]->request != unconfigured_hook) {
