@@ -389,6 +389,8 @@ wait:
 				remains -= len;
                         	*rlen += len;
                         	continue;
+			}else if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+				goto wait;
 			}
 			*rlen = -1;
 			if (len == 0) {
