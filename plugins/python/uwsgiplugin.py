@@ -32,9 +32,9 @@ if not 'UWSGI_PYTHON_NOLIB' in os.environ:
         # try 3.x style config dir
         if not os.path.exists(libdir):
             libdir = '%s/lib/python%s/config-%s' % (sys.prefix, version, get_python_version())
-        libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LDLIBRARY'))
+        libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LIBRARY'))
         if not os.path.exists(libpath): 
-            libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LIBRARY'))
+            libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LDLIBRARY'))
         if not os.path.exists(libpath): 
             libpath = '%s/libpython%s.a' % (libdir, version)
         LIBS.append(libpath)

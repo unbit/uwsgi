@@ -234,7 +234,11 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         gcc_list, cflags, ldflags, libs = gcll
 
     if 'UWSGI_EMBED_PLUGINS' in os.environ:
-        uc.set('embedded_plugins', uc.get('embedded_plugins') + ',' + os.environ['UWSGI_EMBED_PLUGINS'])
+        ep = uc.get('embedded_plugins')
+        if ep:
+            uc.set('embedded_plugins', ep + ',' + os.environ['UWSGI_EMBED_PLUGINS'])
+        else:
+            uc.set('embedded_plugins', os.environ['UWSGI_EMBED_PLUGINS'])
 
     if uc.get('embedded_plugins'):
         ep = uc.get('embedded_plugins').split(',')
