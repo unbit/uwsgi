@@ -1380,6 +1380,7 @@ void *uwsgi_python_autoreloader_thread(void *foobar) {
 #endif
 		PyObject *mod_name, *mod;
                 while (PyDict_Next(modules, &pos, &mod_name, &mod)) {
+			if (mod == NULL) continue;
 			int found = 0;
 			struct uwsgi_string_list *usl = up.auto_reload_ignore;
 			while(usl) {
