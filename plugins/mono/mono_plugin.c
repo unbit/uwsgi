@@ -84,6 +84,7 @@ struct uwsgi_option uwsgi_mono_options[] = {
         {"mono-assembly", required_argument, 0, "load the specified main assembly (default: uwsgi.dll)", uwsgi_opt_set_str, &umono.assembly_name, 0},
         {"mono-exec", required_argument, 0, "exec the specified assembly just before app loading", uwsgi_opt_add_string_list, &umono.exec, 0},
         {"mono-index", required_argument, 0, "add an asp.net index file", uwsgi_opt_add_string_list, &umono.index, 0},
+	{0, 0, 0, 0, 0, 0, 0},
 };
 
 static MonoString *uwsgi_mono_method_GetFilePath(MonoObject *this) {
