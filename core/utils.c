@@ -366,7 +366,7 @@ void uwsgi_as_root() {
 #endif
 
 
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#if defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	if (uwsgi.jail && !uwsgi.reloads) {
 
 		struct jail ujail;
@@ -2644,7 +2644,7 @@ char *uwsgi_get_binary_path(char *argvzero) {
 			return newbuf;
 		}
 	}
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#elif defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	char *buf = uwsgi_malloc(uwsgi.page_size);
 	size_t len = uwsgi.page_size;
 	int mib[4];
@@ -3055,7 +3055,7 @@ void uwsgi_set_processname(char *name) {
 	// end with \0
 	memset(uwsgi.orig_argv[0] + amount + 1 + (uwsgi.max_procname - (amount)), '\0', 1);
 
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__NetBSD__)
+#elif defined(__FreeBSD__) || defined(__GNU_kFreeBSD__) || defined(__NetBSD__)
 	if (uwsgi.procname_prefix) {
 		if (!uwsgi.procname_append) {
 			setproctitle("-%s%s", uwsgi.procname_prefix, name);
@@ -3455,12 +3455,12 @@ void uwsgi_set_cpu_affinity() {
 			exit(1);
 		}
 		pos += ret;
-#if defined(__linux__) || defined(__FreeBSD_kernel__)
+#if defined(__linux__) || defined(__GNU_kFreeBSD__)
 		cpu_set_t cpuset;
 #elif defined(__FreeBSD__)
 		cpuset_t cpuset;
 #endif
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 		CPU_ZERO(&cpuset);
 		int i;
 		for (i = 0; i < uwsgi.cpu_affinity; i++) {
@@ -3476,7 +3476,7 @@ void uwsgi_set_cpu_affinity() {
 			base_cpu++;
 		}
 #endif
-#if defined(__linux__) || defined(__FreeBSD_kernel__)
+#if defined(__linux__) || defined(__GNU_kFreeBSD__)
 		if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset)) {
 			uwsgi_error("sched_setaffinity()");
 		}

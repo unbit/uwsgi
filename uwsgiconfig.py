@@ -627,6 +627,7 @@ class uConf(object):
         if uwsgi_os in ('Linux', 'GNU', 'GNU/kFreeBSD'):
             self.libs.append('-ldl')
         if uwsgi_os == 'GNU/kFreeBSD':
+            self.cflags.append('-d__GNU_kFreeBSD__')
             self.libs.append('-lbsd')
 
         # check for inherit option

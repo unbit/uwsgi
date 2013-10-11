@@ -314,7 +314,7 @@ realstuff:
 	// this time we use this higher level function
 	// as this code can be executed in a signal handler
 
-#ifdef __FreeBSD_kernel__
+#ifdef __GNU_kFreeBSD__
 	return;
 #endif
 

@@ -20,7 +20,7 @@ ssize_t uwsgi_sendfile_do(int sockfd, int filefd, size_t pos, size_t len) {
 	int sf_ret = sendfile(filefd, sockfd, pos, &sf_len, NULL, 0);
 	if (sf_ret == 0 || (sf_ret == -1 && errno == EAGAIN)) return sf_len;
 	return -1;
-#elif defined(__linux__) || defined(__sun__) || defined(__FreeBSD_kernel__)
+#elif defined(__linux__) || defined(__sun__) || defined(__GNU_kFreeBSD__)
 	off_t off = pos;
 	return sendfile(sockfd, filefd, &off, len);
 #endif

@@ -16,7 +16,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-#if defined(__linux__) || defined(__FreeBSD_kernel__)
+#if defined(__linux__) || defined(__GNU_kFreeBSD__)
 #include <pty.h>
 #elif defined(__APPLE__) || defined(__OpenBSD__) || defined(__NetBSD__)
 #include <util.h>
