@@ -190,21 +190,23 @@ static ssize_t fr_instance_connected(struct corerouter_peer *peer) {
 // called after receaving the uwsgi header (read vars)
 static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 	struct uwsgi_header *uh = (struct uwsgi_header *) main_peer->in->buf;
+	// better to store it as the original buf address could change
+	uint16_t pktsize = uh->pktsize;
 	// increase buffer if needed
-	if (uwsgi_buffer_fix(main_peer->in, uh->pktsize+4))
+	if (uwsgi_buffer_fix(main_peer->in, pktsize+4))
 		return -1;
-	ssize_t len = cr_read_exact(main_peer, uh->pktsize+4, "fr_recv_uwsgi_vars()");
+	ssize_t len = cr_read_exact(main_peer, pktsize+4, "fr_recv_uwsgi_vars()");
 	if (!len) return 0;
 
 	// headers received, ready to choose the instance
-	if (main_peer->in->pos == (size_t)(uh->pktsize+4)) {
+	if (main_peer->in->pos == (size_t)(pktsize+4)) {
 		struct uwsgi_corerouter *ucr = main_peer->session->corerouter;
 
 		struct corerouter_peer *new_peer = uwsgi_cr_peer_add(main_peer->session);
 		new_peer->last_hook_read = fr_instance_read;
 
 		// find the hostname
-		if (uwsgi_hooked_parse(main_peer->in->buf+4, uh->pktsize, fr_get_hostname, (void *) new_peer)) {
+		if (uwsgi_hooked_parse(main_peer->in->buf+4, pktsize, fr_get_hostname, (void *) new_peer)) {
 			return -1;
 		}
 
