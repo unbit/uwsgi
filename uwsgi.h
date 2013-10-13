@@ -3133,6 +3133,8 @@ struct uwsgi_subscribe_req {
 
 	time_t unix_check;
 
+	uint8_t backup;
+
 	char *base;
 	uint16_t base_len;
 };
@@ -3375,6 +3377,7 @@ struct uwsgi_subscribe_node {
 	uint64_t transferred;
 
 	int death_mark;
+	uint8_t backup;
 	uint64_t reference;
 	uint64_t cores;
 	uint64_t load;
@@ -3434,7 +3437,7 @@ void uwsgi_configure();
 int uwsgi_read_response(int, struct uwsgi_header *, int, char **);
 char *uwsgi_simple_file_read(char *);
 
-void uwsgi_send_subscription(char *, char *, size_t, uint8_t, uint8_t, uint8_t, char *, char *);
+void uwsgi_send_subscription(char *, char *, size_t, uint8_t, uint8_t, uint8_t, char *, char *, uint8_t);
 
 void uwsgi_subscribe(char *, uint8_t);
 void uwsgi_subscribe2(char *, uint8_t);

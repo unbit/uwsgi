@@ -271,6 +271,9 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
 		usr->sign = val;
                 usr->sign_len = vallen;
 	}
+	else if (!uwsgi_strncmp("backup", 6, key, keylen)) {
+		usr->backup = (uint8_t) uwsgi_str_num(val, vallen);
+	}
 }
 
 void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
@@ -1042,7 +1045,8 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 					if (uwsgi_stats_keylong_comma(us, "wrr", (unsigned long long) s_node->wrr)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "ref", (unsigned long long) s_node->reference)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "failcnt", (unsigned long long) s_node->failcnt)) goto end0;
-					if (uwsgi_stats_keylong(us, "death_mark", (unsigned long long) s_node->death_mark)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "death_mark", (unsigned long long) s_node->death_mark)) goto end0;
+					if (uwsgi_stats_keylong(us, "backup", (unsigned long long) s_node->backup)) goto end0;
 
 					if (uwsgi_stats_object_close(us)) goto end0;
 					if (s_node->next) {
