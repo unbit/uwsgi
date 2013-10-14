@@ -493,6 +493,10 @@ add:
 		if (op->flags & UWSGI_OPT_MIME) {
 			uwsgi.build_mime_dict = 1;
 		}
+		// enable metrics ?
+		if (op->flags & UWSGI_OPT_METRICS) {
+                        uwsgi.has_metrics = 1;
+                }
 		// immediate ?
 		if (op->flags & UWSGI_OPT_IMMEDIATE) {
 			op->func(key, value, op->data);

@@ -72,6 +72,7 @@ extern "C" {
 #define UWSGI_OPT_CLUSTER	(1 << 12)
 #define UWSGI_OPT_MIME		(1 << 13)
 #define UWSGI_OPT_REQ_LOG_MASTER	(1 << 14)
+#define UWSGI_OPT_METRICS	(1 << 15)
 
 #define MAX_GENERIC_PLUGINS 64
 #define MAX_GATEWAYS 64
@@ -1617,6 +1618,8 @@ void uwsgi_opt_load_config(char *, char *, void *);
 
 #define exit(x) uwsgi_exit(x)
 
+struct uwsgi_metrics;
+
 struct uwsgi_server {
 
 	// store the machine hostname
@@ -2504,6 +2507,7 @@ struct uwsgi_server {
 	struct uwsgi_lock_item *cron_table_lock;
 	struct uwsgi_lock_item *rpc_table_lock;
 	struct uwsgi_lock_item *sa_lock;
+	struct uwsgi_lock_item *metrics_lock;
 
 	// rpc
 	uint64_t rpc_max;
@@ -2565,6 +2569,11 @@ struct uwsgi_server {
 
 	int chunked_input_timeout;
 	uint64_t chunked_input_limit;
+
+	struct uwsgi_metric *metrics;
+	int has_metrics;
+	char *metrics_dir;
+	uint64_t metrics_cnt;
 
 	int (*wait_write_hook) (int, int);
 	int (*wait_read_hook) (int, int);
@@ -4387,6 +4396,58 @@ void uwsgi_remap_fd(int, char *);
 void uwsgi_opt_exit(char *, char *, void *);
 int uwsgi_check_mountpoint(char *);
 void uwsgi_master_check_mountpoints(void);
+
+enum {
+	UWSGI_METRIC_COUNTER,
+	UWSGI_METRIC_GAUGE,
+	UWSGI_METRIC_ABSOLUTE,
+	UWSGI_METRIC_PTR,
+	UWSGI_METRIC_FUNC,
+	UWSGI_METRIC_FILE,
+	UWSGI_METRIC_MANUAL,
+};
+
+struct uwsgi_metric {
+        char *name;
+        char *oid;
+
+        // pre-computed snmp representation
+        char *asn;
+        size_t asn_size;
+
+        // ABSOLUTE/COUNTER/GAUGE
+        uint8_t type;
+
+        // MANUAL/PTR/FUNC/FILE
+        uint8_t collect_way;
+
+        // this could be taken from a file storage and must laways be added to value when reporting (default 0)
+        int64_t initial_value;
+        // the value of the metric (point to a shared memory area)
+        int64_t *value;
+
+        // a custom blob you can attach to a metric
+        void *custom;
+
+        // the collection frequency
+        uint32_t freq;
+        time_t last_update;
+
+        // run this function to collect the value
+        int64_t (*collector)(struct uwsgi_metric *);
+        // take the value from this pointer to a 64bit value
+        int64_t *ptr;
+        // get the initial value from this file, and store each update in it
+        char *filename;
+
+	// pointer to memory mapped storage
+	char *map;
+
+        struct uwsgi_metric *next;
+};
+
+void uwsgi_setup_metrics(void);
+void uwsgi_metrics_start_collector(void);
 
 #ifdef __cplusplus
 }

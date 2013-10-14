@@ -346,6 +346,7 @@ int master_loop(char **argv, char **environ) {
 #ifdef UWSGI_SSL
 	uwsgi_start_legions();
 #endif
+	uwsgi_metrics_start_collector();
 
 	uwsgi_add_reload_fds();
 

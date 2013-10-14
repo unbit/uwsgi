@@ -1,3 +1,7 @@
+#include <uwsgi.h>
+
+extern struct uwsgi_server uwsgi;
+
 /*
 
 	uWSGI metrics subsystem
@@ -67,56 +71,224 @@
 
 */
 
-struct uwsgi_metric {
-	char *name;
-	char *oid;
 
-	// pre-computed snmp representation
-	char *asn;
-	size_t asn_size;
+/*
 
-	// ABSOLUTE/COUNTER/GAUGE
-	uint8_t type;
+	allowed chars for metrics name
 
-	// MANUAL/PTR/FUNC/FILE
-	uint8_t collect_way
+	0-9
+	a-z
+	A-Z
+	.
+	-
+	_
 
-	// this could be taken from a file storage and must laways be added to value when reporting (default 0)
-	int64_t initial_value;
-	// the value of the metric (point to a shared memory area)
-	*int64_t value;
+*/
 
-	// a custom blob you can attach to a metric
-	void *custom;
+static int uwsgi_validate_metric_name(char *buf) {
+	size_t len = strlen(buf);
+	size_t i;
+	for(i=0;i<len;i++) {
+		if ( !(
+			(buf[i] >= '0' && buf[i] <= '9') ||
+			(buf[i] >= 'a' && buf[i] <= 'z') ||
+			(buf[i] >= 'A' && buf[i] <= 'Z') ||
+			buf[i] == '.' || buf[i] == '-' || buf[i] == '_'
+		)) {
 
-	// the collection frequency
-	uint32_t freq;
-	time_t last_update;
+			return 0;
+		
+		}
+	}	
 
-	// run this function to collect the value
-	int64_t (*collector)(struct uwsgi_metric *);
-	// take the value from this pointer to a 64bit value
-	int64_t *ptr;
-	// get the initial value from this file, and store each update in it
-	char *filename;
-
-	struct uwsgi_metric *next;
-};
-
-struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_type, uint8_t collect_way, void *ptr, uint32_t freq, void *custom) {
-	struct uwsgi_metric *old_metric=NULL,*metric=uwsgi.metric;
-
-	while(metric) {
-		metric = metric->next;
-	}
+	return 1;
 }
 
-void uwsgi_metric_loop() {
-	// every second scan the whole metrics tree
-	time_t now = uwsgi_now();
+/*
+
+	allowed chars for metrics oid
+
+	0-9
+	.
+
+	oids can be null
+*/
+
+static int uwsgi_validate_metric_oid(char *buf) {
+	if (!buf) return 1;
+        size_t len = strlen(buf);
+        size_t i;
+        for(i=0;i<len;i++) {
+                if ( !(
+                        (buf[i] >= '0' && buf[i] <= '9') ||
+                        buf[i] == '.'
+                )) {
+                
+                        return 0;
+                
+                }
+        }
+
+        return 1;
+}
+
+struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_type, uint8_t collect_way, void *ptr, uint32_t freq, void *custom) {
+	struct uwsgi_metric *old_metric=NULL,*metric=uwsgi.metrics;
+
+	if (!uwsgi_validate_metric_name(name)) {
+		uwsgi_log("invalid metric name: %s\n", name);
+		exit(1);
+	}
+
+	if (!uwsgi_validate_metric_oid(oid)) {
+		uwsgi_log("invalid metric oid: %s\n", oid);
+		exit(1);
+	}
+
+	while(metric) {
+		if (!strcmp(metric->name, name)) {
+			goto found;
+		}
+		old_metric = metric;
+		metric = metric->next;
+	}
+
+	metric = uwsgi_calloc(sizeof(struct uwsgi_metric));
+	// always make a copy of the name (se we can use stack for building strings)
+	metric->name = uwsgi_str(name);
+	if (old_metric) {
+		old_metric->next = metric;
+	}
+	else {
+		uwsgi.metrics = metric;
+	}
+
+	uwsgi.metrics_cnt++;
+
+found:
+	metric->oid = oid;
+	metric->type = value_type;
+	metric->collect_way = collect_way;
+	metric->ptr = ptr;
+	metric->freq = freq;
+	if (!metric->freq) metric->freq = 1;
+	metric->custom = custom;
+
+	if (uwsgi.metrics_dir) {
+		char *filename = uwsgi_concat3(uwsgi.metrics_dir, "/", name);
+		int fd = open(filename, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR|S_IRGRP);
+		if (fd < 0) {
+			uwsgi_error_open(filename);
+			exit(1);
+		}
+		// fill the file
+		if (lseek(fd, uwsgi.page_size-1, SEEK_SET) < 0) {
+			uwsgi_error("uwsgi_register_metric()/lseek()");
+			uwsgi_log("unable to register metric: %s\n", name);
+			exit(1);
+		}
+		if (write(fd, "\0", 1) != 1) {
+			uwsgi_error("uwsgi_register_metric()/write()");
+			uwsgi_log("unable to register metric: %s\n", name);
+			exit(1);
+		}
+		metric->map = mmap(NULL, uwsgi.page_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+		if (metric->map == MAP_FAILED) {
+			uwsgi_error("uwsgi_register_metric()/mmap()");
+			uwsgi_log("unable to register metric: %s\n", name);
+			exit(1);
+		}
+		
+		// we can now safely close the file descriptor and update the file from memory
+		close(fd);
+		free(filename);
+	}
+
+	return metric;
+}
+
+static void *uwsgi_metrics_loop(void *arg) {
+
+	// block signals on this thread
+        sigset_t smask;
+        sigfillset(&smask);
+#ifndef UWSGI_DEBUG
+        sigdelset(&smask, SIGSEGV);
+#endif
+        pthread_sigmask(SIG_BLOCK, &smask, NULL);
+
+	for(;;) {
+		struct uwsgi_metric *metric = uwsgi.metrics;
+		// every second scan the whole metrics tree
+		time_t now = uwsgi_now();
+		while(metric) {
+			if (now - metric->last_update % metric->freq != 0) goto next;
+			uwsgi_wlock(uwsgi.metrics_lock);
+			int64_t value = *metric->value;
+			// gather the new value based on the type of collection strategy
+			switch(metric->collect_way) {
+				case UWSGI_METRIC_PTR:
+					*metric->value = *metric->ptr;
+					break;
+				case UWSGI_METRIC_FILE:
+					*metric->value = *metric->ptr;
+					break;
+				default:
+					break;
+			};
+			int64_t new_value = *metric->value;
+			uwsgi_rwunlock(uwsgi.metrics_lock);
+
+			metric->last_update = now;
+
+			if (uwsgi.metrics_dir && metric->map) {
+				if (value != new_value) {
+					snprintf(metric->map, uwsgi.page_size, "%lld\n", new_value);
+				}
+			}
+next:
+			metric = metric->next;
+		}
+		sleep(1);
+	}
+
+	return NULL;
+	
+}
+
+void uwsgi_metrics_start_collector() {
+	if (!uwsgi.has_metrics) return;
+	pthread_t t;
+        pthread_create(&t, NULL, uwsgi_metrics_loop, NULL);
+	uwsgi_log("metrics collector thread started\n");
+}
+
+struct uwsgi_metric *uwsgi_metric_find_by_name(char *name) {
+	struct uwsgi_metric *um = uwsgi.metrics;
+	while(um) {
+		if (!strcmp(um->name, name)) {
+			return um;
+		}	
+		um = um->next;
+	}
+
+	return NULL;
+}
+
+struct uwsgi_metric *uwsgi_metric_find_by_oid(char *oid) {
+        struct uwsgi_metric *um = uwsgi.metrics;
+        while(um) {
+                if (um->oid && !strcmp(um->oid, oid)) {
+                        return um;
+                }
+                um = um->next;
+        }
+
+        return NULL;
 }
 
 int64_t uwsgi_metric_get(char *name, char *oid) {
+	int64_t ret = 0;
 	struct uwsgi_metric *um = NULL;
 	if (name) {
 		um = uwsgi_metric_find_by_name(name);
@@ -126,13 +298,85 @@ int64_t uwsgi_metric_get(char *name, char *oid) {
 	}
 	if (!um) return 0;
 
+	// now (in rlocked context) we get the value from
+	// the external pointer or from the map
 	//
+	uwsgi_rlock(uwsgi.metrics_lock);
 	switch(um->collect_way) {
-		case UWSGI_METRIC_MANUAL:
-			return um->initial_value+*um->value;
 		case UWSGI_METRIC_PTR:
-			return um->initial_value+*um->ptr;
+			ret = um->initial_value+*um->ptr;
+			break;
+		/*
+		case UWSGI_METRIC_MANUAL:
 		case UWSGI_METRIC_FUNC:
 		case UWSGI_METRIC_FILE:
+		*/
+		default:
+			ret = um->initial_value+*um->value;
+			break;
+	}
+
+	// unlock
+	uwsgi_rwunlock(uwsgi.metrics_lock);
+	return ret;
+}
+
+#define uwsgi_metric_name(f, n) if (snprintf(buf, 4096, f, n) <= 1) { uwsgi_log("unable to register metric name %s\n", f); exit(1);}
+#define uwsgi_metric_name2(f, n, n2) if (snprintf(buf, 4096, f, n, n2) <= 1) { uwsgi_log("unable to register metric name %s\n", f); exit(1);}
+
+#define uwsgi_metric_oid(f, n) if (snprintf(buf2, 4096, f, n) <= 1) { uwsgi_log("unable to register metric oid %s\n", f); exit(1);}
+#define uwsgi_metric_oid2(f, n, n2) if (snprintf(buf2, 4096, f, n, n2) <= 1) { uwsgi_log("unable to register metric oid %s\n", f); exit(1);}
+
+void uwsgi_setup_metrics() {
+
+	if (!uwsgi.has_metrics) return;
+
+	char buf[4096];
+	char buf2[4096];
+
+	// create the main rwlock
+	uwsgi.metrics_lock = uwsgi_rwlock_init("metrics");
+	
+	// get realpath of the storage dir
+	if (uwsgi.metrics_dir) {
+		char *dir = uwsgi_expand_path(uwsgi.metrics_dir, strlen(uwsgi.metrics_dir), NULL);
+		if (!dir) {
+			uwsgi_error("uwsgi_setup_metrics()/uwsgi_expand_path()");
+			exit(1);
+		}
+		uwsgi.metrics_dir = dir;
+	}
+
+	// create the 'worker' namespace
+	int i;
+	for(i=0;i<=uwsgi.numproc;i++) {
+
+		uwsgi_metric_name("worker.%d.requests", i) ; uwsgi_metric_oid("3.%d.1", i);
+		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].requests, 0, NULL);
+
+		int j;
+		for(j=0;j<uwsgi.cores;j++) {
+			uwsgi_metric_name2("worker.%d.core.%d.requests", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.1", i, j);
+			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].requests, 0, NULL);
+		}
+	}
+
+	// create custom/user-defined metrics
+
+	// allocate shared memory
+	int64_t *values = uwsgi_calloc_shared(sizeof(int64_t) * uwsgi.metrics_cnt);
+	int pos = 0;
+
+	struct uwsgi_metric *metric = uwsgi.metrics;
+	while(metric) {
+		metric->value = &values[pos];
+		pos++;
+		metric = metric->next;
+	}
+
+	uwsgi_log("initialized %llu metrics\n", uwsgi.metrics_cnt);
+
+	if (uwsgi.metrics_dir) {
+		uwsgi_log("memory allocated for metrics storage: %llu bytes (%llu MB)\n", uwsgi.metrics_cnt * uwsgi.page_size, (uwsgi.metrics_cnt * uwsgi.page_size)/1024/1024);
 	}
 }

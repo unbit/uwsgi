@@ -504,6 +504,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"reload-on-exception-repr", required_argument, 0, "reload a worker when a specific exception type+value (language-specific) is raised", uwsgi_opt_add_string_list, &uwsgi.reload_on_exception_repr, 0},
 	{"exception-handler", required_argument, 0, "add an exception handler", uwsgi_opt_add_string_list, &uwsgi.exception_handlers_instance, UWSGI_OPT_MASTER},
 
+	{"enable-metrics", required_argument, 0, "enable metrics subsystem", uwsgi_opt_true, &uwsgi.has_metrics, UWSGI_OPT_MASTER},
+	{"metrics-dir", required_argument, 0, "exports metrics as text files in the specified directory", uwsgi_opt_set_str, &uwsgi.metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
+
 	{"udp", required_argument, 0, "run the udp server on the specified address", uwsgi_opt_set_str, &uwsgi.udp_socket, UWSGI_OPT_MASTER},
 	{"stats", required_argument, 0, "enable the stats server on the specified address", uwsgi_opt_set_str, &uwsgi.stats, UWSGI_OPT_MASTER},
 	{"stats-server", required_argument, 0, "enable the stats server on the specified address", uwsgi_opt_set_str, &uwsgi.stats, UWSGI_OPT_MASTER},
@@ -2841,6 +2844,9 @@ unsafe:
 
 	// set a default request structure (for loading apps...)
 	uwsgi.wsgi_req = &uwsgi.workers[0].cores[0].req;
+
+	// ok, let's inizialize the metrics subsystem
+	uwsgi_setup_metrics();
 
 	// cores are allocated, lets allocate logformat (if required)
 	if (uwsgi.logformat) {
