@@ -72,6 +72,41 @@ extern struct uwsgi_server uwsgi;
 */
 
 
+int64_t uwsgi_metric_get_from_file(char *filename, int split_pos) {
+	char buf[4096];
+	int64_t ret = 0;
+	int fd = open(filename, O_RDONLY);
+	if (fd < 0) {
+		uwsgi_error_open(filename);
+		return 0;
+	}
+
+	ssize_t rlen = read(fd, buf, 4096);
+	if (rlen <= 0) goto end;
+
+	char *ptr = buf;
+	ssize_t i;
+	int pos = 0;
+	for(i=0;i<rlen;i++) {
+		if (buf[i] == ' ' || buf[i] == '\t' || buf[i] == '\r' || buf[i] == 0 || buf[i] == '\n') {
+			if (pos == split_pos) goto found;
+			pos++;
+			ptr = buf + i;
+		}
+	}
+
+	if (pos == split_pos) goto found;
+	goto end;
+found:
+	ret = strtoll(ptr, NULL, 10);
+end:
+	close(fd);
+	return ret;
+
+}
+
+
+
 /*
 
 	allowed chars for metrics name
@@ -207,6 +242,69 @@ found:
 	return metric;
 }
 
+struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
+	char *m_name = NULL;
+	char *m_oid = NULL;
+	char *m_type = NULL;
+	char *m_collector = NULL;
+	char *m_freq = NULL;
+	char *m_arg1 = NULL;
+	char *m_arg2 = NULL;
+	char *m_arg3 = NULL;
+
+	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
+		"name", &m_name,
+		"oid", &m_oid,
+		"type", &m_type,
+		"collector", &m_collector,
+		"freq", &m_freq,
+		"arg1", &m_arg1,
+		"arg2", &m_arg2,
+		"arg3", &m_arg3,
+		NULL)) {
+		uwsgi_log("invalid metric keyval syntax: %s\n", arg);
+		exit(1);
+	}
+
+	if (!m_name) {
+		uwsgi_log("you need to specify a metric name: %s\n", arg);
+		exit(1);
+	}
+
+	uint8_t type = UWSGI_METRIC_COUNTER;
+	uint8_t collector = UWSGI_METRIC_MANUAL;
+	uint32_t freq = 0;
+
+	if (m_type) {
+		if (!strcmp(m_type, "gauge")) {
+			type = UWSGI_METRIC_GAUGE;
+		}
+		else if (!strcmp(m_type, "absolute")) {
+			type = UWSGI_METRIC_ABSOLUTE;
+		}
+	}
+
+	if (m_collector) {
+		if (!strcmp(m_collector, "file")) {
+			uwsgi_log("FILE\n");
+			collector = UWSGI_METRIC_FILE;	
+		}
+	}
+
+	if (m_freq) freq = strtoul(m_freq, NULL, 0);
+
+	struct uwsgi_metric* um =  uwsgi_register_metric(m_name, m_oid, type, collector, NULL, freq, NULL);
+	free(m_name);
+	if (m_oid) free(m_oid);
+	if (m_type) free(m_type);
+	if (m_collector) free(m_collector);
+	if (m_freq) free(m_freq);
+	if (m_arg1) free(m_arg1);
+	if (m_arg2) free(m_arg2);
+	if (m_arg3) free(m_arg3);
+	return um;
+}
+
 static void *uwsgi_metrics_loop(void *arg) {
 
 	// block signals on this thread
@@ -222,7 +320,12 @@ static void *uwsgi_metrics_loop(void *arg) {
 		// every second scan the whole metrics tree
 		time_t now = uwsgi_now();
 		while(metric) {
-			if (now - metric->last_update % metric->freq != 0) goto next;
+			if (!metric->last_update) {
+				metric->last_update = now;
+			}
+			else {
+				if (now - metric->last_update < metric->freq) goto next;
+			}
 			uwsgi_wlock(uwsgi.metrics_lock);
 			int64_t value = *metric->value;
 			// gather the new value based on the type of collection strategy
@@ -231,7 +334,8 @@ static void *uwsgi_metrics_loop(void *arg) {
 					*metric->value = *metric->ptr;
 					break;
 				case UWSGI_METRIC_FILE:
-					*metric->value = *metric->ptr;
+					uwsgi_log("reading from file\n");
+					(*metric->value)++;
 					break;
 				default:
 					break;
@@ -243,7 +347,10 @@ static void *uwsgi_metrics_loop(void *arg) {
 
 			if (uwsgi.metrics_dir && metric->map) {
 				if (value != new_value) {
-					snprintf(metric->map, uwsgi.page_size, "%lld\n", new_value);
+					int ret = snprintf(metric->map, uwsgi.page_size, "%lld\n", new_value);
+					if (ret > 0) {
+						memset(metric->map+ret, 0, 4096-ret);
+					}
 				}
 			}
 next:
@@ -362,6 +469,10 @@ void uwsgi_setup_metrics() {
 	}
 
 	// create custom/user-defined metrics
+	struct uwsgi_string_list *usl;
+	uwsgi_foreach(usl, uwsgi.additional_metrics) {
+		uwsgi_register_keyval_metric(usl->value);
+	}
 
 	// allocate shared memory
 	int64_t *values = uwsgi_calloc_shared(sizeof(int64_t) * uwsgi.metrics_cnt);

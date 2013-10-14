@@ -2574,6 +2574,7 @@ struct uwsgi_server {
 	int has_metrics;
 	char *metrics_dir;
 	uint64_t metrics_cnt;
+	struct uwsgi_string_list *additional_metrics;
 
 	int (*wait_write_hook) (int, int);
 	int (*wait_read_hook) (int, int);
@@ -4442,6 +4443,14 @@ struct uwsgi_metric {
 
 	// pointer to memory mapped storage
 	char *map;
+
+	char *arg1;
+	char *arg2;
+	char *arg3;
+
+	int64_t multiplier;
+
+	int split;
 
         struct uwsgi_metric *next;
 };
