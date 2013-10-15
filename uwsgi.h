@@ -4412,6 +4412,8 @@ struct uwsgi_metric {
         char *name;
         char *oid;
 
+	size_t name_len;
+
         // pre-computed snmp representation
         char *asn;
         size_t asn_size;

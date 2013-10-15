@@ -10,7 +10,7 @@ example:
 
 --stats-push statsd:127.0.0.1:8125,myinstance
 
-it is pretty minimal, but will be extended after the 2.0 metric subsystem will be released
+it exports values exposed by the metric subsystem
 
 */
 
@@ -25,45 +25,23 @@ struct statsd_node {
 	uint16_t prefix_len;
 };
 
-static int statsd_send_worker_gauge(struct uwsgi_buffer *ub, struct uwsgi_stats_pusher_instance *uspi, int wid, char *metric, uint16_t metric_len, int64_t value) {
+static int statsd_send_metric(struct uwsgi_buffer *ub, struct uwsgi_stats_pusher_instance *uspi, char *metric, size_t metric_len, int64_t value, char type[2]) {
 	struct statsd_node *sn = (struct statsd_node *) uspi->data;
 	// reset the buffer
-	ub->pos = 0;
-	if (uwsgi_buffer_append(ub, sn->prefix, sn->prefix_len)) return -1;	
-	if (uwsgi_buffer_append(ub, ".worker", 7)) return -1;	
-	if (uwsgi_buffer_num64(ub, wid)) return -1;	
-	if (uwsgi_buffer_append(ub, ".", 1)) return -1;	
-	if (uwsgi_buffer_append(ub, metric, metric_len)) return -1;	
-	if (uwsgi_buffer_append(ub, ":", 1)) return -1;	
-	if (uwsgi_buffer_num64(ub, value)) return -1;	
-	if (uwsgi_buffer_append(ub, "|g", 2)) return -1;	
-
-	if (sendto(sn->fd, ub->buf, ub->pos, 0, (struct sockaddr *) &sn->addr.sa_in, sn->addr_len) < 0) {
-		uwsgi_error("stats_pusher_statsd()/sendto()");
-	}
-	return 0;
-}
-
-static int statsd_send_core_gauge(struct uwsgi_buffer *ub, struct uwsgi_stats_pusher_instance *uspi, int wid, int coreid, char *metric, uint16_t metric_len, int64_t value) {
-	struct statsd_node *sn = (struct statsd_node *) uspi->data;
-        // reset the buffer
         ub->pos = 0;
-        if (uwsgi_buffer_append(ub, sn->prefix, sn->prefix_len)) return -1;
-        if (uwsgi_buffer_append(ub, ".worker", 7)) return -1;
-        if (uwsgi_buffer_num64(ub, wid)) return -1;
-        if (uwsgi_buffer_append(ub, ".core", 5)) return -1;
-        if (uwsgi_buffer_num64(ub, coreid)) return -1;
-        if (uwsgi_buffer_append(ub, ".", 1)) return -1;
-        if (uwsgi_buffer_append(ub, metric, metric_len)) return -1;
-        if (uwsgi_buffer_append(ub, ":", 1)) return -1;
+	if (uwsgi_buffer_append(ub, sn->prefix, sn->prefix_len)) return -1;	
+	if (uwsgi_buffer_append(ub, ".", 1)) return -1;
+	if (uwsgi_buffer_append(ub, metric, metric_len)) return -1;
+	if (uwsgi_buffer_append(ub, ":", 1)) return -1;
         if (uwsgi_buffer_num64(ub, value)) return -1;
-        if (uwsgi_buffer_append(ub, "|g", 2)) return -1;
+	if (uwsgi_buffer_append(ub, type, 2)) return -1;
 
-	if (sendto(sn->fd, ub->buf, ub->pos, 0, (struct sockaddr *) &sn->addr.sa_in, sn->addr_len) < 0) {
-		uwsgi_error("stats_pusher_statsd()/sendto()");
-	}
+        if (sendto(sn->fd, ub->buf, ub->pos, 0, (struct sockaddr *) &sn->addr.sa_in, sn->addr_len) < 0) {
+                uwsgi_error("statsd_send_metric()/sendto()");
+        }
 
-	return 0;
+        return 0;
+
 }
 
 
@@ -106,20 +84,19 @@ static void stats_pusher_statsd(struct uwsgi_stats_pusher_instance *uspi, time_t
 
 	// we use the same buffer for all of the packets
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
-
-	int i, j;
-	// send workers metrics
-	for(i=1;i<=uwsgi.numproc;i++) {
-		if (statsd_send_worker_gauge(ub, uspi, i, "requests", 8, uwsgi.workers[i].requests)) goto end;
-		for(j=0;j<uwsgi.cores;j++) {
-			if (statsd_send_core_gauge(ub, uspi, i, j, "exceptions", 10, uwsgi.workers[i].cores[j].exceptions)) goto end;
-			if (statsd_send_core_gauge(ub, uspi, i, j, "requests", 8, uwsgi.workers[i].cores[j].requests)) goto end;
-			if (statsd_send_core_gauge(ub, uspi, i, j, "routed_requests", 15, uwsgi.workers[i].cores[j].routed_requests)) goto end;
-			if (statsd_send_core_gauge(ub, uspi, i, j, "static_requests", 15, uwsgi.workers[i].cores[j].static_requests)) goto end;
-			if (statsd_send_core_gauge(ub, uspi, i, j, "offloaded_requests", 18, uwsgi.workers[i].cores[j].offloaded_requests)) goto end;
+	struct uwsgi_metric *um = uwsgi.metrics;
+	while(um) {
+		uwsgi_rlock(uwsgi.metrics_lock);
+		// ignore return value
+		if (um->type == UWSGI_METRIC_GAUGE) {
+			statsd_send_metric(ub, uspi, um->name, um->name_len, um->initial_value+*um->value, "|g");
 		}
+		else {
+			statsd_send_metric(ub, uspi, um->name, um->name_len, um->initial_value+*um->value, "|m");
+		}
+		uwsgi_rwunlock(uwsgi.metrics_lock);
+		um = um->next;
 	}
-end:
 	uwsgi_buffer_destroy(ub);
 }
 

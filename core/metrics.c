@@ -191,6 +191,7 @@ struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_
 	metric = uwsgi_calloc(sizeof(struct uwsgi_metric));
 	// always make a copy of the name (se we can use stack for building strings)
 	metric->name = uwsgi_str(name);
+	metric->name_len = strlen(metric->name);
 	if (old_metric) {
 		old_metric->next = metric;
 	}
@@ -450,6 +451,9 @@ void uwsgi_setup_metrics() {
 		uwsgi_metric_name("worker.%d.delta_requests", i) ; uwsgi_metric_oid("3.%d.2", i);
 		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_ABSOLUTE, UWSGI_METRIC_PTR, &uwsgi.workers[i].delta_requests, 0, NULL);
 
+		uwsgi_metric_name("worker.%d.avg_response_time", i) ; uwsgi_metric_oid("3.%d.8", i);
+		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, UWSGI_METRIC_PTR, &uwsgi.workers[i].avg_response_time, 0, NULL);
+
 		int j;
 		for(j=0;j<uwsgi.cores;j++) {
 			uwsgi_metric_name2("worker.%d.core.%d.requests", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.1", i, j);
@@ -457,6 +461,18 @@ void uwsgi_setup_metrics() {
 
 			uwsgi_metric_name2("worker.%d.core.%d.write_errors", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.3", i, j);
 			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].write_errors, 0, NULL);
+
+			uwsgi_metric_name2("worker.%d.core.%d.routed_requests", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.4", i, j);
+			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].routed_requests, 0, NULL);
+
+			uwsgi_metric_name2("worker.%d.core.%d.static_requests", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.5", i, j);
+			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].static_requests, 0, NULL);
+
+			uwsgi_metric_name2("worker.%d.core.%d.offloaded_requests", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.6", i, j);
+			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].offloaded_requests, 0, NULL);
+
+			uwsgi_metric_name2("worker.%d.core.%d.exceptions", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.7", i, j);
+			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].exceptions, 0, NULL);
 		}
 	}
 
