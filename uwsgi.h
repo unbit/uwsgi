@@ -4407,6 +4407,7 @@ enum {
 	UWSGI_METRIC_FILE,
 	UWSGI_METRIC_MANUAL,
 	UWSGI_METRIC_SUM,
+	UWSGI_METRIC_ALIAS,
 };
 
 struct uwsgi_metric_child;

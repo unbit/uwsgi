@@ -370,6 +370,9 @@ static void *uwsgi_metrics_loop(void *arg) {
 				case UWSGI_METRIC_PTR:
 					*metric->value = *metric->ptr;
 					break;
+				// aliases are NOOP
+				case UWSGI_METRIC_ALIAS:
+					break;
 				case UWSGI_METRIC_SUM:
 					*metric->value = uwsgi_metric_sum(metric);
 					break;
@@ -557,6 +560,10 @@ void uwsgi_setup_metrics() {
 	uwsgi_metric_append(total_rss);
 	uwsgi_metric_append(total_vsz);
 
+	// create aliases
+	uwsgi_register_metric("rss_size", NULL, UWSGI_METRIC_GAUGE, UWSGI_METRIC_ALIAS, total_rss, 0, NULL);
+	uwsgi_register_metric("vsz_size", NULL, UWSGI_METRIC_GAUGE, UWSGI_METRIC_ALIAS, total_vsz, 0, NULL);
+
 	// create custom/user-defined metrics
 	struct uwsgi_string_list *usl;
 	uwsgi_foreach(usl, uwsgi.additional_metrics) {
@@ -571,6 +578,17 @@ void uwsgi_setup_metrics() {
 	while(metric) {
 		metric->value = &values[pos];
 		pos++;
+		metric = metric->next;
+	}
+
+	// remap aliases
+	metric = uwsgi.metrics;
+        while(metric) {
+		if (metric->collect_way == UWSGI_METRIC_ALIAS) {
+			struct uwsgi_metric *alias = (struct uwsgi_metric *) metric->ptr;
+			metric->value = alias->value;
+			metric->oid = alias->oid;	
+		}
 		metric = metric->next;
 	}
 
