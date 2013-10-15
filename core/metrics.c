@@ -461,10 +461,16 @@ void uwsgi_setup_metrics() {
 		uwsgi_metric_name("worker.%d.requests", i) ; uwsgi_metric_oid("3.%d.1", i);
 		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].requests, 0, NULL);
 
+		uwsgi_metric_name("worker.%d.delta_requests", i) ; uwsgi_metric_oid("3.%d.2", i);
+		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_ABSOLUTE, UWSGI_METRIC_PTR, &uwsgi.workers[i].delta_requests, 0, NULL);
+
 		int j;
 		for(j=0;j<uwsgi.cores;j++) {
 			uwsgi_metric_name2("worker.%d.core.%d.requests", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.1", i, j);
 			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].requests, 0, NULL);
+
+			uwsgi_metric_name2("worker.%d.core.%d.write_errors", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.3", i, j);
+			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].write_errors, 0, NULL);
 		}
 	}
 
