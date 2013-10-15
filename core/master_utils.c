@@ -886,7 +886,14 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
         			uwsgi_rwunlock(uwsgi.metrics_lock);
 				goto end;
 			} 
+
 			um = um->next;
+			if (um) {
+				if (uwsgi_stats_comma(us)) {
+        				uwsgi_rwunlock(uwsgi.metrics_lock);
+					goto end;
+				}
+			}
 		}
         	uwsgi_rwunlock(uwsgi.metrics_lock);
 
