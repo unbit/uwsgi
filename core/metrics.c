@@ -406,23 +406,9 @@ int64_t uwsgi_metric_get(char *name, char *oid) {
 	if (!um) return 0;
 
 	// now (in rlocked context) we get the value from
-	// the external pointer or from the map
-	//
+	// the map
 	uwsgi_rlock(uwsgi.metrics_lock);
-	switch(um->collect_way) {
-		case UWSGI_METRIC_PTR:
-			ret = um->initial_value+*um->ptr;
-			break;
-		/*
-		case UWSGI_METRIC_MANUAL:
-		case UWSGI_METRIC_FUNC:
-		case UWSGI_METRIC_FILE:
-		*/
-		default:
-			ret = um->initial_value+*um->value;
-			break;
-	}
-
+	ret = um->initial_value+*um->value;
 	// unlock
 	uwsgi_rwunlock(uwsgi.metrics_lock);
 	return ret;

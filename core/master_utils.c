@@ -871,6 +871,32 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		goto end;
 	}
 
+	if (uwsgi.has_metrics) {
+		if (uwsgi_stats_key(us, "metrics"))
+                	goto end;
+
+		if (uwsgi_stats_object_open(us))
+			goto end;
+
+		uwsgi_rlock(uwsgi.metrics_lock);
+		struct uwsgi_metric *um = uwsgi.metrics;
+		while(um) {
+        		int64_t um_val = um->initial_value+*um->value;
+			if (uwsgi_stats_keyslong(us, um->name, (long long) um_val)) {
+        			uwsgi_rwunlock(uwsgi.metrics_lock);
+				goto end;
+			} 
+			um = um->next;
+		}
+        	uwsgi_rwunlock(uwsgi.metrics_lock);
+
+		if (uwsgi_stats_object_close(us))
+			goto end;
+
+		if (uwsgi_stats_comma(us))
+		goto end;
+	}
+
 	if (uwsgi_stats_key(us, "sockets"))
 		goto end;
 

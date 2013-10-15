@@ -504,7 +504,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"reload-on-exception-repr", required_argument, 0, "reload a worker when a specific exception type+value (language-specific) is raised", uwsgi_opt_add_string_list, &uwsgi.reload_on_exception_repr, 0},
 	{"exception-handler", required_argument, 0, "add an exception handler", uwsgi_opt_add_string_list, &uwsgi.exception_handlers_instance, UWSGI_OPT_MASTER},
 
-	{"enable-metrics", required_argument, 0, "enable metrics subsystem", uwsgi_opt_true, &uwsgi.has_metrics, UWSGI_OPT_MASTER},
+	{"enable-metrics", no_argument, 0, "enable metrics subsystem", uwsgi_opt_true, &uwsgi.has_metrics, UWSGI_OPT_MASTER},
 	{"metrics-dir", required_argument, 0, "exports metrics as text files in the specified directory", uwsgi_opt_set_str, &uwsgi.metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 	{"metric", required_argument, 0, "add a custom metric", uwsgi_opt_add_string_list, &uwsgi.additional_metrics, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 
