@@ -455,6 +455,66 @@ struct uwsgi_metric *uwsgi_metric_find_by_oid(char *oid) {
         return NULL;
 }
 
+/*
+
+	api functions
+
+	metric_set
+	metric_inc
+	metric_dec
+	metric_mul
+	metric_div
+
+*/
+
+#define um_op struct uwsgi_metric *um = NULL;\
+	if (name) {\
+                um = uwsgi_metric_find_by_name(name);\
+        }\
+        else if (oid) {\
+                um = uwsgi_metric_find_by_oid(oid);\
+        }\
+        if (!um) return -1;\
+	if (um->collect_way != UWSGI_METRIC_MANUAL) return -1;\
+	uwsgi_rlock(uwsgi.metrics_lock)
+
+int uwsgi_metric_set(char *name, char *oid, int64_t value) {
+	um_op;
+	*um->value = value;
+	uwsgi_rwunlock(uwsgi.metrics_lock);
+	return 0;
+}
+
+int uwsgi_metric_inc(char *name, char *oid, int64_t value) {
+        um_op;
+	*um->value += value;
+	uwsgi_rwunlock(uwsgi.metrics_lock);
+	return 0;
+}
+
+int uwsgi_metric_dec(char *name, char *oid, int64_t value) {
+        um_op;
+	*um->value -= value;
+	uwsgi_rwunlock(uwsgi.metrics_lock);
+	return 0;
+}
+
+int uwsgi_metric_mul(char *name, char *oid, int64_t value) {
+        um_op;
+	*um->value *= value;
+	uwsgi_rwunlock(uwsgi.metrics_lock);
+	return 0;
+}
+
+int uwsgi_metric_div(char *name, char *oid, int64_t value) {
+	// avoid division by zero
+	if (value == 0) return -1;
+        um_op;
+	*um->value /= value;
+	uwsgi_rwunlock(uwsgi.metrics_lock);
+	return 0;
+}
+
 int64_t uwsgi_metric_get(char *name, char *oid) {
 	int64_t ret = 0;
 	struct uwsgi_metric *um = NULL;
