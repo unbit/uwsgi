@@ -885,6 +885,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"show-config", no_argument, 0, "show the current config reformatted as ini", uwsgi_opt_true, &uwsgi.show_config, 0},
 	{"binary-append-data", required_argument, 0, "return the content of a resource to stdout for appending to a uwsgi binary (for data:// usage)", uwsgi_opt_binary_append_data, NULL, UWSGI_OPT_IMMEDIATE},
 	{"print", required_argument, 0, "simple print", uwsgi_opt_print, NULL, 0},
+	{"iprint", required_argument, 0, "simple print (immediate version)", uwsgi_opt_print, NULL, UWSGI_OPT_IMMEDIATE},
 	{"exit", optional_argument, 0, "force exit() of the instance", uwsgi_opt_exit, NULL, UWSGI_OPT_IMMEDIATE},
 	{"cflags", no_argument, 0, "report uWSGI CFLAGS (useful for building external plugins)", uwsgi_opt_cflags, NULL, UWSGI_OPT_IMMEDIATE},
 	{"dot-h", no_argument, 0, "dump the uwsgi.h used for building the core  (useful for building external plugins)", uwsgi_opt_dot_h, NULL, UWSGI_OPT_IMMEDIATE},
