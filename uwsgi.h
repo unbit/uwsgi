@@ -4406,7 +4406,10 @@ enum {
 	UWSGI_METRIC_FUNC,
 	UWSGI_METRIC_FILE,
 	UWSGI_METRIC_MANUAL,
+	UWSGI_METRIC_SUM,
 };
+
+struct uwsgi_metric_child;
 
 struct uwsgi_metric {
         char *name;
@@ -4454,7 +4457,14 @@ struct uwsgi_metric {
 
 	int split;
 
+	struct uwsgi_metric_child *children;
+
         struct uwsgi_metric *next;
+};
+
+struct uwsgi_metric_child {
+	struct uwsgi_metric *um;
+	struct uwsgi_metric_child *next;
 };
 
 void uwsgi_setup_metrics(void);

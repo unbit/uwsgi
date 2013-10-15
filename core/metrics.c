@@ -167,7 +167,24 @@ static int uwsgi_validate_metric_oid(char *buf) {
         return 1;
 }
 
-struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_type, uint8_t collect_way, void *ptr, uint32_t freq, void *custom) {
+void uwsgi_metric_append(struct uwsgi_metric *um) {
+	struct uwsgi_metric *old_metric=NULL,*metric=uwsgi.metrics;
+	while(metric) {
+		old_metric = metric;
+                metric = metric->next;
+	}
+
+	if (old_metric) {
+                       old_metric->next = um;
+        }
+        else {
+        	uwsgi.metrics = um;
+        }
+
+        uwsgi.metrics_cnt++;
+}
+
+struct uwsgi_metric *uwsgi_register_metric_do(char *name, char *oid, uint8_t value_type, uint8_t collect_way, void *ptr, uint32_t freq, void *custom, int do_not_push) {
 	struct uwsgi_metric *old_metric=NULL,*metric=uwsgi.metrics;
 
 	if (!uwsgi_validate_metric_name(name)) {
@@ -192,14 +209,17 @@ struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_
 	// always make a copy of the name (se we can use stack for building strings)
 	metric->name = uwsgi_str(name);
 	metric->name_len = strlen(metric->name);
-	if (old_metric) {
-		old_metric->next = metric;
-	}
-	else {
-		uwsgi.metrics = metric;
-	}
 
-	uwsgi.metrics_cnt++;
+	if (!do_not_push) {
+		if (old_metric) {
+			old_metric->next = metric;
+		}
+		else {
+			uwsgi.metrics = metric;
+		}
+
+		uwsgi.metrics_cnt++;
+	}
 
 found:
 	metric->oid = oid;
@@ -241,6 +261,10 @@ found:
 	}
 
 	return metric;
+}
+
+struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_type, uint8_t collect_way, void *ptr, uint32_t freq, void *custom) {
+	return uwsgi_register_metric_do(name, oid, value_type, collect_way, ptr, freq, custom, 0);
 }
 
 struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
@@ -306,6 +330,18 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	return um;
 }
 
+static int64_t uwsgi_metric_sum(struct uwsgi_metric *um) {
+	int64_t total = 0;
+	struct uwsgi_metric_child *umc = um->children;
+	while(umc) {
+		struct uwsgi_metric *c = umc->um;
+		total += c->initial_value + *c->value;
+		umc = umc->next;
+	}
+
+	return total;
+}
+
 static void *uwsgi_metrics_loop(void *arg) {
 
 	// block signals on this thread
@@ -333,6 +369,9 @@ static void *uwsgi_metrics_loop(void *arg) {
 			switch(metric->collect_way) {
 				case UWSGI_METRIC_PTR:
 					*metric->value = *metric->ptr;
+					break;
+				case UWSGI_METRIC_SUM:
+					*metric->value = uwsgi_metric_sum(metric);
 					break;
 				case UWSGI_METRIC_FILE:
 					uwsgi_log("reading from file\n");
@@ -381,6 +420,24 @@ struct uwsgi_metric *uwsgi_metric_find_by_name(char *name) {
 	}
 
 	return NULL;
+}
+
+struct uwsgi_metric_child *uwsgi_metric_add_child(struct uwsgi_metric *parent, struct uwsgi_metric *child) {
+	struct uwsgi_metric_child *umc = parent->children, *old_umc = NULL;
+	while(umc) {
+		old_umc = umc;
+		umc = umc->next;
+	}
+
+	umc = uwsgi_calloc(sizeof(struct uwsgi_metric_child));
+	umc->um = child;
+	if (old_umc) {
+		old_umc->next = umc;
+	}
+	else {
+		parent->children = umc;
+	}
+	return umc;
 }
 
 struct uwsgi_metric *uwsgi_metric_find_by_oid(char *oid) {
@@ -441,6 +498,13 @@ void uwsgi_setup_metrics() {
 		uwsgi.metrics_dir = dir;
 	}
 
+	// the 'core' namespace
+
+	// parents are appended only at the end
+	struct uwsgi_metric *total_tx = uwsgi_register_metric_do("core.total_tx", "5.100", UWSGI_METRIC_COUNTER, UWSGI_METRIC_SUM, NULL, 0, NULL, 1);
+	struct uwsgi_metric *total_rss = uwsgi_register_metric_do("core.total_rss", "5.101", UWSGI_METRIC_GAUGE, UWSGI_METRIC_SUM, NULL, 0, NULL, 1);
+	struct uwsgi_metric *total_vsz = uwsgi_register_metric_do("core.total_vsz", "5.102", UWSGI_METRIC_GAUGE, UWSGI_METRIC_SUM, NULL, 0, NULL, 1);
+
 	// create the 'worker' namespace
 	int i;
 	for(i=0;i<=uwsgi.numproc;i++) {
@@ -453,6 +517,18 @@ void uwsgi_setup_metrics() {
 
 		uwsgi_metric_name("worker.%d.avg_response_time", i) ; uwsgi_metric_oid("3.%d.8", i);
 		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, UWSGI_METRIC_PTR, &uwsgi.workers[i].avg_response_time, 0, NULL);
+
+		uwsgi_metric_name("worker.%d.total_rx", i) ; uwsgi_metric_oid("3.%d.9", i);
+		struct uwsgi_metric *tx = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].tx, 0, NULL);
+		uwsgi_metric_add_child(total_tx, tx);
+
+		uwsgi_metric_name("worker.%d.rss_size", i) ; uwsgi_metric_oid("3.%d.11", i);
+		struct uwsgi_metric *rss = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, UWSGI_METRIC_PTR, &uwsgi.workers[i].rss_size, 0, NULL);
+		uwsgi_metric_add_child(total_rss, rss);
+
+		uwsgi_metric_name("worker.%d.vsz_size", i) ; uwsgi_metric_oid("3.%d.12", i);
+                struct uwsgi_metric *vsz = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, UWSGI_METRIC_PTR, &uwsgi.workers[i].vsz_size, 0, NULL);
+                uwsgi_metric_add_child(total_vsz, vsz);
 
 		int j;
 		for(j=0;j<uwsgi.cores;j++) {
@@ -475,6 +551,11 @@ void uwsgi_setup_metrics() {
 			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].exceptions, 0, NULL);
 		}
 	}
+
+	// append parents
+	uwsgi_metric_append(total_tx);
+	uwsgi_metric_append(total_rss);
+	uwsgi_metric_append(total_vsz);
 
 	// create custom/user-defined metrics
 	struct uwsgi_string_list *usl;
