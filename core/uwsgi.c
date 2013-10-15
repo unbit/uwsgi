@@ -514,7 +514,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"stats-http", no_argument, 0, "prefix stats server json output with http headers", uwsgi_opt_true, &uwsgi.stats_http, UWSGI_OPT_MASTER},
 	{"stats-minified", no_argument, 0, "minify statistics json output", uwsgi_opt_true, &uwsgi.stats_minified, UWSGI_OPT_MASTER},
 	{"stats-min", no_argument, 0, "minify statistics json output", uwsgi_opt_true, &uwsgi.stats_minified, UWSGI_OPT_MASTER},
-	{"stats-push", required_argument, 0, "push the stats json to the specified destination", uwsgi_opt_add_string_list, &uwsgi.requested_stats_pushers, UWSGI_OPT_MASTER},
+	{"stats-push", required_argument, 0, "push the stats json to the specified destination", uwsgi_opt_add_string_list, &uwsgi.requested_stats_pushers, UWSGI_OPT_MASTER|UWSGI_OPT_METRICS},
 	{"stats-pusher-default-freq", required_argument, 0, "set the default frequency of stats pushers", uwsgi_opt_set_int, &uwsgi.stats_pusher_default_freq, UWSGI_OPT_MASTER},
 	{"stats-pushers-default-freq", required_argument, 0, "set the default frequency of stats pushers", uwsgi_opt_set_int, &uwsgi.stats_pusher_default_freq, UWSGI_OPT_MASTER},
 	{"multicast", required_argument, 0, "subscribe to specified multicast group", uwsgi_opt_set_str, &uwsgi.multicast_group, UWSGI_OPT_MASTER},

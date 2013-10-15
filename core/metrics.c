@@ -468,6 +468,7 @@ struct uwsgi_metric *uwsgi_metric_find_by_oid(char *oid) {
 */
 
 #define um_op struct uwsgi_metric *um = NULL;\
+	if (!uwsgi.has_metrics) return -1;\
 	if (name) {\
                 um = uwsgi_metric_find_by_name(name);\
         }\
@@ -516,6 +517,7 @@ int uwsgi_metric_div(char *name, char *oid, int64_t value) {
 }
 
 int64_t uwsgi_metric_get(char *name, char *oid) {
+	if (!uwsgi.has_metrics) return 0;
 	int64_t ret = 0;
 	struct uwsgi_metric *um = NULL;
 	if (name) {
