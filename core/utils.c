@@ -2,7 +2,6 @@
 
 
 extern struct uwsgi_server uwsgi;
-extern char **environ;
 
 #ifdef __BIG_ENDIAN__
 uint16_t uwsgi_swap16(uint16_t x) {
@@ -1548,7 +1547,15 @@ void parse_sys_envs(char **envs) {
 	char *earg, *eq_pos;
 
 	while (*uenvs) {
-		if (!strncmp(*uenvs, "UWSGI_", 6) && strncmp(*uenvs, "UWSGI_RELOADS=", 14) && strncmp(*uenvs, "UWSGI_ORIGINAL_PROC_NAME=", 25)) {
+		if (!strncmp(*uenvs, "UWSGI_", 6) &&
+				strncmp(*uenvs, "UWSGI_RELOADS=", 14) &&
+				strncmp(*uenvs, "UWSGI_VASSALS_DIR=", 18) &&
+				strncmp(*uenvs, "UWSGI_EMPEROR_FD=", 17) &&
+				strncmp(*uenvs, "UWSGI_BROODLORD_NUM=", 20) &&
+				strncmp(*uenvs, "UWSGI_EMPEROR_FD_CONFIG=", 24) &&
+				strncmp(*uenvs, "UWSGI_EMPEROR_PROXY=", 20) &&
+				strncmp(*uenvs, "UWSGI_JAIL_PID=", 15) &&
+				strncmp(*uenvs, "UWSGI_ORIGINAL_PROC_NAME=", 25)) {
 			earg = uwsgi_malloc(strlen(*uenvs + 6) + 1);
 			env_to_arg(*uenvs + 6, earg);
 			eq_pos = strchr(earg, '=');
