@@ -390,7 +390,7 @@ static void *uwsgi_metrics_loop(void *arg) {
 
 			if (uwsgi.metrics_dir && metric->map) {
 				if (value != new_value) {
-					int ret = snprintf(metric->map, uwsgi.page_size, "%lld\n", new_value);
+					int ret = snprintf(metric->map, uwsgi.page_size, "%lld\n", (long long) new_value);
 					if (ret > 0) {
 						memset(metric->map+ret, 0, 4096-ret);
 					}
