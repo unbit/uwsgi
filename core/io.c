@@ -472,6 +472,7 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
         // stdin ?
         if (!strcmp(url, "-")) {
                 buffer = uwsgi_read_fd(0, size, add_zero);
+		goto end;
         }
 #ifdef UWSGI_EMBED_CONFIG
 	else if (url[0] == 0) {
@@ -482,6 +483,7 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
 		buffer = uwsgi_malloc(*size);
 		memset(buffer, 0, *size);
 		memcpy(buffer, &UWSGI_EMBED_CONFIG, &UWSGI_EMBED_CONFIG_END - &UWSGI_EMBED_CONFIG);
+		goto end;
 	}
 #endif
 

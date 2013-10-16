@@ -1548,7 +1548,15 @@ void parse_sys_envs(char **envs) {
 	char *earg, *eq_pos;
 
 	while (*uenvs) {
-		if (!strncmp(*uenvs, "UWSGI_", 6) && strncmp(*uenvs, "UWSGI_RELOADS=", 14) && strncmp(*uenvs, "UWSGI_ORIGINAL_PROC_NAME=", 25)) {
+		if (!strncmp(*uenvs, "UWSGI_", 6) &&
+        strncmp(*uenvs, "UWSGI_RELOADS=", 14) &&
+        strncmp(*uenvs, "UWSGI_VASSALS_DIR=", 18) &&
+        strncmp(*uenvs, "UWSGI_EMPEROR_FD=", 17) &&
+        strncmp(*uenvs, "UWSGI_BROODLORD_NUM=", 20) &&
+        strncmp(*uenvs, "UWSGI_EMPEROR_FD_CONFIG=", 24) &&
+        strncmp(*uenvs, "UWSGI_EMPEROR_PROXY=", 20) &&
+        strncmp(*uenvs, "UWSGI_JAIL_PID=", 15) &&
+        strncmp(*uenvs, "UWSGI_ORIGINAL_PROC_NAME=", 25)) {
 			earg = uwsgi_malloc(strlen(*uenvs + 6) + 1);
 			env_to_arg(*uenvs + 6, earg);
 			eq_pos = strchr(earg, '=');
@@ -3834,7 +3842,28 @@ void uwsgi_uuid(char *buf) {
 	uuid_generate(uuid_zmq);
 	uuid_unparse(uuid_zmq, buf);
 #else
-	snprintf(buf, 37, "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x", rand(), rand(), rand(), rand(), rand(), rand(), rand(), rand(), rand(), rand(), rand());
+	int i,r[11];
+  static int srand_called = 0;
+  if (!uwsgi_file_exists("/dev/urandom")) goto fallback;
+  int fd = open("/dev/urandom", O_RDONLY);
+  if (fd < 0) goto fallback;
+  for(i=0;i<11;i++) {
+    if (read(fd, &r[i], 4) != 4) {
+      close(fd); goto fallback;
+    }
+  }
+  close(fd);
+  goto done;
+fallback:
+  if (!srand_called) {
+    srand((unsigned int) getpid());
+    srand_called = 1;
+  }
+  for(i=0;i<11;i++) {
+    r[i] = rand();
+  }
+done:
+  snprintf(buf, 37, "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x", r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10]);
 #endif
 }
 
