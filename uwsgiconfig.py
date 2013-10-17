@@ -546,6 +546,7 @@ class uConf(object):
         self.gcc_list.append('proto/http')
         self.gcc_list.append('proto/fastcgi')
         self.gcc_list.append('proto/scgi')
+        self.gcc_list.append('proto/puwsgi')
         self.include_path = []
 
         if 'UWSGI_INCLUDES' in os.environ:

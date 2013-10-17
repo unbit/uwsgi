@@ -3211,9 +3211,11 @@ size_t uwsgi_str_num(char *, int);
 size_t uwsgi_str_occurence(char *, size_t, char);
 
 int uwsgi_proto_uwsgi_parser(struct wsgi_request *);
+int uwsgi_proto_puwsgi_parser(struct wsgi_request *);
 int uwsgi_proto_base_write(struct wsgi_request *, char *, size_t);
 int uwsgi_proto_base_write_header(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_base_read_body(struct wsgi_request *, char *, size_t);
+ssize_t uwsgi_proto_noop_read_body(struct wsgi_request *, char *, size_t);
 
 int uwsgi_proto_http_parser(struct wsgi_request *);
 
@@ -3228,8 +3230,10 @@ int uwsgi_proto_scgi_parser(struct wsgi_request *);
 
 
 int uwsgi_proto_base_accept(struct wsgi_request *, int);
+int uwsgi_proto_puwsgi_accept(struct wsgi_request *, int);
 int uwsgi_proto_raw_parser(struct wsgi_request *);
 void uwsgi_proto_base_close(struct wsgi_request *);
+void uwsgi_proto_puwsgi_close(struct wsgi_request *);
 uint16_t proto_base_add_uwsgi_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 uint16_t proto_base_add_uwsgi_var(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 

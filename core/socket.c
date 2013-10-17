@@ -1366,7 +1366,7 @@ void uwsgi_add_sockets_to_queue(int queue, int async_id) {
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while (uwsgi_sock) {
-		if (uwsgi_sock->fd_threads && async_id > -1) {
+		if (uwsgi_sock->fd_threads && async_id > -1 && uwsgi_sock->fd_threads[async_id] > -1) {
 			event_queue_add_fd_read(queue, uwsgi_sock->fd_threads[async_id]);
 		}
 		else if (uwsgi_sock->fd > -1) {
@@ -1910,7 +1910,7 @@ setup_proto:
                         uwsgi_sock->proto_close = uwsgi_proto_fastcgi_close;
                 }
 
-		else if (requested_protocol && (!strcmp("scgi", requested_protocol) || !strcmp("scgi", requested_protocol))) {
+		else if (requested_protocol && !strcmp("scgi", requested_protocol)) {
                         uwsgi_sock->proto = uwsgi_proto_scgi_parser;
                         uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
                         uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_cgi_prepare_headers;
@@ -1923,7 +1923,7 @@ setup_proto:
                         uwsgi_sock->proto_close = uwsgi_proto_base_close;
                 }
 
-		else if (requested_protocol && (!strcmp("scgi-nph", requested_protocol) || !strcmp("scgi-nph", requested_protocol))) {
+		else if (requested_protocol && !strcmp("scgi-nph", requested_protocol)) {
                         uwsgi_sock->proto = uwsgi_proto_scgi_parser;
                         uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
                         uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
@@ -1942,6 +1942,22 @@ setup_proto:
 			uwsgi.zeromq = 1;
 		}
 #endif
+		else if (requested_protocol && !strcmp("puwsgi", requested_protocol)) {
+                        uwsgi_sock->proto = uwsgi_proto_puwsgi_parser;
+                        uwsgi_sock->proto_accept = uwsgi_proto_puwsgi_accept;
+                        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
+                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
+                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
+                        uwsgi_sock->proto_read_body = uwsgi_proto_noop_read_body;
+                        uwsgi_sock->proto_write = uwsgi_proto_base_write;
+                        uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
+                        uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
+                        uwsgi_sock->proto_close = uwsgi_proto_puwsgi_close;
+			uwsgi_sock->fd_threads = uwsgi_malloc(sizeof(int) * uwsgi.cores);
+			memset(uwsgi_sock->fd_threads, -1, sizeof(int) * uwsgi.cores);
+			uwsgi_sock->retry = uwsgi_calloc(sizeof(int) * uwsgi.cores);
+			uwsgi.is_et = 1;
+                }
 		else {
 			uwsgi_sock->proto = uwsgi_proto_uwsgi_parser;
 			uwsgi_sock->proto_accept = uwsgi_proto_base_accept;

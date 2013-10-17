@@ -219,3 +219,8 @@ ssize_t uwsgi_proto_base_read_body(struct wsgi_request *wsgi_req, char *buf, siz
 	}
 	return read(wsgi_req->fd, buf, len);
 }
+
+ssize_t uwsgi_proto_noop_read_body(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+	uwsgi_log_verbose("!!! the current protocol does not support request body !!!\n");
+	return -1;
+}

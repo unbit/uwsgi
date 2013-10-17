@@ -57,6 +57,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"raw-modifier1", required_argument, 0, "force the specified modifier1 when using RAW protocol", uwsgi_opt_set_64bit, &uwsgi.raw_modifier1, 0},
 	{"raw-modifier2", required_argument, 0, "force the specified modifier2 when using RAW protocol", uwsgi_opt_set_64bit, &uwsgi.raw_modifier2, 0},
 
+	{"puwsgi-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using persistent uwsgi protocol (puwsgi)", uwsgi_opt_add_socket, "puwsgi", 0},
+
 	{"protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol, 0},
 	{"socket-protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol, 0},
 	{"shared-socket", required_argument, 0, "create a shared sacket for advanced jailing or ipc", uwsgi_opt_add_shared_socket, NULL, 0},
