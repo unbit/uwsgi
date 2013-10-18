@@ -69,7 +69,7 @@ def application(env, sr):
         redis_fd = channel.connection._sock.fileno()
         
         while True:
-            uwsgi.wait_fd_read(websocket_fd)
+            uwsgi.wait_fd_read(websocket_fd, 3)
             uwsgi.wait_fd_read(redis_fd)
             uwsgi.suspend()
             fd = uwsgi.ready_fd()
@@ -87,3 +87,8 @@ def application(env, sr):
                         t = b'message'
                     if msg[0] == t:
                         uwsgi.websocket_send("[%s] %s" % (time.time(), msg))
+            else:
+                # on timeout call websocket_recv_nb again to manage ping/pong
+                msg = uwsgi.websocket_recv_nb()
+                if msg:
+                    r.publish('foobar', msg)

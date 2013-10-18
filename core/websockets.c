@@ -59,7 +59,7 @@ static int uwsgi_websockets_check_pingpong(struct wsgi_request *wsgi_req) {
 		}
 		return 0;
 	}
-	// pong received, send anther ping
+	// pong received, send another ping
         if (now - wsgi_req->websocket_last_ping >= uwsgi.websockets_ping_freq) {
                 return uwsgi_websockets_ping(wsgi_req);
 	}
