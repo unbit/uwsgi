@@ -524,6 +524,43 @@ XS(XS_add_rb_timer) {
         XSRETURN(1);
 }
 
+XS(XS_metric_inc) {
+        dXSARGS;
+
+        char *metric = NULL;
+        STRLEN metric_len = 0;
+	int64_t value = 1;
+
+        psgi_check_args(1);
+
+        metric = SvPV(ST(0), metric_len);
+
+	if (items > 1) {
+		value = (int64_t) SvIV(ST(1));
+	}
+
+        if (uwsgi_metric_inc(metric, NULL, value)) {
+                croak("unable to update metric");
+                XSRETURN_UNDEF;
+        }
+
+        XSRETURN_YES;
+}
+
+XS(XS_metric_get) {
+        dXSARGS;
+
+        char *metric = NULL;
+        STRLEN metric_len = 0;
+
+        psgi_check_args(1);
+
+        metric = SvPV(ST(0), metric_len);
+
+	ST(0) = newSViv(uwsgi_metric_get(metric, NULL));
+        sv_2mortal(ST(0));
+        XSRETURN(1);
+}
 
 
 void init_perl_embedded_module() {
@@ -561,5 +598,8 @@ void init_perl_embedded_module() {
 	psgi_xs(add_rb_timer);
 
 	psgi_xs(set_user_harakiri);
+
+	psgi_xs(metric_inc);
+	psgi_xs(metric_get);
 }
 

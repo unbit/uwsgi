@@ -4476,6 +4476,13 @@ struct uwsgi_metric_child {
 void uwsgi_setup_metrics(void);
 void uwsgi_metrics_start_collector(void);
 
+int uwsgi_metric_set(char *, char *, int64_t);
+int uwsgi_metric_inc(char *, char *, int64_t);
+int uwsgi_metric_dec(char *, char *, int64_t);
+int uwsgi_metric_mul(char *, char *, int64_t);
+int uwsgi_metric_div(char *, char *, int64_t);
+int64_t uwsgi_metric_get(char *, char *);
+
 #ifdef __cplusplus
 }
 #endif

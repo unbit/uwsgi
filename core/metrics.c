@@ -27,7 +27,7 @@ extern struct uwsgi_server uwsgi;
 	counter
 	absolute
 
-	both 32 and 64bit, both signed and unsigned
+	as signed 64bit numbers
 
 	metrics are managed by a dedicated thread (in the master) holding a linked list of all the items. For few metrics it is a good (read: simple) approach,
 	but you can cache lookups in a uWSGI cache for really big list.
