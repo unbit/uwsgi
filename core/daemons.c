@@ -263,6 +263,8 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 
 	if (uwsgi.current_time - ud->last_spawn <= 3) {
 		throttle = ud->respawns - (uwsgi.current_time - ud->last_spawn);
+		// if ud->respawns == 0 then we can end up with throttle < 0
+		if (throttle <= 0) throttle = 1;
 	}
 
 	pid_t pid = uwsgi_fork("uWSGI external daemon");
@@ -323,7 +325,7 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 
 		if (throttle) {
 			uwsgi_log("[uwsgi-daemons] throttling \"%s\" for %d seconds\n", ud->command, throttle);
-			sleep(throttle);
+			sleep((unsigned int) throttle);
 		}
 
 		uwsgi_log("[uwsgi-daemons] %sspawning \"%s\"\n", ud->respawns > 0 ? "re" : "", ud->command);
