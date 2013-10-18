@@ -227,6 +227,10 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 			PyObject *callables_dict = get_uwsgi_pydict((char *)arg1);
 			if (callables_dict) {
 				wi->callable = PyDict_GetItem(callables_dict, (PyObject *)wi->callable);	
+				if (!wi->callable) {
+					uwsgi_log("skipping broken app %s\n", wsgi_req->appid);
+					goto multiapp;
+				}
 			}
 		}
 	}
@@ -357,6 +361,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 	uwsgi_apps_cnt++;
 
+multiapp:
 	if (multiapp > 1) {
 		for(i=1;i<multiapp;i++) {
 			PyObject *app_mnt = PyList_GetItem(app_list, i);		
