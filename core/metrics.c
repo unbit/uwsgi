@@ -361,7 +361,7 @@ static void *uwsgi_metrics_loop(void *arg) {
 				metric->last_update = now;
 			}
 			else {
-				if (now - metric->last_update < metric->freq) goto next;
+				if ((uint32_t) (now - metric->last_update) < metric->freq) goto next;
 			}
 			uwsgi_wlock(uwsgi.metrics_lock);
 			int64_t value = *metric->value;
