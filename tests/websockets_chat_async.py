@@ -5,6 +5,7 @@
 import uwsgi
 import time
 import redis
+import sys
 
 def application(env, sr):
 
@@ -14,7 +15,7 @@ def application(env, sr):
 
     if env['PATH_INFO'] == '/':
         sr('200 OK', [('Content-Type','text/html')])
-        return """
+        output = """
     <html>
       <head>
           <script language="Javascript">
@@ -52,11 +53,14 @@ def application(env, sr):
     </body>
     </html>
         """ % (ws_scheme, env['HTTP_HOST'])
+        if sys.version_info[0] > 2:
+            return output.encode('latin1')
+        return output
     elif env['PATH_INFO'] == '/favicon.ico':
         return ""
     elif env['PATH_INFO'] == '/foobar/':
-	uwsgi.websocket_handshake(env['HTTP_SEC_WEBSOCKET_KEY'], env.get('HTTP_ORIGIN', ''))
-        print "websockets..."
+        uwsgi.websocket_handshake(env['HTTP_SEC_WEBSOCKET_KEY'], env.get('HTTP_ORIGIN', ''))
+        print("websockets...")
         r = redis.StrictRedis(host='localhost', port=6379, db=0)
         channel = r.pubsub()
         channel.subscribe('foobar')
@@ -76,6 +80,10 @@ def application(env, sr):
                         r.publish('foobar', msg)
                 elif fd == redis_fd:
                     msg = channel.parse_response() 
+                    print(msg)
                     # only interested in user messages
-                    if msg[0] == 'message':
+                    t = 'message'
+                    if sys.version_info[0] > 2:
+                        t = b'message'
+                    if msg[0] == t:
                         uwsgi.websocket_send("[%s] %s" % (time.time(), msg))
