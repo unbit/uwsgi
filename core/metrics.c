@@ -622,6 +622,16 @@ void uwsgi_setup_metrics() {
 	uwsgi_metric_append(total_rss);
 	uwsgi_metric_append(total_vsz);
 
+	// sockets
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+	int pos = 0;
+	while(uwsgi_sock) {
+		uwsgi_metric_name("socket.%d.listen_queue", pos) ; uwsgi_metric_oid("7.%d.1", pos);
+                uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, UWSGI_METRIC_PTR, &uwsgi_sock->queue, 0, NULL);
+		pos++;
+		uwsgi_sock = uwsgi_sock->next;
+	}
+
 	// create aliases
 	uwsgi_register_metric("rss_size", NULL, UWSGI_METRIC_GAUGE, UWSGI_METRIC_ALIAS, total_rss, 0, NULL);
 	uwsgi_register_metric("vsz_size", NULL, UWSGI_METRIC_GAUGE, UWSGI_METRIC_ALIAS, total_vsz, 0, NULL);
@@ -634,7 +644,7 @@ void uwsgi_setup_metrics() {
 
 	// allocate shared memory
 	int64_t *values = uwsgi_calloc_shared(sizeof(int64_t) * uwsgi.metrics_cnt);
-	int pos = 0;
+	pos = 0;
 
 	struct uwsgi_metric *metric = uwsgi.metrics;
 	while(metric) {
