@@ -385,13 +385,13 @@ static void *uwsgi_metrics_loop(void *arg) {
 			// gather the new value based on the type of collection strategy
 			switch(metric->collect_way) {
 				case UWSGI_METRIC_PTR:
-					*metric->value = *metric->ptr;
+					*metric->value = metric->initial_value + *metric->ptr;
 					break;
 				// aliases are NOOP
 				case UWSGI_METRIC_ALIAS:
 					break;
 				case UWSGI_METRIC_SUM:
-					*metric->value = uwsgi_metric_sum(metric);
+					*metric->value = metric->initial_value + uwsgi_metric_sum(metric);
 					break;
 				case UWSGI_METRIC_FILE:
 					uwsgi_log("reading from file\n");
@@ -736,5 +736,14 @@ void uwsgi_setup_metrics() {
 
 	if (uwsgi.metrics_dir) {
 		uwsgi_log("memory allocated for metrics storage: %llu bytes (%llu MB)\n", uwsgi.metrics_cnt * uwsgi.page_size, (uwsgi.metrics_cnt * uwsgi.page_size)/1024/1024);
+		if (uwsgi.metrics_dir_restore) {
+			metric = uwsgi.metrics;
+        		while(metric) {
+				if (metric->map) {
+					metric->initial_value = strtoll(metric->map, NULL, 10);
+				}
+				metric = metric->next;
+			}
+		}
 	}
 }

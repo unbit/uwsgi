@@ -511,8 +511,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exception-handler", required_argument, 0, "add an exception handler", uwsgi_opt_add_string_list, &uwsgi.exception_handlers_instance, UWSGI_OPT_MASTER},
 
 	{"enable-metrics", no_argument, 0, "enable metrics subsystem", uwsgi_opt_true, &uwsgi.has_metrics, UWSGI_OPT_MASTER},
-	{"metrics-dir", required_argument, 0, "exports metrics as text files in the specified directory", uwsgi_opt_set_str, &uwsgi.metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 	{"metric", required_argument, 0, "add a custom metric", uwsgi_opt_add_string_list, &uwsgi.additional_metrics, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
+	{"metrics-dir", required_argument, 0, "exports metrics as text files in the specified directory", uwsgi_opt_set_str, &uwsgi.metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
+	{"metrics-dir-restore", no_argument, 0, "restore last value taken from the metrics dir", uwsgi_opt_true, &uwsgi.metrics_dir_restore, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
+	{"metric-dir", required_argument, 0, "exports metrics as text files in the specified directory", uwsgi_opt_set_str, &uwsgi.metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
+	{"metric-dir-restore", no_argument, 0, "restore last value taken from the metrics dir", uwsgi_opt_true, &uwsgi.metrics_dir_restore, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 
 	{"udp", required_argument, 0, "run the udp server on the specified address", uwsgi_opt_set_str, &uwsgi.udp_socket, UWSGI_OPT_MASTER},
 	{"stats", required_argument, 0, "enable the stats server on the specified address", uwsgi_opt_set_str, &uwsgi.stats, UWSGI_OPT_MASTER},
