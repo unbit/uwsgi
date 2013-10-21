@@ -1,30 +1,38 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
-struct uwsgi_rrdtool {
+static struct uwsgi_rrdtool {
 	void *lib;
+	char *lib_name;
+
 	int (*create)(int, char **);
 	int (*update)(int, char **);
-	struct uwsgi_string_list *rrd;
-	int max_ds;
+
 	int freq;
 
 	char *update_area;
+	struct uwsgi_string_list *directory;
+
+	struct uwsgi_stats_pusher *pusher;
 } u_rrd;
 
-struct uwsgi_option rrdtool_options[] = {
-	{"rrdtool", required_argument, 0, "collect requests data in the specified rrd file", uwsgi_opt_add_string_list, &u_rrd.rrd, UWSGI_OPT_MASTER},
+static struct uwsgi_option rrdtool_options[] = {
+	{"rrdtool", required_argument, 0, "store rrd files in the specified directory", uwsgi_opt_add_string_list, &u_rrd.directory, UWSGI_OPT_MASTER|UWSGI_OPT_METRICS},
 	{"rrdtool-freq", required_argument, 0, "set collect frequency", uwsgi_opt_set_int, &u_rrd.freq, 0},
-	{"rrdtool-max-ds", required_argument, 0, "set maximum number of data sources", uwsgi_opt_set_int, &u_rrd.max_ds, 0},
+	{"rrdtool-lib", required_argument, 0, "set the name of rrd library (default: librrd.so)", uwsgi_opt_set_str, &u_rrd.lib_name, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 
 };
 
 
-int rrdtool_init() {
+static int rrdtool_init() {
 
-	u_rrd.lib = dlopen("librrd.so", RTLD_LAZY);
+	if (!u_rrd.lib_name) {
+		u_rrd.lib_name = "librrd.so";
+	}
+
+	u_rrd.lib = dlopen(u_rrd.lib_name, RTLD_LAZY);
 	if (!u_rrd.lib) return -1;
 
 	u_rrd.create = dlsym(u_rrd.lib, "rrd_create");
@@ -39,137 +47,140 @@ int rrdtool_init() {
 		return -1;
 	}
 
-	if (!u_rrd.max_ds) u_rrd.max_ds = 30;
-
 	uwsgi_log_initial("*** RRDtool library available at %p ***\n", u_rrd.lib);
 
 	return 0;
 }
 
-void rrdtool_post_init() {
+/*
 
-	struct uwsgi_string_list *usl = u_rrd.rrd;
-	char **argv;
-	int i;
+	create .rrd files if needed
 
-	if (!u_rrd.lib || !u_rrd.create) return;
+*/
+static void rrdtool_post_init() {
+
+	if (!u_rrd.create) return;
 
 	// do not waste time if no --rrdtool option is defiend
-	if (!u_rrd.rrd) return;
+	if (!u_rrd.directory) return;
 
-	if (uwsgi.numproc > u_rrd.max_ds) {
-		uwsgi_log("!!! NOT ENOUGH SLOTS IN RRDTOOL DS TO HOST WORKERS DATA (increase them with --rrdtool-max-ds) !!!\n");
-		dlclose(u_rrd.lib);
-		return;
-	}
+	if (!u_rrd.freq) u_rrd.freq = 300;
 
-	// alloc space for DS_REQ + DS WORKER + RRA + create + filename
-	argv = uwsgi_malloc( sizeof(char *) * (1 + u_rrd.max_ds + 4 + 1 +1));
-
+	char *argv[7];
 	argv[0] = "create";
 
-	argv[2] = "DS:requests:DERIVE:600:0:U";
-
-	// create DS for workers
-	for(i=0;i<u_rrd.max_ds;i++) {
-		int max_size = sizeof("DS:worker65536:DERIVE:600:0:U")+1;
-		argv[3+i] = uwsgi_malloc( max_size );
-		if (snprintf(argv[3+i], max_size, "DS:worker%d:DERIVE:600:0:U", i+1) < 25) {
-			uwsgi_log("unable to create args for rrd_create()\n");
-			exit(1);
-		}
-	}
 
 	// create RRA
-	argv[3+u_rrd.max_ds] = "RRA:AVERAGE:0.5:1:288" ;
-	argv[3+u_rrd.max_ds+1] = "RRA:AVERAGE:0.5:12:168" ;
-	argv[3+u_rrd.max_ds+2] = "RRA:AVERAGE:0.5:288:31" ;
-	argv[3+u_rrd.max_ds+3] = "RRA:AVERAGE:0.5:2016:52";
+	argv[3] = "RRA:AVERAGE:0.5:1:288" ;
+	argv[4] = "RRA:AVERAGE:0.5:12:168" ;
+	argv[5] = "RRA:AVERAGE:0.5:288:31" ;
+	argv[6] = "RRA:AVERAGE:0.5:2016:52";
 
-	while(usl) {
-		if (!uwsgi_file_exists(usl->value)) {
-			argv[1] = usl->value;	
-			if (u_rrd.create((1 + u_rrd.max_ds + 4 + 1 +1), argv)) {
-				uwsgi_error("rrd_create()");
-				exit(1);
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, u_rrd.directory) {
+		char *dir = uwsgi_expand_path(usl->value, strlen(usl->value), NULL);
+                if (!dir) {
+                        uwsgi_error("rrdtool_post_init()/uwsgi_expand_path()");
+                        exit(1);
+                }
+		struct uwsgi_metric *um = uwsgi.metrics;
+		// here locking is useless, but maybe in the future we could move this part
+		// somewhere else
+		int created = 0;
+		uwsgi_rlock(uwsgi.metrics_lock);
+		while(um) {
+			char *filename = uwsgi_concat4(dir, "/", um->name, ".rrd");
+			if (!uwsgi_file_exists(filename)) {
+				argv[1] = filename;
+				if (um->type == UWSGI_METRIC_GAUGE) {
+					argv[2] = "DS:metric:GAUGE:600:0:U";
+				}
+				else {
+					argv[2] = "DS:metric:DERIVE:600:0:U";
+				}
+				if (u_rrd.create(7, argv)) {
+					uwsgi_log("unable to create rrd file for metric \"%s\"\n", um->name);
+					uwsgi_error("rrd_create()");
+					exit(1);
+				}
+				created++;
+				free(filename);
 			}
+			um = um->next;
 		}
-		char *new_usl_value = uwsgi_malloc(PATH_MAX+1);
-		if (!realpath(usl->value, new_usl_value)) {
-			uwsgi_error("realpath()");
-			exit(1);
-		}
-		usl->value = new_usl_value;
-		usl = usl->next;
+		uwsgi_rwunlock(uwsgi.metrics_lock);
+	
+		uwsgi_log("created %d new rrd files in %s\n", created, dir);
+
+		struct uwsgi_stats_pusher_instance *uspi = uwsgi_stats_pusher_add(u_rrd.pusher, NULL);
+        	uspi->freq = u_rrd.freq;
+		uspi->data = dir;
+        	// no need to generate the json
+        	uspi->raw=1;
 	}
-
-	// free DS
-	for(i=0;i<u_rrd.max_ds;i++) {
-		free(argv[3+i]);
-	}
-
-	free(argv);
-
-	//now allocate memory for updates
-	u_rrd.update_area = uwsgi_malloc( 1+((1+sizeof(UMAX64_STR)) * (u_rrd.max_ds+1))+1 );
-	memset(u_rrd.update_area, 0, 1+((1+sizeof(UMAX64_STR)) * (u_rrd.max_ds+1))+1 );
-
-	u_rrd.update_area[0] = 'N';	
-
-	if (u_rrd.freq < 1) u_rrd.freq = 300;
 
 }
 
-void rrdtool_master_cycle() {
+static void rrdtool_push(struct uwsgi_stats_pusher_instance *uspi, time_t now, char *json, size_t json_len) {
 
-	static time_t last_update = 0;
-	char *ptr;
-	int rlen, i;
-	char *argv[3];
-	struct uwsgi_string_list *usl = u_rrd.rrd;
+	if (!u_rrd.update) return ;
 
-	if (!u_rrd.lib || !u_rrd.create || !u_rrd.rrd) return ;
-
-	if (last_update == 0) last_update = uwsgi_now();
-
-	// update
-	if (uwsgi.current_time - last_update >= u_rrd.freq) {
-		ptr = u_rrd.update_area+1;
-		rlen = snprintf(ptr, 1+sizeof(UMAX64_STR), ":%llu", (unsigned long long )uwsgi.workers[0].requests);
-		if (rlen < 2) return;
-		ptr+=rlen;
-		for(i=0;i<u_rrd.max_ds;i++) {
-			if (i+1 <= uwsgi.numproc) {
-				rlen = snprintf(ptr, 1+sizeof(UMAX64_STR), ":%llu", (unsigned long long )uwsgi.workers[1+i].requests);
-				if (rlen < 2) return;
-			}
-			else {
-				memcpy(ptr, ":U", 2);
-				rlen = 2;
-			}
-			ptr+=rlen;
+	// standard stats pusher
+	if (!uspi->data) {
+		if (!uspi->arg) {
+			uwsgi_log("invalid rrdtool stats pusher syntax\n");
+			exit(1);
 		}
-		last_update = uwsgi.current_time;
-		argv[0] = "update";
-		argv[2] = u_rrd.update_area;
-		while(usl) {
-			argv[1] = usl->value;
-			if (u_rrd.update(3, argv)) {
-				uwsgi_log_verbose("ERROR: rrd_update(\"%s\", \"%s\")\n", argv[1], argv[2]);
-			}
-			usl = usl->next;
+		uspi->data = uwsgi_expand_path(uspi->arg, strlen(uspi->arg), NULL);
+		if (!uspi->data) {
+			uwsgi_error("rrdtool_push()/uwsgi_expand_path()");
+                        exit(1);
 		}
+		if (!u_rrd.freq) u_rrd.freq = 300;
+		uspi->freq = u_rrd.freq;
 	}
+
+	// 1k will be more than enough
+	char buf[1024];
+	char *argv[3];
+	argv[0] = "update";
+
+	struct uwsgi_metric *um = uwsgi.metrics;
+	while(um) {
+		uwsgi_rlock(uwsgi.metrics_lock);
+		int ret = snprintf(buf, 1024, "N:%lld", (long long) (um->initial_value+*um->value));
+		uwsgi_rwunlock(uwsgi.metrics_lock);
+		if (ret < 3) {
+			uwsgi_log("unable to update rrdtool metric for %s\n", um->name);
+			goto next;
+		}		
+		char *filename = uwsgi_concat4(uspi->data, "/", um->name, ".rrd");
+		argv[1] = filename;
+                argv[2] = buf;
+                if (u_rrd.update(3, argv)) {
+                	uwsgi_log_verbose("ERROR: rrd_update(\"%s\", \"%s\")\n", argv[1], argv[2]);
+                }
+		free(filename);
+next:
+		um = um->next;
+	}
+
+}
+
+static void rrdtool_register() {
+	u_rrd.pusher = uwsgi_register_stats_pusher("rrdtool", rrdtool_push);
+	u_rrd.pusher->raw = 1;
 }
 
 struct uwsgi_plugin rrdtool_plugin = {
 
 	.name = "rrdtool",
-	
 	.options = rrdtool_options,
-
-	.master_cycle = rrdtool_master_cycle,
 	
-	.post_init = rrdtool_post_init,
+	.on_load = rrdtool_register,
+
+	// this is the best phase to create rrd files (if needed)
+	.preinit_apps = rrdtool_post_init,
+	// here we get pointers to rrdtool functions
 	.init = rrdtool_init,
 };
