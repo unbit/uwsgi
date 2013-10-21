@@ -281,7 +281,10 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	char *m_arg3 = NULL;
 	char *m_initial_value = NULL;
 
-	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
+	if (!strchr(arg, '=')) {
+		m_name = uwsgi_str(arg);
+	}
+	else if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
 		"name", &m_name,
 		"oid", &m_oid,
 		"type", &m_type,
@@ -698,7 +701,10 @@ void uwsgi_setup_metrics() {
 	// create custom/user-defined metrics
 	struct uwsgi_string_list *usl;
 	uwsgi_foreach(usl, uwsgi.additional_metrics) {
-		uwsgi_register_keyval_metric(usl->value);
+		struct uwsgi_metric *um = uwsgi_register_keyval_metric(usl->value);
+		if (um) {
+			uwsgi_log("added custom metric: %s\n", um->name);
+		}
 	}
 
 	// allocate shared memory
