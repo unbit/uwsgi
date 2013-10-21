@@ -1805,6 +1805,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *vassals_includes;
 	struct uwsgi_string_list *vassals_templates_before;
 	struct uwsgi_string_list *vassals_includes_before;
+	struct uwsgi_string_list *vassals_set;
 	// true if loyal to the emperor
 	int loyal;
 
