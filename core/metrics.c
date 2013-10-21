@@ -279,11 +279,13 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	char *m_arg1 = NULL;
 	char *m_arg2 = NULL;
 	char *m_arg3 = NULL;
+	char *m_initial_value = NULL;
 
 	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
 		"name", &m_name,
 		"oid", &m_oid,
 		"type", &m_type,
+		"initial_value", &m_initial_value,
 		"collector", &m_collector,
 		"freq", &m_freq,
 		"arg1", &m_arg1,
@@ -302,6 +304,7 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	uint8_t type = UWSGI_METRIC_COUNTER;
 	uint8_t collector = UWSGI_METRIC_MANUAL;
 	uint32_t freq = 0;
+	int64_t initial_value = 0;
 
 	if (m_type) {
 		if (!strcmp(m_type, "gauge")) {
@@ -319,9 +322,16 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 		}
 	}
 
-	if (m_freq) freq = strtoul(m_freq, NULL, 0);
+	if (m_freq) freq = strtoul(m_freq, NULL, 10);
+
+	
+	if (m_initial_value) {
+		initial_value = strtoll(m_initial_value, NULL, 10);		
+	}
 
 	struct uwsgi_metric* um =  uwsgi_register_metric(m_name, m_oid, type, collector, NULL, freq, NULL);
+	um->initial_value = initial_value;
+
 	free(m_name);
 	if (m_oid) free(m_oid);
 	if (m_type) free(m_type);
@@ -330,6 +340,7 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	if (m_arg1) free(m_arg1);
 	if (m_arg2) free(m_arg2);
 	if (m_arg3) free(m_arg3);
+	if (m_initial_value) free(m_initial_value);
 	return um;
 }
 
@@ -338,7 +349,7 @@ static int64_t uwsgi_metric_sum(struct uwsgi_metric *um) {
 	struct uwsgi_metric_child *umc = um->children;
 	while(umc) {
 		struct uwsgi_metric *c = umc->um;
-		total += c->initial_value + *c->value;
+		total += *c->value;
 		umc = umc->next;
 	}
 
@@ -558,7 +569,7 @@ int64_t uwsgi_metric_get(char *name, char *oid) {
 	// now (in rlocked context) we get the value from
 	// the map
 	uwsgi_rlock(uwsgi.metrics_lock);
-	ret = um->initial_value+*um->value;
+	ret = *um->value;
 	// unlock
 	uwsgi_rwunlock(uwsgi.metrics_lock);
 	return ret;
@@ -579,7 +590,7 @@ int64_t uwsgi_metric_getn(char *name, size_t nlen, char *oid, size_t olen) {
         // now (in rlocked context) we get the value from
         // the map
         uwsgi_rlock(uwsgi.metrics_lock);
-        ret = um->initial_value+*um->value;
+        ret = *um->value;
         // unlock
         uwsgi_rwunlock(uwsgi.metrics_lock);
         return ret;
@@ -708,6 +719,9 @@ void uwsgi_setup_metrics() {
 			struct uwsgi_metric *alias = (struct uwsgi_metric *) metric->ptr;
 			metric->value = alias->value;
 			metric->oid = alias->oid;	
+		}
+		if (metric->initial_value) {
+			*metric->value = metric->initial_value;
 		}
 		metric = metric->next;
 	}

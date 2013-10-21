@@ -881,7 +881,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		uwsgi_rlock(uwsgi.metrics_lock);
 		struct uwsgi_metric *um = uwsgi.metrics;
 		while(um) {
-        		int64_t um_val = um->initial_value+*um->value;
+        		int64_t um_val = *um->value;
 			if (uwsgi_stats_keyslong(us, um->name, (long long) um_val)) {
         			uwsgi_rwunlock(uwsgi.metrics_lock);
 				goto end;

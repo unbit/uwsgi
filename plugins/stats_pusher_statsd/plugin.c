@@ -89,10 +89,10 @@ static void stats_pusher_statsd(struct uwsgi_stats_pusher_instance *uspi, time_t
 		uwsgi_rlock(uwsgi.metrics_lock);
 		// ignore return value
 		if (um->type == UWSGI_METRIC_GAUGE) {
-			statsd_send_metric(ub, uspi, um->name, um->name_len, um->initial_value+*um->value, "|g");
+			statsd_send_metric(ub, uspi, um->name, um->name_len, *um->value, "|g");
 		}
 		else {
-			statsd_send_metric(ub, uspi, um->name, um->name_len, um->initial_value+*um->value, "|m");
+			statsd_send_metric(ub, uspi, um->name, um->name_len, *um->value, "|m");
 		}
 		uwsgi_rwunlock(uwsgi.metrics_lock);
 		um = um->next;

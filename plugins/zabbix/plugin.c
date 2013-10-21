@@ -76,7 +76,7 @@ static void stats_pusher_zabbix(struct uwsgi_stats_pusher_instance *uspi, time_t
 		if (uwsgi_buffer_append(zn->ub, ".", 1)) { error = 1; goto end;} 
 		if (uwsgi_buffer_append(zn->ub, um->name, um->name_len)) { error = 1; goto end;} 	
 		if (uwsgi_buffer_append(zn->ub, "\",\"value\":\"", 11)) { error = 1; goto end;} 	
-		if (uwsgi_buffer_num64(zn->ub, um->initial_value+*um->value)) { error = 1; goto end;} 	
+		if (uwsgi_buffer_num64(zn->ub, *um->value)) { error = 1; goto end;} 	
 		if (uwsgi_buffer_append(zn->ub, "\"}", 2)) { error = 1; goto end;} 	
 		um = um->next;
 		if (um) {
