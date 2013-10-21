@@ -223,6 +223,9 @@ struct uwsgi_metric *uwsgi_register_metric_do(char *name, char *oid, uint8_t val
 
 found:
 	metric->oid = oid;
+	if (metric->oid) {
+		metric->oid_len = strlen(oid);
+	}
 	metric->type = value_type;
 	metric->collect_way = collect_way;
 	metric->ptr = ptr;
@@ -413,7 +416,7 @@ void uwsgi_metrics_start_collector() {
 	uwsgi_log("metrics collector thread started\n");
 }
 
-struct uwsgi_metric *uwsgi_metric_find_by_name(char *name) {
+static struct uwsgi_metric *uwsgi_metric_find_by_name(char *name) {
 	struct uwsgi_metric *um = uwsgi.metrics;
 	while(um) {
 		if (!strcmp(um->name, name)) {
@@ -423,6 +426,18 @@ struct uwsgi_metric *uwsgi_metric_find_by_name(char *name) {
 	}
 
 	return NULL;
+}
+
+static struct uwsgi_metric *uwsgi_metric_find_by_namen(char *name, size_t len) {
+        struct uwsgi_metric *um = uwsgi.metrics;
+        while(um) {
+                if (!uwsgi_strncmp(um->name, um->name_len, name, len)) {
+                        return um;
+                }
+                um = um->next;
+        }
+
+        return NULL;
 }
 
 struct uwsgi_metric_child *uwsgi_metric_add_child(struct uwsgi_metric *parent, struct uwsgi_metric *child) {
@@ -443,10 +458,22 @@ struct uwsgi_metric_child *uwsgi_metric_add_child(struct uwsgi_metric *parent, s
 	return umc;
 }
 
-struct uwsgi_metric *uwsgi_metric_find_by_oid(char *oid) {
+static struct uwsgi_metric *uwsgi_metric_find_by_oid(char *oid) {
         struct uwsgi_metric *um = uwsgi.metrics;
         while(um) {
                 if (um->oid && !strcmp(um->oid, oid)) {
+                        return um;
+                }
+                um = um->next;
+        }
+
+        return NULL;
+}
+
+static struct uwsgi_metric *uwsgi_metric_find_by_oidn(char *oid, size_t len) {
+        struct uwsgi_metric *um = uwsgi.metrics;
+        while(um) {
+                if (um->oid && !uwsgi_strncmp(um->oid, um->oid_len, oid, len)) {
                         return um;
                 }
                 um = um->next;
@@ -535,6 +562,27 @@ int64_t uwsgi_metric_get(char *name, char *oid) {
 	// unlock
 	uwsgi_rwunlock(uwsgi.metrics_lock);
 	return ret;
+}
+
+int64_t uwsgi_metric_getn(char *name, size_t nlen, char *oid, size_t olen) {
+        if (!uwsgi.has_metrics) return 0;
+        int64_t ret = 0;
+        struct uwsgi_metric *um = NULL;
+        if (name) {
+                um = uwsgi_metric_find_by_namen(name, nlen);
+        }
+        else if (oid) {
+                um = uwsgi_metric_find_by_oidn(oid, olen);
+        }
+        if (!um) return 0;
+
+        // now (in rlocked context) we get the value from
+        // the map
+        uwsgi_rlock(uwsgi.metrics_lock);
+        ret = um->initial_value+*um->value;
+        // unlock
+        uwsgi_rwunlock(uwsgi.metrics_lock);
+        return ret;
 }
 
 #define uwsgi_metric_name(f, n) if (snprintf(buf, 4096, f, n) <= 1) { uwsgi_log("unable to register metric name %s\n", f); exit(1);}

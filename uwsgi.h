@@ -4422,6 +4422,7 @@ struct uwsgi_metric {
         char *oid;
 
 	size_t name_len;
+	size_t oid_len;
 
         // pre-computed snmp representation
         char *asn;
@@ -4482,6 +4483,7 @@ int uwsgi_metric_dec(char *, char *, int64_t);
 int uwsgi_metric_mul(char *, char *, int64_t);
 int uwsgi_metric_div(char *, char *, int64_t);
 int64_t uwsgi_metric_get(char *, char *);
+int64_t uwsgi_metric_getn(char *, size_t, char *, size_t);
 
 #ifdef __cplusplus
 }
