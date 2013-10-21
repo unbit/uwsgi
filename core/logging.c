@@ -980,6 +980,12 @@ void uwsgi_logit_lf(struct wsgi_request *wsgi_req) {
 				uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = 0;
 			}
 		}
+		// metric
+		else if (logchunk->type == 4) {
+			int64_t metric = uwsgi_metric_get(logchunk->ptr, NULL);
+			uwsgi.logvectors[wsgi_req->async_id][pos].iov_base = uwsgi_64bit2str(metric);
+			uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = strlen(uwsgi.logvectors[wsgi_req->async_id][pos].iov_base);
+		}
 
 		if (uwsgi.logvectors[wsgi_req->async_id][pos].iov_len == 0 && logchunk->type != 0) {
 			uwsgi.logvectors[wsgi_req->async_id][pos].iov_base = (char *) empty_var;
@@ -1231,6 +1237,7 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 	   1 -> offsetof variable
 	   2 -> logvar
 	   3 -> func
+	   4 -> metric
 	 */
 
 	logchunk->type = variable;
@@ -1395,6 +1402,11 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 		else if (!uwsgi_strncmp(ptr, len, "headers", 7)) {
 			logchunk->type = 3;
 			logchunk->func = uwsgi_lf_headers;
+			logchunk->free = 1;
+		}
+		else if (!uwsgi_starts_with(ptr, len, "metric.", 7)) {
+			logchunk->type = 4;
+			logchunk->ptr = uwsgi_concat2n(ptr+7, len - 7, "", 0);
 			logchunk->free = 1;
 		}
 		// logvar
