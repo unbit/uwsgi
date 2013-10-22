@@ -16,6 +16,22 @@ it exports values exposed by the metric subsystem
 
 extern struct uwsgi_server uwsgi;
 
+static char *zabbix_template = NULL;
+
+static void uwsgi_opt_zabbix_template(char *opt, char *value, void *none) {
+	if (value) {
+		zabbix_template = value;
+	}
+	else {
+		zabbix_template = "";
+	}
+}
+
+static struct uwsgi_option zabbix_options[] = {
+	{"zabbix-template", optional_argument, 0, "print (or store to a file) the zabbix template for the current metrics setup", uwsgi_opt_zabbix_template, NULL, UWSGI_OPT_METRICS},
+        {0, 0, 0, 0, 0, 0, 0},
+};
+
 // configuration of a zabbix node
 struct zabbix_node {
 	char *addr;
@@ -118,9 +134,65 @@ static void stats_pusher_zabbix_init(void) {
 	usp->raw = 1;
 }
 
+static void zabbix_template_print() {
+	if (!zabbix_template) return;
+
+	int fd = 1 ;
+
+	if (zabbix_template[0] != 0) {
+		fd = open(zabbix_template, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP);
+		if (fd < 0) {
+			uwsgi_error_open(zabbix_template);
+			exit(1);
+		}
+	}
+
+	struct uwsgi_metric *um = uwsgi.metrics;
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	if (uwsgi_buffer_append(ub,"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n", 39)) goto error;
+	if (uwsgi_buffer_append(ub,"<zabbix_export>\n", 16)) goto error;
+	if (uwsgi_buffer_append(ub,"<version>2.0</version><groups><group><name>uWSGI</name></group></groups>\n", 73)) goto error;
+	if (uwsgi_buffer_append(ub,"\t<templates><template><template>uWSGI metrics</template><name>uWSGI metrics</name>\n", 83)) goto error;
+	if (uwsgi_buffer_append(ub,"\t<groups><group><name>uWSGI</name></group></groups>\n", 52)) goto error;
+	if (uwsgi_buffer_append(ub,"\t<items>\n", 9)) goto error;
+	while(um) {
+		if (uwsgi_buffer_append(ub,"\t\t<item>\n", 9)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<name>", 9)) goto error;
+		if (uwsgi_buffer_append(ub, um->name, um->name_len)) goto error;
+		if (uwsgi_buffer_append(ub,"</name>\n", 8)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<type>2</type>\n", 18)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<key>", 8)) goto error;
+		if (uwsgi_buffer_append(ub, um->name, um->name_len)) goto error;
+		if (uwsgi_buffer_append(ub,"</key>\n", 7)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<value_type>3</value_type>\n", 30)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t</item>\n", 10)) goto error;
+		um = um->next;
+	}
+	if (uwsgi_buffer_append(ub,"\t</items></template></templates>\n", 33)) goto error;
+	if (uwsgi_buffer_append(ub,"</zabbix_export>\n", 17)) goto error;
+
+	if (write(fd, ub->buf, ub->pos) != (ssize_t) ub->pos) {
+		uwsgi_error("zabbix_template_print()/wrtie()");
+		exit(1);
+	}
+
+	uwsgi_buffer_destroy(ub);
+	if (zabbix_template[0] != 0) {
+		uwsgi_log("zabbix template written to %s\n", zabbix_template);
+		close(fd);
+	}
+	return;
+error:
+	uwsgi_buffer_destroy(ub);
+	uwsgi_log("error generating zabbix template\n");
+	exit(1);
+}
+
 struct uwsgi_plugin zabbix_plugin = {
 
         .name = "zabbix",
+	.options = zabbix_options,
         .on_load = stats_pusher_zabbix_init,
+	.preinit_apps = zabbix_template_print,
 };
 
