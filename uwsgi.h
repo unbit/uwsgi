@@ -2601,6 +2601,13 @@ struct uwsgi_signal_entry {
 	void *handler;
 };
 
+/*
+they are here for backwards compatibility
+*/
+#define SNMP_COUNTER32 0x41
+#define SNMP_GAUGE 0x42
+#define SNMP_COUNTER64 0x46
+
 struct uwsgi_snmp_custom_value {
 	uint8_t type;
 	uint64_t val;
@@ -2655,10 +2662,6 @@ struct uwsgi_shared {
 	char snmp_community[72 + 1];
 	struct uwsgi_snmp_server_value snmp_gvalue[100];
 	struct uwsgi_snmp_custom_value snmp_value[100];
-
-#define SNMP_COUNTER32 0x41
-#define SNMP_GAUGE 0x42
-#define SNMP_COUNTER64 0x46
 
 	int worker_signal_pipe[2];
 	int spooler_frequency;
@@ -4430,7 +4433,7 @@ struct uwsgi_metric {
 
         // pre-computed snmp representation
         char *asn;
-        size_t asn_size;
+        size_t asn_len;
 
         // ABSOLUTE/COUNTER/GAUGE
         uint8_t type;
@@ -4494,6 +4497,12 @@ void uwsgi_metrics_collectors_setup(void);
 struct uwsgi_metric *uwsgi_metric_find_by_name(char *);
 struct uwsgi_metric *uwsgi_metric_find_by_namen(char *, size_t);
 struct uwsgi_metric_child *uwsgi_metric_add_child(struct uwsgi_metric *, struct uwsgi_metric *);
+
+struct uwsgi_metric *uwsgi_metric_find_by_oid(char *);
+struct uwsgi_metric *uwsgi_metric_find_by_oidn(char *, size_t);
+struct uwsgi_metric *uwsgi_metric_find_by_asn(char *, size_t);
+
+int uwsgi_base128(struct uwsgi_buffer *, uint64_t, int);
 
 #ifdef __cplusplus
 }

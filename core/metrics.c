@@ -17,7 +17,6 @@ extern struct uwsgi_server uwsgi;
 		1.3.6.1.4.1.35156.17.3.1.1 = iso.org.dod.internet.private.enterprise.unbit.uwsgi.worker.1.requests
 		1.3.6.1.4.1.35156.17.3.1.1 = iso.org.dod.internet.private.enterprise.unbit.uwsgi.worker.1.requests
 		1.3.6.1.4.1.35156.17.3.1.2.1.1 = iso.org.dod.internet.private.enterprise.unbit.uwsgi.worker.1.core.1.requests
-		1.3.6.1.4.1.35156.17.4.1 = iso.org.dod.internet.private.enterprise.unbit.uwsgi.system.load_avg
 		...
 
 	each metric is a collected value with a specific frequency
@@ -245,6 +244,22 @@ found:
 	if (metric->oid) {
 		metric->oid_len = strlen(oid);
 		metric->oid = uwsgi_str(oid);
+		char *p, *ctx = NULL;
+		char *oid_tmp = uwsgi_str(metric->oid);
+		// slower but we save lot of memory
+		struct uwsgi_buffer *ub = uwsgi_buffer_new(1);
+                uwsgi_foreach_token(oid_tmp, ".", p, ctx) {
+			uint64_t l = strtoull(p, NULL, 10);	
+			if (uwsgi_base128(ub, l, 1)) {
+				uwsgi_log("unable to encode oid %s to asn/ber\n", metric->oid);
+				exit(1);
+			}
+		}
+		metric->asn = ub->buf;
+		metric->asn_len = ub->pos;
+		ub->buf = NULL;
+		uwsgi_buffer_destroy(ub);
+		free(oid_tmp);
 	}
 	metric->type = value_type;
 	metric->collector = uwsgi_metric_collector_by_name(collector);
@@ -513,7 +528,7 @@ struct uwsgi_metric_child *uwsgi_metric_add_child(struct uwsgi_metric *parent, s
 	return umc;
 }
 
-static struct uwsgi_metric *uwsgi_metric_find_by_oid(char *oid) {
+struct uwsgi_metric *uwsgi_metric_find_by_oid(char *oid) {
         struct uwsgi_metric *um = uwsgi.metrics;
         while(um) {
                 if (um->oid && !strcmp(um->oid, oid)) {
@@ -525,7 +540,7 @@ static struct uwsgi_metric *uwsgi_metric_find_by_oid(char *oid) {
         return NULL;
 }
 
-static struct uwsgi_metric *uwsgi_metric_find_by_oidn(char *oid, size_t len) {
+struct uwsgi_metric *uwsgi_metric_find_by_oidn(char *oid, size_t len) {
         struct uwsgi_metric *um = uwsgi.metrics;
         while(um) {
                 if (um->oid && !uwsgi_strncmp(um->oid, um->oid_len, oid, len)) {
@@ -536,6 +551,19 @@ static struct uwsgi_metric *uwsgi_metric_find_by_oidn(char *oid, size_t len) {
 
         return NULL;
 }
+
+struct uwsgi_metric *uwsgi_metric_find_by_asn(char *asn, size_t len) {
+        struct uwsgi_metric *um = uwsgi.metrics;
+        while(um) {
+                if (um->oid && um->asn && !uwsgi_strncmp(um->asn, um->asn_len, asn, len)) {
+                        return um;
+                }
+                um = um->next;
+        }
+
+        return NULL;
+}
+
 
 /*
 

@@ -32,24 +32,25 @@ void uwsgi_unblock_signal(int signum) {
 }
 
 void uwsgi_master_manage_udp(int udp_fd) {
+	char buf[4096];
 	struct sockaddr_in udp_client;
 	char udp_client_addr[16];
 	int i;
 
 	socklen_t udp_len = sizeof(udp_client);
-	ssize_t rlen = recvfrom(udp_fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
+	ssize_t rlen = recvfrom(udp_fd, buf, 4096, 0, (struct sockaddr *) &udp_client, &udp_len);
 
 	if (rlen < 0) {
-		uwsgi_error("recvfrom()");
+		uwsgi_error("uwsgi_master_manage_udp()/recvfrom()");
 	}
 	else if (rlen > 0) {
 
 		memset(udp_client_addr, 0, 16);
 		if (inet_ntop(AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
-			if (uwsgi.wsgi_req->buffer[0] == UWSGI_MODIFIER_MULTICAST_ANNOUNCE) {
+			if (buf[0] == UWSGI_MODIFIER_MULTICAST_ANNOUNCE) {
 			}
-			else if (uwsgi.wsgi_req->buffer[0] == 0x30 && uwsgi.snmp) {
-				manage_snmp(udp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
+			else if (buf[0] == 0x30 && uwsgi.snmp) {
+				manage_snmp(udp_fd, (uint8_t *) buf, rlen, &udp_client);
 			}
 			else {
 
@@ -57,7 +58,7 @@ void uwsgi_master_manage_udp(int udp_fd) {
 				int udp_managed = 0;
 				for (i = 0; i < 256; i++) {
 					if (uwsgi.p[i]->manage_udp) {
-						if (uwsgi.p[i]->manage_udp(udp_client_addr, udp_client.sin_port, uwsgi.wsgi_req->buffer, rlen)) {
+						if (uwsgi.p[i]->manage_udp(udp_client_addr, udp_client.sin_port, buf, rlen)) {
 							udp_managed = 1;
 							break;
 						}
@@ -66,12 +67,12 @@ void uwsgi_master_manage_udp(int udp_fd) {
 
 				// else a simple udp logger
 				if (!udp_managed) {
-					uwsgi_log("[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), (int) rlen, uwsgi.wsgi_req->buffer);
+					uwsgi_log("[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), (int) rlen, buf);
 				}
 			}
 		}
 		else {
-			uwsgi_error("inet_ntop()");
+			uwsgi_error("uwsgi_master_manage_udp()/inet_ntop()");
 		}
 
 	}

@@ -23,6 +23,7 @@ static uint64_t get_uwsgi_custom_snmp_value(uint64_t, uint8_t *);
 static uint8_t snmp_int_to_snmp(uint64_t, uint8_t, uint8_t *);
 
 static ssize_t build_snmp_response(uint8_t, uint8_t, uint8_t *, int, uint8_t *, uint8_t *, uint8_t *);
+static ssize_t build_snmp_metric_response(int64_t, uint8_t, uint8_t *, int, uint8_t *, uint8_t *, uint8_t *);
 
 void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_addr) {
 
@@ -71,7 +72,7 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 	uwsgi_debug("SNMP version: %d\n", version);
 #endif
 
-	// check for community string (this must be set from the python vm using uwsgi.snmp_community or with --snmp-community arg)
+	// check for community string (this must be set from the api using uwsgi.snmp_community or with --snmp-community arg)
 	if (*ptr != SNMP_STRING)
 		return;
 	ptr++;
@@ -196,7 +197,7 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 	ptr++;
 
 	oidlen = *ptr;
-	if (oidlen != 11)
+	if (oidlen < 11)
 		return;
 	ptr++;
 
@@ -208,21 +209,33 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 
 	oid_part[0] = *ptr;
 
-	if (oid_part[0] != 1 && oid_part[0] != 2)
-		return;
-	ptr++;
+	// old style SNMP metrics
+	if (oid_part[0] == 1 || oid_part[0] == 2) {
+		ptr++;
 
-	oid_part[1] = *ptr;
-	if (oid_part[1] < 1 || oid_part[1] > 100)
-		return;
-	ptr++;
+		oid_part[1] = *ptr;
+		if (oid_part[1] < 1 || oid_part[1] > 100)
+			return;
+		ptr++;
 
-	// check for null
-	if (memcmp((char *) ptr, "\x05\x00", 2))
-		return;
-	ptr += 2;
+		// check for null
+		if (memcmp((char *) ptr, "\x05\x00", 2))
+			return;
+		ptr += 2;
+		size = build_snmp_response(oid_part[0], oid_part[1], buffer, size, seq1, seq2, seq3);
+	}
+	// metrics subsystem
+	else {
+		size_t metric_asn_len = oidlen - 9;
+		char *metric_asn = (char *) ptr;
+		struct uwsgi_metric *um = uwsgi_metric_find_by_asn(metric_asn, metric_asn_len);
+		if (!um) return;
+		uwsgi_rlock(uwsgi.metrics_lock);
+		int64_t value = *um->value;
+		uwsgi_rwunlock(uwsgi.metrics_lock);
+		size = build_snmp_metric_response(value, um->type, buffer, size, seq1, seq2, seq3);
+	}
 
-	size = build_snmp_response(oid_part[0], oid_part[1], buffer, size, seq1, seq2, seq3);
 
 	if (size > 0) {
 		if (sendto(fd, buffer, size, 0, (struct sockaddr *) client_addr, sizeof(struct sockaddr_in)) < 0) {
@@ -303,6 +316,8 @@ static uint8_t snmp_int_to_snmp(uint64_t snmp_val, uint8_t oid_type, uint8_t * b
 	}
 	else {
 		tlen = 4;
+		int32_t val32 = (int32_t) snmp_val;
+		ptr = (uint8_t *) &val32;
 	}
 
 	buffer[0] = tlen;
@@ -349,6 +364,32 @@ static ssize_t build_snmp_response(uint8_t oid1, uint8_t oid2, uint8_t * buffer,
 	*seq3 += oid_sz;
 
 	return size + oid_sz;
+
+}
+
+static ssize_t build_snmp_metric_response(int64_t value, uint8_t type, uint8_t * buffer, int size, uint8_t * seq1, uint8_t * seq2, uint8_t * seq3) {
+        uint8_t oid_sz;
+
+	if (type == UWSGI_METRIC_GAUGE) {
+        	buffer[size - 2] = SNMP_GAUGE;
+        	oid_sz = snmp_int_to_snmp(value, SNMP_GAUGE, buffer + (size - 1));
+	}
+	else {
+		buffer[size - 2] = SNMP_COUNTER64;
+        	oid_sz = snmp_int_to_snmp(value, SNMP_COUNTER64, buffer + (size - 1));
+	}
+
+        if (oid_sz < 1)
+                return -1;
+
+        oid_sz--;
+
+        buffer[1] += oid_sz;
+        *seq1 += oid_sz;
+        *seq2 += oid_sz;
+        *seq3 += oid_sz;
+
+        return size + oid_sz;
 
 }
 

@@ -4245,3 +4245,17 @@ void uwsgi_exit(int status) {
 	// disable macro expansion
 	(exit) (status);
 }
+
+int uwsgi_base128(struct uwsgi_buffer *ub, uint64_t l, int first) {
+	if( l > 127 ) {
+		if (uwsgi_base128(ub, l/128, 0)) return -1;
+	}
+	l %= 128;
+	if(first) {
+		if (uwsgi_buffer_u8(ub, (uint8_t) l)) return -1;
+	}
+	else {
+		if (uwsgi_buffer_u8(ub, 0x80 | (uint8_t) l)) return -1;
+	}
+	return 0;
+}
