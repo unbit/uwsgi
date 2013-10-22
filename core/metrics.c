@@ -86,11 +86,20 @@ int64_t uwsgi_metric_collector_file(struct uwsgi_metric *metric) {
 	char *ptr = buf;
 	ssize_t i;
 	int pos = 0;
+	int found = 0;
 	for(i=0;i<rlen;i++) {
-		if (buf[i] == ' ' || buf[i] == '\t' || buf[i] == '\r' || buf[i] == 0 || buf[i] == '\n') {
-			if (pos == split_pos) goto found;
-			pos++;
-			ptr = buf + i;
+		if (!found) {
+			if (buf[i] == ' ' || buf[i] == '\t' || buf[i] == '\r' || buf[i] == 0 || buf[i] == '\n') {
+				if (pos == split_pos) goto found;
+				found = 1;
+			}
+		}
+		else {
+			if (!(buf[i] == ' ' || buf[i] == '\t' || buf[i] == '\r' || buf[i] == 0 || buf[i] == '\n')) {
+				found = 0;
+				ptr = buf + i;
+				pos++;
+			}
 		}
 	}
 
@@ -235,6 +244,7 @@ found:
 	metric->oid = oid;
 	if (metric->oid) {
 		metric->oid_len = strlen(oid);
+		metric->oid = uwsgi_str(oid);
 	}
 	metric->type = value_type;
 	metric->collector = uwsgi_metric_collector_by_name(collector);
@@ -389,9 +399,12 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	if (m_type) free(m_type);
 	if (m_collector) free(m_collector);
 	if (m_freq) free(m_freq);
+	/*
+	DO NOT FREE THEM
 	if (m_arg1) free(m_arg1);
 	if (m_arg2) free(m_arg2);
 	if (m_arg3) free(m_arg3);
+	*/
 	if (m_arg1n) free(m_arg1n);
 	if (m_arg2n) free(m_arg2n);
 	if (m_arg3n) free(m_arg3n);
