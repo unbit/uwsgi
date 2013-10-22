@@ -3169,6 +3169,111 @@ static PyMethodDef uwsgi_queue_methods[] = {
 	{NULL, NULL},
 };
 
+PyObject *py_uwsgi_metric_inc(PyObject * self, PyObject * args) {
+        char *key;
+        int64_t value = 1;
+        if (!PyArg_ParseTuple(args, "s|l:metric_inc", &key, &value)) return NULL;
+
+        UWSGI_RELEASE_GIL
+        if (uwsgi_metric_inc(key, NULL, value)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+        UWSGI_GET_GIL
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
+PyObject *py_uwsgi_metric_dec(PyObject * self, PyObject * args) {
+        char *key;
+        int64_t value = 1;
+        if (!PyArg_ParseTuple(args, "s|l:metric_dec", &key, &value)) return NULL;
+
+        UWSGI_RELEASE_GIL
+        if (uwsgi_metric_dec(key, NULL, value)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+        UWSGI_GET_GIL
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
+PyObject *py_uwsgi_metric_mul(PyObject * self, PyObject * args) {
+        char *key;
+        int64_t value = 1;
+        if (!PyArg_ParseTuple(args, "s|l:metric_mul", &key, &value)) return NULL;
+
+        UWSGI_RELEASE_GIL
+        if (uwsgi_metric_mul(key, NULL, value)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+        UWSGI_GET_GIL
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
+PyObject *py_uwsgi_metric_div(PyObject * self, PyObject * args) {
+        char *key;
+        int64_t value = 1;
+        if (!PyArg_ParseTuple(args, "s|l:metric_div", &key, &value)) return NULL;
+
+        UWSGI_RELEASE_GIL
+        if (uwsgi_metric_div(key, NULL, value)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+        UWSGI_GET_GIL
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
+PyObject *py_uwsgi_metric_set(PyObject * self, PyObject * args) {
+        char *key;
+        int64_t value = 1;
+        if (!PyArg_ParseTuple(args, "s|l:metric_set", &key, &value)) return NULL;
+        
+        UWSGI_RELEASE_GIL
+        if (uwsgi_metric_set(key, NULL, value)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+        UWSGI_GET_GIL
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
+PyObject *py_uwsgi_metric_get(PyObject * self, PyObject * args) {
+        char *key;
+        if (!PyArg_ParseTuple(args, "s:metric_get", &key)) return NULL;
+
+        UWSGI_RELEASE_GIL
+        int64_t value = uwsgi_metric_get(key, NULL);
+        UWSGI_GET_GIL
+        return PyLong_FromLongLong(value);
+}
+
+
+static PyMethodDef uwsgi_metrics_methods[] = {
+	{"metric_inc", py_uwsgi_metric_inc, METH_VARARGS, ""},
+	{"metric_dec", py_uwsgi_metric_dec, METH_VARARGS, ""},
+	{"metric_mul", py_uwsgi_metric_mul, METH_VARARGS, ""},
+	{"metric_div", py_uwsgi_metric_div, METH_VARARGS, ""},
+	{"metric_get", py_uwsgi_metric_get, METH_VARARGS, ""},
+	{"metric_set", py_uwsgi_metric_set, METH_VARARGS, ""},
+	{NULL, NULL},
+};
 
 
 void init_uwsgi_module_spooler(PyObject * current_uwsgi_module) {
@@ -3203,6 +3308,12 @@ void init_uwsgi_module_advanced(PyObject * current_uwsgi_module) {
 		PyDict_SetItemString(uwsgi_module_dict, uwsgi_function->ml_name, func);
 		Py_DECREF(func);
 	}
+
+	for (uwsgi_function = uwsgi_metrics_methods; uwsgi_function->ml_name != NULL; uwsgi_function++) {
+                PyObject *func = PyCFunction_New(uwsgi_function, NULL);
+                PyDict_SetItemString(uwsgi_module_dict, uwsgi_function->ml_name, func);
+                Py_DECREF(func);
+        }
 
 }
 
