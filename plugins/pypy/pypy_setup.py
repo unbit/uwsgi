@@ -235,6 +235,13 @@ int uwsgi_ready_fd(struct wsgi_request *);
 
 void set_user_harakiri(int);
 
+int uwsgi_metric_set(char *, char *, int64_t);
+int uwsgi_metric_inc(char *, char *, int64_t);
+int uwsgi_metric_dec(char *, char *, int64_t);
+int uwsgi_metric_mul(char *, char *, int64_t);
+int uwsgi_metric_div(char *, char *, int64_t);
+int64_t uwsgi_metric_get(char *, char *);
+
 %s
 
 ''' % ('\n'.join(uwsgi_cdef), hooks)
@@ -534,6 +541,12 @@ uwsgi.call = uwsgi_pypy_call
     
 uwsgi.signal = lambda x: lib.uwsgi_signal_send(lib.uwsgi.signal_socket, x)
 
+uwsgi.metric_get = lambda x: lib.uwsgi_metric_get(x, ffi.NULL)
+uwsgi.metric_set = lambda x, y: lib.uwsgi_metric_set(x, ffi.NULL, y)
+uwsgi.metric_inc = lambda x, y=1: lib.uwsgi_metric_inc(x, ffi.NULL, y)
+uwsgi.metric_dec = lambda x, y=1: lib.uwsgi_metric_dec(x, ffi.NULL, y)
+uwsgi.metric_mul = lambda x, y=1: lib.uwsgi_metric_mul(x, ffi.NULL, y)
+uwsgi.metric_div = lambda x, y=1: lib.uwsgi_metric_div(x, ffi.NULL, y)
 
 def uwsgi_pypy_uwsgi_cache_get(key, cache=ffi.NULL):
     vallen = ffi.new('uint64_t*')
