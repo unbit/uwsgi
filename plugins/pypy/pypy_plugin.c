@@ -313,6 +313,7 @@ static void uwsgi_pypy_onload() {
 #ifdef UWSGI_PYPY_HOME
 	upypy.home = UWSGI_PYPY_HOME;
 #endif
+	uwsgi.has_threads = 1;
 }
 
 static int uwsgi_pypy_mule(char *opt) {
