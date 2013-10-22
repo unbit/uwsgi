@@ -1618,7 +1618,7 @@ void uwsgi_opt_load_config(char *, char *, void *);
 
 #define exit(x) uwsgi_exit(x)
 
-struct uwsgi_metrics;
+struct uwsgi_metric;
 
 struct uwsgi_server {
 
@@ -2572,6 +2572,7 @@ struct uwsgi_server {
 	uint64_t chunked_input_limit;
 
 	struct uwsgi_metric *metrics;
+	struct uwsgi_metric_collector *metric_collectors;
 	int has_metrics;
 	char *metrics_dir;
 	int metrics_dir_restore;
@@ -4409,15 +4410,16 @@ enum {
 	UWSGI_METRIC_COUNTER,
 	UWSGI_METRIC_GAUGE,
 	UWSGI_METRIC_ABSOLUTE,
-	UWSGI_METRIC_PTR,
-	UWSGI_METRIC_FUNC,
-	UWSGI_METRIC_FILE,
-	UWSGI_METRIC_MANUAL,
-	UWSGI_METRIC_SUM,
 	UWSGI_METRIC_ALIAS,
 };
 
 struct uwsgi_metric_child;
+
+struct uwsgi_metric_collector {
+	char *name;
+	int64_t (*func)(struct uwsgi_metric *);
+	struct uwsgi_metric_collector *next;
+};
 
 struct uwsgi_metric {
         char *name;
@@ -4433,10 +4435,7 @@ struct uwsgi_metric {
         // ABSOLUTE/COUNTER/GAUGE
         uint8_t type;
 
-        // MANUAL/PTR/FUNC/FILE
-        uint8_t collect_way;
-
-        // this could be taken from a file storage and must laways be added to value when reporting (default 0)
+        // this could be taken from a file storage and must be always added to value by the collector (default 0)
         int64_t initial_value;
         // the value of the metric (point to a shared memory area)
         int64_t *value;
@@ -4449,7 +4448,7 @@ struct uwsgi_metric {
         time_t last_update;
 
         // run this function to collect the value
-        int64_t (*collector)(struct uwsgi_metric *);
+	struct uwsgi_metric_collector *collector;	
         // take the value from this pointer to a 64bit value
         int64_t *ptr;
         // get the initial value from this file, and store each update in it
@@ -4458,13 +4457,14 @@ struct uwsgi_metric {
 	// pointer to memory mapped storage
 	char *map;
 
+	// arguments for collectors
 	char *arg1;
 	char *arg2;
 	char *arg3;
 
-	int64_t multiplier;
-
-	int split;
+	int64_t arg1n;
+	int64_t arg2n;
+	int64_t arg3n;
 
 	struct uwsgi_metric_child *children;
 
@@ -4486,6 +4486,14 @@ int uwsgi_metric_mul(char *, char *, int64_t);
 int uwsgi_metric_div(char *, char *, int64_t);
 int64_t uwsgi_metric_get(char *, char *);
 int64_t uwsgi_metric_getn(char *, size_t, char *, size_t);
+
+struct uwsgi_metric_collector *uwsgi_register_metric_collector(char *, int64_t (*)(struct uwsgi_metric *));
+struct uwsgi_metric *uwsgi_register_metric(char *, char *, uint8_t, char *, void *, uint32_t, void *);
+
+void uwsgi_metrics_collectors_setup(void);
+struct uwsgi_metric *uwsgi_metric_find_by_name(char *);
+struct uwsgi_metric *uwsgi_metric_find_by_namen(char *, size_t);
+struct uwsgi_metric_child *uwsgi_metric_add_child(struct uwsgi_metric *, struct uwsgi_metric *);
 
 #ifdef __cplusplus
 }

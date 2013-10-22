@@ -2017,6 +2017,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_register_base_hooks();
 	uwsgi_log_encoders_register_embedded();
 
+	// register base metrics (so plugins can override them)
+	uwsgi_metrics_collectors_setup();
+
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS
 		// now a bit of magic, if the executable basename contains a 'uwsgi_' string,

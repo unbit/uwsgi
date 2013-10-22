@@ -6,7 +6,7 @@ extern struct uwsgi_server uwsgi;
 
 	uWSGI metrics subsystem
 
-	a metric is a node in a tree reachable via a numeric id (OID, in SNMP way) or a simple string:
+	a metric is a node in a linked list reachable via a numeric id (OID, in SNMP way) or a simple string:
 
 	uwsgi.worker.1.requests
 	uwsgi.custom.foo.bar
@@ -20,25 +20,21 @@ extern struct uwsgi_server uwsgi;
 		1.3.6.1.4.1.35156.17.4.1 = iso.org.dod.internet.private.enterprise.unbit.uwsgi.system.load_avg
 		...
 
-	each metric is a collected value with a specific frequency (a frequency of zero means the value is re-computed every time)
+	each metric is a collected value with a specific frequency
 	metrics are meant for numeric values signed 64 bit, but they can be exposed as:
 
 	gauge
 	counter
 	absolute
 
-	as signed 64bit numbers
-
 	metrics are managed by a dedicated thread (in the master) holding a linked list of all the items. For few metrics it is a good (read: simple) approach,
-	but you can cache lookups in a uWSGI cache for really big list.
+	but you can cache lookups in a uWSGI cache for really big list. (TODO)
 
-	struct uwsgi_metric *um = uwsgi_register_metric("worker.1.requests", "3.1.1", UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[1].requests, 0, NULL);
-	prototype: struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_type, uint8_t collect_way, void *ptr, uint32_t freq, void *custom);
+	struct uwsgi_metric *um = uwsgi_register_metric("worker.1.requests", "3.1.1", UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[1].requests, 0, NULL);
+	prototype: struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_type, char *collector, void *ptr, uint32_t freq, void *custom);
 
 	value_type = UWSGI_METRIC_COUNTER/UWSGI_METRIC_GAUGE/UWSGI_METRIC_ABSOLUTE
-	collect_way = UWSGI_METRIC_PTR -> get from a pointer / UWSGI_METRIC_FUNC -> get from a func with the prototype int64_t func(struct uwsgi_metric *); / UWSGI_METRIC_FILE -> get the value from a file, ptr is the filename
-
-	when freq is zero the value is recomputed whenever requested, otherwise the metrics thread compute it every time the frequency is elapsed and caches it
+	collect_way = "ptr" -> get from a pointer / UWSGI_METRIC_FUNC -> get from a func with the prototype int64_t func(struct uwsgi_metric *); / UWSGI_METRIC_FILE -> get the value from a file, ptr is the filename
 
 	For some metric (or all ?) you may want to hold a value even after a server reload. For such a reason you can specify a directory on wich the server (on startup/restart) will look for
 	a file named like the metric and will read the initial value from it. It may look an old-fashioned and quite inefficient way, but it is the most versatile for a sysadmin (allowing him/her
@@ -56,8 +52,7 @@ extern struct uwsgi_server uwsgi;
 
 	and obviously they can get values:
 
-	uwsgi.metric_get("worker.1.requests", no_cache|force=False)
-	if the second parameter is True, the value is recomputed (but if it is a metric with a cache, the cache value will not be updated accordingly, this is the job of the metric thread)
+	uwsgi.metric_get("worker.1.requests")
 
 	Updating metrics from your app MUST BE ATOMIC, for such a reason a uWSGI rwlock is initialized on startup and used for each operation (simple reading from a metric does not require locking)
 
@@ -72,7 +67,11 @@ extern struct uwsgi_server uwsgi;
 */
 
 
-int64_t uwsgi_metric_get_from_file(char *filename, int split_pos) {
+int64_t uwsgi_metric_collector_file(struct uwsgi_metric *metric) {
+	char *filename = metric->arg1;
+	if (!filename) return 0;
+	int split_pos = metric->arg1n;
+
 	char buf[4096];
 	int64_t ret = 0;
 	int fd = open(filename, O_RDONLY);
@@ -184,7 +183,18 @@ void uwsgi_metric_append(struct uwsgi_metric *um) {
         uwsgi.metrics_cnt++;
 }
 
-struct uwsgi_metric *uwsgi_register_metric_do(char *name, char *oid, uint8_t value_type, uint8_t collect_way, void *ptr, uint32_t freq, void *custom, int do_not_push) {
+struct uwsgi_metric_collector *uwsgi_metric_collector_by_name(char *name) {
+	if (!name) return NULL;
+	struct uwsgi_metric_collector *umc = uwsgi.metric_collectors;
+	while(umc) {
+		if (!strcmp(name, umc->name)) return umc;
+		umc = umc->next;
+	}
+	uwsgi_log("unable to find metric collector \"%s\"\n", name);
+	exit(1);
+}
+
+struct uwsgi_metric *uwsgi_register_metric_do(char *name, char *oid, uint8_t value_type, char *collector, void *ptr, uint32_t freq, void *custom, int do_not_push) {
 	struct uwsgi_metric *old_metric=NULL,*metric=uwsgi.metrics;
 
 	if (!uwsgi_validate_metric_name(name)) {
@@ -227,7 +237,7 @@ found:
 		metric->oid_len = strlen(oid);
 	}
 	metric->type = value_type;
-	metric->collect_way = collect_way;
+	metric->collector = uwsgi_metric_collector_by_name(collector);
 	metric->ptr = ptr;
 	metric->freq = freq;
 	if (!metric->freq) metric->freq = 1;
@@ -266,8 +276,8 @@ found:
 	return metric;
 }
 
-struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_type, uint8_t collect_way, void *ptr, uint32_t freq, void *custom) {
-	return uwsgi_register_metric_do(name, oid, value_type, collect_way, ptr, freq, custom, 0);
+struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_type, char *collector, void *ptr, uint32_t freq, void *custom) {
+	return uwsgi_register_metric_do(name, oid, value_type, collector, ptr, freq, custom, 0);
 }
 
 struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
@@ -279,7 +289,12 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	char *m_arg1 = NULL;
 	char *m_arg2 = NULL;
 	char *m_arg3 = NULL;
+	char *m_arg1n = NULL;
+	char *m_arg2n = NULL;
+	char *m_arg3n = NULL;
 	char *m_initial_value = NULL;
+	char *m_children = NULL;
+	char *m_alias = NULL;
 
 	if (!strchr(arg, '=')) {
 		m_name = uwsgi_str(arg);
@@ -294,6 +309,11 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 		"arg1", &m_arg1,
 		"arg2", &m_arg2,
 		"arg3", &m_arg3,
+		"arg1n", &m_arg1n,
+		"arg2n", &m_arg2n,
+		"arg3n", &m_arg3n,
+		"children", &m_children,
+		"alias", &m_alias,
 		NULL)) {
 		uwsgi_log("invalid metric keyval syntax: %s\n", arg);
 		exit(1);
@@ -305,7 +325,7 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	}
 
 	uint8_t type = UWSGI_METRIC_COUNTER;
-	uint8_t collector = UWSGI_METRIC_MANUAL;
+	char *collector = NULL;
 	uint32_t freq = 0;
 	int64_t initial_value = 0;
 
@@ -316,13 +336,13 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 		else if (!strcmp(m_type, "absolute")) {
 			type = UWSGI_METRIC_ABSOLUTE;
 		}
+		else if (!strcmp(m_type, "alias")) {
+			type = UWSGI_METRIC_ALIAS;
+		}
 	}
 
 	if (m_collector) {
-		if (!strcmp(m_collector, "file")) {
-			uwsgi_log("FILE\n");
-			collector = UWSGI_METRIC_FILE;	
-		}
+		collector = m_collector;	
 	}
 
 	if (m_freq) freq = strtoul(m_freq, NULL, 10);
@@ -335,6 +355,35 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	struct uwsgi_metric* um =  uwsgi_register_metric(m_name, m_oid, type, collector, NULL, freq, NULL);
 	um->initial_value = initial_value;
 
+	if (m_children) {
+		char *p, *ctx = NULL;
+        	uwsgi_foreach_token(m_children, ";", p, ctx) {
+			struct uwsgi_metric *child = uwsgi_metric_find_by_name(p);
+			if (!child) {
+				uwsgi_log("unable to find metric \"%s\"\n", p);
+				exit(1);
+			}
+			uwsgi_metric_add_child(um, child);
+                }
+        }
+
+	if (m_alias) {
+		struct uwsgi_metric *alias = uwsgi_metric_find_by_name(m_alias);
+		if (!alias) {
+			uwsgi_log("unable to find metric \"%s\"\n", m_alias);
+                        exit(1);
+		}
+		um->ptr = (void *) alias;
+	}
+
+	um->arg1 = m_arg1;
+	um->arg2 = m_arg2;
+	um->arg3 = m_arg3;
+
+	if (m_arg1n) um->arg1n = strtoll(m_arg1n, NULL, 10);
+	if (m_arg2n) um->arg2n = strtoll(m_arg2n, NULL, 10);
+	if (m_arg3n) um->arg3n = strtoll(m_arg3n, NULL, 10);
+
 	free(m_name);
 	if (m_oid) free(m_oid);
 	if (m_type) free(m_type);
@@ -343,20 +392,13 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	if (m_arg1) free(m_arg1);
 	if (m_arg2) free(m_arg2);
 	if (m_arg3) free(m_arg3);
+	if (m_arg1n) free(m_arg1n);
+	if (m_arg2n) free(m_arg2n);
+	if (m_arg3n) free(m_arg3n);
 	if (m_initial_value) free(m_initial_value);
+	if (m_children) free(m_children);
+	if (m_alias) free(m_alias);
 	return um;
-}
-
-static int64_t uwsgi_metric_sum(struct uwsgi_metric *um) {
-	int64_t total = 0;
-	struct uwsgi_metric_child *umc = um->children;
-	while(umc) {
-		struct uwsgi_metric *c = umc->um;
-		total += *c->value;
-		umc = umc->next;
-	}
-
-	return total;
 }
 
 static void *uwsgi_metrics_loop(void *arg) {
@@ -383,23 +425,9 @@ static void *uwsgi_metrics_loop(void *arg) {
 			uwsgi_wlock(uwsgi.metrics_lock);
 			int64_t value = *metric->value;
 			// gather the new value based on the type of collection strategy
-			switch(metric->collect_way) {
-				case UWSGI_METRIC_PTR:
-					*metric->value = metric->initial_value + *metric->ptr;
-					break;
-				// aliases are NOOP
-				case UWSGI_METRIC_ALIAS:
-					break;
-				case UWSGI_METRIC_SUM:
-					*metric->value = metric->initial_value + uwsgi_metric_sum(metric);
-					break;
-				case UWSGI_METRIC_FILE:
-					uwsgi_log("reading from file\n");
-					(*metric->value)++;
-					break;
-				default:
-					break;
-			};
+			if (metric->collector) {
+				*metric->value = metric->initial_value + metric->collector->func(metric);
+			}
 			int64_t new_value = *metric->value;
 			uwsgi_rwunlock(uwsgi.metrics_lock);
 
@@ -430,7 +458,7 @@ void uwsgi_metrics_start_collector() {
 	uwsgi_log("metrics collector thread started\n");
 }
 
-static struct uwsgi_metric *uwsgi_metric_find_by_name(char *name) {
+struct uwsgi_metric *uwsgi_metric_find_by_name(char *name) {
 	struct uwsgi_metric *um = uwsgi.metrics;
 	while(um) {
 		if (!strcmp(um->name, name)) {
@@ -442,7 +470,7 @@ static struct uwsgi_metric *uwsgi_metric_find_by_name(char *name) {
 	return NULL;
 }
 
-static struct uwsgi_metric *uwsgi_metric_find_by_namen(char *name, size_t len) {
+struct uwsgi_metric *uwsgi_metric_find_by_namen(char *name, size_t len) {
         struct uwsgi_metric *um = uwsgi.metrics;
         while(um) {
                 if (!uwsgi_strncmp(um->name, um->name_len, name, len)) {
@@ -517,7 +545,7 @@ static struct uwsgi_metric *uwsgi_metric_find_by_oidn(char *oid, size_t len) {
                 um = uwsgi_metric_find_by_oid(oid);\
         }\
         if (!um) return -1;\
-	if (um->collect_way != UWSGI_METRIC_MANUAL) return -1;\
+	if (um->collector || um->type == UWSGI_METRIC_ALIAS) return -1;\
 	uwsgi_rlock(uwsgi.metrics_lock)
 
 int uwsgi_metric_set(char *name, char *oid, int64_t value) {
@@ -628,54 +656,54 @@ void uwsgi_setup_metrics() {
 	// the 'core' namespace
 
 	// parents are appended only at the end
-	struct uwsgi_metric *total_tx = uwsgi_register_metric_do("core.total_tx", "5.100", UWSGI_METRIC_COUNTER, UWSGI_METRIC_SUM, NULL, 0, NULL, 1);
-	struct uwsgi_metric *total_rss = uwsgi_register_metric_do("core.total_rss", "5.101", UWSGI_METRIC_GAUGE, UWSGI_METRIC_SUM, NULL, 0, NULL, 1);
-	struct uwsgi_metric *total_vsz = uwsgi_register_metric_do("core.total_vsz", "5.102", UWSGI_METRIC_GAUGE, UWSGI_METRIC_SUM, NULL, 0, NULL, 1);
+	struct uwsgi_metric *total_tx = uwsgi_register_metric_do("core.total_tx", "5.100", UWSGI_METRIC_COUNTER, "sum", NULL, 0, NULL, 1);
+	struct uwsgi_metric *total_rss = uwsgi_register_metric_do("core.total_rss", "5.101", UWSGI_METRIC_GAUGE, "sum", NULL, 0, NULL, 1);
+	struct uwsgi_metric *total_vsz = uwsgi_register_metric_do("core.total_vsz", "5.102", UWSGI_METRIC_GAUGE, "sum", NULL, 0, NULL, 1);
 
 	// create the 'worker' namespace
 	int i;
 	for(i=0;i<=uwsgi.numproc;i++) {
 
 		uwsgi_metric_name("worker.%d.requests", i) ; uwsgi_metric_oid("3.%d.1", i);
-		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].requests, 0, NULL);
+		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].requests, 0, NULL);
 
 		uwsgi_metric_name("worker.%d.delta_requests", i) ; uwsgi_metric_oid("3.%d.2", i);
-		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_ABSOLUTE, UWSGI_METRIC_PTR, &uwsgi.workers[i].delta_requests, 0, NULL);
+		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_ABSOLUTE, "ptr", &uwsgi.workers[i].delta_requests, 0, NULL);
 
 		uwsgi_metric_name("worker.%d.avg_response_time", i) ; uwsgi_metric_oid("3.%d.8", i);
-		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, UWSGI_METRIC_PTR, &uwsgi.workers[i].avg_response_time, 0, NULL);
+		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].avg_response_time, 0, NULL);
 
 		uwsgi_metric_name("worker.%d.total_rx", i) ; uwsgi_metric_oid("3.%d.9", i);
-		struct uwsgi_metric *tx = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].tx, 0, NULL);
+		struct uwsgi_metric *tx = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].tx, 0, NULL);
 		uwsgi_metric_add_child(total_tx, tx);
 
 		uwsgi_metric_name("worker.%d.rss_size", i) ; uwsgi_metric_oid("3.%d.11", i);
-		struct uwsgi_metric *rss = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, UWSGI_METRIC_PTR, &uwsgi.workers[i].rss_size, 0, NULL);
+		struct uwsgi_metric *rss = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].rss_size, 0, NULL);
 		uwsgi_metric_add_child(total_rss, rss);
 
 		uwsgi_metric_name("worker.%d.vsz_size", i) ; uwsgi_metric_oid("3.%d.12", i);
-                struct uwsgi_metric *vsz = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, UWSGI_METRIC_PTR, &uwsgi.workers[i].vsz_size, 0, NULL);
+                struct uwsgi_metric *vsz = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].vsz_size, 0, NULL);
                 uwsgi_metric_add_child(total_vsz, vsz);
 
 		int j;
 		for(j=0;j<uwsgi.cores;j++) {
 			uwsgi_metric_name2("worker.%d.core.%d.requests", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.1", i, j);
-			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].requests, 0, NULL);
+			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].cores[j].requests, 0, NULL);
 
 			uwsgi_metric_name2("worker.%d.core.%d.write_errors", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.3", i, j);
-			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].write_errors, 0, NULL);
+			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].cores[j].write_errors, 0, NULL);
 
 			uwsgi_metric_name2("worker.%d.core.%d.routed_requests", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.4", i, j);
-			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].routed_requests, 0, NULL);
+			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].cores[j].routed_requests, 0, NULL);
 
 			uwsgi_metric_name2("worker.%d.core.%d.static_requests", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.5", i, j);
-			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].static_requests, 0, NULL);
+			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].cores[j].static_requests, 0, NULL);
 
 			uwsgi_metric_name2("worker.%d.core.%d.offloaded_requests", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.6", i, j);
-			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].offloaded_requests, 0, NULL);
+			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].cores[j].offloaded_requests, 0, NULL);
 
 			uwsgi_metric_name2("worker.%d.core.%d.exceptions", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.7", i, j);
-			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, UWSGI_METRIC_PTR, &uwsgi.workers[i].cores[j].exceptions, 0, NULL);
+			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].cores[j].exceptions, 0, NULL);
 		}
 	}
 
@@ -689,14 +717,14 @@ void uwsgi_setup_metrics() {
 	int pos = 0;
 	while(uwsgi_sock) {
 		uwsgi_metric_name("socket.%d.listen_queue", pos) ; uwsgi_metric_oid("7.%d.1", pos);
-                uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, UWSGI_METRIC_PTR, &uwsgi_sock->queue, 0, NULL);
+                uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi_sock->queue, 0, NULL);
 		pos++;
 		uwsgi_sock = uwsgi_sock->next;
 	}
 
 	// create aliases
-	uwsgi_register_metric("rss_size", NULL, UWSGI_METRIC_GAUGE, UWSGI_METRIC_ALIAS, total_rss, 0, NULL);
-	uwsgi_register_metric("vsz_size", NULL, UWSGI_METRIC_GAUGE, UWSGI_METRIC_ALIAS, total_vsz, 0, NULL);
+	uwsgi_register_metric("rss_size", NULL, UWSGI_METRIC_ALIAS, NULL, total_rss, 0, NULL);
+	uwsgi_register_metric("vsz_size", NULL, UWSGI_METRIC_ALIAS, NULL, total_vsz, 0, NULL);
 
 	// create custom/user-defined metrics
 	struct uwsgi_string_list *usl;
@@ -721,10 +749,14 @@ void uwsgi_setup_metrics() {
 	// remap aliases
 	metric = uwsgi.metrics;
         while(metric) {
-		if (metric->collect_way == UWSGI_METRIC_ALIAS) {
+		if (metric->type == UWSGI_METRIC_ALIAS) {
 			struct uwsgi_metric *alias = (struct uwsgi_metric *) metric->ptr;
+			if (!alias) {
+				uwsgi_log("metric alias \"%s\" requires a mapping !!!\n", metric->name);
+				exit(1);
+			}
 			metric->value = alias->value;
-			metric->oid = alias->oid;	
+			metric->oid = alias->oid;
 		}
 		if (metric->initial_value) {
 			*metric->value = metric->initial_value;
@@ -746,4 +778,61 @@ void uwsgi_setup_metrics() {
 			}
 		}
 	}
+}
+
+struct uwsgi_metric_collector *uwsgi_register_metric_collector(char *name, int64_t (*func)(struct uwsgi_metric *)) {
+	struct uwsgi_metric_collector *collector = uwsgi.metric_collectors, *old_collector = NULL;
+
+	while(collector) {
+		if (!strcmp(collector->name, name)) goto found;
+		old_collector = collector;
+		collector = collector->next;
+	}
+
+	collector = uwsgi_calloc(sizeof(struct uwsgi_metric_collector));
+	collector->name = name;
+	if (old_collector) {
+		old_collector->next = collector;
+	}
+	else {
+		uwsgi.metric_collectors = collector;
+	}
+found:
+	collector->func = func;
+
+	return collector;
+}
+
+static int64_t uwsgi_metric_collector_ptr(struct uwsgi_metric *um) {
+	return *um->ptr;
+}
+
+static int64_t uwsgi_metric_collector_sum(struct uwsgi_metric *um) {
+	int64_t total = 0;
+        struct uwsgi_metric_child *umc = um->children;
+        while(umc) {
+                struct uwsgi_metric *c = umc->um;
+                total += *c->value;
+                umc = umc->next;
+        }
+
+        return total;
+}
+
+static int64_t uwsgi_metric_collector_func(struct uwsgi_metric *um) {
+	if (!um->arg1) return 0;
+	int64_t (*func)(struct uwsgi_metric *) = (int64_t (*)(struct uwsgi_metric *)) um->custom;
+	if (!func) {
+		func = dlsym(RTLD_DEFAULT, um->arg1);
+		um->custom = func;
+	}
+	if (!func) return 0;
+        return func(um);
+}
+
+void uwsgi_metrics_collectors_setup() {
+	uwsgi_register_metric_collector("ptr", uwsgi_metric_collector_ptr);
+	uwsgi_register_metric_collector("file", uwsgi_metric_collector_file);
+	uwsgi_register_metric_collector("sum", uwsgi_metric_collector_sum);
+	uwsgi_register_metric_collector("func", uwsgi_metric_collector_func);
 }
