@@ -19,7 +19,7 @@ postfork_chain = []
 
 
 def get_free_signal():
-    for signum in xrange(0, 256):
+    for signum in range(0, 256):
         if not uwsgi.signal_registered(signum):
             return signum
 
