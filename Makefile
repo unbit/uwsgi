@@ -1,8 +1,10 @@
+python_bin=$(if $(PYTHON_BIN), $(PYTHON_BIN), python)
+
 all:
-	python uwsgiconfig.py --build
+	$(python_bin) uwsgiconfig.py --build
 
 clean:
-	python uwsgiconfig.py --clean
+	$(python_bin) uwsgiconfig.py --clean
 
 check:
-	python uwsgiconfig.py --check
+	$(python_bin) uwsgiconfig.py --check
