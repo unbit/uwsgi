@@ -206,6 +206,8 @@ void uwsgi_set_cgroup() {
 	if (!uwsgi.cgroup)
 		return;
 
+	if (getuid()) return;
+
 	usl = uwsgi.cgroup;
 
 	while (usl) {
