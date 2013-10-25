@@ -214,11 +214,11 @@ void uwsgi_set_cgroup() {
 		int mode = strtol(uwsgi.cgroup_dir_mode, 0, 8);
 		if (mkdir(usl->value, mode)) {
 			if (errno != EEXIST) {
-				uwsgi_error("mkdir()");
+				uwsgi_error("uwsgi_set_cgroup()/mkdir()");
 				exit(1);
 			}
 			if (chmod(usl->value, mode)) {
-				uwsgi_error("chmod()");
+				uwsgi_error("uwsgi_set_cgroup()/chmod()");
 				exit(1);
 			}
 			uwsgi_log("using Linux cgroup %s with mode %o\n", usl->value, mode);
