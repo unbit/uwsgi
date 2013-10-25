@@ -364,6 +364,7 @@ static char *uwsgi_scheme_data(char *url, size_t *size, int add_zero) {
 			}
 		}
 	}
+	close(fd);
 
 	return buffer;
 }
