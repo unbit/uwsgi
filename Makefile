@@ -1,5 +1,4 @@
 PYTHON := python
-PROFILE := default
 
 all:
 	$(PYTHON) uwsgiconfig.py --build $(PROFILE)
