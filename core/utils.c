@@ -4228,6 +4228,7 @@ void uwsgi_envdir(char *edir) {
 
 		free(content);
 	}
+	closedir(d);
 }
 
 void uwsgi_envdirs(struct uwsgi_string_list *envdirs) {
