@@ -166,7 +166,7 @@ static void uwsgi_imperial_monitor_zeromq_cmd(struct uwsgi_emperor_scanner *ues)
 		}
 	}
 	// destroy an instance
-	else if (!uwsgi_strncmp(ez_cmd, ez_cmd_len, "destroy", 6)) {
+	else if (!uwsgi_strncmp(ez_cmd, ez_cmd_len, "destroy", 7)) {
 		struct uwsgi_instance *ui = emperor_get(name);
 		if (!ui) {
 			uwsgi_log("[emperor-zeromq] unknown instance \"%s\"\n", name);
