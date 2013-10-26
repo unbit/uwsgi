@@ -641,7 +641,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-master-req-stream", no_argument, 0, "create the master requests logpipe as SOCK_STREAM", uwsgi_opt_true, &uwsgi.log_master_req_stream, 0},
 	{"log-reopen", no_argument, 0, "reopen log after reload", uwsgi_opt_true, &uwsgi.log_reopen, 0},
 	{"log-truncate", no_argument, 0, "truncate log on startup", uwsgi_opt_true, &uwsgi.log_truncate, 0},
-	{"log-maxsize", required_argument, 0, "set maximum logfile size", uwsgi_opt_set_int, &uwsgi.log_maxsize, UWSGI_OPT_LOG_MASTER},
+	{"log-maxsize", required_argument, 0, "set maximum logfile size", uwsgi_opt_set_64bit, &uwsgi.log_maxsize, UWSGI_OPT_LOG_MASTER},
 	{"log-backupname", required_argument, 0, "set logfile name after rotation", uwsgi_opt_set_str, &uwsgi.log_backupname, 0},
 
 	{"logdate", optional_argument, 0, "prefix logs with date or a strftime string", uwsgi_opt_log_date, NULL, 0},

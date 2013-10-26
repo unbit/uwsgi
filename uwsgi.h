@@ -1974,7 +1974,7 @@ struct uwsgi_server {
 
 	int log_reopen;
 	int log_truncate;
-	off_t log_maxsize;
+	uint64_t log_maxsize;
 	char *log_backupname;
 
 	int original_log_fd;
