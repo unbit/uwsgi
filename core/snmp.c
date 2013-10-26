@@ -305,6 +305,7 @@ static uint8_t snmp_int_to_snmp(uint64_t snmp_val, uint8_t oid_type, uint8_t * b
 	uint8_t tlen;
 	int i, j;
 	uint8_t *ptr = (uint8_t *) & snmp_val;
+	int32_t val32 = (int32_t) snmp_val;
 
 	// check for counter, counter64 or gauge
 
@@ -316,7 +317,6 @@ static uint8_t snmp_int_to_snmp(uint64_t snmp_val, uint8_t oid_type, uint8_t * b
 	}
 	else {
 		tlen = 4;
-		int32_t val32 = (int32_t) snmp_val;
 		ptr = (uint8_t *) &val32;
 	}
 

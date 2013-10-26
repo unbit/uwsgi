@@ -38,6 +38,7 @@ void uwsgi_fsmon_setup() {
 		char *space = strchr(copy, ' ');
 		if (!space) {
 			uwsgi_log("[uwsgi-fsmon] invalid syntax: \"%s\"\n", usl->value);
+			free(copy);
 			goto next;			
 		}
 		*space = 0;

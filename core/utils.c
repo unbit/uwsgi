@@ -3419,7 +3419,11 @@ int uwsgi_write_intfile(char *filename, int n) {
 		uwsgi_error_open(filename);
 		exit(1);
 	}
-	if (fprintf(pidfile, "%d\n", n) <= 0 || ferror(pidfile) || fclose(pidfile)) {
+	if (fprintf(pidfile, "%d\n", n) <= 0 || ferror(pidfile)) {
+		fclose(pidfile);
+		return -1;
+	}
+	if (fclose(pidfile)) {
 		return -1;
 	}
 	return 0;
@@ -4228,6 +4232,7 @@ void uwsgi_envdir(char *edir) {
 
 		free(content);
 	}
+	closedir(d);
 }
 
 void uwsgi_envdirs(struct uwsgi_string_list *envdirs) {

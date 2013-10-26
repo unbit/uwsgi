@@ -104,8 +104,8 @@ static void rrdtool_post_init() {
 					exit(1);
 				}
 				created++;
-				free(filename);
 			}
+			free(filename);
 			um = um->next;
 		}
 		uwsgi_rwunlock(uwsgi.metrics_lock);
