@@ -308,6 +308,8 @@ end:
 	async_reset_request(uwsgi.wsgi_req);
 	uwsgi_close_request(uwsgi.wsgi_req);
 	uwsgi.wsgi_req->async_status = UWSGI_OK;	
+	uwsgi.async_queue_unused_ptr++;
+        uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
 }
 
 void async_schedule_to_req_green(void) {
@@ -332,6 +334,8 @@ end:
         async_reset_request(wsgi_req);
         uwsgi_close_request(wsgi_req);
         wsgi_req->async_status = UWSGI_OK;
+	uwsgi.async_queue_unused_ptr++;
+        uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req;
 }
 
 void async_loop() {
@@ -512,19 +516,11 @@ void async_loop() {
 			uwsgi.wsgi_req->switches++;
 
 			// request ended ?
-			if (uwsgi.wsgi_req->async_status <= UWSGI_OK) {
+			if (uwsgi.wsgi_req->async_status <= UWSGI_OK ||
+				uwsgi.wsgi_req->waiting_fds || uwsgi.wsgi_req->async_timeout) {
 				// remove from the runqueue
 				runqueue_remove(current_request);
-				// push wsgi_request in the unused stack
-				uwsgi.async_queue_unused_ptr++;
-				uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
-
 			}
-			else if (uwsgi.wsgi_req->waiting_fds || uwsgi.wsgi_req->async_timeout) {
-				// remove this request from the runqueue
-				runqueue_remove(current_request);
-			}
-
 			current_request = next_request;
 		}
 

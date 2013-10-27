@@ -18,15 +18,19 @@ static struct uwsgi_option greenlet_options[] = {
 
 struct wsgi_request *uwsgi_greenlet_current_wsgi_req(void) {
 	struct wsgi_request *wsgi_req = NULL;
-        PyObject *py_wsgi_req = PyObject_GetAttrString((PyObject *)PyGreenlet_GetCurrent(), "uwsgi_wsgi_req");
+	PyObject *current_greenlet = (PyObject *)PyGreenlet_GetCurrent();
+	Py_INCREF(current_greenlet);
+        PyObject *py_wsgi_req = PyObject_GetAttrString(current_greenlet, "uwsgi_wsgi_req");
         // not in greenlet
         if (!py_wsgi_req) {
                 uwsgi_log("[BUG] current_wsgi_req NOT FOUND !!!\n");
                 goto end;
         }
+	Py_INCREF(py_wsgi_req);
         wsgi_req = (struct wsgi_request*) PyLong_AsLong(py_wsgi_req);
-        Py_DECREF(py_wsgi_req);
+        //Py_DECREF(py_wsgi_req);
 end:
+	//Py_DECREF(current_greenlet);
         return wsgi_req;
 }
 
@@ -42,7 +46,7 @@ static PyObject *py_uwsgi_greenlet_request(PyObject * self, PyObject *args) {
 
 	async_schedule_to_req_green();
 
-	Py_DECREF(ugl.gl[uwsgi.wsgi_req->async_id]);
+	//Py_DECREF(ugl.gl[uwsgi.wsgi_req->async_id]);
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -119,7 +123,9 @@ static void greenlet_init_apps(void) {
 
 	ugl.gl = uwsgi_malloc( sizeof(PyGreenlet *) * uwsgi.async );
 	ugl.main = PyGreenlet_GetCurrent();
+	Py_INCREF(ugl.main);
 	ugl.callable = PyCFunction_New(uwsgi_greenlet_request_method, NULL);
+	Py_INCREF(ugl.callable);
 	uwsgi_log("enabled greenlet engine\n");
 
 	uwsgi.schedule_to_main = greenlet_schedule_to_main;
