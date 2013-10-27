@@ -16,6 +16,20 @@ static struct uwsgi_option greenlet_options[] = {
 	{ 0, 0, 0, 0, 0, 0, 0 }
 };
 
+struct wsgi_request *uwsgi_greenlet_current_wsgi_req(void) {
+	struct wsgi_request *wsgi_req = NULL;
+        PyObject *py_wsgi_req = PyObject_GetAttrString((PyObject *)PyGreenlet_GetCurrent(), "uwsgi_wsgi_req");
+        // not in greenlet
+        if (!py_wsgi_req) {
+                uwsgi_log("[BUG] current_wsgi_req NOT FOUND !!!\n");
+                goto end;
+        }
+        wsgi_req = (struct wsgi_request*) PyLong_AsLong(py_wsgi_req);
+        Py_DECREF(py_wsgi_req);
+end:
+        return wsgi_req;
+}
+
 static void gil_greenlet_get() {
         pthread_setspecific(up.upt_gil_key, (void *) PyGILState_Ensure());
 }
@@ -46,6 +60,7 @@ static void greenlet_schedule_to_req() {
 
 	if (!uwsgi.wsgi_req->suspended) {
 		ugl.gl[id] = PyGreenlet_New(ugl.callable, NULL);
+		PyObject_SetAttrString((PyObject *)ugl.gl[id], "uwsgi_wsgi_req", PyLong_FromLong((long) uwsgi.wsgi_req));
 		uwsgi.wsgi_req->suspended = 1;
 	}
 
@@ -92,6 +107,9 @@ static void greenlet_init_apps(void) {
                 up.gil_get = gil_greenlet_get;
                 up.gil_release = gil_greenlet_release;
         }
+
+	// map wsgi_req to greenlet object
+	uwsgi.current_wsgi_req = uwsgi_greenlet_current_wsgi_req;
 
         // blindy call it as the stackless gil engine is already set
         UWSGI_GET_GIL

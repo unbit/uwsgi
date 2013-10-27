@@ -311,26 +311,27 @@ end:
 }
 
 void async_schedule_to_req_green(void) {
+	struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
 #ifdef UWSGI_ROUTING
-        if (uwsgi_apply_routes(uwsgi.wsgi_req) == UWSGI_ROUTE_BREAK) {
+        if (uwsgi_apply_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
                 goto end;
         }
 #endif
         for(;;) {
-                if (uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req) <= UWSGI_OK) {
+                if (uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(wsgi_req) <= UWSGI_OK) {
                         break;
                 }
-                uwsgi.wsgi_req->switches++;
+                wsgi_req->switches++;
                 // switch after each yield
-                uwsgi.schedule_to_main(uwsgi.wsgi_req);
+                uwsgi.schedule_to_main(wsgi_req);
         }
 
 #ifdef UWSGI_ROUTING
 end:
 #endif
-        async_reset_request(uwsgi.wsgi_req);
-        uwsgi_close_request(uwsgi.wsgi_req);
-        uwsgi.wsgi_req->async_status = UWSGI_OK;
+        async_reset_request(wsgi_req);
+        uwsgi_close_request(wsgi_req);
+        wsgi_req->async_status = UWSGI_OK;
 }
 
 void async_loop() {
