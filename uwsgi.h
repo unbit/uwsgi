@@ -4504,6 +4504,8 @@ struct uwsgi_metric *uwsgi_metric_find_by_asn(char *, size_t);
 
 int uwsgi_base128(struct uwsgi_buffer *, uint64_t, int);
 
+struct wsgi_request *find_wsgi_req_proto_by_fd(int);
+
 #ifdef __cplusplus
 }
 #endif
