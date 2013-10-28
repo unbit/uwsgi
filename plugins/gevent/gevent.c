@@ -291,7 +291,8 @@ request:
 	}
 
 end:
-	Py_DECREF(greenlet_switch);
+	if (greenlet_switch)
+		Py_DECREF(greenlet_switch);
 end2:
 	Py_DECREF(current_greenlet);
 
