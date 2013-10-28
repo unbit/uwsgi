@@ -81,7 +81,7 @@ static int uwsgi_routing_func_hash(struct wsgi_request *wsgi_req, struct uwsgi_r
 			vallen = urhc->items_len;
 		}
 		// last item
-		else {
+		else if (value != NULL) {
 			vallen = (urhc->items + urhc->items_len) - value;
 		}
 	}
