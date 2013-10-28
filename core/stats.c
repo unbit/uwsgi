@@ -440,6 +440,10 @@ void uwsgi_stats_pusher_loop(struct uwsgi_thread *ut) {
 	void *events = event_queue_alloc(1);
 	for (;;) {
 		int nevents = event_queue_wait_multi(ut->queue, 1, events, 1);
+		if (nevents < 0) {
+			uwsgi_log_verbose("ending the stats pusher thread...\n");
+			return;
+		}
 		if (nevents > 0) {
 			int interesting_fd = event_queue_interesting_fd(events, 0);
 			char buf[4096];
