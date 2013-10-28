@@ -99,7 +99,7 @@ int uwsgi_master_fifo() {
 }
 
 int uwsgi_master_fifo_manage(int fd) {
-	char cmd;
+	unsigned char cmd;
 	ssize_t rlen = read(fd, &cmd, 1);
 	if (rlen < 0) {
 		if (uwsgi_is_again()) return 0;
@@ -112,11 +112,6 @@ int uwsgi_master_fifo_manage(int fd) {
 		uwsgi.master_fifo_fd = uwsgi_master_fifo();
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.master_fifo_fd);
 		return 0;
-	}
-
-	if ((int)cmd < 0) {
-		uwsgi_error("invalid cmd read in uwsgi_master_fifo_manage");
-		exit(1);
 	}
 
 	if (uwsgi_fifo_table[(int) cmd]) {
