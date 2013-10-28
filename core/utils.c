@@ -1222,7 +1222,7 @@ void uwsgi_linux_ksm_map(void) {
 	}
 
 	// we now have areas
-	if (uwsgi.ksm_mappings_last_size == 0 || uwsgi.ksm_mappings_current_size == 0 || uwsgi.ksm_mappings_current_size != uwsgi.ksm_mappings_last_size) {
+	if (uwsgi.ksm_mappings_last_size == 0 || uwsgi.ksm_mappings_current_size != uwsgi.ksm_mappings_last_size) {
 		dirty = 1;
 	}
 	else {
