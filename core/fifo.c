@@ -114,6 +114,11 @@ int uwsgi_master_fifo_manage(int fd) {
 		return 0;
 	}
 
+	if ((int)cmd < 0) {
+		uwsgi_error("invalid cmd read in uwsgi_master_fifo_manage");
+		exit(1);
+	}
+
 	if (uwsgi_fifo_table[(int) cmd]) {
 		uwsgi_fifo_table[(int) cmd](0);
 	}
