@@ -4425,6 +4425,14 @@ struct uwsgi_metric_collector {
 	struct uwsgi_metric_collector *next;
 };
 
+struct uwsgi_metric_threshold {
+	int64_t value;
+	uint8_t reset;
+	int64_t reset_value;
+	int32_t rate;
+	char *alarm;
+};
+
 struct uwsgi_metric {
         char *name;
         char *oid;
@@ -4471,6 +4479,7 @@ struct uwsgi_metric {
 	int64_t arg3n;
 
 	struct uwsgi_metric_child *children;
+	struct uwsgi_metric_threshold *thresholds;
 
         struct uwsgi_metric *next;
 };
