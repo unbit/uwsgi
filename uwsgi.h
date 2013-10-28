@@ -2579,6 +2579,7 @@ struct uwsgi_server {
 	int metrics_dir_restore;
 	uint64_t metrics_cnt;
 	struct uwsgi_string_list *additional_metrics;
+	struct uwsgi_string_list *metrics_threshold;
 
 	int (*wait_write_hook) (int, int);
 	int (*wait_read_hook) (int, int);

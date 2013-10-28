@@ -512,6 +512,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"enable-metrics", no_argument, 0, "enable metrics subsystem", uwsgi_opt_true, &uwsgi.has_metrics, UWSGI_OPT_MASTER},
 	{"metric", required_argument, 0, "add a custom metric", uwsgi_opt_add_string_list, &uwsgi.additional_metrics, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
+	{"metric-threshold", required_argument, 0, "add a metric threshold/alarm", uwsgi_opt_add_string_list, &uwsgi.metrics_threshold, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
+	{"metric-alarm", required_argument, 0, "add a metric threshold/alarm", uwsgi_opt_add_string_list, &uwsgi.metrics_threshold, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 	{"metrics-dir", required_argument, 0, "exports metrics as text files in the specified directory", uwsgi_opt_set_str, &uwsgi.metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 	{"metrics-dir-restore", no_argument, 0, "restore last value taken from the metrics dir", uwsgi_opt_true, &uwsgi.metrics_dir_restore, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 	{"metric-dir", required_argument, 0, "exports metrics as text files in the specified directory", uwsgi_opt_set_str, &uwsgi.metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
