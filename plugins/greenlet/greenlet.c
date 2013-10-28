@@ -73,7 +73,13 @@ static void greenlet_schedule_to_req() {
                 uwsgi.p[modifier1]->suspend(NULL);
         }
 
-	PyGreenlet_Switch(ugl.gl[id], NULL, NULL);
+	PyObject *ret = PyGreenlet_Switch(ugl.gl[id], NULL, NULL);
+	if (!ret) {
+		PyErr_Print();
+		uwsgi_log_verbose("[BUG] unable to switch greenlet !!!\n");
+		exit(1);
+	}
+	Py_DECREF(ret);
 
 	if (uwsgi.p[modifier1]->resume) {
                 uwsgi.p[modifier1]->resume(NULL);
@@ -90,7 +96,13 @@ static void greenlet_schedule_to_main(struct wsgi_request *wsgi_req) {
         if (uwsgi.p[wsgi_req->uh->modifier1]->suspend) {
                 uwsgi.p[wsgi_req->uh->modifier1]->suspend(wsgi_req);
         }
-	PyGreenlet_Switch(ugl.main, NULL, NULL);
+	PyObject *ret = PyGreenlet_Switch(ugl.main, NULL, NULL);
+	if (!ret) {
+                PyErr_Print();
+                uwsgi_log_verbose("[BUG] unable to switch greenlet !!!\n");
+                exit(1);
+        }
+        Py_DECREF(ret);
         if (uwsgi.p[wsgi_req->uh->modifier1]->resume) {
                 uwsgi.p[wsgi_req->uh->modifier1]->resume(wsgi_req);
         }

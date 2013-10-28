@@ -320,10 +320,13 @@ void async_schedule_to_req_green(void) {
         }
 #endif
         for(;;) {
-                if (uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(wsgi_req) <= UWSGI_OK) {
+                if (uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req) <= UWSGI_OK) {
                         break;
                 }
                 wsgi_req->switches++;
+		if (uwsgi.schedule_fix) {
+			uwsgi.schedule_fix(wsgi_req);
+		}
                 // switch after each yield
                 uwsgi.schedule_to_main(wsgi_req);
         }
@@ -331,11 +334,16 @@ void async_schedule_to_req_green(void) {
 #ifdef UWSGI_ROUTING
 end:
 #endif
+	// re-set the global state
+	uwsgi.wsgi_req = wsgi_req;
         async_reset_request(wsgi_req);
         uwsgi_close_request(wsgi_req);
+	// re-set the global state (routing could have changed it)
+	uwsgi.wsgi_req = wsgi_req;
         wsgi_req->async_status = UWSGI_OK;
 	uwsgi.async_queue_unused_ptr++;
         uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req;
+	
 }
 
 void async_loop() {

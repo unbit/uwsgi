@@ -11,6 +11,7 @@ struct uwsgi_tornado {
 	PyObject *write;
 	PyObject *hook_fd;
 	PyObject *hook_timeout;
+	PyObject *hook_fix;
 } utornado;
 
 #define free_req_queue uwsgi.async_queue_unused_ptr++; uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req
@@ -279,11 +280,41 @@ PyObject *py_uwsgi_tornado_hook_timeout(PyObject *self, PyObject *args) {
         return Py_None;
 }
 
+PyObject *py_uwsgi_tornado_hook_fix(PyObject *self, PyObject *args) {
+        long wsgi_req_ptr = 0;
+        if (!PyArg_ParseTuple(args, "l", &wsgi_req_ptr)) {
+                return NULL;
+        }
+
+        uwsgi.wsgi_req = (struct wsgi_request *) wsgi_req_ptr;
+        uwsgi.schedule_to_req();
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
 
 PyMethodDef uwsgi_tornado_accept_def[] = { {"uwsgi_tornado_accept", py_uwsgi_tornado_accept, METH_VARARGS, ""} };
 PyMethodDef uwsgi_tornado_request_def[] = { {"uwsgi_tornado_request", py_uwsgi_tornado_request, METH_VARARGS, ""} };
 PyMethodDef uwsgi_tornado_hook_fd_def[] = { {"uwsgi_tornado_hook_fd", py_uwsgi_tornado_hook_fd, METH_VARARGS, ""} };
 PyMethodDef uwsgi_tornado_hook_timeout_def[] = { {"uwsgi_tornado_hook_timeout", py_uwsgi_tornado_hook_timeout, METH_VARARGS, ""} };
+PyMethodDef uwsgi_tornado_hook_fix_def[] = { {"uwsgi_tornado_hook_fix", py_uwsgi_tornado_hook_fix, METH_VARARGS, ""} };
+
+static void uwsgi_tornado_schedule_fix(struct wsgi_request *wsgi_req) {
+	PyObject *cb_fix = PyObject_CallMethod(utornado.functools, "partial", "Ol", utornado.hook_fix, (long) wsgi_req);
+        if (!cb_fix) goto error;
+
+        if (PyObject_CallMethod(utornado.ioloop, "add_callback", "O", cb_fix) == NULL) {
+                Py_DECREF(cb_fix);
+                goto error;
+        }
+
+        Py_DECREF(cb_fix);
+        return; 
+
+error:
+        PyErr_Print();
+} 
 
 static void tornado_loop() {
 
@@ -304,12 +335,16 @@ static void tornado_loop() {
 	uwsgi.wait_write_hook = uwsgi_tornado_wait_write_hook;
 	uwsgi.wait_read_hook = uwsgi_tornado_wait_read_hook;
 
+	uwsgi.schedule_fix = uwsgi_tornado_schedule_fix;
+
 	if (uwsgi.async < 2) {
 		uwsgi_log("the tornado loop engine requires async mode (--async <n>)\n");
 		exit(1);
 	}
 
-	//uwsgi.current_wsgi_req = uwsgi_tornado_current_wsgi_req;
+	if (!uwsgi.schedule_to_main) {
+                uwsgi_log("*** DANGER *** tornado mode without coroutine/greenthread engine loaded !!!\n");
+        }
 
 	PyObject *tornado_dict = get_uwsgi_pydict("tornado.ioloop");
 	if (!tornado_dict) uwsgi_pyexit;
@@ -331,6 +366,8 @@ static void tornado_loop() {
 	if (!utornado.hook_fd) uwsgi_pyexit;
 	utornado.hook_timeout = PyCFunction_New(uwsgi_tornado_hook_timeout_def, NULL);
 	if (!utornado.hook_timeout) uwsgi_pyexit;
+	utornado.hook_fix = PyCFunction_New(uwsgi_tornado_hook_fix_def, NULL);
+	if (!utornado.hook_fix) uwsgi_pyexit;
 
 	utornado.read = PyObject_GetAttrString(utornado.ioloop, "READ");
 	if (!utornado.read) uwsgi_pyexit;
@@ -343,6 +380,7 @@ static void tornado_loop() {
 	Py_INCREF(utornado.request);
 	Py_INCREF(utornado.hook_fd);
 	Py_INCREF(utornado.hook_timeout);
+	Py_INCREF(utornado.hook_fix);
 	Py_INCREF(utornado.read);
 	Py_INCREF(utornado.write);
 

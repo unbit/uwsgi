@@ -2438,6 +2438,7 @@ struct uwsgi_server {
 	// usedby suspend/resume loops
 	void (*schedule_to_main) (struct wsgi_request *);
 	void (*schedule_to_req) (void);
+	void (*schedule_fix) (struct wsgi_request *);
 
 	void (*gbcw_hook) (void);
 
