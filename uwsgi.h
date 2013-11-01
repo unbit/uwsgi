@@ -3725,6 +3725,13 @@ struct uwsgi_stats_pusher_instance {
 	int configured;
 	int freq;
 	time_t last_run;
+	// retries
+	int needs_retry;
+	int retries;
+	int max_retries;
+	int retry_delay;
+	time_t next_retry;
+
 	struct uwsgi_stats_pusher_instance *next;
 };
 

@@ -461,7 +461,8 @@ void uwsgi_stats_pusher_loop(struct uwsgi_thread *ut) {
 		struct uwsgi_stats *us = NULL;
 		while (uspi) {
 			int delta = uspi->freq ? uspi->freq : uwsgi.stats_pusher_default_freq;
-			if ((uspi->last_run + delta) <= now) {
+			if (((uspi->last_run + delta) <= now) || (uspi->needs_retry && (uspi->next_retry <= now))) {
+				if (uspi->needs_retry) uspi->retries++;
 				if (uspi->raw) {
 					uspi->pusher->func(uspi, now, NULL, 0);
 				}
@@ -474,6 +475,17 @@ void uwsgi_stats_pusher_loop(struct uwsgi_thread *ut) {
 					uspi->pusher->func(uspi, now, us->base, us->pos);
 				}
 				uspi->last_run = now;
+				if (uspi->needs_retry && uspi->retries < uspi->max_retries) {
+					uwsgi_log("[uwsgi-stats-pusher] %s failed (%d), retry in %ds\n", uspi->pusher->name, uspi->retries, uspi->retry_delay);
+					uspi->next_retry = now + uspi->retry_delay;
+				} else if (uspi->needs_retry && uspi->retries >= uspi->max_retries) {
+					uwsgi_log("[uwsgi-stats-pusher] %s failed and maximum number of retries was reached (%d)\n", uspi->pusher->name, uspi->retries);
+					uspi->needs_retry = 0;
+					uspi->retries = 0;
+				} else if (uspi->retries) {
+					uwsgi_log("[uwsgi-stats-pusher] retry succeeded for %s\n", uspi->pusher->name);
+					uspi->retries = 0;
+				}
 			}
 next:
 			uspi = uspi->next;
