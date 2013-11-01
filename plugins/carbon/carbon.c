@@ -389,7 +389,7 @@ metrics_loop:
 			struct uwsgi_metric *um = uwsgi.metrics;
 			while(um) {
 				uwsgi_rlock(uwsgi.metrics_lock);
-				wok = carbon_write(fd, "%s%s.%s.%.*s %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, um->name_len, um->name, (unsigned long long) um->initial_value+*um->value, (unsigned long long) now);
+				wok = carbon_write(fd, "%s%s.%s.%.*s %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, um->name_len, um->name, (unsigned long long) *um->value, (unsigned long long) now);
 				uwsgi_rwunlock(uwsgi.metrics_lock);
 				if (!wok) goto clear;
 				um = um->next;
