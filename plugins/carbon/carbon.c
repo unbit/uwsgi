@@ -26,9 +26,6 @@ struct uwsgi_carbon {
 	unsigned long long *last_busyness_values;
 	unsigned long long *current_busyness_values;
 	int *was_busy;
-	int need_retry;
-	time_t last_update;
-	time_t next_retry;
 	int max_retries;
 	int retry_delay;
 	char *root_node;
@@ -155,14 +152,13 @@ static void carbon_post_init() {
 		u_carbon.was_busy = uwsgi_calloc(sizeof(int) * uwsgi.numproc);
 	}
 
-	// set next update to now()+retry_delay, this way we will have first flush just after start
-	u_carbon.last_update = uwsgi_now() - u_carbon.freq + u_carbon.retry_delay;
-
 	uwsgi_log("[carbon] carbon plugin started, %is frequency, %is timeout, max retries %i, retry delay %is\n",
 		u_carbon.freq, u_carbon.timeout, u_carbon.max_retries, u_carbon.retry_delay);
 
 	struct uwsgi_stats_pusher_instance *uspi = uwsgi_stats_pusher_add(u_carbon.pusher, NULL);
 	uspi->freq = u_carbon.freq;
+	uspi->retry_delay = u_carbon.retry_delay;
+	uspi->max_retries = u_carbon.max_retries;
 	// no need to generate the json
 	uspi->raw=1;
 }
@@ -187,14 +183,15 @@ static int carbon_write(int fd, char *fmt,...) {
 	return 1;
 }
 
-static void carbon_push_stats(int retry_cycle, time_t now) {
+static int carbon_push_stats(int retry_cycle, time_t now) {
 	struct carbon_server_list *usl = u_carbon.servers_data;
-	if (!u_carbon.servers_data) return;
+	if (!u_carbon.servers_data) return 0;
 	int i;
 	int fd;
 	int wok;
 	char *ip;
 	char *carbon_address = NULL;
+	int needs_retry;
 
 	for (i = 0; i < uwsgi.numproc; i++) {
 		u_carbon.current_busyness_values[i] = uwsgi.workers[i+1].running_time - u_carbon.last_busyness_values[i];
@@ -202,7 +199,7 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 		u_carbon.was_busy[i-1] += uwsgi_worker_is_busy(i+1);
 	}
 
-	u_carbon.need_retry = 0;
+	needs_retry = 0;
 	while(usl) {
 		if (retry_cycle && usl->healthy)
 			// skip healthy servers during retry cycle
@@ -230,15 +227,7 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 		fd = uwsgi_connect(carbon_address, u_carbon.timeout, 0);
 		if (fd < 0) {
 			uwsgi_log("[carbon] Could not connect to carbon server at %s\n", carbon_address);
-			if (usl->errors < u_carbon.max_retries) {
-				u_carbon.need_retry = 1;
-				u_carbon.next_retry = uwsgi_now() + u_carbon.retry_delay;
-			} else {
-				uwsgi_log("[carbon] Maximum number of retries for %s (%d)\n",
-					carbon_address, u_carbon.max_retries);
-				usl->healthy = 0;
-				usl->errors = 0;
-			}
+			needs_retry = 1;
 			usl->healthy = 0;
 			usl->errors++;
 			free(carbon_address);
@@ -406,23 +395,12 @@ clear:
 nxt:
 		usl = usl->next;
 	}
-	if (!retry_cycle) u_carbon.last_update = uwsgi_now();
-	if (u_carbon.need_retry)
-		// timeouts and retries might cause additional lags in carbon cycles, we will adjust timer to fix that
-		u_carbon.last_update -= u_carbon.timeout;
+
+	return needs_retry;
 }
 
 static void carbon_push(struct uwsgi_stats_pusher_instance *uspi, time_t now, char *json, size_t json_len) {
-
-	if (u_carbon.need_retry && now >= u_carbon.next_retry) {
-		carbon_push_stats(1, now);
-	}
-	else {
-		// update
-		u_carbon.need_retry = 0;
-		carbon_push_stats(0, now);
-
-	}
+	uspi->needs_retry = carbon_push_stats(uspi->retries, now);
 }
 
 static void carbon_cleanup() {
