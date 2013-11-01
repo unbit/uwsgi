@@ -40,6 +40,7 @@ struct uwsgi_carbon {
 	int zero_avg;
 	uint64_t last_requests;
 	struct uwsgi_stats_pusher *pusher;
+	int use_metrics;
 } u_carbon;
 
 static struct uwsgi_option carbon_options[] = {
@@ -55,6 +56,7 @@ static struct uwsgi_option carbon_options[] = {
 	{"carbon-name-resolve", no_argument, 0, "allow using hostname as carbon server address (default disabled)", uwsgi_opt_true, &u_carbon.resolve_hostname, 0},
 	{"carbon-resolve-names", no_argument, 0, "allow using hostname as carbon server address (default disabled)", uwsgi_opt_true, &u_carbon.resolve_hostname, 0},
 	{"carbon-idle-avg", required_argument, 0, "average values source during idle period (no requests), can be \"last\", \"zero\", \"none\" (default is last)", uwsgi_opt_set_str, &u_carbon.idle_avg, 0},
+	{"carbon-use-metrics", no_argument, 0, "don't compute all statistics, use metrics subsystem data instead (warning! key names will be different", uwsgi_opt_true, &u_carbon.use_metrics, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -246,6 +248,8 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 		// put the socket in non-blocking mode
 		uwsgi_socket_nb(fd);
 
+		if (u_carbon.use_metrics) goto metrics_loop;
+
 		unsigned long long total_rss = 0;
 		unsigned long long total_vsz = 0;
 		unsigned long long total_tx = 0;
@@ -379,6 +383,18 @@ static void carbon_push_stats(int retry_cycle, time_t now) {
 
 		wok = carbon_write(fd, "%s%s.%s.harakiri %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) total_harakiri, (unsigned long long) now);
 		if (!wok) goto clear;
+
+metrics_loop:
+		if (u_carbon.use_metrics) {
+			struct uwsgi_metric *um = uwsgi.metrics;
+			while(um) {
+				uwsgi_rlock(uwsgi.metrics_lock);
+				wok = carbon_write(fd, "%s%s.%s.%.*s %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, um->name_len, um->name, (unsigned long long) um->initial_value+*um->value, (unsigned long long) now);
+				uwsgi_rwunlock(uwsgi.metrics_lock);
+				if (!wok) goto clear;
+				um = um->next;
+			}
+		}
 
 		usl->healthy = 1;
 		usl->errors = 0;
