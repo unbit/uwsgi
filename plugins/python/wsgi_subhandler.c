@@ -18,13 +18,15 @@ extern PyTypeObject uwsgi_InputType;
 */
 
 int uwsgi_python_send_body(struct wsgi_request *wsgi_req, PyObject *chunk) {
+	char *content = NULL;
+	size_t content_len = 0;
+
 	if (!up.wsgi_accept_buffer && !wsgi_req->is_raw) goto strict;
 #if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
 	Py_buffer pbuf;
 	int has_buffer = 0;
 #endif
-	char *content = NULL;
-	size_t content_len = 0;
+
 #if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
 	if (PyObject_CheckBuffer(chunk)) {
 		if (!PyObject_GetBuffer(chunk, &pbuf, PyBUF_SIMPLE)) {
@@ -36,10 +38,18 @@ int uwsgi_python_send_body(struct wsgi_request *wsgi_req, PyObject *chunk) {
 	}
 #else
 	if (PyObject_CheckReadBuffer(chunk)) {
+#ifdef UWSGI_PYTHON_OLD
+		int buffer_len = 0;
+		if (!PyObject_AsCharBuffer(chunk, (const char **) &content, &buffer_len)) {
+#else
 		if (!PyObject_AsCharBuffer(chunk, (const char **) &content, (Py_ssize_t *) &content_len)) {
+#endif
 			PyErr_Clear();
 			goto found;
 		}
+#ifdef UWSGI_PYTHON_OLD
+		content_len = buffer_len;
+#endif
 	}
 #endif
 
