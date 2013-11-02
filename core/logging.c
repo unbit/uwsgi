@@ -1853,7 +1853,7 @@ void uwsgi_log_encoder_parse_vars(struct uwsgi_log_encoder *ule) {
 /*
         // format: foo ${var} bar
         msg (the logline)
-        msgnl (the logine with newline)
+        msgnl (the logline with newline)
         unix (the time_t value)
         micros (current microseconds)
         strftime (strftime)
