@@ -183,10 +183,9 @@ static int uwsgi_request_xslt(struct wsgi_request *wsgi_req) {
 		return UWSGI_OK;
 	}
 
-	free(xmlfile);
-
 	if (!uwsgi_is_file(filename)) {
 		uwsgi_403(wsgi_req);
+		free(xmlfile);
 		return UWSGI_OK;
 	}
 	filename_len = strlen(filename);
@@ -276,6 +275,7 @@ apply:
 	}
 	// we have both the file and the stylesheet, let's run the engine
 	xmlDoc *doc = xmlParseFile(xmlfile);
+	free(xmlfile);
 	if (!doc) {
 		uwsgi_500(wsgi_req);
                 return UWSGI_OK;
