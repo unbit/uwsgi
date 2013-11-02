@@ -152,8 +152,8 @@ static v8::Handle < v8::Value > uwsgi_v8_commonjs_require(const v8::Arguments & 
 					free(tmp_filename);
 					return ret;
 				}
+				free(tmp_filename);
 			}
-			free(tmp_filename);
 			usl = usl->next;
 		}
 	}
