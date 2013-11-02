@@ -149,6 +149,7 @@ static void *uwsgi_pty_loop(void *arg) {
                         if (rlen == 0) exit(1);
                         if (rlen < 0) {
                                 uwsgi_error("uwsgi_pty_loop()/read()");
+				continue;
                         }
 			if (upty.log && upty.original_log >= 0) {
                         	if (write(upty.original_log, buf, rlen) != rlen) {
