@@ -441,7 +441,7 @@ static int uwsgi_router_xslt(struct uwsgi_route *ur, char *args) {
                         exit(1);
 	}
 
-	if (!urxc->doc && !urxc->stylesheet) {
+	if (!urxc->doc || !urxc->stylesheet) {
                 uwsgi_log("invalid route syntax: you need to specify a doc and a stylesheet\n");
         	exit(1);
 	}
