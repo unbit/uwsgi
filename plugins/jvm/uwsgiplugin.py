@@ -7,7 +7,11 @@ JVM_INCPATH = None
 JVM_LIBPATH = None
 
 operating_system = os.uname()[0].lower()
-arch = os.uname()[4].lower()
+
+try:
+    arch = os.environ['JVM_ARCH']
+except:
+    arch = os.uname()[4].lower()
 
 if arch in ('i686', 'x86', 'x86_32'):
     arch = 'i386'
