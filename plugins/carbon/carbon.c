@@ -107,7 +107,7 @@ static void carbon_post_init() {
 
 	if (u_carbon.freq < 1) u_carbon.freq = 60;
 	if (u_carbon.timeout < 1) u_carbon.timeout = 3;
-	if (u_carbon.max_retries <= 0) u_carbon.max_retries = 1;
+	if (u_carbon.max_retries < 0) u_carbon.max_retries = 0;
 	if (u_carbon.retry_delay <= 0) u_carbon.retry_delay = 7;
 	if (!u_carbon.id) {
 		u_carbon.id = uwsgi_str(uwsgi.sockets->name);
