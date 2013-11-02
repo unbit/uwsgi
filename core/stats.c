@@ -475,7 +475,7 @@ void uwsgi_stats_pusher_loop(struct uwsgi_thread *ut) {
 					uspi->pusher->func(uspi, now, us->base, us->pos);
 				}
 				uspi->last_run = now;
-				if (uspi->needs_retry && uspi->retries < uspi->max_retries) {
+				if (uspi->needs_retry && uspi->max_retries > 0 && uspi->retries < uspi->max_retries) {
 					uwsgi_log("[uwsgi-stats-pusher] %s failed (%d), retry in %ds\n", uspi->pusher->name, uspi->retries, uspi->retry_delay);
 					uspi->next_retry = now + uspi->retry_delay;
 				} else if (uspi->needs_retry && uspi->retries >= uspi->max_retries) {
