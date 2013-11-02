@@ -92,9 +92,9 @@ static char *uwsgi_xslt_apply(xmlDoc *doc, char *xsltfile, char *params, int *rl
         if (!ss) {
 		if (vparams) {
 			int i; for(i=1;i<(count*2);i+=2) free(vparams[i]);
-			free(tmp_params);
 			free(vparams);
 		}
+		free(tmp_params);
                 return NULL;
         }
 
@@ -103,9 +103,9 @@ static char *uwsgi_xslt_apply(xmlDoc *doc, char *xsltfile, char *params, int *rl
 		xsltFreeStylesheet(ss);
 		if (vparams) {
 			int i; for(i=1;i<(count*2);i+=2) free(vparams[i]);
-			free(tmp_params);
 			free(vparams);
 		}
+		free(tmp_params);
 		return NULL;
 	}
 
@@ -115,9 +115,9 @@ static char *uwsgi_xslt_apply(xmlDoc *doc, char *xsltfile, char *params, int *rl
 	xmlFreeDoc(res);
 	if (vparams) {
 		int i; for(i=1;i<(count*2);i+=2) free(vparams[i]);
-		free(tmp_params);
 		free(vparams);
 	}
+	free(tmp_params);
 	if (ret < 0) return NULL;
 	return (char *) output;
 }
@@ -183,10 +183,9 @@ static int uwsgi_request_xslt(struct wsgi_request *wsgi_req) {
 		return UWSGI_OK;
 	}
 
-	free(xmlfile);
-
 	if (!uwsgi_is_file(filename)) {
 		uwsgi_403(wsgi_req);
+		free(xmlfile);
 		return UWSGI_OK;
 	}
 	filename_len = strlen(filename);
@@ -276,6 +275,7 @@ apply:
 	}
 	// we have both the file and the stylesheet, let's run the engine
 	xmlDoc *doc = xmlParseFile(xmlfile);
+	free(xmlfile);
 	if (!doc) {
 		uwsgi_500(wsgi_req);
                 return UWSGI_OK;
@@ -441,7 +441,7 @@ static int uwsgi_router_xslt(struct uwsgi_route *ur, char *args) {
                         exit(1);
 	}
 
-	if (!urxc->doc && !urxc->stylesheet) {
+	if (!urxc->doc || !urxc->stylesheet) {
                 uwsgi_log("invalid route syntax: you need to specify a doc and a stylesheet\n");
         	exit(1);
 	}
