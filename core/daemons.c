@@ -233,7 +233,7 @@ void uwsgi_detach_daemons() {
 #endif
 			uwsgi_log("[uwsgi-daemons] stopping daemon (pid: %d): %s\n", (int) ud->pid, ud->command);
 			// try to gracefully stop daemon, kill it if it won't die
-			// if mercy is not set than wait up to 3 seconds
+			// if mercy is not set then wait up to 3 seconds
 			time_t timeout = uwsgi_now() + (uwsgi.reload_mercy ? uwsgi.reload_mercy : 3);
 			int waitpid_status;
 			while (!kill(ud->pid, 0)) {
@@ -241,7 +241,7 @@ void uwsgi_detach_daemons() {
 				sleep(1);
 				waitpid(-ud->pid, &waitpid_status, WNOHANG);
 				if (uwsgi_now() >= timeout) {
-					uwsgi_log("[uwsgi-daemons] daemon did not died in time, killing (pid: %d): %s\n", (int) ud->pid, ud->command);
+					uwsgi_log("[uwsgi-daemons] daemon did not die in time, killing (pid: %d): %s\n", (int) ud->pid, ud->command);
 					kill(-ud->pid, SIGKILL);
 					break;
 				}

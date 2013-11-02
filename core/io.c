@@ -270,7 +270,7 @@ static char *uwsgi_scheme_emperor(char *url, size_t *size, int add_zero) {
 		}
 		rlen = read(uwsgi.emperor_fd_config, ptr, remains);
 		if (rlen <= 0) {
-			uwsgi_log("[uwsgi-vassal] error reading config header from !!!\n", url);
+			uwsgi_log("[uwsgi-vassal] error reading config header from %s !!!\n", url);
 			exit(1);
 		}
 		ptr+=rlen;
@@ -293,7 +293,7 @@ static char *uwsgi_scheme_emperor(char *url, size_t *size, int add_zero) {
                 }
 		rlen = read(uwsgi.emperor_fd_config, ptr, remains);
 		if (rlen <= 0) {
-                	uwsgi_log("[uwsgi-vassal] error reading config from !!!\n", url);
+                	uwsgi_log("[uwsgi-vassal] error reading config from %s !!!\n", url);
                         exit(1);
                 }
                 ptr+=rlen;

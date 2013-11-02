@@ -726,7 +726,7 @@ void uwsgi_as_root() {
 
 	uwsgi_foreach(usl, uwsgi.call_as_root) {
 		if (uwsgi_call_symbol(usl->value)) {
-			uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+			uwsgi_log("unable to call function \"%s\"\n", usl->value);
 		}
 	}
 
@@ -944,7 +944,7 @@ void uwsgi_as_root() {
 
 	uwsgi_foreach(usl, uwsgi.call_as_user) {
 		if (uwsgi_call_symbol(usl->value)) {
-			uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+			uwsgi_log("unable to call function \"%s\"\n", usl->value);
 			exit(1);
 		}
 	}

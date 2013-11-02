@@ -1456,7 +1456,7 @@ void uwsgi_exec_atexit(void) {
 
 		uwsgi_foreach(usl, uwsgi.call_as_user_atexit) {
                 	if (uwsgi_call_symbol(usl->value)) {
-                        	uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                        	uwsgi_log("unable to call function \"%s\"\n", usl->value);
                 	}
         	}
 	}
@@ -3529,7 +3529,7 @@ void uwsgi_init_all_apps() {
 
 	uwsgi_foreach(usl, uwsgi.call_pre_app) {
                 if (uwsgi_call_symbol(usl->value)) {
-                        uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                        uwsgi_log("unable to call function \"%s\"\n", usl->value);
 			exit(1);
                 }
         }
@@ -3597,7 +3597,7 @@ void uwsgi_init_all_apps() {
 
 	uwsgi_foreach(usl, uwsgi.call_post_app) {
                 if (uwsgi_call_symbol(usl->value)) {
-                        uwsgi_log("unaable to call function \"%s\"\n", usl->value);
+                        uwsgi_log("unable to call function \"%s\"\n", usl->value);
                 }
         }
 
