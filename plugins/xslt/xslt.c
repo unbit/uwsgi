@@ -92,9 +92,9 @@ static char *uwsgi_xslt_apply(xmlDoc *doc, char *xsltfile, char *params, int *rl
         if (!ss) {
 		if (vparams) {
 			int i; for(i=1;i<(count*2);i+=2) free(vparams[i]);
-			free(tmp_params);
 			free(vparams);
 		}
+		free(tmp_params);
                 return NULL;
         }
 
@@ -103,9 +103,9 @@ static char *uwsgi_xslt_apply(xmlDoc *doc, char *xsltfile, char *params, int *rl
 		xsltFreeStylesheet(ss);
 		if (vparams) {
 			int i; for(i=1;i<(count*2);i+=2) free(vparams[i]);
-			free(tmp_params);
 			free(vparams);
 		}
+		free(tmp_params);
 		return NULL;
 	}
 
@@ -115,9 +115,9 @@ static char *uwsgi_xslt_apply(xmlDoc *doc, char *xsltfile, char *params, int *rl
 	xmlFreeDoc(res);
 	if (vparams) {
 		int i; for(i=1;i<(count*2);i+=2) free(vparams[i]);
-		free(tmp_params);
 		free(vparams);
 	}
+	free(tmp_params);
 	if (ret < 0) return NULL;
 	return (char *) output;
 }
