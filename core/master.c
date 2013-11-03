@@ -585,8 +585,10 @@ int master_loop(char **argv, char **environ) {
 
 			/* all processes ok, doing status scan after N seconds */
 			check_interval = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
-			if (!check_interval)
+			if (!check_interval) {
 				check_interval = 1;
+				uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL] = 1;
+			}
 
 
 			// add unregistered file monitors
@@ -621,14 +623,14 @@ int master_loop(char **argv, char **environ) {
 
 			if (ushared->rb_timers_cnt > 0) {
 				min_timeout = uwsgi_min_rb_timer(rb_timers, NULL);
-				if (min_timeout == NULL) {
-					check_interval = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
-				}
-				else {
-					check_interval = min_timeout->value - uwsgi_now();
-					if (check_interval <= 0) {
+				if (min_timeout) {
+					int delta = min_timeout->value - uwsgi_now();
+					if (delta <= 0) {
 						expire_rb_timeouts(rb_timers);
-						check_interval = 0;
+					}
+					// if the timer expires before the check_interval, override it
+					else if (delta < check_interval) {
+						check_interval = delta;
 					}
 				}
 			}
@@ -682,8 +684,10 @@ int master_loop(char **argv, char **environ) {
 			uwsgi_master_check_idle();
 
 			check_interval = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
-			if (!check_interval)
+			if (!check_interval) {
 				check_interval = 1;
+				uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL] = 1;
+			}
 
 
 			// get listen_queue status
