@@ -301,8 +301,10 @@ int uwsgi_signal_send(int fd, uint8_t sig) {
 		else {
 			uwsgi_error("uwsgi_signal_send()");
 		}
+		uwsgi.shared->unrouted_signals++;
 		return -1;
 	}
+	uwsgi.shared->routed_signals++;
 	return 0;
 
 }

@@ -695,6 +695,8 @@ void uwsgi_setup_metrics() {
 	}
 
 	// the 'core' namespace
+	uwsgi_register_metric("core.routed_signals", "5.1", UWSGI_METRIC_COUNTER, "ptr", &uwsgi.shared->routed_signals, 0, NULL);
+	uwsgi_register_metric("core.unrouted_signals", "5.2", UWSGI_METRIC_COUNTER, "ptr", &uwsgi.shared->unrouted_signals, 0, NULL);
 
 	// parents are appended only at the end
 	struct uwsgi_metric *total_tx = uwsgi_register_metric_do("core.total_tx", "5.100", UWSGI_METRIC_COUNTER, "sum", NULL, 0, NULL, 1);

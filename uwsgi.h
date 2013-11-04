@@ -2702,6 +2702,9 @@ struct uwsgi_shared {
 	int gateways_cnt;
 	time_t gateways_harakiri[MAX_GATEWAYS];
 
+	uint64_t routed_signals;
+	uint64_t unrouted_signals;
+
 	int ready;
 };
 
