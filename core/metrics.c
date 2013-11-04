@@ -203,6 +203,7 @@ struct uwsgi_metric_collector *uwsgi_metric_collector_by_name(char *name) {
 }
 
 struct uwsgi_metric *uwsgi_register_metric_do(char *name, char *oid, uint8_t value_type, char *collector, void *ptr, uint32_t freq, void *custom, int do_not_push) {
+	if (!uwsgi.has_metrics) return NULL;
 	struct uwsgi_metric *old_metric=NULL,*metric=uwsgi.metrics;
 
 	if (!uwsgi_validate_metric_name(name)) {
