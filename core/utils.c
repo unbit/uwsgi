@@ -3167,45 +3167,169 @@ void escape_json(char *src, size_t len, char *dst) {
 	*ptr++ = 0;
 }
 
+/*
+
+build PATH_INFO from raw_uri
+
+it manages:
+
+	percent encoding
+	dot_segments removal
+	stop at the first #
+
+*/
 void http_url_decode(char *buf, uint16_t * len, char *dst) {
 
-	uint16_t i;
-	int percent = 0;
+	enum {
+		zero = 0,
+		percent1,
+		percent2,
+		slash,
+		dot,
+		dotdot
+	} status;
+
+	uint16_t i, current_new_len, new_len = 0;
+
 	char value[2];
-	size_t new_len = 0;
 
 	char *ptr = dst;
 
 	value[0] = '0';
 	value[1] = '0';
 
+	status = zero;
+	int no_slash = 0;
+
+	if (*len > 0 && buf[0] != '/') {
+		status = slash;
+		no_slash = 1;
+	}
+
 	for (i = 0; i < *len; i++) {
-		if (buf[i] == '%') {
-			if (percent == 0) {
-				percent = 1;
-			}
-			else {
-				*ptr++ = '%';
+		char c = buf[i];
+		if (c == '#') break;
+		switch(status) {
+			case zero:
+				if (c == '%') {
+					status = percent1;
+					break;
+				}
+				if (c == '/') {
+					status = slash;
+					break;
+				}
+				*ptr++ = c;
 				new_len++;
-				percent = 0;
-			}
-		}
-		else {
-			if (percent == 1) {
-				value[0] = buf[i];
-				percent = 2;
-			}
-			else if (percent == 2) {
-				value[1] = buf[i];
+				break;
+			case percent1:
+				if (c == '%') {
+					*ptr++ = '%';
+					new_len++;
+					status = zero;
+					break;
+				}
+				value[0] = c;
+				status = percent2;
+				break;
+			case percent2:
+				value[1] = c;
 				*ptr++ = hex2num(value);
-				percent = 0;
 				new_len++;
-			}
-			else {
-				*ptr++ = buf[i];
-				new_len++;
-			}
+				status = zero;
+				break;
+			case slash:
+				if (c == '.') {
+					status = dot;
+					break;
+				}
+				// we could be at the first round (in non slash)
+				if (i > 0 || !no_slash) {
+					*ptr++ = '/'; new_len++;
+				}
+				if (c == '%') {
+					status = percent1;
+					break;
+				}
+				if (c == '/') {
+					status = slash;
+					break;
+				}
+				*ptr++ = c; new_len++;
+				status = zero;
+				break;
+			case dot:
+				if (c == '.') {
+					status = dotdot;
+					break;
+				}
+				if (c == '/') {
+					status = slash;
+					break;
+				}
+				if (i > 1) {
+					*ptr++ = '/'; new_len++;
+				}
+				*ptr++ = '.'; new_len++;
+				if (c == '%') {
+					status = percent1;	
+					break;
+				}
+                                *ptr++ = c; new_len++;
+                                status = zero;
+				break;
+			case dotdot:
+				// here we need to remove a segment
+				if (c == '/') {
+					current_new_len = new_len;
+					while(current_new_len) {
+						current_new_len--;
+						ptr--;
+						if (dst[current_new_len] == '/') {
+							break;
+						}
+					}
+					new_len = current_new_len;
+					status = slash;
+					break;
+				}
+				if (i > 2) {
+					*ptr++ = '/'; new_len++;
+				}
+                                *ptr++ = '.'; new_len++; 
+                                *ptr++ = '.'; new_len++; 
+				if (c == '%') {
+                                        status = percent1;
+                                        break;
+                                }
+                                *ptr++ = c; new_len++;
+                                status = zero;
+                                break;
+			// over engineering
+			default:
+				*ptr++ = c;
+                                new_len++;
+                                break;
 		}
+	}
+
+	switch(status) {
+		case slash:
+		case dot:
+			*ptr++ = '/'; new_len++;
+			break;
+		case dotdot:
+			current_new_len = new_len;
+			while(current_new_len) {
+				if (dst[current_new_len-1] == '/') {
+					break;
+				}
+				current_new_len--;
+			}
+			new_len = current_new_len;
+			break;
+		default:
+			break;
 	}
 
 	*len = new_len;

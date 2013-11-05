@@ -1199,10 +1199,18 @@ static int uwsgi_router_alarm(struct uwsgi_route *ur, char *arg) {
 
 // send route
 static int uwsgi_router_send_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
-	uwsgi_response_write_body_do(wsgi_req, route->data, route->data_len);
+	char **subject = (char **) (((char *)(wsgi_req))+route->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+route->subject_len);
+
+	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, route, *subject, *subject_len, route->data, route->data_len);
+        if (!ub) {
+                return UWSGI_ROUTE_BREAK;
+        }
+	uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
 	if (route->custom) {
 		uwsgi_response_write_body_do(wsgi_req, "\r\n", 2);
 	}
+	uwsgi_buffer_destroy(ub);
         return UWSGI_ROUTE_NEXT;
 }
 static int uwsgi_router_send(struct uwsgi_route *ur, char *arg) {
