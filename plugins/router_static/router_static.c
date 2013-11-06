@@ -16,6 +16,8 @@ struct uwsgi_router_file_conf {
 	size_t content_type_len;
 	
 	char *mime;
+
+	char *no_cl;
 };
 
 int uwsgi_routing_func_static(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
@@ -64,7 +66,9 @@ int uwsgi_routing_func_file(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 		goto end2;
 	}
 	uwsgi_buffer_destroy(ub_s);
-	if (uwsgi_response_add_content_length(wsgi_req, st.st_size)) goto end2;
+	if (!urfc->no_cl) {
+		if (uwsgi_response_add_content_length(wsgi_req, st.st_size)) goto end2;
+	}
 	if (urfc->mime) {
 		size_t mime_type_len = 0;
 		char *mime_type = uwsgi_get_mime_type(ub->buf, ub->pos, &mime_type_len);
@@ -248,6 +252,9 @@ static int uwsgi_router_file(struct uwsgi_route *ur, char *args) {
                         "filename", &urfc->filename,
                         "status", &urfc->status,
                         "content_type", &urfc->content_type,
+                        "nocl", &urfc->no_cl,
+                        "no_cl", &urfc->no_cl,
+                        "no_content_length", &urfc->no_cl,
                         "mime", &urfc->mime,
                         NULL)) {
                         uwsgi_log("invalid file route syntax: %s\n", args);
