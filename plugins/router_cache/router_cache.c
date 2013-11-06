@@ -57,6 +57,8 @@ struct uwsgi_router_cache_conf {
 	char *status_str;
 	int status;
 	char *no_offload;
+
+	char *no_cl;
 };
 
 // this is allocated for each transformation
@@ -189,7 +191,9 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 		if (expires) {
 			if (uwsgi_response_add_expires(wsgi_req, expires)) goto error;	
 		}
-		if (uwsgi_response_add_content_length(wsgi_req, valsize)) goto error;
+		if (!urcc->no_cl) {
+			if (uwsgi_response_add_content_length(wsgi_req, valsize)) goto error;
+		}
 		if (wsgi_req->socket->can_offload && !ur->custom && !urcc->no_offload) {
                 	if (!uwsgi_offload_request_memory_do(wsgi_req, value, valsize)) {
                         	wsgi_req->via = UWSGI_VIA_OFFLOAD;
@@ -378,6 +382,9 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
                         "mime", &urcc->mime,
                         "name", &urcc->name,
                         "no_offload", &urcc->no_offload,
+                        "no_content_length", &urcc->no_cl,
+                        "no_cl", &urcc->no_cl,
+                        "nocl", &urcc->no_cl,
                         NULL)) {
 			uwsgi_log("invalid route syntax: %s\n", args);
 			exit(1);
