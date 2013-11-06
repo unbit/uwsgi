@@ -3972,7 +3972,6 @@ void uwsgi_uuid(char *buf) {
 	uuid_unparse(uuid_zmq, buf);
 #else
 	int i,r[11];
-	static int srand_called = 0;
 	if (!uwsgi_file_exists("/dev/urandom")) goto fallback;
 	int fd = open("/dev/urandom", O_RDONLY);
 	if (fd < 0) goto fallback;
@@ -3984,10 +3983,6 @@ void uwsgi_uuid(char *buf) {
 	close(fd);
 	goto done;
 fallback:
-	if (!srand_called) {
-		srand((unsigned int) getpid());
-		srand_called = 1;
-	}
 	for(i=0;i<11;i++) {
 		r[i] = rand();
 	}

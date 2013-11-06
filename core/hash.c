@@ -17,7 +17,7 @@ uint32_t djb33x_hash(char *key, uint64_t keylen) {
 
 // Murmur2 hash Copyright (C) Austin Appleby
 // adapted from nginx
-uint32_t murmur2_hash(char *key, uint64_t keylen) {
+static uint32_t murmur2_hash(char *key, uint64_t keylen) {
 
 	uint32_t  h, k;
 	uint8_t *ukey = (uint8_t *) key;
@@ -56,6 +56,23 @@ uint32_t murmur2_hash(char *key, uint64_t keylen) {
 	return h;
 }
 
+static uint32_t random_hash(char *key, uint64_t keylen) {
+	return (uint32_t) rand();
+}
+
+/*
+	not atomic, avoid its use in multithreaded modes
+*/
+static uint32_t rr_hash(char *key, uint64_t keylen) {
+	static uint32_t rr = 0;
+	uint32_t max_value = uwsgi_str_num(key, keylen);
+	uint32_t ret = rr;
+	rr++;
+	if (rr > max_value) {
+		rr = 0;
+	}
+	return ret;
+}
 
 struct uwsgi_hash_algo *uwsgi_hash_algo_get(char *name) {
 	struct uwsgi_hash_algo *uha = uwsgi.hash_algos;
@@ -90,4 +107,7 @@ void uwsgi_hash_algo_register(char *name, uint32_t (*func)(char *, uint64_t)) {
 void uwsgi_hash_algo_register_all() {
 	uwsgi_hash_algo_register("djb33x", djb33x_hash);
 	uwsgi_hash_algo_register("murmur2", murmur2_hash);
+	uwsgi_hash_algo_register("random", random_hash);
+	uwsgi_hash_algo_register("rand", random_hash);
+	uwsgi_hash_algo_register("rr", rr_hash);
 }

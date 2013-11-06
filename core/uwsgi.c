@@ -1869,6 +1869,12 @@ static struct uwsgi_clock uwsgi_unix_clock = {
 	.microseconds = uwsgi_unix_microseconds,
 };
 
+void uwsgi_init_random() {
+	struct timeval t;
+        gettimeofday(&t, NULL);
+        srand((unsigned int) (t.tv_usec * t.tv_sec));
+}
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int argc, char *argv[], char *envp[]) {
 
@@ -1902,6 +1908,9 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	//initialize masterpid with a default value
 	masterpid = getpid();
+
+	// initialize random engine
+	uwsgi_init_random();
 
 	memset(&uwsgi, 0, sizeof(struct uwsgi_server));
 	uwsgi_proto_hooks_setup();
