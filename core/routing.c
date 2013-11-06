@@ -1206,10 +1206,13 @@ static int uwsgi_router_send_func(struct wsgi_request *wsgi_req, struct uwsgi_ro
         if (!ub) {
                 return UWSGI_ROUTE_BREAK;
         }
-	uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
 	if (route->custom) {
-		uwsgi_response_write_body_do(wsgi_req, "\r\n", 2);
+		if (uwsgi_buffer_append(ub, "\r\n", 2)) {
+			uwsgi_buffer_destroy(ub);
+			return UWSGI_ROUTE_BREAK;
+		}
 	}
+	uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
 	uwsgi_buffer_destroy(ub);
         return UWSGI_ROUTE_NEXT;
 }
