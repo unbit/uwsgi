@@ -23,8 +23,8 @@ void uwsgi_update_load_counters() {
 		ushared->overloaded++;
 	}
 
-	ushared->busy_workers += busy_workers;
-	ushared->idle_workers += idle_workers;
+	ushared->busy_workers = busy_workers;
+	ushared->idle_workers = idle_workers;
 
 }
 

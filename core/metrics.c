@@ -699,8 +699,8 @@ void uwsgi_setup_metrics() {
 	uwsgi_register_metric("core.routed_signals", "5.1", UWSGI_METRIC_COUNTER, "ptr", &uwsgi.shared->routed_signals, 0, NULL);
 	uwsgi_register_metric("core.unrouted_signals", "5.2", UWSGI_METRIC_COUNTER, "ptr", &uwsgi.shared->unrouted_signals, 0, NULL);
 
-	uwsgi_register_metric("core.busy_workers", "5.3", UWSGI_METRIC_COUNTER, "ptr", &uwsgi.shared->busy_workers, 0, NULL);
-	uwsgi_register_metric("core.idle_workers", "5.4", UWSGI_METRIC_COUNTER, "ptr", &uwsgi.shared->idle_workers, 0, NULL);
+	uwsgi_register_metric("core.busy_workers", "5.3", UWSGI_METRIC_GAUGE, "ptr", &uwsgi.shared->busy_workers, 0, NULL);
+	uwsgi_register_metric("core.idle_workers", "5.4", UWSGI_METRIC_GAUGE, "ptr", &uwsgi.shared->idle_workers, 0, NULL);
 	uwsgi_register_metric("core.overloaded", "5.5", UWSGI_METRIC_COUNTER, "ptr", &uwsgi.shared->overloaded, 0, NULL);
 
 	// parents are appended only at the end
