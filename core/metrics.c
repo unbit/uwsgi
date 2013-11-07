@@ -470,6 +470,31 @@ static void *uwsgi_metrics_loop(void *arg) {
 					}
 				}
 			}
+
+			// thresholds;
+			struct uwsgi_metric_threshold *umt = metric->thresholds;
+			while(umt) {
+				if (new_value >= umt->value) {
+					if (umt->reset) {
+						uwsgi_wlock(uwsgi.metrics_lock);
+						*metric->value = umt->reset_value;
+						uwsgi_rwunlock(uwsgi.metrics_lock);
+					}
+
+					if (umt->alarm) {
+						if (umt->last_alarm + umt->rate <= now) {
+							if (umt->msg) {
+								uwsgi_alarm_trigger(umt->alarm, umt->msg, umt->msg_len);
+							}
+							else {
+								uwsgi_alarm_trigger(umt->alarm, metric->name, metric->name_len);
+							}
+							umt->last_alarm = now;
+						}
+					}
+				}
+				umt = umt->next;
+			}
 next:
 			metric = metric->next;
 		}
@@ -817,6 +842,76 @@ void uwsgi_setup_metrics() {
 			*metric->value = metric->initial_value;
 		}
 		metric = metric->next;
+	}
+
+	// setup thresholds
+	uwsgi_foreach(usl, uwsgi.metrics_threshold) {
+		char *m_key = NULL;
+		char *m_value = NULL;
+		char *m_alarm = NULL;
+		char *m_rate = NULL;
+		char *m_reset = NULL;
+		char *m_msg = NULL;
+		if (uwsgi_kvlist_parse(usl->value, usl->len, ',', '=',
+                	"key", &m_key,
+                	"value", &m_value,
+                	"alarm", &m_alarm,
+                	"rate", &m_rate,
+                	"msg", &m_msg,
+                	"reset", &m_reset,
+                	NULL)) {
+                		uwsgi_log("invalid metric threshold keyval syntax: %s\n", usl->value);
+                		exit(1);
+		}
+
+		if (!m_key || !m_value) {
+			uwsgi_log("metric's threshold requires a key and a value: %s\n", usl->value);
+			exit(1);
+		}
+
+		struct uwsgi_metric *um = uwsgi_metric_find_by_name(m_key);
+		if (!um) {
+			uwsgi_log("unable to find metric %s\n", m_key);
+		}
+
+		struct uwsgi_metric_threshold *umt = uwsgi_calloc(sizeof(struct uwsgi_metric_threshold));
+		umt->value = strtoll(m_value, NULL, 10);
+		if (m_reset) {
+			umt->reset = 1;
+			umt->reset_value = strtoll(m_reset, NULL, 10);
+		}
+
+		if (m_rate) {
+			umt->rate = (int32_t) atoi(m_rate);
+		}
+
+		umt->alarm = m_alarm;
+
+		if (m_msg) {
+			umt->msg = m_msg;
+			umt->msg_len = strlen(m_msg);
+		}
+
+		free(m_key);
+		free(m_value);
+		if (m_rate) free(m_rate);
+		if (m_reset) free(m_reset);
+
+		if (um->thresholds) {
+			struct uwsgi_metric_threshold *umt_list = um->thresholds;
+			while(umt_list) {
+				if (!umt_list->next) {
+					umt_list->next = umt;
+					break;
+				}
+				umt_list = umt_list->next;
+			}
+		}
+		else {
+			um->thresholds = umt;
+		}
+
+		uwsgi_log("added threshold for metric %s (value: %lld)\n", um->name, umt->value);
 	}
 
 	uwsgi_log("initialized %llu metrics\n", uwsgi.metrics_cnt);

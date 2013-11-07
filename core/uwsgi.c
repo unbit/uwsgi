@@ -2163,7 +2163,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_register_imperial_monitor("glob", uwsgi_imperial_monitor_glob_init, uwsgi_imperial_monitor_glob);
 
 	// setup stats pushers
-	uwsgi_register_stats_pusher("file", uwsgi_stats_pusher_file);
 	uwsgi_stats_pusher_setup();
 
 	// register embedded alarms

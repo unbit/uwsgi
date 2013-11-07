@@ -3744,8 +3744,6 @@ struct uwsgi_stats_pusher_instance {
 
 struct uwsgi_thread;
 void uwsgi_stats_pusher_loop(struct uwsgi_thread *);
-void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *, time_t, char *, size_t);
-void uwsgi_stats_pusher_socket(struct uwsgi_stats_pusher_instance *, time_t, char *, size_t);
 
 void uwsgi_stats_pusher_setup(void);
 void uwsgi_send_stats(int, struct uwsgi_stats *(*func) (void));
@@ -4446,6 +4444,10 @@ struct uwsgi_metric_threshold {
 	int64_t reset_value;
 	int32_t rate;
 	char *alarm;
+	char *msg;
+	size_t msg_len;
+	time_t last_alarm;
+	struct uwsgi_metric_threshold *next;
 };
 
 struct uwsgi_metric {
