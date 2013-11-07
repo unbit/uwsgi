@@ -441,6 +441,7 @@ void uwsgi_stats_pusher_loop(struct uwsgi_thread *ut) {
 	for (;;) {
 		int nevents = event_queue_wait_multi(ut->queue, 1, events, 1);
 		if (nevents < 0) {
+			if (errno == EINTR) continue;
 			uwsgi_log_verbose("ending the stats pusher thread...\n");
 			return;
 		}
