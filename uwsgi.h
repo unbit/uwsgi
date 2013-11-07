@@ -2705,6 +2705,10 @@ struct uwsgi_shared {
 	uint64_t routed_signals;
 	uint64_t unrouted_signals;
 
+	uint64_t busy_workers;
+	uint64_t idle_workers;
+	uint64_t overloaded;
+
 	int ready;
 };
 

@@ -2,6 +2,32 @@
 
 extern struct uwsgi_server uwsgi;
 
+void uwsgi_update_load_counters() {
+
+	int i;
+	uint64_t busy_workers = 0;
+	uint64_t idle_workers = 0;
+
+        for (i = 1; i <= uwsgi.numproc; i++) {
+                if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+                        if (uwsgi_worker_is_busy(i) == 0) {
+				idle_workers++;
+			}
+			else {
+				busy_workers++;
+			}
+                }
+        }
+
+	if (busy_workers >= (uint64_t) uwsgi.numproc) {
+		ushared->overloaded++;
+	}
+
+	ushared->busy_workers += busy_workers;
+	ushared->idle_workers += idle_workers;
+
+}
+
 void uwsgi_restore_auto_snapshot(int signum) {
 
 	if (uwsgi.workers[1].snapshot > 0) {
@@ -643,6 +669,9 @@ int master_loop(char **argv, char **environ) {
 					expire_rb_timeouts(rb_timers);
 				}
 			}
+
+			// update load counter
+			uwsgi_update_load_counters();
 
 
 			// check uwsgi-cron table

@@ -699,6 +699,10 @@ void uwsgi_setup_metrics() {
 	uwsgi_register_metric("core.routed_signals", "5.1", UWSGI_METRIC_COUNTER, "ptr", &uwsgi.shared->routed_signals, 0, NULL);
 	uwsgi_register_metric("core.unrouted_signals", "5.2", UWSGI_METRIC_COUNTER, "ptr", &uwsgi.shared->unrouted_signals, 0, NULL);
 
+	uwsgi_register_metric("core.busy_workers", "5.3", UWSGI_METRIC_COUNTER, "ptr", &uwsgi.shared->busy_workers, 0, NULL);
+	uwsgi_register_metric("core.idle_workers", "5.4", UWSGI_METRIC_COUNTER, "ptr", &uwsgi.shared->idle_workers, 0, NULL);
+	uwsgi_register_metric("core.overloaded", "5.5", UWSGI_METRIC_COUNTER, "ptr", &uwsgi.shared->overloaded, 0, NULL);
+
 	// parents are appended only at the end
 	struct uwsgi_metric *total_tx = uwsgi_register_metric_do("core.total_tx", "5.100", UWSGI_METRIC_COUNTER, "sum", NULL, 0, NULL, 1);
 	struct uwsgi_metric *total_rss = uwsgi_register_metric_do("core.total_rss", "5.101", UWSGI_METRIC_GAUGE, "sum", NULL, 0, NULL, 1);
@@ -713,6 +717,12 @@ void uwsgi_setup_metrics() {
 
 		uwsgi_metric_name("worker.%d.delta_requests", i) ; uwsgi_metric_oid("3.%d.2", i);
 		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_ABSOLUTE, "ptr", &uwsgi.workers[i].delta_requests, 0, NULL);
+
+		uwsgi_metric_name("worker.%d.failed_requests", i) ; uwsgi_metric_oid("3.%d.13", i);
+		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].failed_requests, 0, NULL);
+
+		uwsgi_metric_name("worker.%d.respawns", i) ; uwsgi_metric_oid("3.%d.14", i);
+		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].respawn_count, 0, NULL);
 
 		uwsgi_metric_name("worker.%d.avg_response_time", i) ; uwsgi_metric_oid("3.%d.8", i);
 		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].avg_response_time, 0, NULL);
@@ -748,6 +758,7 @@ void uwsgi_setup_metrics() {
 
 			uwsgi_metric_name2("worker.%d.core.%d.exceptions", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.7", i, j);
 			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].cores[j].exceptions, 0, NULL);
+
 		}
 	}
 
