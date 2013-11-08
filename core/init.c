@@ -51,6 +51,7 @@ struct http_status_codes hsc[] = {
         {"503", "Service Unavailable"},
         {"504", "Gateway Timeout"},
         {"505", "HTTP Version Not Supported"},
+        {"509", "Bandwidth Limit Exceeded"},
         {"", NULL},
 };
 
