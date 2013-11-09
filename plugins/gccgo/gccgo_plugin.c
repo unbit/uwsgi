@@ -24,6 +24,7 @@ struct uwsgi_plugin gccgo_plugin;
 struct uwsgi_gccgo{
 	struct uwsgi_string_list *libs;
 	char *args;
+	pthread_mutex_t wsgi_req_lock;
 } ugccgo;
 
 /*
@@ -62,6 +63,20 @@ extern void* uwsgigo_env_add(void *, void *, uint16_t, void *, uint16_t) __asm__
 extern void uwsgigo_run_core(int) __asm__ ("go.uwsgi.RunCore");
 extern void uwsgigo_signal_handler(void *, uint8_t) __asm__ ("go.uwsgi.SignalHandler");
 //extern void uwsgigo_loop(void) __asm__ ("go.uwsgi.Loop");
+
+// for goroutines 
+void runtime_netpollinit(void);
+void runtime_starttheworld(void);
+void *runtime_pollOpen(int) __asm__ ("net.runtime_pollOpen");
+void runtime_pollClose(void *) __asm__ ("net.runtime_pollClose");
+void runtime_pollUnblock(void *) __asm__ ("net.runtime_pollUnblock");
+void runtime_pollWait(void *, int) __asm__ ("net.runtime_pollWait");
+void runtime_gosched(void);
+// the current goroutine
+void *runtime_g(void);
+// we use the closure field to store the wsgi_req structure
+void __go_set_closure(void *);
+void *__go_get_closure(void);
 
 static void mainstart(void *arg __attribute__((unused))) {
 	runtime_main();
@@ -179,11 +194,170 @@ static int uwsgi_gccgo_signal_handler(uint8_t signum, void *handler) {
 	return 0;
 }
 
+#define free_req_queue pthread_mutex_lock(&ugccgo.wsgi_req_lock);uwsgi.async_queue_unused_ptr++; uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req; pthread_mutex_unlock(&ugccgo.wsgi_req_lock)
+
+static void uwsgi_gccgo_request_goroutine(void *arg) {
+
+	struct wsgi_request *wsgi_req = (struct wsgi_request *) arg;
+
+	// map wsgi_req to the goroutine
+	__go_set_closure(wsgi_req);
+
+	int ret,status;
+
+        for(;;) {
+                ret = uwsgi.wait_read_hook(wsgi_req->fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                wsgi_req->switches++;
+
+                if (ret <= 0) {
+                        goto end;
+                }
+
+retry:
+                status = wsgi_req->socket->proto(wsgi_req);
+                if (status < 0) {
+			if (uwsgi_is_again()) continue;
+                        goto end;
+                }
+                else if (status == 0) {
+                        break;
+                }
+		goto retry;
+        }
+
+	uwsgi_log("REQUEST PARSED !!!\n");
+
+#ifdef UWSGI_ROUTING
+        if (uwsgi_apply_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
+                goto end;
+        }
+#endif
+
+        for(;;) {
+                if (uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req) <= UWSGI_OK) {
+                        goto end;
+                }
+                wsgi_req->switches++;
+		// yield
+		runtime_gosched();
+        }
+
+end:
+        uwsgi_close_request(wsgi_req);
+        free_req_queue;
+}
+
+static struct wsgi_request *uwsgi_gccgo_current_wsgi_req(void) {
+	return (struct wsgi_request *) __go_get_closure();
+}
+
+static int uwsgi_gccgo_wait_read_hook(int fd, int timeout) {
+        void *pdesc = runtime_pollOpen(fd);
+        runtime_pollWait(pdesc, 'r');
+	runtime_pollUnblock(pdesc);
+        runtime_pollClose(pdesc);
+	return 1;
+}
+
+static int uwsgi_gccgo_wait_write_hook(int fd, int timeout) {
+	void *pdesc = runtime_pollOpen(fd);
+	runtime_pollWait(pdesc, 'w');	
+	runtime_pollUnblock(pdesc);
+	runtime_pollClose(pdesc);
+	return 1;
+}
+
+
+static void uwsgi_gccgo_socket_goroutine(void *arg) {
+	struct uwsgi_socket *uwsgi_sock = (struct uwsgi_socket *) arg;
+	struct wsgi_request *wsgi_req = NULL;
+	void *pdesc = runtime_pollOpen(uwsgi_sock->fd);
+	// wait for connection
+	for(;;) {
+		uwsgi_log("waiting\n");
+		runtime_pollWait(pdesc, 'r');	
+retry:
+		pthread_mutex_lock(&ugccgo.wsgi_req_lock);
+		wsgi_req = find_first_available_wsgi_req();
+		pthread_mutex_unlock(&ugccgo.wsgi_req_lock);
+
+		if (wsgi_req == NULL) {
+                	uwsgi_async_queue_is_full(uwsgi_now());
+			// try rescheduling...
+			runtime_gosched();
+                	goto retry;
+		}
+
+		// fill wsgi_request structure
+		wsgi_req_setup(wsgi_req, wsgi_req->async_id, uwsgi_sock );
+
+		// mark core as used
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
+
+		// accept the connection (since uWSGI 1.5 all of the sockets are non-blocking)
+		if (wsgi_req_simple_accept(wsgi_req, uwsgi_sock->fd)) {
+			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
+                	free_req_queue;
+			if (uwsgi_is_again()) continue;
+                        goto retry;
+                }
+
+		wsgi_req->start_of_request = uwsgi_micros();
+		wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request/1000000;
+
+		// enter harakiri mode
+		if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+                	set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
+        	}
+
+		uwsgi_log("connection made\n");
+
+		void *g = __go_go(uwsgi_gccgo_request_goroutine, wsgi_req);
+                uwsgi_log("G = %p\n", g);
+		goto retry;
+	}
+}
+
+static void uwsgi_gccgo_loop() {
+	pthread_mutex_init(&ugccgo.wsgi_req_lock, NULL);
+	uwsgi.current_wsgi_req = uwsgi_gccgo_current_wsgi_req;
+	uwsgi.wait_write_hook = uwsgi_gccgo_wait_write_hook;
+        uwsgi.wait_read_hook = uwsgi_gccgo_wait_read_hook;
+
+	// ininitialize Go I/O loop
+	runtime_netpollinit();
+
+	// start a goroutine for each socket
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+	while(uwsgi_sock) {
+		if (!uwsgi_sock->next) {
+			uwsgi_gccgo_socket_goroutine(uwsgi_sock);
+		}
+		else {
+			void *g = __go_go(uwsgi_gccgo_socket_goroutine, uwsgi_sock);
+			uwsgi_log("G = %p\n", g);
+		}
+		uwsgi_sock = uwsgi_sock->next;
+	}
+
+	uwsgi_log("ok\n");
+	runtime_starttheworld();
+	// never here
+	uwsgi_log("ops..\n");
+	exit(1);
+}
+
+static void uwsgi_gccgo_on_load() {
+	uwsgi_register_loop( (char *) "go", uwsgi_gccgo_loop);
+	uwsgi_register_loop( (char *) "goroutine", uwsgi_gccgo_loop);
+	uwsgi_register_loop( (char *) "goroutines", uwsgi_gccgo_loop);
+}
+
 struct uwsgi_plugin gccgo_plugin = {
         .name = "gccgo",
         .modifier1 = 11,
 	.options = uwsgi_gccgo_options,
-	//.on_load = uwsgi_gccgo_on_load,
+	.on_load = uwsgi_gccgo_on_load,
         .request = uwsgi_gccgo_request,
         .after_request = uwsgi_gccgo_after_request,
         .post_fork = uwsgi_gccgo_initialize,
