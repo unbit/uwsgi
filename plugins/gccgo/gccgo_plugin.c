@@ -2,7 +2,7 @@
 
 /*
 
-	Soon before official Go 1.1, we understand supporting Go in a fork() heavy
+	Soon before official Go 1.1, we understood supporting Go in a fork() heavy
 	environment was not blessed by the Go community.
 
 	Instead of completely dropping support for Go, we studied how the gccgo project works and we
@@ -16,6 +16,19 @@
 	the uwsgi.Run() go function directly calls the uwsgi_takeover() function (it automatically
 	manages mules, spoolers and workers)
 
+	The plugin implements goroutines to.
+
+	On startup a goroutine is created for each socket and signal fd.
+
+	For every request a new goroutine is created too.
+
+	The wsgi_request * structure is attached to the "closure" field of the goroutine (PAY ATTENTION)
+
+	even if the loop engine makes use of the async mode, pthreads could be spawned all over the place.
+	For such a reason a mutex is created avoiding the global wsgi_req structures to be clobbered
+
+	TODO timeouts are missing
+
 */
 
 extern struct uwsgi_server uwsgi;
@@ -27,21 +40,19 @@ struct uwsgi_gccgo{
 	pthread_mutex_t wsgi_req_lock;
 } ugccgo;
 
-/*
 static void uwsgi_opt_setup_goroutines(char *opt, char *value, void *foobar) {
         // set async mode
         uwsgi_opt_set_int(opt, value, &uwsgi.async);
         // set loop engine
         uwsgi.loop = "goroutines";
 }
-*/
 
 struct uwsgi_option uwsgi_gccgo_options[] = {
 	{"go-load", required_argument, 0, "load a go shared library in the process address space, eventually patching main.main and __go_init_main", uwsgi_opt_add_string_list, &ugccgo.libs, 0},
 	{"gccgo-load", required_argument, 0, "load a go shared library in the process address space, eventually patching main.main and __go_init_main", uwsgi_opt_add_string_list, &ugccgo.libs, 0},
 	{"go-args", required_argument, 0, "set go commandline arguments", uwsgi_opt_set_str, &ugccgo.args, 0},
 	{"gccgo-args", required_argument, 0, "set go commandline arguments", uwsgi_opt_set_str, &ugccgo.args, 0},
- //       {"goroutines", required_argument, 0, "a shortcut setting optimal options for goroutine-based apps, takes the number of goroutines to spawn as argument", uwsgi_opt_setup_goroutines, NULL, UWSGI_OPT_THREADS},
+	{"goroutines", required_argument, 0, "a shortcut setting optimal options for goroutine-based apps, takes the number of max goroutines to spawn as argument", uwsgi_opt_setup_goroutines, NULL, UWSGI_OPT_THREADS},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -284,7 +295,9 @@ retry:
 		if (wsgi_req == NULL) {
                 	uwsgi_async_queue_is_full(uwsgi_now());
 			// try rescheduling...
+			uwsgi_log("yielding %p\n", uwsgi_sock);
 			runtime_gosched();
+			uwsgi_log("back from yield\n", uwsgi_sock);
                 	goto retry;
 		}
 

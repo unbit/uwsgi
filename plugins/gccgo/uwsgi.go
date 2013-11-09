@@ -22,10 +22,12 @@ func uwsgi_request_body_read(*interface{}, *byte, uint64) int
 func uwsgi_register_signal(uint8, *byte, func(uint8)) int
 
 var uwsgi_signals_gc [256]func(uint8)
+var uwsgi_env_gc map[interface{}]interface{}
 
 func Env(wsgi_req *interface{}) *map[string]string {
 	var env map[string]string
         env = make(map[string]string)
+	uwsgi_env_gc[wsgi_req] = &env
 	return &env
 }
 
@@ -98,6 +100,7 @@ func RequestHandler(env *map[string]string, wsgi_req *interface{}) {
                 w := ResponseWriter{httpReq, wsgi_req,http.Header{},false}
                 http.DefaultServeMux.ServeHTTP(&w, httpReq)
         }
+	delete(uwsgi_env_gc, wsgi_req)
 }
 
 func RegisterSignal(signum uint8, receiver string, handler func(uint8)) bool {
@@ -114,5 +117,6 @@ func SignalHandler(handler func(uint8), signum uint8) {
 }
 
 func Run() {
+	uwsgi_env_gc = make(map[interface{}]interface{})
 	uwsgi_takeover()
 }
