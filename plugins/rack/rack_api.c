@@ -7,6 +7,88 @@ extern struct uwsgi_plugin rack_plugin;
 
 #define uwsgi_rack_api(x, y, z) rb_define_module_function(rb_uwsgi_embedded, x, y, z)
 
+static VALUE rack_uwsgi_metric_get(VALUE *class, VALUE key) {
+	Check_Type(key, T_STRING);
+	int64_t value = uwsgi_metric_get(RSTRING_PTR(key), NULL);
+	return LONG2NUM(value);	
+}
+
+static VALUE rack_uwsgi_metric_set(VALUE *class, VALUE key, VALUE val) {
+        Check_Type(key, T_STRING);
+        Check_Type(val, T_FIXNUM); // should be T_BIGNUM...
+        if (uwsgi_metric_set(RSTRING_PTR(key), NULL, NUM2LONG(val) )) {
+		return Qnil;
+	}
+        return Qtrue;
+}
+
+static VALUE rack_uwsgi_metric_inc(int argc, VALUE *argv, VALUE *class) {
+	int64_t value = 1;
+	if (argc == 0) return Qnil;
+	Check_Type(argv[0], T_STRING);
+
+	if (argc > 1) {
+		Check_Type(argv[1], T_FIXNUM); // should be T_BIGNUM...
+		value = NUM2LONG(argv[1]);
+	}
+
+	if (uwsgi_metric_inc(RSTRING_PTR(argv[0]), NULL, value )) {
+                return Qnil;
+        }
+        return Qtrue;
+}
+
+static VALUE rack_uwsgi_metric_dec(int argc, VALUE *argv, VALUE *class) {
+        int64_t value = 1;
+        if (argc == 0) return Qnil;
+        Check_Type(argv[0], T_STRING);
+
+        if (argc > 1) {
+                Check_Type(argv[1], T_FIXNUM); // should be T_BIGNUM...
+                value = NUM2LONG(argv[1]);
+        }
+
+        if (uwsgi_metric_dec(RSTRING_PTR(argv[0]), NULL, value )) {
+                return Qnil;
+        }
+        return Qtrue;
+}
+
+static VALUE rack_uwsgi_metric_mul(int argc, VALUE *argv, VALUE *class) {
+        int64_t value = 1;
+        if (argc == 0) return Qnil;
+        Check_Type(argv[0], T_STRING);
+
+        if (argc > 1) {
+                Check_Type(argv[1], T_FIXNUM); // should be T_BIGNUM...
+                value = NUM2LONG(argv[1]);
+        }
+
+        if (uwsgi_metric_mul(RSTRING_PTR(argv[0]), NULL, value )) {
+                return Qnil;
+        }
+        return Qtrue;
+}
+
+static VALUE rack_uwsgi_metric_div(int argc, VALUE *argv, VALUE *class) {
+        int64_t value = 1;
+        if (argc == 0) return Qnil;
+        Check_Type(argv[0], T_STRING);
+
+        if (argc > 1) {
+                Check_Type(argv[1], T_FIXNUM); // should be T_BIGNUM...
+                value = NUM2LONG(argv[1]);
+        }
+
+        if (uwsgi_metric_div(RSTRING_PTR(argv[0]), NULL, value )) {
+                return Qnil;
+        }
+        return Qtrue;
+}
+
+
+
+
 static VALUE rack_uwsgi_warning(VALUE *class, VALUE rbmessage) {
 
 	Check_Type(rbmessage, T_STRING);
@@ -1098,6 +1180,13 @@ void uwsgi_rack_init_api() {
         uwsgi_rack_api("cache_update!", rack_uwsgi_cache_update_exc, -1);
         uwsgi_rack_api("cache_clear", rack_uwsgi_cache_clear, -1);
         uwsgi_rack_api("cache_clear!", rack_uwsgi_cache_clear_exc, -1);
+
+        uwsgi_rack_api("metric_get", rack_uwsgi_metric_get, 1);
+        uwsgi_rack_api("metric_set", rack_uwsgi_metric_set, 2);
+        uwsgi_rack_api("metric_inc", rack_uwsgi_metric_inc, -1);
+        uwsgi_rack_api("metric_dec", rack_uwsgi_metric_dec, -1);
+        uwsgi_rack_api("metric_mul", rack_uwsgi_metric_mul, -1);
+        uwsgi_rack_api("metric_div", rack_uwsgi_metric_div, -1);
 
         VALUE uwsgi_rb_opt_hash = rb_hash_new();
         int i;
