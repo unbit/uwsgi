@@ -389,7 +389,7 @@ wait:
 				remains -= len;
                         	*rlen += len;
                         	continue;
-			}else if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+			}else if (len < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS)) {
 				goto wait;
 			}
 			*rlen = -1;
