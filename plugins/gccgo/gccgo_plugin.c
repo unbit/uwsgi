@@ -353,11 +353,7 @@ static void uwsgi_gccgo_loop() {
 		uwsgi_sock = uwsgi_sock->next;
 	}
 
-	uwsgi_log("ok\n");
-	runtime_starttheworld();
 	// never here
-	uwsgi_log("ops..\n");
-	exit(1);
 }
 
 static void uwsgi_gccgo_on_load() {
