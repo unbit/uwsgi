@@ -38,5 +38,5 @@ struct uwsgi_plugin transformation_template_plugin = {
 #else
 struct uwsgi_plugin transformation_template_plugin = {
         .name = "transformation_template",
-}
+};
 #endif
