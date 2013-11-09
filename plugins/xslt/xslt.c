@@ -267,6 +267,7 @@ static int uwsgi_request_xslt(struct wsgi_request *wsgi_req) {
 	if (found) goto apply;
 	
 	uwsgi_404(wsgi_req);
+	free(xmlfile);
 	return UWSGI_OK;
 
 apply:
