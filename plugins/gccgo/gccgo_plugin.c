@@ -131,7 +131,7 @@ static void uwsgi_gccgo_initialize() {
         }
         runtime_check();
 	if (argc > 0) {
-		char **argv = uwsgi_calloc(sizeof(char *) * (argc + 1));
+		char **argv = uwsgi_calloc(sizeof(char *) * (argc + 2));
 		char *argv_list = uwsgi_str(ugccgo.args);
 		char *p, *ctx = NULL;
 		int n = 0;
