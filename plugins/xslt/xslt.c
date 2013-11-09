@@ -399,10 +399,10 @@ static int uwsgi_routing_func_xslt(struct wsgi_request *wsgi_req, struct uwsgi_r
 		if (!ub_params) goto end;
 	}
 
-	if (urxc->content_type) {
-		ub_content_type = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urxc->content_type, urxc->content_type_len);
-		if (!ub_content_type) goto end;
-	}
+	if (!urxc->content_type) goto end;
+
+	ub_content_type = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urxc->content_type, urxc->content_type_len);
+	if (!ub_content_type) goto end;
 
 	int rlen;
 	xmlDoc *doc = xmlParseFile(ub_doc->buf) ;
