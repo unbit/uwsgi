@@ -2,6 +2,7 @@ package uwsgi
 
 import (
 	"strings"
+	"net"
 	"net/http"
 	"net/http/cgi"
 	"io"

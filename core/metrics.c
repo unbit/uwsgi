@@ -872,6 +872,7 @@ void uwsgi_setup_metrics() {
 		struct uwsgi_metric *um = uwsgi_metric_find_by_name(m_key);
 		if (!um) {
 			uwsgi_log("unable to find metric %s\n", m_key);
+			exit(1);
 		}
 
 		struct uwsgi_metric_threshold *umt = uwsgi_calloc(sizeof(struct uwsgi_metric_threshold));
