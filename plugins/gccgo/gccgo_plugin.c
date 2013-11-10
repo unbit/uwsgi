@@ -81,7 +81,8 @@ void runtime_starttheworld(void);
 void *runtime_pollOpen(int) __asm__ ("net.runtime_pollOpen");
 void runtime_pollClose(void *) __asm__ ("net.runtime_pollClose");
 void runtime_pollUnblock(void *) __asm__ ("net.runtime_pollUnblock");
-void runtime_pollWait(void *, int) __asm__ ("net.runtime_pollWait");
+int runtime_pollWait(void *, int) __asm__ ("net.runtime_pollWait");
+void runtime_pollSetDeadline(void *, int64_t, int) __asm__ ("net.runtime_pollSetDeadline");
 void runtime_gosched(void);
 // the current goroutine
 void *runtime_g(void);
@@ -227,12 +228,12 @@ static void uwsgi_gccgo_request_goroutine(void *arg) {
 retry:
                 status = wsgi_req->socket->proto(wsgi_req);
                 if (status < 0) {
-			if (uwsgi_is_again()) continue;
                         goto end;
                 }
                 else if (status == 0) {
                         break;
                 }
+		if (uwsgi_is_again()) continue;
 		goto retry;
         }
 
@@ -262,18 +263,28 @@ static struct wsgi_request *uwsgi_gccgo_current_wsgi_req(void) {
 
 static int uwsgi_gccgo_wait_read_hook(int fd, int timeout) {
         void *pdesc = runtime_pollOpen(fd);
-        runtime_pollWait(pdesc, 'r');
+	int64_t t = (uwsgi_micros() * 1000LL) + (((int64_t)timeout) * 1000LL * 1000LL * 1000LL);
+	runtime_pollSetDeadline(pdesc, t, 'r');
+        int ret = runtime_pollWait(pdesc, 'r');
 	runtime_pollUnblock(pdesc);
         runtime_pollClose(pdesc);
-	return 1;
+	if (ret == 0) return 1;
+	// timeout
+	if (ret == 2) return 0;
+	return -1;
 }
 
 static int uwsgi_gccgo_wait_write_hook(int fd, int timeout) {
 	void *pdesc = runtime_pollOpen(fd);
-	runtime_pollWait(pdesc, 'w');	
+	int64_t t = (uwsgi_micros() * 1000LL) + (((int64_t)timeout) * 1000LL * 1000LL * 1000LL);
+	runtime_pollSetDeadline(pdesc, t, 'w');
+	int ret = runtime_pollWait(pdesc, 'w');	
 	runtime_pollUnblock(pdesc);
 	runtime_pollClose(pdesc);
-	return 1;
+	if (ret == 0) return 1;
+	// timeout
+	if (ret == 2) return 0;
+	return -1;
 }
 
 
