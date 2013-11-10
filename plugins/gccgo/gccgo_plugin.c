@@ -35,6 +35,8 @@ extern struct uwsgi_server uwsgi;
 struct uwsgi_plugin gccgo_plugin;
 
 struct uwsgi_gccgo{
+	// 1 if a main is loaded
+	int initialized;
 	struct uwsgi_string_list *libs;
 	char *args;
 	pthread_mutex_t wsgi_req_lock;
@@ -71,9 +73,7 @@ void runtime_mstart(void *);
 extern void uwsgigo_request(void *, void *) __asm__ ("go.uwsgi.RequestHandler");
 extern void* uwsgigo_env(void *) __asm__ ("go.uwsgi.Env");
 extern void* uwsgigo_env_add(void *, void *, uint16_t, void *, uint16_t) __asm__ ("go.uwsgi.EnvAdd");
-extern void uwsgigo_run_core(int) __asm__ ("go.uwsgi.RunCore");
 extern void uwsgigo_signal_handler(void *, uint8_t) __asm__ ("go.uwsgi.SignalHandler");
-//extern void uwsgigo_loop(void) __asm__ ("go.uwsgi.Loop");
 
 // for goroutines 
 void runtime_netpollinit(void);
@@ -126,6 +126,10 @@ int uwsgi_gccgo_helper_register_signal(uint8_t signum, char *receiver, void *han
 }
 
 static void uwsgi_gccgo_initialize() {
+	if (uwsgi.threads > 1) {
+		uwsgi_log("!!! the Go runtime cannot work in multithreaded modes !!!\n");
+		exit(1);
+	}
 	struct uwsgi_string_list *usl = ugccgo.libs;
 	while(usl) {
 		void *handle = dlopen(usl->value, RTLD_NOW | RTLD_GLOBAL);
@@ -133,15 +137,24 @@ static void uwsgi_gccgo_initialize() {
 			uwsgi_log("unable to open go shared library: %s\n", dlerror());
 			exit(1);
 		}
-		uwsgi_log("[uwsgi-gccgo] loaded %s\n", usl->value);
-		uwsgigo_hook_init = dlsym(handle, "__go_init_main");
-		uwsgigo_hook_main = dlsym(handle, "main.main");
+		void *g_init = dlsym(handle, "__go_init_main");
+		void *g_main = dlsym(handle, "main.main");
+		if (g_init && g_main) {
+			uwsgigo_hook_init = g_init;
+			uwsgigo_hook_main = g_main;
+			uwsgi_log("[uwsgi-gccgo] loaded %s as main\n", usl->value);
+		}
+		else {
+			uwsgi_log("[uwsgi-gccgo] loaded %s\n", usl->value);
+		}
 		usl = usl->next;
 	}
 
 	if (!uwsgigo_hook_init || !uwsgigo_hook_main) {
 		return;
 	}
+
+	ugccgo.initialized = 1;
 
 	// Go runtime initialization
 	int argc = 0;
@@ -169,6 +182,7 @@ static void uwsgi_gccgo_initialize() {
 		char *argv[2] = {0,0};
         	runtime_args(0, argv);
 	}
+
         runtime_osinit();
         runtime_schedinit();
         __go_go(mainstart, NULL);
@@ -177,6 +191,10 @@ static void uwsgi_gccgo_initialize() {
 }
 
 static int uwsgi_gccgo_request(struct wsgi_request *wsgi_req) {
+	if (!ugccgo.initialized) {
+		uwsgi_log("!!! Go runtime not initialized !!!\n");
+		goto end;
+	}
 	/* Standard GO request */
         if (!wsgi_req->uh->pktsize) {
                 uwsgi_log("Empty GO request. skip.\n");
@@ -194,6 +212,7 @@ static int uwsgi_gccgo_request(struct wsgi_request *wsgi_req) {
                 i++;
         }
 	uwsgigo_request(wsgi_req->async_environ, wsgi_req);
+end:
 	return UWSGI_OK;
 }
 
@@ -202,6 +221,7 @@ static void uwsgi_gccgo_after_request(struct wsgi_request *wsgi_req) {
 }
 
 static int uwsgi_gccgo_signal_handler(uint8_t signum, void *handler) {
+	if (!ugccgo.initialized) return -1;
         uwsgigo_signal_handler(handler, signum);
 	return 0;
 }
@@ -350,6 +370,10 @@ retry:
 }
 
 static void uwsgi_gccgo_loop() {
+	if (!ugccgo.initialized) {
+		uwsgi_log("no go.main code loaded !!!\n");
+		exit(1);
+	}
 	// initialize the log protecting the wsgi_req structures
 	pthread_mutex_init(&ugccgo.wsgi_req_lock, NULL);
 
