@@ -236,8 +236,6 @@ retry:
 		goto retry;
         }
 
-	uwsgi_log("REQUEST PARSED !!!\n");
-
 #ifdef UWSGI_ROUTING
         if (uwsgi_apply_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
                 goto end;
@@ -285,7 +283,6 @@ static void uwsgi_gccgo_socket_goroutine(void *arg) {
 	void *pdesc = runtime_pollOpen(uwsgi_sock->fd);
 	// wait for connection
 	for(;;) {
-		uwsgi_log("waiting\n");
 		runtime_pollWait(pdesc, 'r');	
 retry:
 		pthread_mutex_lock(&ugccgo.wsgi_req_lock);
@@ -295,10 +292,11 @@ retry:
 		if (wsgi_req == NULL) {
                 	uwsgi_async_queue_is_full(uwsgi_now());
 			// try rescheduling...
-			uwsgi_log("yielding %p\n", uwsgi_sock);
-			runtime_gosched();
-			uwsgi_log("back from yield\n", uwsgi_sock);
-                	goto retry;
+			// we do not use runtime_gosched() as we want to call the netpoll loop too
+			runtime_pollUnblock(pdesc);
+			runtime_pollClose(pdesc);
+			pdesc = runtime_pollOpen(uwsgi_sock->fd);
+			continue;
 		}
 
 		// fill wsgi_request structure
@@ -323,16 +321,17 @@ retry:
                 	set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
         	}
 
-		uwsgi_log("connection made\n");
-
-		void *g = __go_go(uwsgi_gccgo_request_goroutine, wsgi_req);
-                uwsgi_log("G = %p\n", g);
+		// spawn the new goroutine
+		__go_go(uwsgi_gccgo_request_goroutine, wsgi_req);
 		goto retry;
 	}
 }
 
 static void uwsgi_gccgo_loop() {
+	// initialize the log protecting the wsgi_req structures
 	pthread_mutex_init(&ugccgo.wsgi_req_lock, NULL);
+
+	// hooks
 	uwsgi.current_wsgi_req = uwsgi_gccgo_current_wsgi_req;
 	uwsgi.wait_write_hook = uwsgi_gccgo_wait_write_hook;
         uwsgi.wait_read_hook = uwsgi_gccgo_wait_read_hook;
@@ -347,8 +346,7 @@ static void uwsgi_gccgo_loop() {
 			uwsgi_gccgo_socket_goroutine(uwsgi_sock);
 		}
 		else {
-			void *g = __go_go(uwsgi_gccgo_socket_goroutine, uwsgi_sock);
-			uwsgi_log("G = %p\n", g);
+			__go_go(uwsgi_gccgo_socket_goroutine, uwsgi_sock);
 		}
 		uwsgi_sock = uwsgi_sock->next;
 	}
