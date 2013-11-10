@@ -16,9 +16,9 @@
 	the uwsgi.Run() go function directly calls the uwsgi_takeover() function (it automatically
 	manages mules, spoolers and workers)
 
-	The plugin implements goroutines to.
+	The plugin implements goroutines too.
 
-	On startup a goroutine is created for each socket and signal fd.
+	On startup a goroutine is created for each socket and signals file descriptors.
 
 	For every request a new goroutine is created too.
 
@@ -27,7 +27,20 @@
 	even if the loop engine makes use of the async mode, pthreads could be spawned all over the place.
 	For such a reason a mutex is created avoiding the global wsgi_req structures to be clobbered
 
-	TODO timeouts are missing
+	Contrary to the standard way Go apps are deployed, the plugin supports loading shared libraries.
+	While this is a common approach in other environments, the Go community prefers monolithic binaries.
+
+	As always, choose the model that best suite for you. Eventually building a single uWSGI binary with your Go
+	app embedded is pretty easy:
+
+	
+	CFLAGS=-DUWSGI_GCCGO_MONOLITHIC UWSGI_ADDITIONAL_SOURCES=t/go/uploadtest.go UWSGI_PROFILE=gccgo make
+
+	or you can add the following two directives in a build profile:
+
+	cflags = -DUWSGI_GCCGO_MONOLITHIC
+	additional_sources = t/go/uploadtest.go
+
 
 */
 
@@ -42,6 +55,9 @@ struct uwsgi_gccgo{
 	pthread_mutex_t wsgi_req_lock;
 } ugccgo;
 
+/*
+	shortcut for enabling the "goroutines" loop engine
+*/
 static void uwsgi_opt_setup_goroutines(char *opt, char *value, void *foobar) {
         // set async mode
         uwsgi_opt_set_int(opt, value, &uwsgi.async);
@@ -62,14 +78,18 @@ struct uwsgi_option uwsgi_gccgo_options[] = {
 // no_split_stack is the key to avoid crashing !!!
 void* runtime_m(void) __attribute__ ((noinline, no_split_stack));
 
+// initialize runtime
 void runtime_check(void);
 void runtime_args(int, char **);
 void runtime_osinit(void);
 void runtime_schedinit(void);
-void *__go_go(void *, void *);
 void runtime_main(void);
 void runtime_mstart(void *);
 
+// spawn a goroutine
+void *__go_go(void *, void *);
+
+// api functions exposed
 extern void uwsgigo_request(void *, void *) __asm__ ("go.uwsgi.RequestHandler");
 extern void* uwsgigo_env(void *) __asm__ ("go.uwsgi.Env");
 extern void* uwsgigo_env_add(void *, void *, uint16_t, void *, uint16_t) __asm__ ("go.uwsgi.EnvAdd");
@@ -94,8 +114,10 @@ static void mainstart(void *arg __attribute__((unused))) {
 	runtime_main();
 }
 
+#ifndef UWSGI_GCCGO_MONOLITHIC
 void uwsgigo_main_main(void) __asm__ ("main.main");
 void uwsgigo_main_init(void) __asm__ ("__go_init_main");
+#endif
 
 void (*uwsgigo_hook_init)(void);
 void (*uwsgigo_hook_main)(void);
@@ -130,6 +152,10 @@ static void uwsgi_gccgo_initialize() {
 		uwsgi_log("!!! the Go runtime cannot work in multithreaded modes !!!\n");
 		exit(1);
 	}
+#ifdef UWSGI_GCCGO_MONOLITHIC
+	uwsgigo_hook_init = dlsym(RTLD_DEFAULT, "__go_init_main");
+	uwsgigo_hook_main = dlsym(RTLD_DEFAULT, "main.main");
+#endif
 	struct uwsgi_string_list *usl = ugccgo.libs;
 	while(usl) {
 		void *handle = dlopen(usl->value, RTLD_NOW | RTLD_GLOBAL);
@@ -307,6 +333,9 @@ static int uwsgi_gccgo_wait_write_hook(int fd, int timeout) {
 	return -1;
 }
 
+/*
+	this goroutine manages signals
+*/
 static void uwsgi_gccgo_signal_goroutine(void *arg) {
 	int *fd = (int *) arg;
 	void *pdesc = runtime_pollOpen(*fd);

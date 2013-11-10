@@ -1,7 +1,7 @@
 import os
 NAME='gccgo'
 
-CFLAGS = ['-Wno-error']
+CFLAGS = []
 LDFLAGS = []
 LIBS = ['-lgo']
 GCC_LIST = ['gccgo_plugin', 'uwsgi.go']

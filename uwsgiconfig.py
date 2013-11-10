@@ -307,16 +307,6 @@ def build_uwsgi(uc, print_only=False, gcll=None):
     open('core/dot_h.c', 'w').write('char *uwsgi_dot_h = "%s";\n' % uwsgi_dot_h);
     gcc_list.append('core/dot_h') 
     
-    additional_sources = os.environ.get('UWSGI_ADDITIONAL_SOURCES')
-    if not additional_sources:
-        additional_sources = uc.get('additional_sources')
-    if additional_sources:
-        for item in additional_sources.split(','):
-            if item.endswith('.c'):
-                gcc_list.append(item[:-2])
-            else:
-                gcc_list.append(item)
-
     cflags.append('-DUWSGI_CFLAGS=\\"%s\\"' % uwsgi_cflags)
     cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
 
@@ -328,7 +318,14 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         if objfile == 'uwsgi':
             objfile = 'main'
         if not objfile.endswith('.a') and not objfile.endswith('.o'):
-            compile(' '.join(cflags), last_cflags_ts, objfile + '.o', file + '.c')
+            if objfile.endswith('.c') or objfile.endswith('.cc') or objfile.endswith('.m') or objfile.endswith('.go'):
+                if objfile.endswith('.go'):
+                    cflags.append('-Wno-error') 
+                compile(' '.join(cflags), last_cflags_ts, objfile + '.o', file)
+                if objfile.endswith('.go'):
+                    cflags.pop()
+            else:
+                compile(' '.join(cflags), last_cflags_ts, objfile + '.o', file + '.c')
 
     if uc.get('embedded_plugins'):
         ep = uc.get('embedded_plugins').split(',')
@@ -410,6 +407,8 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                             path + '/' + cfile + '.o', path + '/' + cfile + '.c')
                         gcc_list.append('%s/%s' % (path, cfile))
                     else:
+                        if cfile.endswith('.go'):
+                            p_cflags.append('-Wno-error')
                         compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
                             path + '/' + cfile + '.o', path + '/' + cfile)
                         gcc_list.append('%s/%s' % (path, cfile))
@@ -462,6 +461,13 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         gcc_list.append(uc.embed_config)
     for ef in binary_list:
         gcc_list.append("build/%s" % ef)
+
+    additional_sources = os.environ.get('UWSGI_ADDITIONAL_SOURCES')
+    if not additional_sources:
+        additional_sources = uc.get('additional_sources')
+    if additional_sources:
+        for item in additional_sources.split(','):
+            gcc_list.append(item)
 
     if compile_queue:
         for t in thread_compilers:
@@ -1249,6 +1255,8 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         elif not cfile.endswith('.c') and not cfile.endswith('.cc') and not cfile.endswith('.m') and not cfile.endswith('.go') and not cfile.endswith('.o'):
             gcc_list.append(path + '/' + cfile + '.c')
         else:
+            if cfile.endswith('.go'):
+                p_cflags.append('-Wno-error')
             gcc_list.append(path + '/' + cfile)
     for bfile in up.get('BINARY_LIST', []):
         try:
