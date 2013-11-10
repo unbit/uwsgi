@@ -582,6 +582,88 @@ static int uwsgi_router_break(struct uwsgi_route *ur, char *arg) {
 	return 0;
 }
 
+// simple math router
+static int uwsgi_router_simple_math_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+	uint16_t var_vallen = 0;
+	char *var_value = uwsgi_get_var(wsgi_req, ur->data, ur->data_len, &var_vallen);
+	if (!var_value) return UWSGI_ROUTE_BREAK;
+
+	int64_t base_value = uwsgi_str_num(var_value, var_vallen);
+	int64_t value = 1;
+
+	if (ur->data2_len) {
+        	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data2, ur->data2_len);
+        	if (!ub) return UWSGI_ROUTE_BREAK;
+		value = uwsgi_str_num(ub->buf, ub->pos);
+		uwsgi_buffer_destroy(ub);
+	}
+
+	char out[sizeof(UMAX64_STR)+1];
+	int64_t total = 0;
+
+	switch(ur->custom) {
+		// -
+		case 1:
+			total = base_value - value;
+			break;
+		// *
+		case 2:
+			total = base_value * value;
+			break;
+		// /
+		case 3:
+			if (value == 0) total = 0;
+			else {
+				total = base_value/value;
+			}
+			break;
+		default:
+			total = base_value + value;
+			break;
+	}
+
+	int ret = uwsgi_long2str2n(total, out, sizeof(UMAX64_STR)+1);
+	if (ret <= 0) return UWSGI_ROUTE_BREAK;
+
+        if (!uwsgi_req_append(wsgi_req, ur->data, ur->data_len, out, ret)) {
+                return UWSGI_ROUTE_BREAK;
+        }
+        return UWSGI_ROUTE_NEXT;
+}
+
+static int uwsgi_router_simple_math_plus(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_simple_math_func;
+	char *comma = strchr(arg, ',');
+	if (comma) {
+		ur->data = arg;
+		ur->data_len = comma - arg;
+		ur->data2 = comma+1;
+		ur->data2_len = strlen(ur->data);
+	}
+	else {
+		ur->data = arg;
+		ur->data_len = strlen(arg);
+	}
+        return 0;
+}
+
+static int uwsgi_router_simple_math_minus(struct uwsgi_route *ur, char *arg) {
+	ur->custom = 1;
+	return uwsgi_router_simple_math_plus(ur, arg);
+}
+
+static int uwsgi_router_simple_math_multiply(struct uwsgi_route *ur, char *arg) {
+	ur->custom = 2;
+	return uwsgi_router_simple_math_plus(ur, arg);
+}
+
+static int uwsgi_router_simple_math_divide(struct uwsgi_route *ur, char *arg) {
+	ur->custom = 2;
+	return uwsgi_router_simple_math_plus(ur, arg);
+}
 
 // harakiri router
 static int uwsgi_router_harakiri_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
@@ -1670,6 +1752,11 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("setscheme", uwsgi_router_setscheme);
         uwsgi_register_router("setprocname", uwsgi_router_setprocname);
         uwsgi_register_router("alarm", uwsgi_router_alarm);
+
+        uwsgi_register_router("+", uwsgi_router_simple_math_plus);
+        uwsgi_register_router("-", uwsgi_router_simple_math_minus);
+        uwsgi_register_router("*", uwsgi_router_simple_math_multiply);
+        uwsgi_register_router("/", uwsgi_router_simple_math_divide);
 
         uwsgi_register_router("flush", uwsgi_router_flush);
         uwsgi_register_router("fixcl", uwsgi_router_fixcl);
