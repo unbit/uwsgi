@@ -475,6 +475,28 @@ int master_loop(char **argv, char **environ) {
 	// fsmon
 	uwsgi_fsmon_setup();
 
+	uwsgi_foreach(usl, uwsgi.signal_timers) {
+		char *space = strchr(usl->value, ' ');
+		if (!space) {
+			uwsgi_log("invalid signal timer syntax, must be: <signal> <seconds>\n");
+			exit(1);
+		}
+		*space = 0;
+		uwsgi_add_timer(atoi(usl->value), atoi(space+1));
+		*space = ' ';
+	}
+
+	uwsgi_foreach(usl, uwsgi.rb_signal_timers) {
+                char *space = strchr(usl->value, ' ');
+                if (!space) {
+                        uwsgi_log("invalid redblack signal timer syntax, must be: <signal> <seconds>\n");
+                        exit(1);
+                }
+                *space = 0;
+                uwsgi_signal_add_rb_timer(atoi(usl->value), atoi(space+1), 0);
+                *space = ' ';
+        }
+
 	// setup cheaper algos (can be stacked)
 	uwsgi.cheaper_algo = uwsgi_cheaper_algo_spare;
 	if (uwsgi.requested_cheaper_algo) {

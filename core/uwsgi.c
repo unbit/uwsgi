@@ -298,6 +298,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"signal-bufsize", required_argument, 0, "set buffer size for signal queue", uwsgi_opt_set_int, &uwsgi.signal_bufsize, 0},
 	{"signals-bufsize", required_argument, 0, "set buffer size for signal queue", uwsgi_opt_set_int, &uwsgi.signal_bufsize, 0},
 
+	{"signal-timer", required_argument, 0, "add a timer (syntax: <signal> <seconds>)", uwsgi_opt_add_string_list, &uwsgi.signal_timers, UWSGI_OPT_MASTER},
+	{"timer", required_argument, 0, "add a timer (syntax: <signal> <seconds>)", uwsgi_opt_add_string_list, &uwsgi.signal_timers, UWSGI_OPT_MASTER},
+
+	{"signal-rbtimer", required_argument, 0, "add a redblack timer (syntax: <signal> <seconds>)", uwsgi_opt_add_string_list, &uwsgi.rb_signal_timers, UWSGI_OPT_MASTER},
+	{"rbtimer", required_argument, 0, "add a redblack timer (syntax: <signal> <seconds>)", uwsgi_opt_add_string_list, &uwsgi.rb_signal_timers, UWSGI_OPT_MASTER},
+
 	{"rpc-max", required_argument, 0, "maximum number of rpc slots (default: 64)", uwsgi_opt_set_64bit, &uwsgi.rpc_max, 0},
 
 	{"disable-logging", no_argument, 'L', "disable request logging", uwsgi_opt_dyn_false, (void *) UWSGI_OPTION_LOGGING, 0},

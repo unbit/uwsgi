@@ -104,6 +104,9 @@ func RequestHandler(env *map[string]string, wsgi_req *interface{}) {
 }
 
 func RegisterSignal(signum uint8, receiver string, handler func(uint8)) bool {
+	if (receiver == "") {
+		receiver = "worker"
+	}
 	var b []byte = []byte(receiver)
 	if (uwsgi_register_signal(signum, &b[0], handler) < 0) {
 		return false

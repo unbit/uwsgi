@@ -2204,6 +2204,9 @@ struct uwsgi_server {
 	struct uwsgi_string_list *fs_brutal_reload;
 	struct uwsgi_string_list *fs_signal;
 
+	struct uwsgi_string_list *signal_timers;
+	struct uwsgi_string_list *rb_signal_timers;
+
 	struct uwsgi_string_list *mountpoints_check;
 
 	int propagate_touch;

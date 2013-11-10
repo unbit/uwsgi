@@ -24,8 +24,13 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, foo + "\n\n" + handler.Filename + "\n\n" + string(bar_data))
 }
 
+func signal30(sig uint8) {
+	fmt.Println("ciao")
+}
+
 func main() {
 	fmt.Println(os.Args)
+	uwsgi.RegisterSignal(30, "", signal30)
 	http.HandleFunc("/view/", viewHandler)
 	http.HandleFunc("/post/", postHandler)
 	uwsgi.Run()

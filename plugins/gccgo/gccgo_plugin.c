@@ -287,6 +287,17 @@ static int uwsgi_gccgo_wait_write_hook(int fd, int timeout) {
 	return -1;
 }
 
+static void uwsgi_gccgo_signal_goroutine(void *arg) {
+	int *fd = (int *) arg;
+	void *pdesc = runtime_pollOpen(*fd);
+	for(;;) {
+		runtime_pollWait(pdesc, 'r');
+retry:
+		uwsgi_receive_signal(*fd, "worker", uwsgi.mywid);
+		if (uwsgi_is_again()) continue;
+		goto retry;
+	}
+}
 
 static void uwsgi_gccgo_socket_goroutine(void *arg) {
 	struct uwsgi_socket *uwsgi_sock = (struct uwsgi_socket *) arg;
@@ -349,6 +360,11 @@ static void uwsgi_gccgo_loop() {
 
 	// ininitialize Go I/O loop
 	runtime_netpollinit();
+
+	if (uwsgi.signal_socket > -1) {
+		__go_go(uwsgi_gccgo_signal_goroutine, &uwsgi.signal_socket);
+		__go_go(uwsgi_gccgo_signal_goroutine, &uwsgi.my_signal_socket);
+	}
 
 	// start a goroutine for each socket
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
