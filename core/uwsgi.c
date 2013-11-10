@@ -1998,6 +1998,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	// set a couple of 'static' magic vars
 	uwsgi.magic_table['v'] = uwsgi.cwd;
 	uwsgi.magic_table['h'] = uwsgi.hostname;
+	uwsgi.magic_table['t'] = uwsgi_64bit2str(uwsgi_now());
+	uwsgi.magic_table['T'] = uwsgi_64bit2str(uwsgi_micros());
 	uwsgi.magic_table['V'] = UWSGI_VERSION;
 	uwsgi.magic_table['['] = "\033";
 
