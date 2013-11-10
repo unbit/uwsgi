@@ -1,6 +1,6 @@
 # uWSGI build system
 
-uwsgi_version = '1.9.19'
+uwsgi_version = '1.9.20-dev'
 
 import os
 import re
@@ -66,7 +66,6 @@ report = {
     'timer': False,
     'filemonitor': False,
     'pcre': False,
-    'matheval': False,
     'routing': False,
     'capabilities': False,
     'yaml': False,
@@ -971,12 +970,6 @@ class uConf(object):
             self.cflags.append("-DUWSGI_CAP")
             self.libs.append('-lcap')
             report['capabilities'] = True
-
-        if self.get('matheval'):
-            if (self.get('matheval') == 'auto' and self.has_include('matheval.h')) or self.get('matheval') == 'true':
-                self.cflags.append("-DUWSGI_MATHEVAL")
-                self.libs.append('-lmatheval')
-                report['matheval'] = True
 
         has_json = False
         has_uuid = False

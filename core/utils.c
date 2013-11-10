@@ -3779,26 +3779,6 @@ error:
 	return NULL;
 }
 
-// evaluate a math expression
-#ifdef UWSGI_MATHEVAL
-double uwsgi_matheval(char *expr) {
-#ifdef UWSGI_DEBUG
-	uwsgi_log("matheval expr = %s\n", expr);
-#endif
-	double ret = 0.0;
-	void *e = evaluator_create(expr);
-	if (!e)
-		return ret;
-	ret = evaluator_evaluate(e, 0, NULL, NULL);
-	evaluator_destroy(e);
-	return ret;
-}
-char *uwsgi_matheval_str(char *expr) {
-	double ret = uwsgi_matheval(expr);
-	return uwsgi_num2str((int) ret);
-}
-#endif
-
 int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, char kv_separator, ...) {
 	size_t i;
 	va_list ap;

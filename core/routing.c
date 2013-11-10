@@ -1639,48 +1639,6 @@ static char *uwsgi_route_var_hex(struct wsgi_request *wsgi_req, char *key, uint1
         return ret;
 }
 
-#ifdef UWSGI_MATHEVAL
-static char *uwsgi_route_var_math(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
-	char *ret = NULL;
-	// avoid crash	
-	if (!wsgi_req->var_cnt) return NULL;
-	// we make a bit of fun here, we do a copy of the vars buffer (+1 byte for final zero) and zeor-pad all of the strings
-	char *vars_buf = uwsgi_malloc(wsgi_req->uh->pktsize + keylen + 1);
-	char **names = uwsgi_malloc(sizeof(char *) * (wsgi_req->var_cnt/2));
-	double *values = uwsgi_calloc(sizeof(double) * (wsgi_req->var_cnt/2));
-	int i,j = 0;
-	char *ptr = vars_buf;
-	for (i = wsgi_req->var_cnt-1; i > 0; i -= 2) {
-		memcpy(ptr, wsgi_req->hvec[i-1].iov_base, wsgi_req->hvec[i-1].iov_len);	
-		names[j] = ptr;
-		ptr += wsgi_req->hvec[i-1].iov_len;
-		*ptr++=0;
-		char *num = ptr;
-		memcpy(ptr, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
-		ptr += wsgi_req->hvec[i].iov_len;
-                *ptr++=0;
-		values[j] = strtod(num, NULL);
-		j++;
-        }
-
-	char *expr = ptr;
-	memcpy(ptr, key, keylen); ptr += keylen;
-	*ptr++=0;
-
-	void *e = evaluator_create(expr);
-        if (!e) goto end;
-        double n = evaluator_evaluate(e, j, names, values);
-        evaluator_destroy(e);
-	ret = uwsgi_num2str((int)n);
-	*vallen = strlen(ret);
-end:
-	free(vars_buf);
-	free(names);
-	free(values);
-	return ret;
-}
-#endif
-
 // register embedded routers
 void uwsgi_register_embedded_routers() {
 	uwsgi_register_router("continue", uwsgi_router_continue);
@@ -1756,10 +1714,6 @@ void uwsgi_register_embedded_routers() {
 	urv->need_free = 1;
         urv = uwsgi_register_route_var("httptime", uwsgi_route_var_httptime);
 	urv->need_free = 1;
-#ifdef UWSGI_MATHEVAL
-        urv = uwsgi_register_route_var("math", uwsgi_route_var_math);
-	urv->need_free = 1;
-#endif
         urv = uwsgi_register_route_var("base64", uwsgi_route_var_base64);
 	urv->need_free = 1;
 
