@@ -50,11 +50,11 @@ static int uwsgi_servlet_setup() {
 	uwsgi_log("%p %p\n", uwsgi_request, uwsgi_response);
 
 	mid = uwsgi_jvm_get_method_id(uwsgi_request , "<init>", "()V");
-	uwsgi_jvm_exception();
+	if (uwsgi_jvm_exception() || !mid) exit(1);
 	jobject request = (*ujvm_env)->NewObject(ujvm_env, uwsgi_request, mid);
 
 	mid = uwsgi_jvm_get_method_id(uwsgi_response , "<init>", "()V");
-	uwsgi_jvm_exception();
+	if (uwsgi_jvm_exception() || !mid) exit(1);
 	jobject response = (*ujvm_env)->NewObject(ujvm_env, uwsgi_response, mid);
 
 	uwsgi_log("%p %p\n", request, response);

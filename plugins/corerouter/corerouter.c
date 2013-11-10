@@ -187,11 +187,12 @@ void uwsgi_opt_corerouter_zerg(char *opt, char *value, void *cr) {
 
         close(zerg_fd);
 
-                        for(j=0;j<count;j++) {
-                                if (zerg[j] == -1) break;
-                                ugs = uwsgi_new_gateway_socket_from_fd(zerg[j], ucr->name);
-                                ugs->zerg = optarg;
-                        }
+        for(j=0;j<count;j++) {
+                if (zerg[j] == -1) break;
+                ugs = uwsgi_new_gateway_socket_from_fd(zerg[j], ucr->name);
+                ugs->zerg = optarg;
+        }
+        free(zerg);
 }
 
 

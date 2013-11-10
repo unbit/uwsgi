@@ -118,6 +118,7 @@ int uwsgi_master_manage_events(int interesting_fd) {
                                 	reap_them_all(0);
                                 	uwsgi_unblock_signal(SIGTERM);
 				}
+                                if (usl->custom2 > 8) free(tmp);
                                 return 0;
                         }
                         usl = usl->next;

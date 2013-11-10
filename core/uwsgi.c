@@ -4153,6 +4153,7 @@ int uwsgi_zerg_attach(char *value) {
 			}
 			pos++;
 		}
+		free(zerg);
 	}
 
 	close(zerg_fd);

@@ -575,6 +575,7 @@ void uwsgi_log_reopen() {
                 if (uwsgi.original_log_fd < 0) {
                         uwsgi_error_open(uwsgi.logfile);
                         grace_them_all(0);
+                        exit(1);
                 }
                 ret = snprintf(message, 1024, "[%d] %s reopened.\n", (int) uwsgi_now(), uwsgi.logfile);
                 if (ret > 0) {
