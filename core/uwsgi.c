@@ -1856,7 +1856,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	signal(SIGTERM, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);
 
-
 	//initialize masterpid with a default value
 	masterpid = getpid();
 
@@ -1899,6 +1898,12 @@ int main(int argc, char *argv[], char *envp[]) {
 	// set default values
 	uwsgi_init_default();
 
+	// detect cpu cores
+#if defined(_SC_NPROCESSORS_ONLN)
+	uwsgi.cpus = sysconf(_SC_NPROCESSORS_ONLN);
+#elif defined(_SC_NPROCESSORS_CONF)
+	uwsgi.cpus = sysconf(_SC_NPROCESSORS_CONF);
+#endif
 	// set default logit hook
 	uwsgi.logit = uwsgi_logit_simple;
 
@@ -2001,6 +2006,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.magic_table['t'] = uwsgi_64bit2str(uwsgi_now());
 	uwsgi.magic_table['T'] = uwsgi_64bit2str(uwsgi_micros());
 	uwsgi.magic_table['V'] = UWSGI_VERSION;
+	uwsgi.magic_table['k'] = uwsgi_num2str(uwsgi.cpus);
 	uwsgi.magic_table['['] = "\033";
 
 	// you can embed a ini file in the uWSGi binary with default options
@@ -2201,12 +2207,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef __BIG_ENDIAN__
 	uwsgi_log_initial("*** big endian arch detected ***\n");
-#endif
-
-#if defined(_SC_NPROCESSORS_ONLN)
-	uwsgi.cpus = sysconf(_SC_NPROCESSORS_ONLN);
-#elif defined(_SC_NPROCESSORS_CONF)
-	uwsgi.cpus = sysconf(_SC_NPROCESSORS_CONF);
 #endif
 
 	uwsgi_log_initial("detected number of CPU cores: %d\n", uwsgi.cpus);
