@@ -227,7 +227,6 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"heartbeat", required_argument, 0, "announce healtness to the emperor", uwsgi_opt_set_int, &uwsgi.heartbeat, 0},
 
-	{"auto-snapshot", optional_argument, 0, "automatically make workers snaphost after reload", uwsgi_opt_set_int, &uwsgi.auto_snapshot, UWSGI_OPT_LAZY},
 	{"reload-mercy", required_argument, 0, "set the maximum time (in seconds) we wait for workers and other processes to die during reload/shutdown", uwsgi_opt_set_int, &uwsgi.reload_mercy, 0},
 	{"worker-reload-mercy", required_argument, 0, "set the maximum time (in seconds) a worker can take to reload/shutdown (default is 60)", uwsgi_opt_set_int, &uwsgi.worker_reload_mercy, 0},
 	{"exit-on-reload", no_argument, 0, "force exit even if a reload is requested", uwsgi_opt_true, &uwsgi.exit_on_reload, 0},
@@ -1212,9 +1211,6 @@ void grace_them_all(int signum) {
 
 	uwsgi.status.gracefully_reloading = 1;
 
-	int waitpid_status;
-
-
 	uwsgi_destroy_processes();
 
 	uwsgi_log("...gracefully killing workers...\n");
@@ -1228,36 +1224,10 @@ void grace_them_all(int signum) {
 	}
 
 	for (i = 1; i <= uwsgi.numproc; i++) {
-		if (uwsgi.auto_snapshot) {
-			if (uwsgi.workers[i].snapshot > 0) {
-				kill(uwsgi.workers[i].snapshot, SIGKILL);
-				if (waitpid(uwsgi.workers[i].snapshot, &waitpid_status, 0) < 0) {
-					uwsgi_error("waitpid()");
-				}
-			}
-			if (uwsgi.workers[i].pid > 0) {
-				if (uwsgi.auto_snapshot > 0 && i > uwsgi.auto_snapshot) {
-					uwsgi.workers[i].snapshot = 0;
-					uwsgi.workers[i].destroy = 1;
-					uwsgi_curse(i, SIGHUP);
-				}
-				else {
-					uwsgi.workers[i].snapshot = uwsgi.workers[i].pid;
-					kill(uwsgi.workers[i].pid, SIGURG);
-				}
-			}
-		}
-		else if (uwsgi.workers[i].pid > 0) {
+		if (uwsgi.workers[i].pid > 0) {
 			uwsgi_curse(i, SIGHUP);
 		}
 	}
-
-	if (uwsgi.auto_snapshot) {
-		uwsgi.respawn_snapshots = uwsgi.numproc - uwsgi.auto_snapshot;
-		if (!uwsgi.respawn_snapshots)
-			uwsgi.respawn_snapshots = 1;
-	}
-
 }
 
 void uwsgi_nuclear_blast() {
@@ -1314,23 +1284,6 @@ void harakiri() {
 		uwsgi_log("*** if you want your workers to be automatically respawned consider enabling the uWSGI master process ***\n");
 	}
 	exit(0);
-}
-
-void snapshot_me(int signum) {
-	// wakeup !!!
-	if (uwsgi.snapshot) {
-		uwsgi.snapshot = 0;
-		uwsgi_set_processname(uwsgi.workers[uwsgi.mywid].name);
-		return;
-	}
-
-	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
-	if (uwsgi.threads > 1) {
-		wait_for_threads();
-	}
-	uwsgi.snapshot = 1;
-	uwsgi_set_processname(uwsgi.workers[uwsgi.mywid].snapshot_name);
-	uwsgi_log("[snapshot] process %d taken\n", (int) getpid());
 }
 
 void stats(int signum) {
@@ -3211,11 +3164,6 @@ void uwsgi_worker_run() {
 	uwsgi_unix_signal(SIGINT, end_me);
 	uwsgi_unix_signal(SIGTERM, end_me);
 
-	if (uwsgi.auto_snapshot) {
-		uwsgi_unix_signal(SIGURG, snapshot_me);
-	}
-
-
 	uwsgi_unix_signal(SIGUSR1, stats);
 	signal(SIGUSR2, (void *) &what_i_am_doing);
 	if (!uwsgi.ignore_sigpipe) {
@@ -3279,15 +3227,6 @@ void uwsgi_ignition() {
 
 	int i;
 
-	// snapshot workers do not enter the loop until a specific signal (SIGURG) is raised...
-	if (uwsgi.snapshot) {
-wait_for_call_of_duty:
-		uwsgi_sig_pause();
-		if (uwsgi.snapshot)
-			goto wait_for_call_of_duty;
-		uwsgi_log("[snapshot] process %d is the new worker %d\n", (int) getpid(), uwsgi.mywid);
-	}
-
 	for (i = 0; i < 256; i++) {
 		if (uwsgi.p[i]->hijack_worker) {
 			uwsgi.p[i]->hijack_worker();
@@ -3330,9 +3269,6 @@ wait_for_call_of_duty:
 		}
 	}
 
-	if (uwsgi.snapshot) {
-		uwsgi_ignition();
-	}
 	// end of the process...
 	end_me(0);
 }

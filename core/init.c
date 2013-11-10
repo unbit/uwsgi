@@ -346,7 +346,6 @@ void uwsgi_setup_workers() {
 		uwsgi.workers[i].signal_pipe[0] = -1;
 		uwsgi.workers[i].signal_pipe[1] = -1;
 		snprintf(uwsgi.workers[i].name, 0xff, "uWSGI worker %d", i);
-		snprintf(uwsgi.workers[i].snapshot_name, 0xff, "uWSGI snapshot %d", i);
 	}
 
 	uint64_t total_memory = (sizeof(struct uwsgi_app) * uwsgi.max_apps) + (sizeof(struct uwsgi_core) * uwsgi.cores) + (sizeof(void *) * uwsgi.max_apps * uwsgi.cores) + (uwsgi.buffer_size * uwsgi.cores) + (sizeof(struct iovec) * uwsgi.vec_size * uwsgi.cores);
@@ -446,11 +445,6 @@ void sanitize_args() {
 		else {
                         uwsgi.cheaper_initial = uwsgi.cheaper_count;
 		}
-        }
-
-        if (uwsgi.auto_snapshot > 0 && uwsgi.auto_snapshot > uwsgi.numproc) {
-                uwsgi_log("invalid auto-snapshot value: must be <= than processes\n");
-                exit(1);
         }
 
 	if (uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME] > 0 && uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] >= uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME]) {

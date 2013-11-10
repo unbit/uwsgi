@@ -1678,14 +1678,6 @@ struct uwsgi_server {
 	char *blacklist_context;
 	char *whitelist_context;
 
-	int snapshot;
-	int respawn_snapshots;
-
-	// enable auto-snapshotting
-	int auto_snapshot;
-	pid_t restore_snapshot;
-
-
 	unsigned int reloads;
 
 	// leave master running as root
@@ -2737,17 +2729,10 @@ struct uwsgi_core {
 	struct wsgi_request req;
 };
 
-struct uwsgi_snapshot {
-	char *name;
-	pid_t pid;
-	time_t timestamp;
-};
-
 struct uwsgi_worker {
 	int id;
 	pid_t pid;
 
-	pid_t snapshot;
 	uint64_t status;
 
 	time_t last_spawn;
@@ -2796,7 +2781,6 @@ struct uwsgi_worker {
 	struct uwsgi_core *cores;
 
 	char name[0xff];
-	char snapshot_name[0xff];
 };
 
 
