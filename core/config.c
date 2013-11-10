@@ -633,3 +633,168 @@ clear:
 
 }
 
+char *uwsgi_get_exported_opt(char *key) {
+
+        int i;
+
+        for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+                if (!strcmp(uwsgi.exported_opts[i]->key, key)) {
+                        return uwsgi.exported_opts[i]->value;
+                }
+        }
+
+        return NULL;
+}
+
+char *uwsgi_get_optname_by_index(int index) {
+
+        struct uwsgi_option *op = uwsgi.options;
+
+        while (op->name) {
+                if (op->shortcut == index) {
+                        return op->name;
+                }
+                op++;
+        }
+
+        return NULL;
+}
+
+/*
+
+	this works as a pipeline
+
+	processes = 2
+	cpu_cores = 8
+	foobar = %(processes cpu_cores + 2)
+
+	translate as:
+
+		step1 = proceses cpu_cores = 2 8 = 28 (string concatenation)
+
+		step1 + = step1_apply_func_plus (func token)
+
+		step1_apply_func_plus 2 = 28 + 2 = 30 (math)
+
+*/
+
+char *uwsgi_manage_placeholder(char *key) {
+	enum {
+		concat = 0,
+		sum,
+		sub,
+		mul,
+		div,
+	} state;
+
+	state = concat;
+	char *current_value = NULL;
+
+	char *space = strchr(key, ' ');
+	if (!space) {
+		return uwsgi_get_exported_opt(key);
+	}
+	// let's start the heavy metal here
+	char *tmp_value = uwsgi_str(key);
+	char *p, *ctx = NULL;
+        uwsgi_foreach_token(tmp_value, " ", p, ctx) {
+		char *value = NULL;
+		if (is_a_number(p)) {
+			value = uwsgi_str(p);
+		}
+		else if (!strcmp(p, "+")) {
+			state = sum;
+			continue;
+		}
+		else if (!strcmp(p, "-")) {
+			state = sub;
+			continue;
+		}
+		else if (!strcmp(p, "*")) {
+			state = mul;
+			continue;
+		}
+		else if (!strcmp(p, "/")) {
+			state = div;
+			continue;
+		}
+		else if (!strcmp(p, "++")) {
+			if (current_value) {
+				int64_t tmp_value = strtoll(current_value, NULL, 10);
+				free(current_value);
+				current_value = uwsgi_64bit2str(tmp_value+1);
+			}
+			state = concat;
+			continue;
+		}
+		else if (!strcmp(p, "--")) {
+			if (current_value) {
+				int64_t tmp_value = strtoll(current_value, NULL, 10);
+				free(current_value);
+				current_value = uwsgi_64bit2str(tmp_value-1);
+			}
+			state = concat;
+			continue;
+		}
+		// find the option
+		else {
+			char *ov = uwsgi_get_exported_opt(p);
+			if (!ov) ov = "";
+			value = uwsgi_str(ov);
+		}
+
+		int64_t arg1n = 0, arg2n = 0;
+		char *arg1 = "", *arg2 = "";	
+
+		switch(state) {
+			case concat:
+				if (current_value) arg1 = current_value;
+				if (value) arg2 = value;
+				char *ret = uwsgi_concat2(arg1, arg2);
+				if (current_value) free(current_value);
+				current_value = ret;	
+				break;
+			case sum:
+				if (current_value) arg1n = strtoll(current_value, NULL, 10);
+				if (value) arg2n = strtoll(value, NULL, 10);
+				if (current_value) free(current_value);
+				current_value = uwsgi_64bit2str(arg1n + arg2n);
+				break;
+			case sub:
+				if (current_value) arg1n = strtoll(current_value, NULL, 10);
+				if (value) arg2n = strtoll(value, NULL, 10);
+				if (current_value) free(current_value);
+				current_value = uwsgi_64bit2str(arg1n - arg2n);
+				break;
+			case mul:
+				if (current_value) arg1n = strtoll(current_value, NULL, 10);
+				if (value) arg2n = strtoll(value, NULL, 10);
+				if (current_value) free(current_value);
+				current_value = uwsgi_64bit2str(arg1n * arg2n);
+				break;
+			case div:
+				if (current_value) arg1n = strtoll(current_value, NULL, 10);
+				if (value) arg2n = strtoll(value, NULL, 10);
+				if (current_value) free(current_value);
+				// avoid division by zero
+				if (arg2n == 0) {
+					current_value = uwsgi_64bit2str(0);
+				}
+				else {
+					current_value = uwsgi_64bit2str(arg1n / arg2n);
+				}
+				break;
+			default:
+				break;
+		}
+
+		// over engineering
+		if (value)
+			free(value);
+
+		// reset state to concat
+		state = concat;
+	}
+
+	return current_value;
+}

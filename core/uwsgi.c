@@ -2020,7 +2020,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_apply_config_pass('@', uwsgi_simple_file_read);
 
 	// last pass: REFERENCEs
-	uwsgi_apply_config_pass('%', uwsgi_get_exported_opt);
+	uwsgi_apply_config_pass('%', uwsgi_manage_placeholder);
 
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();

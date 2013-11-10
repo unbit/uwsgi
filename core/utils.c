@@ -1901,33 +1901,6 @@ void uwsgi_unix_signal(int signum, void (*func) (int)) {
 	}
 }
 
-char *uwsgi_get_exported_opt(char *key) {
-
-	int i;
-
-	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
-		if (!strcmp(uwsgi.exported_opts[i]->key, key)) {
-			return uwsgi.exported_opts[i]->value;
-		}
-	}
-
-	return NULL;
-}
-
-char *uwsgi_get_optname_by_index(int index) {
-
-	struct uwsgi_option *op = uwsgi.options;
-
-	while (op->name) {
-		if (op->shortcut == index) {
-			return op->name;
-		}
-		op++;
-	}
-
-	return NULL;
-}
-
 int uwsgi_list_has_num(char *list, int num) {
 
 	char *list2 = uwsgi_concat2(list, "");

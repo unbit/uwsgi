@@ -3147,6 +3147,7 @@ void uwsgi_nuclear_blast();
 void uwsgi_unix_signal(int, void (*)(int));
 
 char *uwsgi_get_exported_opt(char *);
+char *uwsgi_manage_placeholder(char *);
 
 int uwsgi_signal_add_cron(uint8_t, int, int, int, int, int);
 int uwsgi_cron_task_needs_execution(struct tm *, int, int, int, int, int);
