@@ -11,13 +11,14 @@ extern struct uwsgi_server uwsgi;
 
 	rpc-HTTP interface.
 
-	modifier2 changes the parsser behaviours:
+	modifier2 changes the parser behaviours:
 
 	0 -> return uwsgi header + rpc response
 	1 -> return raw rpc response
 	2 -> split PATH_INFO to get func name and args and return as HTTP response with content_type as application/binary or  Accept request header (if different from *)
 	3 -> set xmlrpc wrapper (requires libxml2)
 	4 -> set jsonrpc wrapper (requires libjansson)
+	5 -> used in uwsgi response to signal the response is a uwsgi dictionary followed by the body (the dictionary must contains a CONTENT_LENGTH key)
 
 */
 
@@ -131,6 +132,8 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 	uint8_t argc = 0xff;
 	// response output
 	char *response_buf = NULL;
+	// response size
+	size_t content_len = 0;
 
 	/* Standard RPC request */
         if (!wsgi_req->uh->pktsize) {
@@ -173,10 +176,10 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 			p = strtok_r(NULL, "/", &ctx);
 		}
 		
-		wsgi_req->uh->pktsize = uwsgi_rpc(argv[0], argc, argv+1, argvs+1, &response_buf);
+		content_len = uwsgi_rpc(argv[0], argc, argv+1, argvs+1, &response_buf);
 		free(args);
 
-		if (!wsgi_req->uh->pktsize) {
+		if (!content_len) {
 			uwsgi_404(wsgi_req);
 			return UWSGI_OK;
 		}
@@ -221,10 +224,30 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// call the function (output will be in wsgi_req->buffer)
-	wsgi_req->uh->pktsize = uwsgi_rpc(argv[0], argc-1, argv+1, argvs+1, &response_buf);
+	content_len = uwsgi_rpc(argv[0], argc-1, argv+1, argvs+1, &response_buf);
 
 	// using modifier2 we may want a raw output
 	if (wsgi_req->uh->modifier2 == 0) {
+		if (content_len > 0xffff) {
+			// signal dictionary
+			wsgi_req->uh->modifier2 = 5;
+			struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+			if (uwsgi_buffer_append_keynum(ub, "CONTENT_LENGTH", 14 , content_len)) {
+				uwsgi_buffer_destroy(ub);
+				return -1;	
+			}
+			if (uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos)) {
+				uwsgi_buffer_destroy(ub);
+                        	return -1;
+                	}
+			// fix uwsgi header
+			wsgi_req->uh->pktsize = ub->pos;
+			uwsgi_buffer_destroy(ub);
+		}
+		else {
+			wsgi_req->uh->pktsize = content_len;
+		}
+
 		if (uwsgi_response_write_body_do(wsgi_req, (char *) wsgi_req->uh, 4)) {
 			return -1;
 		}
@@ -233,7 +256,7 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 
 sendbody:
 	// write the response
-	uwsgi_response_write_body_do(wsgi_req, response_buf, wsgi_req->uh->pktsize);
+	uwsgi_response_write_body_do(wsgi_req, response_buf, content_len);
 	
 	return UWSGI_OK;
 }
