@@ -325,7 +325,11 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                 if objfile.endswith('.go'):
                     cflags.pop()
             else:
+                if objfile == 'core/dot_h':
+                    cflags.append('-g')
                 compile(' '.join(cflags), last_cflags_ts, objfile + '.o', file + '.c')
+                if objfile == 'core/dot_h':
+                    cflags.pop()
 
     if uc.get('embedded_plugins'):
         ep = uc.get('embedded_plugins').split(',')
