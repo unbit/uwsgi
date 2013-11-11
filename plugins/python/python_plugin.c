@@ -1548,7 +1548,7 @@ uint64_t uwsgi_python_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[
 			rl = PyString_Size(ret);
 			if (rl > 0) {
 				*buffer = uwsgi_malloc(rl);
-				memcpy(buffer, rv, rl);
+				memcpy(*buffer, rv, rl);
 				Py_DECREF(ret);
 				UWSGI_RELEASE_GIL;
 				return rl;

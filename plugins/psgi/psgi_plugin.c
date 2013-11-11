@@ -824,8 +824,8 @@ static uint64_t uwsgi_perl_rpc(void *func, uint8_t argc, char **argv, uint16_t a
                 char *value = SvPV(response, rlen );
 		if (rlen > 0) {
 			*buffer = uwsgi_malloc(rlen);
+			memcpy(*buffer, value, ret);
 		}	
-		memcpy(buffer, value, ret);
 	}
 
         PUTBACK;

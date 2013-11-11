@@ -345,7 +345,7 @@ uint64_t uwsgi_ruby_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[],
                 rl = RSTRING_LEN(ret);
                 if (rl > 0) {
 			*buffer = uwsgi_malloc(rl);
-                	memcpy(buffer, rv, rl);
+                	memcpy(*buffer, rv, rl);
                         return rl;
                 }
         }
