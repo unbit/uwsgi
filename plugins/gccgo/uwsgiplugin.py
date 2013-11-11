@@ -1,7 +1,7 @@
 import os
 NAME='gccgo'
 
-CFLAGS = []
+CFLAGS = ['-g']
 LDFLAGS = []
 LIBS = ['-lgo']
 GCC_LIST = ['gccgo_plugin', 'uwsgi.go']
