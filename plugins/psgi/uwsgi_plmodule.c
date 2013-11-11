@@ -324,7 +324,7 @@ XS(XS_call) {
 	dXSARGS;
 
         char *func;
-        uint16_t size = 0;
+        uint64_t size = 0;
         int i;
         char *argv[256];
         uint16_t argvs[256];

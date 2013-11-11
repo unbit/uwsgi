@@ -374,7 +374,7 @@ PHP_FUNCTION(uwsgi_rpc) {
 	zval *z_current_obj;
 	char *argv[256];
         uint16_t argvs[256];
-	uint16_t size = 0;
+	uint64_t size = 0;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "+", &varargs, &num_args) == FAILURE) {
 		RETURN_NULL();

@@ -63,8 +63,8 @@ static void uwsgi_symcall_after_request(struct wsgi_request *wsgi_req) {
 	log_request(wsgi_req);
 }
 
-static uint16_t uwsgi_symcall_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
-	uint16_t (*casted_func)(uint8_t, char **, uint16_t *, char *) = (uint16_t (*)(uint8_t, char **, uint16_t *, char *)) func;
+static uint64_t uwsgi_symcall_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char **buffer) {
+	uint64_t (*casted_func)(uint8_t, char **, uint16_t *, char **) = (uint64_t (*)(uint8_t, char **, uint16_t *, char **)) func;
 	return casted_func(argc, argv, argvs, buffer);
 }
 

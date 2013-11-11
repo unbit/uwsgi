@@ -256,7 +256,7 @@ extern "C" void uwsgi_v8_configurator(char *filename, char *magic_table[]) {
 	
 }
 
-extern "C" uint16_t uwsgi_v8_rpc(void * func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
+extern "C" uint64_t uwsgi_v8_rpc(void * func, uint8_t argc, char **argv, uint16_t argvs[], char **buffer) {
 
 	int core_id = (long) pthread_getspecific(uv8.current_core);
 
@@ -286,7 +286,10 @@ extern "C" uint16_t uwsgi_v8_rpc(void * func, uint8_t argc, char **argv, uint16_
 		return 0;
 	}
 	uint16_t rlen = robj->Length();
-	memcpy(buffer, *r_value, rlen);
+	if (rlen > 0) {
+		*buffer = (char *)uwsgi_malloc(rlen);
+		memcpy(buffer, *r_value, rlen);
+	}
 	// call GC every time, could be overkill, we should allow to tune that choice
 	while(!v8::V8::IdleNotification()) {};
         return rlen;

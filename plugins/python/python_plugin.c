@@ -1522,7 +1522,7 @@ clear:
 	return -1;
 }
 
-uint16_t uwsgi_python_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
+uint64_t uwsgi_python_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char **buffer) {
 
 	UWSGI_GET_GIL;
 
@@ -1546,7 +1546,8 @@ uint16_t uwsgi_python_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[
 		if (PyString_Check(ret)) {
 			rv = PyString_AsString(ret);
 			rl = PyString_Size(ret);
-			if (rl <= 65536) {
+			if (rl > 0) {
+				*buffer = uwsgi_malloc(rl);
 				memcpy(buffer, rv, rl);
 				Py_DECREF(ret);
 				UWSGI_RELEASE_GIL;

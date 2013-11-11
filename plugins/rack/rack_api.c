@@ -805,7 +805,7 @@ static VALUE uwsgi_ruby_signal_registered(VALUE *class, VALUE signum) {
 static VALUE uwsgi_ruby_do_rpc(int argc, VALUE *rpc_argv, VALUE *class) {
 
 	char *node = NULL, *func;
-        uint16_t size = 0;
+        uint64_t size = 0;
 
         char *argv[256];
         uint16_t argvs[256];

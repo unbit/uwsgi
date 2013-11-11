@@ -3,7 +3,7 @@
 int uwsgi_v8_init(void);
 void uwsgi_v8_apps(void);
 void uwsgi_v8_configurator(char *, char **);
-uint16_t uwsgi_v8_rpc(void *, uint8_t, char **, uint16_t *, char *);
+uint64_t uwsgi_v8_rpc(void *, uint8_t, char **, uint16_t *, char **);
 int uwsgi_v8_signal_handler(uint8_t, void *);
 void uwsgi_v8_init_thread(int);
 void uwsgi_v8_enable_threads();

@@ -172,6 +172,8 @@ const char *uwsgi_pypy_version;
 
 char *uwsgi_binary_path();
 
+void *uwsgi_malloc(size_t);
+
 int uwsgi_response_prepare_headers(struct wsgi_request *, char *, size_t);
 int uwsgi_response_add_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 int uwsgi_response_write_body_do(struct wsgi_request *, char *, size_t);
@@ -186,7 +188,7 @@ int uwsgi_is_again();
 int uwsgi_register_rpc(char *, struct uwsgi_plugin *, uint8_t, void *);
 int uwsgi_register_signal(uint8_t, char *, void *, uint8_t);
 
-char *uwsgi_do_rpc(char *, char *, uint8_t, char **, uint16_t *, uint16_t *);
+char *uwsgi_do_rpc(char *, char *, uint8_t, char **, uint16_t *, uint64_t *);
 
 void uwsgi_set_processname(char *);
 int uwsgi_signal_send(int, uint8_t);
@@ -490,8 +492,9 @@ class uwsgi_pypy_RPC(object):
         for i in range(0, argc):
             pargs.append(ffi.string(argv[i], argvs[i]))
         response = self.func(*pargs)
-        if len(response) > 0 and len(response) <= 65535:
-            dst = ffi.buffer(buf, 65536)
+        if len(response) > 0:
+            buf[0] = lib.uwsgi_malloc(len(reponse))
+            dst = ffi.buffer(buf[0], len(reponse))
             dst[:len(response)] = response
         return len(response)
 
@@ -508,7 +511,7 @@ def uwsgi_pypy_rpc(node, func, *args):
     argc = 0
     argv = ffi.new('char*[256]')
     argvs = ffi.new('uint16_t[256]')
-    rsize = ffi.new('uint16_t*')
+    rsize = ffi.new('uint64_t*')
 
     for arg in args:
         if argc >= 255:

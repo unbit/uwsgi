@@ -798,10 +798,10 @@ realstuff:
 	}
 }
 
-static uint16_t uwsgi_perl_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
+static uint64_t uwsgi_perl_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char **buffer) {
 
 	int i;
-	uint16_t ret = 0;
+	uint64_t ret = 0;
 
         dSP;
         ENTER;
@@ -822,7 +822,9 @@ static uint16_t uwsgi_perl_rpc(void *func, uint8_t argc, char **argv, uint16_t a
 		STRLEN rlen;
 		SV *response = POPs;
                 char *value = SvPV(response, rlen );
-		ret = UMIN(UMAX16-1, rlen);
+		if (rlen > 0) {
+			*buffer = uwsgi_malloc(rlen);
+		}	
 		memcpy(buffer, value, ret);
 	}
 

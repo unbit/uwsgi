@@ -315,7 +315,7 @@ VALUE rack_call_rpc_handler(VALUE args) {
 }
 
 
-uint16_t uwsgi_ruby_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
+uint64_t uwsgi_ruby_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char **buffer) {
 
         uint8_t i;
 	VALUE rb_args = rb_ary_new2(2);
@@ -343,7 +343,8 @@ uint16_t uwsgi_ruby_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[],
 	if (TYPE(ret) == T_STRING) {
         	rv = RSTRING_PTR(ret);
                 rl = RSTRING_LEN(ret);
-                if (rl <= 0xffff) {
+                if (rl > 0) {
+			*buffer = uwsgi_malloc(rl);
                 	memcpy(buffer, rv, rl);
                         return rl;
                 }

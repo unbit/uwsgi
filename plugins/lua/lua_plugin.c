@@ -670,7 +670,7 @@ static int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
 	
 }
 
-static uint16_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
+static uint64_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t argvs[], char **buffer) {
 
         uint8_t i;
         const char *sv;
@@ -702,7 +702,8 @@ static uint16_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t a
 #ifdef UWSGI_DEBUG
 	uwsgi_log("sv = %s sl = %lu\n", sv, (unsigned long) sl);
 #endif
-	if (sl <= 0xffff) {
+	if (sl > 0) {
+		*buffer = uwsgi_malloc(sl);
 		memcpy(buffer, sv, sl);
 		lua_pop(L, 1);
 		return sl;

@@ -274,10 +274,10 @@ static int uwsgi_pypy_signal_handler(uint8_t sig, void *handler) {
 	return 0;
 }
 
-static uint16_t uwsgi_pypy_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
+static uint64_t uwsgi_pypy_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char **buffer) {
 	int iargvs[UMAX8];
 	int i;
-	int (*pypy_func)(int, char **, int*, char *) = (int (*)(int, char **, int*, char *)) func;
+	int (*pypy_func)(int, char **, int*, char **) = (int (*)(int, char **, int*, char **)) func;
 	// we convert 16bit to int
 	for(i=0;i<argc;i++) {
 		iargvs[i] = (int) argvs[i]; 

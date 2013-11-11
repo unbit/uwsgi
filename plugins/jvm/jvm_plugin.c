@@ -127,7 +127,7 @@ JNIEXPORT jobject JNICALL uwsgi_jvm_api_rpc(JNIEnv *env, jclass c, jobject j_arg
 	char *argv[256];
         uint16_t argvs[256];
 	jobject argvj[256];
-	uint16_t size = 0;
+	uint64_t size = 0;
 
 	size_t args = uwsgi_jvm_array_len(j_args);
 	if (args < 2) return NULL;
@@ -1277,7 +1277,7 @@ void uwsgi_jvm_release_bytearray(jobject o, char *str) {
 	(*ujvm_env)->ReleaseByteArrayElements(ujvm_env, o, (jbyte *)str, 0);
 }
 
-static uint16_t uwsgi_jvm_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
+static uint64_t uwsgi_jvm_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char **buffer) {
 	jvalue args[1];
 	jobject str_array = (*ujvm_env)->NewObjectArray(ujvm_env, argc, ujvm.str_class, NULL);
 	if (!str_array) return 0;
@@ -1294,7 +1294,8 @@ static uint16_t uwsgi_jvm_rpc(void *func, uint8_t argc, char **argv, uint16_t ar
 		return 0;
 	}
 	size_t rlen = uwsgi_jvm_strlen(ret);
-	if (rlen <= 0xffff) {
+	if (rlen > 0) {
+		*buffer = uwsgi_malloc(rlen);
 		char *b = uwsgi_jvm_str2c(ret);
 		memcpy(buffer, b, rlen);
 		uwsgi_jvm_release_chars(ret, b);

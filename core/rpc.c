@@ -59,11 +59,11 @@ already:
 	return ret;
 }
 
-uint16_t uwsgi_rpc(char *name, uint8_t argc, char *argv[], uint16_t argvs[], char *output) {
+uint64_t uwsgi_rpc(char *name, uint8_t argc, char *argv[], uint16_t argvs[], char **output) {
 
 	struct uwsgi_rpc *urpc = NULL;
 	uint64_t i;
-	uint16_t ret = 0;
+	uint64_t ret = 0;
 
 	int pos = (uwsgi.mywid * uwsgi.rpc_max);
 
@@ -86,7 +86,7 @@ uint16_t uwsgi_rpc(char *name, uint8_t argc, char *argv[], uint16_t argvs[], cha
 }
 
 
-char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t argvs[], uint16_t * len) {
+char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t argvs[], uint64_t * len) {
 
 	uint8_t i;
 	uint16_t ulen;
@@ -97,9 +97,10 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 
 	if (node == NULL || !strcmp(node, "")) {
 		// allocate the whole buffer
-		buffer = uwsgi_malloc(UMAX16);
-		*len = uwsgi_rpc(func, argc, argv, argvs, buffer);
-		return buffer;
+		*len = uwsgi_rpc(func, argc, argv, argvs, &buffer);
+		if (*buffer)
+			return buffer;
+		return NULL;
 	}
 
 
@@ -147,7 +148,7 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 		bufptr += ulen;
 	}
 
-	// ok the reuqest is ready, let's send it in non blocking way
+	// ok the request is ready, let's send it in non blocking way
 	if (uwsgi_write_true_nb(fd, buffer, buffer_size+4, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
 		goto error;
 	}

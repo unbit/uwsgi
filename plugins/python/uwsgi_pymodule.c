@@ -265,7 +265,7 @@ PyObject *py_uwsgi_add_file_monitor(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_call(PyObject * self, PyObject * args) {
 
 	char *func;
-	uint16_t size = 0;
+	uint64_t size = 0;
 	PyObject *py_func;
 	int argc = PyTuple_Size(args);
 	int i;
@@ -331,7 +331,7 @@ PyObject *py_uwsgi_rpc_list(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 
 	char *node = NULL, *func;
-	uint16_t size = 0;
+	uint64_t size = 0;
 	PyObject *py_node, *py_func;
 
 	int argc = PyTuple_Size(args);

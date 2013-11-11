@@ -91,7 +91,7 @@ static int uwsgi_rpc_xmlrpc(struct wsgi_request *wsgi_req, xmlDoc *doc, char **a
         }
 
 	if (!method) return -1;
-	wsgi_req->uh->pktsize = uwsgi_rpc(method, *argc, argv+1, argvs+1, response_buf);
+	wsgi_req->uh->pktsize = uwsgi_rpc(method, *argc, argv+1, argvs+1, &response_buf);
 
 	if (!wsgi_req->uh->pktsize) return -1;
 	if (wsgi_req->uh->pktsize == UMAX16-1) return -1;
@@ -130,7 +130,7 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 	// maximum number of supported arguments
 	uint8_t argc = 0xff;
 	// response output
-	char response_buf[UMAX16];
+	char *response_buf = NULL;
 
 	/* Standard RPC request */
         if (!wsgi_req->uh->pktsize) {
@@ -173,7 +173,7 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 			p = strtok_r(NULL, "/", &ctx);
 		}
 		
-		wsgi_req->uh->pktsize = uwsgi_rpc(argv[0], argc, argv+1, argvs+1, response_buf);
+		wsgi_req->uh->pktsize = uwsgi_rpc(argv[0], argc, argv+1, argvs+1, &response_buf);
 		free(args);
 
 		if (!wsgi_req->uh->pktsize) {
@@ -221,7 +221,7 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// call the function (output will be in wsgi_req->buffer)
-	wsgi_req->uh->pktsize = uwsgi_rpc(argv[0], argc-1, argv+1, argvs+1, response_buf);
+	wsgi_req->uh->pktsize = uwsgi_rpc(argv[0], argc-1, argv+1, argvs+1, &response_buf);
 
 	// using modifier2 we may want a raw output
 	if (wsgi_req->uh->modifier2 == 0) {
@@ -270,7 +270,7 @@ static int uwsgi_routing_func_rpc(struct wsgi_request *wsgi_req, struct uwsgi_ro
 		*at = 0;
 		remote = at+1;
 	}
-	uint16_t size;
+	uint64_t size;
 	char *response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
 	free(func);
 	if (!response) goto end;
@@ -322,7 +322,7 @@ static int uwsgi_routing_func_rpc_blob(struct wsgi_request *wsgi_req, struct uws
                 *at = 0;
                 remote = at+1;
         }
-        uint16_t size;
+        uint64_t size;
         char *response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
         free(func);
         if (!response) goto end;
@@ -377,7 +377,7 @@ static int uwsgi_routing_func_rpc_raw(struct wsgi_request *wsgi_req, struct uwsg
                 *at = 0;
                 remote = at+1;
         }
-        uint16_t size;
+        uint64_t size;
         char *response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
         free(func);
         if (!response) goto end;
@@ -431,7 +431,7 @@ static int uwsgi_routing_func_rpc_var(struct wsgi_request *wsgi_req, struct uwsg
                 *at = 0;
                 remote = at+1;
         }
-        uint16_t size;
+        uint64_t size;
         char *response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
         free(func);
         if (!response) goto end;
@@ -488,7 +488,7 @@ static int uwsgi_routing_func_rpc_ret(struct wsgi_request *wsgi_req, struct uwsg
                 *at = 0;
                 remote = at+1;
         }
-        uint16_t size;
+        uint64_t size;
         char *response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
         free(func);
         if (!response) goto end;
