@@ -236,21 +236,25 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 				uwsgi_buffer_destroy(ub);
 				return -1;	
 			}
+			// fix uwsgi header
+			wsgi_req->uh->pktsize = ub->pos;
+			if (uwsgi_response_write_body_do(wsgi_req, (char *) wsgi_req->uh, 4)) {
+				uwsgi_buffer_destroy(ub);
+				return -1;
+			}
 			if (uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos)) {
 				uwsgi_buffer_destroy(ub);
                         	return -1;
                 	}
-			// fix uwsgi header
-			wsgi_req->uh->pktsize = ub->pos;
 			uwsgi_buffer_destroy(ub);
 		}
 		else {
 			wsgi_req->uh->pktsize = content_len;
+			if (uwsgi_response_write_body_do(wsgi_req, (char *) wsgi_req->uh, 4)) {
+				return -1;
+			}
 		}
 
-		if (uwsgi_response_write_body_do(wsgi_req, (char *) wsgi_req->uh, 4)) {
-			return -1;
-		}
 	}
 
 

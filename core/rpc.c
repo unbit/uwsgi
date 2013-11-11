@@ -178,8 +178,10 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 			buffer = tmp_buf;
 		}
 
+		rlen = content_len;
+
 		// read the raw value from the socket
-                if (uwsgi_read_whole_true_nb(fd, buffer, content_len, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+                if (uwsgi_read_whole_true_nb(fd, buffer, rlen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
 			goto error;
                 }
 	}
