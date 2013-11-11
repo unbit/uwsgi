@@ -943,12 +943,12 @@ int uwsgi_read_whole_true_nb(int fd, char *buf, size_t remains, int timeout) {
 }
 
 /*
-	this is a pretty magic function used for read a full uwsgi response
+	this is a pretty magic function used for reading a full uwsgi response
 	it is true non blocking, so you can use it in request plugins
 	buffer is expected to be at least 4 bytes, rlen is a get/set value
 */
 
-int uwsgi_read_with_realloc(int fd, char **buffer, size_t *rlen, int timeout) {
+int uwsgi_read_with_realloc(int fd, char **buffer, size_t *rlen, int timeout, uint8_t *modifier1, uint8_t *modifier2) {
 	if (*rlen < 4) return -1;
 	char *buf = *buffer;
 	int ret;
@@ -979,6 +979,10 @@ readok:
 
 	struct uwsgi_header *uh = (struct uwsgi_header *) buf;
 	uint16_t pktsize = uh->pktsize;
+	if (modifier1)
+		*modifier1 = uh->modifier1;
+	if (modifier2)
+		*modifier2 = uh->modifier2;
 	
 	if (pktsize > *rlen) {
 		char *tmp_buf = realloc(buf, pktsize);

@@ -1432,7 +1432,7 @@ static int cache_magic_send_and_manage(int fd, struct uwsgi_buffer *ub, char *st
 	// ok now wait for the response, using the same buffer of the request
 	// NOTE: after using a uwsgi_buffer in that way we basically destroy (even if we can safely free it)
 	size_t rlen = ub->pos;
-	if (uwsgi_read_with_realloc(fd, &ub->buf, &rlen, timeout)) return -1;
+	if (uwsgi_read_with_realloc(fd, &ub->buf, &rlen, timeout, NULL, NULL)) return -1;
 	// try to fix the buffer to maintain size info
 	ub->pos = rlen;
 
@@ -1867,7 +1867,7 @@ void uwsgi_cache_sync_from_nodes(struct uwsgi_cache *uc) {
 		}
 
 		size_t rlen = ub->pos;
-		if (uwsgi_read_with_realloc(fd, &ub->buf, &rlen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+		if (uwsgi_read_with_realloc(fd, &ub->buf, &rlen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], NULL, NULL)) {
 			uwsgi_buffer_destroy(ub);
 			uwsgi_log("[cache-sync] unable to read from the cache server\n");
 			close(fd);

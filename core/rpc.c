@@ -85,6 +85,13 @@ uint64_t uwsgi_rpc(char *name, uint8_t argc, char *argv[], uint16_t argvs[], cha
 	return ret;
 }
 
+static void rpc_context_hook(char *key, uint16_t kl, char *value, uint16_t vl, void *data) {
+	size_t *r = (size_t *) data;
+
+	if (!uwsgi_strncmp(key, kl, "CONTENT_LENGTH", 14)) {
+		*r = uwsgi_str_num(value, vl);
+	}
+}
 
 char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t argvs[], uint64_t * len) {
 
@@ -155,8 +162,26 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 
 	// ok time to wait for the response in non blocking way
 	size_t rlen = buffer_size+4;
-	if (uwsgi_read_with_realloc(fd, &buffer, &rlen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+	uint8_t modifier2 = 0;
+	if (uwsgi_read_with_realloc(fd, &buffer, &rlen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], NULL, &modifier2)) {
 		goto error;
+	}
+
+	// 64bit response ?
+	if (modifier2 == 5) {
+		size_t content_len = 0;
+		if (uwsgi_hooked_parse(buffer, rlen, rpc_context_hook, &content_len )) goto error;
+
+		if (content_len > rlen) {
+			char *tmp_buf = realloc(buffer, content_len);
+			if (!tmp_buf) goto error;
+			buffer = tmp_buf;
+		}
+
+		// read the raw value from the socket
+                if (uwsgi_read_whole_true_nb(fd, buffer, content_len, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+			goto error;
+                }
 	}
 
 	close(fd);
