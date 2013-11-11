@@ -493,15 +493,15 @@ class uwsgi_pypy_RPC(object):
             pargs.append(ffi.string(argv[i], argvs[i]))
         response = self.func(*pargs)
         if len(response) > 0:
-            buf[0] = lib.uwsgi_malloc(len(reponse))
-            dst = ffi.buffer(buf[0], len(reponse))
+            buf[0] = lib.uwsgi_malloc(len(response))
+            dst = ffi.buffer(buf[0], len(response))
             dst[:len(response)] = response
         return len(response)
 
 
 def uwsgi_pypy_uwsgi_register_rpc(name, func, argc=0):
     rpc_func = uwsgi_pypy_RPC(func)
-    cb = ffi.callback("int(int, char*[], int[], char*)", rpc_func)
+    cb = ffi.callback("int(int, char*[], int[], char**)", rpc_func)
     uwsgi_gc.append(cb)
     if lib.uwsgi_register_rpc(ffi.new("char[]", name), ffi.addressof(lib.pypy_plugin), argc, cb) < 0:
         raise Exception("unable to register rpc func %s" % name)
