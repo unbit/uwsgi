@@ -186,15 +186,15 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 			uwsgi_404(wsgi_req);
 			return UWSGI_OK;
 		}
-		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) {if (response_buf) free(response_buf); return 1;}
-		if (uwsgi_response_add_content_length(wsgi_req, content_len)) {if (response_buf) free(response_buf); return 1;}
+		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) {if (response_buf) free(response_buf); return -1;}
+		if (uwsgi_response_add_content_length(wsgi_req, content_len)) {if (response_buf) free(response_buf); return -1;}
 		uint16_t ctype_len = 0;
 		char *ctype = uwsgi_get_var(wsgi_req, "HTTP_ACCEPT", 11, &ctype_len);
-		if (ctype && strcmp(ctype, "*/*") && strcmp(ctype, "*")) {
-			if (uwsgi_response_add_content_type(wsgi_req, ctype, ctype_len)) {if (response_buf) free(response_buf); return 1;}
+		if (!ctype || !uwsgi_strncmp(ctype, ctype_len, "*/*" ,3) || !uwsgi_strncmp(ctype, ctype_len, "*", 1)) {
+			if (uwsgi_response_add_content_type(wsgi_req, "application/binary", 18)) {if (response_buf) free(response_buf); return -1;}
 		}
 		else {
-			if (uwsgi_response_add_content_type(wsgi_req, "application/binary", 18)) {if (response_buf) free(response_buf); return 1;}
+			if (uwsgi_response_add_content_type(wsgi_req, ctype, ctype_len)) {if (response_buf) free(response_buf); return -1;}
 		}
 		goto sendbody;
 	}
