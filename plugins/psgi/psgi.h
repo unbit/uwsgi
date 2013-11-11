@@ -58,6 +58,8 @@ struct uwsgi_perl {
 	time_t last_auto_reload;
 	struct uwsgi_string_list *auto_reload_ignore;
 	HV *auto_reload_hash;
+
+	int enable_psgix_io;
 };
 
 void init_perl_embedded_module(void);

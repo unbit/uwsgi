@@ -404,8 +404,19 @@ XS(XS_i_am_the_lord) {
 	}
         XSRETURN_NO;
 }
-
 #endif
+
+XS(XS_connection_fd) {
+	dXSARGS;
+
+	psgi_check_args(0);	
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	ST(0) = newSViv(wsgi_req->fd);
+        sv_2mortal(ST(0));
+        XSRETURN(1);	
+}
 
 XS(XS_websocket_handshake) {
 
@@ -646,6 +657,9 @@ void init_perl_embedded_module() {
 #ifdef UWSGI_SSL
 	psgi_xs(i_am_the_lord);
 #endif
+
+	psgi_xs(connection_fd);
+
 	psgi_xs(alarm);
 	psgi_xs(websocket_handshake);
 	psgi_xs(websocket_recv);

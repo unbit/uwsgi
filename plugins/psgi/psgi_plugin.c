@@ -14,6 +14,7 @@ struct uwsgi_plugin psgi_plugin;
 struct uwsgi_option uwsgi_perl_options[] = {
 
         {"psgi", required_argument, 0, "load a psgi app", uwsgi_opt_set_str, &uperl.psgi, 0},
+        {"psgi-enable-psgix-io", no_argument, 0, "enable psgix.io support", uwsgi_opt_true, &uperl.enable_psgix_io, 0},
         {"perl-no-die-catch", no_argument, 0, "do not catch $SIG{__DIE__}", uwsgi_opt_true, &uperl.no_die_catch, 0},
         {"perl-local-lib", required_argument, 0, "set perl locallib path", uwsgi_opt_set_str, &uperl.locallib, 0},
 #ifdef PERL_VERSION_STRING
@@ -100,6 +101,31 @@ SV *uwsgi_perl_obj_new(char *class, size_t class_len) {
 
 	return newobj;
 	
+}
+
+SV *uwsgi_perl_obj_new_from_fd(char *class, size_t class_len, int fd) {
+	SV *newobj;
+
+        dSP;
+
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+	XPUSHs(sv_2mortal(newSVpv( class, class_len)));
+        XPUSHs(sv_2mortal(newSViv( fd )));
+        XPUSHs(sv_2mortal(newSVpv( "w", 1 )));
+        PUTBACK;
+
+        call_method( "new_from_fd", G_SCALAR);
+
+        SPAGAIN;
+
+        newobj = SvREFCNT_inc(POPs);
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+
+        return newobj;
 }
 
 SV *uwsgi_perl_call_stream(SV *func) {
@@ -245,7 +271,10 @@ AV *psgi_call(struct wsgi_request *wsgi_req, SV *psgi_func, SV *env) {
                 uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
         }
 	else {
-		ret = (AV *) SvREFCNT_inc(SvRV(POPs));
+		SV *r = POPs;
+		if (SvROK(r)) {
+			ret = (AV *) SvREFCNT_inc(SvRV(r));
+		}
 	}
 
 	PUTBACK;
@@ -360,7 +389,12 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 	// cleanup handlers array
 	av = newAV();
 	if (!hv_store(env, "psgix.cleanup.handlers", 22, newRV_noinc((SV *)av ), 0)) goto clear;
-	
+
+	// this call requires a bunch of syscalls, so it hurts performance
+	if (uperl.enable_psgix_io) {
+		SV *io = uwsgi_perl_obj_new_from_fd("IO::Socket", 10, wsgi_req->fd);
+		if (!hv_store(env, "psgix.io", 8, io, 0)) goto clear;
+	}
 
 	SV *pe = uwsgi_perl_obj_new("uwsgi::error", 12);
         if (!hv_store(env, "psgi.errors", 11, pe, 0)) goto clear;
