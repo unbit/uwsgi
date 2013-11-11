@@ -1,5 +1,12 @@
 package uwsgi
 
+/*
+
+this is a very low-level module, full of performance hacks
+do not take it as a good example of go coding...
+
+*/
+
 import (
 	"strings"
 	"net/http"
@@ -20,6 +27,12 @@ func uwsgi_response_add_header(*interface{}, *byte, uint16, *byte, uint16) int
 func uwsgi_request_body_read(*interface{}, *byte, uint64) int
 //extern uwsgi_gccgo_helper_register_signal
 func uwsgi_register_signal(uint8, *byte, func(uint8)) int
+//extern uwsgi_cache_magic_get
+func uwsgi_cache_magic_get(*byte, uint16, *uint64, *uint64, *byte) *byte;
+//extern __go_byte_array_to_string
+func __go_byte_array_to_string(*byte, int) string
+//extern free
+func free(* byte)
 
 var uwsgi_signals_gc [256]func(uint8)
 var uwsgi_env_gc map[interface{}]interface{}
@@ -31,8 +44,10 @@ func Env(wsgi_req *interface{}) *map[string]string {
 	return &env
 }
 
-func EnvAdd(env *map[string]string, k *[65536]byte, kl uint16, v *[65536]byte, vl uint16) {
-	(*env)[ string((*k)[0:kl]) ] = string((*v)[0:vl])
+func EnvAdd(env *map[string]string, k *byte, kl uint16, v *byte, vl uint16) {
+	s_k := __go_byte_array_to_string(k, int(kl))
+	s_v := __go_byte_array_to_string(v, int(vl))
+	(*env)[ s_k ] = s_v
 }
 
 type ResponseWriter struct {
@@ -114,6 +129,27 @@ func RegisterSignal(signum uint8, receiver string, handler func(uint8)) bool {
 	uwsgi_signals_gc[signum] = handler
 	return true
 }
+
+// get an item from the cache
+func CacheGet(key string, cache string) string {
+
+	var b_key []byte = []byte(key)
+	var v_len uint64 = 0
+	var expires uint64 = 0
+	var value *byte
+
+	if (cache == "") {
+		value = uwsgi_cache_magic_get(&b_key[0], uint16(len(b_key)), &v_len, &expires, nil)
+	} else {
+		b_cache := []byte(cache)
+		value = uwsgi_cache_magic_get(&b_key[0], uint16(len(b_key)), &v_len, &expires, &b_cache[0])
+	}
+
+	ret := __go_byte_array_to_string(value, int(v_len))
+	free(value)
+	return ret
+}
+
 
 func SignalHandler(handler func(uint8), signum uint8) {
 	handler(signum)
