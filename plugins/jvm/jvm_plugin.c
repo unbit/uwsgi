@@ -1297,7 +1297,7 @@ static uint64_t uwsgi_jvm_rpc(void *func, uint8_t argc, char **argv, uint16_t ar
 	if (rlen > 0) {
 		*buffer = uwsgi_malloc(rlen);
 		char *b = uwsgi_jvm_str2c(ret);
-		memcpy(buffer, b, rlen);
+		memcpy(*buffer, b, rlen);
 		uwsgi_jvm_release_chars(ret, b);
 		uwsgi_jvm_local_unref(ret);
 		return rlen;

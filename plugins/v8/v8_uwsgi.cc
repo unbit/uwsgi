@@ -288,7 +288,7 @@ extern "C" uint64_t uwsgi_v8_rpc(void * func, uint8_t argc, char **argv, uint16_
 	uint16_t rlen = robj->Length();
 	if (rlen > 0) {
 		*buffer = (char *)uwsgi_malloc(rlen);
-		memcpy(buffer, *r_value, rlen);
+		memcpy(*buffer, *r_value, rlen);
 	}
 	// call GC every time, could be overkill, we should allow to tune that choice
 	while(!v8::V8::IdleNotification()) {};

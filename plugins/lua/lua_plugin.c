@@ -704,7 +704,7 @@ static uint64_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t a
 #endif
 	if (sl > 0) {
 		*buffer = uwsgi_malloc(sl);
-		memcpy(buffer, sv, sl);
+		memcpy(*buffer, sv, sl);
 		lua_pop(L, 1);
 		return sl;
 	}
