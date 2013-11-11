@@ -141,6 +141,11 @@ static VALUE rack_uwsgi_i_am_the_lord(VALUE *class, VALUE legion_name) {
 }
 #endif
 
+static VALUE rack_uwsgi_connection_fd(VALUE *class) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+        return INT2NUM(wsgi_req->fd);
+}
+
 
 
 static VALUE rack_uwsgi_setprocname(VALUE *class, VALUE rbname) {
@@ -1166,6 +1171,8 @@ void uwsgi_rack_init_api() {
 #ifdef UWSGI_SSL
 	uwsgi_rack_api("i_am_the_lord", rack_uwsgi_i_am_the_lord, 1);
 #endif
+
+	uwsgi_rack_api("connection_fd", rack_uwsgi_connection_fd, 0);
 	
 
         uwsgi_rack_api("cache_get", rack_uwsgi_cache_get, -1);
