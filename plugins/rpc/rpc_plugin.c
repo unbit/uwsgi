@@ -71,7 +71,7 @@ static int uwsgi_rpc_xmlrpc_args(xmlNode *element, char **argv, uint16_t *argvs,
 	return 0;
 }
 
-static int uwsgi_rpc_xmlrpc(struct wsgi_request *wsgi_req, xmlDoc *doc, char **argv, uint16_t *argvs, uint8_t *argc, char *response_buf) {
+static int uwsgi_rpc_xmlrpc(struct wsgi_request *wsgi_req, xmlDoc *doc, char **argv, uint16_t *argvs, uint8_t *argc, char **response_buf) {
 	char *method = NULL;
 	xmlNode *element = xmlDocGetRootElement(doc);
         if (!element) return -1;
@@ -92,12 +92,14 @@ static int uwsgi_rpc_xmlrpc(struct wsgi_request *wsgi_req, xmlDoc *doc, char **a
         }
 
 	if (!method) return -1;
-	wsgi_req->uh->pktsize = uwsgi_rpc(method, *argc, argv+1, argvs+1, &response_buf);
+	uint64_t content_len = uwsgi_rpc(method, *argc, argv+1, argvs+1, response_buf);
 
-	if (!wsgi_req->uh->pktsize) return -1;
-	if (wsgi_req->uh->pktsize == UMAX16-1) return -1;
+	if (!*response_buf) return -1;
 	// add final NULL byte
-	response_buf[wsgi_req->uh->pktsize] = 0;
+	char *tmp_buf = realloc(*response_buf, content_len + 1);
+	if (!tmp_buf) return -1;
+	*response_buf = tmp_buf;
+	*response_buf[content_len] = 0;
 
 	xmlDoc *rdoc = xmlNewDoc(BAD_CAST "1.0");
         xmlNode *m_response = xmlNewNode(NULL, BAD_CAST "methodResponse");
@@ -180,18 +182,19 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 		free(args);
 
 		if (!content_len) {
+			if (response_buf) free(response_buf);
 			uwsgi_404(wsgi_req);
 			return UWSGI_OK;
 		}
-		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) return 1;
-		if (uwsgi_response_add_content_length(wsgi_req, wsgi_req->uh->pktsize)) return -1;
+		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) {if (response_buf) free(response_buf); return 1;}
+		if (uwsgi_response_add_content_length(wsgi_req, content_len)) {if (response_buf) free(response_buf); return 1;}
 		uint16_t ctype_len = 0;
 		char *ctype = uwsgi_get_var(wsgi_req, "HTTP_ACCEPT", 11, &ctype_len);
 		if (ctype && strcmp(ctype, "*/*") && strcmp(ctype, "*")) {
-			if (uwsgi_response_add_content_type(wsgi_req, ctype, ctype_len)) return -1;
+			if (uwsgi_response_add_content_type(wsgi_req, ctype, ctype_len)) {if (response_buf) free(response_buf); return 1;}
 		}
 		else {
-			if (uwsgi_response_add_content_type(wsgi_req, "application/binary", 18)) return -1;
+			if (uwsgi_response_add_content_type(wsgi_req, "application/binary", 18)) {if (response_buf) free(response_buf); return 1;}
 		}
 		goto sendbody;
 	}
@@ -209,11 +212,12 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 			uwsgi_500(wsgi_req);
 			return UWSGI_OK;
 		}
-                int ret = uwsgi_rpc_xmlrpc(wsgi_req, doc, argv, argvs, &argc, response_buf);
+                int ret = uwsgi_rpc_xmlrpc(wsgi_req, doc, argv, argvs, &argc, &response_buf);
                 xmlFreeDoc(doc);
 		if (ret) {
 			uwsgi_500(wsgi_req);
 		}
+		if (response_buf) free(response_buf);
 		return UWSGI_OK;
 	}
 #endif
@@ -225,6 +229,7 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 
 	// call the function (output will be in wsgi_req->buffer)
 	content_len = uwsgi_rpc(argv[0], argc-1, argv+1, argvs+1, &response_buf);
+	if (!response_buf) return -1;
 
 	// using modifier2 we may want a raw output
 	if (wsgi_req->uh->modifier2 == 0) {
@@ -234,16 +239,19 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 			struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
 			if (uwsgi_buffer_append_keynum(ub, "CONTENT_LENGTH", 14 , content_len)) {
 				uwsgi_buffer_destroy(ub);
+				free(response_buf);	
 				return -1;	
 			}
 			// fix uwsgi header
 			wsgi_req->uh->pktsize = ub->pos;
 			if (uwsgi_response_write_body_do(wsgi_req, (char *) wsgi_req->uh, 4)) {
 				uwsgi_buffer_destroy(ub);
+				free(response_buf);	
 				return -1;
 			}
 			if (uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos)) {
 				uwsgi_buffer_destroy(ub);
+				free(response_buf);	
                         	return -1;
                 	}
 			uwsgi_buffer_destroy(ub);
@@ -251,6 +259,7 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 		else {
 			wsgi_req->uh->pktsize = content_len;
 			if (uwsgi_response_write_body_do(wsgi_req, (char *) wsgi_req->uh, 4)) {
+				free(response_buf);	
 				return -1;
 			}
 		}
@@ -261,7 +270,7 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 sendbody:
 	// write the response
 	uwsgi_response_write_body_do(wsgi_req, response_buf, content_len);
-	
+	free(response_buf);	
 	return UWSGI_OK;
 }
 
