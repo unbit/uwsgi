@@ -53,7 +53,7 @@ static struct uwsgi_option carbon_options[] = {
 	{"carbon-name-resolve", no_argument, 0, "allow using hostname as carbon server address (default disabled)", uwsgi_opt_true, &u_carbon.resolve_hostname, 0},
 	{"carbon-resolve-names", no_argument, 0, "allow using hostname as carbon server address (default disabled)", uwsgi_opt_true, &u_carbon.resolve_hostname, 0},
 	{"carbon-idle-avg", required_argument, 0, "average values source during idle period (no requests), can be \"last\", \"zero\", \"none\" (default is last)", uwsgi_opt_set_str, &u_carbon.idle_avg, 0},
-	{"carbon-use-metrics", no_argument, 0, "don't compute all statistics, use metrics subsystem data instead (warning! key names will be different", uwsgi_opt_true, &u_carbon.use_metrics, 0},
+	{"carbon-use-metrics", no_argument, 0, "don't compute all statistics, use metrics subsystem data instead (warning! key names will be different)", uwsgi_opt_true, &u_carbon.use_metrics, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 
 };

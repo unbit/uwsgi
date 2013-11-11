@@ -61,7 +61,7 @@ static void rrdtool_post_init() {
 
 	if (!u_rrd.create) return;
 
-	// do not waste time if no --rrdtool option is defiend
+	// do not waste time if no --rrdtool option is defined
 	if (!u_rrd.directory) return;
 
 	if (!u_rrd.freq) u_rrd.freq = 300;
