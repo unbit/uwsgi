@@ -205,7 +205,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		app_list = PyDict_Keys(applications);
 		multiapp = PyList_Size(app_list);
 		if (multiapp < 1) {
-			uwsgi_log("you have to define at least one app in the apllications dictionary\n");
+			uwsgi_log("you have to define at least one app in the applications dictionary\n");
 			goto doh;
 		}		
 
