@@ -340,9 +340,11 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 	const char *default_app = "";
 
-	if ((wsgi_req->appid_len == 0 || (wsgi_req->appid_len = 1 && wsgi_req->appid[0] == '/')) && uwsgi.default_app == -1) {
-		default_app = " (default app)" ;
-		uwsgi.default_app = id;
+	if (!uwsgi.no_default_app) {
+		if ((wsgi_req->appid_len == 0 || (wsgi_req->appid_len = 1 && wsgi_req->appid[0] == '/')) && uwsgi.default_app == -1) {
+			default_app = " (default app)" ;
+			uwsgi.default_app = id;
+		}
 	}
 
 	wi->started_at = now;
