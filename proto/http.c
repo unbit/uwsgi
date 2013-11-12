@@ -521,6 +521,8 @@ parse:
                         if (wsgi_req->proto_parser_remains > 0) {
                                 wsgi_req->proto_parser_remains_buf = (wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos) - wsgi_req->proto_parser_remains;
                         }
+			wsgi_req->https = "on";
+			wsgi_req->https_len = 2;
                         if (http_parse(wsgi_req, ptr)) return -1;
                         wsgi_req->uh->modifier1 = uwsgi.https_modifier1;
                         wsgi_req->uh->modifier2 = uwsgi.https_modifier2;
