@@ -903,6 +903,11 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 				goto end;
 			}
 
+			if (uwsgi_stats_keyval_comma(us, "oid", um->oid ? um->oid : "")) {
+                                uwsgi_rwunlock(uwsgi.metrics_lock);
+                                goto end;
+                        }
+
 			if (uwsgi_stats_keyslong(us, "value", (long long) um_val)) {
         			uwsgi_rwunlock(uwsgi.metrics_lock);
 				goto end;
