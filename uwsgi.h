@@ -958,8 +958,18 @@ struct uwsgi_socket {
 	int shared;
 	int from_shared;
 
+#ifdef UWSGI_SSL
+	SSL_CTX *ssl_ctx;
+#endif
+
 	// used for avoiding vacuum mess
 	ino_t inode;
+};
+
+struct uwsgi_protocol {
+        char *name;
+        void (*func)(struct uwsgi_socket *);
+        struct uwsgi_protocol *next;
 };
 
 struct uwsgi_server;
@@ -1521,6 +1531,10 @@ struct wsgi_request {
 
 	int is_raw;
 
+#ifdef UWSGI_SSL
+	SSL *ssl;
+#endif
+
 	struct msghdr msg;
 	union {
 		struct cmsghdr cmsg;
@@ -1715,6 +1729,8 @@ struct uwsgi_server {
 	uint64_t fastcgi_modifier2;
 	uint64_t http_modifier1;
 	uint64_t http_modifier2;
+	uint64_t https_modifier1;
+	uint64_t https_modifier2;
 	uint64_t scgi_modifier1;
 	uint64_t scgi_modifier2;
 	uint64_t raw_modifier1;
@@ -2396,6 +2412,7 @@ struct uwsgi_server {
 	int zeromq;
 	void *zmq_context;
 #endif
+	struct uwsgi_protocol *protocols;
 	struct uwsgi_socket *sockets;
 	struct uwsgi_socket *shared_sockets;
 	int is_et;
@@ -3209,30 +3226,24 @@ time_t timegm(struct tm *);
 size_t uwsgi_str_num(char *, int);
 size_t uwsgi_str_occurence(char *, size_t, char);
 
-int uwsgi_proto_uwsgi_parser(struct wsgi_request *);
-int uwsgi_proto_puwsgi_parser(struct wsgi_request *);
 int uwsgi_proto_base_write(struct wsgi_request *, char *, size_t);
+#ifdef UWSGI_SSL
+int uwsgi_proto_ssl_write(struct wsgi_request *, char *, size_t);
+#endif
 int uwsgi_proto_base_write_header(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_base_read_body(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_noop_read_body(struct wsgi_request *, char *, size_t);
-
-int uwsgi_proto_http_parser(struct wsgi_request *);
-
-int uwsgi_proto_fastcgi_parser(struct wsgi_request *);
-int uwsgi_proto_fastcgi_write(struct wsgi_request *, char *, size_t);
-int uwsgi_proto_fastcgi_write_header(struct wsgi_request *, char *, size_t);
-int uwsgi_proto_fastcgi_sendfile(struct wsgi_request *, int, size_t, size_t);
-void uwsgi_proto_fastcgi_close(struct wsgi_request *);
-ssize_t uwsgi_proto_fastcgi_read_body(struct wsgi_request *, char *, size_t);
-
-int uwsgi_proto_scgi_parser(struct wsgi_request *);
+#ifdef UWSGI_SSL
+ssize_t uwsgi_proto_ssl_read_body(struct wsgi_request *, char *, size_t);
+#endif
 
 
 int uwsgi_proto_base_accept(struct wsgi_request *, int);
-int uwsgi_proto_puwsgi_accept(struct wsgi_request *, int);
-int uwsgi_proto_raw_parser(struct wsgi_request *);
 void uwsgi_proto_base_close(struct wsgi_request *);
-void uwsgi_proto_puwsgi_close(struct wsgi_request *);
+#ifdef UWSGI_SSL
+int uwsgi_proto_ssl_accept(struct wsgi_request *, int);
+void uwsgi_proto_ssl_close(struct wsgi_request *);
+#endif
 uint16_t proto_base_add_uwsgi_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 uint16_t proto_base_add_uwsgi_var(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
@@ -3242,6 +3253,20 @@ ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *, char *, size_t len);
 void *uwsgi_zeromq_init(void);
 void uwsgi_zeromq_init_sockets(void);
 #endif
+
+// protocols
+void uwsgi_proto_uwsgi_setup(struct uwsgi_socket *);
+void uwsgi_proto_puwsgi_setup(struct uwsgi_socket *);
+void uwsgi_proto_raw_setup(struct uwsgi_socket *);
+void uwsgi_proto_http_setup(struct uwsgi_socket *);
+#ifdef UWSGI_SSL
+void uwsgi_proto_https_setup(struct uwsgi_socket *);
+#endif
+void uwsgi_proto_fastcgi_setup(struct uwsgi_socket *);
+void uwsgi_proto_fastcgi_nph_setup(struct uwsgi_socket *);
+
+void uwsgi_proto_scgi_setup(struct uwsgi_socket *);
+void uwsgi_proto_scgi_nph_setup(struct uwsgi_socket *);
 
 int uwsgi_num2str2(int, char *);
 
@@ -3523,6 +3548,9 @@ void uwsgi_opt_dyn_false(char *, char *, void *);
 void uwsgi_opt_set_placeholder(char *, char *, void *);
 void uwsgi_opt_add_shared_socket(char *, char *, void *);
 void uwsgi_opt_add_socket(char *, char *, void *);
+#ifdef UWSGI_SSL
+void uwsgi_opt_add_ssl_socket(char *, char *, void *);
+#endif
 void uwsgi_opt_add_socket_no_defer(char *, char *, void *);
 void uwsgi_opt_add_lazy_socket(char *, char *, void *);
 void uwsgi_opt_add_cron(char *, char *, void *);
@@ -4160,6 +4188,9 @@ struct uwsgi_buffer *uwsgi_proto_base_cgi_prepare_headers(struct wsgi_request *,
 int uwsgi_response_write_body_do(struct wsgi_request *, char *, size_t);
 
 int uwsgi_proto_base_sendfile(struct wsgi_request *, int, size_t, size_t);
+#ifdef UWSGI_SSL
+int uwsgi_proto_ssl_sendfile(struct wsgi_request *, int, size_t, size_t);
+#endif
 
 ssize_t uwsgi_sendfile_do(int, int, size_t, size_t);
 int uwsgi_proto_base_fix_headers(struct wsgi_request *);
@@ -4511,6 +4542,10 @@ struct uwsgi_metric *uwsgi_metric_find_by_asn(char *, size_t);
 int uwsgi_base128(struct uwsgi_buffer *, uint64_t, int);
 
 struct wsgi_request *find_wsgi_req_proto_by_fd(int);
+
+struct uwsgi_protocol *uwsgi_register_protocol(char *, void (*)(struct uwsgi_socket *));
+
+void uwsgi_protocols_register(void);
 
 #ifdef __cplusplus
 }

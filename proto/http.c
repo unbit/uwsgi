@@ -1,6 +1,6 @@
 /* async http protocol parser */
 
-#include "../uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
@@ -211,7 +211,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 
 
 
-int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
+static int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 
 	ssize_t j;
 	char *ptr;
@@ -437,3 +437,101 @@ int uwsgi_is_full_http(struct uwsgi_buffer *ub) {
 
 	return 0;
 }
+
+void uwsgi_proto_http_setup(struct uwsgi_socket *uwsgi_sock) {
+	uwsgi_sock->proto = uwsgi_proto_http_parser;
+                        uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
+                        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
+                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
+                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
+                        uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
+                        uwsgi_sock->proto_write = uwsgi_proto_base_write;
+                        uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
+                        uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
+                        uwsgi_sock->proto_close = uwsgi_proto_base_close;
+                        if (uwsgi.offload_threads > 0)
+                                uwsgi_sock->can_offload = 1;
+
+}
+
+#ifdef UWSGI_SSL
+static int uwsgi_proto_https_parser(struct wsgi_request *wsgi_req) {
+
+        ssize_t j;
+        char *ptr;
+
+        // first round ? (wsgi_req->proto_parser_buf is freed at the end of the request)
+        if (!wsgi_req->proto_parser_buf) {
+                wsgi_req->proto_parser_buf = uwsgi_malloc(uwsgi.buffer_size);
+        }
+
+        if (uwsgi.buffer_size - wsgi_req->proto_parser_pos == 0) {
+                uwsgi_log("invalid HTTPS request size (max %u)...skip\n", uwsgi.buffer_size);
+                return -1;
+        }
+
+        ssize_t len = read(wsgi_req->fd, wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos, uwsgi.buffer_size - wsgi_req->proto_parser_pos);
+        if (len > 0) {
+                goto parse;
+        }
+        if (len < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+                        return UWSGI_AGAIN;
+                }
+                uwsgi_error("uwsgi_proto_https_parser()");
+                return -1;
+        }
+        // mute on 0 len...
+        if (wsgi_req->proto_parser_pos > 0) {
+                uwsgi_log("uwsgi_proto_https_parser() -> client closed connection");
+        }
+        return -1;
+
+parse:
+        ptr = wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos;
+        wsgi_req->proto_parser_pos += len;
+
+        for (j = 0; j < len; j++) {
+                if (*ptr == '\r' && (wsgi_req->proto_parser_status == 0 || wsgi_req->proto_parser_status == 2)) {
+                        wsgi_req->proto_parser_status++;
+                }
+                else if (*ptr == '\r') {
+                        wsgi_req->proto_parser_status = 1;
+                }
+                else if (*ptr == '\n' && wsgi_req->proto_parser_status == 1) {
+                        wsgi_req->proto_parser_status = 2;
+                }
+                else if (*ptr == '\n' && wsgi_req->proto_parser_status == 3) {
+                        ptr++;
+                        wsgi_req->proto_parser_remains = len - (j + 1);
+                        if (wsgi_req->proto_parser_remains > 0) {
+                                wsgi_req->proto_parser_remains_buf = (wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos) - wsgi_req->proto_parser_remains;
+                        }
+                        if (http_parse(wsgi_req, ptr)) return -1;
+                        wsgi_req->uh->modifier1 = uwsgi.https_modifier1;
+                        wsgi_req->uh->modifier2 = uwsgi.https_modifier2;
+                        return UWSGI_OK;
+                }
+                else {
+                        wsgi_req->proto_parser_status = 0;
+                }
+                ptr++;
+        }
+
+        return UWSGI_AGAIN;
+}
+
+void uwsgi_proto_https_setup(struct uwsgi_socket *uwsgi_sock) {
+        uwsgi_sock->proto = uwsgi_proto_https_parser;
+                        uwsgi_sock->proto_accept = uwsgi_proto_ssl_accept;
+                        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
+                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
+                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
+                        uwsgi_sock->proto_read_body = uwsgi_proto_ssl_read_body;
+                        uwsgi_sock->proto_write = uwsgi_proto_ssl_write;
+                        uwsgi_sock->proto_write_headers = uwsgi_proto_ssl_write;
+                        uwsgi_sock->proto_sendfile = uwsgi_proto_ssl_sendfile;
+                        uwsgi_sock->proto_close = uwsgi_proto_ssl_close;
+
+}
+#endif

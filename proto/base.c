@@ -114,6 +114,26 @@ void uwsgi_proto_base_close(struct wsgi_request *wsgi_req) {
 	close(wsgi_req->fd);
 }
 
+#ifdef UWSGI_SSL
+int uwsgi_proto_ssl_accept(struct wsgi_request *wsgi_req, int server_fd) {
+
+	int fd = uwsgi_proto_base_accept(wsgi_req, server_fd);
+	if (fd >= 0) {
+		wsgi_req->ssl = SSL_new(wsgi_req->socket->ssl_ctx);
+        	SSL_set_fd(wsgi_req->ssl, fd);
+        	SSL_set_accept_state(wsgi_req->ssl);
+	}
+	return fd;
+}
+
+void uwsgi_proto_ssl_close(struct wsgi_request *wsgi_req) {
+	uwsgi_proto_base_close(wsgi_req);
+	// clear the errors (otherwise they could be propagated)
+        ERR_clear_error();
+        SSL_free(wsgi_req->ssl);
+}
+#endif
+
 struct uwsgi_buffer *uwsgi_proto_base_add_header(struct wsgi_request *wsgi_req, char *k, uint16_t kl, char *v, uint16_t vl) {
 	struct uwsgi_buffer *ub = NULL;
 	if (kl > 0) {
@@ -188,6 +208,39 @@ int uwsgi_proto_base_write(struct wsgi_request * wsgi_req, char *buf, size_t len
         return -1;
 }
 
+#ifdef UWSGI_SSL
+int uwsgi_proto_ssl_write(struct wsgi_request * wsgi_req, char *buf, size_t len) {
+	int ret = -1;
+retry:
+        ret = SSL_write(wsgi_req->ssl, buf, len);
+        if (ret >= 0) {
+		wsgi_req->write_pos += ret;
+		if (wsgi_req->write_pos == len) {
+                        return UWSGI_OK;
+                }
+                return UWSGI_AGAIN;
+	}
+
+        int err = SSL_get_error(wsgi_req->ssl, ret);
+
+        if (err == SSL_ERROR_WANT_WRITE) {
+                return UWSGI_AGAIN;
+        }
+
+        else if (err == SSL_ERROR_WANT_READ) {
+                ret = uwsgi_wait_read_req(wsgi_req);
+                if (ret <= 0) return -1;
+                goto retry;
+        }
+
+        else if (err == SSL_ERROR_SYSCALL) {
+                uwsgi_error("uwsgi_proto_ssl_write()/SSL_write()");
+        }
+
+        return -1;
+}
+
+#endif
 int uwsgi_proto_base_sendfile(struct wsgi_request * wsgi_req, int fd, size_t pos, size_t len) {
         ssize_t wlen = uwsgi_sendfile_do(wsgi_req->fd, fd, pos+wsgi_req->write_pos, len-wsgi_req->write_pos);
         if (wlen > 0) {
@@ -205,6 +258,34 @@ int uwsgi_proto_base_sendfile(struct wsgi_request * wsgi_req, int fd, size_t pos
         return -1;
 }
 
+#ifdef UWSGI_SSL
+int uwsgi_proto_ssl_sendfile(struct wsgi_request *wsgi_req, int fd, size_t pos, size_t len) {
+	char buf[32768];
+
+	ssize_t rlen = read(fd, buf, UMIN(len, 32768));
+	if (rlen <= 0) return -1;
+
+	for(;;) {
+		int ret = uwsgi_proto_ssl_write(wsgi_req, buf, rlen);
+		if (ret == UWSGI_OK) {
+			if (wsgi_req->write_pos >= len) {
+				return UWSGI_OK;
+			}
+                        return UWSGI_AGAIN;
+                }
+		if (ret == UWSGI_AGAIN) {
+			ret = uwsgi_wait_write_req(wsgi_req);
+			if (ret <= 0 ) return -1;
+			continue;
+		}
+		return -1;
+	}
+
+	return -1;
+}
+
+#endif
+
 int uwsgi_proto_base_fix_headers(struct wsgi_request * wsgi_req) {
         return uwsgi_buffer_append(wsgi_req->headers, "\r\n", 2);
 }
@@ -220,7 +301,58 @@ ssize_t uwsgi_proto_base_read_body(struct wsgi_request *wsgi_req, char *buf, siz
 	return read(wsgi_req->fd, buf, len);
 }
 
+#ifdef UWSGI_SSL
+ssize_t uwsgi_proto_ssl_read_body(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+	int ret = -1;
+        if (wsgi_req->proto_parser_remains > 0) {
+                size_t remains = UMIN(wsgi_req->proto_parser_remains, len);
+                memcpy(buf, wsgi_req->proto_parser_remains_buf, remains);
+                wsgi_req->proto_parser_remains -= remains;
+                wsgi_req->proto_parser_remains_buf += remains;
+                return remains;
+        }
+
+retry:
+	ret = SSL_read(wsgi_req->ssl, buf, len);
+        if (ret >= 0) return ret;
+
+        int err = SSL_get_error(wsgi_req->ssl, ret);
+
+        if (err == SSL_ERROR_WANT_READ) {
+		errno = EAGAIN;
+                return -1;
+        }
+
+        else if (err == SSL_ERROR_WANT_WRITE) {
+		ret = uwsgi_wait_write_req(wsgi_req);
+                if (ret <= 0) return -1;
+		goto retry;
+        }
+
+        else if (err == SSL_ERROR_SYSCALL) {
+                uwsgi_error("uwsgi_proto_ssl_read_body()/SSL_read()");
+        }
+
+	return -1;
+}
+#endif
+
 ssize_t uwsgi_proto_noop_read_body(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 	uwsgi_log_verbose("!!! the current protocol does not support request body !!!\n");
 	return -1;
+}
+
+void uwsgi_proto_raw_setup(struct uwsgi_socket *uwsgi_sock) {
+	uwsgi_sock->proto = uwsgi_proto_raw_parser;
+                        uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
+                        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
+                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
+                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
+                        uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
+                        uwsgi_sock->proto_write = uwsgi_proto_base_write;
+                        uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
+                        uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
+                        uwsgi_sock->proto_close = uwsgi_proto_base_close;
+                        if (uwsgi.offload_threads > 0)
+                                uwsgi_sock->can_offload = 1;
 }

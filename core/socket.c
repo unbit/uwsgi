@@ -6,6 +6,22 @@ static int connect_to_unix(char *, int, int);
 static int connect_to_tcp(char *, int, int, int);
 static int connect_to_udp(char *, int);
 
+void uwsgi_socket_setup_protocol(struct uwsgi_socket *uwsgi_sock, char *protocol) {
+        if (!protocol) protocol = "uwsgi";
+        struct uwsgi_protocol *up = uwsgi.protocols;
+        while(up) {
+                if (!strcmp(protocol, up->name)) {
+                        up->func(uwsgi_sock);
+                        return;
+                }
+                up = up->next;
+        }
+
+        uwsgi_log("unable to find protocol %s\n", protocol);
+        exit(1);
+}
+
+
 static int uwsgi_socket_strcmp(char *sock1, char *sock2) {
 	size_t sock1_len = strlen(sock1);
 	size_t sock2_len = strlen(sock2);
@@ -1853,125 +1869,8 @@ void uwsgi_set_sockets_protocols() {
 
 
 setup_proto:
-		if (!requested_protocol) {
-			requested_protocol = uwsgi.protocol;
-		}
-
-		if (requested_protocol && !strcmp("http", requested_protocol)) {
-			uwsgi_sock->proto = uwsgi_proto_http_parser;
-			uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
-			uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
-                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
-                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
-			uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
-                        uwsgi_sock->proto_write = uwsgi_proto_base_write;
-                        uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
-                        uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
-			uwsgi_sock->proto_close = uwsgi_proto_base_close;
-			if (uwsgi.offload_threads > 0)
-				uwsgi_sock->can_offload = 1;
-		}
-		else if (requested_protocol && !strcmp("raw", requested_protocol)) {
-			uwsgi_sock->proto = uwsgi_proto_raw_parser;
-                        uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
-                        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
-                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
-                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
-                        uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
-                        uwsgi_sock->proto_write = uwsgi_proto_base_write;
-                        uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
-                        uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
-                        uwsgi_sock->proto_close = uwsgi_proto_base_close;
-                        if (uwsgi.offload_threads > 0)
-                                uwsgi_sock->can_offload = 1;
-		}
-		else if (requested_protocol && (!strcmp("fastcgi", requested_protocol) || !strcmp("fcgi", requested_protocol))) {
-			uwsgi_sock->proto = uwsgi_proto_fastcgi_parser;
-			uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
-			uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_cgi_prepare_headers;
-                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
-                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
-			uwsgi_sock->proto_read_body = uwsgi_proto_fastcgi_read_body;
-                        uwsgi_sock->proto_write = uwsgi_proto_fastcgi_write;
-                        uwsgi_sock->proto_write_headers = uwsgi_proto_fastcgi_write;
-                        uwsgi_sock->proto_sendfile = uwsgi_proto_fastcgi_sendfile;	
-			uwsgi_sock->proto_close = uwsgi_proto_fastcgi_close;
-		}
-		else if (requested_protocol && (!strcmp("fastcgi-nph", requested_protocol) || !strcmp("fcgi-nph", requested_protocol))) {
-                        uwsgi_sock->proto = uwsgi_proto_fastcgi_parser;
-                        uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
-                        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
-                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
-                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
-                        uwsgi_sock->proto_read_body = uwsgi_proto_fastcgi_read_body;
-                        uwsgi_sock->proto_write = uwsgi_proto_fastcgi_write;
-                        uwsgi_sock->proto_write_headers = uwsgi_proto_fastcgi_write;
-                        uwsgi_sock->proto_sendfile = uwsgi_proto_fastcgi_sendfile;
-                        uwsgi_sock->proto_close = uwsgi_proto_fastcgi_close;
-                }
-
-		else if (requested_protocol && !strcmp("scgi", requested_protocol)) {
-                        uwsgi_sock->proto = uwsgi_proto_scgi_parser;
-                        uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
-                        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_cgi_prepare_headers;
-                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
-                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
-                        uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
-                        uwsgi_sock->proto_write = uwsgi_proto_base_write;
-                        uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
-                        uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
-                        uwsgi_sock->proto_close = uwsgi_proto_base_close;
-                }
-
-		else if (requested_protocol && !strcmp("scgi-nph", requested_protocol)) {
-                        uwsgi_sock->proto = uwsgi_proto_scgi_parser;
-                        uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
-                        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
-                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
-                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
-                        uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
-                        uwsgi_sock->proto_write = uwsgi_proto_base_write;
-                        uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
-                        uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
-                        uwsgi_sock->proto_close = uwsgi_proto_base_close;
-                }
-
-
-#ifdef UWSGI_ZEROMQ
-		else if (requested_protocol && !strcmp("zmq", requested_protocol)) {
-			uwsgi.zeromq = 1;
-		}
-#endif
-		else if (requested_protocol && !strcmp("puwsgi", requested_protocol)) {
-                        uwsgi_sock->proto = uwsgi_proto_puwsgi_parser;
-                        uwsgi_sock->proto_accept = uwsgi_proto_puwsgi_accept;
-                        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
-                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
-                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
-                        uwsgi_sock->proto_read_body = uwsgi_proto_noop_read_body;
-                        uwsgi_sock->proto_write = uwsgi_proto_base_write;
-                        uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
-                        uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
-                        uwsgi_sock->proto_close = uwsgi_proto_puwsgi_close;
-			uwsgi_sock->fd_threads = uwsgi_malloc(sizeof(int) * uwsgi.cores);
-			memset(uwsgi_sock->fd_threads, -1, sizeof(int) * uwsgi.cores);
-			uwsgi_sock->retry = uwsgi_calloc(sizeof(int) * uwsgi.cores);
-			uwsgi.is_et = 1;
-                }
-		else {
-			uwsgi_sock->proto = uwsgi_proto_uwsgi_parser;
-			uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
-			uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
-			uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
-			uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
-			uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
-			uwsgi_sock->proto_write = uwsgi_proto_base_write;
-			uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
-			uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
-			uwsgi_sock->proto_close = uwsgi_proto_base_close;
-			if (uwsgi.offload_threads > 0)
-				uwsgi_sock->can_offload = 1;
-		}
+		if (!requested_protocol) requested_protocol = uwsgi.protocol;
+		uwsgi_socket_setup_protocol(uwsgi_sock, requested_protocol);
 nextsock:
 		uwsgi_sock = uwsgi_sock->next;
 	}
@@ -2007,3 +1906,41 @@ int uwsgi_accept(int server_fd) {
 
 }
 
+struct uwsgi_protocol *uwsgi_register_protocol(char *name, void (*func)(struct uwsgi_socket *)) {
+	struct uwsgi_protocol *old_up = NULL, *up = uwsgi.protocols;
+	while(up) {
+		if (!strcmp(name, up->name)) {
+			goto found;
+		}
+		old_up = up;
+		up = up->next;
+	}
+	up = uwsgi_calloc(sizeof(struct uwsgi_protocol));
+	up->name = name;
+	if (old_up) {
+		old_up->next = up;
+	}
+	else {
+		uwsgi.protocols = up;
+	}
+found:
+	up->func = func;
+	return up;
+}
+
+void uwsgi_protocols_register() {
+	uwsgi_register_protocol("uwsgi", uwsgi_proto_uwsgi_setup);
+	uwsgi_register_protocol("puwsgi", uwsgi_proto_puwsgi_setup);
+	uwsgi_register_protocol("http", uwsgi_proto_http_setup);
+#ifdef UWSGI_SSL
+	uwsgi_register_protocol("https", uwsgi_proto_https_setup);
+#endif
+	uwsgi_register_protocol("fastcgi", uwsgi_proto_fastcgi_setup);
+	uwsgi_register_protocol("fastcgi-nph", uwsgi_proto_fastcgi_nph_setup);
+	uwsgi_register_protocol("scgi", uwsgi_proto_scgi_setup);
+	uwsgi_register_protocol("scgi-nph", uwsgi_proto_scgi_nph_setup);
+#ifdef UWSGI_ZEROMQ
+	uwsgi_register_protocol("zmq", uwsgi_proto_zmq_setup);
+#endif
+	uwsgi_register_protocol("raw", uwsgi_proto_raw_setup);
+}

@@ -662,3 +662,7 @@ void uwsgi_proto_zeromq_setup(struct uwsgi_socket *uwsgi_sock) {
 	uwsgi_sock->recv_flag = ZMQ_NOBLOCK;
 #endif
 }
+
+void uwsgi_proto_zmq_setup(struct uwsgi_socket *uwsgi_sock) {
+	uwsgi.zeromq = 1;
+}

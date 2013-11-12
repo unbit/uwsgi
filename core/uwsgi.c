@@ -43,6 +43,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"http-socket-modifier1", required_argument, 0, "force the specified modifier1 when using HTTP protocol", uwsgi_opt_set_64bit, &uwsgi.http_modifier1, 0},
 	{"http-socket-modifier2", required_argument, 0, "force the specified modifier2 when using HTTP protocol", uwsgi_opt_set_64bit, &uwsgi.http_modifier2, 0},
 
+#ifdef UWSGI_SSL
+	{"https-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using HTTPS protocol", uwsgi_opt_add_ssl_socket, "https", 0},
+	{"https-socket-modifier1", required_argument, 0, "force the specified modifier1 when using HTTPS protocol", uwsgi_opt_set_64bit, &uwsgi.https_modifier1, 0},
+	{"https-socket-modifier2", required_argument, 0, "force the specified modifier2 when using HTTPS protocol", uwsgi_opt_set_64bit, &uwsgi.https_modifier2, 0},
+#endif
+
 	{"fastcgi-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using FastCGI protocol", uwsgi_opt_add_socket, "fastcgi", 0},
 	{"fastcgi-nph-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using FastCGI protocol (nph mode)", uwsgi_opt_add_socket, "fastcgi-nph", 0},
 	{"fastcgi-modifier1", required_argument, 0, "force the specified modifier1 when using FastCGI protocol", uwsgi_opt_set_64bit, &uwsgi.fastcgi_modifier1, 0},
@@ -2585,6 +2591,9 @@ int uwsgi_start(void *v_argv) {
 	// initialize the exception handlers
 	uwsgi_exception_setup_handlers();
 
+	// initialize socket protocols (do it after caching !!!)
+	uwsgi_protocols_register();
+
 	/* plugin initialization */
 	for (i = 0; i < uwsgi.gp_cnt; i++) {
 		if (uwsgi.gp[i]->init) {
@@ -3837,6 +3846,51 @@ void uwsgi_opt_add_socket(char *opt, char *value, void *protocol) {
 	uwsgi_sock->name_len = strlen(uwsgi_sock->name);
 	uwsgi_sock->proto_name = protocol;
 }
+
+#ifdef UWSGI_SSL
+void uwsgi_opt_add_ssl_socket(char *opt, char *value, void *protocol) {
+	char *client_ca = NULL;
+
+        // build socket, certificate and key file
+        char *sock = uwsgi_str(value);
+        char *crt = strchr(sock, ',');
+        if (!crt) {
+                uwsgi_log("invalid https-socket syntax must be socket,crt,key\n");
+                exit(1);
+        }
+        *crt = '\0'; crt++;
+        char *key = strchr(crt, ',');
+        if (!key) {
+                uwsgi_log("invalid https-socket syntax must be socket,crt,key\n");
+                exit(1);
+        }
+        *key = '\0'; key++;
+
+        char *ciphers = strchr(key, ',');
+        if (ciphers) {
+                *ciphers = '\0'; ciphers++;
+                client_ca = strchr(ciphers, ',');
+                if (client_ca) {
+                        *client_ca = '\0'; client_ca++;
+                }
+        }
+
+	struct uwsgi_socket *uwsgi_sock = uwsgi_new_socket(generate_socket_name(sock));
+	uwsgi_sock->name_len = strlen(uwsgi_sock->name);
+        uwsgi_sock->proto_name = protocol;
+
+        // ok we have the socket, initialize ssl if required
+        if (!uwsgi.ssl_initialized) {
+                uwsgi_ssl_init();
+        }
+
+        // initialize ssl context
+        uwsgi_sock->ssl_ctx = uwsgi_ssl_new_server_context(uwsgi_sock->name, crt, key, ciphers, client_ca);
+        if (!uwsgi_sock->ssl_ctx) {
+                exit(1);
+        }
+}
+#endif
 
 void uwsgi_opt_add_socket_no_defer(char *opt, char *value, void *protocol) {
         struct uwsgi_socket *uwsgi_sock = uwsgi_new_socket(generate_socket_name(value));

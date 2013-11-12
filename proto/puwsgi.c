@@ -89,3 +89,20 @@ int uwsgi_proto_puwsgi_accept(struct wsgi_request *wsgi_req, int fd) {
 	}
 	return uwsgi_proto_base_accept(wsgi_req, fd);
 }
+
+void uwsgi_proto_puwsgi_setup(struct uwsgi_socket *uwsgi_sock) {
+                        uwsgi_sock->proto = uwsgi_proto_puwsgi_parser;
+                        uwsgi_sock->proto_accept = uwsgi_proto_puwsgi_accept;
+                        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
+                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
+                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
+                        uwsgi_sock->proto_read_body = uwsgi_proto_noop_read_body;
+                        uwsgi_sock->proto_write = uwsgi_proto_base_write;
+                        uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
+                        uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
+                        uwsgi_sock->proto_close = uwsgi_proto_puwsgi_close;
+                        uwsgi_sock->fd_threads = uwsgi_malloc(sizeof(int) * uwsgi.cores);
+                        memset(uwsgi_sock->fd_threads, -1, sizeof(int) * uwsgi.cores);
+                        uwsgi_sock->retry = uwsgi_calloc(sizeof(int) * uwsgi.cores);
+                        uwsgi.is_et = 1;
+                }
