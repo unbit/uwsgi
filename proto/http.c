@@ -459,6 +459,7 @@ static int uwsgi_proto_https_parser(struct wsgi_request *wsgi_req) {
 
         ssize_t j;
         char *ptr;
+	int len = -1;
 
         // first round ? (wsgi_req->proto_parser_buf is freed at the end of the request)
         if (!wsgi_req->proto_parser_buf) {
@@ -470,17 +471,30 @@ static int uwsgi_proto_https_parser(struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
-        ssize_t len = read(wsgi_req->fd, wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos, uwsgi.buffer_size - wsgi_req->proto_parser_pos);
+retry:
+        len = SSL_read(wsgi_req->ssl, wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos, uwsgi.buffer_size - wsgi_req->proto_parser_pos);
         if (len > 0) {
                 goto parse;
         }
-        if (len < 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
-                        return UWSGI_AGAIN;
-                }
-                uwsgi_error("uwsgi_proto_https_parser()");
-                return -1;
+	if (len == 0) goto empty;
+
+        int err = SSL_get_error(wsgi_req->ssl, len);
+
+        if (err == SSL_ERROR_WANT_READ) {
+                return UWSGI_AGAIN;
         }
+
+        else if (err == SSL_ERROR_WANT_WRITE) {
+                int ret = uwsgi_wait_write_req(wsgi_req);
+                if (ret <= 0) return -1;
+                goto retry;
+        }
+
+        else if (err == SSL_ERROR_SYSCALL) {
+                uwsgi_error("uwsgi_proto_ssl_read_body()/SSL_read()");
+        }
+	return -1;
+empty:
         // mute on 0 len...
         if (wsgi_req->proto_parser_pos > 0) {
                 uwsgi_log("uwsgi_proto_https_parser() -> client closed connection");
