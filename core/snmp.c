@@ -209,7 +209,7 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 
 	oid_part[0] = *ptr;
 
-	// old style SNMP metrics
+	// old-style SNMP metrics
 	if (oid_part[0] == 1 || oid_part[0] == 2) {
 		ptr++;
 

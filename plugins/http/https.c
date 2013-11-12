@@ -139,7 +139,7 @@ void uwsgi_opt_https2(char *opt, char *value, void *cr) {
 
 #ifdef UWSGI_SPDY
 spdyerror:
-	uwsgi_log("unable to inizialize SPDY settings buffers\n");
+	uwsgi_log("unable to initialize SPDY settings buffers\n");
 	exit(1);
 #endif
 }

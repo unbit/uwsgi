@@ -94,7 +94,7 @@ static void stackless_init_apps(void) {
         	up.gil_release = gil_stackless_release;
 	}
 
-	// blindy call it as the stackless gil engine is already set
+	// blindly call it as the stackless gil engine is already set
 	UWSGI_GET_GIL
 
 	usl.sl = uwsgi_malloc( sizeof(PyTaskletObject *) * uwsgi.async );

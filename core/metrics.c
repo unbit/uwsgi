@@ -225,7 +225,7 @@ struct uwsgi_metric *uwsgi_register_metric_do(char *name, char *oid, uint8_t val
 	}
 
 	metric = uwsgi_calloc(sizeof(struct uwsgi_metric));
-	// always make a copy of the name (se we can use stack for building strings)
+	// always make a copy of the name (so we can use stack for building strings)
 	metric->name = uwsgi_str(name);
 	metric->name_len = strlen(metric->name);
 

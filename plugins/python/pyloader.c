@@ -167,7 +167,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		PyThreadState_Swap(wi->interpreter);
 		init_pyargv();
 
-		// we need to inizialize an embedded module for every interpreter
+		// we need to initialize an embedded module for every interpreter
 		init_uwsgi_embedded_module();
 		init_uwsgi_vars();
 

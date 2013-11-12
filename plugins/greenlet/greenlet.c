@@ -127,7 +127,7 @@ static void greenlet_init_apps(void) {
 	// map wsgi_req to greenlet object
 	uwsgi.current_wsgi_req = uwsgi_greenlet_current_wsgi_req;
 
-        // blindy call it as the stackless gil engine is already set
+        // blindly call it as the stackless gil engine is already set
         UWSGI_GET_GIL
 
 

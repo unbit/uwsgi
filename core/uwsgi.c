@@ -225,7 +225,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"vassals-set", required_argument, 0, "automatically set the specified option (via --set) for every vassal", uwsgi_opt_add_string_list, &uwsgi.vassals_set, 0},
 	{"vassal-set", required_argument, 0, "automatically set the specified option (via --set) for every vassal", uwsgi_opt_add_string_list, &uwsgi.vassals_set, 0},
 
-	{"heartbeat", required_argument, 0, "announce healtness to the emperor", uwsgi_opt_set_int, &uwsgi.heartbeat, 0},
+	{"heartbeat", required_argument, 0, "announce healthiness to the emperor", uwsgi_opt_set_int, &uwsgi.heartbeat, 0},
 
 	{"reload-mercy", required_argument, 0, "set the maximum time (in seconds) we wait for workers and other processes to die during reload/shutdown", uwsgi_opt_set_int, &uwsgi.reload_mercy, 0},
 	{"worker-reload-mercy", required_argument, 0, "set the maximum time (in seconds) a worker can take to reload/shutdown (default is 60)", uwsgi_opt_set_int, &uwsgi.worker_reload_mercy, 0},
@@ -519,9 +519,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"metric", required_argument, 0, "add a custom metric", uwsgi_opt_add_string_list, &uwsgi.additional_metrics, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 	{"metric-threshold", required_argument, 0, "add a metric threshold/alarm", uwsgi_opt_add_string_list, &uwsgi.metrics_threshold, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 	{"metric-alarm", required_argument, 0, "add a metric threshold/alarm", uwsgi_opt_add_string_list, &uwsgi.metrics_threshold, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
-	{"metrics-dir", required_argument, 0, "exports metrics as text files in the specified directory", uwsgi_opt_set_str, &uwsgi.metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
+	{"metrics-dir", required_argument, 0, "export metrics as text files to the specified directory", uwsgi_opt_set_str, &uwsgi.metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 	{"metrics-dir-restore", no_argument, 0, "restore last value taken from the metrics dir", uwsgi_opt_true, &uwsgi.metrics_dir_restore, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
-	{"metric-dir", required_argument, 0, "exports metrics as text files in the specified directory", uwsgi_opt_set_str, &uwsgi.metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
+	{"metric-dir", required_argument, 0, "export metrics as text files to the specified directory", uwsgi_opt_set_str, &uwsgi.metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 	{"metric-dir-restore", no_argument, 0, "restore last value taken from the metrics dir", uwsgi_opt_true, &uwsgi.metrics_dir_restore, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 
 	{"udp", required_argument, 0, "run the udp server on the specified address", uwsgi_opt_set_str, &uwsgi.udp_socket, UWSGI_OPT_MASTER},
@@ -2823,7 +2823,7 @@ unsafe:
 	// set a default request structure (for loading apps...)
 	uwsgi.wsgi_req = &uwsgi.workers[0].cores[0].req;
 
-	// ok, let's inizialize the metrics subsystem
+	// ok, let's initialize the metrics subsystem
 	uwsgi_setup_metrics();
 
 	// cores are allocated, lets allocate logformat (if required)
