@@ -61,7 +61,7 @@ EOF
 	elsif ($env->{'PATH_INFO'} eq '/foobar/') {
 		# when 1 something was wrong and we need to close the connection
 		my $error = 0;
-		# when there is something in the websocket
+		# when 1 there is something in the websocket
 		my $websocket_event = 0;
 		# when defined there is a redis message available
 		my $redis_message = undef;
@@ -109,6 +109,7 @@ EOF
         
 		# the main loop
 		for(;;) {
+			# here we block until an event is available
 			$w->recv;
 			break if $error;
 			# any websocket message available ?
