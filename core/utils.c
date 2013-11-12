@@ -1290,7 +1290,7 @@ long uwsgi_num_from_file(char *filename, int quiet) {
 // setup for a new request
 void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_socket *uwsgi_sock) {
 
-	wsgi_req->app_id = uwsgi.default_app;
+	wsgi_req->app_id = -1;
 
 	wsgi_req->async_id = async_id;
 	wsgi_req->sendfile_fd = -1;
