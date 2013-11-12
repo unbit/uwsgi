@@ -114,7 +114,7 @@ EOF
 			break if $error;
 			# any websocket message available ?
 			if ($websocket_event) {
-				my $msg = uwsgi::websocket_recv_nb
+				my $msg = uwsgi::websocket_recv_nb;
 				$redis_publisher->publish('foobar', $msg) if $msg;
 				$websocket_event = 0;
 			}
