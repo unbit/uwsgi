@@ -970,6 +970,18 @@ static int64_t uwsgi_metric_collector_sum(struct uwsgi_metric *um) {
         return total;
 }
 
+static int64_t uwsgi_metric_collector_accumulator(struct uwsgi_metric *um) {
+        int64_t total = *um->value;
+        struct uwsgi_metric_child *umc = um->children;
+        while(umc) {
+                struct uwsgi_metric *c = umc->um;
+                total += *c->value;
+                umc = umc->next;
+        }
+
+        return total;
+}
+
 static int64_t uwsgi_metric_collector_avg(struct uwsgi_metric *um) {
         int64_t total = 0;
 	int64_t count = 0;
@@ -1001,6 +1013,7 @@ void uwsgi_metrics_collectors_setup() {
 	uwsgi_register_metric_collector("ptr", uwsgi_metric_collector_ptr);
 	uwsgi_register_metric_collector("file", uwsgi_metric_collector_file);
 	uwsgi_register_metric_collector("sum", uwsgi_metric_collector_sum);
+	uwsgi_register_metric_collector("accumulator", uwsgi_metric_collector_accumulator);
 	uwsgi_register_metric_collector("avg", uwsgi_metric_collector_avg);
 	uwsgi_register_metric_collector("func", uwsgi_metric_collector_func);
 }
