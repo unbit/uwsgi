@@ -4,22 +4,22 @@
 
 extern struct uwsgi_server uwsgi;
 
-int uwsgi_proto_uwsgi_parser(struct wsgi_request *wsgi_req) {
+static int uwsgi_proto_uwsgi_parser(struct wsgi_request *wsgi_req) {
 	char *ptr = (char *) wsgi_req->uh;
-	ssize_t len = read(wsgi_req->fd, ptr + wsgi_req->proto_parser_pos, (uwsgi.buffer_size+4) - wsgi_req->proto_parser_pos);
+	ssize_t len = read(wsgi_req->fd, ptr + wsgi_req->proto_parser_pos, (uwsgi.buffer_size + 4) - wsgi_req->proto_parser_pos);
 	if (len > 0) {
 		wsgi_req->proto_parser_pos += len;
 		if (wsgi_req->proto_parser_pos >= 4) {
 #ifdef __BIG_ENDIAN__
 			wsgi_req->uh->pktsize = uwsgi_swap16(wsgi_req->uh->pktsize);
 #endif
-			if ((wsgi_req->proto_parser_pos-4) == wsgi_req->uh->pktsize) {
-				return UWSGI_OK;	
+			if ((wsgi_req->proto_parser_pos - 4) == wsgi_req->uh->pktsize) {
+				return UWSGI_OK;
 			}
-			if ((wsgi_req->proto_parser_pos-4) > wsgi_req->uh->pktsize) {
-				wsgi_req->proto_parser_remains = wsgi_req->proto_parser_pos-(4+wsgi_req->uh->pktsize);
+			if ((wsgi_req->proto_parser_pos - 4) > wsgi_req->uh->pktsize) {
+				wsgi_req->proto_parser_remains = wsgi_req->proto_parser_pos - (4 + wsgi_req->uh->pktsize);
 				wsgi_req->proto_parser_remains_buf = wsgi_req->buffer + wsgi_req->uh->pktsize;
-				return UWSGI_OK;	
+				return UWSGI_OK;
 			}
 			if (wsgi_req->uh->pktsize > uwsgi.buffer_size) {
 				uwsgi_log("invalid request block size: %u (max %u)...skip\n", wsgi_req->uh->pktsize, uwsgi.buffer_size);
@@ -32,15 +32,70 @@ int uwsgi_proto_uwsgi_parser(struct wsgi_request *wsgi_req) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
 			return UWSGI_AGAIN;
 		}
-		uwsgi_error("uwsgi_proto_uwsgi_parser()");	
+		uwsgi_error("uwsgi_proto_uwsgi_parser()");
 		return -1;
 	}
 	// 0 len
 	if (wsgi_req->proto_parser_pos > 0) {
-		uwsgi_error("uwsgi_proto_uwsgi_parser()");	
+		uwsgi_error("uwsgi_proto_uwsgi_parser()");
 	}
 	return -1;
 }
+
+#ifdef UWSGI_SSL
+static int uwsgi_proto_suwsgi_parser(struct wsgi_request *wsgi_req) {
+        char *ptr = (char *) wsgi_req->uh;
+	int len = -1;
+retry:
+        len = SSL_read(wsgi_req->ssl, ptr + wsgi_req->proto_parser_pos, (uwsgi.buffer_size + 4) - wsgi_req->proto_parser_pos);
+        if (len > 0) {
+                wsgi_req->proto_parser_pos += len;
+                if (wsgi_req->proto_parser_pos >= 4) {
+#ifdef __BIG_ENDIAN__
+                        wsgi_req->uh->pktsize = uwsgi_swap16(wsgi_req->uh->pktsize);
+#endif
+                        if ((wsgi_req->proto_parser_pos - 4) == wsgi_req->uh->pktsize) {
+                                return UWSGI_OK;
+                        }
+                        if ((wsgi_req->proto_parser_pos - 4) > wsgi_req->uh->pktsize) {
+                                wsgi_req->proto_parser_remains = wsgi_req->proto_parser_pos - (4 + wsgi_req->uh->pktsize);
+                                wsgi_req->proto_parser_remains_buf = wsgi_req->buffer + wsgi_req->uh->pktsize;
+                                return UWSGI_OK;
+                        }
+                        if (wsgi_req->uh->pktsize > uwsgi.buffer_size) {
+                                uwsgi_log("invalid request block size: %u (max %u)...skip\n", wsgi_req->uh->pktsize, uwsgi.buffer_size);
+                                return -1;
+                        }
+                }
+                return UWSGI_AGAIN;
+        }
+	else if (len == 0) goto empty;
+	int err = SSL_get_error(wsgi_req->ssl, len);
+
+	if (err == SSL_ERROR_WANT_READ) {
+                return UWSGI_AGAIN;
+        }
+
+	else if (err == SSL_ERROR_WANT_WRITE) {
+                int ret = uwsgi_wait_write_req(wsgi_req);
+                if (ret <= 0) return -1;
+                goto retry;
+        }
+
+        else if (err == SSL_ERROR_SYSCALL) {
+                uwsgi_error("uwsgi_proto_suwsgi_parser()/SSL_read()");
+        }
+
+        return -1;
+empty:
+        // 0 len
+        if (wsgi_req->proto_parser_pos > 0) {
+                uwsgi_error("uwsgi_proto_uwsgi_parser()");
+        }
+        return -1;
+}
+
+#endif
 
 /*
 int uwsgi_proto_uwsgi_parser_unix(struct wsgi_request *wsgi_req) {
@@ -157,17 +212,33 @@ int uwsgi_proto_uwsgi_parser_unix(struct wsgi_request *wsgi_req) {
 */
 
 void uwsgi_proto_uwsgi_setup(struct uwsgi_socket *uwsgi_sock) {
-                        uwsgi_sock->proto = uwsgi_proto_uwsgi_parser;
-                        uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
-                        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
-                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
-                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
-                        uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
-                        uwsgi_sock->proto_write = uwsgi_proto_base_write;
-                        uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
-                        uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
-                        uwsgi_sock->proto_close = uwsgi_proto_base_close;
-                        if (uwsgi.offload_threads > 0)
-                                uwsgi_sock->can_offload = 1;
-                }
+	uwsgi_sock->proto = uwsgi_proto_uwsgi_parser;
+	uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
+	uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
+	uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
+	uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
+	uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
+	uwsgi_sock->proto_write = uwsgi_proto_base_write;
+	uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
+	uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
+	uwsgi_sock->proto_close = uwsgi_proto_base_close;
+	if (uwsgi.offload_threads > 0)
+		uwsgi_sock->can_offload = 1;
+}
 
+#ifdef UWSGI_SSL
+void uwsgi_proto_suwsgi_setup(struct uwsgi_socket *uwsgi_sock) {
+        uwsgi_sock->proto = uwsgi_proto_suwsgi_parser;
+        uwsgi_sock->proto_accept = uwsgi_proto_ssl_accept;
+        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
+        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
+        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
+        uwsgi_sock->proto_read_body = uwsgi_proto_ssl_read_body;
+        uwsgi_sock->proto_write = uwsgi_proto_ssl_write;
+        uwsgi_sock->proto_write_headers = uwsgi_proto_ssl_write;
+        uwsgi_sock->proto_sendfile = uwsgi_proto_ssl_sendfile;
+        uwsgi_sock->proto_close = uwsgi_proto_ssl_close;
+        if (uwsgi.offload_threads > 0)
+                uwsgi_sock->can_offload = 1;
+}
+#endif

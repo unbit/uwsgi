@@ -1933,6 +1933,7 @@ void uwsgi_protocols_register() {
 	uwsgi_register_protocol("puwsgi", uwsgi_proto_puwsgi_setup);
 	uwsgi_register_protocol("http", uwsgi_proto_http_setup);
 #ifdef UWSGI_SSL
+	uwsgi_register_protocol("suwsgi", uwsgi_proto_suwsgi_setup);
 	uwsgi_register_protocol("https", uwsgi_proto_https_setup);
 #endif
 	uwsgi_register_protocol("fastcgi", uwsgi_proto_fastcgi_setup);

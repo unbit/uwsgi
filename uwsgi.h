@@ -3263,6 +3263,7 @@ void uwsgi_proto_raw_setup(struct uwsgi_socket *);
 void uwsgi_proto_http_setup(struct uwsgi_socket *);
 #ifdef UWSGI_SSL
 void uwsgi_proto_https_setup(struct uwsgi_socket *);
+void uwsgi_proto_suwsgi_setup(struct uwsgi_socket *);
 #endif
 void uwsgi_proto_fastcgi_setup(struct uwsgi_socket *);
 void uwsgi_proto_fastcgi_nph_setup(struct uwsgi_socket *);
