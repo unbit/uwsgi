@@ -1220,7 +1220,9 @@ void grace_them_all(int signum) {
 
 	if (uwsgi.lazy) {
 		for (i = 1; i <= uwsgi.numproc; i++) {
-			uwsgi_curse(i, SIGHUP);
+			if (uwsgi.workers[i].pid > 0) {
+				uwsgi_curse(i, SIGHUP);
+			}
 		}
 		return;
 	}
