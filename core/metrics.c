@@ -752,7 +752,7 @@ void uwsgi_setup_metrics() {
 		uwsgi_metric_name("worker.%d.avg_response_time", i) ; uwsgi_metric_oid("3.%d.8", i);
 		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].avg_response_time, 0, NULL);
 
-		uwsgi_metric_name("worker.%d.total_rx", i) ; uwsgi_metric_oid("3.%d.9", i);
+		uwsgi_metric_name("worker.%d.total_tx", i) ; uwsgi_metric_oid("3.%d.9", i);
 		struct uwsgi_metric *tx = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].tx, 0, NULL);
 		uwsgi_metric_add_child(total_tx, tx);
 
