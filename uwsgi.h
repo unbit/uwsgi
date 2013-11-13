@@ -1725,6 +1725,8 @@ struct uwsgi_server {
 	int tcp_fast_open;
 	int tcp_fast_open_client;
 
+	int enable_proxy_protocol;
+
 	uint64_t fastcgi_modifier1;
 	uint64_t fastcgi_modifier2;
 	uint64_t http_modifier1;
