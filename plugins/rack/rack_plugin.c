@@ -1107,7 +1107,6 @@ static void uwsgi_rack_hijack(void) {
                                 uwsgi_error("dup2()");
                         }
                 }
-                int ret = -1;
 		int error = 0;
                 if (ur.rbshell[0] != 0) {
 			rb_eval_string(ur.rbshell);
@@ -1123,9 +1122,6 @@ static void uwsgi_rack_hijack(void) {
                         exit(UWSGI_DE_HIJACKED_CODE);
                 }
 
-                if (ret == 0) {
-                        exit(UWSGI_QUIET_CODE);
-                }
                 exit(0);
         }
 

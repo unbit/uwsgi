@@ -351,6 +351,41 @@ XS(XS_call) {
 	XSRETURN_UNDEF;
 }
 
+XS(XS_rpc) {
+
+        dXSARGS;
+
+	char *node;
+        char *func;
+        uint64_t size = 0;
+        int i;
+        char *argv[256];
+        uint16_t argvs[256];
+        STRLEN arg_len;
+
+        psgi_check_args(2);
+
+	node = SvPV_nolen(ST(0));
+        func = SvPV_nolen(ST(1));
+
+        for(i=0;i<(items-2);i++) {
+                argv[i] = SvPV(ST(i+2), arg_len);
+                argvs[i] = arg_len;
+        }
+
+        // response must be always freed
+        char *response = uwsgi_do_rpc(node, func, items-2, argv, argvs, &size);
+        if (response) {
+                ST(0) = newSVpv(response, size);
+                sv_2mortal(ST(0));
+                free(response);
+                XSRETURN(1);
+        }
+
+        XSRETURN_UNDEF;
+}
+
+
 
 XS(XS_suspend) {
 
@@ -644,6 +679,7 @@ void init_perl_embedded_module() {
 	psgi_xs(cache_clear);
 
 	psgi_xs(call);
+	psgi_xs(rpc);
 	psgi_xs(wait_fd_read);
 	psgi_xs(wait_fd_write);
 	psgi_xs(async_sleep);

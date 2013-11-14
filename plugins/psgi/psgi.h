@@ -60,6 +60,9 @@ struct uwsgi_perl {
 	HV *auto_reload_hash;
 
 	int enable_psgix_io;
+
+	char *shell;
+	int shell_oneshot;
 };
 
 void init_perl_embedded_module(void);

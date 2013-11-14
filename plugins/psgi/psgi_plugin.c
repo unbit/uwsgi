@@ -11,6 +11,21 @@ struct uwsgi_perl uperl;
 
 struct uwsgi_plugin psgi_plugin;
 
+static void uwsgi_opt_plshell(char *opt, char *value, void *foobar) {
+
+        uwsgi.honour_stdin = 1;
+        if (value) {
+                uperl.shell = value;
+        }
+        else {
+                uperl.shell = "";
+        }
+
+        if (!strcmp("plshell-oneshot", opt)) {
+                uperl.shell_oneshot = 1;
+        }
+}
+
 struct uwsgi_option uwsgi_perl_options[] = {
 
         {"psgi", required_argument, 0, "load a psgi app", uwsgi_opt_set_str, &uperl.psgi, 0},
@@ -26,6 +41,9 @@ struct uwsgi_option uwsgi_perl_options[] = {
         {"perl-exec-post-fork", required_argument, 0, "exec the specified perl file after fork()", uwsgi_opt_add_string_list, &uperl.exec_post_fork, 0},
         {"perl-auto-reload", required_argument, 0, "enable perl auto-reloader with the specified frequency", uwsgi_opt_set_int, &uperl.auto_reload, UWSGI_OPT_MASTER},
         {"perl-auto-reload-ignore", required_argument, 0, "ignore the specified files when auto-reload is enabled", uwsgi_opt_add_string_list, &uperl.auto_reload_ignore, UWSGI_OPT_MASTER},
+
+	{"plshell", optional_argument, 0, "run a perl interactive shell", uwsgi_opt_plshell, NULL, 0},
+        {"plshell-oneshot", no_argument, 0, "run a perl interactive shell (one shot)", uwsgi_opt_plshell, NULL, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -836,6 +854,39 @@ static uint64_t uwsgi_perl_rpc(void *func, uint8_t argc, char **argv, uint16_t a
         return ret;
 }
 
+static void uwsgi_perl_hijack(void) {
+        if (uperl.shell_oneshot && uwsgi.workers[uwsgi.mywid].hijacked_count > 0) {
+                uwsgi.workers[uwsgi.mywid].hijacked = 0;
+                return;
+        }
+        if (uperl.shell && uwsgi.mywid == 1) {
+                uwsgi.workers[uwsgi.mywid].hijacked = 1;
+                uwsgi.workers[uwsgi.mywid].hijacked_count++;
+                // re-map stdin to stdout and stderr if we are logging to a file
+                if (uwsgi.logfile) {
+                        if (dup2(0, 1) < 0) {
+                                uwsgi_error("dup2()");
+                        }
+                        if (dup2(0, 2) < 0) {
+                                uwsgi_error("dup2()");
+                        }
+                }
+
+                if (uperl.shell[0] != 0) {
+			perl_eval_pv(uperl.shell, 0);
+                }
+                else {
+			perl_eval_pv("use Devel::REPL;my $repl = Devel::REPL->new;$repl->run;", 0);
+                }
+                if (uperl.shell_oneshot) {
+                        exit(UWSGI_DE_HIJACKED_CODE);
+                }
+                exit(0);
+        }
+
+}
+
+
 struct uwsgi_plugin psgi_plugin = {
 
 	.name = "psgi",
@@ -851,6 +902,8 @@ struct uwsgi_plugin psgi_plugin = {
 	.rpc = uwsgi_perl_rpc,
 
 	.mule = uwsgi_perl_mule,
+
+	.hijack_worker = uwsgi_perl_hijack,
 
 	.post_fork = uwsgi_perl_post_fork,
 	.request = uwsgi_perl_request,
