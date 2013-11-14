@@ -668,6 +668,45 @@ XS(XS_metric_get) {
         XSRETURN(1);
 }
 
+XS(XS_chunked_read) {
+	dXSARGS;
+        int timeout = 0;
+	size_t len = 0;
+
+	psgi_check_args(0);
+	if (items > 0) {
+        	timeout = SvIV(ST(0));
+        }
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+        char *chunk = uwsgi_chunked_read(wsgi_req, &len, timeout, 0);
+        if (!chunk) {
+		croak("unable to receive chunked part");
+		XSRETURN_UNDEF;
+        }
+
+	ST(0) = newSVpv(chunk, len);
+        sv_2mortal(ST(0));
+        XSRETURN(1);
+}
+
+XS(XS_chunked_read_nb) {
+        dXSARGS;
+        size_t len = 0;
+
+        psgi_check_args(0);
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+        char *chunk = uwsgi_chunked_read(wsgi_req, &len, 0, 1);
+        if (!chunk) {
+		if (uwsgi_is_again()) XSRETURN_UNDEF;
+                croak("unable to receive chunked part");
+                XSRETURN_UNDEF;
+        }
+
+        ST(0) = newSVpv(chunk, len);
+        sv_2mortal(ST(0));
+        XSRETURN(1);
+}
 
 void init_perl_embedded_module() {
 	psgi_xs(reload);
@@ -715,5 +754,8 @@ void init_perl_embedded_module() {
 	psgi_xs(metric_div);
 	psgi_xs(metric_get);
 	psgi_xs(metric_set);
+
+	psgi_xs(chunked_read);
+	psgi_xs(chunked_read_nb);
 }
 
