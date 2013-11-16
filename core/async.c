@@ -4,18 +4,18 @@ extern struct uwsgi_server uwsgi;
 
 /*
 
-	This is a general purpose async loop engine (it expects a coroutine based approach)
+	This is a general-purpose async loop engine (it expects a coroutine-based approach)
 
 	You can see it as an hub holding the following structures:
 
-	1) the runqueue, cores ready to be run are appended in this list
+	1) the runqueue, cores ready to be run are appended to this list
 
 	2) the fd list, this is a list of monitored file descriptors, a core can wait for all the file descriptors it needs
 
-	3) the timeout value, if set the current core will timeout aftert he specified number of seconds (unless an event cancel it)
+	3) the timeout value, if set, the current core will timeout after the specified number of seconds (unless an event cancels it)
 
 
-	IMPORTANT: this is not a callback based engine !!!
+	IMPORTANT: this is not a callback-based engine !!!
 
 */
 
@@ -159,7 +159,7 @@ static void async_expire_timeouts(uint64_t now) {
 			wsgi_req = (struct wsgi_request *) urbt->data;
 			// timeout expired
 			wsgi_req->async_timed_out = 1;
-			// reset teh request
+			// reset the request
 			async_reset_request(wsgi_req);
 			// push it in the runqueue
 			runqueue_push(wsgi_req);
