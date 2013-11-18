@@ -71,7 +71,6 @@ report = {
     'yaml': False,
     'json': False,
     'ssl': False,
-    'zeromq': False,
     'xml': False,
     'debug': False,
     'plugin_dir': False,
@@ -1126,20 +1125,6 @@ class uConf(object):
                 self.gcc_list.append('core/ssl')
                 self.gcc_list.append('core/legion')
                 report['ssl'] = True
-
-
-        if has_uuid and self.get('zeromq'):
-            if self.get('zeromq') == 'auto':
-                if self.has_include('zmq.h'):
-                    self.cflags.append("-DUWSGI_ZEROMQ")
-                    self.gcc_list.append('proto/zeromq')
-                    self.libs.append('-lzmq')
-                    report['zeromq'] = True
-            else:
-                self.cflags.append("-DUWSGI_ZEROMQ")
-                self.gcc_list.append('proto/zeromq')
-                self.libs.append('-lzmq')
-                report['zeromq'] = True
 
         if self.get('xml'):
             if self.get('xml') == 'auto':

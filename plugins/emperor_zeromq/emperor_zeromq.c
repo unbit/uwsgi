@@ -52,9 +52,7 @@ s.send_multipart(['touch','foo.ini',"[uwsgi]\nsocket=:4142"])
 
 */
 
-#ifdef UWSGI_ZEROMQ
-
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 #include <zmq.h>
 
 extern struct uwsgi_server uwsgi;
@@ -215,7 +213,11 @@ static void uwsgi_imperial_monitor_zeromq_event(struct uwsgi_emperor_scanner *ue
 // initialize the zmq PULL socket
 static void uwsgi_imperial_monitor_zeromq_init(struct uwsgi_emperor_scanner *ues) {
 
-	void *context = uwsgi_zeromq_init();
+	void *context = zmq_init(1);
+	if (!context) {
+		uwsgi_error("uwsgi_imperial_monitor_zeromq_init()/zmq_init()");
+		exit(1);
+	}
 	
 	ues->data = zmq_socket(context, ZMQ_PULL);
 	if (!ues->data) {
@@ -256,7 +258,3 @@ struct uwsgi_plugin emperor_zeromq_plugin = {
 	.name = "emperor_zeromq",
 	.on_load = emperor_zeromq_init,
 };
-
-#else
-#error the uWSGI ZeroMQ imperial monitor requires uWSGI zeromq support
-#endif

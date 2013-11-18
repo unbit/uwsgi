@@ -1,39 +1,21 @@
 /*
 
-	generic ZeroMQ functions + Mongrel2 protocol parser
+	Mongrel2 protocol parser
 
 */
+
 #include <uwsgi.h>
+#include <zmq.h>
 
 extern struct uwsgi_server uwsgi;
 
-void *uwsgi_zeromq_init() {
-	if (!uwsgi.zmq_context) {
-		uwsgi.zmq_context = zmq_init(1);
-		if (uwsgi.zmq_context == NULL) {
-			uwsgi_error("zmq_init()");
-			exit(1);
-		}
-	}
-	return uwsgi.zmq_context;
-}
-
-void uwsgi_zeromq_init_sockets() {
-
-	uwsgi_zeromq_init();
-
-	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-	while (uwsgi_sock) {
-		if (!uwsgi_sock->proto_name || strcmp(uwsgi_sock->proto_name, "zmq")) {
-			goto zmq_next;
-		}
-		uwsgi_proto_zeromq_setup(uwsgi_sock);
-zmq_next:
-		uwsgi_sock = uwsgi_sock->next;
-
-	}
-
-}
+static struct uwsgi_option mongrel2_options[] = {
+	{"zeromq", required_argument, 0, "create a mongrel2/zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "mongrel2", 0},
+        {"zmq", required_argument, 0, "create a mongrel2/zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "mongrel2", 0},
+        {"zeromq-socket", required_argument, 0, "create a mongrel2/zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "mongrel2", 0},
+        {"zmq-socket", required_argument, 0, "create a mongrel2/zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "mongrel2", 0},
+	{"mongrel2", required_argument, 0, "create a mongrel2/zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "mongrel2", 0},
+};
 
 #ifdef UWSGI_JSON
 #include <jansson.h>
@@ -290,7 +272,7 @@ int uwsgi_proto_zeromq_parser(struct wsgi_request *wsgi_req) {
 
 void uwsgi_proto_zeromq_thread_fixup(struct uwsgi_socket *uwsgi_sock, int async_id) {
 
-	void *tmp_zmq_pull = zmq_socket(uwsgi.zmq_context, ZMQ_PULL);
+	void *tmp_zmq_pull = zmq_socket(uwsgi_sock->ctx, ZMQ_PULL);
 	if (tmp_zmq_pull == NULL) {
 		uwsgi_error("zmq_socket()");
 		exit(1);
@@ -315,7 +297,7 @@ void uwsgi_proto_zeromq_thread_fixup(struct uwsgi_socket *uwsgi_sock, int async_
 #endif
 }
 
-// fake function, the bosy is i na file or completely in memory
+// fake function, the body is in a file or completely in memory
 ssize_t uwsgi_proto_zeromq_read_body(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 	return 0;
 }
@@ -565,38 +547,6 @@ int uwsgi_proto_zeromq_sendfile(struct wsgi_request *wsgi_req, int fd, size_t po
 
 void uwsgi_proto_zeromq_setup(struct uwsgi_socket *uwsgi_sock) {
 
-	char *responder = strchr(uwsgi_sock->name, ',');
-	if (!responder) {
-		uwsgi_log("invalid zeromq address\n");
-		exit(1);
-	}
-	uwsgi_sock->receiver = uwsgi_concat2n(uwsgi_sock->name, responder - uwsgi_sock->name, "", 0);
-	responder++;
-
-	uwsgi_sock->pub = zmq_socket(uwsgi.zmq_context, ZMQ_PUB);
-	if (uwsgi_sock->pub == NULL) {
-		uwsgi_error("zmq_socket()");
-		exit(1);
-	}
-
-
-	// generate uuid
-	uuid_t uuid_zmq;
-	uuid_generate(uuid_zmq);
-	uuid_unparse(uuid_zmq, uwsgi_sock->uuid);
-
-	if (zmq_setsockopt(uwsgi_sock->pub, ZMQ_IDENTITY, uwsgi_sock->uuid, 36) < 0) {
-		uwsgi_error("zmq_setsockopt()");
-		exit(1);
-	}
-
-	if (zmq_connect(uwsgi_sock->pub, responder) < 0) {
-		uwsgi_error("zmq_connect()");
-		exit(1);
-	}
-
-	uwsgi_log("zeromq UUID for responder %s on worker %d: %.*s\n", responder, uwsgi.mywid, 36, uwsgi_sock->uuid);
-
 	uwsgi_sock->proto = uwsgi_proto_zeromq_parser;
 	uwsgi_sock->proto_accept = uwsgi_proto_zeromq_accept;
 	uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
@@ -614,55 +564,107 @@ void uwsgi_proto_zeromq_setup(struct uwsgi_socket *uwsgi_sock) {
 	uwsgi_sock->retry = uwsgi_malloc(sizeof(int) * uwsgi.threads);
 	uwsgi_sock->retry[0] = 1;
 
-	// inform loop engine about edge trigger status
-	uwsgi.is_et = 1;
+	uwsgi_sock->fd = -1;
+}
+
+static void uwsgi_proto_mongrel2_setup(struct uwsgi_socket *uwsgi_sock) {
+};
+
+static void mongrel2_register_proto() {
+	uwsgi_register_protocol("mongrel2", uwsgi_proto_mongrel2_setup);
+}
+
+static void mongrel2_connect() {
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+	while(uwsgi_sock) {
+		uwsgi_sock->ctx = zmq_init(1);
+		if (!uwsgi_sock->ctx) {
+			uwsgi_error("mongrel2_connect()/zmq_init()");
+			exit(1);
+		}
+		char *responder = strchr(uwsgi_sock->name, ',');
+        	if (!responder) {
+                	uwsgi_log("invalid zeromq address\n");
+                	exit(1);
+        	}
+        	uwsgi_sock->receiver = uwsgi_concat2n(uwsgi_sock->name, responder - uwsgi_sock->name, "", 0);
+        	responder++;
+
+        	uwsgi_sock->pub = zmq_socket(uwsgi_sock->ctx, ZMQ_PUB);
+        	if (uwsgi_sock->pub == NULL) {
+                	uwsgi_error("mongrel2_connect()/zmq_socket()");
+                	exit(1);
+        	}
+
+        	// generate uuid
+        	uuid_t uuid_zmq;
+        	uuid_generate(uuid_zmq);
+        	uuid_unparse(uuid_zmq, uwsgi_sock->uuid);
+
+        	if (zmq_setsockopt(uwsgi_sock->pub, ZMQ_IDENTITY, uwsgi_sock->uuid, 36) < 0) {
+                	uwsgi_error("mongrel2_connect()/zmq_setsockopt()");
+                	exit(1);
+        	}
+
+        	if (zmq_connect(uwsgi_sock->pub, responder) < 0) {
+                	uwsgi_error("mongrel2_connect()/zmq_connect()");
+                	exit(1);
+        	}
+
+        	uwsgi_log("zeromq UUID for responder %s on worker %d: %.*s\n", responder, uwsgi.mywid, 36, uwsgi_sock->uuid);
+
+		// inform loop engine about edge trigger status
+        	uwsgi.is_et = 1;
 
 
-	// initialize a lock for multithread usage
-	if (uwsgi.threads > 1) {
-		pthread_mutex_init(&uwsgi_sock->lock, NULL);
-	}
+        	// initialize a lock for multithread usage
+        	if (uwsgi.threads > 1) {
+                	pthread_mutex_init(&uwsgi_sock->lock, NULL);
+        	}
 
-	// one pull per-thread
-	if (pthread_key_create(&uwsgi_sock->key, NULL)) {
-		uwsgi_error("pthread_key_create()");
-		exit(1);
-	}
+        	// one pull per-thread
+        	if (pthread_key_create(&uwsgi_sock->key, NULL)) {
+                	uwsgi_error("mongrel2_connect()/pthread_key_create()");
+                	exit(1);
+        	}
 
-	void *tmp_zmq_pull = zmq_socket(uwsgi.zmq_context, ZMQ_PULL);
-	if (tmp_zmq_pull == NULL) {
-		uwsgi_error("zmq_socket()");
-		exit(1);
-	}
-	if (zmq_connect(tmp_zmq_pull, uwsgi_sock->receiver) < 0) {
-		uwsgi_error("zmq_connect()");
-		exit(1);
-	}
+        	void *tmp_zmq_pull = zmq_socket(uwsgi_sock->ctx, ZMQ_PULL);
+        	if (tmp_zmq_pull == NULL) {
+                	uwsgi_error("mongrel2_connect()/zmq_socket()");
+                	exit(1);
+        	}
+        	if (zmq_connect(tmp_zmq_pull, uwsgi_sock->receiver) < 0) {
+                	uwsgi_error("mongrel2_connect()/zmq_connect()");
+                	exit(1);
+        	}
 
-	pthread_setspecific(uwsgi_sock->key, tmp_zmq_pull);
+        	pthread_setspecific(uwsgi_sock->key, tmp_zmq_pull);
 
 #ifdef ZMQ_FD
-	size_t zmq_socket_len = sizeof(int);
-	if (zmq_getsockopt(pthread_getspecific(uwsgi_sock->key), ZMQ_FD, &uwsgi_sock->fd, &zmq_socket_len) < 0) {
-		uwsgi_error("zmq_getsockopt()");
-		exit(1);
-	}
-	if (uwsgi.threads > 1) {
-		uwsgi_sock->fd_threads = uwsgi_malloc(sizeof(int) * uwsgi.threads);
-		uwsgi_sock->fd_threads[0] = uwsgi_sock->fd;
-	}
-#else
-	uwsgi_sock->fd = -1;
+        	size_t zmq_socket_len = sizeof(int);
+        	if (zmq_getsockopt(pthread_getspecific(uwsgi_sock->key), ZMQ_FD, &uwsgi_sock->fd, &zmq_socket_len) < 0) {
+                	uwsgi_error("mongrel2_connect()/zmq_getsockopt()");
+                	exit(1);
+        	}
+        	if (uwsgi.threads > 1) {
+                	uwsgi_sock->fd_threads = uwsgi_malloc(sizeof(int) * uwsgi.threads);
+                	uwsgi_sock->fd_threads[0] = uwsgi_sock->fd;
+        	}
 #endif
 
-	uwsgi_sock->bound = 1;
+        	uwsgi_sock->bound = 1;
 #if ZMQ_VERSION >= ZMQ_MAKE_VERSION(3,0,0)
-	uwsgi_sock->recv_flag = ZMQ_DONTWAIT;
+        	uwsgi_sock->recv_flag = ZMQ_DONTWAIT;
 #else
-	uwsgi_sock->recv_flag = ZMQ_NOBLOCK;
+        	uwsgi_sock->recv_flag = ZMQ_NOBLOCK;
 #endif
+		uwsgi_sock = uwsgi_sock->next;
+	}
 }
 
-void uwsgi_proto_zmq_setup(struct uwsgi_socket *uwsgi_sock) {
-	uwsgi.zeromq = 1;
-}
+struct uwsgi_plugin mongrel2_plugin = {
+	.name = "mongrel2",
+	.options = mongrel2_options,
+	.post_fork = mongrel2_connect,
+	.on_load = mongrel2_register_proto,
+};

@@ -337,10 +337,6 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #undef __EXTENSIONS__
 #endif
 
-#ifdef UWSGI_ZEROMQ
-#include <zmq.h>
-#endif
-
 #define UWSGI_CACHE_FLAG_UNGETTABLE	0x01
 #define UWSGI_CACHE_FLAG_UPDATE	1 << 1
 #define UWSGI_CACHE_FLAG_LOCAL	1 << 2
@@ -2410,10 +2406,6 @@ struct uwsgi_server {
 	int signal_socket;
 	int my_signal_socket;
 
-#ifdef UWSGI_ZEROMQ
-	int zeromq;
-	void *zmq_context;
-#endif
 	struct uwsgi_protocol *protocols;
 	struct uwsgi_socket *sockets;
 	struct uwsgi_socket *shared_sockets;
@@ -3249,13 +3241,6 @@ void uwsgi_proto_ssl_close(struct wsgi_request *);
 uint16_t proto_base_add_uwsgi_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 uint16_t proto_base_add_uwsgi_var(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
-#ifdef UWSGI_ZEROMQ
-void uwsgi_proto_zeromq_setup(struct uwsgi_socket *);
-ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *, char *, size_t len);
-void *uwsgi_zeromq_init(void);
-void uwsgi_zeromq_init_sockets(void);
-#endif
-
 // protocols
 void uwsgi_proto_uwsgi_setup(struct uwsgi_socket *);
 void uwsgi_proto_puwsgi_setup(struct uwsgi_socket *);
@@ -3264,9 +3249,6 @@ void uwsgi_proto_http_setup(struct uwsgi_socket *);
 #ifdef UWSGI_SSL
 void uwsgi_proto_https_setup(struct uwsgi_socket *);
 void uwsgi_proto_suwsgi_setup(struct uwsgi_socket *);
-#endif
-#ifdef UWSGI_ZEROMQ
-void uwsgi_proto_zmq_setup(struct uwsgi_socket *);
 #endif
 void uwsgi_proto_fastcgi_setup(struct uwsgi_socket *);
 void uwsgi_proto_fastcgi_nph_setup(struct uwsgi_socket *);

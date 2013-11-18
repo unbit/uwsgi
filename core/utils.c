@@ -3922,9 +3922,9 @@ char *uwsgi_strip(char *src) {
 
 void uwsgi_uuid(char *buf) {
 #ifdef UWSGI_UUID
-	uuid_t uuid_zmq;
-	uuid_generate(uuid_zmq);
-	uuid_unparse(uuid_zmq, buf);
+	uuid_t uuid_value;
+	uuid_generate(uuid_value);
+	uuid_unparse(uuid_value, buf);
 #else
 	int i,r[11];
 	if (!uwsgi_file_exists("/dev/urandom")) goto fallback;

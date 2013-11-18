@@ -450,12 +450,6 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"json", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL, UWSGI_OPT_IMMEDIATE},
 	{"js", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
-#ifdef UWSGI_ZEROMQ
-	{"zeromq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
-	{"zmq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
-	{"zeromq-socket", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
-	{"zmq-socket", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
-#endif
 	{"weight", required_argument, 0, "weight of the instance (used by clustering/lb/subscriptions)", uwsgi_opt_set_64bit, &uwsgi.weight, 0},
 	{"auto-weight", required_argument, 0, "set weight of the instance (used by clustering/lb/subscriptions) automatically", uwsgi_opt_true, &uwsgi.auto_weight, 0},
 	{"no-server", no_argument, 0, "force no-server mode", uwsgi_opt_true, &uwsgi.no_server, 0},
@@ -649,9 +643,6 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"alarm-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
 	{"alarms-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
 	{"alarm-msg-size", required_argument, 0, "set the max size of an alarm message (default 8192)", uwsgi_opt_set_64bit, &uwsgi.alarm_msg_size, 0},
-#ifdef UWSGI_ZEROMQ
-	{"log-zeromq", required_argument, 0, "send logs to a zeromq server", uwsgi_opt_set_logger, "zeromq", UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
-#endif
 	{"log-master", no_argument, 0, "delegate logging to master process", uwsgi_opt_true, &uwsgi.log_master, UWSGI_OPT_MASTER},
 	{"log-master-bufsize", required_argument, 0, "set the buffer size for the master logger. bigger log messages will be truncated", uwsgi_opt_set_64bit, &uwsgi.log_master_bufsize, 0},
 	{"log-master-stream", no_argument, 0, "create the master logpipe as SOCK_STREAM", uwsgi_opt_true, &uwsgi.log_master_stream, 0},
@@ -1990,11 +1981,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 	uwsgi.hostname_len = strlen(uwsgi.hostname);
 
-#ifdef UWSGI_ZEROMQ
-	uwsgi_register_logger("zeromq", uwsgi_zeromq_logger);
-	uwsgi_register_logger("zmq", uwsgi_zeromq_logger);
-#endif
-
 #ifdef UWSGI_ROUTING
 	uwsgi_register_embedded_routers();
 #endif
@@ -3165,14 +3151,6 @@ void uwsgi_worker_run() {
 
 	// some apps could be mounted only on specific workers
 	uwsgi_init_worker_mount_apps();
-
-
-#ifdef UWSGI_ZEROMQ
-	// setup zeromq context (if required) one per-worker
-	if (uwsgi.zeromq) {
-		uwsgi_zeromq_init_sockets();
-	}
-#endif
 
 	//postpone the queue initialization as kevent
 	//do not pass kfd after fork()
