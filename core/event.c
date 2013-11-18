@@ -1241,6 +1241,8 @@ static int timerfd_settime(int __ufd, int __flags, __const struct itimerspec *__
 	return syscall(286, __ufd, __flags, __utmr, __otmr);
 #elif defined(__i386__)
 	return syscall(325, __ufd, __flags, __utmr, __otmr);
+#else
+	return -1;
 #endif
 }
 #endif
