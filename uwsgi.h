@@ -2786,6 +2786,8 @@ struct uwsgi_worker {
 
 	struct uwsgi_core *cores;
 
+	int ready;
+
 	char name[0xff];
 };
 

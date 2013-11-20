@@ -592,6 +592,8 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 int uwsgi_respawn_worker(int wid) {
 
 	int respawns = uwsgi.workers[wid].respawn_count;
+	// the workers is not ready (obviously)
+	uwsgi.workers[wid].ready = 0;
 	// we count the respawns before errors...
 	uwsgi.workers[wid].respawn_count++;
 	// ... same for update time
@@ -989,6 +991,8 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		if (uwsgi_stats_keylong_comma(us, "id", (unsigned long long) uwsgi.workers[i + 1].id))
 			goto end;
 		if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) uwsgi.workers[i + 1].pid))
+			goto end;
+		if (uwsgi_stats_keylong_comma(us, "ready", (unsigned long long) uwsgi.workers[i + 1].ready))
 			goto end;
 		if (uwsgi_stats_keylong_comma(us, "requests", (unsigned long long) uwsgi.workers[i + 1].requests))
 			goto end;

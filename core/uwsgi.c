@@ -3249,6 +3249,8 @@ void uwsgi_ignition() {
 		}
 	}
 
+	// mark the worker as "ready" (this is a mark used by chain reloading)
+	uwsgi.workers[uwsgi.mywid].ready = 1;
 
 	if (uwsgi.loop) {
 		void (*u_loop) (void) = uwsgi_get_loop(uwsgi.loop);
