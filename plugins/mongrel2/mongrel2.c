@@ -597,9 +597,7 @@ static void mongrel2_connect() {
         	}
 
         	// generate uuid
-        	uuid_t uuid_zmq;
-        	uuid_generate(uuid_zmq);
-        	uuid_unparse(uuid_zmq, uwsgi_sock->uuid);
+		uwsgi_uuid(uwsgi_sock->uuid);
 
         	if (zmq_setsockopt(uwsgi_sock->pub, ZMQ_IDENTITY, uwsgi_sock->uuid, 36) < 0) {
                 	uwsgi_error("mongrel2_connect()/zmq_setsockopt()");

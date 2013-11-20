@@ -444,13 +444,14 @@ struct uwsgi_dyn_dict {
 	uint64_t hits;
 	int status;
 
+	struct uwsgi_dyn_dict *prev;
+	struct uwsgi_dyn_dict *next;
+
 #ifdef UWSGI_PCRE
 	pcre *pattern;
 	pcre_extra *pattern_extra;
 #endif
 
-	struct uwsgi_dyn_dict *prev;
-	struct uwsgi_dyn_dict *next;
 };
 
 struct uwsgi_hook {
@@ -579,12 +580,13 @@ struct uwsgi_daemon {
 	// frequency of pidfile checks (default 10 secs)
 	int freq;
 
+	int control;
+	struct uwsgi_daemon *next;
+
 #ifdef UWSGI_SSL
 	char *legion;
 #endif
 
-	int control;
-	struct uwsgi_daemon *next;
 };
 
 struct uwsgi_logger {
@@ -933,11 +935,8 @@ struct uwsgi_socket {
 	// this is a special map for having socket->thread mapping
 	int *fd_threads;
 
-#ifdef UWSGI_UUID
+	// generally used by zeromq handlers
 	char uuid[37];
-#endif
-
-	// currently used by zeromq handlers
 	void *pub;
 	void *pull;
 	pthread_key_t key;
@@ -954,12 +953,13 @@ struct uwsgi_socket {
 	int shared;
 	int from_shared;
 
+	// used for avoiding vacuum mess
+	ino_t inode;
+
 #ifdef UWSGI_SSL
 	SSL_CTX *ssl_ctx;
 #endif
 
-	// used for avoiding vacuum mess
-	ino_t inode;
 };
 
 struct uwsgi_protocol {
@@ -1530,15 +1530,6 @@ struct wsgi_request {
 #ifdef UWSGI_SSL
 	SSL *ssl;
 #endif
-
-	struct msghdr msg;
-	union {
-		struct cmsghdr cmsg;
-		// should be enough...
-		char control[64];
-	} msg_control;
-
-
 };
 
 
@@ -2636,9 +2627,6 @@ struct uwsgi_cron {
 	uint8_t sig;
 
 	char *command;
-#ifdef UWSGI_SSL
-	char *legion;
-#endif
 	void (*func)(struct uwsgi_cron *, time_t);
 
 	time_t started_at;
@@ -2652,6 +2640,10 @@ struct uwsgi_cron {
 	pid_t pid;
 
 	struct uwsgi_cron *next;
+
+#ifdef UWSGI_SSL
+	char *legion;
+#endif
 };
 
 struct uwsgi_shared {
@@ -3193,16 +3185,9 @@ int uwsgi_str4_num(char *);
 
 #ifdef __linux__
 #if !defined(__ia64__)
-	void linux_namespace_start(void *);
-	void linux_namespace_jail(void);
+void linux_namespace_start(void *);
+void linux_namespace_jail(void);
 #endif
-	int uwsgi_netlink_veth(char *, char *);
-	int uwsgi_netlink_veth_attach(char *, pid_t);
-	int uwsgi_netlink_ifup(char *);
-	int uwsgi_netlink_ip(char *, char *, int);
-	int uwsgi_netlink_gw(char *, char *);
-	int uwsgi_netlink_rt(char *, char *, int, char *);
-	int uwsgi_netlink_del(char *);
 #endif
 
 
@@ -3425,16 +3410,16 @@ struct uwsgi_subscribe_slot {
 
 	uint64_t hits;
 
+	struct uwsgi_subscribe_node *nodes;
+
+	struct uwsgi_subscribe_slot *prev;
+	struct uwsgi_subscribe_slot *next;
+
 #ifdef UWSGI_SSL
 	EVP_PKEY *sign_public_key;
 	EVP_MD_CTX *sign_ctx;
 #endif
 
-
-	struct uwsgi_subscribe_node *nodes;
-
-	struct uwsgi_subscribe_slot *prev;
-	struct uwsgi_subscribe_slot *next;
 };
 
 void mule_send_msg(int, char *, size_t);
