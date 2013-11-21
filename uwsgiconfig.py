@@ -1431,13 +1431,10 @@ if __name__ == "__main__":
         print("*** uWSGI building and linking plugin %s ***" % options.plugin[0] )
         build_plugin(options.plugin[0], uc, cflags, ldflags, libs, name)
     elif options.extra_plugin:
-        print("*** uWSGI building and linking plugin ***")
-        cflags = spcall("%s --cflags" % options.extra_plugin[0]).split()
-        try:
-            cflags.append('-I%s' % options.extra_plugin[1])
-        except:
-            pass
-        build_plugin('.', None, cflags, [], [], None)
+        print("*** uWSGI building and linking plugin %s ***" % options.extra_plugin[0])
+        cflags = os.environ['UWSGI_PLUGINS_BUILDER_CFLAGS'].split()
+        cflags.append('-I.uwsgi_plugins_builder/')
+        build_plugin(options.extra_plugin[0], None, cflags, [], [], None)
     elif options.clean:
         os.system("rm -f core/*.o")
         os.system("rm -f proto/*.o")
