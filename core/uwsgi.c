@@ -2601,6 +2601,7 @@ int uwsgi_start(void *v_argv) {
 			uwsgi_setup_systemd();
 			uwsgi_setup_upstart();
 			uwsgi_setup_zerg();
+			uwsgi_setup_emperor();
 		}
 
 
@@ -3249,8 +3250,15 @@ void uwsgi_ignition() {
 		}
 	}
 
-	// mark the worker as "ready" (this is a mark used by chain reloading)
-	uwsgi.workers[uwsgi.mywid].ready = 1;
+	// mark the worker as "accepting" (this is a mark used by chain reloading)
+	uwsgi.workers[uwsgi.mywid].accepting = 1;
+	// ready to accept request, if i am a vassal signal Emperor about it
+        if (uwsgi.has_emperor && uwsgi.mywid == 1) {
+                char byte = 5;
+                if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
+                        uwsgi_error("write()");
+                }
+        }
 
 	if (uwsgi.loop) {
 		void (*u_loop) (void) = uwsgi_get_loop(uwsgi.loop);

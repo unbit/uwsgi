@@ -1162,7 +1162,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 
-	// ready to accept request, if i am a vassal signal Emperor about my loyalty
+	// after the first request, if i am a vassal, signal Emperor about my loyalty
 	if (uwsgi.has_emperor && !uwsgi.loyal) {
 		uwsgi_log("announcing my loyalty to the Emperor...\n");
 		char byte = 17;

@@ -2786,7 +2786,7 @@ struct uwsgi_worker {
 
 	struct uwsgi_core *cores;
 
-	int ready;
+	int accepting;
 
 	char name[0xff];
 };
@@ -3776,6 +3776,7 @@ void uwsgi_setup_systemd();
 void uwsgi_setup_upstart();
 void uwsgi_setup_zerg();
 void uwsgi_setup_inherited_sockets();
+void uwsgi_setup_emperor();
 
 #ifdef UWSGI_SSL
 void uwsgi_ssl_init(void);
@@ -3846,6 +3847,8 @@ struct uwsgi_instance {
 	time_t born;
 	time_t last_mod;
 	time_t last_loyal;
+	time_t last_accepting;
+	time_t last_ready;
 
 	time_t last_run;
 	time_t first_run;
@@ -3864,6 +3867,9 @@ struct uwsgi_instance {
 	int loyal;
 
 	int zerg;
+
+	int ready;
+	int accepting;
 
 	struct uwsgi_emperor_scanner *scanner;
 
