@@ -3761,6 +3761,7 @@ char *uwsgi_substitute(char *, char *, char *);
 
 void uwsgi_opt_add_custom_option(char *, char *, void *);
 void uwsgi_opt_cflags(char *, char *, void *);
+void uwsgi_opt_build_plugin(char *, char *, void *);
 void uwsgi_opt_dot_h(char *, char *, void *);
 void uwsgi_opt_connect_and_read(char *, char *, void *);
 void uwsgi_opt_extract(char *, char *, void *);
@@ -4527,6 +4528,8 @@ struct wsgi_request *find_wsgi_req_proto_by_fd(int);
 struct uwsgi_protocol *uwsgi_register_protocol(char *, void (*)(struct uwsgi_socket *));
 
 void uwsgi_protocols_register(void);
+
+int uwsgi_build_plugin(char *dir);
 
 #ifdef __cplusplus
 }
