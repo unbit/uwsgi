@@ -907,7 +907,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exit", optional_argument, 0, "force exit() of the instance", uwsgi_opt_exit, NULL, UWSGI_OPT_IMMEDIATE},
 	{"cflags", no_argument, 0, "report uWSGI CFLAGS (useful for building external plugins)", uwsgi_opt_cflags, NULL, UWSGI_OPT_IMMEDIATE},
 	{"dot-h", no_argument, 0, "dump the uwsgi.h used for building the core  (useful for building external plugins)", uwsgi_opt_dot_h, NULL, UWSGI_OPT_IMMEDIATE},
-	{"build-plugin", no_argument, 0, "build a uWSGI plugin for the current binary", uwsgi_opt_build_plugin, NULL, UWSGI_OPT_IMMEDIATE},
+	{"build-plugin", required_argument, 0, "build a uWSGI plugin for the current binary", uwsgi_opt_build_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"version", no_argument, 0, "print uWSGI version", uwsgi_opt_print, UWSGI_VERSION, 0},
 	{0, 0, 0, 0, 0, 0, 0}
 };
