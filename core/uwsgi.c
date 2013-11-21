@@ -907,6 +907,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exit", optional_argument, 0, "force exit() of the instance", uwsgi_opt_exit, NULL, UWSGI_OPT_IMMEDIATE},
 	{"cflags", no_argument, 0, "report uWSGI CFLAGS (useful for building external plugins)", uwsgi_opt_cflags, NULL, UWSGI_OPT_IMMEDIATE},
 	{"dot-h", no_argument, 0, "dump the uwsgi.h used for building the core  (useful for building external plugins)", uwsgi_opt_dot_h, NULL, UWSGI_OPT_IMMEDIATE},
+	{"config-py", no_argument, 0, "dump the uwsgiconfig.py used for building the core  (useful for building external plugins)", uwsgi_opt_config_py, NULL, UWSGI_OPT_IMMEDIATE},
 	{"build-plugin", required_argument, 0, "build a uWSGI plugin for the current binary", uwsgi_opt_build_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"version", no_argument, 0, "print uWSGI version", uwsgi_opt_print, UWSGI_VERSION, 0},
 	{0, 0, 0, 0, 0, 0, 0}
@@ -4507,8 +4508,44 @@ void uwsgi_opt_dot_h(char *opt, char *filename, void *foobar) {
         exit(0);
 }
 
+extern char *uwsgi_config_py;
+char *uwsgi_get_config_py() {
+        char *src = uwsgi_config_py;
+        size_t len = strlen(src);
+        char *ptr = uwsgi_malloc(len / 2);
+        char *base = ptr;
+        size_t i;
+        unsigned int u;
+        for (i = 0; i < len; i += 2) {
+                sscanf(src + i, "%2x", &u);
+                *ptr++ = (char) u;
+        }
+#ifdef UWSGI_ZLIB
+        struct uwsgi_buffer *ub = uwsgi_zlib_decompress(base, ptr-base);
+        if (!ub) {
+                free(base);
+                return "";
+        }
+        // add final null byte
+        uwsgi_buffer_append(ub, "\0", 1);
+        free(base);
+        // base is the final blob
+        base = ub->buf;
+        ub->buf = NULL;
+        uwsgi_buffer_destroy(ub);
+#endif
+        return base;
+}
+
+void uwsgi_opt_config_py(char *opt, char *filename, void *foobar) {
+        fprintf(stdout, "%s\n", uwsgi_get_config_py());
+        exit(0);
+}
+
+
 void uwsgi_opt_build_plugin(char *opt, char *directory, void *foobar) {
-	_exit(uwsgi_build_plugin(directory));
+	uwsgi_build_plugin(directory);
+	exit(1);
 }
 
 void uwsgi_opt_connect_and_read(char *opt, char *address, void *foobar) {

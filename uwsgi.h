@@ -3763,10 +3763,12 @@ void uwsgi_opt_add_custom_option(char *, char *, void *);
 void uwsgi_opt_cflags(char *, char *, void *);
 void uwsgi_opt_build_plugin(char *, char *, void *);
 void uwsgi_opt_dot_h(char *, char *, void *);
+void uwsgi_opt_config_py(char *, char *, void *);
 void uwsgi_opt_connect_and_read(char *, char *, void *);
 void uwsgi_opt_extract(char *, char *, void *);
 
 char *uwsgi_get_dot_h();
+char *uwsgi_get_config_py();
 char *uwsgi_get_cflags();
 
 struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *, char *, size_t);
@@ -4529,7 +4531,7 @@ struct uwsgi_protocol *uwsgi_register_protocol(char *, void (*)(struct uwsgi_soc
 
 void uwsgi_protocols_register(void);
 
-int uwsgi_build_plugin(char *dir);
+void uwsgi_build_plugin(char *dir);
 
 #ifdef __cplusplus
 }

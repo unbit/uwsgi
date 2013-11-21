@@ -305,6 +305,24 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         uwsgi_dot_h = uwsgi_dot_h_content.encode('hex')
     open('core/dot_h.c', 'w').write('char *uwsgi_dot_h = "%s";\n' % uwsgi_dot_h);
     gcc_list.append('core/dot_h') 
+
+    # embed uwsgiconfig.py in the server binary. It increases the binary size, but will be very useful
+    # if possibile, the blob is compressed
+    if sys.version_info[0] >= 3:
+        uwsgi_config_py_content = open('uwsgiconfig.py', 'rb').read()
+    else:
+        uwsgi_config_py_content = open('uwsgiconfig.py').read()
+    if report['zlib']:
+        import zlib
+        # maximum level of compression
+        uwsgi_config_py_content = zlib.compress(uwsgi_config_py_content, 9)
+    if sys.version_info[0] >= 3:
+        import binascii
+        uwsgi_config_py = binascii.b2a_hex(uwsgi_config_py_content).decode('ascii')
+    else:
+        uwsgi_config_py = uwsgi_config_py_content.encode('hex')
+    open('core/config_py.c', 'w').write('char *uwsgi_config_py = "%s";\n' % uwsgi_config_py);
+    gcc_list.append('core/config_py')
     
     cflags.append('-DUWSGI_CFLAGS=\\"%s\\"' % uwsgi_cflags)
     cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
@@ -1363,7 +1381,7 @@ if __name__ == "__main__":
     parser.add_option("-f", "--cflags", action="callback", callback=vararg_callback, dest="cflags", help="same as --build but less verbose", metavar="PROFILE")
     parser.add_option("-u", "--unbit", action="store_true", dest="unbit", help="build unbit profile")
     parser.add_option("-p", "--plugin", action="callback", callback=vararg_callback, dest="plugin", help="build a plugin as shared library, optionally takes a build profile name", metavar="PLUGIN [PROFILE]")
-    parser.add_option("-x", "--extra-plugin", action="callback", callback=vararg_callback,  dest="extra_plugin", help="build an external plugin as shared library, takes an optional include dir", metavar="PLUGIN [INCLUDE_DIR]")
+    parser.add_option("-x", "--extra-plugin", action="callback", callback=vararg_callback,  dest="extra_plugin", help="build an external plugin as shared library, takes an optional include dir", metavar="PLUGIN [NAME]")
     parser.add_option("-c", "--clean", action="store_true", dest="clean", help="clean the build")
     parser.add_option("-e", "--check", action="store_true", dest="check", help="run cppcheck")
     parser.add_option("-v", "--verbose", action="store_true", dest="verbose", help="more verbose build")
@@ -1434,7 +1452,12 @@ if __name__ == "__main__":
         print("*** uWSGI building and linking plugin %s ***" % options.extra_plugin[0])
         cflags = os.environ['UWSGI_PLUGINS_BUILDER_CFLAGS'].split()
         cflags.append('-I.uwsgi_plugins_builder/')
-        build_plugin(options.extra_plugin[0], None, cflags, [], [], None)
+        name = None
+        try:
+            name = options.extra_plugin[1]
+        except:
+            pass
+        build_plugin(options.extra_plugin[0], None, cflags, [], [], name)
     elif options.clean:
         os.system("rm -f core/*.o")
         os.system("rm -f proto/*.o")
@@ -1442,6 +1465,7 @@ if __name__ == "__main__":
         os.system("rm -f plugins/*/*.o")
         os.system("rm -f build/*.o")
         os.system("rm -f core/dot_h.c")
+        os.system("rm -f core/config_py.c")
     elif options.check:
         os.system("cppcheck --max-configs=1000 --enable=all -q core/ plugins/ proto/ lib/ apache2/")
     else:
