@@ -9,8 +9,8 @@ static int error_page(struct wsgi_request *wsgi_req, struct uwsgi_string_list *l
 		if (!stat(usl->value, &st)) {
 			int fd = open(usl->value, O_RDONLY);
 			if (fd >= 0) {
-				if (uwsgi_response_add_header(wsgi_req, "Content-Type", 12, "text/html", 9)) return 0;
-				if (uwsgi_response_add_content_length(wsgi_req, st.st_size)) return 0;
+				if (uwsgi_response_add_header(wsgi_req, "Content-Type", 12, "text/html", 9)) { close(fd); return 0;}
+				if (uwsgi_response_add_content_length(wsgi_req, st.st_size)) { close(fd); return 0;}
 				uwsgi_response_sendfile_do(wsgi_req, fd, 0, st.st_size);			
 				return 0;
 			}
