@@ -377,7 +377,10 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                     f.close()
 
                 p_cflags = cflags[:]
-                p_cflags += up['CFLAGS']
+                try:
+                    p_cflags += up['CFLAGS']
+                except:
+                    pass
 
                 if uwsgi_os.startswith('CYGWIN'):
                     try:
@@ -448,7 +451,13 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                     except:
                         pass
 
-                libs += up['LIBS']
+                try:
+                    libs += up['LIBS']
+                except:
+                    pass
+
+                if not 'LDFLAGS' in up:
+                    up['LDFLAGS'] = []
 
                 if uwsgi_os == 'Darwin':
                     found_arch = False
@@ -1215,9 +1224,20 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     p_cflags = cflags[:]
     p_ldflags = ldflags[:]
 
-    p_cflags += up['CFLAGS']
-    p_ldflags += up['LDFLAGS']
-    p_libs = up['LIBS']
+    try:
+        p_cflags += up['CFLAGS']
+    except:
+        pass
+
+    try:
+        p_ldflags += up['LDFLAGS']
+    except:
+        pass
+
+    try:
+        p_libs = up['LIBS']
+    except:
+        p_libs = []
 
     post_build = None
 
