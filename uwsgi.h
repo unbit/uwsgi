@@ -1990,6 +1990,7 @@ struct uwsgi_server {
         struct uwsgi_string_list *hook_as_user_atexit;
         struct uwsgi_string_list *hook_pre_app;
         struct uwsgi_string_list *hook_post_app;
+        struct uwsgi_string_list *hook_accepting;
 
         struct uwsgi_string_list *hook_as_vassal;
         struct uwsgi_string_list *hook_as_emperor;
