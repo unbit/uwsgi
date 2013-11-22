@@ -3708,7 +3708,7 @@ void uwsgi_opt_set_16bit(char *opt, char *value, void *key) {
 
 void uwsgi_opt_set_megabytes(char *opt, char *value, void *key) {
 	uint64_t *ptr = (uint64_t *) key;
-	*ptr = (strtoul(value, NULL, 10)) * 1024 * 1024;
+	*ptr = (uint64_t)strtoul(value, NULL, 10) * 1024 * 1024;
 }
 
 void uwsgi_opt_set_dyn(char *opt, char *value, void *key) {
