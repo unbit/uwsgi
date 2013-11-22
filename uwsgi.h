@@ -2354,6 +2354,10 @@ struct uwsgi_server {
 	struct uwsgi_route_var *route_vars;
 #endif
 
+	struct uwsgi_string_list *error_page_403;
+	struct uwsgi_string_list *error_page_404;
+	struct uwsgi_string_list *error_page_500;
+
 	int single_interpreter;
 
 	struct uwsgi_shared *shared;

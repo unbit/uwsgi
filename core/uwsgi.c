@@ -761,6 +761,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"routers-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 #endif
 
+
+	{"error-page-403", required_argument, 0, "add an error page (html) for managed 403 response", uwsgi_opt_add_string_list, &uwsgi.error_page_403, 0},
+	{"error-page-404", required_argument, 0, "add an error page (html) for managed 404 response", uwsgi_opt_add_string_list, &uwsgi.error_page_404, 0},
+	{"error-page-500", required_argument, 0, "add an error page (html) for managed 500 response", uwsgi_opt_add_string_list, &uwsgi.error_page_500, 0},
+
 	{"websockets-ping-freq", required_argument, 0, "set the frequency (in seconds) of websockets automatic ping packets", uwsgi_opt_set_int, &uwsgi.websockets_ping_freq, 0},
 	{"websocket-ping-freq", required_argument, 0, "set the frequency (in seconds) of websockets automatic ping packets", uwsgi_opt_set_int, &uwsgi.websockets_ping_freq, 0},
 
