@@ -795,6 +795,7 @@ char *uwsgi_manage_placeholder(char *key) {
 		// reset state to concat
 		state = concat;
 	}
+	free(tmp_value);
 
 	return current_value;
 }
