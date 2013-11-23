@@ -203,6 +203,7 @@ static void uwsgi_gccgo_initialize() {
 			n++;
                 }
         	runtime_args(argc, argv);
+		free(argv_list);
 	}
 	else {
 		char *argv[2] = {0,0};
