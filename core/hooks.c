@@ -78,6 +78,30 @@ static int uwsgi_hook_print(char *arg) {
 	return 0;
 }
 
+static int uwsgi_hook_write(char *arg) {
+	char *space = strchr(arg, ' ');
+	if (!space) {
+		uwsgi_log("invalid hook write syntax, must be: <file> <string>\n");
+		return -1;
+	}
+	*space = 0;
+	int fd = open(arg, O_WRONLY);
+	if (fd < 0) {
+		uwsgi_error_open(arg);
+		*space = ' ';
+		return -1;
+	}
+	*space = ' ';
+	size_t l = strlen(space+1);
+	if (write(fd, space+1, l) != (ssize_t) l) {
+		uwsgi_error("uwsgi_hook_write()/write()");
+		close(fd);
+		return -1;
+	}
+	close(fd);
+        return 0;
+}
+
 static int uwsgi_hook_callint(char *arg) {
         char *space = strchr(arg, ' ');
         if (space) {
@@ -176,6 +200,8 @@ static int uwsgi_hook_callret(char *arg) {
 void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("cd", uwsgi_hook_chdir);
 	uwsgi_register_hook("exec", uwsgi_hook_exec);
+
+	uwsgi_register_hook("write", uwsgi_hook_write);
 
 	uwsgi_register_hook("mount", uwsgi_mount_hook);
 	uwsgi_register_hook("umount", uwsgi_umount_hook);
