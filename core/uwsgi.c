@@ -375,6 +375,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
         {"hook-post-app", required_argument, 0, "run the specified hook after app loading", uwsgi_opt_add_string_list, &uwsgi.hook_post_app, 0},
         {"hook-accepting", required_argument, 0, "run the specified hook after each worker enter the accepting phase", uwsgi_opt_add_string_list, &uwsgi.hook_accepting, 0},
         {"hook-accepting1", required_argument, 0, "run the specified hook after the first worker enters the accepting phase", uwsgi_opt_add_string_list, &uwsgi.hook_accepting1, 0},
+        {"hook-accepting-once", required_argument, 0, "run the specified hook after each worker enter the accepting phase (once per-instance)", uwsgi_opt_add_string_list, &uwsgi.hook_accepting_once, 0},
+        {"hook-accepting1-once", required_argument, 0, "run the specified hook after the first worker enters the accepting phase (once per instance)", uwsgi_opt_add_string_list, &uwsgi.hook_accepting1_once, 0},
 
         {"hook-as-vassal", required_argument, 0, "run the specified command before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.hook_as_vassal, 0},
         {"hook-as-emperor", required_argument, 0, "run the specified command in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.hook_as_emperor, 0},
@@ -3271,9 +3273,15 @@ void uwsgi_ignition() {
 
 	// run accepting hooks
 	uwsgi_hooks_run(uwsgi.hook_accepting, "accepting", 1);
+	if (uwsgi.workers[uwsgi.mywid].respawn_count == 1) {
+		uwsgi_hooks_run(uwsgi.hook_accepting1_once, "accepting-once", 1);
+	}
 
 	if (uwsgi.mywid == 1) {
 		uwsgi_hooks_run(uwsgi.hook_accepting1, "accepting1", 1);
+		if (uwsgi.workers[uwsgi.mywid].respawn_count == 1) {
+			uwsgi_hooks_run(uwsgi.hook_accepting1_once, "accepting1-once", 1);
+		}
 	}
 
 	if (uwsgi.loop) {
