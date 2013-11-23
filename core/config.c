@@ -720,18 +720,18 @@ char *uwsgi_manage_placeholder(char *key) {
 		}
 		else if (!strcmp(p, "++")) {
 			if (current_value) {
-				int64_t tmp_value = strtoll(current_value, NULL, 10);
+				int64_t tmp_num = strtoll(current_value, NULL, 10);
 				free(current_value);
-				current_value = uwsgi_64bit2str(tmp_value+1);
+				current_value = uwsgi_64bit2str(tmp_num+1);
 			}
 			state = concat;
 			continue;
 		}
 		else if (!strcmp(p, "--")) {
 			if (current_value) {
-				int64_t tmp_value = strtoll(current_value, NULL, 10);
+				int64_t tmp_num = strtoll(current_value, NULL, 10);
 				free(current_value);
-				current_value = uwsgi_64bit2str(tmp_value-1);
+				current_value = uwsgi_64bit2str(tmp_num-1);
 			}
 			state = concat;
 			continue;
