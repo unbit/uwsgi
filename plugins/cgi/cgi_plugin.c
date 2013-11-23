@@ -838,6 +838,7 @@ clear2:
 				argv[i] = uwsgi_malloc( (arg_copy_len * 2) +1);
 				escape_shell_arg(arg_copy, arg_copy_len, argv[i]);	
 				i++;
+				free(arg_copy);
 			}
 			free(qs);
 		}
