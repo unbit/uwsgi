@@ -78,6 +78,14 @@ static int uwsgi_hook_print(char *arg) {
 	return 0;
 }
 
+static int uwsgi_hook_unlink(char *arg) {
+	int ret = unlink(arg);
+	if (ret) {
+		uwsgi_error("uwsgi_hook_unlink()/unlink()");
+	}
+	return ret;
+}
+
 static int uwsgi_hook_write(char *arg) {
 	char *space = strchr(arg, ' ');
 	if (!space) {
@@ -202,6 +210,7 @@ void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("exec", uwsgi_hook_exec);
 
 	uwsgi_register_hook("write", uwsgi_hook_write);
+	uwsgi_register_hook("unlink", uwsgi_hook_unlink);
 
 	uwsgi_register_hook("mount", uwsgi_mount_hook);
 	uwsgi_register_hook("umount", uwsgi_umount_hook);

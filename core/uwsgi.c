@@ -3274,7 +3274,7 @@ void uwsgi_ignition() {
 	// run accepting hooks
 	uwsgi_hooks_run(uwsgi.hook_accepting, "accepting", 1);
 	if (uwsgi.workers[uwsgi.mywid].respawn_count == 1) {
-		uwsgi_hooks_run(uwsgi.hook_accepting1_once, "accepting-once", 1);
+		uwsgi_hooks_run(uwsgi.hook_accepting_once, "accepting-once", 1);
 	}
 
 	if (uwsgi.mywid == 1) {
