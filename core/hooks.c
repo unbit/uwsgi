@@ -86,29 +86,58 @@ static int uwsgi_hook_unlink(char *arg) {
 	return ret;
 }
 
-static int uwsgi_hook_write(char *arg) {
+static int uwsgi_hook_writefifo(char *arg) {
 	char *space = strchr(arg, ' ');
 	if (!space) {
-		uwsgi_log("invalid hook write syntax, must be: <file> <string>\n");
+		uwsgi_log("invalid hook writefifo syntax, must be: <file> <string>\n");
 		return -1;
 	}
 	*space = 0;
-	int fd = open(arg, O_WRONLY);
+	int fd = open(arg, O_WRONLY|O_NONBLOCK);
 	if (fd < 0) {
 		uwsgi_error_open(arg);
 		*space = ' ';
+		if (errno == ENODEV) return 0;
+#ifdef ENXIO
+		if (errno == ENXIO) return 0;
+#endif
 		return -1;
 	}
 	*space = ' ';
 	size_t l = strlen(space+1);
 	if (write(fd, space+1, l) != (ssize_t) l) {
-		uwsgi_error("uwsgi_hook_write()/write()");
+		uwsgi_error("uwsgi_hook_writefifo()/write()");
 		close(fd);
 		return -1;
 	}
 	close(fd);
         return 0;
 }
+
+static int uwsgi_hook_write(char *arg) {
+        char *space = strchr(arg, ' ');
+        if (!space) {
+                uwsgi_log("invalid hook write syntax, must be: <file> <string>\n");
+                return -1;
+        }
+        *space = 0;
+        int fd = open(arg, O_WRONLY);
+        if (fd < 0) {
+                uwsgi_error_open(arg);
+                *space = ' ';
+                return -1;
+        }
+        *space = ' ';
+        size_t l = strlen(space+1);
+        if (write(fd, space+1, l) != (ssize_t) l) {
+                uwsgi_error("uwsgi_hook_write()/write()");
+                close(fd);
+                return -1;
+        }
+        close(fd);
+        return 0;
+}
+
 
 static int uwsgi_hook_callint(char *arg) {
         char *space = strchr(arg, ' ');
@@ -210,6 +239,7 @@ void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("exec", uwsgi_hook_exec);
 
 	uwsgi_register_hook("write", uwsgi_hook_write);
+	uwsgi_register_hook("writefifo", uwsgi_hook_writefifo);
 	uwsgi_register_hook("unlink", uwsgi_hook_unlink);
 
 	uwsgi_register_hook("mount", uwsgi_mount_hook);
