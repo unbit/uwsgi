@@ -666,6 +666,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-5xx", no_argument, 0, "log requests with a 5xx response", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_5xx, 0},
 	{"log-big", required_argument, 0, "log requestes bigger than the specified size", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_LOG_BIG, 0},
 	{"log-sendfile", required_argument, 0, "log sendfile requests", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_SENDFILE, 0},
+	{"log-ioerror", required_argument, 0, "log requests with io errors", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_IOERROR, 0},
 	{"log-micros", no_argument, 0, "report response time in microseconds instead of milliseconds", uwsgi_opt_true, &uwsgi.log_micros, 0},
 	{"log-x-forwarded-for", no_argument, 0, "use the ip from X-Forwarded-For header instead of REMOTE_ADDR", uwsgi_opt_true, &uwsgi.log_x_forwarded_for, 0},
 	{"master-as-root", no_argument, 0, "leave master process running as root", uwsgi_opt_true, &uwsgi.master_as_root, 0},

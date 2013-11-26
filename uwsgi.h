@@ -846,6 +846,7 @@ struct uwsgi_opt {
 #define UWSGI_OPTION_MULE_HARAKIRI	18
 #define UWSGI_OPTION_MAX_WORKER_LIFETIME	19
 #define UWSGI_OPTION_MIN_WORKER_LIFETIME	20
+#define UWSGI_OPTION_LOG_IOERROR		21
 
 #define UWSGI_SPOOLER_EXTERNAL		1
 
@@ -1436,6 +1437,7 @@ struct wsgi_request {
 
 	int suspended;
 	uint64_t write_errors;
+	uint64_t read_errors;
 
 	int *ovector;
 	size_t post_cl;
@@ -2725,6 +2727,7 @@ struct uwsgi_core {
 	uint64_t offloaded_requests;
 
 	uint64_t write_errors;
+	uint64_t read_errors;
 	uint64_t exceptions;
 
 	pthread_t thread_id;

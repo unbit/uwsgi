@@ -575,6 +575,9 @@ void log_request(struct wsgi_request *wsgi_req) {
 	if (uwsgi.shared->options[UWSGI_OPTION_LOG_SENDFILE] && wsgi_req->via == UWSGI_VIA_SENDFILE) {
 		goto logit;
 	}
+	if (uwsgi.shared->options[UWSGI_OPTION_LOG_IOERROR] && wsgi_req->read_errors > 0 && wsgi_req->write_errors > 0) {
+		goto logit;
+	}
 
 	if (!log_it)
 		return;

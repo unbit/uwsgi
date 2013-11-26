@@ -784,6 +784,9 @@ void uwsgi_setup_metrics() {
 			uwsgi_metric_name2("worker.%d.core.%d.exceptions", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.7", i, j);
 			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].cores[j].exceptions, 0, NULL);
 
+			uwsgi_metric_name2("worker.%d.core.%d.read_errors", i, j) ; uwsgi_metric_oid2("3.%d.2.%d.8", i, j);
+			uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].cores[j].read_errors, 0, NULL);
+
 		}
 	}
 

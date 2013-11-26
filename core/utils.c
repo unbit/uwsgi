@@ -1038,6 +1038,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		uwsgi.workers[uwsgi.mywid].requests++;
 		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests++;
 		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].write_errors += wsgi_req->write_errors;
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].read_errors += wsgi_req->read_errors;
 		// this is used for MAX_REQUESTS
 		uwsgi.workers[uwsgi.mywid].delta_requests++;
 	}
