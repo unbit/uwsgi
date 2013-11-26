@@ -32,7 +32,7 @@ void uwsgi_request_body_seek(struct wsgi_request *wsgi_req, off_t pos) {
 	if (wsgi_req->post_file) {
 		if (pos < 0) {
 			if (fseek(wsgi_req->post_file, pos, SEEK_CUR)) {
-                        	uwsgi_error("uwsgi_request_body_seek()/fseek()");
+                        	uwsgi_req_error("uwsgi_request_body_seek()/fseek()");
 				wsgi_req->read_errors++;
                 	}
 			wsgi_req->post_pos = ftell(wsgi_req->post_file);
@@ -40,7 +40,7 @@ void uwsgi_request_body_seek(struct wsgi_request *wsgi_req, off_t pos) {
 		}
 
 		if (fseek(wsgi_req->post_file, pos, SEEK_SET)) {
-			uwsgi_error("uwsgi_request_body_seek()/fseek()");
+			uwsgi_req_error("uwsgi_request_body_seek()/fseek()");
 			wsgi_req->read_errors++;
 		}
 		wsgi_req->post_pos = ftell(wsgi_req->post_file);
@@ -97,7 +97,7 @@ static int consume_body_for_readline(struct wsgi_request *wsgi_req) {
 		if (wsgi_req->post_readline_size - wsgi_req->post_readline_watermark < remains) {
         		char *tmp_buf = realloc(wsgi_req->post_readline_buf, wsgi_req->post_readline_size + remains);
                 	if (!tmp_buf) {
-                		uwsgi_error("consume_body_for_readline()/realloc()");
+                		uwsgi_req_error("consume_body_for_readline()/realloc()");
                         	return -1;
                 	}
                 	wsgi_req->post_readline_buf = tmp_buf;
@@ -116,7 +116,7 @@ static int consume_body_for_readline(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->post_file) {
 		size_t ret = fread(wsgi_req->post_readline_buf + wsgi_req->post_readline_watermark, remains, 1, wsgi_req->post_file);	
 		if (ret == 0) {
-			uwsgi_error("consume_body_for_readline()/fread()");
+			uwsgi_req_error("consume_body_for_readline()/fread()");
 			return -1;
 		}
 		wsgi_req->post_pos += remains;
@@ -210,7 +210,7 @@ char *uwsgi_request_body_readline(struct wsgi_request *wsgi_req, ssize_t hint, s
 		size_t amount = UMIN(uwsgi.buffer_size, wsgi_req->post_cl);
 		wsgi_req->post_readline_buf = malloc(amount);
 		if (!wsgi_req->post_readline_buf) {
-			uwsgi_error("uwsgi_request_body_readline()/malloc()");
+			uwsgi_req_error("uwsgi_request_body_readline()/malloc()");
 			wsgi_req->read_errors++;
 			*rlen = -1;
 			return NULL;
@@ -280,7 +280,7 @@ char *uwsgi_request_body_read(struct wsgi_request *wsgi_req, ssize_t hint, ssize
 			if (avail > wsgi_req->post_read_buf_size) {
 				char *tmp_buf = realloc(wsgi_req->post_read_buf, avail);
 				if (!tmp_buf) {
-                                	uwsgi_error("uwsgi_request_body_read()/realloc()");
+                                	uwsgi_req_error("uwsgi_request_body_read()/realloc()");
                                 	*rlen = -1;
 					wsgi_req->read_errors++;
                                 	return NULL;
@@ -329,7 +329,7 @@ char *uwsgi_request_body_read(struct wsgi_request *wsgi_req, ssize_t hint, ssize
 	if (!wsgi_req->post_read_buf) {
 		wsgi_req->post_read_buf = malloc(remains);
 		if (!wsgi_req->post_read_buf) {
-			uwsgi_error("uwsgi_request_body_read()/malloc()");
+			uwsgi_req_error("uwsgi_request_body_read()/malloc()");
 			wsgi_req->read_errors++;
 			*rlen = -1;
 			return NULL;
@@ -341,7 +341,7 @@ char *uwsgi_request_body_read(struct wsgi_request *wsgi_req, ssize_t hint, ssize
 		if ((remains+*rlen) > wsgi_req->post_read_buf_size) {
 			char *tmp_buf = realloc(wsgi_req->post_read_buf, (remains+*rlen));
 			if (!tmp_buf) {
-				uwsgi_error("uwsgi_request_body_read()/realloc()");
+				uwsgi_req_error("uwsgi_request_body_read()/realloc()");
 				wsgi_req->read_errors++;
 				*rlen = -1;
 				return NULL;
@@ -359,7 +359,7 @@ char *uwsgi_request_body_read(struct wsgi_request *wsgi_req, ssize_t hint, ssize
 	if (wsgi_req->post_file) {
 		if (fread(wsgi_req->post_read_buf + *rlen, remains, 1, wsgi_req->post_file) != 1) {
 			*rlen = -1;
-			uwsgi_error("uwsgi_request_body_read()/fread()");
+			uwsgi_req_error("uwsgi_request_body_read()/fread()");
 			wsgi_req->read_errors++;
 			return NULL;
 		}
@@ -499,7 +499,7 @@ int uwsgi_postbuffer_do_in_disk(struct wsgi_request *wsgi_req) {
 
         wsgi_req->post_file = uwsgi_tmpfile();
         if (!wsgi_req->post_file) {
-                uwsgi_error("uwsgi_postbuffer_do_in_disk()/uwsgi_tmpfile()");
+                uwsgi_req_error("uwsgi_postbuffer_do_in_disk()/uwsgi_tmpfile()");
 		wsgi_req->read_errors++;
                 return -1;
         }
@@ -564,7 +564,7 @@ wait:
 
 write:
                 if (fwrite(wsgi_req->post_buffering_buf, rlen, 1, wsgi_req->post_file) != 1) {
-                        uwsgi_error("uwsgi_postbuffer_do_in_disk()/fwrite()");
+                        uwsgi_req_error("uwsgi_postbuffer_do_in_disk()/fwrite()");
 			wsgi_req->read_errors++;
                         goto end;
                 }

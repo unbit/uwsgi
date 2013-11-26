@@ -213,7 +213,7 @@ int uwsgi_response_write_headers_do(struct wsgi_request *wsgi_req) {
                 int ret = wsgi_req->socket->proto_write_headers(wsgi_req, wsgi_req->headers->buf, wsgi_req->headers->pos);
                 if (ret < 0) {
                         if (!uwsgi.ignore_write_errors) {
-                                uwsgi_error("uwsgi_response_write_headers_do()");
+                                uwsgi_req_error("uwsgi_response_write_headers_do()");
                         }
 			wsgi_req->write_errors++;
                         return -1;
@@ -293,7 +293,7 @@ sendbody:
 		int ret = wsgi_req->socket->proto_write(wsgi_req, buf, len);
 		if (ret < 0) {
 			if (!uwsgi.ignore_write_errors) {
-				uwsgi_error("uwsgi_response_write_body_do()");
+				uwsgi_req_error("uwsgi_response_write_body_do()");
 			}
 			wsgi_req->write_errors++;
 			return -1;
@@ -349,7 +349,7 @@ sendfile:
 	if (len == 0) {
 		struct stat st;
 		if (fstat(fd, &st)) {
-			uwsgi_error("uwsgi_response_sendfile_do()/fstat()");
+			uwsgi_req_error("uwsgi_response_sendfile_do()/fstat()");
 			wsgi_req->write_errors++;
 			if (can_close) close(fd);
 			return -1;
@@ -367,7 +367,7 @@ sendfile:
 		if (!can_close) {
 			int tmp_fd = dup(fd);
 			if (tmp_fd < 0) {
-				uwsgi_error("uwsgi_response_sendfile_do()/dup()");
+				uwsgi_req_error("uwsgi_response_sendfile_do()/dup()");
 				wsgi_req->write_errors++;
 				return -1;
 			}
@@ -391,7 +391,7 @@ sendfile:
                 int ret = wsgi_req->socket->proto_sendfile(wsgi_req, fd, pos, len);
                 if (ret < 0) {
                         if (!uwsgi.ignore_write_errors) {
-                                uwsgi_error("uwsgi_response_sendfile_do()");
+                                uwsgi_req_error("uwsgi_response_sendfile_do()");
                         }
 			wsgi_req->write_errors++;
 			if (can_close) close(fd);
@@ -457,7 +457,7 @@ int uwsgi_simple_write(struct wsgi_request *wsgi_req, char *buf, size_t len) {
                 int ret = wsgi_req->socket->proto_write(wsgi_req, buf, len);
                 if (ret < 0) {
                         if (!uwsgi.ignore_write_errors) {
-                                uwsgi_error("uwsgi_simple_write()");
+                                uwsgi_req_error("uwsgi_simple_write()");
                         }
                         wsgi_req->write_errors++;
                         return -1;
