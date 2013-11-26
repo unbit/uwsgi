@@ -43,7 +43,7 @@ static int transform_tofile(struct wsgi_request *wsgi_req, struct uwsgi_transfor
 			while(remains) {
 				ssize_t rlen = write(fd, ub->buf + (ub->pos - remains), remains);
 				if (rlen <= 0) {
-					uwsgi_error("transform_tofile()/write()");
+					uwsgi_req_error("transform_tofile()/write()");
 					unlink(uttc->filename->buf);
 					break;
 				}

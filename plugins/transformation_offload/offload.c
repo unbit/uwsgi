@@ -66,7 +66,7 @@ static int transform_offload(struct wsgi_request *wsgi_req, struct uwsgi_transfo
 		if (ut->ub) {
 			ssize_t wlen = write(ut->fd, ut->ub->buf, ut->ub->pos);
 			if (wlen != (ssize_t) ut->ub->pos) {
-                        	uwsgi_error("transform_offload/write()");
+                        	uwsgi_req_error("transform_offload/write()");
                         	return -1;
                 	}
 		}
@@ -76,7 +76,7 @@ static int transform_offload(struct wsgi_request *wsgi_req, struct uwsgi_transfo
 	if (ut->fd > -1) {
 		ssize_t wlen = write(ut->fd, ut->chunk->buf, ut->chunk->pos);
 		if (wlen != (ssize_t) ut->chunk->pos) {
-			uwsgi_error("transform_offload/write()");
+			uwsgi_req_error("transform_offload/write()");
 			return -1;
 		}
 		ut->len += wlen;
