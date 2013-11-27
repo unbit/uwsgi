@@ -378,8 +378,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
         {"hook-accepting-once", required_argument, 0, "run the specified hook after each worker enter the accepting phase (once per-instance)", uwsgi_opt_add_string_list, &uwsgi.hook_accepting_once, 0},
         {"hook-accepting1-once", required_argument, 0, "run the specified hook after the first worker enters the accepting phase (once per instance)", uwsgi_opt_add_string_list, &uwsgi.hook_accepting1_once, 0},
 
-        {"hook-as-vassal", required_argument, 0, "run the specified command before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.hook_as_vassal, 0},
-        {"hook-as-emperor", required_argument, 0, "run the specified command in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.hook_as_emperor, 0},
+        {"hook-as-vassal", required_argument, 0, "run the specified hook before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.hook_as_vassal, 0},
+        {"hook-as-emperor", required_argument, 0, "run the specified hook in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.hook_as_emperor, 0},
+
+        {"hook-as-mule", required_argument, 0, "run the specified hook in each mule", uwsgi_opt_add_string_list, &uwsgi.hook_as_mule, 0},
 
 	{"exec-asap", required_argument, 0, "run the specified command as soon as possible", uwsgi_opt_add_string_list, &uwsgi.exec_asap, 0},
 	{"exec-pre-jail", required_argument, 0, "run the specified command before jailing", uwsgi_opt_add_string_list, &uwsgi.exec_pre_jail, 0},
