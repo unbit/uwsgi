@@ -28,7 +28,6 @@ void uwsgi_async_queue_is_full(time_t now) {
 }
 
 void uwsgi_async_init() {
-	int i;
 
 	uwsgi.async_queue = event_queue_init();
 
@@ -40,16 +39,9 @@ void uwsgi_async_init() {
 
 	uwsgi.rb_async_timeouts = uwsgi_init_rb_timer();
 
-	// a stack of unused cores
-	uwsgi.async_queue_unused = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.async);
-
-	// fill it with default values
-	for (i = 0; i < uwsgi.async; i++) {
-		uwsgi.async_queue_unused[i] = &uwsgi.workers[uwsgi.mywid].cores[i].req;
-	}
-
-	// the first available core is the last one
-	uwsgi.async_queue_unused_ptr = uwsgi.async - 1;
+	// optimization, this array maps file descriptor to requests
+        uwsgi.async_waiting_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
+        uwsgi.async_proto_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
 
 }
 
@@ -173,7 +165,7 @@ static void async_expire_timeouts(uint64_t now) {
 
 int async_add_fd_read(struct wsgi_request *wsgi_req, int fd, int timeout) {
 
-	if (uwsgi.async < 2){ 
+	if (uwsgi.async < 2 || !uwsgi.async_waiting_fd_table){ 
 		uwsgi_log_verbose("ASYNC call without async mode !!!\n");
 		return -1;
 	}
@@ -231,7 +223,7 @@ static int async_wait_fd_read(int fd, int timeout) {
 
 void async_add_timeout(struct wsgi_request *wsgi_req, int timeout) {
 
-	if (uwsgi.async < 2) {
+	if (uwsgi.async < 2 || !uwsgi.rb_async_timeouts) {
 		uwsgi_log_verbose("ASYNC call without async mode !!!\n");
 		return;
 	}
@@ -246,7 +238,7 @@ void async_add_timeout(struct wsgi_request *wsgi_req, int timeout) {
 
 int async_add_fd_write(struct wsgi_request *wsgi_req, int fd, int timeout) {
 
-	if (uwsgi.async < 2) {
+	if (uwsgi.async < 2 || !uwsgi.async_waiting_fd_table) {
 		uwsgi_log_verbose("ASYNC call without async mode !!!\n");
 		return -1;
 	}
@@ -379,6 +371,8 @@ void async_loop() {
 
 	void *events = event_queue_alloc(64);
 	struct uwsgi_socket *uwsgi_sock;
+
+	uwsgi_async_init();
 
 	uwsgi.async_runqueue = NULL;
 

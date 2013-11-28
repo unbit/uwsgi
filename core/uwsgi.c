@@ -2526,9 +2526,6 @@ int uwsgi_start(void *v_argv) {
 			}
 		}
 		uwsgi_log_initial("- async cores set to %d - fd table size: %d\n", uwsgi.async, (int) uwsgi.max_fd);
-		// optimization, this array maps file descriptor to requests
-		uwsgi.async_waiting_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
-		uwsgi.async_proto_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
 	}
 
 #ifdef UWSGI_DEBUG
@@ -3167,10 +3164,17 @@ void uwsgi_worker_run() {
 	// some apps could be mounted only on specific workers
 	uwsgi_init_worker_mount_apps();
 
-	//postpone the queue initialization as kevent
-	//do not pass kfd after fork()
 	if (uwsgi.async > 1) {
-		uwsgi_async_init();
+		// a stack of unused cores
+        	uwsgi.async_queue_unused = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.async);
+
+        	// fill it with default values
+               for (i = 0; i < uwsgi.async; i++) {
+               	uwsgi.async_queue_unused[i] = &uwsgi.workers[uwsgi.mywid].cores[i].req;
+               }
+
+                // the first available core is the last one
+                uwsgi.async_queue_unused_ptr = uwsgi.async - 1;
 	}
 
 	// setup UNIX signals for the worker
