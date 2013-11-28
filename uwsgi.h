@@ -2520,6 +2520,7 @@ struct uwsgi_server {
 	struct uwsgi_rpc *rpc_table;	
 
 	// subscription client
+	int subscriptions_blocked;
 	int subscribe_freq;
 	int subscription_tolerance;
 	int unsubscribe_on_graceful_reload;

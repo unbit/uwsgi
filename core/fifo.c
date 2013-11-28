@@ -37,6 +37,17 @@ static void uwsgi_fifo_set_slot_seven() { uwsgi.master_fifo_slot = 7; announce_f
 static void uwsgi_fifo_set_slot_eight() { uwsgi.master_fifo_slot = 8; announce_fifo; }
 static void uwsgi_fifo_set_slot_nine() { uwsgi.master_fifo_slot = 9; announce_fifo; }
 
+static void subscriptions_blocker() {
+	if (uwsgi.subscriptions_blocked) {
+		uwsgi_log_verbose("subscriptions re-enabled\n");
+		uwsgi.subscriptions_blocked = 0;
+	}
+	else {
+		uwsgi.subscriptions_blocked = 1;
+		uwsgi_log_verbose("subscriptions blocked\n");
+	}
+}
+
 /*
 
 this is called as soon as possibile allowing plugins (or hooks) to override it
@@ -73,6 +84,7 @@ void uwsgi_master_fifo_prepare() {
 	uwsgi_fifo_table['r'] = grace_them_all;
 	uwsgi_fifo_table['R'] = reap_them_all;
 	uwsgi_fifo_table['s'] = stats;
+	uwsgi_fifo_table['S'] = subscriptions_blocker;
 	uwsgi_fifo_table['w'] = uwsgi_reload_workers;
 	uwsgi_fifo_table['W'] = uwsgi_brutally_reload_workers;
 
