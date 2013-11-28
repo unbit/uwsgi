@@ -295,9 +295,8 @@ void async_schedule_to_req(void) {
 	// a trick to avoid calling routes again
 	uwsgi.wsgi_req->is_routing = 1;
 #endif
-        if (uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req) <= UWSGI_OK) {
-		goto end;
-	}
+	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req);
+        if (uwsgi.wsgi_req->async_status <= UWSGI_OK) goto end;
 
 	if (uwsgi.schedule_to_main) {
         	uwsgi.schedule_to_main(uwsgi.wsgi_req);
@@ -478,7 +477,8 @@ void async_loop() {
 						// remove fd from event poll and fd proto table 
 						uwsgi.async_proto_fd_table[interesting_fd] = NULL;
 						event_queue_del_fd(uwsgi.async_queue, interesting_fd, event_queue_read());
-						// put request in the runqueue
+						// put request in the runqueue (set it as UWSGI_OK to signal the first run)
+						uwsgi.wsgi_req->async_status = UWSGI_OK;
 						runqueue_push(uwsgi.wsgi_req);
 						continue;
 					}

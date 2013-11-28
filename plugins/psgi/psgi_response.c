@@ -22,15 +22,13 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 			return UWSGI_OK;
 		}
 
-		if (wsgi_req->async_force_again) {
-			SvREFCNT_dec(chunk);
-			return UWSGI_AGAIN;
-		}
-
                 chitem = SvPV( chunk, hlen);
 
                 if (hlen <= 0) {
 			SvREFCNT_dec(chunk);
+			if (wsgi_req->async_force_again) {
+				return UWSGI_AGAIN;
+			}
 			SV *closed = uwsgi_perl_obj_call(wsgi_req->async_placeholder, "close");
                 	if (closed) {
                         	SvREFCNT_dec(closed);
@@ -149,13 +147,12 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 			}
 
                         chitem = SvPV( chunk, hlen);
-			if (uwsgi.async > 1 && wsgi_req->async_force_again) {
-				SvREFCNT_dec(chunk);
-				wsgi_req->async_placeholder = (SV *) *hitem;
-				return UWSGI_AGAIN;
-			}
                         if (hlen <= 0) {
 				SvREFCNT_dec(chunk);
+				if (uwsgi.async > 1 && wsgi_req->async_force_again) {
+					wsgi_req->async_placeholder = (SV *) *hitem;
+					return UWSGI_AGAIN;
+				}
                                 break;
                         }
 
