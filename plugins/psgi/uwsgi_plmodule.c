@@ -498,6 +498,26 @@ XS(XS_websocket_send) {
 	XSRETURN_UNDEF;
 }
 
+XS(XS_websocket_send_binary) {
+        dXSARGS;
+
+        char *message = NULL;
+        STRLEN message_len = 0;
+
+        psgi_check_args(1);
+
+        message = SvPV(ST(0), message_len);
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        if (uwsgi_websocket_send_binary(wsgi_req, message, message_len)) {
+                croak("unable to send websocket binary message");
+        }
+
+        XSRETURN_UNDEF;
+}
+
+
 XS(XS_websocket_recv) {
 	dXSARGS;
 
@@ -668,6 +688,47 @@ XS(XS_metric_get) {
         XSRETURN(1);
 }
 
+XS(XS_sharedarea_wait) {
+        dXSARGS;
+        int id;
+
+	psgi_check_args(1);
+	
+	id = SvIV(ST(0));
+
+	if (uwsgi_sharedarea_wait(id, 100, 0)) {
+                croak("unable to wait for sharedarea %d", id);
+                XSRETURN_UNDEF;
+        }
+	XSRETURN_YES;
+}
+
+XS(XS_sharedarea_read) {
+	dXSARGS;
+	int id;
+	uint64_t pos;
+	uint64_t len = 1;
+	psgi_check_args(2);	
+
+	id = SvIV(ST(0));
+	pos = SvIV(ST(1));
+
+	if (items > 2) {
+		len = SvIV(ST(2));	
+	}
+
+	char *buf = uwsgi_malloc(len);
+	if (uwsgi_sharedarea_read(id, pos, buf, len)) {
+		free(buf);
+		croak("unable to read from sharedarea %d", id);
+                XSRETURN_UNDEF;
+	}
+
+	ST(0) = sv_newmortal();
+     	sv_usepvn(ST(0), buf,len);
+        XSRETURN(1);
+}
+
 XS(XS_chunked_read) {
 	dXSARGS;
         int timeout = 0;
@@ -740,6 +801,7 @@ void init_perl_embedded_module() {
 	psgi_xs(websocket_recv);
 	psgi_xs(websocket_recv_nb);
 	psgi_xs(websocket_send);
+	psgi_xs(websocket_send_binary);
 	psgi_xs(postfork);
 	psgi_xs(atexit);
 
@@ -757,5 +819,8 @@ void init_perl_embedded_module() {
 
 	psgi_xs(chunked_read);
 	psgi_xs(chunked_read_nb);
+
+	psgi_xs(sharedarea_read);
+	psgi_xs(sharedarea_wait);
 }
 

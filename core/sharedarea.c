@@ -27,11 +27,25 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_get_by_id(int id, uint64_t pos) {
 }
 
 int uwsgi_sharedarea_read(int id, uint64_t pos, char *blob, uint64_t len) {
-	return -1;
+	struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
+        if (!sa) return -1;
+        if (pos + len > sa->max_pos + 1) return -1;
+        uwsgi_rlock(sa->lock);
+        memcpy(blob, sa->area + pos, len);
+        sa->hits++;
+        uwsgi_rwunlock(sa->lock);
+        return 0;
 } 
 
 int uwsgi_sharedarea_write(int id, uint64_t pos, char *blob, uint64_t len) {
-	return -1;
+	struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
+	if (!sa) return -1;
+	if (pos + len > sa->max_pos + 1) return -1;
+	uwsgi_wlock(sa->lock);
+	memcpy(sa->area + pos, blob, len);	
+	sa->updates++;
+	uwsgi_rwunlock(sa->lock);
+	return 0;
 } 
 
 int uwsgi_sharedarea_read64(int id, uint64_t pos, int64_t *value) {
@@ -60,7 +74,10 @@ int uwsgi_sharedarea_wait(int id, int freq, int timeout) {
 		waiting += freq;
 		// lock sa
 		uwsgi_rlock(sa->lock);
-		if (sa->updates != updates) return 0;
+		if (sa->updates != updates) {
+			uwsgi_rwunlock(sa->lock);
+			return 0;
+		}
 		// unlock sa
 		uwsgi_rwunlock(sa->lock);
 	}
@@ -112,6 +129,9 @@ void uwsgi_sharedareas_init() {
 		}
 		else {
 			sa = uwsgi_sharedarea_init_keyval(id, usl->value);
+		}
+		if (sa) {
+			uwsgi_log("sharedaread % initialized at %p\n", id, sa);
 		}
 		id++;
 	}

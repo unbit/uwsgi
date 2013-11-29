@@ -4165,6 +4165,7 @@ void uwsgi_subscribe_all(uint8_t, int);
 
 void uwsgi_websockets_init(void);
 int uwsgi_websocket_send(struct wsgi_request *, char *, size_t);
+int uwsgi_websocket_send_binary(struct wsgi_request *, char *, size_t);
 struct uwsgi_buffer *uwsgi_websocket_recv(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_websocket_recv_nb(struct wsgi_request *);
 
@@ -4188,6 +4189,7 @@ struct uwsgi_buffer *uwsgi_proto_base_add_header(struct wsgi_request *, char *, 
 
 int uwsgi_simple_wait_write_hook(int, int);
 int uwsgi_simple_wait_read_hook(int, int);
+int uwsgi_simple_wait_milliseconds_hook(int);
 int uwsgi_response_write_headers_do(struct wsgi_request *);
 char *uwsgi_request_body_read(struct wsgi_request *, ssize_t , ssize_t *);
 char *uwsgi_request_body_readline(struct wsgi_request *, ssize_t, ssize_t *);
@@ -4560,6 +4562,10 @@ void uwsgi_protocols_register(void);
 void uwsgi_build_plugin(char *dir);
 
 void uwsgi_sharedareas_init();
+
+int uwsgi_sharedarea_read(int, uint64_t, char *, uint64_t);
+int uwsgi_sharedarea_write(int, uint64_t, char *, uint64_t);
+int uwsgi_sharedarea_wait(int, int, int);
 
 #ifdef __cplusplus
 }
