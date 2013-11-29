@@ -361,6 +361,7 @@ static void gevent_loop() {
 
 	uwsgi.wait_write_hook = uwsgi_gevent_wait_write_hook;
 	uwsgi.wait_read_hook = uwsgi_gevent_wait_read_hook;
+	uwsgi.wait_milliseconds_hook = uwsgi_gevent_wait_milliseconds_hook;
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 

@@ -98,3 +98,42 @@ int uwsgi_gevent_wait_read_hook(int fd, int timeout) {
         return 1;
 }
 
+int uwsgi_gevent_wait_milliseconds_hook(int timeout) {
+
+        PyObject *ret = NULL;
+
+        PyObject *timer = PyObject_CallMethod(ugevent.hub_loop, "timer", "f", ((double) timeout)/1000.0);
+        if (!timer) return -1;
+
+        PyObject *current_greenlet = GET_CURRENT_GREENLET;
+        PyObject *current = PyObject_GetAttrString(current_greenlet, "switch");
+
+        ret = PyObject_CallMethod(timer, "start", "OO", current, timer);
+        if (!ret) {
+		Py_DECREF(current); Py_DECREF(current_greenlet);
+                Py_DECREF(timer);
+                return -1;
+        }
+        Py_DECREF(ret);
+
+        ret = PyObject_CallMethod(ugevent.hub, "switch", NULL);
+        if (!ret) {
+		ret = PyObject_CallMethod(timer, "stop", NULL);
+                if (ret) { Py_DECREF(ret); } 
+		Py_DECREF(current); Py_DECREF(current_greenlet);
+                Py_DECREF(timer);
+                return -1;
+        }
+        Py_DECREF(ret);
+
+        if (ret == timer) {
+		ret = PyObject_CallMethod(timer, "stop", NULL);
+                if (ret) { Py_DECREF(ret); } 
+		Py_DECREF(current); Py_DECREF(current_greenlet);
+                Py_DECREF(timer);
+                return 0;
+        }
+
+        return -1;
+}
+
