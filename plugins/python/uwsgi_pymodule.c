@@ -1429,32 +1429,10 @@ PyObject *py_uwsgi_extract(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_sharedarea_inclong(PyObject * self, PyObject * args) {
 	uint64_t pos = 0;
 	uint64_t value = 1;
-	uint64_t current_value = 0;
-
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
 
 	if (!PyArg_ParseTuple(args, "l|l:sharedarea_inclong", &pos, &value)) {
 		return NULL;
 	}
-
-	if (pos + 8 >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-	
-	UWSGI_RELEASE_GIL
-
-	uwsgi_wlock(uwsgi.sa_lock);
-
-	memcpy(&current_value, uwsgi.sharedarea + pos, 8);
-	value = current_value + value;
-	memcpy(uwsgi.sharedarea + pos, &value, 8);
-
-        uwsgi_rwunlock(uwsgi.sa_lock);
-	UWSGI_GET_GIL
 
 	return PyInt_FromLong(value);
 
@@ -1464,29 +1442,9 @@ PyObject *py_uwsgi_sharedarea_writelong(PyObject * self, PyObject * args) {
 	uint64_t pos = 0;
 	uint64_t value = 0;
 
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
 	if (!PyArg_ParseTuple(args, "ll:sharedarea_writelong", &pos, &value)) {
 		return NULL;
 	}
-
-	if (pos + 8 >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	UWSGI_RELEASE_GIL
-
-	uwsgi_wlock(uwsgi.sa_lock);
-
-	memcpy(uwsgi.sharedarea + pos, &value, 8);
-
-        uwsgi_rwunlock(uwsgi.sa_lock);
-
-	UWSGI_GET_GIL
 
 	return PyInt_FromLong(value);
 
@@ -1497,30 +1455,9 @@ PyObject *py_uwsgi_sharedarea_write(PyObject * self, PyObject * args) {
 	char *value;
 	Py_ssize_t value_len = 0;
 
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
 	if (!PyArg_ParseTuple(args, "ls#:sharedarea_write", &pos, &value, &value_len)) {
 		return NULL;
 	}
-
-	if (pos + value_len >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	UWSGI_RELEASE_GIL
-
-	uwsgi_wlock(uwsgi.sa_lock);
-
-	memcpy(uwsgi.sharedarea + pos, value, value_len);
-
-
-	uwsgi_rwunlock(uwsgi.sa_lock);
-
-	UWSGI_GET_GIL
 
 	return PyInt_FromLong(value_len);
 	
@@ -1531,31 +1468,9 @@ PyObject *py_uwsgi_sharedarea_writebyte(PyObject * self, PyObject * args) {
 	uint64_t pos = 0;
 	char value;
 
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-
 	if (!PyArg_ParseTuple(args, "lb:sharedarea_writebyte", &pos, &value)) {
 		return NULL;
 	}
-
-	if (pos >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	UWSGI_RELEASE_GIL
-
-	uwsgi_wlock(uwsgi.sa_lock);
-
-	uwsgi.sharedarea[pos] = value;
-
-
-	uwsgi_rwunlock(uwsgi.sa_lock);
-
-	UWSGI_GET_GIL
 
 	return PyInt_FromLong(value);
 
@@ -1565,30 +1480,11 @@ PyObject *py_uwsgi_sharedarea_readlong(PyObject * self, PyObject * args) {
 	uint64_t pos = 0;
 	uint64_t value;
 
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
 	if (!PyArg_ParseTuple(args, "l:sharedarea_readlong", &pos)) {
 		return NULL;
 	}
 
-	if (pos + 8 >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	UWSGI_RELEASE_GIL
-
-	uwsgi_wlock(uwsgi.sa_lock);
-
-	memcpy(&value, uwsgi.sharedarea + pos, 8);
-
-
-	uwsgi_rwunlock(uwsgi.sa_lock);
-
-	UWSGI_GET_GIL
+	value = 1;
 
 	return PyLong_FromLong(value);
 
@@ -1597,32 +1493,15 @@ PyObject *py_uwsgi_sharedarea_readlong(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_sharedarea_readbyte(PyObject * self, PyObject * args) {
 	uint64_t pos = 0;
-
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
+	uint8_t byte;
 
 	if (!PyArg_ParseTuple(args, "l:sharedarea_readbyte", &pos)) {
 		return NULL;
 	}
 
-	if (pos >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
+	byte = 1;
 
-	UWSGI_RELEASE_GIL
-
-	uwsgi_wlock(uwsgi.sa_lock);
-
-	char value = uwsgi.sharedarea[pos];
-
-	uwsgi_rwunlock(uwsgi.sa_lock);
-
-	UWSGI_GET_GIL
-
-	return PyInt_FromLong(value);
+	return PyInt_FromLong(byte);
 
 }
 
@@ -1630,38 +1509,20 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
 	uint64_t pos = 0;
 	uint64_t len = 1;
 
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
 	if (!PyArg_ParseTuple(args, "l|l:sharedarea_read", &pos, &len)) {
 		return NULL;
 	}
 
-	if (pos + len >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
+/*
 	PyObject *ret = PyString_FromStringAndSize(NULL, len);
 #ifdef PYTHREE
 	char *storage = PyBytes_AsString(ret);
 #else
 	char *storage = PyString_AS_STRING(ret);
 #endif
+*/
 
-	UWSGI_RELEASE_GIL
-
-	uwsgi_wlock(uwsgi.sa_lock);
-
-	memcpy(storage, uwsgi.sharedarea + pos, len);
-
-	uwsgi_rwunlock(uwsgi.sa_lock);
-
-	UWSGI_GET_GIL
-
-	return ret;
+	return NULL;
 }
 
 PyObject *py_uwsgi_spooler_freq(PyObject * self, PyObject * args) {

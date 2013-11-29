@@ -711,6 +711,16 @@ struct uwsgi_hash_algo *uwsgi_hash_algo_get(char *);
 void uwsgi_hash_algo_register(char *, uint32_t(*)(char *, uint64_t));
 void uwsgi_hash_algo_register_all(void);
 
+struct uwsgi_sharedarea {
+	int id;
+	int pages;
+	int fd;
+	struct uwsgi_lock_item *lock;
+	uint64_t max_pos;
+	uint64_t updates;
+	uint64_t hits;
+};
+
 // maintain alignment here !!!
 struct uwsgi_cache_item {
 	// item specific flags
@@ -2304,8 +2314,9 @@ struct uwsgi_server {
 	int vec_size;
 
 	// shared area
-	char *sharedarea;
-	uint64_t sharedareasize;
+	struct uwsgi_string_list *sharedareas_list;
+	int sharedareas_cnt;
+	struct uwsgi_sharedarea **sharedareas;
 
 	// avoid thundering herd in threaded modes
 	pthread_mutex_t thunder_mutex;
@@ -2588,6 +2599,7 @@ struct uwsgi_server {
 
 	int (*wait_write_hook) (int, int);
 	int (*wait_read_hook) (int, int);
+	int (*wait_milliseconds_hook) (int);
 
 	struct uwsgi_string_list *schemes;
 
@@ -4545,6 +4557,8 @@ struct uwsgi_protocol *uwsgi_register_protocol(char *, void (*)(struct uwsgi_soc
 void uwsgi_protocols_register(void);
 
 void uwsgi_build_plugin(char *dir);
+
+void uwsgi_sharedareas_init();
 
 #ifdef __cplusplus
 }

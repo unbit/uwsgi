@@ -259,7 +259,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"lock-engine", required_argument, 0, "set the lock engine", uwsgi_opt_set_str, &uwsgi.lock_engine, 0},
 	{"ftok", required_argument, 0, "set the ipcsem key via ftok() for avoiding duplicates", uwsgi_opt_set_str, &uwsgi.ftok, 0},
 	{"persistent-ipcsem", no_argument, 0, "do not remove ipcsem's on shutdown", uwsgi_opt_true, &uwsgi.persistent_ipcsem, 0},
-	{"sharedarea", required_argument, 'A', "create a raw shared memory area of specified pages", uwsgi_opt_set_int, &uwsgi.sharedareasize, 0},
+	{"sharedarea", required_argument, 'A', "create a raw shared memory area of specified pages (note: it supports keyval too)", uwsgi_opt_add_string_list, &uwsgi.sharedareas_list, 0},
 
 	{"safe-fd", required_argument, 0, "do not close the specified file descriptor", uwsgi_opt_safe_fd, NULL, 0},
 	{"fd-safe", required_argument, 0, "do not close the specified file descriptor", uwsgi_opt_safe_fd, NULL, 0},
@@ -2548,12 +2548,8 @@ int uwsgi_start(void *v_argv) {
 	// allocate rpc structures
         uwsgi_rpc_init();
 
-	// setup sharedarea
-	if (uwsgi.sharedareasize > 0) {
-		uwsgi.sharedarea = uwsgi_calloc_shared(uwsgi.page_size * uwsgi.sharedareasize);
-		uwsgi_log("shared area mapped at %p, you can access it with uwsgi.sharedarea* functions.\n", uwsgi.sharedarea);
-		uwsgi.sa_lock = uwsgi_rwlock_init("sharedarea");
-	}
+	// initialize sharedareas
+	uwsgi_sharedareas_init();
 
 	uwsgi.snmp_lock = uwsgi_lock_init("snmp");
 

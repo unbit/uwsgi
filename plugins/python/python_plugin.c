@@ -833,7 +833,7 @@ void init_uwsgi_embedded_module() {
 		init_uwsgi_module_spooler(new_uwsgi_module);
 	}
 
-	if (uwsgi.sharedareasize > 0 && uwsgi.sharedarea) {
+	if (uwsgi.sharedareas) {
 		init_uwsgi_module_sharedarea(new_uwsgi_module);
 	}
 
