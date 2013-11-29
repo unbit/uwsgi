@@ -4567,6 +4567,9 @@ int uwsgi_sharedarea_read(int, uint64_t, char *, uint64_t);
 int uwsgi_sharedarea_write(int, uint64_t, char *, uint64_t);
 int uwsgi_sharedarea_wait(int, int, int);
 
+void uwsgi_setup(int, char **, char **);
+int uwsgi_run(void);
+
 #ifdef __cplusplus
 }
 #endif

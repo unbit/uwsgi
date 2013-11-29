@@ -1852,14 +1852,19 @@ void uwsgi_init_random() {
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int argc, char *argv[], char *envp[]) {
+#else
+int main(int argc, char *argv[], char *envp[]) {
+#endif
+	uwsgi_setup(argc, argv, envp);
+	return uwsgi_run();
+}
 
+void uwsgi_setup(int argc, char *argv[], char *envp[]) {
+#ifdef UWSGI_AS_SHARED_LIBRARY
 #ifdef __APPLE__
 	char ***envPtr = _NSGetEnviron();
 	environ = *envPtr;
 #endif
-
-#else
-int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	int i;
@@ -2318,7 +2323,6 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
-
 	// TODO pluginize basic Linux namespace support
 #if defined(__linux__) && !defined(__ia64__)
 	if (uwsgi.ns) {
@@ -2331,10 +2335,6 @@ int main(int argc, char *argv[], char *envp[]) {
 #if defined(__linux__) && !defined(__ia64__)
 	}
 #endif
-
-
-	// never here
-	return 0;
 }
 
 
@@ -3044,9 +3044,14 @@ next2:
 
 
 	// END OF INITIALIZATION
+	return 0;
+
+}
+
+int uwsgi_run() {
 
 	// !!! from now on, we could be in the master or in a worker !!!
-
+	int i;
 
 	if (getpid() == masterpid && uwsgi.master_process == 1) {
 #ifdef UWSGI_AS_SHARED_LIBRARY
