@@ -716,6 +716,7 @@ struct uwsgi_sharedarea {
 	int pages;
 	int fd;
 	struct uwsgi_lock_item *lock;
+	char *area;
 	uint64_t max_pos;
 	uint64_t updates;
 	uint64_t hits;
