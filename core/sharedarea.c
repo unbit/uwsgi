@@ -81,6 +81,57 @@ int uwsgi_sharedarea_write32(int id, uint64_t pos, int32_t *value) {
 	return uwsgi_sharedarea_write(id, pos, (char *) value, 4);
 }
 
+int uwsgi_sharedarea_inc8(int id, uint64_t pos, int8_t amount) {
+	struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
+        if (!sa) return -1;
+        if (pos + 1 > sa->max_pos + 1) return -1;
+        uwsgi_wlock(sa->lock);
+	uint8_t *n_ptr = (uint8_t *) (sa->area + pos);
+        *n_ptr+=amount;
+        sa->updates++;
+        uwsgi_rwunlock(sa->lock);
+        return 0;
+}
+
+int uwsgi_sharedarea_inc16(int id, uint64_t pos, int16_t amount) {
+        struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
+        if (!sa) return -1;
+        if (pos + 2 > sa->max_pos + 1) return -1;
+        uwsgi_wlock(sa->lock);
+        uint16_t *n_ptr = (uint16_t *) (sa->area + pos);
+        *n_ptr+=amount;
+        sa->updates++;
+        uwsgi_rwunlock(sa->lock);
+        return 0;
+}
+
+int uwsgi_sharedarea_inc32(int id, uint64_t pos, int32_t amount) {
+        struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
+        if (!sa) return -1;
+        if (pos + 4 > sa->max_pos + 1) return -1;
+        uwsgi_wlock(sa->lock);
+        uint32_t *n_ptr = (uint32_t *) (sa->area + pos);
+        *n_ptr+=amount;
+        sa->updates++;
+        uwsgi_rwunlock(sa->lock);
+        return 0;
+}
+
+int uwsgi_sharedarea_inc64(int id, uint64_t pos, int64_t amount) {
+        struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
+        if (!sa) return -1;
+        if (pos + 4 > sa->max_pos + 1) return -1;
+        uwsgi_wlock(sa->lock);
+        uint32_t *n_ptr = (uint32_t *) (sa->area + pos);
+        *n_ptr+=amount;
+        sa->updates++;
+        uwsgi_rwunlock(sa->lock);
+        return 0;
+}
+
+
+
+
 /*
 	returns:
 		0 -> on updates
