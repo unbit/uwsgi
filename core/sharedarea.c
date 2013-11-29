@@ -86,7 +86,7 @@ int uwsgi_sharedarea_inc8(int id, uint64_t pos, int8_t amount) {
         if (!sa) return -1;
         if (pos + 1 > sa->max_pos + 1) return -1;
         uwsgi_wlock(sa->lock);
-	uint8_t *n_ptr = (uint8_t *) (sa->area + pos);
+	int8_t *n_ptr = (int8_t *) (sa->area + pos);
         *n_ptr+=amount;
         sa->updates++;
         uwsgi_rwunlock(sa->lock);
@@ -98,7 +98,7 @@ int uwsgi_sharedarea_inc16(int id, uint64_t pos, int16_t amount) {
         if (!sa) return -1;
         if (pos + 2 > sa->max_pos + 1) return -1;
         uwsgi_wlock(sa->lock);
-        uint16_t *n_ptr = (uint16_t *) (sa->area + pos);
+        int16_t *n_ptr = (int16_t *) (sa->area + pos);
         *n_ptr+=amount;
         sa->updates++;
         uwsgi_rwunlock(sa->lock);
@@ -110,7 +110,7 @@ int uwsgi_sharedarea_inc32(int id, uint64_t pos, int32_t amount) {
         if (!sa) return -1;
         if (pos + 4 > sa->max_pos + 1) return -1;
         uwsgi_wlock(sa->lock);
-        uint32_t *n_ptr = (uint32_t *) (sa->area + pos);
+        int32_t *n_ptr = (int32_t *) (sa->area + pos);
         *n_ptr+=amount;
         sa->updates++;
         uwsgi_rwunlock(sa->lock);
@@ -122,7 +122,7 @@ int uwsgi_sharedarea_inc64(int id, uint64_t pos, int64_t amount) {
         if (!sa) return -1;
         if (pos + 4 > sa->max_pos + 1) return -1;
         uwsgi_wlock(sa->lock);
-        uint32_t *n_ptr = (uint32_t *) (sa->area + pos);
+        int64_t *n_ptr = (int64_t *) (sa->area + pos);
         *n_ptr+=amount;
         sa->updates++;
         uwsgi_rwunlock(sa->lock);
@@ -135,7 +135,7 @@ int uwsgi_sharedarea_dec8(int id, uint64_t pos, int8_t amount) {
         if (!sa) return -1;
         if (pos + 1 > sa->max_pos + 1) return -1;
         uwsgi_wlock(sa->lock);
-        uint8_t *n_ptr = (uint8_t *) (sa->area + pos);
+        int8_t *n_ptr = (int8_t *) (sa->area + pos);
         *n_ptr-=amount;
         sa->updates++;
         uwsgi_rwunlock(sa->lock);
@@ -147,7 +147,7 @@ int uwsgi_sharedarea_dec16(int id, uint64_t pos, int16_t amount) {
         if (!sa) return -1;
         if (pos + 2 > sa->max_pos + 1) return -1;
         uwsgi_wlock(sa->lock);
-        uint16_t *n_ptr = (uint16_t *) (sa->area + pos);
+        int16_t *n_ptr = (int16_t *) (sa->area + pos);
         *n_ptr-=amount;
         sa->updates++;
         uwsgi_rwunlock(sa->lock);
@@ -159,7 +159,7 @@ int uwsgi_sharedarea_dec32(int id, uint64_t pos, int32_t amount) {
         if (!sa) return -1;
         if (pos + 4 > sa->max_pos + 1) return -1;
         uwsgi_wlock(sa->lock);
-        uint32_t *n_ptr = (uint32_t *) (sa->area + pos);
+        int32_t *n_ptr = (int32_t *) (sa->area + pos);
         *n_ptr-=amount;
         sa->updates++;
         uwsgi_rwunlock(sa->lock);
@@ -171,7 +171,7 @@ int uwsgi_sharedarea_dec64(int id, uint64_t pos, int64_t amount) {
         if (!sa) return -1;
         if (pos + 4 > sa->max_pos + 1) return -1;
         uwsgi_wlock(sa->lock);
-        uint32_t *n_ptr = (uint32_t *) (sa->area + pos);
+        int64_t *n_ptr = (int64_t *) (sa->area + pos);
         *n_ptr-=amount;
         sa->updates++;
         uwsgi_rwunlock(sa->lock);
