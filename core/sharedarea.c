@@ -49,11 +49,36 @@ int uwsgi_sharedarea_write(int id, uint64_t pos, char *blob, uint64_t len) {
 } 
 
 int uwsgi_sharedarea_read64(int id, uint64_t pos, int64_t *value) {
-	return -1;
+	return uwsgi_sharedarea_read(id, pos, (char *) value, 8);
 }
 
-int uwsgi_sharedarea_write64(int id, uint64_t pos, int64_t value) {
-	return -1;
+int uwsgi_sharedarea_write64(int id, uint64_t pos, int64_t *value) {
+	return uwsgi_sharedarea_write(id, pos, (char *) value, 8);
+}
+
+int uwsgi_sharedarea_read8(int id, uint64_t pos, int8_t *value) {
+	return uwsgi_sharedarea_read(id, pos, (char *) value, 1);
+}
+
+int uwsgi_sharedarea_write8(int id, uint64_t pos, int8_t *value) {
+	return uwsgi_sharedarea_write(id, pos, (char *) value, 1);
+}
+
+int uwsgi_sharedarea_read16(int id, uint64_t pos, int16_t *value) {
+	return uwsgi_sharedarea_read(id, pos, (char *) value, 2);
+}
+
+int uwsgi_sharedarea_write16(int id, uint64_t pos, int16_t *value) {
+	return uwsgi_sharedarea_write(id, pos, (char *) value, 2);
+}
+
+
+int uwsgi_sharedarea_read32(int id, uint64_t pos, int32_t *value) {
+	return uwsgi_sharedarea_read(id, pos, (char *) value, 4);
+}
+
+int uwsgi_sharedarea_write32(int id, uint64_t pos, int32_t *value) {
+	return uwsgi_sharedarea_write(id, pos, (char *) value, 4);
 }
 
 /*
