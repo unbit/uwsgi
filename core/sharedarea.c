@@ -66,6 +66,7 @@ int uwsgi_sharedarea_wait(int id, int freq, int timeout) {
 	int waiting = 0;
 	struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, 0);
 	if (!sa) return -1;
+	if (!freq) freq = 100;
 	uwsgi_rlock(sa->lock);
 	uint64_t updates = sa->updates;
 	uwsgi_rwunlock(sa->lock);

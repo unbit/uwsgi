@@ -691,12 +691,16 @@ XS(XS_metric_get) {
 XS(XS_sharedarea_wait) {
         dXSARGS;
         int id;
+	int timeout = 0;
 
 	psgi_check_args(1);
 	
 	id = SvIV(ST(0));
+	if (items > 1) {
+		timeout = SvIV(ST(1));
+	}
 
-	if (uwsgi_sharedarea_wait(id, 100, 0)) {
+	if (uwsgi_sharedarea_wait(id, timeout, 0)) {
                 croak("unable to wait for sharedarea %d", id);
                 XSRETURN_UNDEF;
         }
