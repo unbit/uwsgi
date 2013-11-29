@@ -56,6 +56,8 @@ static int uwsgi_routing_func_hash(struct wsgi_request *wsgi_req, struct uwsgi_r
 	// skip last semicolon
 	if (urhc->items[ilen-1] == ';') items--;
 
+	if (items < 1) return UWSGI_ROUTE_BREAK;
+
 	uint32_t hashed_result = h % items;
 	uint32_t found = 0;
 	char *value = urhc->items;
