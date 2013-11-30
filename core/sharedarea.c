@@ -30,6 +30,7 @@ int uwsgi_sharedarea_read(int id, uint64_t pos, char *blob, uint64_t len) {
 	struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
         if (!sa) return -1;
         if (pos + len > sa->max_pos + 1) return -1;
+	if (len == 0) len = (sa->max_pos + 1) - pos;
         uwsgi_rlock(sa->lock);
         memcpy(blob, sa->area + pos, len);
         sa->hits++;
@@ -226,11 +227,13 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_init_keyval(int id, char *arg) {
 	char *s_pages = NULL;
 	char *s_file = NULL;
 	char *s_fd = NULL;
+	char *s_ptr = NULL;
 	char *s_size = NULL;
 	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
 		"pages", &s_pages,
 		"file", &s_file,
 		"fd", &s_fd,
+		"ptr", &s_ptr,
 		"size", &s_size,
 		NULL)) {
 	}

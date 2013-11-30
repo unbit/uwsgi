@@ -711,7 +711,7 @@ XS(XS_sharedarea_read) {
 	dXSARGS;
 	int id;
 	uint64_t pos;
-	uint64_t len = 1;
+	uint64_t len = 0;
 	psgi_check_args(2);	
 
 	id = SvIV(ST(0));
@@ -732,6 +732,27 @@ XS(XS_sharedarea_read) {
      	sv_usepvn(ST(0), buf,len);
         XSRETURN(1);
 }
+
+XS(XS_sharedarea_write) {
+        dXSARGS;
+        int id;
+        uint64_t pos;
+        STRLEN vallen;
+
+        psgi_check_args(3);
+
+        id = SvIV(ST(0));
+        pos = SvIV(ST(1));
+        char *value = SvPV(ST(2), vallen);
+
+        if (uwsgi_sharedarea_write(id, pos, value, vallen)) {
+                croak("unable to write to sharedarea %d", id);
+                XSRETURN_UNDEF;
+        }
+
+	XSRETURN_YES;
+}
+
 
 XS(XS_chunked_read) {
 	dXSARGS;
@@ -825,6 +846,7 @@ void init_perl_embedded_module() {
 	psgi_xs(chunked_read_nb);
 
 	psgi_xs(sharedarea_read);
+	psgi_xs(sharedarea_write);
 	psgi_xs(sharedarea_wait);
 }
 
