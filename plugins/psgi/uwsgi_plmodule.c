@@ -733,6 +733,30 @@ XS(XS_sharedarea_read) {
         XSRETURN(1);
 }
 
+XS(XS_sharedarea_readfast) {
+        dXSARGS;
+        int id;
+        uint64_t pos;
+        uint64_t len = 0;
+        psgi_check_args(3);
+
+        id = SvIV(ST(0));
+        pos = SvIV(ST(1));
+	char *buf = SvPV_nolen(ST(2));
+
+        if (items > 3) {
+                len = SvIV(ST(3));
+        }
+
+        if (uwsgi_sharedarea_read(id, pos, buf, len)) {
+                croak("unable to (fast) read from sharedarea %d", id);
+                XSRETURN_UNDEF;
+        }
+
+	XSRETURN_YES;
+}
+
+
 XS(XS_sharedarea_write) {
         dXSARGS;
         int id;
@@ -846,6 +870,7 @@ void init_perl_embedded_module() {
 	psgi_xs(chunked_read_nb);
 
 	psgi_xs(sharedarea_read);
+	psgi_xs(sharedarea_readfast);
 	psgi_xs(sharedarea_write);
 	psgi_xs(sharedarea_wait);
 }
