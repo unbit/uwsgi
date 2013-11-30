@@ -1066,6 +1066,27 @@ PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args) {
         return Py_None;
 }
 
+PyObject *py_uwsgi_websocket_send_binary(PyObject * self, PyObject * args) {
+        char *message = NULL;
+        Py_ssize_t message_len = 0;
+
+        if (!PyArg_ParseTuple(args, "s#:websocket_send_binary", &message, &message_len)) {
+                return NULL;
+        }
+
+        struct wsgi_request *wsgi_req = py_current_wsgi_req();
+
+        UWSGI_RELEASE_GIL
+        int ret  = uwsgi_websocket_send_binary(wsgi_req, message, message_len);
+        UWSGI_GET_GIL
+        if (ret < 0) {
+                return PyErr_Format(PyExc_IOError, "unable to send websocket binary message");
+        }
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+
 PyObject *py_uwsgi_chunked_read(PyObject * self, PyObject * args) {
 	int timeout = 0; 
 	if (!PyArg_ParseTuple(args, "|i:chunked_read", &timeout)) {
@@ -2380,11 +2401,11 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"ready", py_uwsgi_ready, METH_VARARGS, ""},
 
 	{"set_user_harakiri", py_uwsgi_set_user_harakiri, METH_VARARGS, ""},
-	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
 
 	{"websocket_recv", py_uwsgi_websocket_recv, METH_VARARGS, ""},
 	{"websocket_recv_nb", py_uwsgi_websocket_recv_nb, METH_VARARGS, ""},
 	{"websocket_send", py_uwsgi_websocket_send, METH_VARARGS, ""},
+	{"websocket_send_binary", py_uwsgi_websocket_send_binary, METH_VARARGS, ""},
 	{"websocket_handshake", py_uwsgi_websocket_handshake, METH_VARARGS, ""},
 
 	{"chunked_read", py_uwsgi_chunked_read, METH_VARARGS, ""},
