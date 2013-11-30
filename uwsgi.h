@@ -4565,6 +4565,22 @@ void uwsgi_sharedareas_init();
 
 int uwsgi_sharedarea_read(int, uint64_t, char *, uint64_t);
 int uwsgi_sharedarea_write(int, uint64_t, char *, uint64_t);
+int uwsgi_sharedarea_read64(int, uint64_t, int64_t *);
+int uwsgi_sharedarea_write64(int, uint64_t, int64_t *);
+int uwsgi_sharedarea_read8(int, uint64_t, int8_t *);
+int uwsgi_sharedarea_write8(int, uint64_t, int8_t *);
+int uwsgi_sharedarea_read16(int, uint64_t, int16_t *);
+int uwsgi_sharedarea_write16(int, uint64_t, int16_t *);
+int uwsgi_sharedarea_read32(int, uint64_t, int32_t *);
+int uwsgi_sharedarea_write32(int, uint64_t, int32_t *);
+int uwsgi_sharedarea_inc8(int, uint64_t, int8_t);
+int uwsgi_sharedarea_inc16(int, uint64_t, int16_t);
+int uwsgi_sharedarea_inc32(int, uint64_t, int32_t);
+int uwsgi_sharedarea_inc64(int, uint64_t, int64_t);
+int uwsgi_sharedarea_dec8(int, uint64_t, int8_t);
+int uwsgi_sharedarea_dec16(int, uint64_t, int16_t);
+int uwsgi_sharedarea_dec32(int, uint64_t, int32_t);
+int uwsgi_sharedarea_dec64(int, uint64_t, int64_t);
 int uwsgi_sharedarea_wait(int, int, int);
 
 void uwsgi_setup(int, char **, char **);
