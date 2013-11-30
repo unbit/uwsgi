@@ -1589,7 +1589,7 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
                 if (!sa) {
 			return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_read()");	
                 }
-                len = sa->max_pos+1;
+                len = (sa->max_pos+1)-pos;
 	}
 
 	PyObject *ret = PyString_FromStringAndSize(NULL, len);

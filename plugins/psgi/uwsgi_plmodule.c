@@ -498,6 +498,28 @@ XS(XS_websocket_send) {
 	XSRETURN_UNDEF;
 }
 
+XS(XS_websocket_send_from_sharedarea) {
+        dXSARGS;
+
+        psgi_check_args(2);
+	int id = SvIV(ST(0));
+        uint64_t pos = SvIV(ST(1));
+	uint64_t len = 0;
+
+	if (items > 2) {
+		len = SvIV(ST(2));
+	}
+	
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        if (uwsgi_websocket_send_from_sharedarea(wsgi_req, id, pos, len)) {
+                croak("unable to send websocket message from sharedarea");
+        }
+
+        XSRETURN_UNDEF;
+}
+
+
 XS(XS_websocket_send_binary) {
         dXSARGS;
 
@@ -516,6 +538,28 @@ XS(XS_websocket_send_binary) {
 
         XSRETURN_UNDEF;
 }
+
+XS(XS_websocket_send_binary_from_sharedarea) {
+        dXSARGS;
+
+        psgi_check_args(2);
+        int id = SvIV(ST(0));
+        uint64_t pos = SvIV(ST(1));
+        uint64_t len = 0;
+
+        if (items > 2) {
+                len = SvIV(ST(2));
+        }
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        if (uwsgi_websocket_send_binary_from_sharedarea(wsgi_req, id, pos, len)) {
+                croak("unable to send websocket binary message from sharedarea");
+        }
+
+        XSRETURN_UNDEF;
+}
+
 
 
 XS(XS_websocket_recv) {
@@ -726,7 +770,7 @@ XS(XS_sharedarea_read) {
 			croak("unable to read from sharedarea %d", id);
                 	XSRETURN_UNDEF;
 		}
-		len = sa->max_pos+1;
+		len = (sa->max_pos+1)-pos;
 	}
 
 	char *buf = uwsgi_malloc(len);
@@ -858,7 +902,9 @@ void init_perl_embedded_module() {
 	psgi_xs(websocket_recv);
 	psgi_xs(websocket_recv_nb);
 	psgi_xs(websocket_send);
+	psgi_xs(websocket_send_from_sharedarea);
 	psgi_xs(websocket_send_binary);
+	psgi_xs(websocket_send_binary_from_sharedarea);
 	psgi_xs(postfork);
 	psgi_xs(atexit);
 
