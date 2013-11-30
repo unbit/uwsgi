@@ -402,6 +402,7 @@ sendfile:
                 if (ret == UWSGI_OK) {
                         break;
                 }
+		if (!uwsgi_is_again()) continue;
                 ret = uwsgi_wait_write_req(wsgi_req);
                 if (ret < 0) {
 			wsgi_req->write_errors++;
