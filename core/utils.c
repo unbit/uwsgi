@@ -1138,6 +1138,9 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->websocket_buf) {
 		uwsgi_buffer_destroy(wsgi_req->websocket_buf);
 	}
+	if (wsgi_req->websocket_send_buf) {
+		uwsgi_buffer_destroy(wsgi_req->websocket_send_buf);
+	}
 
 
 	// reset request

@@ -221,6 +221,7 @@ int uwsgi_response_write_headers_do(struct wsgi_request *wsgi_req) {
                 if (ret == UWSGI_OK) {
                         break;
                 }
+		if (!uwsgi_is_again()) continue;
                 ret = uwsgi_wait_write_req(wsgi_req);
                 if (ret < 0) { wsgi_req->write_errors++; return -1;}
                 if (ret == 0) {
@@ -301,6 +302,7 @@ sendbody:
 		if (ret == UWSGI_OK) {
 			break;
 		}
+		if (!uwsgi_is_again()) continue;
 		ret = uwsgi_wait_write_req(wsgi_req);			
 		if (ret < 0) { wsgi_req->write_errors++; return -1;}
                 if (ret == 0) {
@@ -465,6 +467,7 @@ int uwsgi_simple_write(struct wsgi_request *wsgi_req, char *buf, size_t len) {
                 if (ret == UWSGI_OK) {
                         break;
                 }
+		if (!uwsgi_is_again()) continue;
                 ret = uwsgi_wait_write_req(wsgi_req);
                 if (ret < 0) { wsgi_req->write_errors++; return -1;}
                 if (ret == 0) {

@@ -1495,6 +1495,7 @@ struct wsgi_request {
 	struct uwsgi_string_list *remove_headers;
 
 	struct uwsgi_buffer *websocket_buf;
+	struct uwsgi_buffer *websocket_send_buf;
 	size_t websocket_need;
 	int websocket_phase;
 	uint8_t websocket_opcode;
@@ -4563,6 +4564,9 @@ void uwsgi_build_plugin(char *dir);
 
 void uwsgi_sharedareas_init();
 
+struct uwsgi_sharedarea *uwsgi_sharedarea_init(int);
+struct uwsgi_sharedarea *uwsgi_sharedarea_init_ptr(char *, uint64_t);
+
 int uwsgi_sharedarea_read(int, uint64_t, char *, uint64_t);
 int uwsgi_sharedarea_write(int, uint64_t, char *, uint64_t);
 int uwsgi_sharedarea_read64(int, uint64_t, int64_t *);
@@ -4582,6 +4586,8 @@ int uwsgi_sharedarea_dec16(int, uint64_t, int16_t);
 int uwsgi_sharedarea_dec32(int, uint64_t, int32_t);
 int uwsgi_sharedarea_dec64(int, uint64_t, int64_t);
 int uwsgi_sharedarea_wait(int, int, int);
+
+struct uwsgi_sharedarea *uwsgi_sharedarea_get_by_id(int, uint64_t);
 
 void uwsgi_setup(int, char **, char **);
 int uwsgi_run(void);

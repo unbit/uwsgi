@@ -10,8 +10,16 @@
 
 extern struct uwsgi_server uwsgi;
 
-static struct uwsgi_buffer *uwsgi_websocket_message(char *msg, size_t len, uint8_t opcode) {
-	struct uwsgi_buffer *ub = uwsgi_buffer_new(10 + len);
+static struct uwsgi_buffer *uwsgi_websocket_message(struct wsgi_request *wsgi_req, char *msg, size_t len, uint8_t opcode) {
+	struct uwsgi_buffer *ub = wsgi_req->websocket_send_buf;
+	if (!ub) {
+		wsgi_req->websocket_send_buf = uwsgi_buffer_new(10 + len);
+		ub = wsgi_req->websocket_send_buf;
+	}
+	else {
+		// reset the buffer
+		ub->pos = 0;
+	}
 	if (uwsgi_buffer_u8(ub, opcode)) goto error;
 	if (len < 126) {
 		if (uwsgi_buffer_u8(ub, len)) goto error;
@@ -29,7 +37,6 @@ static struct uwsgi_buffer *uwsgi_websocket_message(char *msg, size_t len, uint8
 	return ub;
 
 error:
-	uwsgi_buffer_destroy(ub);
 	return NULL;
 }
 
@@ -67,13 +74,10 @@ static int uwsgi_websockets_check_pingpong(struct wsgi_request *wsgi_req) {
 }
 
 static int uwsgi_websocket_send_do(struct wsgi_request *wsgi_req, char *msg, size_t len, uint8_t opcode) {
-	struct uwsgi_buffer *ub = uwsgi_websocket_message(msg, len, opcode);
+	struct uwsgi_buffer *ub = uwsgi_websocket_message(wsgi_req, msg, len, opcode);
 	if (!ub) return -1;
 
-	ssize_t ret = uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
-	uwsgi_buffer_destroy(ub);
-	return ret;
-	
+	return uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
 }
 
 int uwsgi_websocket_send(struct wsgi_request *wsgi_req, char *msg, size_t len) {

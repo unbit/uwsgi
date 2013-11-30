@@ -720,6 +720,14 @@ XS(XS_sharedarea_read) {
 	if (items > 2) {
 		len = SvIV(ST(2));	
 	}
+	else {
+		struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
+		if (!sa) {
+			croak("unable to read from sharedarea %d", id);
+                	XSRETURN_UNDEF;
+		}
+		len = sa->max_pos+1;
+	}
 
 	char *buf = uwsgi_malloc(len);
 	if (uwsgi_sharedarea_read(id, pos, buf, len)) {
@@ -874,4 +882,3 @@ void init_perl_embedded_module() {
 	psgi_xs(sharedarea_write);
 	psgi_xs(sharedarea_wait);
 }
-

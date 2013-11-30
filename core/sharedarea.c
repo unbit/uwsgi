@@ -210,7 +210,30 @@ int uwsgi_sharedarea_wait(int id, int freq, int timeout) {
 	return -2;
 }
 
-struct uwsgi_sharedarea *uwsgi_sharedarea_init(int id, int pages) {
+int uwsgi_sharedarea_new_id() {
+	int id = uwsgi.sharedareas_cnt;
+        uwsgi.sharedareas_cnt++;
+        if (!uwsgi.sharedareas) {
+                uwsgi.sharedareas = uwsgi_malloc(sizeof(struct uwsgi_sharedarea *));
+        }
+        else {
+                struct uwsgi_sharedarea **usa = realloc(uwsgi.sharedareas, ((sizeof(struct uwsgi_sharedarea *)) * uwsgi.sharedareas_cnt));
+                if (!usa) {
+                        uwsgi_error("uwsgi_sharedarea_init()/realloc()");
+                        exit(1);
+                }
+                uwsgi.sharedareas = usa;
+        }
+	return id;
+}
+
+static struct uwsgi_sharedarea *announce_sa(struct uwsgi_sharedarea *sa) {
+	uwsgi_log("sharedarea %d created at %p (%d pages, area at %p)\n", sa->id, sa, sa->pages, sa->area);
+	return sa;
+}
+
+struct uwsgi_sharedarea *uwsgi_sharedarea_init(int pages) {
+	int id = uwsgi_sharedarea_new_id();
 	uwsgi.sharedareas[id] = uwsgi_calloc_shared(uwsgi.page_size * (pages + 1));
 	uwsgi.sharedareas[id]->area = ((char *) uwsgi.sharedareas[id]) + uwsgi.page_size;
 	uwsgi.sharedareas[id]->id = id;
@@ -220,10 +243,25 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_init(int id, int pages) {
 	char *id_str = uwsgi_num2str(id);
 	uwsgi.sharedareas[id]->lock = uwsgi_rwlock_init(uwsgi_concat2("sharedarea", id_str));
 	free(id_str);
-	return uwsgi.sharedareas[id];
+	return announce_sa(uwsgi.sharedareas[id]);
 }
 
-struct uwsgi_sharedarea *uwsgi_sharedarea_init_keyval(int id, char *arg) {
+struct uwsgi_sharedarea *uwsgi_sharedarea_init_ptr(char *area, uint64_t len) {
+        int id = uwsgi_sharedarea_new_id();
+        uwsgi.sharedareas[id] = uwsgi_calloc_shared(sizeof(struct uwsgi_sharedarea));
+        uwsgi.sharedareas[id]->area = area;
+        uwsgi.sharedareas[id]->id = id;
+        uwsgi.sharedareas[id]->fd = -1;
+        uwsgi.sharedareas[id]->pages = len / uwsgi.page_size;
+	if (len % uwsgi.page_size != 0) uwsgi.sharedareas[id]->pages++;
+        uwsgi.sharedareas[id]->max_pos = len-1;
+        char *id_str = uwsgi_num2str(id);
+        uwsgi.sharedareas[id]->lock = uwsgi_rwlock_init(uwsgi_concat2("sharedarea", id_str));
+        free(id_str);
+	return announce_sa(uwsgi.sharedareas[id]);
+}
+
+struct uwsgi_sharedarea *uwsgi_sharedarea_init_keyval(char *arg) {
 	char *s_pages = NULL;
 	char *s_file = NULL;
 	char *s_fd = NULL;
@@ -245,22 +283,12 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_init_keyval(int id, char *arg) {
 void uwsgi_sharedareas_init() {
 	struct uwsgi_string_list *usl = NULL;
 	uwsgi_foreach(usl, uwsgi.sharedareas_list) {
-		uwsgi.sharedareas_cnt++;
-	}
-	uwsgi.sharedareas = uwsgi_calloc(sizeof(struct uwsgi_sharedarea *) * uwsgi.sharedareas_cnt);
-	int id = 0;
-	uwsgi_foreach(usl, uwsgi.sharedareas_list) {
 		char *is_keyval = strchr(usl->value, '=');
-		struct uwsgi_sharedarea *sa = NULL;
 		if (!is_keyval) {
-			sa = uwsgi_sharedarea_init(id, atoi(usl->value));
+			uwsgi_sharedarea_init(atoi(usl->value));
 		}
 		else {
-			sa = uwsgi_sharedarea_init_keyval(id, usl->value);
+			uwsgi_sharedarea_init_keyval(usl->value);
 		}
-		if (sa) {
-			uwsgi_log("sharedaread % initialized at %p\n", id, sa);
-		}
-		id++;
 	}
 }

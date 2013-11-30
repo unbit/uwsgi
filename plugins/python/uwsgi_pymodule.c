@@ -1584,6 +1584,14 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
 		return NULL;
 	}
 
+	if (!len) {
+		struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
+                if (!sa) {
+			return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_read()");	
+                }
+                len = sa->max_pos+1;
+	}
+
 	PyObject *ret = PyString_FromStringAndSize(NULL, len);
 #ifdef PYTHREE
 	char *storage = PyBytes_AsString(ret);
