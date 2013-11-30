@@ -720,6 +720,8 @@ struct uwsgi_sharedarea {
 	uint64_t max_pos;
 	uint64_t updates;
 	uint64_t hits;
+	uint8_t honour_used;
+	uint64_t used;
 };
 
 // maintain alignment here !!!
@@ -4567,7 +4569,7 @@ void uwsgi_sharedareas_init();
 struct uwsgi_sharedarea *uwsgi_sharedarea_init(int);
 struct uwsgi_sharedarea *uwsgi_sharedarea_init_ptr(char *, uint64_t);
 
-int uwsgi_sharedarea_read(int, uint64_t, char *, uint64_t);
+int64_t uwsgi_sharedarea_read(int, uint64_t, char *, uint64_t);
 int uwsgi_sharedarea_write(int, uint64_t, char *, uint64_t);
 int uwsgi_sharedarea_read64(int, uint64_t, int64_t *);
 int uwsgi_sharedarea_write64(int, uint64_t, int64_t *);

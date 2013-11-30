@@ -83,7 +83,9 @@ static int uwsgi_websocket_send_do(struct wsgi_request *wsgi_req, char *msg, siz
 static int uwsgi_websocket_send_from_sharedarea_do(struct wsgi_request *wsgi_req, int id, uint64_t pos, uint64_t len, uint8_t opcode) {
 	struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
 	if (!sa) return -1;
-	if (!len) len = ((sa->max_pos+1)-pos);
+	if (!len) {
+		len = sa->honour_used ? sa->used-pos : ((sa->max_pos+1)-pos);
+	}
 	uwsgi_rlock(sa->lock);
 	sa->hits++;
         struct uwsgi_buffer *ub = uwsgi_websocket_message(wsgi_req, sa->area, len, opcode);

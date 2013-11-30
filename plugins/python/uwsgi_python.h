@@ -30,6 +30,12 @@
 #define PYTHREE
 #endif
 
+#if (PY_VERSION_HEX < 0x02060000)
+#ifndef Py_SIZE
+#define Py_SIZE(ob)             (((PyVarObject*)(ob))->ob_size)
+#endif
+#endif
+
 #define UWSGI_GET_GIL up.gil_get();
 #define UWSGI_RELEASE_GIL up.gil_release();
 

@@ -26,16 +26,16 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_get_by_id(int id, uint64_t pos) {
 	return sa;
 }
 
-int uwsgi_sharedarea_read(int id, uint64_t pos, char *blob, uint64_t len) {
+int64_t uwsgi_sharedarea_read(int id, uint64_t pos, char *blob, uint64_t len) {
 	struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
         if (!sa) return -1;
         if (pos + len > sa->max_pos + 1) return -1;
-	if (len == 0) len = (sa->max_pos + 1) - pos;
+	if (len == 0) len = sa->honour_used ? sa->used-pos : (sa->max_pos + 1) - pos;
         uwsgi_rlock(sa->lock);
         memcpy(blob, sa->area + pos, len);
         sa->hits++;
         uwsgi_rwunlock(sa->lock);
-        return 0;
+        return len;
 } 
 
 int uwsgi_sharedarea_write(int id, uint64_t pos, char *blob, uint64_t len) {

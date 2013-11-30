@@ -1600,13 +1600,16 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
 #endif
 
 	UWSGI_RELEASE_GIL
-        int r = uwsgi_sharedarea_read(id, pos, storage, len);
+        int64_t rlen = uwsgi_sharedarea_read(id, pos, storage, len);
         UWSGI_GET_GIL
 
-        if (r) {
+        if (rlen < 0) {
 		Py_DECREF(ret);
                 return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_read()");
         }
+
+	// HACK: we are safe as rlen can only be lower or equal to len
+	Py_SIZE(ret) = rlen;
 
 	return ret;
 }

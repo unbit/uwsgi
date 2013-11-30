@@ -775,14 +775,15 @@ XS(XS_sharedarea_read) {
 	}
 
 	char *buf = uwsgi_malloc(len);
-	if (uwsgi_sharedarea_read(id, pos, buf, len)) {
+	int64_t rlen = uwsgi_sharedarea_read(id, pos, buf, len);
+	if (rlen < 0) {
 		free(buf);
 		croak("unable to read from sharedarea %d", id);
                 XSRETURN_UNDEF;
 	}
 
 	ST(0) = sv_newmortal();
-     	sv_usepvn(ST(0), buf,len);
+     	sv_usepvn(ST(0), buf, rlen);
         XSRETURN(1);
 }
 
