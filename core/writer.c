@@ -210,6 +210,7 @@ int uwsgi_response_write_headers_do(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->socket->proto_fix_headers(wsgi_req)) { wsgi_req->write_errors++ ; return -1;}
 
 	for(;;) {
+		errno = 0;
                 int ret = wsgi_req->socket->proto_write_headers(wsgi_req, wsgi_req->headers->buf, wsgi_req->headers->pos);
                 if (ret < 0) {
                         if (!uwsgi.ignore_write_errors) {
@@ -291,6 +292,7 @@ sendbody:
 	if (len == 0) return UWSGI_OK;
 	
 	for(;;) {
+		errno = 0;
 		int ret = wsgi_req->socket->proto_write(wsgi_req, buf, len);
 		if (ret < 0) {
 			if (!uwsgi.ignore_write_errors) {
@@ -390,6 +392,7 @@ sendfile:
         wsgi_req->via = UWSGI_VIA_SENDFILE;
 
         for(;;) {
+		errno = 0;
                 int ret = wsgi_req->socket->proto_sendfile(wsgi_req, fd, pos, len);
                 if (ret < 0) {
                         if (!uwsgi.ignore_write_errors) {
@@ -457,6 +460,7 @@ int uwsgi_simple_write(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 	wsgi_req->write_pos = 0;
 
 	for(;;) {
+		errno = 0;
                 int ret = wsgi_req->socket->proto_write(wsgi_req, buf, len);
                 if (ret < 0) {
                         if (!uwsgi.ignore_write_errors) {
