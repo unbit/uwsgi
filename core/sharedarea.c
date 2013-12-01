@@ -30,7 +30,8 @@ int64_t uwsgi_sharedarea_read(int id, uint64_t pos, char *blob, uint64_t len) {
 	struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
         if (!sa) return -1;
         if (pos + len > sa->max_pos + 1) return -1;
-	if (len == 0) len = sa->honour_used ? sa->used-pos : (sa->max_pos + 1) - pos;
+	if (len == 0) len = (sa->max_pos + 1) - pos;
+	if (sa->honour_used) len = sa->used-pos;
         uwsgi_rlock(sa->lock);
         memcpy(blob, sa->area + pos, len);
         sa->hits++;
