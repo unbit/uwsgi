@@ -223,20 +223,22 @@ int uwsgi_proto_base_writev(struct wsgi_request * wsgi_req, struct iovec *iov, s
                 }
 		// now the complex part, we need to rebuild iovec and len...
 		size_t orig_len = *len;
+		size_t new_len = orig_len;
 		// first remove the consumed items
 		size_t first_iov = 0;
 		size_t skip_bytes = 0;
 		for(i=0;i<orig_len;i++) {
-			if (iov[i].iov_len <= needed) {
-				needed -= iov[i].iov_len;
-				(*len)--;
+			if (iov[i].iov_len <= (size_t)wlen) {
+				wlen -= iov[i].iov_len;
+				new_len--;
 			}
 			else {
 				first_iov = i;
-				skip_bytes = iov[i].iov_len - needed;
+				skip_bytes = wlen;
 				break;
 			}
 		}
+		*len = new_len;
 		// now moves remaining iovec's to top
 		size_t pos = 0;
 		for(i=first_iov;i<orig_len;i++) {
