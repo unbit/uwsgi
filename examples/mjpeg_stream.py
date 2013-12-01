@@ -10,7 +10,7 @@ def application(env, start_response):
 				('Cache-Control', 'no-cache'),
 				('Cache-Control', 'private'),
 				('Pragma', 'no-cache'),
-				('Content-Type', 'multipart/x-mixed-replace; boundary=--' + boundary),
+				('Content-Type', 'multipart/x-mixed-replace; boundary=' + boundary),
 				]
 			)
 
@@ -21,5 +21,5 @@ def application(env, start_response):
 		print os.system('screencapture -t jpg -m -T 1 screenshot.jpg')
 		f = open('screenshot.jpg')
                 yield env['wsgi.file_wrapper'](f)
-		yield "--%s\r\n" % boundary
+		yield "\r\n--%s\r\n" % boundary
 		#os.system('./isightcapture -w 640 -h 480 screenshot.jpg')
