@@ -115,6 +115,7 @@ void uwsgi_proto_scgi_setup(struct uwsgi_socket *uwsgi_sock) {
                         uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
                         uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
                         uwsgi_sock->proto_write = uwsgi_proto_base_write;
+                        uwsgi_sock->proto_writev = uwsgi_proto_base_writev;
                         uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
                         uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
                         uwsgi_sock->proto_close = uwsgi_proto_base_close;
@@ -128,6 +129,7 @@ void uwsgi_proto_scgi_nph_setup(struct uwsgi_socket *uwsgi_sock) {
                         uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
                         uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
                         uwsgi_sock->proto_write = uwsgi_proto_base_write;
+                        uwsgi_sock->proto_writev = uwsgi_proto_base_writev;
                         uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
                         uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
                         uwsgi_sock->proto_close = uwsgi_proto_base_close;

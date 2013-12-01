@@ -940,6 +940,8 @@ struct uwsgi_socket {
 	void (*proto_close) (struct wsgi_request *);
 	// special hook to call (if needed) in multithread mode
 	void (*proto_thread_fixup) (struct uwsgi_socket *, int);
+	// optimization for vectors
+	int (*proto_writev) (struct wsgi_request *, struct iovec *, size_t *);
 
 	int edge_trigger;
 	int *retry;
@@ -3237,6 +3239,7 @@ size_t uwsgi_str_num(char *, int);
 size_t uwsgi_str_occurence(char *, size_t, char);
 
 int uwsgi_proto_base_write(struct wsgi_request *, char *, size_t);
+int uwsgi_proto_base_writev(struct wsgi_request *, struct iovec *, size_t *);
 #ifdef UWSGI_SSL
 int uwsgi_proto_ssl_write(struct wsgi_request *, char *, size_t);
 #endif
@@ -4201,6 +4204,7 @@ void uwsgi_request_body_seek(struct wsgi_request *, off_t);
 struct uwsgi_buffer *uwsgi_proto_base_prepare_headers(struct wsgi_request *, char *, uint16_t);
 struct uwsgi_buffer *uwsgi_proto_base_cgi_prepare_headers(struct wsgi_request *, char *, uint16_t);
 int uwsgi_response_write_body_do(struct wsgi_request *, char *, size_t);
+int uwsgi_response_writev_body_do(struct wsgi_request *, struct iovec *, size_t);
 
 int uwsgi_proto_base_sendfile(struct wsgi_request *, int, size_t, size_t);
 #ifdef UWSGI_SSL

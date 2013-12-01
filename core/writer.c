@@ -321,6 +321,130 @@ sendbody:
 	return UWSGI_OK;	
 }
 
+int uwsgi_response_writev_body_do(struct wsgi_request *wsgi_req, struct iovec *iov, size_t len) {
+
+        if (wsgi_req->write_errors) return -1;
+        if (wsgi_req->ignore_body) return UWSGI_OK;
+
+#ifdef UWSGI_ROUTING
+        // special case here, we could need to set transformations before
+        if (!wsgi_req->headers_sent) {
+                // apply response routes
+                if (uwsgi_apply_response_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
+                        // from now on ignore write body requests...
+                        wsgi_req->ignore_body = 1;
+                        return -1;
+                }
+                wsgi_req->is_response_routing = 0;
+        }
+#endif
+
+	size_t i;
+	int buffering = 0;
+	// transformations apply to every vector
+	for(i=0;i<len;i++) {	
+        	// if the transformation chain returns 1, we are in buffering mode
+        	if (wsgi_req->transformed_chunk_len == 0 && wsgi_req->transformations) {
+                	int t_ret = uwsgi_apply_transformations(wsgi_req, iov[i].iov_base, iov[i].iov_len);
+                	if (t_ret == 0) {
+                        	iov[i].iov_base = wsgi_req->transformed_chunk;
+                        	iov[i].iov_len = wsgi_req->transformed_chunk_len;
+                        	// reset transformation
+                        	wsgi_req->transformed_chunk = NULL;
+                        	wsgi_req->transformed_chunk_len = 0;
+                        	goto write;
+                	}
+                	if (t_ret == 1) {
+				buffering = 1;
+				continue;
+                	}
+                	wsgi_req->write_errors++;
+                	return -1;
+		}
+        }
+
+	if (buffering) return UWSGI_OK;
+
+write:
+        // send headers if not already sent
+        if (!wsgi_req->headers_sent) {
+                int ret = uwsgi_response_write_headers_do(wsgi_req);
+                if (ret == UWSGI_OK) goto sendbody;
+                if (ret == UWSGI_AGAIN) return UWSGI_AGAIN;
+                wsgi_req->write_errors++;
+                return -1;
+        }
+
+sendbody:
+
+        if (len == 0) return UWSGI_OK;
+	// unfortunately vector based I/O cannot be accomplished on all protocols
+	if (!wsgi_req->socket->proto_writev) goto fallback;
+
+	// we use a copy to avoid mess
+	size_t iov_len = len;
+	for(;;) {
+        	errno = 0;
+                int ret = wsgi_req->socket->proto_writev(wsgi_req, iov, &iov_len);
+                if (ret < 0) {
+                	if (!uwsgi.ignore_write_errors) {
+                        	uwsgi_req_error("uwsgi_response_writev_body_do()");
+                        }
+                        wsgi_req->write_errors++;
+                        return -1;
+                }
+                if (ret == UWSGI_OK) {
+                	break;
+                }
+                if (!uwsgi_is_again()) continue;
+                ret = uwsgi_wait_write_req(wsgi_req);
+                if (ret < 0) { wsgi_req->write_errors++; return -1;}
+                if (ret == 0) {
+                	uwsgi_log("uwsgi_response_writev_body_do() TIMEOUT !!!\n");
+                        wsgi_req->write_errors++;
+                        return -1;
+                }
+	}
+
+	goto done;
+
+fallback:
+
+	for(i=0;i<len;i++) {
+        	for(;;) {
+                	errno = 0;
+                	int ret = wsgi_req->socket->proto_write(wsgi_req, iov[i].iov_base, iov[i].iov_len);
+                	if (ret < 0) {
+                        	if (!uwsgi.ignore_write_errors) {
+                                	uwsgi_req_error("uwsgi_response_writev_body_do()");
+                        	}
+                        	wsgi_req->write_errors++;
+                        	return -1;
+                	}
+                	if (ret == UWSGI_OK) {
+                        	break;
+                	}
+                	if (!uwsgi_is_again()) continue;
+                	ret = uwsgi_wait_write_req(wsgi_req);
+                	if (ret < 0) { wsgi_req->write_errors++; return -1;}
+                	if (ret == 0) {
+                        	uwsgi_log("uwsgi_response_writev_body_do() TIMEOUT !!!\n");
+                        	wsgi_req->write_errors++;
+                        	return -1;
+                	}
+		}
+        }
+
+done:
+
+        wsgi_req->response_size += wsgi_req->write_pos;
+        // reset for the next write
+        wsgi_req->write_pos = 0;
+
+        return UWSGI_OK;
+}
+
+
 int uwsgi_response_sendfile_do(struct wsgi_request *wsgi_req, int fd, size_t pos, size_t len) {
 	return uwsgi_response_sendfile_do_can_close(wsgi_req, fd, pos, len, 1);	
 }

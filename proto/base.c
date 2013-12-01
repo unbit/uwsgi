@@ -208,6 +208,57 @@ int uwsgi_proto_base_write(struct wsgi_request * wsgi_req, char *buf, size_t len
         return -1;
 }
 
+/*
+	NOTE: len is a pointer as it could be changed on the fly
+*/
+int uwsgi_proto_base_writev(struct wsgi_request * wsgi_req, struct iovec *iov, size_t *len) {
+	size_t i,needed = 0;
+	// count the number of bytes to write
+	for(i=0;i<*len;i++) needed += iov[i].iov_len;
+	ssize_t wlen = writev(wsgi_req->fd, iov, *len);
+        if (wlen > 0) {
+		wsgi_req->write_pos += wlen;
+                if ((size_t)wlen == needed) {
+                        return UWSGI_OK;
+                }
+		// now the complex part, we need to rebuild iovec and len...
+		size_t orig_len = *len;
+		// first remove the consumed items
+		size_t first_iov = 0;
+		size_t skip_bytes = 0;
+		for(i=0;i<orig_len;i++) {
+			if (iov[i].iov_len <= needed) {
+				needed -= iov[i].iov_len;
+				(*len)--;
+			}
+			else {
+				first_iov = i;
+				skip_bytes = iov[i].iov_len - needed;
+				break;
+			}
+		}
+		// now moves remaining iovec's to top
+		size_t pos = 0;
+		for(i=first_iov;i<orig_len;i++) {
+			if (pos == 0) {
+				iov[i].iov_base += skip_bytes;
+				iov[i].iov_len -= skip_bytes;
+			}
+			iov[pos].iov_base = iov[i].iov_base;
+			iov[pos].iov_len = iov[i].iov_len;
+			pos++;
+		}
+                return UWSGI_AGAIN;
+        }
+        if (wlen < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+                        return UWSGI_AGAIN;
+                }
+        }
+        return -1;
+}
+
+
 #ifdef UWSGI_SSL
 int uwsgi_proto_ssl_write(struct wsgi_request * wsgi_req, char *buf, size_t len) {
 	int ret = -1;
