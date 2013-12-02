@@ -266,6 +266,17 @@ static int uwsgi_response_writev_headers_and_body_do(struct wsgi_request *wsgi_r
 	size_t iov_len = 2;
         for(;;) {
                 errno = 0;
+		// no need to use writev if a single iovec remains
+		if (iov_len == 1) {
+			buf = iov[0].iov_base;	
+			len = iov[0].iov_len;
+			// update counters
+			wsgi_req->headers_size += wsgi_req->headers->pos;
+			wsgi_req->headers_sent = 1;
+			wsgi_req->response_size += wsgi_req->write_pos - wsgi_req->headers_size;
+			wsgi_req->write_pos = 0;
+			goto fallback;
+		}
                 int ret = wsgi_req->socket->proto_writev(wsgi_req, iov, &iov_len);
                 if (ret < 0) {
                         if (!uwsgi.ignore_write_errors) {
@@ -292,6 +303,39 @@ static int uwsgi_response_writev_headers_and_body_do(struct wsgi_request *wsgi_r
 	wsgi_req->headers_sent = 1;
 
 	// reset for the next write
+        wsgi_req->write_pos = 0;
+
+        return UWSGI_OK;
+
+fallback:
+
+	for(;;) {
+                errno = 0;
+                int ret = wsgi_req->socket->proto_write(wsgi_req, buf, len);
+                if (ret < 0) {
+                        if (!uwsgi.ignore_write_errors) {
+				// here we use the parent name
+                                uwsgi_req_error("uwsgi_response_write_body_do()");
+                        }
+                        wsgi_req->write_errors++;
+                        return -1;
+                }
+                if (ret == UWSGI_OK) {
+                        break;
+                }
+                if (!uwsgi_is_again()) continue;
+                ret = uwsgi_wait_write_req(wsgi_req);
+                if (ret < 0) { wsgi_req->write_errors++; return -1;}
+                if (ret == 0) {
+			// here we use the parent name
+                        uwsgi_log("uwsgi_response_write_body_do() TIMEOUT !!!\n");
+                        wsgi_req->write_errors++;
+                        return -1;
+                }
+        }
+
+        wsgi_req->response_size += wsgi_req->write_pos;
+        // reset for the next write
         wsgi_req->write_pos = 0;
 
         return UWSGI_OK;
