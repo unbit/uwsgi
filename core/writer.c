@@ -296,7 +296,6 @@ static int uwsgi_response_writev_headers_and_body_do(struct wsgi_request *wsgi_r
 
         return UWSGI_OK;
 
-
 }
 
 // this is the function called by all request plugins to send chunks to the client
@@ -339,7 +338,7 @@ int uwsgi_response_write_body_do(struct wsgi_request *wsgi_req, char *buf, size_
 write:
 	// send headers if not already sent
 	if (!wsgi_req->headers_sent) {
-		if (wsgi_req->socket->proto_writev && len > 0) {
+		if (wsgi_req->socket->proto_writev && len > 0 && wsgi_req->headers) {
 			return uwsgi_response_writev_headers_and_body_do(wsgi_req, buf, len);
 		}
 		int ret = uwsgi_response_write_headers_do(wsgi_req);
