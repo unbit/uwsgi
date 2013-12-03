@@ -221,6 +221,40 @@ static int async_wait_fd_read(int fd, int timeout) {
 	return 1;
 }
 
+static int async_wait_fd_read2(int fd0, int fd1, int timeout, int *fd) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        wsgi_req->async_ready_fd = 0;
+
+        if (async_add_fd_read(wsgi_req, fd0, timeout)) {
+                return -1;
+        }
+
+        if (async_add_fd_read(wsgi_req, fd1, timeout)) {
+		// reset already registered fd
+		async_reset_request(wsgi_req);
+                return -1;
+        }
+
+        if (uwsgi.schedule_to_main) {
+                uwsgi.schedule_to_main(wsgi_req);
+        }
+
+        if (wsgi_req->async_timed_out) {
+                wsgi_req->async_timed_out = 0;
+                return 0;
+        }
+
+	if (wsgi_req->async_ready_fd) {
+		*fd = wsgi_req->async_last_ready_fd;
+		return 1;
+	}
+
+        return -1;
+}
+
+
 void async_add_timeout(struct wsgi_request *wsgi_req, int timeout) {
 
 	if (uwsgi.async < 2 || !uwsgi.rb_async_timeouts) {
@@ -378,6 +412,7 @@ void async_loop() {
 
 	uwsgi.wait_write_hook = async_wait_fd_write;
         uwsgi.wait_read_hook = async_wait_fd_read;
+        uwsgi.wait_read2_hook = async_wait_fd_read2;
 
 	if (uwsgi.signal_socket > -1) {
 		event_queue_add_fd_read(uwsgi.async_queue, uwsgi.signal_socket);
