@@ -32,9 +32,9 @@ int uwsgi_simple_wait_read2_hook(int fd0, int fd1, int timeout, int *fd) {
         upoll[0].events = POLLIN;
         upoll[0].revents = 0;
 
-        upoll[0].fd = fd0;
-        upoll[0].events = POLLIN;
-        upoll[0].revents = 0;
+        upoll[1].fd = fd1;
+        upoll[1].events = POLLIN;
+        upoll[1].revents = 0;
 
         int ret = poll(upoll, 2, timeout);
 
