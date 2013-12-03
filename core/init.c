@@ -171,6 +171,7 @@ void uwsgi_init_default() {
 	uwsgi.wait_read_hook = uwsgi_simple_wait_read_hook;
 	uwsgi.wait_write_hook = uwsgi_simple_wait_write_hook;
 	uwsgi.wait_milliseconds_hook = uwsgi_simple_wait_milliseconds_hook;
+	uwsgi.wait_read2_hook = uwsgi_simple_wait_read2_hook;
 
 	uwsgi_websockets_init();
 	

@@ -24,6 +24,39 @@ int uwsgi_simple_wait_read_hook(int fd, int timeout) {
         return ret;
 }
 
+int uwsgi_simple_wait_read2_hook(int fd0, int fd1, int timeout, int *fd) {
+        struct pollfd upoll[2];
+        timeout = timeout * 1000;
+
+        upoll[0].fd = fd0;
+        upoll[0].events = POLLIN;
+        upoll[0].revents = 0;
+
+        upoll[0].fd = fd0;
+        upoll[0].events = POLLIN;
+        upoll[0].revents = 0;
+
+        int ret = poll(upoll, 2, timeout);
+
+        if (ret > 0) {
+                if (upoll[0].revents & POLLIN) {
+			*fd = fd0;
+                        return 1;
+                }
+                if (upoll[1].revents & POLLIN) {
+			*fd = fd1;
+                        return 1;
+                }
+                return -1;
+        }
+        if (ret < 0) {
+                uwsgi_error("uwsgi_simple_wait_read_hook2()/poll()");
+        }
+
+        return ret;
+}
+
+
 /*
 	seek()/rewind() language-independent implementations.
 */

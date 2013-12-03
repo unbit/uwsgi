@@ -2606,6 +2606,7 @@ struct uwsgi_server {
 	int (*wait_write_hook) (int, int);
 	int (*wait_read_hook) (int, int);
 	int (*wait_milliseconds_hook) (int);
+	int (*wait_read2_hook) (int, int, int, int *);
 
 	struct uwsgi_string_list *schemes;
 
@@ -4195,6 +4196,7 @@ struct uwsgi_buffer *uwsgi_proto_base_add_header(struct wsgi_request *, char *, 
 
 int uwsgi_simple_wait_write_hook(int, int);
 int uwsgi_simple_wait_read_hook(int, int);
+int uwsgi_simple_wait_read2_hook(int, int, int, int *);
 int uwsgi_simple_wait_milliseconds_hook(int);
 int uwsgi_response_write_headers_do(struct wsgi_request *);
 char *uwsgi_request_body_read(struct wsgi_request *, ssize_t , ssize_t *);
