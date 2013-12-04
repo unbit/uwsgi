@@ -1099,6 +1099,16 @@ static ssize_t uwsgi_lf_ftime(struct wsgi_request * wsgi_req, char **buf) {
 	return ret;
 }
 
+static ssize_t uwsgi_lf_tmsecs(struct wsgi_request * wsgi_req, char **buf) {
+	*buf = uwsgi_64bit2str(wsgi_req->start_of_request / (int64_t) 1000);
+	return strlen(*buf);
+}
+
+static ssize_t uwsgi_lf_tmicros(struct wsgi_request * wsgi_req, char **buf) {
+	*buf = uwsgi_64bit2str(wsgi_req->start_of_request);
+	return strlen(*buf);
+}
+
 static ssize_t uwsgi_lf_micros(struct wsgi_request * wsgi_req, char **buf) {
 	*buf = uwsgi_num2str(wsgi_req->end_of_request - wsgi_req->start_of_request);
 	return strlen(*buf);
@@ -1288,6 +1298,16 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 		else if (!uwsgi_strncmp(ptr, len, "msecs", 5)) {
 			logchunk->type = 3;
 			logchunk->func = uwsgi_lf_msecs;
+			logchunk->free = 1;
+		}
+		else if (!uwsgi_strncmp(ptr, len, "tmsecs", 6)) {
+			logchunk->type = 3;
+			logchunk->func = uwsgi_lf_tmsecs;
+			logchunk->free = 1;
+		}
+		else if (!uwsgi_strncmp(ptr, len, "tmicros", 7)) {
+			logchunk->type = 3;
+			logchunk->func = uwsgi_lf_tmicros;
 			logchunk->free = 1;
 		}
 		else if (!uwsgi_strncmp(ptr, len, "time", 4)) {
