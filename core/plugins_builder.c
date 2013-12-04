@@ -15,7 +15,6 @@
 */
 
 void uwsgi_build_plugin(char *directory) {
-	uwsgi_log("building uWSGI plugin %s...\n", directory);
 
 	if (!uwsgi_file_exists(UWSGI_BUILD_DIR)) {
 		if (mkdir(UWSGI_BUILD_DIR, S_IRWXU) < 0) {

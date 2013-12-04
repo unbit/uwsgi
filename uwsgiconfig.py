@@ -1207,17 +1207,25 @@ class uConf(object):
 def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     path = path.rstrip('/')
 
-    if not os.path.isdir(path):
+    up = {}
+
+    if os.path.isfile(path):
+        bname = os.path.basename(path)
+        # override path
+        path = os.path.dirname(path)
+        up['GCC_LIST'] = [bname]
+        up['NAME'] = bname.split('.')[0]
+        if not path: path = '.'
+    elif os.path.isdir(path):
+        try:
+            execfile('%s/uwsgiplugin.py' % path, up)
+        except:
+            f = open('%s/uwsgiplugin.py' % path)
+            exec(f.read(), up)
+            f.close()
+    else:
         print("Error: unable to find directory '%s'" % path)
         sys.exit(1)
-
-    up = {}
-    try:
-        execfile('%s/uwsgiplugin.py' % path, up)
-    except:
-        f = open('%s/uwsgiplugin.py' % path)
-        exec(f.read(), up)
-        f.close()
 
     requires = []
 
@@ -1469,7 +1477,7 @@ if __name__ == "__main__":
         print("*** uWSGI building and linking plugin %s ***" % options.plugin[0] )
         build_plugin(options.plugin[0], uc, cflags, ldflags, libs, name)
     elif options.extra_plugin:
-        print("*** uWSGI building and linking plugin %s ***" % options.extra_plugin[0])
+        print("*** uWSGI building and linking plugin from %s ***" % options.extra_plugin[0])
         cflags = os.environ['UWSGI_PLUGINS_BUILDER_CFLAGS'].split() + os.environ.get("CFLAGS", "").split()
         cflags.append('-I.uwsgi_plugins_builder/')
         ldflags = os.environ.get("LDFLAGS", "").split()

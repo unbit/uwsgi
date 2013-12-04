@@ -1074,6 +1074,13 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	if (!wsgi_req->is_raw && uwsgi.p[wsgi_req->uh->modifier1]->after_request)
 		uwsgi.p[wsgi_req->uh->modifier1]->after_request(wsgi_req);
 
+	// after_request custom hooks
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, uwsgi.after_request_hooks) {
+		void (*func)(struct wsgi_request *) = (void (*)(struct wsgi_request *)) usl->custom_ptr;
+		func(wsgi_req);
+	}
+
 	if (uwsgi.threads > 1) {
 		// now the thread can die...
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &tmp_id);

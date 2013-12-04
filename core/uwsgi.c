@@ -383,6 +383,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
         {"hook-as-mule", required_argument, 0, "run the specified hook in each mule", uwsgi_opt_add_string_list, &uwsgi.hook_as_mule, 0},
 
+        {"after-request-hook", required_argument, 0, "run the specified function/symbol after each request", uwsgi_opt_add_string_list, &uwsgi.after_request_hooks, 0},
+        {"after-request-call", required_argument, 0, "run the specified function/symbol after each request", uwsgi_opt_add_string_list, &uwsgi.after_request_hooks, 0},
+
 	{"exec-asap", required_argument, 0, "run the specified command as soon as possible", uwsgi_opt_add_string_list, &uwsgi.exec_asap, 0},
 	{"exec-pre-jail", required_argument, 0, "run the specified command before jailing", uwsgi_opt_add_string_list, &uwsgi.exec_pre_jail, 0},
 	{"exec-post-jail", required_argument, 0, "run the specified command after jailing", uwsgi_opt_add_string_list, &uwsgi.exec_post_jail, 0},
@@ -2901,6 +2904,15 @@ next:
 		}
 	}
 
+	// initialize after_request hooks
+	uwsgi_foreach(usl, uwsgi.after_request_hooks) {
+		usl->custom_ptr =  dlsym(RTLD_DEFAULT, usl->value);
+		if (!usl->custom_ptr) {
+			uwsgi_log("unable to find symbol/function \"%s\"\n", usl->value);
+			exit(1);
+		}
+		uwsgi_log("added \"%s(struct wsgi_request *)\" to the after-request chain\n", usl->value);
+	}
 
 	if (uwsgi.daemonize2) {
 		masterpid = uwsgi_daemonize2();

@@ -2068,6 +2068,8 @@ struct uwsgi_server {
         struct uwsgi_string_list *umount_as_vassal;
         struct uwsgi_string_list *umount_as_emperor;
 
+        struct uwsgi_string_list *after_request_hooks;
+
 	struct uwsgi_string_list *wait_for_interface;
 	int wait_for_interface_timeout;
 
