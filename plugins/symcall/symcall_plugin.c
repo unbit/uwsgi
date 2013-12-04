@@ -3,9 +3,8 @@
 extern struct uwsgi_server uwsgi;
 
 struct uwsgi_symcall {
-	char *symcall_function_name;
+	struct uwsgi_string_list *symcall_function_name;
 	int (*symcall_function)(struct wsgi_request *);
-
 	struct uwsgi_string_list *rpc;
 	struct uwsgi_string_list *post_fork;
 } usym;
@@ -13,24 +12,40 @@ struct uwsgi_symcall {
 struct uwsgi_plugin symcall_plugin;
 
 static struct uwsgi_option uwsgi_symcall_options[] = {
-        {"symcall", required_argument, 0, "load the specified C symbol as the symcall request handler", uwsgi_opt_set_str, &usym.symcall_function_name, 0},
+        {"symcall", required_argument, 0, "load the specified C symbol as the symcall request handler (supports <mountpoint=func> too)", uwsgi_opt_add_string_list, &usym.symcall_function_name, 0},
         {"symcall-register-rpc", required_argument, 0, "load the specified C symbol as an RPC function (syntax: name function)", uwsgi_opt_add_string_list, &usym.rpc, 0},
         {"symcall-post-fork", required_argument, 0, "call the specified C symbol after each fork()", uwsgi_opt_add_string_list, &usym.post_fork, 0},
         {0, 0, 0, 0},
 };
 
 static void uwsgi_symcall_init(){
-	if (usym.symcall_function_name) {
-		usym.symcall_function = dlsym(RTLD_DEFAULT, usym.symcall_function_name);
-		if (!usym.symcall_function) {
-			uwsgi_log("unable to find symbol \"%s\" in process address space\n", usym.symcall_function_name);
+	struct uwsgi_string_list *usl = NULL;
+	int has_mountpoints = 0;
+	uwsgi_foreach(usl, usym.symcall_function_name) {
+		char *func = usl->value, *mountpoint = "";
+		char *equal = strchr(usl->value, '=');
+		if (equal) {
+			*equal = 0;
+			func = equal+1;
+			mountpoint = usl->value;
+			has_mountpoints = 1;
+		}
+		usl->custom_ptr = dlsym(RTLD_DEFAULT, func);
+		if (!usl->custom_ptr) {
+			uwsgi_log("unable to find symbol \"%s\" in process address space\n", func);
 			exit(1);
 		}
-		uwsgi_log("symcall function ptr: %p\n", usym.symcall_function);
+		int id = uwsgi_apps_cnt;
+		struct uwsgi_app *ua = uwsgi_add_app(id, symcall_plugin.modifier1, mountpoint, strlen(mountpoint), usl->custom_ptr, NULL);
+		uwsgi_log("symcall app %d (mountpoint: \"%.*s\") mapped to function ptr: %p\n", id, ua->mountpoint_len, ua->mountpoint, usl->custom_ptr);
+		if (equal) *equal = '=';
 	}
 
-	struct uwsgi_string_list *usl = usym.rpc;
-	while(usl) {
+	if (!has_mountpoints && usym.symcall_function_name) {
+		usym.symcall_function = usym.symcall_function_name->custom_ptr;
+	}
+
+	uwsgi_foreach(usl, usym.rpc) {
 		char *space = strchr(usl->value, ' ');
 		if (!space) {
 			uwsgi_log("invalid symcall RPC syntax, must be: rpcname symbol\n");
@@ -54,6 +69,26 @@ static void uwsgi_symcall_init(){
 static int uwsgi_symcall_request(struct wsgi_request *wsgi_req) {
 	if (usym.symcall_function) {
 		return usym.symcall_function(wsgi_req);
+	}
+
+	if (uwsgi_parse_vars(wsgi_req)) return -1;
+
+        wsgi_req->app_id = uwsgi_get_app_id(wsgi_req, wsgi_req->appid, wsgi_req->appid_len, symcall_plugin.modifier1);
+        if (wsgi_req->app_id == -1 && !uwsgi.no_default_app && uwsgi.default_app > -1) {
+                if (uwsgi_apps[uwsgi.default_app].modifier1 == symcall_plugin.modifier1) {
+                        wsgi_req->app_id = uwsgi.default_app;
+                }
+        }
+
+        if (wsgi_req->app_id == -1) {
+                uwsgi_404(wsgi_req);
+                return UWSGI_OK;
+        }
+
+        struct uwsgi_app *ua = &uwsgi_apps[wsgi_req->app_id];
+	if (ua->interpreter) {
+		int (*func)(struct wsgi_request *) = (int (*)(struct wsgi_request *)) ua->interpreter;
+		return func(wsgi_req);
 	}
 	return UWSGI_OK;
 }
