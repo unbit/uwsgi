@@ -211,49 +211,6 @@ void create_logpipe(void) {
 
 }
 
-#ifdef UWSGI_ZEROMQ
-// the zeromq logger
-ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *ul, char *message, size_t len) {
-
-	if (!ul->configured) {
-
-		if (!ul->arg) {
-			uwsgi_log_safe("invalid zeromq syntax\n");
-			exit(1);
-		}
-
-		void *ctx = uwsgi_zeromq_init();
-
-		ul->data = zmq_socket(ctx, ZMQ_PUSH);
-		if (ul->data == NULL) {
-			uwsgi_error_safe("zmq_socket()");
-			exit(1);
-		}
-
-		if (zmq_connect(ul->data, ul->arg) < 0) {
-			uwsgi_error_safe("zmq_connect()");
-			exit(1);
-		}
-
-		ul->configured = 1;
-	}
-
-	zmq_msg_t msg;
-	if (zmq_msg_init_size(&msg, len) == 0) {
-		memcpy(zmq_msg_data(&msg), message, len);
-#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(3,0,0)
-		zmq_sendmsg(ul->data, &msg, 0);
-#else
-		zmq_send(ul->data, &msg, 0);
-#endif
-		zmq_msg_close(&msg);
-	}
-
-	return 0;
-}
-#endif
-
-
 // log to the specified file or udp address
 void logto(char *logfile) {
 
@@ -616,6 +573,9 @@ void log_request(struct wsgi_request *wsgi_req) {
 		goto logit;
 	}
 	if (uwsgi.shared->options[UWSGI_OPTION_LOG_SENDFILE] && wsgi_req->via == UWSGI_VIA_SENDFILE) {
+		goto logit;
+	}
+	if (uwsgi.shared->options[UWSGI_OPTION_LOG_IOERROR] && wsgi_req->read_errors > 0 && wsgi_req->write_errors > 0) {
 		goto logit;
 	}
 
@@ -1139,6 +1099,16 @@ static ssize_t uwsgi_lf_ftime(struct wsgi_request * wsgi_req, char **buf) {
 	return ret;
 }
 
+static ssize_t uwsgi_lf_tmsecs(struct wsgi_request * wsgi_req, char **buf) {
+	*buf = uwsgi_64bit2str(wsgi_req->start_of_request / (int64_t) 1000);
+	return strlen(*buf);
+}
+
+static ssize_t uwsgi_lf_tmicros(struct wsgi_request * wsgi_req, char **buf) {
+	*buf = uwsgi_64bit2str(wsgi_req->start_of_request);
+	return strlen(*buf);
+}
+
 static ssize_t uwsgi_lf_micros(struct wsgi_request * wsgi_req, char **buf) {
 	*buf = uwsgi_num2str(wsgi_req->end_of_request - wsgi_req->start_of_request);
 	return strlen(*buf);
@@ -1211,6 +1181,21 @@ static ssize_t uwsgi_lf_modifier2(struct wsgi_request * wsgi_req, char **buf) {
 
 static ssize_t uwsgi_lf_headers(struct wsgi_request * wsgi_req, char **buf) {
 	*buf = uwsgi_num2str(wsgi_req->header_cnt);
+	return strlen(*buf);
+}
+
+static ssize_t uwsgi_lf_werr(struct wsgi_request * wsgi_req, char **buf) {
+	*buf = uwsgi_num2str((int) wsgi_req->write_errors);
+	return strlen(*buf);
+}
+
+static ssize_t uwsgi_lf_rerr(struct wsgi_request * wsgi_req, char **buf) {
+	*buf = uwsgi_num2str((int) wsgi_req->read_errors);
+	return strlen(*buf);
+}
+
+static ssize_t uwsgi_lf_ioerr(struct wsgi_request * wsgi_req, char **buf) {
+	*buf = uwsgi_num2str((int) (wsgi_req->write_errors + wsgi_req->read_errors));
 	return strlen(*buf);
 }
 
@@ -1315,6 +1300,16 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 			logchunk->func = uwsgi_lf_msecs;
 			logchunk->free = 1;
 		}
+		else if (!uwsgi_strncmp(ptr, len, "tmsecs", 6)) {
+			logchunk->type = 3;
+			logchunk->func = uwsgi_lf_tmsecs;
+			logchunk->free = 1;
+		}
+		else if (!uwsgi_strncmp(ptr, len, "tmicros", 7)) {
+			logchunk->type = 3;
+			logchunk->func = uwsgi_lf_tmicros;
+			logchunk->free = 1;
+		}
 		else if (!uwsgi_strncmp(ptr, len, "time", 4)) {
 			logchunk->type = 3;
 			logchunk->func = uwsgi_lf_time;
@@ -1403,6 +1398,21 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 		else if (!uwsgi_strncmp(ptr, len, "headers", 7)) {
 			logchunk->type = 3;
 			logchunk->func = uwsgi_lf_headers;
+			logchunk->free = 1;
+		}
+		else if (!uwsgi_strncmp(ptr, len, "werr", 4)) {
+			logchunk->type = 3;
+			logchunk->func = uwsgi_lf_werr;
+			logchunk->free = 1;
+		}
+		else if (!uwsgi_strncmp(ptr, len, "rerr", 4)) {
+			logchunk->type = 3;
+			logchunk->func = uwsgi_lf_rerr;
+			logchunk->free = 1;
+		}
+		else if (!uwsgi_strncmp(ptr, len, "ioerr", 5)) {
+			logchunk->type = 3;
+			logchunk->func = uwsgi_lf_ioerr;
 			logchunk->free = 1;
 		}
 		else if (!uwsgi_starts_with(ptr, len, "metric.", 7)) {

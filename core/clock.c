@@ -2,6 +2,11 @@
 
 extern struct uwsgi_server uwsgi;
 
+int uwsgi_simple_wait_milliseconds_hook(int timeout) {
+        return poll(NULL, 0, timeout);
+}
+
+
 // in the future we will need to use the best clock source for each os/system
 time_t uwsgi_now() {
 	return uwsgi.clock->seconds();

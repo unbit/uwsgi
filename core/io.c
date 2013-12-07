@@ -756,11 +756,12 @@ int uwsgi_write_true_nb(int fd, char *buf, size_t remains, int timeout) {
 	int ret;
 
         while(remains > 0) {
+		errno = 0;
 		ssize_t len = write(fd, ptr, remains);
 		if (len > 0) goto written;
 		if (len == 0) return -1;		
 		if (len < 0) {
-			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) goto wait;
+			if (uwsgi_is_again()) goto wait;
 			return -1;
 		}
 wait:
@@ -911,7 +912,7 @@ ssize_t uwsgi_read_true_nb(int fd, char *buf, size_t len, int timeout) {
 	}
         if (rlen == 0) return -1;
         if (rlen < 0) {
-        	if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) goto wait;
+        	if (uwsgi_is_again()) goto wait;
         }
         return -1;
 wait:
@@ -961,7 +962,7 @@ int uwsgi_read_with_realloc(int fd, char **buffer, size_t *rlen, int timeout, ui
                 if (len > 0) goto readok;
                 if (len == 0) return -1;
                 if (len < 0) {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) goto wait;
+                        if (uwsgi_is_again()) goto wait;
                         return -1;
                 }
 wait:
@@ -1003,7 +1004,7 @@ readok:
                 if (len > 0) goto readok2;
                 if (len == 0) return -1;
                 if (len < 0) {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) goto wait2;
+                        if (uwsgi_is_again()) goto wait2;
                         return -1;
                 }
 wait2:

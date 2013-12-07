@@ -1,5 +1,4 @@
 import uwsgi
-
 import os
 
 def application(env, start_response):
@@ -15,12 +14,12 @@ def application(env, start_response):
 				]
 			)
 
-
-	yield "--%s\n" % boundary
+	yield "--%s\r\n" % boundary
 
 	while 1:
 		yield "Content-Type: image/jpeg\r\n\r\n"
-		uwsgi.sendfile('screenshot.jpg')
-		yield "--%s\n" % boundary
+		print os.system('screencapture -t jpg -m -T 1 screenshot.jpg')
+		f = open('screenshot.jpg')
+                yield env['wsgi.file_wrapper'](f)
+		yield "\r\n--%s\r\n" % boundary
 		#os.system('./isightcapture -w 640 -h 480 screenshot.jpg')
-		#os.system('screencapture -m -T 1 screenshot.jpg')

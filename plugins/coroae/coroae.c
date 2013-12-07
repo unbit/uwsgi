@@ -65,6 +65,33 @@ SV * coroae_coro_new(CV *block) {
 	return newobj;
 }
 
+static int coroae_wait_milliseconds(int timeout) {
+        int ret = -1;
+        dSP;
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+        XPUSHs(newSVnv(((double)timeout)/1000.0));
+        PUTBACK;
+        call_pv("Coro::AnyEvent::sleep", G_SCALAR);
+        SPAGAIN;
+        if(SvTRUE(ERRSV)) {
+                uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
+        }
+        else {
+                SV *p_ret = POPs;
+                if (SvTRUE(p_ret)) {
+                        ret = 0;
+                }
+        }
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+
+        return ret;
+}
+
+
 static int coroae_wait_fd_read(int fd, int timeout) {
 	int ret = 0;
 	dSP;
@@ -377,6 +404,7 @@ static void coroae_loop() {
 	uwsgi.current_wsgi_req = coroae_current_wsgi_req;
 	uwsgi.wait_write_hook = coroae_wait_fd_write;
         uwsgi.wait_read_hook = coroae_wait_fd_read;
+        uwsgi.wait_milliseconds_hook = coroae_wait_milliseconds;
 
 	I_CORO_API("uwsgi::coroae");
 

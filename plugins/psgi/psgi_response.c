@@ -22,15 +22,13 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 			return UWSGI_OK;
 		}
 
-		if (wsgi_req->async_force_again) {
-			SvREFCNT_dec(chunk);
-			return UWSGI_AGAIN;
-		}
-
                 chitem = SvPV( chunk, hlen);
 
                 if (hlen <= 0) {
 			SvREFCNT_dec(chunk);
+			if (wsgi_req->async_force_again) {
+				return UWSGI_AGAIN;
+			}
 			SV *closed = uwsgi_perl_obj_call(wsgi_req->async_placeholder, "close");
                 	if (closed) {
                         	SvREFCNT_dec(closed);
@@ -102,41 +100,40 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 	}
 
 	if (!SvRV(*hitem)) { uwsgi_log("invalid PSGI response body\n") ; return UWSGI_OK; }
+
+	if (!SvROK(*hitem)) goto unsupported;
 	
         if (SvTYPE(SvRV(*hitem)) == SVt_PVGV || SvTYPE(SvRV(*hitem)) == SVt_PVHV || SvTYPE(SvRV(*hitem)) == SVt_PVMG) {
 
-		// respond to fileno ?
-		if (uwsgi.async < 2) {
-			// check for fileno() method, IO class or GvIO
-			if (uwsgi_perl_obj_can(*hitem, "fileno", 6) || uwsgi_perl_obj_isa(*hitem, "IO") || (uwsgi_perl_obj_isa(*hitem, "GLOB") && GvIO(SvRV(*hitem)))  ) {
-				SV *fn = uwsgi_perl_obj_call(*hitem, "fileno");
-				if (fn) {
-					if (SvTYPE(fn) == SVt_IV && SvIV(fn) >= 0) {
-						wsgi_req->sendfile_fd = SvIV(fn);
-						SvREFCNT_dec(fn);	
-						uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
-						// no need to close here as perl GC will do the close()
-						uwsgi_pl_check_write_errors {
-							// noop
-						}
-						return UWSGI_OK;
-					}
+		// check for fileno() method, IO class or GvIO
+		if (uwsgi_perl_obj_can(*hitem, "fileno", 6) || uwsgi_perl_obj_isa(*hitem, "IO") || (uwsgi_perl_obj_isa(*hitem, "GLOB") && GvIO(SvRV(*hitem)))  ) {
+			SV *fn = uwsgi_perl_obj_call(*hitem, "fileno");
+			if (fn) {
+				if (SvTYPE(fn) == SVt_IV && SvIV(fn) >= 0) {
+					wsgi_req->sendfile_fd = SvIV(fn);
 					SvREFCNT_dec(fn);	
+					uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
+					// no need to close here as perl GC will do the close()
+					uwsgi_pl_check_write_errors {
+						// noop
+					}
+					return UWSGI_OK;
 				}
+				SvREFCNT_dec(fn);	
 			}
+		}
 			
-			// check for path method
-			if (uwsgi_perl_obj_can(*hitem, "path", 4)) {
-				SV *p = uwsgi_perl_obj_call(*hitem, "path");
-				int fd = open(SvPV_nolen(p), O_RDONLY);
-				SvREFCNT_dec(p);	
-				// the following function will close fd
-				uwsgi_response_sendfile_do(wsgi_req, fd, 0, 0);
-				uwsgi_pl_check_write_errors {
-					// noop
-				}
-				return UWSGI_OK;
+		// check for path method
+		if (uwsgi_perl_obj_can(*hitem, "path", 4)) {
+			SV *p = uwsgi_perl_obj_call(*hitem, "path");
+			int fd = open(SvPV_nolen(p), O_RDONLY);
+			SvREFCNT_dec(p);	
+			// the following function will close fd
+			uwsgi_response_sendfile_do(wsgi_req, fd, 0, 0);
+			uwsgi_pl_check_write_errors {
+				// noop
 			}
+			return UWSGI_OK;
 		}
 
                 for(;;) {
@@ -149,13 +146,12 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 			}
 
                         chitem = SvPV( chunk, hlen);
-			if (uwsgi.async > 1 && wsgi_req->async_force_again) {
-				SvREFCNT_dec(chunk);
-				wsgi_req->async_placeholder = (SV *) *hitem;
-				return UWSGI_AGAIN;
-			}
                         if (hlen <= 0) {
 				SvREFCNT_dec(chunk);
+				if (uwsgi.async > 1 && wsgi_req->async_force_again) {
+					wsgi_req->async_placeholder = (SV *) *hitem;
+					return UWSGI_AGAIN;
+				}
                                 break;
                         }
 
@@ -194,6 +190,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 
         }
         else {
+unsupported:
                 uwsgi_log("unsupported response body type: %d\n", SvTYPE(SvRV(*hitem)));
         }
 	

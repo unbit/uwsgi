@@ -1231,6 +1231,8 @@ static int timerfd_create(clockid_t __clock_id, int __flags) {
 	return syscall(283, __clock_id, __flags);
 #elif defined(__i386__)
 	return syscall(322, __clock_id, __flags);
+#elif defined(__arm__)
+	return syscall(350, __clock_id, __flags);
 #else
 	return -1;
 #endif
@@ -1241,6 +1243,10 @@ static int timerfd_settime(int __ufd, int __flags, __const struct itimerspec *__
 	return syscall(286, __ufd, __flags, __utmr, __otmr);
 #elif defined(__i386__)
 	return syscall(325, __ufd, __flags, __utmr, __otmr);
+#elif defined(__arm__)
+	return syscall(353, __ufd, __flags, __utmr, __otmr);
+#else
+	return -1;
 #endif
 }
 #endif

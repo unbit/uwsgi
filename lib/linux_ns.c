@@ -52,6 +52,11 @@ int uwsgi_is_a_keep_mount(char *mp) {
 	
 }
 
+static int uwsgi_ns_start(void *v_argv) {
+	uwsgi_start(v_argv);
+	return uwsgi_run();
+}
+
 void linux_namespace_start(void *argv) {
 	for (;;) {
 		char stack[PTHREAD_STACK_MIN];
@@ -61,7 +66,7 @@ void linux_namespace_start(void *argv) {
 		if (uwsgi.ns_net) {
 			clone_flags |= CLONE_NEWNET;
 		}
-		pid_t pid = clone(uwsgi_start, stack + PTHREAD_STACK_MIN, clone_flags, (void *) argv);
+		pid_t pid = clone(uwsgi_ns_start, stack + PTHREAD_STACK_MIN, clone_flags, (void *) argv);
 		if (pid == -1) {
 			uwsgi_error("clone()");
 			exit(1);

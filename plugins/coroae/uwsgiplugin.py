@@ -14,7 +14,7 @@ if not coroapi:
 
 NAME='coroae'
 CFLAGS = os.popen('perl -MExtUtils::Embed -e ccopts').read().rstrip().split()
-CFLAGS += ['-Wno-int-to-pointer-cast', '-Wno-error=int-to-pointer-cast', '-I%s/Coro' % coroapi]
+CFLAGS += ['-Wno-int-to-pointer-cast', '-Wno-error=format', '-Wno-error=int-to-pointer-cast', '-I%s/Coro' % coroapi]
 LDFLAGS = []
 LIBS = []
 

@@ -241,7 +241,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"worker-reload-mercy", required_argument, 0, "set the maximum time (in seconds) a worker can take to reload/shutdown (default is 60)", uwsgi_opt_set_int, &uwsgi.worker_reload_mercy, 0},
 	{"exit-on-reload", no_argument, 0, "force exit even if a reload is requested", uwsgi_opt_true, &uwsgi.exit_on_reload, 0},
 	{"die-on-term", no_argument, 0, "exit instead of brutal reload on SIGTERM", uwsgi_opt_true, &uwsgi.die_on_term, 0},
-	{"force-gateway", no_argument, 0, "force teh spawn of the first registered gateway without a master", uwsgi_opt_true, &uwsgi.force_gateway, 0},
+	{"force-gateway", no_argument, 0, "force the spawn of the first registered gateway without a master", uwsgi_opt_true, &uwsgi.force_gateway, 0},
 	{"help", no_argument, 'h', "show this help", uwsgi_help, NULL, UWSGI_OPT_IMMEDIATE},
 	{"usage", no_argument, 'h', "show this help", uwsgi_help, NULL, UWSGI_OPT_IMMEDIATE},
 
@@ -259,7 +259,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"lock-engine", required_argument, 0, "set the lock engine", uwsgi_opt_set_str, &uwsgi.lock_engine, 0},
 	{"ftok", required_argument, 0, "set the ipcsem key via ftok() for avoiding duplicates", uwsgi_opt_set_str, &uwsgi.ftok, 0},
 	{"persistent-ipcsem", no_argument, 0, "do not remove ipcsem's on shutdown", uwsgi_opt_true, &uwsgi.persistent_ipcsem, 0},
-	{"sharedarea", required_argument, 'A', "create a raw shared memory area of specified pages", uwsgi_opt_set_int, &uwsgi.sharedareasize, 0},
+	{"sharedarea", required_argument, 'A', "create a raw shared memory area of specified pages (note: it supports keyval too)", uwsgi_opt_add_string_list, &uwsgi.sharedareas_list, 0},
 
 	{"safe-fd", required_argument, 0, "do not close the specified file descriptor", uwsgi_opt_safe_fd, NULL, 0},
 	{"fd-safe", required_argument, 0, "do not close the specified file descriptor", uwsgi_opt_safe_fd, NULL, 0},
@@ -373,9 +373,18 @@ static struct uwsgi_option uwsgi_base_options[] = {
         {"hook-as-user-atexit", required_argument, 0, "run the specified hook before app exit and reload", uwsgi_opt_add_string_list, &uwsgi.hook_as_user_atexit, 0},
         {"hook-pre-app", required_argument, 0, "run the specified hook before app loading", uwsgi_opt_add_string_list, &uwsgi.hook_pre_app, 0},
         {"hook-post-app", required_argument, 0, "run the specified hook after app loading", uwsgi_opt_add_string_list, &uwsgi.hook_post_app, 0},
+        {"hook-accepting", required_argument, 0, "run the specified hook after each worker enter the accepting phase", uwsgi_opt_add_string_list, &uwsgi.hook_accepting, 0},
+        {"hook-accepting1", required_argument, 0, "run the specified hook after the first worker enters the accepting phase", uwsgi_opt_add_string_list, &uwsgi.hook_accepting1, 0},
+        {"hook-accepting-once", required_argument, 0, "run the specified hook after each worker enter the accepting phase (once per-instance)", uwsgi_opt_add_string_list, &uwsgi.hook_accepting_once, 0},
+        {"hook-accepting1-once", required_argument, 0, "run the specified hook after the first worker enters the accepting phase (once per instance)", uwsgi_opt_add_string_list, &uwsgi.hook_accepting1_once, 0},
 
-        {"hook-as-vassal", required_argument, 0, "run the specified command before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.hook_as_vassal, 0},
-        {"hook-as-emperor", required_argument, 0, "run the specified command in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.hook_as_emperor, 0},
+        {"hook-as-vassal", required_argument, 0, "run the specified hook before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.hook_as_vassal, 0},
+        {"hook-as-emperor", required_argument, 0, "run the specified hook in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.hook_as_emperor, 0},
+
+        {"hook-as-mule", required_argument, 0, "run the specified hook in each mule", uwsgi_opt_add_string_list, &uwsgi.hook_as_mule, 0},
+
+        {"after-request-hook", required_argument, 0, "run the specified function/symbol after each request", uwsgi_opt_add_string_list, &uwsgi.after_request_hooks, 0},
+        {"after-request-call", required_argument, 0, "run the specified function/symbol after each request", uwsgi_opt_add_string_list, &uwsgi.after_request_hooks, 0},
 
 	{"exec-asap", required_argument, 0, "run the specified command as soon as possible", uwsgi_opt_add_string_list, &uwsgi.exec_asap, 0},
 	{"exec-pre-jail", required_argument, 0, "run the specified command before jailing", uwsgi_opt_add_string_list, &uwsgi.exec_pre_jail, 0},
@@ -449,12 +458,6 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef UWSGI_JSON
 	{"json", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL, UWSGI_OPT_IMMEDIATE},
 	{"js", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL, UWSGI_OPT_IMMEDIATE},
-#endif
-#ifdef UWSGI_ZEROMQ
-	{"zeromq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
-	{"zmq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
-	{"zeromq-socket", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
-	{"zmq-socket", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
 #endif
 	{"weight", required_argument, 0, "weight of the instance (used by clustering/lb/subscriptions)", uwsgi_opt_set_64bit, &uwsgi.weight, 0},
 	{"auto-weight", required_argument, 0, "set weight of the instance (used by clustering/lb/subscriptions) automatically", uwsgi_opt_true, &uwsgi.auto_weight, 0},
@@ -649,9 +652,6 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"alarm-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
 	{"alarms-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
 	{"alarm-msg-size", required_argument, 0, "set the max size of an alarm message (default 8192)", uwsgi_opt_set_64bit, &uwsgi.alarm_msg_size, 0},
-#ifdef UWSGI_ZEROMQ
-	{"log-zeromq", required_argument, 0, "send logs to a zeromq server", uwsgi_opt_set_logger, "zeromq", UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
-#endif
 	{"log-master", no_argument, 0, "delegate logging to master process", uwsgi_opt_true, &uwsgi.log_master, UWSGI_OPT_MASTER},
 	{"log-master-bufsize", required_argument, 0, "set the buffer size for the master logger. bigger log messages will be truncated", uwsgi_opt_set_64bit, &uwsgi.log_master_bufsize, 0},
 	{"log-master-stream", no_argument, 0, "create the master logpipe as SOCK_STREAM", uwsgi_opt_true, &uwsgi.log_master_stream, 0},
@@ -671,6 +671,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-5xx", no_argument, 0, "log requests with a 5xx response", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_5xx, 0},
 	{"log-big", required_argument, 0, "log requestes bigger than the specified size", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_LOG_BIG, 0},
 	{"log-sendfile", required_argument, 0, "log sendfile requests", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_SENDFILE, 0},
+	{"log-ioerror", required_argument, 0, "log requests with io errors", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_IOERROR, 0},
 	{"log-micros", no_argument, 0, "report response time in microseconds instead of milliseconds", uwsgi_opt_true, &uwsgi.log_micros, 0},
 	{"log-x-forwarded-for", no_argument, 0, "use the ip from X-Forwarded-For header instead of REMOTE_ADDR", uwsgi_opt_true, &uwsgi.log_x_forwarded_for, 0},
 	{"master-as-root", no_argument, 0, "leave master process running as root", uwsgi_opt_true, &uwsgi.master_as_root, 0},
@@ -769,6 +770,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"router-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 	{"routers-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 #endif
+
+
+	{"error-page-403", required_argument, 0, "add an error page (html) for managed 403 response", uwsgi_opt_add_string_list, &uwsgi.error_page_403, 0},
+	{"error-page-404", required_argument, 0, "add an error page (html) for managed 404 response", uwsgi_opt_add_string_list, &uwsgi.error_page_404, 0},
+	{"error-page-500", required_argument, 0, "add an error page (html) for managed 500 response", uwsgi_opt_add_string_list, &uwsgi.error_page_500, 0},
 
 	{"websockets-ping-freq", required_argument, 0, "set the frequency (in seconds) of websockets automatic ping packets", uwsgi_opt_set_int, &uwsgi.websockets_ping_freq, 0},
 	{"websocket-ping-freq", required_argument, 0, "set the frequency (in seconds) of websockets automatic ping packets", uwsgi_opt_set_int, &uwsgi.websockets_ping_freq, 0},
@@ -886,7 +892,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"worker-exec", required_argument, 0, "run the specified command as worker", uwsgi_opt_set_str, &uwsgi.worker_exec, 0},
 	{"worker-exec2", required_argument, 0, "run the specified command as worker (after post_fork hook)", uwsgi_opt_set_str, &uwsgi.worker_exec2, 0},
 	{"attach-daemon", required_argument, 0, "attach a command/daemon to the master process (the command has to not go in background)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
-	{"attach-control-daemon", required_argument, 0, "attach a command/daemon to the master process (the command has to not go in background), when teh daemon dies, the master dies too", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
+	{"attach-control-daemon", required_argument, 0, "attach a command/daemon to the master process (the command has to not go in background), when the daemon dies, the master dies too", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
 	{"smart-attach-daemon", required_argument, 0, "attach a command/daemon to the master process managed by a pidfile (the command has to daemonize)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
 	{"smart-attach-daemon2", required_argument, 0, "attach a command/daemon to the master process managed by a pidfile (the command has to NOT daemonize)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
 #ifdef UWSGI_SSL
@@ -916,6 +922,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exit", optional_argument, 0, "force exit() of the instance", uwsgi_opt_exit, NULL, UWSGI_OPT_IMMEDIATE},
 	{"cflags", no_argument, 0, "report uWSGI CFLAGS (useful for building external plugins)", uwsgi_opt_cflags, NULL, UWSGI_OPT_IMMEDIATE},
 	{"dot-h", no_argument, 0, "dump the uwsgi.h used for building the core  (useful for building external plugins)", uwsgi_opt_dot_h, NULL, UWSGI_OPT_IMMEDIATE},
+	{"config-py", no_argument, 0, "dump the uwsgiconfig.py used for building the core  (useful for building external plugins)", uwsgi_opt_config_py, NULL, UWSGI_OPT_IMMEDIATE},
+	{"build-plugin", required_argument, 0, "build a uWSGI plugin for the current binary", uwsgi_opt_build_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"version", no_argument, 0, "print uWSGI version", uwsgi_opt_print, UWSGI_VERSION, 0},
 	{0, 0, 0, 0, 0, 0, 0}
 };
@@ -1847,14 +1855,19 @@ void uwsgi_init_random() {
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int argc, char *argv[], char *envp[]) {
+#else
+int main(int argc, char *argv[], char *envp[]) {
+#endif
+	uwsgi_setup(argc, argv, envp);
+	return uwsgi_run();
+}
 
+void uwsgi_setup(int argc, char *argv[], char *envp[]) {
+#ifdef UWSGI_AS_SHARED_LIBRARY
 #ifdef __APPLE__
 	char ***envPtr = _NSGetEnviron();
 	environ = *envPtr;
 #endif
-
-#else
-int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	int i;
@@ -1989,11 +2002,6 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi_error("gethostname()");
 	}
 	uwsgi.hostname_len = strlen(uwsgi.hostname);
-
-#ifdef UWSGI_ZEROMQ
-	uwsgi_register_logger("zeromq", uwsgi_zeromq_logger);
-	uwsgi_register_logger("zmq", uwsgi_zeromq_logger);
-#endif
 
 #ifdef UWSGI_ROUTING
 	uwsgi_register_embedded_routers();
@@ -2318,7 +2326,6 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
-
 	// TODO pluginize basic Linux namespace support
 #if defined(__linux__) && !defined(__ia64__)
 	if (uwsgi.ns) {
@@ -2331,10 +2338,6 @@ int main(int argc, char *argv[], char *envp[]) {
 #if defined(__linux__) && !defined(__ia64__)
 	}
 #endif
-
-
-	// never here
-	return 0;
 }
 
 
@@ -2526,9 +2529,6 @@ int uwsgi_start(void *v_argv) {
 			}
 		}
 		uwsgi_log_initial("- async cores set to %d - fd table size: %d\n", uwsgi.async, (int) uwsgi.max_fd);
-		// optimization, this array maps file descriptor to requests
-		uwsgi.async_waiting_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
-		uwsgi.async_proto_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
 	}
 
 #ifdef UWSGI_DEBUG
@@ -2551,12 +2551,8 @@ int uwsgi_start(void *v_argv) {
 	// allocate rpc structures
         uwsgi_rpc_init();
 
-	// setup sharedarea
-	if (uwsgi.sharedareasize > 0) {
-		uwsgi.sharedarea = uwsgi_calloc_shared(uwsgi.page_size * uwsgi.sharedareasize);
-		uwsgi_log("shared area mapped at %p, you can access it with uwsgi.sharedarea* functions.\n", uwsgi.sharedarea);
-		uwsgi.sa_lock = uwsgi_rwlock_init("sharedarea");
-	}
+	// initialize sharedareas
+	uwsgi_sharedareas_init();
 
 	uwsgi.snmp_lock = uwsgi_lock_init("snmp");
 
@@ -2615,6 +2611,7 @@ int uwsgi_start(void *v_argv) {
 			uwsgi_setup_systemd();
 			uwsgi_setup_upstart();
 			uwsgi_setup_zerg();
+			uwsgi_setup_emperor();
 		}
 
 
@@ -2907,6 +2904,15 @@ next:
 		}
 	}
 
+	// initialize after_request hooks
+	uwsgi_foreach(usl, uwsgi.after_request_hooks) {
+		usl->custom_ptr =  dlsym(RTLD_DEFAULT, usl->value);
+		if (!usl->custom_ptr) {
+			uwsgi_log("unable to find symbol/function \"%s\"\n", usl->value);
+			exit(1);
+		}
+		uwsgi_log("added \"%s(struct wsgi_request *)\" to the after-request chain\n", usl->value);
+	}
 
 	if (uwsgi.daemonize2) {
 		masterpid = uwsgi_daemonize2();
@@ -3050,9 +3056,14 @@ next2:
 
 
 	// END OF INITIALIZATION
+	return 0;
+
+}
+
+int uwsgi_run() {
 
 	// !!! from now on, we could be in the master or in a worker !!!
-
+	int i;
 
 	if (getpid() == masterpid && uwsgi.master_process == 1) {
 #ifdef UWSGI_AS_SHARED_LIBRARY
@@ -3166,18 +3177,17 @@ void uwsgi_worker_run() {
 	// some apps could be mounted only on specific workers
 	uwsgi_init_worker_mount_apps();
 
-
-#ifdef UWSGI_ZEROMQ
-	// setup zeromq context (if required) one per-worker
-	if (uwsgi.zeromq) {
-		uwsgi_zeromq_init_sockets();
-	}
-#endif
-
-	//postpone the queue initialization as kevent
-	//do not pass kfd after fork()
 	if (uwsgi.async > 1) {
-		uwsgi_async_init();
+		// a stack of unused cores
+        	uwsgi.async_queue_unused = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.async);
+
+        	// fill it with default values
+               for (i = 0; i < uwsgi.async; i++) {
+               	uwsgi.async_queue_unused[i] = &uwsgi.workers[uwsgi.mywid].cores[i].req;
+               }
+
+                // the first available core is the last one
+                uwsgi.async_queue_unused_ptr = uwsgi.async - 1;
 	}
 
 	// setup UNIX signals for the worker
@@ -3271,6 +3281,28 @@ void uwsgi_ignition() {
 		}
 	}
 
+	// mark the worker as "accepting" (this is a mark used by chain reloading)
+	uwsgi.workers[uwsgi.mywid].accepting = 1;
+	// ready to accept request, if i am a vassal signal Emperor about it
+        if (uwsgi.has_emperor && uwsgi.mywid == 1) {
+                char byte = 5;
+                if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
+                        uwsgi_error("write()");
+                }
+        }
+
+	// run accepting hooks
+	uwsgi_hooks_run(uwsgi.hook_accepting, "accepting", 1);
+	if (uwsgi.workers[uwsgi.mywid].respawn_count == 1) {
+		uwsgi_hooks_run(uwsgi.hook_accepting_once, "accepting-once", 1);
+	}
+
+	if (uwsgi.mywid == 1) {
+		uwsgi_hooks_run(uwsgi.hook_accepting1, "accepting1", 1);
+		if (uwsgi.workers[uwsgi.mywid].respawn_count == 1) {
+			uwsgi_hooks_run(uwsgi.hook_accepting1_once, "accepting1-once", 1);
+		}
+	}
 
 	if (uwsgi.loop) {
 		void (*u_loop) (void) = uwsgi_get_loop(uwsgi.loop);
@@ -3718,7 +3750,7 @@ void uwsgi_opt_set_16bit(char *opt, char *value, void *key) {
 
 void uwsgi_opt_set_megabytes(char *opt, char *value, void *key) {
 	uint64_t *ptr = (uint64_t *) key;
-	*ptr = (strtoul(value, NULL, 10)) * 1024 * 1024;
+	*ptr = (uint64_t)strtoul(value, NULL, 10) * 1024 * 1024;
 }
 
 void uwsgi_opt_set_dyn(char *opt, char *value, void *key) {
@@ -4518,6 +4550,45 @@ void uwsgi_opt_dot_h(char *opt, char *filename, void *foobar) {
         exit(0);
 }
 
+extern char *uwsgi_config_py;
+char *uwsgi_get_config_py() {
+        char *src = uwsgi_config_py;
+        size_t len = strlen(src);
+        char *ptr = uwsgi_malloc(len / 2);
+        char *base = ptr;
+        size_t i;
+        unsigned int u;
+        for (i = 0; i < len; i += 2) {
+                sscanf(src + i, "%2x", &u);
+                *ptr++ = (char) u;
+        }
+#ifdef UWSGI_ZLIB
+        struct uwsgi_buffer *ub = uwsgi_zlib_decompress(base, ptr-base);
+        if (!ub) {
+                free(base);
+                return "";
+        }
+        // add final null byte
+        uwsgi_buffer_append(ub, "\0", 1);
+        free(base);
+        // base is the final blob
+        base = ub->buf;
+        ub->buf = NULL;
+        uwsgi_buffer_destroy(ub);
+#endif
+        return base;
+}
+
+void uwsgi_opt_config_py(char *opt, char *filename, void *foobar) {
+        fprintf(stdout, "%s\n", uwsgi_get_config_py());
+        exit(0);
+}
+
+
+void uwsgi_opt_build_plugin(char *opt, char *directory, void *foobar) {
+	uwsgi_build_plugin(directory);
+	exit(1);
+}
 
 void uwsgi_opt_connect_and_read(char *opt, char *address, void *foobar) {
 

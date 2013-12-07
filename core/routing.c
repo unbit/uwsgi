@@ -962,7 +962,7 @@ static int uwsgi_router_chdir_func(struct wsgi_request *wsgi_req, struct uwsgi_r
         struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
 	if (!ub) return UWSGI_ROUTE_BREAK;
 	if (chdir(ub->buf)) {
-		uwsgi_error("uwsgi_router_chdir_func()/chdir()");
+		uwsgi_req_error("uwsgi_router_chdir_func()/chdir()");
 		uwsgi_buffer_destroy(ub);
 		return UWSGI_ROUTE_BREAK;
 	}

@@ -1066,6 +1066,27 @@ PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args) {
         return Py_None;
 }
 
+PyObject *py_uwsgi_websocket_send_binary(PyObject * self, PyObject * args) {
+        char *message = NULL;
+        Py_ssize_t message_len = 0;
+
+        if (!PyArg_ParseTuple(args, "s#:websocket_send_binary", &message, &message_len)) {
+                return NULL;
+        }
+
+        struct wsgi_request *wsgi_req = py_current_wsgi_req();
+
+        UWSGI_RELEASE_GIL
+        int ret  = uwsgi_websocket_send_binary(wsgi_req, message, message_len);
+        UWSGI_GET_GIL
+        if (ret < 0) {
+                return PyErr_Format(PyExc_IOError, "unable to send websocket binary message");
+        }
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+
 PyObject *py_uwsgi_chunked_read(PyObject * self, PyObject * args) {
 	int timeout = 0; 
 	if (!PyArg_ParseTuple(args, "|i:chunked_read", &timeout)) {
@@ -1426,222 +1447,149 @@ PyObject *py_uwsgi_extract(PyObject * self, PyObject * args) {
 }
 
 
-PyObject *py_uwsgi_sharedarea_inclong(PyObject * self, PyObject * args) {
+PyObject *py_uwsgi_sharedarea_inc64(PyObject * self, PyObject * args) {
+	int id;
 	uint64_t pos = 0;
-	uint64_t value = 1;
-	uint64_t current_value = 0;
+	int64_t value = 1;
 
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	if (!PyArg_ParseTuple(args, "l|l:sharedarea_inclong", &pos, &value)) {
+	if (!PyArg_ParseTuple(args, "il|l:sharedarea_inc64", &id, &pos, &value)) {
 		return NULL;
 	}
 
-	if (pos + 8 >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-	
 	UWSGI_RELEASE_GIL
-
-	uwsgi_wlock(uwsgi.sa_lock);
-
-	memcpy(&current_value, uwsgi.sharedarea + pos, 8);
-	value = current_value + value;
-	memcpy(uwsgi.sharedarea + pos, &value, 8);
-
-        uwsgi_rwunlock(uwsgi.sa_lock);
+	int ret = uwsgi_sharedarea_inc64(id, pos, value);
 	UWSGI_GET_GIL
+	
+	if (ret) {
+		return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_inc64()");
+	}
 
-	return PyInt_FromLong(value);
+	Py_INCREF(Py_None);
+        return Py_None;
 
 }
 
-PyObject *py_uwsgi_sharedarea_writelong(PyObject * self, PyObject * args) {
+PyObject *py_uwsgi_sharedarea_write64(PyObject * self, PyObject * args) {
+	int id;
 	uint64_t pos = 0;
-	uint64_t value = 0;
+	int64_t value = 0;
 
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	if (!PyArg_ParseTuple(args, "ll:sharedarea_writelong", &pos, &value)) {
+	if (!PyArg_ParseTuple(args, "ill:sharedarea_write64", &id, &pos, &value)) {
 		return NULL;
 	}
 
-	if (pos + 8 >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
 	UWSGI_RELEASE_GIL
+        int ret = uwsgi_sharedarea_write64(id, pos, &value);
+        UWSGI_GET_GIL
 
-	uwsgi_wlock(uwsgi.sa_lock);
+        if (ret) {
+                return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_write64()");
+        }
 
-	memcpy(uwsgi.sharedarea + pos, &value, 8);
-
-        uwsgi_rwunlock(uwsgi.sa_lock);
-
-	UWSGI_GET_GIL
-
-	return PyInt_FromLong(value);
-
+	Py_INCREF(Py_None);
+        return Py_None;
 }
 
 PyObject *py_uwsgi_sharedarea_write(PyObject * self, PyObject * args) {
+	int id;
 	uint64_t pos = 0;
 	char *value;
 	Py_ssize_t value_len = 0;
 
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	if (!PyArg_ParseTuple(args, "ls#:sharedarea_write", &pos, &value, &value_len)) {
+	if (!PyArg_ParseTuple(args, "ils#:sharedarea_write", &id, &pos, &value, &value_len)) {
 		return NULL;
 	}
 
-	if (pos + value_len >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
+	UWSGI_RELEASE_GIL
+        int ret = uwsgi_sharedarea_write(id, pos, value, value_len);
+        UWSGI_GET_GIL
+
+        if (ret) {
+                return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_write()");
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+PyObject *py_uwsgi_sharedarea_write8(PyObject * self, PyObject * args) {
+	int id;
+	uint64_t pos = 0;
+	int8_t value;
+
+	if (!PyArg_ParseTuple(args, "ilb:sharedarea_write8", &id, &pos, &value)) {
+		return NULL;
 	}
 
 	UWSGI_RELEASE_GIL
+        int ret = uwsgi_sharedarea_write8(id, pos, &value);
+        UWSGI_GET_GIL
 
-	uwsgi_wlock(uwsgi.sa_lock);
+        if (ret) {
+                return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_write8()");
+        }
 
-	memcpy(uwsgi.sharedarea + pos, value, value_len);
-
-
-	uwsgi_rwunlock(uwsgi.sa_lock);
-
-	UWSGI_GET_GIL
-
-	return PyInt_FromLong(value_len);
-	
+        Py_INCREF(Py_None);
+        return Py_None;
 
 }
 
-PyObject *py_uwsgi_sharedarea_writebyte(PyObject * self, PyObject * args) {
+PyObject *py_uwsgi_sharedarea_read64(PyObject * self, PyObject * args) {
+	int id;
 	uint64_t pos = 0;
-	char value;
+	int64_t value;
 
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-
-	if (!PyArg_ParseTuple(args, "lb:sharedarea_writebyte", &pos, &value)) {
+	if (!PyArg_ParseTuple(args, "il:sharedarea_read64", &id, &pos)) {
 		return NULL;
 	}
 
-	if (pos >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
 	UWSGI_RELEASE_GIL
+        int ret = uwsgi_sharedarea_read64(id, pos, &value);
+        UWSGI_GET_GIL
 
-	uwsgi_wlock(uwsgi.sa_lock);
-
-	uwsgi.sharedarea[pos] = value;
-
-
-	uwsgi_rwunlock(uwsgi.sa_lock);
-
-	UWSGI_GET_GIL
-
-	return PyInt_FromLong(value);
-
-}
-
-PyObject *py_uwsgi_sharedarea_readlong(PyObject * self, PyObject * args) {
-	uint64_t pos = 0;
-	uint64_t value;
-
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	if (!PyArg_ParseTuple(args, "l:sharedarea_readlong", &pos)) {
-		return NULL;
-	}
-
-	if (pos + 8 >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	UWSGI_RELEASE_GIL
-
-	uwsgi_wlock(uwsgi.sa_lock);
-
-	memcpy(&value, uwsgi.sharedarea + pos, 8);
-
-
-	uwsgi_rwunlock(uwsgi.sa_lock);
-
-	UWSGI_GET_GIL
+        if (ret) {
+                return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_read64()");
+        }
 
 	return PyLong_FromLong(value);
 
 }
 
-
-PyObject *py_uwsgi_sharedarea_readbyte(PyObject * self, PyObject * args) {
+PyObject *py_uwsgi_sharedarea_read8(PyObject * self, PyObject * args) {
+	int id;
 	uint64_t pos = 0;
+	int8_t byte;
 
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	if (!PyArg_ParseTuple(args, "l:sharedarea_readbyte", &pos)) {
+	if (!PyArg_ParseTuple(args, "il:sharedarea_read8", &id, &pos)) {
 		return NULL;
-	}
-
-	if (pos >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
 	}
 
 	UWSGI_RELEASE_GIL
+        int ret = uwsgi_sharedarea_read8(id, pos, &byte);
+        UWSGI_GET_GIL
 
-	uwsgi_wlock(uwsgi.sa_lock);
+        if (ret) {
+                return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_read8()");
+        }
 
-	char value = uwsgi.sharedarea[pos];
-
-	uwsgi_rwunlock(uwsgi.sa_lock);
-
-	UWSGI_GET_GIL
-
-	return PyInt_FromLong(value);
-
+	return PyInt_FromLong(byte);
 }
 
 PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
+	int id;
 	uint64_t pos = 0;
-	uint64_t len = 1;
+	uint64_t len = 0;
 
-	if (uwsgi.sharedareasize <= 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	if (!PyArg_ParseTuple(args, "l|l:sharedarea_read", &pos, &len)) {
+	if (!PyArg_ParseTuple(args, "il|l:sharedarea_read", &id, &pos, &len)) {
 		return NULL;
 	}
 
-	if (pos + len >= uwsgi.page_size * uwsgi.sharedareasize) {
-		Py_INCREF(Py_None);
-		return Py_None;
+	if (!len) {
+		struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
+                if (!sa) {
+			return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_read()");	
+                }
+                len = (sa->max_pos+1)-pos;
 	}
 
 	PyObject *ret = PyString_FromStringAndSize(NULL, len);
@@ -1652,14 +1600,16 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
 #endif
 
 	UWSGI_RELEASE_GIL
+        int64_t rlen = uwsgi_sharedarea_read(id, pos, storage, len);
+        UWSGI_GET_GIL
 
-	uwsgi_wlock(uwsgi.sa_lock);
+        if (rlen < 0) {
+		Py_DECREF(ret);
+                return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_read()");
+        }
 
-	memcpy(storage, uwsgi.sharedarea + pos, len);
-
-	uwsgi_rwunlock(uwsgi.sa_lock);
-
-	UWSGI_GET_GIL
+	// HACK: we are safe as rlen can only be lower or equal to len
+	Py_SIZE(ret) = rlen;
 
 	return ret;
 }
@@ -2519,11 +2469,11 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"ready", py_uwsgi_ready, METH_VARARGS, ""},
 
 	{"set_user_harakiri", py_uwsgi_set_user_harakiri, METH_VARARGS, ""},
-	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
 
 	{"websocket_recv", py_uwsgi_websocket_recv, METH_VARARGS, ""},
 	{"websocket_recv_nb", py_uwsgi_websocket_recv_nb, METH_VARARGS, ""},
 	{"websocket_send", py_uwsgi_websocket_send, METH_VARARGS, ""},
+	{"websocket_send_binary", py_uwsgi_websocket_send_binary, METH_VARARGS, ""},
 	{"websocket_handshake", py_uwsgi_websocket_handshake, METH_VARARGS, ""},
 
 	{"chunked_read", py_uwsgi_chunked_read, METH_VARARGS, ""},
@@ -2538,11 +2488,16 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 static PyMethodDef uwsgi_sa_methods[] = {
 	{"sharedarea_read", py_uwsgi_sharedarea_read, METH_VARARGS, ""},
 	{"sharedarea_write", py_uwsgi_sharedarea_write, METH_VARARGS, ""},
-	{"sharedarea_readbyte", py_uwsgi_sharedarea_readbyte, METH_VARARGS, ""},
-	{"sharedarea_writebyte", py_uwsgi_sharedarea_writebyte, METH_VARARGS, ""},
-	{"sharedarea_readlong", py_uwsgi_sharedarea_readlong, METH_VARARGS, ""},
-	{"sharedarea_writelong", py_uwsgi_sharedarea_writelong, METH_VARARGS, ""},
-	{"sharedarea_inclong", py_uwsgi_sharedarea_inclong, METH_VARARGS, ""},
+	{"sharedarea_readbyte", py_uwsgi_sharedarea_read8, METH_VARARGS, ""},
+	{"sharedarea_writebyte", py_uwsgi_sharedarea_write8, METH_VARARGS, ""},
+	{"sharedarea_read8", py_uwsgi_sharedarea_read8, METH_VARARGS, ""},
+	{"sharedarea_write8", py_uwsgi_sharedarea_write8, METH_VARARGS, ""},
+	{"sharedarea_readlong", py_uwsgi_sharedarea_read64, METH_VARARGS, ""},
+	{"sharedarea_writelong", py_uwsgi_sharedarea_write64, METH_VARARGS, ""},
+	{"sharedarea_read64", py_uwsgi_sharedarea_read64, METH_VARARGS, ""},
+	{"sharedarea_write64", py_uwsgi_sharedarea_write64, METH_VARARGS, ""},
+	{"sharedarea_inclong", py_uwsgi_sharedarea_inc64, METH_VARARGS, ""},
+	{"sharedarea_inc64", py_uwsgi_sharedarea_inc64, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 

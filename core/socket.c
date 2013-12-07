@@ -1931,17 +1931,18 @@ found:
 void uwsgi_protocols_register() {
 	uwsgi_register_protocol("uwsgi", uwsgi_proto_uwsgi_setup);
 	uwsgi_register_protocol("puwsgi", uwsgi_proto_puwsgi_setup);
+
 	uwsgi_register_protocol("http", uwsgi_proto_http_setup);
+
 #ifdef UWSGI_SSL
 	uwsgi_register_protocol("suwsgi", uwsgi_proto_suwsgi_setup);
 	uwsgi_register_protocol("https", uwsgi_proto_https_setup);
 #endif
 	uwsgi_register_protocol("fastcgi", uwsgi_proto_fastcgi_setup);
 	uwsgi_register_protocol("fastcgi-nph", uwsgi_proto_fastcgi_nph_setup);
+
 	uwsgi_register_protocol("scgi", uwsgi_proto_scgi_setup);
 	uwsgi_register_protocol("scgi-nph", uwsgi_proto_scgi_nph_setup);
-#ifdef UWSGI_ZEROMQ
-	uwsgi_register_protocol("zmq", uwsgi_proto_zmq_setup);
-#endif
+
 	uwsgi_register_protocol("raw", uwsgi_proto_raw_setup);
 }

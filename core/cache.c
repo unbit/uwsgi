@@ -762,7 +762,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
                         }
                         // mark used blocks;
                         uint64_t needed_blocks = cache_mark_blocks(uc, uci->first_block, vallen);
-                        // optimize teh scan
+                        // optimize the scan
                         if (uc->blocks_bitmap_pos + (needed_blocks+1) > uc->blocks) {
                                 uc->blocks_bitmap_pos = 0;
                         }

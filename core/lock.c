@@ -647,6 +647,7 @@ void *uwsgi_robust_mutexes_watchdog_loop(void *arg) {
 	for(;;) {
 		uwsgi_lock(uwsgi.the_thunder_lock);
 		uwsgi_unlock(uwsgi.the_thunder_lock);
+		sleep(1);
 	}
 	return NULL;
 }

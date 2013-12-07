@@ -77,6 +77,7 @@ void uwsgi_mule(int id) {
 			}
 		}
 
+		uwsgi_hooks_run(uwsgi.hook_as_mule, "as-mule", 1);
 		uwsgi_mule_run();
 
 	}

@@ -37,6 +37,7 @@ struct uwsgi_rbthreads {
 	int rbthreads;
 	int (*orig_wait_write_hook) (int, int);
         int (*orig_wait_read_hook) (int, int);
+        int (*orig_wait_milliseconds_hook) (int);
 } urbts;
 
 static struct uwsgi_option rbthreads_options[] = {
@@ -142,6 +143,20 @@ static int rbthreads_wait_fd_read(int fd, int timeout) {
         return urbt.ret;
 }
 
+static void *rbthreads_wait_milliseconds_do(void *arg) {
+        struct uwsgi_rbthread *urbt = (struct uwsgi_rbthread *) arg;
+        urbt->ret = urbts.orig_wait_milliseconds_hook(urbt->timeout);
+        return NULL;
+}
+
+static int rbthreads_wait_milliseconds(int timeout) {
+        struct uwsgi_rbthread urbt;
+        urbt.timeout = timeout;
+        rb_thread_call_without_gvl(rbthreads_wait_milliseconds_do, &urbt, NULL, NULL);
+        return urbt.ret;
+}
+
+
 static void rbthreads_loop() {
 	struct uwsgi_plugin *rup = uwsgi_plugin_get("rack");
 	// disable init_thread warning
@@ -152,8 +167,10 @@ static void rbthreads_loop() {
 	// override read/write nb hooks
 	urbts.orig_wait_write_hook = uwsgi.wait_write_hook;
 	urbts.orig_wait_read_hook = uwsgi.wait_read_hook;
+	urbts.orig_wait_milliseconds_hook = uwsgi.wait_milliseconds_hook;
 	uwsgi.wait_write_hook = rbthreads_wait_fd_write;
         uwsgi.wait_read_hook = rbthreads_wait_fd_read;
+        uwsgi.wait_milliseconds_hook = rbthreads_wait_milliseconds;
 
 	int i;
 	for(i=1;i<uwsgi.threads;i++) {

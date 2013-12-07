@@ -48,6 +48,8 @@ void uwsgi_master_check_chain() {
 	}
 	uwsgi_block_signal(SIGHUP);
 	for(i=1;i<=uwsgi.numproc;i++) {
+		// do not curse a worker until the old one is ready
+		if (uwsgi.workers[i].accepting == 0) break;
 		if (uwsgi.workers[i].pid > 0 && uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].cursed_at == 0 && i == uwsgi.status.chain_reloading) {
 			uwsgi_curse(i, SIGHUP);
 			break;

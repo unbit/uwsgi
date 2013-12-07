@@ -812,6 +812,8 @@ end:
 }
 
 void uwsgi_subscribe_all(uint8_t cmd, int verbose) {
+
+	if (!uwsgi.subscriptions_blocked) return;
 	// -- subscribe
 	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
         while (subscriptions) {

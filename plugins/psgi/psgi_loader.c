@@ -149,7 +149,7 @@ XS(XS_streaming_write) {
 
 	uwsgi_response_write_body_do(wsgi_req, body, blen);
 	uwsgi_pl_check_write_errors {
-		// noop
+		croak("error while streaming PSGI response");
 	}
 
         XSRETURN(0);

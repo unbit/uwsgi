@@ -10,9 +10,17 @@
 
 extern struct uwsgi_server uwsgi;
 
-static struct uwsgi_buffer *uwsgi_websocket_message(char *msg, size_t len) {
-	struct uwsgi_buffer *ub = uwsgi_buffer_new(10 + len);
-	if (uwsgi_buffer_u8(ub, 0x81)) goto error;
+static struct uwsgi_buffer *uwsgi_websocket_message(struct wsgi_request *wsgi_req, char *msg, size_t len, uint8_t opcode) {
+	struct uwsgi_buffer *ub = wsgi_req->websocket_send_buf;
+	if (!ub) {
+		wsgi_req->websocket_send_buf = uwsgi_buffer_new(10 + len);
+		ub = wsgi_req->websocket_send_buf;
+	}
+	else {
+		// reset the buffer
+		ub->pos = 0;
+	}
+	if (uwsgi_buffer_u8(ub, opcode)) goto error;
 	if (len < 126) {
 		if (uwsgi_buffer_u8(ub, len)) goto error;
 	}
@@ -29,7 +37,6 @@ static struct uwsgi_buffer *uwsgi_websocket_message(char *msg, size_t len) {
 	return ub;
 
 error:
-	uwsgi_buffer_destroy(ub);
 	return NULL;
 }
 
@@ -66,25 +73,70 @@ static int uwsgi_websockets_check_pingpong(struct wsgi_request *wsgi_req) {
 	return 0;
 }
 
-static int uwsgi_websocket_send_do(struct wsgi_request *wsgi_req, char *msg, size_t len) {
-	struct uwsgi_buffer *ub = uwsgi_websocket_message(msg, len);
+static int uwsgi_websocket_send_do(struct wsgi_request *wsgi_req, char *msg, size_t len, uint8_t opcode) {
+	struct uwsgi_buffer *ub = uwsgi_websocket_message(wsgi_req, msg, len, opcode);
 	if (!ub) return -1;
 
-	ssize_t ret = uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
-	uwsgi_buffer_destroy(ub);
-	return ret;
-	
+	return uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+}
+
+static int uwsgi_websocket_send_from_sharedarea_do(struct wsgi_request *wsgi_req, int id, uint64_t pos, uint64_t len, uint8_t opcode) {
+	struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
+	if (!sa) return -1;
+	if (!len) {
+		len = sa->honour_used ? sa->used-pos : ((sa->max_pos+1)-pos);
+	}
+	uwsgi_rlock(sa->lock);
+	sa->hits++;
+        struct uwsgi_buffer *ub = uwsgi_websocket_message(wsgi_req, sa->area, len, opcode);
+	uwsgi_rwunlock(sa->lock);
+        if (!ub) return -1;
+
+        return uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
 }
 
 int uwsgi_websocket_send(struct wsgi_request *wsgi_req, char *msg, size_t len) {
 	if (wsgi_req->websocket_closed) {
                 return -1;
         }
-	ssize_t ret = uwsgi_websocket_send_do(wsgi_req, msg, len);
+	ssize_t ret = uwsgi_websocket_send_do(wsgi_req, msg, len, 0x81);
 	if (ret < 0) {
 		wsgi_req->websocket_closed = 1;
 	}
 	return ret;
+}
+
+int uwsgi_websocket_send_from_sharedarea(struct wsgi_request *wsgi_req, int id, uint64_t pos, uint64_t len) {
+        if (wsgi_req->websocket_closed) {
+                return -1;
+        }
+        ssize_t ret = uwsgi_websocket_send_from_sharedarea_do(wsgi_req, id, pos, len, 0x81);
+        if (ret < 0) {
+                wsgi_req->websocket_closed = 1;
+        }
+        return ret;
+}
+
+int uwsgi_websocket_send_binary(struct wsgi_request *wsgi_req, char *msg, size_t len) {
+        if (wsgi_req->websocket_closed) {
+                return -1;
+        }
+        ssize_t ret = uwsgi_websocket_send_do(wsgi_req, msg, len, 0x82);
+        if (ret < 0) {
+                wsgi_req->websocket_closed = 1;
+        }
+        return ret;
+}
+
+int uwsgi_websocket_send_binary_from_sharedarea(struct wsgi_request *wsgi_req, int id, uint64_t pos, uint64_t len) {
+        if (wsgi_req->websocket_closed) {
+                return -1;
+        }
+        ssize_t ret = uwsgi_websocket_send_from_sharedarea_do(wsgi_req, id, pos, len, 0x82);
+        if (ret < 0) {
+                wsgi_req->websocket_closed = 1;
+        }
+        return ret;
 }
 
 static void uwsgi_websocket_parse_header(struct wsgi_request *wsgi_req) {

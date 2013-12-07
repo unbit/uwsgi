@@ -285,7 +285,7 @@ extern "C" uint64_t uwsgi_v8_rpc(void * func, uint8_t argc, char **argv, uint16_
 	if (!*robj) {
 		return 0;
 	}
-	uint16_t rlen = robj->Length();
+	uint64_t rlen = (uint64_t) robj->Length();
 	if (rlen > 0) {
 		*buffer = (char *)uwsgi_malloc(rlen);
 		memcpy(*buffer, *r_value, rlen);

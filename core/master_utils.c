@@ -592,6 +592,8 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 int uwsgi_respawn_worker(int wid) {
 
 	int respawns = uwsgi.workers[wid].respawn_count;
+	// the workers is not accepting (obviously)
+	uwsgi.workers[wid].accepting = 0;
 	// we count the respawns before errors...
 	uwsgi.workers[wid].respawn_count++;
 	// ... same for update time
@@ -990,6 +992,8 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			goto end;
 		if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) uwsgi.workers[i + 1].pid))
 			goto end;
+		if (uwsgi_stats_keylong_comma(us, "accepting", (unsigned long long) uwsgi.workers[i + 1].accepting))
+			goto end;
 		if (uwsgi_stats_keylong_comma(us, "requests", (unsigned long long) uwsgi.workers[i + 1].requests))
 			goto end;
 		if (uwsgi_stats_keylong_comma(us, "delta_requests", (unsigned long long) uwsgi.workers[i + 1].delta_requests))
@@ -1127,6 +1131,9 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 				goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "write_errors", (unsigned long long) uc->write_errors))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "read_errors", (unsigned long long) uc->read_errors))
 				goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "in_request", (unsigned long long) uc->in_request))

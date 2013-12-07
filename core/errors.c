@@ -1,9 +1,30 @@
 #include <uwsgi.h>
 
+extern struct uwsgi_server uwsgi;
+
+static int error_page(struct wsgi_request *wsgi_req, struct uwsgi_string_list *l) {
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, l) {
+		struct stat st;
+		if (!stat(usl->value, &st)) {
+			int fd = open(usl->value, O_RDONLY);
+			if (fd >= 0) {
+				if (uwsgi_response_add_header(wsgi_req, "Content-Type", 12, "text/html", 9)) { close(fd); return 0;}
+				if (uwsgi_response_add_content_length(wsgi_req, st.st_size)) { close(fd); return 0;}
+				uwsgi_response_sendfile_do(wsgi_req, fd, 0, st.st_size);			
+				return -1;
+			}
+		}
+	}
+	return 0;
+}
+
 // generate internal server error message
 void uwsgi_500(struct wsgi_request *wsgi_req) {
 	if (uwsgi_response_prepare_headers(wsgi_req, "500 Internal Server Error", 25)) return;
 	if (uwsgi_response_add_connection_close(wsgi_req)) return;
+	if (error_page(wsgi_req, uwsgi.error_page_500)) return;
+	if (uwsgi_response_add_header(wsgi_req, "Content-Type", 12, "text/plain", 10)) return;
 	uwsgi_response_write_body_do(wsgi_req, "Internal Server Error", 21);
 }
 
@@ -11,6 +32,7 @@ void uwsgi_500(struct wsgi_request *wsgi_req) {
 void uwsgi_404(struct wsgi_request *wsgi_req) {
 	if (uwsgi_response_prepare_headers(wsgi_req, "404 Not Found", 13)) return;
 	if (uwsgi_response_add_connection_close(wsgi_req)) return;
+	if (error_page(wsgi_req, uwsgi.error_page_404)) return;
 	if (uwsgi_response_add_header(wsgi_req, "Content-Type", 12, "text/plain", 10)) return;
 	uwsgi_response_write_body_do(wsgi_req, "Not Found", 9);
 }
@@ -18,6 +40,7 @@ void uwsgi_404(struct wsgi_request *wsgi_req) {
 void uwsgi_403(struct wsgi_request *wsgi_req) {
 	if (uwsgi_response_prepare_headers(wsgi_req, "403 Forbidden", 13)) return;
 	if (uwsgi_response_add_connection_close(wsgi_req)) return;
+	if (error_page(wsgi_req, uwsgi.error_page_403)) return;
 	if (uwsgi_response_add_content_type(wsgi_req, "text/plain", 10)) return;
 	uwsgi_response_write_body_do(wsgi_req, "Forbidden", 9);
 }

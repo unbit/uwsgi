@@ -1038,6 +1038,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		uwsgi.workers[uwsgi.mywid].requests++;
 		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests++;
 		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].write_errors += wsgi_req->write_errors;
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].read_errors += wsgi_req->read_errors;
 		// this is used for MAX_REQUESTS
 		uwsgi.workers[uwsgi.mywid].delta_requests++;
 	}
@@ -1072,6 +1073,13 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	// after_request hook
 	if (!wsgi_req->is_raw && uwsgi.p[wsgi_req->uh->modifier1]->after_request)
 		uwsgi.p[wsgi_req->uh->modifier1]->after_request(wsgi_req);
+
+	// after_request custom hooks
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, uwsgi.after_request_hooks) {
+		void (*func)(struct wsgi_request *) = (void (*)(struct wsgi_request *)) usl->custom_ptr;
+		func(wsgi_req);
+	}
 
 	if (uwsgi.threads > 1) {
 		// now the thread can die...
@@ -1137,6 +1145,9 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->websocket_buf) {
 		uwsgi_buffer_destroy(wsgi_req->websocket_buf);
 	}
+	if (wsgi_req->websocket_send_buf) {
+		uwsgi_buffer_destroy(wsgi_req->websocket_send_buf);
+	}
 
 
 	// reset request
@@ -1162,7 +1173,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 
-	// ready to accept request, if i am a vassal signal Emperor about my loyalty
+	// after the first request, if i am a vassal, signal Emperor about my loyalty
 	if (uwsgi.has_emperor && !uwsgi.loyal) {
 		uwsgi_log("announcing my loyalty to the Emperor...\n");
 		char byte = 17;
@@ -3922,9 +3933,9 @@ char *uwsgi_strip(char *src) {
 
 void uwsgi_uuid(char *buf) {
 #ifdef UWSGI_UUID
-	uuid_t uuid_zmq;
-	uuid_generate(uuid_zmq);
-	uuid_unparse(uuid_zmq, buf);
+	uuid_t uuid_value;
+	uuid_generate(uuid_value);
+	uuid_unparse(uuid_value, buf);
 #else
 	int i,r[11];
 	if (!uwsgi_file_exists("/dev/urandom")) goto fallback;

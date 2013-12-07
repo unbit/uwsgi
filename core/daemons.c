@@ -6,7 +6,7 @@ extern struct uwsgi_server uwsgi;
 
 	External uwsgi daemons
 
-	There are 3 kind of daemons (read: external applications) that can be managed
+	There are 3 kinds of daemons (read: external applications) that can be managed
 	by uWSGI.
 
 	1) dumb daemons (attached with --attach-daemon)
@@ -14,12 +14,12 @@ extern struct uwsgi_server uwsgi;
 		and the process is respawned
 	2) smart daemons with daemonization
 		you specify a pidfile and a command
-		- on startup - if the pidfile does not exists or contains a not-available pid (checked with kill(pid, 0))
-		the daemon is respawned
-		- on master ckeck - if the pidfile does not exist or if it point to a non-existent pid
-                the daemon is respawned
+		- on startup - if the pidfile does not exist or contains a non-available pid (checked with kill(pid, 0))
+		  the daemon is respawned
+		- on master check - if the pidfile does not exist or if it points to a non-existent pid
+		  the daemon is respawned
 	3) smart daemons without daemonization
-		same as 2, but the daemonization and pidfile creation is managed by uWSGI
+		same as 2, but the daemonization and pidfile creation are managed by uWSGI
 
 	status:
 
@@ -232,7 +232,7 @@ void uwsgi_detach_daemons() {
 		if (ud->pid > 0 && !ud->pidfile) {
 #endif
 			uwsgi_log("[uwsgi-daemons] stopping daemon (pid: %d): %s\n", (int) ud->pid, ud->command);
-			// try to gracefully stop daemon, kill it if it won't die
+			// try to stop daemon gracefully, kill it if it won't die
 			// if mercy is not set then wait up to 3 seconds
 			time_t timeout = uwsgi_now() + (uwsgi.reload_mercy ? uwsgi.reload_mercy : 3);
 			int waitpid_status;

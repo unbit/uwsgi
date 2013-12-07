@@ -24,16 +24,29 @@ static char *uwsgi_fifo_by_slot() {
 	return uwsgi.master_fifo->value;
 }
 
-static void uwsgi_fifo_set_slot_zero() { uwsgi.master_fifo_slot = 0; }
-static void uwsgi_fifo_set_slot_one() { uwsgi.master_fifo_slot = 1; }
-static void uwsgi_fifo_set_slot_two() { uwsgi.master_fifo_slot = 2; }
-static void uwsgi_fifo_set_slot_three() { uwsgi.master_fifo_slot = 3; }
-static void uwsgi_fifo_set_slot_four() { uwsgi.master_fifo_slot = 4; }
-static void uwsgi_fifo_set_slot_five() { uwsgi.master_fifo_slot = 5; }
-static void uwsgi_fifo_set_slot_six() { uwsgi.master_fifo_slot = 6; }
-static void uwsgi_fifo_set_slot_seven() { uwsgi.master_fifo_slot = 7; }
-static void uwsgi_fifo_set_slot_eight() { uwsgi.master_fifo_slot = 8; }
-static void uwsgi_fifo_set_slot_nine() { uwsgi.master_fifo_slot = 9; }
+#define announce_fifo uwsgi_log_verbose("active master fifo is now %s\n", uwsgi_fifo_by_slot())
+
+static void uwsgi_fifo_set_slot_zero() { uwsgi.master_fifo_slot = 0; announce_fifo; }
+static void uwsgi_fifo_set_slot_one() { uwsgi.master_fifo_slot = 1; announce_fifo; }
+static void uwsgi_fifo_set_slot_two() { uwsgi.master_fifo_slot = 2; announce_fifo; }
+static void uwsgi_fifo_set_slot_three() { uwsgi.master_fifo_slot = 3; announce_fifo; }
+static void uwsgi_fifo_set_slot_four() { uwsgi.master_fifo_slot = 4; announce_fifo; }
+static void uwsgi_fifo_set_slot_five() { uwsgi.master_fifo_slot = 5; announce_fifo; }
+static void uwsgi_fifo_set_slot_six() { uwsgi.master_fifo_slot = 6; announce_fifo; }
+static void uwsgi_fifo_set_slot_seven() { uwsgi.master_fifo_slot = 7; announce_fifo; }
+static void uwsgi_fifo_set_slot_eight() { uwsgi.master_fifo_slot = 8; announce_fifo; }
+static void uwsgi_fifo_set_slot_nine() { uwsgi.master_fifo_slot = 9; announce_fifo; }
+
+static void subscriptions_blocker() {
+	if (uwsgi.subscriptions_blocked) {
+		uwsgi_log_verbose("subscriptions re-enabled\n");
+		uwsgi.subscriptions_blocked = 0;
+	}
+	else {
+		uwsgi.subscriptions_blocked = 1;
+		uwsgi_log_verbose("subscriptions blocked\n");
+	}
+}
 
 /*
 
@@ -71,6 +84,7 @@ void uwsgi_master_fifo_prepare() {
 	uwsgi_fifo_table['r'] = grace_them_all;
 	uwsgi_fifo_table['R'] = reap_them_all;
 	uwsgi_fifo_table['s'] = stats;
+	uwsgi_fifo_table['S'] = subscriptions_blocker;
 	uwsgi_fifo_table['w'] = uwsgi_reload_workers;
 	uwsgi_fifo_table['W'] = uwsgi_brutally_reload_workers;
 

@@ -1,6 +1,6 @@
 # uWSGI build system
 
-uwsgi_version = '1.9.20'
+uwsgi_version = '1.9.21'
 
 import os
 import re
@@ -55,6 +55,8 @@ if CPUCOUNT < 1:
 
 binary_list = []
 
+started_at = time.time()
+
 # this is used for reporting (at the end of the build)
 # the server configuration
 report = {
@@ -71,7 +73,6 @@ report = {
     'yaml': False,
     'json': False,
     'ssl': False,
-    'zeromq': False,
     'xml': False,
     'debug': False,
     'plugin_dir': False,
@@ -306,6 +307,24 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         uwsgi_dot_h = uwsgi_dot_h_content.encode('hex')
     open('core/dot_h.c', 'w').write('char *uwsgi_dot_h = "%s";\n' % uwsgi_dot_h);
     gcc_list.append('core/dot_h') 
+
+    # embed uwsgiconfig.py in the server binary. It increases the binary size, but will be very useful
+    # if possibile, the blob is compressed
+    if sys.version_info[0] >= 3:
+        uwsgi_config_py_content = open('uwsgiconfig.py', 'rb').read()
+    else:
+        uwsgi_config_py_content = open('uwsgiconfig.py').read()
+    if report['zlib']:
+        import zlib
+        # maximum level of compression
+        uwsgi_config_py_content = zlib.compress(uwsgi_config_py_content, 9)
+    if sys.version_info[0] >= 3:
+        import binascii
+        uwsgi_config_py = binascii.b2a_hex(uwsgi_config_py_content).decode('ascii')
+    else:
+        uwsgi_config_py = uwsgi_config_py_content.encode('hex')
+    open('core/config_py.c', 'w').write('char *uwsgi_config_py = "%s";\n' % uwsgi_config_py);
+    gcc_list.append('core/config_py')
     
     cflags.append('-DUWSGI_CFLAGS=\\"%s\\"' % uwsgi_cflags)
     cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
@@ -360,7 +379,10 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                     f.close()
 
                 p_cflags = cflags[:]
-                p_cflags += up['CFLAGS']
+                try:
+                    p_cflags += up['CFLAGS']
+                except:
+                    pass
 
                 if uwsgi_os.startswith('CYGWIN'):
                     try:
@@ -431,7 +453,13 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                     except:
                         pass
 
-                libs += up['LIBS']
+                try:
+                    libs += up['LIBS']
+                except:
+                    pass
+
+                if not 'LDFLAGS' in up:
+                    up['LDFLAGS'] = []
 
                 if uwsgi_os == 'Darwin':
                     found_arch = False
@@ -495,6 +523,8 @@ def build_uwsgi(uc, print_only=False, gcll=None):
     print("")
     print("############## end of uWSGI configuration #############")
 
+    print("total build time: %d seconds" % (time.time() - started_at))
+
     if bin_name.find("/") < 0:
         bin_name = './' + bin_name
     if uc.get('as_shared_library'):
@@ -547,7 +577,7 @@ class uConf(object):
             'core/setup_utils', 'core/clock', 'core/init', 'core/buffer', 'core/reader', 'core/writer', 'core/alarm', 'core/cron', 'core/hooks',
             'core/plugins', 'core/lock', 'core/cache', 'core/daemons', 'core/errors', 'core/hash', 'core/master_events', 'core/chunked',
             'core/queue', 'core/event', 'core/signal', 'core/strings', 'core/progress', 'core/timebomb', 'core/ini', 'core/fsmon', 'core/mount',
-            'core/metrics',
+            'core/metrics', 'core/plugins_builder', 'core/sharedarea',
             'core/rpc', 'core/gateway', 'core/loop', 'core/cookie', 'core/querystring', 'core/rb_timers', 'core/transformations', 'core/uwsgi']
         # add protocols
         self.gcc_list.append('proto/base')
@@ -1127,20 +1157,6 @@ class uConf(object):
                 self.gcc_list.append('core/legion')
                 report['ssl'] = True
 
-
-        if has_uuid and self.get('zeromq'):
-            if self.get('zeromq') == 'auto':
-                if self.has_include('zmq.h'):
-                    self.cflags.append("-DUWSGI_ZEROMQ")
-                    self.gcc_list.append('proto/zeromq')
-                    self.libs.append('-lzmq')
-                    report['zeromq'] = True
-            else:
-                self.cflags.append("-DUWSGI_ZEROMQ")
-                self.gcc_list.append('proto/zeromq')
-                self.libs.append('-lzmq')
-                report['zeromq'] = True
-
         if self.get('xml'):
             if self.get('xml') == 'auto':
                 xmlconf = spcall('xml2-config --libs')
@@ -1195,26 +1211,47 @@ class uConf(object):
 def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     path = path.rstrip('/')
 
-    if not os.path.isdir(path):
-        print("Error: unable to find directory '%s'" % path)
-        sys.exit(1)
+    plugin_started_at = time.time()
 
     up = {}
-    try:
-        execfile('%s/uwsgiplugin.py' % path, up)
-    except:
-        f = open('%s/uwsgiplugin.py' % path)
-        exec(f.read(), up)
-        f.close()
+
+    if os.path.isfile(path):
+        bname = os.path.basename(path)
+        # override path
+        path = os.path.dirname(path)
+        up['GCC_LIST'] = [bname]
+        up['NAME'] = bname.split('.')[0]
+        if not path: path = '.'
+    elif os.path.isdir(path):
+        try:
+            execfile('%s/uwsgiplugin.py' % path, up)
+        except:
+            f = open('%s/uwsgiplugin.py' % path)
+            exec(f.read(), up)
+            f.close()
+    else:
+        print("Error: unable to find directory '%s'" % path)
+        sys.exit(1)
 
     requires = []
 
     p_cflags = cflags[:]
     p_ldflags = ldflags[:]
 
-    p_cflags += up['CFLAGS']
-    p_ldflags += up['LDFLAGS']
-    p_libs = up['LIBS']
+    try:
+        p_cflags += up['CFLAGS']
+    except:
+        pass
+
+    try:
+        p_ldflags += up['LDFLAGS']
+    except:
+        pass
+
+    try:
+        p_libs = up['LIBS']
+    except:
+        p_libs = []
 
     post_build = None
 
@@ -1355,6 +1392,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     if post_build:
         post_build(uc)
 
+    print("build time: %d seconds" % (time.time() - plugin_started_at))
     print("*** %s plugin built and available in %s ***" % (name, plugin_dest + '.so'))
 
 def vararg_callback(option, opt_str, value, parser):
@@ -1378,7 +1416,7 @@ if __name__ == "__main__":
     parser.add_option("-f", "--cflags", action="callback", callback=vararg_callback, dest="cflags", help="same as --build but less verbose", metavar="PROFILE")
     parser.add_option("-u", "--unbit", action="store_true", dest="unbit", help="build unbit profile")
     parser.add_option("-p", "--plugin", action="callback", callback=vararg_callback, dest="plugin", help="build a plugin as shared library, optionally takes a build profile name", metavar="PLUGIN [PROFILE]")
-    parser.add_option("-x", "--extra-plugin", action="callback", callback=vararg_callback,  dest="extra_plugin", help="build an external plugin as shared library, takes an optional include dir", metavar="PLUGIN [INCLUDE_DIR]")
+    parser.add_option("-x", "--extra-plugin", action="callback", callback=vararg_callback,  dest="extra_plugin", help="build an external plugin as shared library, takes an optional include dir", metavar="PLUGIN [NAME]")
     parser.add_option("-c", "--clean", action="store_true", dest="clean", help="clean the build")
     parser.add_option("-e", "--check", action="store_true", dest="check", help="run cppcheck")
     parser.add_option("-v", "--verbose", action="store_true", dest="verbose", help="more verbose build")
@@ -1446,13 +1484,16 @@ if __name__ == "__main__":
         print("*** uWSGI building and linking plugin %s ***" % options.plugin[0] )
         build_plugin(options.plugin[0], uc, cflags, ldflags, libs, name)
     elif options.extra_plugin:
-        print("*** uWSGI building and linking plugin ***")
-        cflags = spcall("%s --cflags" % options.extra_plugin[0]).split()
+        print("*** uWSGI building and linking plugin from %s ***" % options.extra_plugin[0])
+        cflags = os.environ['UWSGI_PLUGINS_BUILDER_CFLAGS'].split() + os.environ.get("CFLAGS", "").split()
+        cflags.append('-I.uwsgi_plugins_builder/')
+        ldflags = os.environ.get("LDFLAGS", "").split()
+        name = None
         try:
-            cflags.append('-I%s' % options.extra_plugin[1])
+            name = options.extra_plugin[1]
         except:
             pass
-        build_plugin('.', None, cflags, [], [], None)
+        build_plugin(options.extra_plugin[0], None, cflags, ldflags, None, name)
     elif options.clean:
         os.system("rm -f core/*.o")
         os.system("rm -f proto/*.o")
@@ -1460,6 +1501,7 @@ if __name__ == "__main__":
         os.system("rm -f plugins/*/*.o")
         os.system("rm -f build/*.o")
         os.system("rm -f core/dot_h.c")
+        os.system("rm -f core/config_py.c")
     elif options.check:
         os.system("cppcheck --max-configs=1000 --enable=all -q core/ plugins/ proto/ lib/ apache2/")
     else:
