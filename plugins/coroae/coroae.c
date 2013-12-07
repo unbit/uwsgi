@@ -51,7 +51,7 @@ SV * coroae_coro_new(CV *block) {
         XPUSHs(sv_2mortal(newSVpv( "Coro", 4)));
         XPUSHs(newRV_inc((SV *)block));
         PUTBACK;
-        call_method("new", G_SCALAR);
+        call_method("new", G_SCALAR|G_EVAL);
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
                 uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
@@ -73,7 +73,7 @@ static int coroae_wait_milliseconds(int timeout) {
         PUSHMARK(SP);
         XPUSHs(newSVnv(((double)timeout)/1000.0));
         PUTBACK;
-        call_pv("Coro::AnyEvent::sleep", G_SCALAR);
+        call_pv("Coro::AnyEvent::sleep", G_SCALAR|G_EVAL);
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
                 uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
@@ -101,7 +101,7 @@ static int coroae_wait_fd_read(int fd, int timeout) {
         XPUSHs(newSViv(fd));
         XPUSHs(newSViv(timeout));
         PUTBACK;
-        call_pv("Coro::AnyEvent::readable", G_SCALAR);
+        call_pv("Coro::AnyEvent::readable", G_SCALAR|G_EVAL);
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
                 uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
@@ -128,13 +128,14 @@ static int coroae_wait_fd_write(int fd, int timeout) {
         XPUSHs(sv_2mortal(newSViv(fd)));
         XPUSHs(sv_2mortal(newSViv(timeout)));
         PUTBACK;
-        call_pv("Coro::AnyEvent::writable", G_SCALAR);
+        call_pv("Coro::AnyEvent::writable", G_SCALAR|G_EVAL);
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
                 uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
         }
 	else {
-		if (SvTRUE(POPs)) {
+		SV *p_ret = POPs;	
+		if (SvTRUE(p_ret)) {
 			ret = 1;
 		}
 	}
@@ -302,7 +303,7 @@ static SV *coroae_add_watcher(int fd, SV *cb) {
         XPUSHs(newRV_inc(cb));
         PUTBACK;
 
-        call_method( "io", G_SCALAR);
+        call_method( "io", G_SCALAR|G_EVAL);
 
         SPAGAIN;
 	if(SvTRUE(ERRSV)) {
@@ -333,7 +334,7 @@ static SV *coroae_condvar_new() {
         XPUSHs(sv_2mortal(newSVpv( "AnyEvent", 8)));
         PUTBACK;
 
-        call_method( "condvar", G_SCALAR);
+        call_method( "condvar", G_SCALAR|G_EVAL);
 
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
@@ -359,7 +360,7 @@ static void coroae_wait_condvar(SV *cv) {
         XPUSHs(cv);
         PUTBACK;
 
-        call_method( "recv", G_DISCARD);
+        call_method( "recv", G_DISCARD|G_EVAL);
 
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
