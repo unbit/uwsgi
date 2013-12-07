@@ -55,6 +55,8 @@ if CPUCOUNT < 1:
 
 binary_list = []
 
+started_at = time.time()
+
 # this is used for reporting (at the end of the build)
 # the server configuration
 report = {
@@ -520,6 +522,8 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         print("%s = %s" % (report_key, report[report_key]))
     print("")
     print("############## end of uWSGI configuration #############")
+
+    print("total build time: %d seconds" % (time.time() - started_at))
 
     if bin_name.find("/") < 0:
         bin_name = './' + bin_name
