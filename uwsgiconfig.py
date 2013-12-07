@@ -1390,6 +1390,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     if post_build:
         post_build(uc)
 
+    print("build time: %d seconds" % (time.time() - started_at))
     print("*** %s plugin built and available in %s ***" % (name, plugin_dest + '.so'))
 
 def vararg_callback(option, opt_str, value, parser):
