@@ -194,9 +194,12 @@ int uwsgi_perl_obj_can(SV *obj, char *method, size_t len) {
         XPUSHs(sv_2mortal(newSVpv(method, len)));
         PUTBACK;
 
-        call_method( "can", G_SCALAR);
+        call_method( "can", G_SCALAR|G_EVAL);
 
         SPAGAIN;
+	if(SvTRUE(ERRSV)) {
+		uwsgi_log("%s", SvPV_nolen(ERRSV));
+	}
 
         ret = SvROK(POPs);
         PUTBACK;
@@ -253,7 +256,7 @@ SV *uwsgi_perl_obj_call(SV *obj, char *method) {
 
         SPAGAIN;
 	if(SvTRUE(ERRSV)) {
-        	uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+        	uwsgi_log("%s", SvPV_nolen(ERRSV));
         }
 	else {
         	ret = SvREFCNT_inc(POPs);

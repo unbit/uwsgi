@@ -117,6 +117,21 @@ static void uwsgi_symcall_post_fork() {
         }
 }
 
+static int uwsgi_symcall_mule(char *opt) {
+	if (uwsgi_endswith(opt, "()")) {
+		char *func_name = uwsgi_concat2n(opt, strlen(opt)-2, "", 0);
+		void (*func)() = dlsym(RTLD_DEFAULT, func_name);
+		if (!func) {
+			uwsgi_log("unable to find symbol \"%s\" in process address space\n", func_name);
+                        exit(1);			
+		}
+		free(func_name);
+		func();
+		return 1;
+	}
+	return 0;
+}
+
 struct uwsgi_plugin symcall_plugin = {
 
         .name = "symcall",
@@ -127,6 +142,6 @@ struct uwsgi_plugin symcall_plugin = {
         .after_request = uwsgi_symcall_after_request,
 	.rpc = uwsgi_symcall_rpc,
 	.post_fork = uwsgi_symcall_post_fork,
-
+	.mule = uwsgi_symcall_mule,
 };
 

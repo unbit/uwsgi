@@ -101,7 +101,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 
 	if (!SvRV(*hitem)) { uwsgi_log("invalid PSGI response body\n") ; return UWSGI_OK; }
 	
-        if (SvTYPE(SvRV(*hitem)) == SVt_PVGV || SvTYPE(SvRV(*hitem)) == SVt_PVHV || SvTYPE(SvRV(*hitem)) == SVt_PVMG) {
+        if (SvROK(*hitem) && (SvTYPE(SvRV(*hitem)) == SVt_PVGV || SvTYPE(SvRV(*hitem)) == SVt_PVHV || SvTYPE(SvRV(*hitem)) == SVt_PVMG)) {
 
 		// respond to fileno ?
 		if (uwsgi.async < 2) {
