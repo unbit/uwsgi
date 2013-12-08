@@ -2009,6 +2009,7 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 
 	// call here to allows plugin to override hooks
 	uwsgi_register_base_hooks();
+	uwsgi_register_logchunks();
 	uwsgi_log_encoders_register_embedded();
 
 	// register base metrics (so plugins can override them)
@@ -2843,9 +2844,10 @@ unsafe:
 	if (uwsgi.logformat) {
 		uwsgi_build_log_format(uwsgi.logformat);
 		uwsgi.logit = uwsgi_logit_lf;
-		if (uwsgi.logformat_strftime) {
-			uwsgi.logit = uwsgi_logit_lf_strftime;
-		}
+		// TODO check it
+		//if (uwsgi.logformat_strftime) {
+			//uwsgi.logit = uwsgi_logit_lf_strftime;
+		//}
 		uwsgi.logvectors = uwsgi_malloc(sizeof(struct iovec *) * uwsgi.cores);
 		for (j = 0; j < uwsgi.cores; j++) {
 			uwsgi.logvectors[j] = uwsgi_malloc(sizeof(struct iovec) * uwsgi.logformat_vectors);

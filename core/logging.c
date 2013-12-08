@@ -972,10 +972,6 @@ void uwsgi_logit_lf(struct wsgi_request *wsgi_req) {
 	}
 }
 
-void uwsgi_logit_lf_strftime(struct wsgi_request *wsgi_req) {
-	uwsgi_log("lf strftime\n");
-}
-
 void uwsgi_build_log_format(char *format) {
 	int state = 0;
 	char *ptr = format;
@@ -1199,6 +1195,39 @@ static ssize_t uwsgi_lf_ioerr(struct wsgi_request * wsgi_req, char **buf) {
 	return strlen(*buf);
 }
 
+struct uwsgi_logchunk *uwsgi_register_logchunk(char *name, ssize_t (*func)(struct wsgi_request *, char **), int need_free) {
+	struct uwsgi_logchunk *old_logchunk = NULL, *logchunk = uwsgi.registered_logchunks;
+	while(logchunk) {
+		if (!strcmp(logchunk->name, name)) goto found;
+		old_logchunk = logchunk;
+		logchunk = logchunk->next;
+	}
+	logchunk = uwsgi_calloc(sizeof(struct uwsgi_logchunk));
+	logchunk->name = name;
+	if (old_logchunk) {
+		old_logchunk->next = logchunk;
+	}
+	else {
+		uwsgi.registered_logchunks = logchunk;
+	}
+found:
+	logchunk->func = func;
+	logchunk->free = need_free;
+	logchunk->type = 3;
+	return logchunk;	
+}
+
+struct uwsgi_logchunk *uwsgi_get_logchunk_by_name(char *name, size_t name_len) {
+	struct uwsgi_logchunk *logchunk = uwsgi.registered_logchunks;
+	while(logchunk) {
+		if (!uwsgi_strncmp(name, name_len, logchunk->name, strlen(logchunk->name))) {
+			return logchunk;
+		}
+		logchunk = logchunk->next;
+	}
+	return NULL;
+}
+
 void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 
 	struct uwsgi_logchunk *logchunk = uwsgi.logchunks;
@@ -1219,7 +1248,7 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 	}
 
 	/*
-	   0 -> raw test
+	   0 -> raw text
 	   1 -> offsetof variable
 	   2 -> logvar
 	   3 -> func
@@ -1233,187 +1262,17 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 	logchunk->len = len;
 	// variable
 	if (variable) {
-		if (!uwsgi_strncmp(ptr, len, "uri", 3)) {
-			logchunk->pos = offsetof(struct wsgi_request, uri);
-			logchunk->pos_len = offsetof(struct wsgi_request, uri_len);
-		}
-		else if (!uwsgi_strncmp(ptr, len, "method", 6)) {
-			logchunk->pos = offsetof(struct wsgi_request, method);
-			logchunk->pos_len = offsetof(struct wsgi_request, method_len);
-		}
-		else if (!uwsgi_strncmp(ptr, len, "user", 4)) {
-			logchunk->pos = offsetof(struct wsgi_request, remote_user);
-			logchunk->pos_len = offsetof(struct wsgi_request, remote_user_len);
-		}
-		else if (!uwsgi_strncmp(ptr, len, "addr", 4)) {
-			logchunk->pos = offsetof(struct wsgi_request, remote_addr);
-			logchunk->pos_len = offsetof(struct wsgi_request, remote_addr_len);
-		}
-		else if (!uwsgi_strncmp(ptr, len, "host", 4)) {
-			logchunk->pos = offsetof(struct wsgi_request, host);
-			logchunk->pos_len = offsetof(struct wsgi_request, host_len);
-		}
-		else if (!uwsgi_strncmp(ptr, len, "proto", 5)) {
-			logchunk->pos = offsetof(struct wsgi_request, protocol);
-			logchunk->pos_len = offsetof(struct wsgi_request, protocol_len);
-		}
-		else if (!uwsgi_strncmp(ptr, len, "uagent", 6)) {
-			logchunk->pos = offsetof(struct wsgi_request, user_agent);
-			logchunk->pos_len = offsetof(struct wsgi_request, user_agent_len);
-		}
-		else if (!uwsgi_strncmp(ptr, len, "referer", 7)) {
-			logchunk->pos = offsetof(struct wsgi_request, referer);
-			logchunk->pos_len = offsetof(struct wsgi_request, referer_len);
-		}
-		else if (!uwsgi_strncmp(ptr, len, "status", 6)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_status;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "rsize", 5)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_rsize;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "hsize", 5)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_hsize;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "size", 4)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_size;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "cl", 2)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_cl;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "micros", 6)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_micros;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "msecs", 5)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_msecs;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "tmsecs", 6)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_tmsecs;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "tmicros", 7)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_tmicros;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "time", 4)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_time;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "ltime", 5)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_ltime;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "ftime", 5)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_ftime;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "ctime", 5)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_ctime;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "epoch", 5)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_epoch;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "pid", 3)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_pid;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "wid", 3)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_wid;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "switches", 8)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_switches;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "vars", 4)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_vars;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "core", 4)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_core;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "vsz", 3)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_vsz;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "rss", 3)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_rss;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "vszM", 4)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_vszM;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "rssM", 4)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_rssM;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "pktsize", 7)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_pktsize;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "modifier1", 9)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_modifier1;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "modifier2", 9)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_modifier2;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "headers", 7)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_headers;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "werr", 4)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_werr;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "rerr", 4)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_rerr;
-			logchunk->free = 1;
-		}
-		else if (!uwsgi_strncmp(ptr, len, "ioerr", 5)) {
-			logchunk->type = 3;
-			logchunk->func = uwsgi_lf_ioerr;
-			logchunk->free = 1;
+		struct uwsgi_logchunk *rlc = uwsgi_get_logchunk_by_name(ptr, len);
+		if (rlc) {
+			if (rlc->type == 1) {
+				logchunk->pos = rlc->pos;
+				logchunk->pos_len = rlc->pos_len;
+			}
+			else if (rlc->type == 3) {
+				logchunk->type = 3;
+				logchunk->func = rlc->func;
+				logchunk->free = rlc->free;
+			}
 		}
 		else if (!uwsgi_starts_with(ptr, len, "metric.", 7)) {
 			logchunk->type = 4;
@@ -1990,6 +1849,51 @@ end:
         return buf;
 }
 
+#define r_logchunk(x) uwsgi_register_logchunk(#x, uwsgi_lf_ ## x, 1)
+#define r_logchunk_offset(x, y) { struct uwsgi_logchunk *lc = uwsgi_register_logchunk(#x, NULL, 0); lc->pos = offsetof(struct wsgi_request, y); lc->pos_len = offsetof(struct wsgi_request, y ## _len); lc->type = 1; lc->free=0;}
+void uwsgi_register_logchunks() {
+	// offsets
+	r_logchunk_offset(uri, uri);
+	r_logchunk_offset(method, method);
+	r_logchunk_offset(user, remote_user);
+	r_logchunk_offset(addr, remote_addr);
+	r_logchunk_offset(host, host);
+	r_logchunk_offset(proto, protocol);
+	r_logchunk_offset(uagent, user_agent);
+	r_logchunk_offset(referer, referer);
+
+	// funcs
+	r_logchunk(status);
+	r_logchunk(rsize);
+	r_logchunk(hsize);
+	r_logchunk(size);
+	r_logchunk(cl);
+	r_logchunk(micros);
+	r_logchunk(msecs);
+	r_logchunk(tmsecs);
+	r_logchunk(tmicros);
+	r_logchunk(time);
+	r_logchunk(ltime);
+	r_logchunk(ftime);
+	r_logchunk(ctime);
+	r_logchunk(epoch);
+	r_logchunk(pid);
+	r_logchunk(wid);
+	r_logchunk(switches);
+	r_logchunk(vars);
+	r_logchunk(core);
+	r_logchunk(vsz);
+	r_logchunk(rss);
+	r_logchunk(vszM);
+	r_logchunk(rssM);
+	r_logchunk(pktsize);
+	r_logchunk(modifier1);
+	r_logchunk(modifier2);
+	r_logchunk(headers);
+	r_logchunk(werr);
+	r_logchunk(rerr);
+	r_logchunk(ioerr);
+}
 
 void uwsgi_log_encoders_register_embedded() {
 	uwsgi_register_log_encoder("prefix", uwsgi_log_encoder_prefix);

@@ -74,7 +74,7 @@ extern "C" {
 #define UWSGI_OPT_REQ_LOG_MASTER	(1 << 14)
 #define UWSGI_OPT_METRICS	(1 << 15)
 
-#define MAX_GENERIC_PLUGINS 64
+#define MAX_GENERIC_PLUGINS 128
 #define MAX_GATEWAYS 64
 #define MAX_TIMERS 64
 #define MAX_CRONS 64
@@ -122,7 +122,7 @@ extern "C" {
 	}\
 	else {\
 	if (uwsgi.gp_cnt >= MAX_GENERIC_PLUGINS) {\
-		uwsgi_log("you have embedded to much generic plugins !!!\n");\
+		uwsgi_log("you have embedded too much generic plugins !!!\n");\
 		exit(1);\
 	}\
 	uwsgi.gp[uwsgi.gp_cnt] = up;\
@@ -1686,6 +1686,7 @@ struct uwsgi_server {
 	int logformat_strftime;
 	int logformat_vectors;
 	struct uwsgi_logchunk *logchunks;
+	struct uwsgi_logchunk *registered_logchunks;
 	void (*logit) (struct wsgi_request *);
 	struct iovec **logvectors;
 
@@ -3839,6 +3840,7 @@ void uwsgi_deadlock_check(pid_t);
 
 
 struct uwsgi_logchunk {
+	char *name;
 	char *ptr;
 	size_t len;
 	int vec;
@@ -3853,6 +3855,7 @@ struct uwsgi_logchunk {
 void uwsgi_build_log_format(char *);
 
 void uwsgi_add_logchunk(int, int, char *, size_t);
+struct uwsgi_logchunk *uwsgi_register_logchunk(char *, ssize_t (*)(struct wsgi_request *, char **), int);
 
 void uwsgi_logit_simple(struct wsgi_request *);
 void uwsgi_logit_lf(struct wsgi_request *);
@@ -4603,6 +4606,8 @@ int uwsgi_sharedarea_wait(int, int, int);
 struct uwsgi_sharedarea *uwsgi_sharedarea_get_by_id(int, uint64_t);
 int uwsgi_websocket_send_from_sharedarea(struct wsgi_request *, int, uint64_t, uint64_t);
 int uwsgi_websocket_send_binary_from_sharedarea(struct wsgi_request *, int, uint64_t, uint64_t);
+
+void uwsgi_register_logchunks(void);
 
 void uwsgi_setup(int, char **, char **);
 int uwsgi_run(void);
