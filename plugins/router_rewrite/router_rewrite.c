@@ -1,9 +1,9 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 #ifdef UWSGI_ROUTING
 
 extern struct uwsgi_server uwsgi;
 
-int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+static int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
 	char *tmp_qs = NULL;
 
@@ -64,7 +64,7 @@ clear:
 	return UWSGI_ROUTE_BREAK;
 }
 
-int uwsgi_router_rewrite(struct uwsgi_route *ur, char *args) {
+static int uwsgi_router_rewrite(struct uwsgi_route *ur, char *args) {
 
         ur->func = uwsgi_routing_func_rewrite;
         ur->data = args;
@@ -73,7 +73,7 @@ int uwsgi_router_rewrite(struct uwsgi_route *ur, char *args) {
 }
 
 
-int uwsgi_router_rewrite_last(struct uwsgi_route *ur, char *args) {
+static int uwsgi_router_rewrite_last(struct uwsgi_route *ur, char *args) {
 
         ur->func = uwsgi_routing_func_rewrite;
         ur->data = args;
@@ -83,8 +83,7 @@ int uwsgi_router_rewrite_last(struct uwsgi_route *ur, char *args) {
 }
 
 
-void router_rewrite_register(void) {
-
+static void router_rewrite_register(void) {
 	uwsgi_register_router("rewrite", uwsgi_router_rewrite);
 	uwsgi_register_router("rewrite-last", uwsgi_router_rewrite_last);
 }

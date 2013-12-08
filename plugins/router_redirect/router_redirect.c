@@ -1,10 +1,10 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 #ifdef UWSGI_ROUTING
 
 extern struct uwsgi_server uwsgi;
 
-int uwsgi_routing_func_redirect(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+static int uwsgi_routing_func_redirect(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
 	struct uwsgi_buffer *ub = NULL;
 
@@ -25,7 +25,7 @@ end:
 	return UWSGI_ROUTE_BREAK;
 }
 
-int uwsgi_routing_func_redirect_permanent(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+static int uwsgi_routing_func_redirect_permanent(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
 	struct uwsgi_buffer *ub = NULL;
 
@@ -49,7 +49,7 @@ end:
 
 
 
-int uwsgi_router_redirect(struct uwsgi_route *ur, char *args) {
+static int uwsgi_router_redirect(struct uwsgi_route *ur, char *args) {
 
 	ur->func = uwsgi_routing_func_redirect;
 	ur->data = args;
@@ -57,7 +57,7 @@ int uwsgi_router_redirect(struct uwsgi_route *ur, char *args) {
 	return 0;
 }
 
-int uwsgi_router_redirect_permanent(struct uwsgi_route *ur, char *args) {
+static int uwsgi_router_redirect_permanent(struct uwsgi_route *ur, char *args) {
 
         ur->func = uwsgi_routing_func_redirect_permanent;
         ur->data = args;
@@ -67,7 +67,7 @@ int uwsgi_router_redirect_permanent(struct uwsgi_route *ur, char *args) {
 
 
 
-void router_redirect_register(void) {
+static void router_redirect_register(void) {
 
 	uwsgi_register_router("redirect", uwsgi_router_redirect);
 	uwsgi_register_router("redirect-302", uwsgi_router_redirect);

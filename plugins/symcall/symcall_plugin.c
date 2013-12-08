@@ -132,6 +132,48 @@ static int uwsgi_symcall_mule(char *opt) {
 	return 0;
 }
 
+#ifdef UWSGI_ROUTING
+static int symcall_route(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
+
+	int (*func)(struct wsgi_request *) = (int (*)(struct wsgi_request *)) dlsym(RTLD_DEFAULT, ub->buf);
+	uwsgi_buffer_destroy(ub);
+
+	if (func) {
+		wsgi_req->async_status = func(wsgi_req);
+	}
+	else {
+		if (ur->custom) return UWSGI_ROUTE_NEXT;
+		uwsgi_404(wsgi_req);
+	}
+
+	return UWSGI_ROUTE_BREAK;
+}
+
+static int uwsgi_router_symcall(struct uwsgi_route *ur, char *args) {
+        ur->func = symcall_route;
+        ur->data = args;
+        ur->data_len = strlen(args);
+        return 0;
+}
+
+static int uwsgi_router_symcall_next(struct uwsgi_route *ur, char *args) {
+	ur->custom = 1;
+	return uwsgi_router_symcall(ur, args);
+}
+#endif
+
+static void uwsgi_symcall_register() {
+#ifdef UWSGI_ROUTING
+	uwsgi_register_router("symcall", uwsgi_router_symcall);
+	uwsgi_register_router("symcall-next", uwsgi_router_symcall_next);
+#endif
+}
+
 struct uwsgi_plugin symcall_plugin = {
 
         .name = "symcall",
@@ -143,5 +185,6 @@ struct uwsgi_plugin symcall_plugin = {
 	.rpc = uwsgi_symcall_rpc,
 	.post_fork = uwsgi_symcall_post_fork,
 	.mule = uwsgi_symcall_mule,
+	.on_load = uwsgi_symcall_register,
 };
 
