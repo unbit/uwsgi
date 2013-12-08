@@ -7,18 +7,24 @@ struct uwsgi_symcall {
 	int (*symcall_function)(struct wsgi_request *);
 	struct uwsgi_string_list *rpc;
 	struct uwsgi_string_list *post_fork;
+	int use_rtld_next;
+	void *dlsym_handle;
 } usym;
 
 struct uwsgi_plugin symcall_plugin;
 
 static struct uwsgi_option uwsgi_symcall_options[] = {
         {"symcall", required_argument, 0, "load the specified C symbol as the symcall request handler (supports <mountpoint=func> too)", uwsgi_opt_add_string_list, &usym.symcall_function_name, 0},
+        {"symcall-use-next", no_argument, 0, "use RTLD_NEXT when searching for symbols", uwsgi_opt_true, &usym.use_rtld_next, 0},
         {"symcall-register-rpc", required_argument, 0, "load the specified C symbol as an RPC function (syntax: name function)", uwsgi_opt_add_string_list, &usym.rpc, 0},
         {"symcall-post-fork", required_argument, 0, "call the specified C symbol after each fork()", uwsgi_opt_add_string_list, &usym.post_fork, 0},
         {0, 0, 0, 0},
 };
 
 static void uwsgi_symcall_init(){
+	if (usym.use_rtld_next) {
+		usym.dlsym_handle = RTLD_NEXT;
+	}
 	struct uwsgi_string_list *usl = NULL;
 	int has_mountpoints = 0;
 	uwsgi_foreach(usl, usym.symcall_function_name) {
@@ -30,7 +36,7 @@ static void uwsgi_symcall_init(){
 			mountpoint = usl->value;
 			has_mountpoints = 1;
 		}
-		usl->custom_ptr = dlsym(RTLD_DEFAULT, func);
+		usl->custom_ptr = dlsym(usym.dlsym_handle, func);
 		if (!usl->custom_ptr) {
 			uwsgi_log("unable to find symbol \"%s\" in process address space\n", func);
 			exit(1);
@@ -52,7 +58,7 @@ static void uwsgi_symcall_init(){
 			exit(1);
 		}
 		*space = 0;
-		void *func = dlsym(RTLD_DEFAULT, space+1);
+		void *func = dlsym(usym.dlsym_handle, space+1);
 		if (!func) {
 			uwsgi_log("unable to find symbol \"%s\" in process address space\n", space+1);
 			exit(1);
@@ -107,7 +113,7 @@ static void uwsgi_symcall_post_fork() {
 	void (*func)(void);
 	struct uwsgi_string_list *usl = usym.post_fork;
         while(usl) {
-                func = dlsym(RTLD_DEFAULT, usl->value);
+                func = dlsym(usym.dlsym_handle, usl->value);
                 if (!func) {
                         uwsgi_log("unable to find symbol \"%s\" in process address space\n", usl->value);
                         exit(1);
@@ -120,7 +126,7 @@ static void uwsgi_symcall_post_fork() {
 static int uwsgi_symcall_mule(char *opt) {
 	if (uwsgi_endswith(opt, "()")) {
 		char *func_name = uwsgi_concat2n(opt, strlen(opt)-2, "", 0);
-		void (*func)() = dlsym(RTLD_DEFAULT, func_name);
+		void (*func)() = dlsym(usym.dlsym_handle, func_name);
 		if (!func) {
 			uwsgi_log("unable to find symbol \"%s\" in process address space\n", func_name);
                         exit(1);			
@@ -140,7 +146,7 @@ static int symcall_route(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) 
         struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
         if (!ub) return UWSGI_ROUTE_BREAK;
 
-	int (*func)(struct wsgi_request *) = (int (*)(struct wsgi_request *)) dlsym(RTLD_DEFAULT, ub->buf);
+	int (*func)(struct wsgi_request *) = (int (*)(struct wsgi_request *)) dlsym(usym.dlsym_handle, ub->buf);
 	uwsgi_buffer_destroy(ub);
 
 	if (func) {
@@ -168,6 +174,7 @@ static int uwsgi_router_symcall_next(struct uwsgi_route *ur, char *args) {
 #endif
 
 static void uwsgi_symcall_register() {
+	usym.dlsym_handle = RTLD_DEFAULT;
 #ifdef UWSGI_ROUTING
 	uwsgi_register_router("symcall", uwsgi_router_symcall);
 	uwsgi_register_router("symcall-next", uwsgi_router_symcall_next);
