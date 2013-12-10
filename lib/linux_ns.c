@@ -111,6 +111,11 @@ void linux_namespace_start(void *argv) {
 		if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == 1) {
 			exit(1);
 		}
+		else if (uwsgi.exit_on_reload && WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == 0) {
+			uwsgi_log("jailed master process exited and exit-on-reload is enabled, shutting down\n");
+			exit(0);
+		}
+
 
 		uwsgi_log("pid %d ended. Respawning...\n", (int) pid);
 	}
