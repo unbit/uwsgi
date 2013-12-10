@@ -26,6 +26,13 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_get_by_id(int id, uint64_t pos) {
 	return sa;
 }
 
+int uwsgi_sharedarea_update(int id) {
+        struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, 0);
+        if (!sa) return -1;
+	sa->updates++;
+        return 0;
+}
+
 int uwsgi_sharedarea_rlock(int id) {
 	struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, 0);
         if (!sa) return -1;	

@@ -4605,6 +4605,7 @@ int uwsgi_sharedarea_wait(int, int, int);
 int uwsgi_sharedarea_unlock(int);
 int uwsgi_sharedarea_rlock(int);
 int uwsgi_sharedarea_wlock(int);
+int uwsgi_sharedarea_update(int);
 
 struct uwsgi_sharedarea *uwsgi_sharedarea_get_by_id(int, uint64_t);
 int uwsgi_websocket_send_from_sharedarea(struct wsgi_request *, int, uint64_t, uint64_t);

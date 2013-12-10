@@ -1512,6 +1512,22 @@ PyObject *py_uwsgi_sharedarea_write(PyObject * self, PyObject * args) {
         return Py_None;
 }
 
+PyObject *py_uwsgi_sharedarea_update(PyObject * self, PyObject * args) {
+        int id;
+
+        if (!PyArg_ParseTuple(args, "i:sharedarea_update", &id)) {
+                return NULL;
+        }
+
+        if (uwsgi_sharedarea_update(id)) {
+                return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_update()");
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+
+}
+
 PyObject *py_uwsgi_sharedarea_rlock(PyObject * self, PyObject * args) {
         int id;
 
