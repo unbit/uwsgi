@@ -26,6 +26,28 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_get_by_id(int id, uint64_t pos) {
 	return sa;
 }
 
+int uwsgi_sharedarea_rlock(int id) {
+	struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, 0);
+        if (!sa) return -1;	
+	uwsgi_rlock(sa->lock);
+	return 0;
+}
+
+int uwsgi_sharedarea_wlock(int id) {
+        struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, 0);
+        if (!sa) return -1;
+        uwsgi_wlock(sa->lock);
+        return 0;
+}
+
+int uwsgi_sharedarea_unlock(int id) {
+        struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, 0);
+        if (!sa) return -1;
+        uwsgi_rwunlock(sa->lock);
+        return 0;
+}
+
+
 int64_t uwsgi_sharedarea_read(int id, uint64_t pos, char *blob, uint64_t len) {
 	struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, pos);
         if (!sa) return -1;
@@ -51,7 +73,8 @@ int uwsgi_sharedarea_write(int id, uint64_t pos, char *blob, uint64_t len) {
 } 
 
 int uwsgi_sharedarea_read64(int id, uint64_t pos, int64_t *value) {
-	return uwsgi_sharedarea_read(id, pos, (char *) value, 8);
+	int64_t rlen = uwsgi_sharedarea_read(id, pos, (char *) value, 8);
+	return rlen == 8 ? 0 : -1;
 }
 
 int uwsgi_sharedarea_write64(int id, uint64_t pos, int64_t *value) {
@@ -59,7 +82,8 @@ int uwsgi_sharedarea_write64(int id, uint64_t pos, int64_t *value) {
 }
 
 int uwsgi_sharedarea_read8(int id, uint64_t pos, int8_t *value) {
-	return uwsgi_sharedarea_read(id, pos, (char *) value, 1);
+	int64_t rlen = uwsgi_sharedarea_read(id, pos, (char *) value, 1);
+	return rlen == 1 ? 0 : -1;
 }
 
 int uwsgi_sharedarea_write8(int id, uint64_t pos, int8_t *value) {
@@ -67,7 +91,8 @@ int uwsgi_sharedarea_write8(int id, uint64_t pos, int8_t *value) {
 }
 
 int uwsgi_sharedarea_read16(int id, uint64_t pos, int16_t *value) {
-	return uwsgi_sharedarea_read(id, pos, (char *) value, 2);
+	int64_t rlen = uwsgi_sharedarea_read(id, pos, (char *) value, 2);
+	return rlen == 2 ? 0 : -1;
 }
 
 int uwsgi_sharedarea_write16(int id, uint64_t pos, int16_t *value) {
@@ -76,7 +101,8 @@ int uwsgi_sharedarea_write16(int id, uint64_t pos, int16_t *value) {
 
 
 int uwsgi_sharedarea_read32(int id, uint64_t pos, int32_t *value) {
-	return uwsgi_sharedarea_read(id, pos, (char *) value, 4);
+	int64_t rlen = uwsgi_sharedarea_read(id, pos, (char *) value, 4);
+	return rlen == 4 ? 0 : -1;
 }
 
 int uwsgi_sharedarea_write32(int id, uint64_t pos, int32_t *value) {

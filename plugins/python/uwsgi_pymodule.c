@@ -1512,6 +1512,69 @@ PyObject *py_uwsgi_sharedarea_write(PyObject * self, PyObject * args) {
         return Py_None;
 }
 
+PyObject *py_uwsgi_sharedarea_rlock(PyObject * self, PyObject * args) {
+        int id;
+
+        if (!PyArg_ParseTuple(args, "i:sharedarea_rlock", &id)) {
+                return NULL;
+        }
+
+        UWSGI_RELEASE_GIL
+        int ret = uwsgi_sharedarea_rlock(id);
+        UWSGI_GET_GIL
+
+        if (ret) {
+                return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_rlock()");
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+
+}
+
+PyObject *py_uwsgi_sharedarea_wlock(PyObject * self, PyObject * args) {
+        int id;
+
+        if (!PyArg_ParseTuple(args, "i:sharedarea_wlock", &id)) {
+                return NULL;
+        }
+
+        UWSGI_RELEASE_GIL
+        int ret = uwsgi_sharedarea_wlock(id);
+        UWSGI_GET_GIL
+
+        if (ret) {
+                return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_wlock()");
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+
+}
+
+PyObject *py_uwsgi_sharedarea_unlock(PyObject * self, PyObject * args) {
+        int id;
+
+        if (!PyArg_ParseTuple(args, "i:sharedarea_unlock", &id)) {
+                return NULL;
+        }
+
+        UWSGI_RELEASE_GIL
+        int ret = uwsgi_sharedarea_unlock(id);
+        UWSGI_GET_GIL
+
+        if (ret) {
+                return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_unlock()");
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+
+}
+
+
+
+
 PyObject *py_uwsgi_sharedarea_write8(PyObject * self, PyObject * args) {
 	int id;
 	uint64_t pos = 0;
@@ -1613,6 +1676,23 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
 
 	return ret;
 }
+
+#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
+PyObject *py_uwsgi_sharedarea_memoryview(PyObject * self, PyObject * args) {
+        int id;
+	if (!PyArg_ParseTuple(args, "i:sharedarea_memoryview", &id)) {
+                return NULL;
+        }
+	struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, 0);
+	if (!sa) {
+        	return PyErr_Format(PyExc_ValueError, "cannot get a memoryview object from sharedarea %d", id);
+        }
+	Py_buffer info;
+	if (PyBuffer_FillInfo(&info, NULL, sa->area, sa->max_pos+1, 0, PyBUF_CONTIG) < 0)
+        	return PyErr_Format(PyExc_ValueError, "cannot get a memoryview object from sharedarea %d", id);
+	return PyMemoryView_FromBuffer(&info);
+}
+#endif
 
 PyObject *py_uwsgi_spooler_freq(PyObject * self, PyObject * args) {
 
@@ -2498,6 +2578,12 @@ static PyMethodDef uwsgi_sa_methods[] = {
 	{"sharedarea_write64", py_uwsgi_sharedarea_write64, METH_VARARGS, ""},
 	{"sharedarea_inclong", py_uwsgi_sharedarea_inc64, METH_VARARGS, ""},
 	{"sharedarea_inc64", py_uwsgi_sharedarea_inc64, METH_VARARGS, ""},
+	{"sharedarea_rlock", py_uwsgi_sharedarea_rlock, METH_VARARGS, ""},
+	{"sharedarea_wlock", py_uwsgi_sharedarea_wlock, METH_VARARGS, ""},
+	{"sharedarea_unlock", py_uwsgi_sharedarea_unlock, METH_VARARGS, ""},
+#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
+	{"sharedarea_memoryview", py_uwsgi_sharedarea_memoryview, METH_VARARGS, ""},
+#endif
 	{NULL, NULL},
 };
 
