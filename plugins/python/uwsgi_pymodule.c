@@ -1694,6 +1694,7 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
 }
 
 #if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
+#ifndef HAS_NOT_PyMemoryView_FromBuffer
 PyObject *py_uwsgi_sharedarea_memoryview(PyObject * self, PyObject * args) {
         int id;
 	if (!PyArg_ParseTuple(args, "i:sharedarea_memoryview", &id)) {
@@ -1708,6 +1709,7 @@ PyObject *py_uwsgi_sharedarea_memoryview(PyObject * self, PyObject * args) {
         	return PyErr_Format(PyExc_ValueError, "cannot get a memoryview object from sharedarea %d", id);
 	return PyMemoryView_FromBuffer(&info);
 }
+#endif
 
 PyObject *py_uwsgi_sharedarea_object(PyObject * self, PyObject * args) {
 	int id;
@@ -2610,7 +2612,9 @@ static PyMethodDef uwsgi_sa_methods[] = {
 	{"sharedarea_wlock", py_uwsgi_sharedarea_wlock, METH_VARARGS, ""},
 	{"sharedarea_unlock", py_uwsgi_sharedarea_unlock, METH_VARARGS, ""},
 #if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
+#ifndef HAS_NOT_PyMemoryView_FromBuffer
 	{"sharedarea_memoryview", py_uwsgi_sharedarea_memoryview, METH_VARARGS, ""},
+#endif
 	{"sharedarea_object", py_uwsgi_sharedarea_object, METH_VARARGS, ""},
 #endif
 	{NULL, NULL},
