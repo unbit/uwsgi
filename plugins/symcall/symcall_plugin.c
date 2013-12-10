@@ -15,16 +15,20 @@ struct uwsgi_plugin symcall_plugin;
 
 static struct uwsgi_option uwsgi_symcall_options[] = {
         {"symcall", required_argument, 0, "load the specified C symbol as the symcall request handler (supports <mountpoint=func> too)", uwsgi_opt_add_string_list, &usym.symcall_function_name, 0},
+#ifdef RTLD_NEXT
         {"symcall-use-next", no_argument, 0, "use RTLD_NEXT when searching for symbols", uwsgi_opt_true, &usym.use_rtld_next, 0},
+#endif
         {"symcall-register-rpc", required_argument, 0, "load the specified C symbol as an RPC function (syntax: name function)", uwsgi_opt_add_string_list, &usym.rpc, 0},
         {"symcall-post-fork", required_argument, 0, "call the specified C symbol after each fork()", uwsgi_opt_add_string_list, &usym.post_fork, 0},
         {0, 0, 0, 0},
 };
 
 static void uwsgi_symcall_init(){
+#ifdef RTLD_NEXT
 	if (usym.use_rtld_next) {
 		usym.dlsym_handle = RTLD_NEXT;
 	}
+#endif
 	struct uwsgi_string_list *usl = NULL;
 	int has_mountpoints = 0;
 	uwsgi_foreach(usl, usym.symcall_function_name) {
