@@ -1708,6 +1708,18 @@ PyObject *py_uwsgi_sharedarea_memoryview(PyObject * self, PyObject * args) {
         	return PyErr_Format(PyExc_ValueError, "cannot get a memoryview object from sharedarea %d", id);
 	return PyMemoryView_FromBuffer(&info);
 }
+
+PyObject *py_uwsgi_sharedarea_object(PyObject * self, PyObject * args) {
+	int id;
+        if (!PyArg_ParseTuple(args, "i:sharedarea_object", &id)) {
+                return NULL;
+        }
+        struct uwsgi_sharedarea *sa = uwsgi_sharedarea_get_by_id(id, 0);
+        if (!sa) {
+                return PyErr_Format(PyExc_ValueError, "cannot get an object from sharedarea %d", id);
+        }
+	return (PyObject *) sa->obj;
+}
 #endif
 
 PyObject *py_uwsgi_spooler_freq(PyObject * self, PyObject * args) {
@@ -2599,6 +2611,7 @@ static PyMethodDef uwsgi_sa_methods[] = {
 	{"sharedarea_unlock", py_uwsgi_sharedarea_unlock, METH_VARARGS, ""},
 #if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
 	{"sharedarea_memoryview", py_uwsgi_sharedarea_memoryview, METH_VARARGS, ""},
+	{"sharedarea_object", py_uwsgi_sharedarea_object, METH_VARARGS, ""},
 #endif
 	{NULL, NULL},
 };

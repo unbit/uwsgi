@@ -722,6 +722,7 @@ struct uwsgi_sharedarea {
 	uint64_t hits;
 	uint8_t honour_used;
 	uint64_t used;
+	void *obj;
 };
 
 // maintain alignment here !!!

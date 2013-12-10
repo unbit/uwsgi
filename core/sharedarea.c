@@ -308,9 +308,47 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_init_keyval(char *arg) {
 		"ptr", &s_ptr,
 		"size", &s_size,
 		NULL)) {
+		uwsgi_log("invalid sharedarea keyval syntax\n");
+		exit(1);
 	}
 
-	return NULL;
+	uint64_t len = 0;
+	int pages = 0;
+	if (s_size) {
+		len = uwsgi_n64(s_size);
+		pages = len / uwsgi.page_size;
+        	if (len % uwsgi.page_size != 0) pages++;
+	}
+	
+	if (s_pages) {
+		pages = atoi(s_pages);	
+	}
+
+	char *area = NULL;
+	struct uwsgi_sharedarea *sa = NULL;
+	if (s_file) {
+	}
+	else if (s_fd) {
+	}
+	else if (s_ptr) {
+	}
+
+	if (pages) {
+		if (!area) {
+			sa = uwsgi_sharedarea_init(pages);	
+		}
+		else {
+			uwsgi_sharedarea_init_ptr(area, len);
+		}
+	}
+
+	if (s_pages) free(s_pages);
+	if (s_file) free(s_file);
+	if (s_fd) free(s_fd);
+	if (s_ptr) free(s_ptr);
+	if (s_size) free(s_size);
+
+	return sa;
 }
 
 

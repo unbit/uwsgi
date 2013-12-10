@@ -191,6 +191,8 @@ struct uwsgi_python {
 
 	char *raw;
 	PyObject *raw_callable;
+
+	struct uwsgi_string_list *sharedarea;
 };
 
 

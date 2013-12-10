@@ -164,6 +164,10 @@ struct uwsgi_option uwsgi_python_options[] = {
 
 	{"python-raw", required_argument, 0, "load a python file for managing raw requests", uwsgi_opt_set_str, &up.raw, 0},
 
+#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
+	{"py-sharedarea", required_argument, 0, "create a sharedarea from a python bytearray object of the specified size", uwsgi_opt_add_string_list, &up.sharedarea, 0},
+#endif
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -263,6 +267,17 @@ pep405:
         up.swap_ts = simple_swap_ts;
         up.reset_ts = simple_reset_ts;
 	
+#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, up.sharedarea) {
+		uint64_t len = uwsgi_n64(usl->value);
+		PyObject *obj = PyByteArray_FromStringAndSize(NULL, len);
+        	char *storage = PyByteArray_AsString(obj);
+		Py_INCREF(obj);
+		struct uwsgi_sharedarea *sa = uwsgi_sharedarea_init_ptr(storage, len);
+		sa->obj = obj;
+	}
+#endif
 
 	uwsgi_log_initial("Python main interpreter initialized at %p\n", up.main_thread);
 
