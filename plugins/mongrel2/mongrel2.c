@@ -545,29 +545,26 @@ int uwsgi_proto_zeromq_sendfile(struct wsgi_request *wsgi_req, int fd, size_t po
 	return UWSGI_AGAIN;
 }
 
-void uwsgi_proto_zeromq_setup(struct uwsgi_socket *uwsgi_sock) {
-
-	uwsgi_sock->proto = uwsgi_proto_zeromq_parser;
-	uwsgi_sock->proto_accept = uwsgi_proto_zeromq_accept;
-	uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
-	uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
-	uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
-	uwsgi_sock->proto_read_body = uwsgi_proto_zeromq_read_body;
-	uwsgi_sock->proto_write = uwsgi_proto_zeromq_write;
-	uwsgi_sock->proto_write_headers = uwsgi_proto_zeromq_write;
-	uwsgi_sock->proto_sendfile = uwsgi_proto_zeromq_sendfile;
-	uwsgi_sock->proto_close = uwsgi_proto_zeromq_close;
-
-	uwsgi_sock->proto_thread_fixup = uwsgi_proto_zeromq_thread_fixup;
-
-	uwsgi_sock->edge_trigger = 1;
-	uwsgi_sock->retry = uwsgi_malloc(sizeof(int) * uwsgi.threads);
-	uwsgi_sock->retry[0] = 1;
-
-	uwsgi_sock->fd = -1;
-}
-
 static void uwsgi_proto_mongrel2_setup(struct uwsgi_socket *uwsgi_sock) {
+	uwsgi_sock->proto = uwsgi_proto_zeromq_parser;
+        uwsgi_sock->proto_accept = uwsgi_proto_zeromq_accept;
+        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
+        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
+        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
+        uwsgi_sock->proto_read_body = uwsgi_proto_zeromq_read_body;
+        uwsgi_sock->proto_write = uwsgi_proto_zeromq_write;
+        uwsgi_sock->proto_write_headers = uwsgi_proto_zeromq_write;
+        uwsgi_sock->proto_sendfile = uwsgi_proto_zeromq_sendfile;
+        uwsgi_sock->proto_close = uwsgi_proto_zeromq_close;
+
+        uwsgi_sock->proto_thread_fixup = uwsgi_proto_zeromq_thread_fixup;
+
+        uwsgi_sock->edge_trigger = 1;
+        uwsgi_sock->retry = uwsgi_malloc(sizeof(int) * uwsgi.threads);
+        uwsgi_sock->retry[0] = 1;
+
+        uwsgi_sock->fd = -1;
+
 };
 
 static void mongrel2_register_proto() {
