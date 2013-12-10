@@ -941,6 +941,14 @@ void uwsgi_logit_lf(struct wsgi_request *wsgi_req) {
 				uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = 0;
 			}
 		}
+		// var
+		else if (logchunk->type == 5) {
+			uint16_t value_len = 0;
+			char *value = uwsgi_get_var(wsgi_req, logchunk->ptr, logchunk->len, &value_len);
+			// could be NULL
+                        uwsgi.logvectors[wsgi_req->async_id][pos].iov_base = value;
+                        uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = (size_t) value_len;
+                }
 		// metric
 		else if (logchunk->type == 4) {
 			int64_t metric = uwsgi_metric_get(logchunk->ptr, NULL);
@@ -1253,6 +1261,7 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 	   2 -> logvar
 	   3 -> func
 	   4 -> metric
+	   5 -> request variable
 	 */
 
 	logchunk->type = variable;
@@ -1274,6 +1283,14 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 				logchunk->free = rlc->free;
 			}
 		}
+		// var
+		else if (!uwsgi_starts_with(ptr, len, "var.", 4)) {
+			logchunk->type = 5;
+			logchunk->ptr = ptr+4;
+			logchunk->len = len-4;
+			logchunk->free = 0;
+		}
+		// metric
 		else if (!uwsgi_starts_with(ptr, len, "metric.", 7)) {
 			logchunk->type = 4;
 			logchunk->ptr = uwsgi_concat2n(ptr+7, len - 7, "", 0);
