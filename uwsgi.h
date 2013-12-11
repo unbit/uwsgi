@@ -12,6 +12,8 @@ extern "C" {
 #define UMAX64_STR "18446744073709551615"
 #define MAX64_STR "-9223372036854775808"
 
+#define UWSGI_END_OF_OPTIONS { NULL, 0, 0, NULL, NULL, NULL, 0},
+
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_error_realpath(x)  uwsgi_log("realpath() of %s failed: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_log_safe(x)  if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log(x);
