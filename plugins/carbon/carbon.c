@@ -377,10 +377,14 @@ metrics_loop:
 		if (u_carbon.use_metrics) {
 			struct uwsgi_metric *um = uwsgi.metrics;
 			while(um) {
+				if (u_carbon.no_workers && (
+					!uwsgi_starts_with(um->name, um->name_len, "worker.", 7) &&
+					uwsgi_starts_with(um->name, um->name_len, "worker.0.", 9))) goto umnxt;
 				uwsgi_rlock(uwsgi.metrics_lock);
 				wok = carbon_write(fd, "%s%s.%s.%.*s %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, um->name_len, um->name, (unsigned long long) *um->value, (unsigned long long) now);
 				uwsgi_rwunlock(uwsgi.metrics_lock);
 				if (!wok) goto clear;
+umnxt:
 				um = um->next;
 			}
 		}
