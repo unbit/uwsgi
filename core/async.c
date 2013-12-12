@@ -360,7 +360,8 @@ void async_schedule_to_req_green(void) {
         }
 #endif
         for(;;) {
-                if (uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req) <= UWSGI_OK) {
+		wsgi_req->async_status = uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req);
+                if (wsgi_req->async_status <= UWSGI_OK) {
                         break;
                 }
                 wsgi_req->switches++;

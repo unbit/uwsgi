@@ -5,8 +5,10 @@
 #include <lauxlib.h>
 
 #if LUA_VERSION_NUM < 502
-# define luaL_newlib(L,l) (lua_newtable(L), luaL_register(L,NULL,l))
+# define luaL_newuwsgilib(L,l) luaL_register(L, "uwsgi",l)
 # define lua_rawlen lua_objlen
+#else
+# define luaL_newuwsgilib(L,l) lua_newtable(L);luaL_setfuncs (L, l, 0);lua_pushvalue(L,-1);lua_setglobal(L,"uwsgi")
 #endif
 
 extern struct uwsgi_server uwsgi;
@@ -265,6 +267,26 @@ error:
 
 }
 
+static int uwsgi_api_async_sleep(lua_State *L) {
+	uint8_t argc = lua_gettop(L);
+        if (argc == 0) goto end;
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        int timeout = lua_tonumber(L, 1);
+
+        if (timeout >= 0) {
+                async_add_timeout(wsgi_req, timeout);
+        }
+
+        wsgi_req->async_force_again = 1;
+
+end:
+	lua_pushnil(L);
+        return 1;
+}
+
+
 static int uwsgi_api_websocket_handshake(lua_State *L) {
 	uint8_t argc = lua_gettop(L);
 	if (argc == 0) goto error;
@@ -512,6 +534,8 @@ static const luaL_Reg uwsgi_api[] = {
   {"lock", uwsgi_api_lock},
   {"unlock", uwsgi_api_unlock},
 
+  {"async_sleep", uwsgi_api_async_sleep},
+
   {NULL, NULL}
 };
 
@@ -559,7 +583,7 @@ static void uwsgi_lua_app() {
 		for(i=0;i<uwsgi.cores;i++) {
 			ulua.L[i] = luaL_newstate();
 			luaL_openlibs(ulua.L[i]);
-			luaL_newlib(ulua.L[i], uwsgi_api);
+			luaL_newuwsgilib(ulua.L[i], uwsgi_api);
 
 			lua_pushstring(ulua.L[i], UWSGI_VERSION);
         		lua_setfield(ulua.L[i], -2, "version");
@@ -708,7 +732,6 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 			return UWSGI_AGAIN;
 		}
 	}
-
 clear:
 	lua_pop(L, 4);
 	// set frequency
