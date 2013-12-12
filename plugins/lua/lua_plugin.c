@@ -265,6 +265,141 @@ error:
 
 }
 
+static int uwsgi_api_websocket_handshake(lua_State *L) {
+	uint8_t argc = lua_gettop(L);
+	if (argc == 0) goto error;
+
+	const char *key = NULL, *origin = NULL;
+	size_t key_len = 0, origin_len = 0;
+		
+	key = lua_tolstring(L, 1, &key_len);
+	if (argc > 1) {
+		origin = lua_tolstring(L, 2, &origin_len);
+	}
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	if (uwsgi_websocket_handshake(wsgi_req, (char *)key, key_len, (char *)origin, origin_len)) {
+		goto error;
+	}	
+
+	lua_pushnil(L);
+        return 1;
+
+error:
+	lua_pushstring(L, "unable to complete websocket handshake");
+	lua_error(L);
+	return 0;	
+}
+
+static int uwsgi_api_websocket_send(lua_State *L) {
+	uint8_t argc = lua_gettop(L);
+        if (argc == 0) goto error;
+
+	size_t message_len = 0;
+	const char *message = lua_tolstring(L, 1, &message_len);
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        if (uwsgi_websocket_send(wsgi_req, (char *) message, message_len)) {
+		goto error;
+        }
+	lua_pushnil(L);
+        return 1;
+error:
+        lua_pushstring(L, "unable to send websocket message");    
+        lua_error(L);
+        return 0;
+}
+
+static int uwsgi_api_websocket_send_binary(lua_State *L) {
+        uint8_t argc = lua_gettop(L);
+        if (argc == 0) goto error;
+
+        size_t message_len = 0;
+        const char *message = lua_tolstring(L, 1, &message_len);
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        if (uwsgi_websocket_send_binary(wsgi_req, (char *) message, message_len)) {
+                goto error;
+        }
+	lua_pushnil(L);
+        return 1;
+error:
+        lua_pushstring(L, "unable to send websocket binary message");      
+        lua_error(L);
+        return 0;
+}
+
+static int uwsgi_api_websocket_send_from_sharedarea(lua_State *L) {
+        uint8_t argc = lua_gettop(L);
+        if (argc < 2) goto error;
+
+	int id = lua_tonumber(L, 1);
+	uint64_t pos = lua_tonumber(L, 2);
+	uint64_t len = 0;
+	if (argc > 2) {
+		len = lua_tonumber(L, 3);
+	}
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	if (uwsgi_websocket_send_from_sharedarea(wsgi_req, id, pos, len)) {
+                goto error;
+        }
+	lua_pushnil(L);
+        return 1;
+error:
+        lua_pushstring(L, "unable to send websocket message from sharedarea");      
+        lua_error(L);
+        return 0;
+}
+
+static int uwsgi_api_websocket_send_binary_from_sharedarea(lua_State *L) {
+        uint8_t argc = lua_gettop(L);
+        if (argc < 2) goto error;
+
+        int id = lua_tonumber(L, 1);
+        uint64_t pos = lua_tonumber(L, 2);
+        uint64_t len = 0;
+        if (argc > 2) {
+                len = lua_tonumber(L, 3);
+        }
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        if (uwsgi_websocket_send_binary_from_sharedarea(wsgi_req, id, pos, len)) {
+                goto error;
+        }
+        lua_pushnil(L);
+        return 1;
+error:
+        lua_pushstring(L, "unable to send websocket message from sharedarea");
+        lua_error(L);
+        return 0;
+}
+
+static int uwsgi_api_websocket_recv(lua_State *L) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+        struct uwsgi_buffer *ub = uwsgi_websocket_recv(wsgi_req);
+	if (!ub) {
+        	lua_pushstring(L, "unable to receive websocket message");
+        	lua_error(L);
+        	return 0;
+	}
+	lua_pushlstring(L, ub->buf, ub->pos);
+	uwsgi_buffer_destroy(ub);
+	return 1;
+}
+
+static int uwsgi_api_websocket_recv_nb(lua_State *L) {
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+        struct uwsgi_buffer *ub = uwsgi_websocket_recv_nb(wsgi_req);
+        if (!ub) {
+                lua_pushstring(L, "unable to receive websocket message");
+                lua_error(L);
+                return 0;
+        }
+        lua_pushlstring(L, ub->buf, ub->pos);
+        uwsgi_buffer_destroy(ub);
+        return 1;
+}
 
 static int uwsgi_api_cache_get(lua_State *L) {
 
@@ -365,6 +500,14 @@ static const luaL_Reg uwsgi_api[] = {
 
   {"register_signal", uwsgi_api_register_signal},
   {"register_rpc", uwsgi_api_register_rpc},
+
+  {"websocket_handshake", uwsgi_api_websocket_handshake},
+  {"websocket_recv", uwsgi_api_websocket_recv},
+  {"websocket_recv_nb", uwsgi_api_websocket_recv_nb},
+  {"websocket_send", uwsgi_api_websocket_send},
+  {"websocket_send_from_sharedarea", uwsgi_api_websocket_send_from_sharedarea},
+  {"websocket_send_binary", uwsgi_api_websocket_send_binary},
+  {"websocket_send_binary_from_sharedarea", uwsgi_api_websocket_send_binary_from_sharedarea},
 
   {"lock", uwsgi_api_lock},
   {"unlock", uwsgi_api_unlock},
