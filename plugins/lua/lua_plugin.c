@@ -283,6 +283,63 @@ end:
         return 1;
 }
 
+static int uwsgi_api_wait_fd_read(lua_State *L) {
+        uint8_t argc = lua_gettop(L);
+        if (argc == 0) goto end;
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	int fd = lua_tonumber(L, 1);
+	int timeout = 0;
+	if (argc > 1) {
+        	timeout = lua_tonumber(L, 2);
+	}
+
+	if (async_add_fd_read(wsgi_req, fd, timeout)) {
+		lua_pushstring(L, "unable to call async_add_fd_read()");
+        	lua_error(L);
+        	return 0;
+        }
+end:
+        lua_pushnil(L);
+        return 1;
+}
+
+static int uwsgi_api_wait_fd_write(lua_State *L) {
+        uint8_t argc = lua_gettop(L);
+        if (argc == 0) goto end;
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        int fd = lua_tonumber(L, 1);
+        int timeout = 0;
+        if (argc > 1) {
+                timeout = lua_tonumber(L, 2);
+        }
+
+        if (async_add_fd_write(wsgi_req, fd, timeout)) {
+                lua_pushstring(L, "unable to call async_add_fd_write()");
+                lua_error(L);
+                return 0;
+        }
+end:
+        lua_pushnil(L);
+        return 1;
+}
+
+static int uwsgi_api_async_connect(lua_State *L) {
+        uint8_t argc = lua_gettop(L);
+        if (argc == 0) goto end;
+
+	int fd = uwsgi_connect((char *)lua_tostring(L, 1), 0, 1);
+	lua_pushnumber(L, fd);
+	return 1;
+end:
+        lua_pushnil(L);
+        return 1;
+}
+
+
 
 static int uwsgi_api_websocket_handshake(lua_State *L) {
 	uint8_t argc = lua_gettop(L);
@@ -532,6 +589,9 @@ static const luaL_Reg uwsgi_api[] = {
   {"unlock", uwsgi_api_unlock},
 
   {"async_sleep", uwsgi_api_async_sleep},
+  {"async_connect", uwsgi_api_async_connect},
+  {"wait_fd_read", uwsgi_api_wait_fd_read},
+  {"wait_fd_write", uwsgi_api_wait_fd_write},
 
   {NULL, NULL}
 };

@@ -44,6 +44,8 @@ XS(XS_wait_fd_read) {
 		croak("unable to add fd %d to the event queue", fd);
 	}
 
+	wsgi_req->async_force_again = 1;
+
 	XSRETURN_UNDEF;
 }
 
