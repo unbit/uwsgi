@@ -278,9 +278,6 @@ static int uwsgi_api_async_sleep(lua_State *L) {
         if (timeout >= 0) {
                 async_add_timeout(wsgi_req, timeout);
         }
-
-        wsgi_req->async_force_again = 1;
-
 end:
 	lua_pushnil(L);
         return 1;
