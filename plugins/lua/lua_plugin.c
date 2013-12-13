@@ -18,6 +18,7 @@ struct uwsgi_lua {
 	char *shell;
 	char *filename;
 	struct uwsgi_string_list *load;
+	int gc_freq;
 } ulua;
 
 struct uwsgi_plugin lua_plugin;
@@ -42,6 +43,7 @@ static struct uwsgi_option uwsgi_lua_options[] = {
 	{"lua-load", required_argument, 0, "load a lua file", uwsgi_opt_add_string_list, &ulua.load, 0},
 	{"lua-shell", no_argument, 0, "run the lua interactive shell (debug.debug())", uwsgi_opt_luashell, NULL, 0},
 	{"luashell", no_argument, 0, "run the lua interactive shell (debug.debug())", uwsgi_opt_luashell, NULL, 0},
+	{"lua-gc-freq", no_argument, 0, "set the lua gc frequency (default: 0, runs after every request)", uwsgi_opt_set_int, &ulua.gc_freq, 0},
 
 	{0, 0, 0, 0},
 
@@ -792,7 +794,9 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 clear:
 	lua_pop(L, 4);
 	// set frequency
-	lua_gc(L, LUA_GCCOLLECT, 0);
+	if (!ulua.gc_freq || uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests % ulua.gc_freq == 0) {
+		lua_gc(L, LUA_GCCOLLECT, 0);
+	}
 
 	return UWSGI_OK;
 
