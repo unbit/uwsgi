@@ -55,7 +55,7 @@ void uwsgi_daemons_smart_check() {
 				if (ud->pid > 0) {
 					if (!kill(ud->pid, 0)) {
 						uwsgi_log("[uwsgi_daemons] stopping legion \"%s\" daemon: %s (pid: %d)\n", ud->legion, ud->command, ud->pid);
-						kill(-ud->pid, SIGTERM);
+						kill(-ud->pid, ud->stop_signal);
 					}
 					else {
 						// pid already died
@@ -237,7 +237,7 @@ void uwsgi_detach_daemons() {
 			time_t timeout = uwsgi_now() + (uwsgi.reload_mercy ? uwsgi.reload_mercy : 3);
 			int waitpid_status;
 			while (!kill(ud->pid, 0)) {
-				kill(-ud->pid, SIGTERM);
+				kill(-ud->pid, ud->stop_signal);
 				sleep(1);
 				waitpid(-ud->pid, &waitpid_status, WNOHANG);
 				if (uwsgi_now() >= timeout) {
@@ -347,6 +347,8 @@ void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
 	int daemonize = 0;
 	int freq = 10;
 	char *space = NULL;
+	int stop_signal = SIGTERM;
+	int reload_signal = 0;
 
 	char *command = uwsgi_str(value);
 
@@ -409,6 +411,8 @@ void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
 	uwsgi_ud->daemonize = daemonize;
 	uwsgi_ud->pidfile = pidfile;
 	uwsgi_ud->control = 0;
+	uwsgi_ud->stop_signal = stop_signal;
+	uwsgi_ud->reload_signal = reload_signal;
 	if (!strcmp(opt, "attach-control-daemon")) {
 		uwsgi_ud->control = 1;
 	}

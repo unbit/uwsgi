@@ -585,6 +585,9 @@ struct uwsgi_daemon {
 	int control;
 	struct uwsgi_daemon *next;
 
+	int stop_signal;
+	int reload_signal;
+
 #ifdef UWSGI_SSL
 	char *legion;
 #endif
