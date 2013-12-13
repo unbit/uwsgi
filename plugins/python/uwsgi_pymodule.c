@@ -968,7 +968,7 @@ PyObject *py_uwsgi_websocket_handshake(PyObject * self, PyObject * args) {
         char *proto = NULL;
         Py_ssize_t proto_len = 0;
 
-        if (!PyArg_ParseTuple(args, "s#|s#:websocket_handshake", &key, &key_len, &origin, &origin_len, &proto, &proto_len)) {
+        if (!PyArg_ParseTuple(args, "s#|s#|s#:websocket_handshake", &key, &key_len, &origin, &origin_len, &proto, &proto_len)) {
                 return NULL;
         }
 
