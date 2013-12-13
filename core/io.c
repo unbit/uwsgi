@@ -1216,3 +1216,14 @@ void uwsgi_remap_fd(int fd, char *filename) {
         }
 }
 
+int uwsgi_is_connected(int fd) {
+	int soopt;
+        socklen_t solen = sizeof(int);
+
+        if (getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
+		return 0;
+        }
+        /* is something bad ? */
+        if (soopt) return 0;
+	return 1;
+}

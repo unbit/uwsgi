@@ -321,6 +321,14 @@ XS(XS_async_connect) {
 	XSRETURN(1);
 }
 
+XS(XS_ready_fd) {
+	dXSARGS;
+        psgi_check_args(0);
+	struct wsgi_request *wsgi_req = current_wsgi_req();	
+	ST(0) = newSViv(uwsgi_ready_fd(wsgi_req));
+	XSRETURN(1);
+}
+
 XS(XS_call) {
 
 	dXSARGS;
@@ -888,6 +896,7 @@ void init_perl_embedded_module() {
 	psgi_xs(wait_fd_read);
 	psgi_xs(wait_fd_write);
 	psgi_xs(async_sleep);
+	psgi_xs(ready_fd);
 	psgi_xs(log);
 	psgi_xs(async_connect);
 	psgi_xs(suspend);

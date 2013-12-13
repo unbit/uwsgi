@@ -341,7 +341,38 @@ end:
         return 1;
 }
 
+static int uwsgi_api_is_connected(lua_State *L) {
+        uint8_t argc = lua_gettop(L);
+        if (argc == 0) goto end;
+	int fd = lua_tonumber(L, 1);
+	if (uwsgi_is_connected(fd)) {
+		lua_pushboolean(L, 1);
+		return 1;
+	}
+	lua_pushboolean(L, 0);
+        return 1;
+end:
+        lua_pushnil(L);
+        return 1;
+}
 
+static int uwsgi_api_close(lua_State *L) {
+        uint8_t argc = lua_gettop(L);
+        if (argc == 0) goto end;
+        int fd = lua_tonumber(L, 1);
+	close(fd);
+end:
+        lua_pushnil(L);
+        return 1;
+}
+
+
+static int uwsgi_api_ready_fd(lua_State *L) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+        int fd = uwsgi_ready_fd(wsgi_req);
+        lua_pushnumber(L, fd);
+        return 1;
+}
 
 static int uwsgi_api_websocket_handshake(lua_State *L) {
 	uint8_t argc = lua_gettop(L);
@@ -592,8 +623,11 @@ static const luaL_Reg uwsgi_api[] = {
 
   {"async_sleep", uwsgi_api_async_sleep},
   {"async_connect", uwsgi_api_async_connect},
+  {"is_connected", uwsgi_api_is_connected},
+  {"close", uwsgi_api_close},
   {"wait_fd_read", uwsgi_api_wait_fd_read},
   {"wait_fd_write", uwsgi_api_wait_fd_write},
+  {"ready_fd", uwsgi_api_ready_fd},
 
   {NULL, NULL}
 };

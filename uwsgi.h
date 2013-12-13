@@ -4622,6 +4622,8 @@ void uwsgi_register_logchunks(void);
 void uwsgi_setup(int, char **, char **);
 int uwsgi_run(void);
 
+int uwsgi_is_connected(int);
+
 #ifdef __cplusplus
 }
 #endif
