@@ -4394,6 +4394,7 @@ void uwsgi_setns(char *path) {
 					close(fds[i]);
 				}
 			}
+			free(fds);
 			break;
 		}
 		if (fds)

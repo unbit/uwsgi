@@ -586,11 +586,13 @@ int *uwsgi_attach_fd(int fd, int *count_ptr, char *code, size_t code_len) {
 	len = recvmsg(fd, &msg, 0);
 	if (len <= 0) {
 		uwsgi_error("recvmsg()");
+		free(msg_control);
 		return NULL;
 	}
 
 	if (code && code_len > 0) {
 		if (uwsgi_strncmp(id, code_len, code, code_len)) {
+			free(msg_control);
 			return NULL;
 		}
 
@@ -606,15 +608,19 @@ int *uwsgi_attach_fd(int fd, int *count_ptr, char *code, size_t code_len) {
 	}
 
 	cmsg = CMSG_FIRSTHDR(&msg);
-	if (!cmsg)
+	if (!cmsg) {
+		free(msg_control);
 		return NULL;
+	}
 
 	if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS) {
+		free(msg_control);
 		return NULL;
 	}
 
 	if ((size_t) (cmsg->cmsg_len - ((char *) CMSG_DATA(cmsg) - (char *) cmsg)) > (size_t) (sizeof(int) * (count + 1))) {
 		uwsgi_log("not enough space for sockets data, consider increasing it\n");
+		free(msg_control);
 		return NULL;
 	}
 
