@@ -15,6 +15,7 @@
 struct uwsgi_tuntap_peer {
         int fd;
         uint32_t addr;
+	char ip[INET_ADDRSTRLEN+1];
         int wait_for_write;
         int blocked_read;
         size_t written;
@@ -54,6 +55,7 @@ struct uwsgi_tuntap_router {
         uint16_t write_pktsize;
         uint16_t write_pos;
         int wait_for_write;
+	int stats_server_fd;
 };
 
 struct uwsgi_tuntap {
@@ -62,9 +64,10 @@ struct uwsgi_tuntap {
         uint16_t buffer_size;
         struct uwsgi_tuntap_firewall_rule *fw_in;
         struct uwsgi_tuntap_firewall_rule *fw_out;
+	char *stats_server;
 };
 
-int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *, struct uwsgi_tuntap_peer *);
+int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *, struct uwsgi_tuntap_peer *, int);
 int uwsgi_tuntap_peer_enqueue(struct uwsgi_tuntap_router *, struct uwsgi_tuntap_peer *);
 void uwsgi_tuntap_enqueue(struct uwsgi_tuntap_router *);
 

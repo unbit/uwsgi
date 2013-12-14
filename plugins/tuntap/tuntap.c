@@ -61,6 +61,7 @@ static struct uwsgi_option uwsgi_tuntap_options[] = {
 	{"tuntap-device", required_argument, 0, "add a tuntap device to the instance (syntax: <device>[ <socket>])", uwsgi_opt_add_string_list, &utt.devices, 0},
 	{"tuntap-router-firewall-in", required_argument, 0, "add a firewall rule to the tuntap router (syntax: <action> <src/mask> <dst/mask>)", uwsgi_tuntap_opt_firewall, &utt.fw_in, 0},
 	{"tuntap-router-firewall-out", required_argument, 0, "add a firewall rule to the tuntap router (syntax: <action> <src/mask> <dst/mask>)", uwsgi_tuntap_opt_firewall, &utt.fw_out, 0},
+	{"tuntap-router-stats", required_argument, 0, "run the tuntap router stats server", uwsgi_opt_set_str, &utt.stats_server, 0},
 	{NULL, 0, 0, NULL, NULL, NULL, 0},
 };
 
@@ -132,7 +133,7 @@ static void *uwsgi_tuntap_loop(void *arg) {
 		if (interesting_fd == uttr->server_fd) {
 			// read from the client
 			if (!uttp->wait_for_write) {
-				if (uwsgi_tuntap_peer_dequeue(uttr, uttp)) {
+				if (uwsgi_tuntap_peer_dequeue(uttr, uttp, 0)) {
 					uwsgi_log("server disconnected...\n");
 					exit(1);
 				}
@@ -185,6 +186,8 @@ static void uwsgi_tuntap_client() {
 	}
 }
 
+void tuntaprouter_send_stats(struct uwsgi_tuntap_router *);
+
 void uwsgi_tuntap_router_loop(int id, void *arg) {
 	int i;
 
@@ -193,11 +196,30 @@ void uwsgi_tuntap_router_loop(int id, void *arg) {
 	uttr->write_buf = uwsgi_malloc(utt.buffer_size);
 	uttr->queue = event_queue_init();
 
+	uttr->stats_server_fd = -1;
+
 	void *events = event_queue_alloc(64);
 	if (event_queue_add_fd_read(uttr->queue, uttr->server_fd))
 		exit(1);
 	if (event_queue_add_fd_read(uttr->queue, uttr->fd))
 		exit(1);
+
+	if (utt.stats_server) {
+                char *tcp_port = strchr(utt.stats_server, ':');
+                if (tcp_port) {
+                        // disable deferred accept for this socket
+                        int current_defer_accept = uwsgi.no_defer_accept;
+                        uwsgi.no_defer_accept = 1;
+                        uttr->stats_server_fd = bind_to_tcp(utt.stats_server, uwsgi.listen_queue, tcp_port);
+                        uwsgi.no_defer_accept = current_defer_accept;
+                }
+                else {
+                        uttr->stats_server_fd = bind_to_unix(utt.stats_server, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+                }
+
+                if (event_queue_add_fd_read(uttr->queue, uttr->stats_server_fd)) exit(1);
+                uwsgi_log("*** tuntap stats server enabled on %s fd: %d ***\n", utt.stats_server, uttr->stats_server_fd);
+        }
 
 	for (;;) {
 		int nevents = event_queue_wait_multi(uttr->queue, -1, events, 64);
@@ -255,12 +277,17 @@ void uwsgi_tuntap_router_loop(int id, void *arg) {
 				continue;
 			}
 
+			if (uttr->stats_server_fd > -1 && interesting_fd == uttr->stats_server_fd) {
+				tuntaprouter_send_stats(uttr);
+				continue;
+			}
+
 			struct uwsgi_tuntap_peer *uttp = uttr->peers_head;
 			while (uttp) {
 				if (interesting_fd == uttp->fd) {
 					// read from the client
 					if (event_queue_interesting_fd_is_read(events, i)) {
-						if (uwsgi_tuntap_peer_dequeue(uttr, uttp)) {
+						if (uwsgi_tuntap_peer_dequeue(uttr, uttp, 1)) {
 							uwsgi_tuntap_peer_destroy(uttr, uttp);
 							break;
 						}
@@ -314,6 +341,83 @@ static void uwsgi_tuntap_router() {
 		}
 	}
 }
+
+void tuntaprouter_send_stats(struct uwsgi_tuntap_router *uttr) {
+
+        struct sockaddr_un client_src;
+        socklen_t client_src_len = 0;
+
+        int client_fd = accept(uttr->stats_server_fd, (struct sockaddr *) &client_src, &client_src_len);
+        if (client_fd < 0) {
+                uwsgi_error("tuntaprouter_send_stats()/accept()");
+                return;
+        }
+
+        if (uwsgi.stats_http) {
+                if (uwsgi_send_http_stats(client_fd)) {
+                        close(client_fd);
+                        return;
+                }
+        }
+
+        struct uwsgi_stats *us = uwsgi_stats_new(8192);
+
+        if (uwsgi_stats_keyval_comma(us, "version", UWSGI_VERSION)) goto end;
+        if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) getpid())) goto end;
+        if (uwsgi_stats_keylong_comma(us, "uid", (unsigned long long) getuid())) goto end;
+        if (uwsgi_stats_keylong_comma(us, "gid", (unsigned long long) getgid())) goto end;
+
+        char *cwd = uwsgi_get_cwd();
+        if (uwsgi_stats_keyval_comma(us, "cwd", cwd)) goto end0;
+
+	if (uwsgi_stats_key(us , "peers")) goto end0;
+                if (uwsgi_stats_list_open(us)) goto end0;
+	struct uwsgi_tuntap_peer *uttp = uttr->peers_head;
+	
+        while (uttp) {
+                if (uwsgi_stats_object_open(us)) goto end0;
+		if (uwsgi_stats_keyval_comma(us, "addr", uttp->ip)) goto end0;
+		if (uwsgi_stats_keylong_comma(us, "addr_32", uttp->addr)) goto end0;
+		if (uwsgi_stats_keylong_comma(us, "tx", uttp->tx)) goto end0;
+		if (uwsgi_stats_keylong_comma(us, "rx", uttp->rx)) goto end0;
+		if (uwsgi_stats_keylong(us, "dropped", uttp->dropped)) goto end0;
+		if (uwsgi_stats_object_close(us)) goto end0;
+                uttp = uttp->next;
+		if (uttp) {
+			if (uwsgi_stats_comma(us)) goto end0;
+		}
+        }
+
+        if (uwsgi_stats_list_close(us)) goto end0;
+
+	if (uwsgi_stats_object_close(us)) goto end0;	
+
+        size_t remains = us->pos;
+        off_t pos = 0;
+        while(remains > 0) {
+                int ret = uwsgi_waitfd_write(client_fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                if (ret <= 0) {
+                        goto end0;
+                }
+                ssize_t res = write(client_fd, us->base + pos, remains);
+                if (res <= 0) {
+                        if (res < 0) {
+                                uwsgi_error("write()");
+                        }
+                        goto end0;
+                }
+                pos += res;
+                remains -= res;
+        }
+
+end0:
+        free(cwd);
+end:
+        free(us->base);
+        free(us);
+        close(client_fd);
+}
+
 
 struct uwsgi_plugin tuntap_plugin = {
 	.name = "tuntap",

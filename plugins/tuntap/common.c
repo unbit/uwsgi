@@ -160,7 +160,7 @@ retry:
 }
 
 // receive a packet from the client
-int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tuntap_peer *uttp) {
+int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tuntap_peer *uttp, int is_router) {
 	// get body
 	if (uttp->header_pos >= 4) {
 		ssize_t rlen = read(uttp->fd, uttp->buf + uttp->buf_pos, uttp->buf_pktsize - uttp->buf_pos);
@@ -180,11 +180,13 @@ int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tun
 			uttp->header_pos = 0;
 			uttp->buf_pos = 0;
 
+			if (!is_router) goto enqueue;
+
 			if (uwsgi_tuntap_firewall_check(utt.fw_out, uttp->buf, uttp->buf_pktsize)) return 0;
 
 			// if there is no associated address store the source
 			if (!uttp->addr) {
-				uint32_t *src_ip = (uint32_t *) & uttp->buf[12];
+				uint32_t *src_ip = (uint32_t *) (&uttp->buf[12]);
 				uttp->addr = *src_ip;
 				// drop invalid ip addresses
 				if (!uttp->addr)
@@ -202,7 +204,10 @@ int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tun
 					uwsgi_tuntap_peer_destroy(uttr, tmp_uttp);
 				}
 				uwsgi_log("[tuntap-router] registered new peer %s (fd: %d)\n", ip, uttp->fd);
+				memcpy(uttp->ip, ip, INET_ADDRSTRLEN + 1);
 			}
+
+enqueue:
 
 			memcpy(uttr->write_buf, uttp->buf, uttp->buf_pktsize);
 			uttr->write_pktsize = uttp->buf_pktsize;
