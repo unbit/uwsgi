@@ -4637,6 +4637,8 @@ void uwsgi_setup(int, char **, char **);
 int uwsgi_run(void);
 
 int uwsgi_is_connected(int);
+int uwsgi_pass_cred(int, char *, size_t);
+int uwsgi_recv_cred(int, char *, size_t, pid_t *, uid_t *, gid_t *);
 
 #ifdef __cplusplus
 }
