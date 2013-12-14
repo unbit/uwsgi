@@ -4434,7 +4434,7 @@ char *uwsgi_cache_item_key(struct uwsgi_cache_item *);
 char *uwsgi_binsh(void);
 int uwsgi_file_executable(char *);
 
-int uwsgi_mount(char *, char *, char *, char *);
+int uwsgi_mount(char *, char *, char *, char *, char *);
 int uwsgi_umount(char *, char *);
 int uwsgi_mount_hook(char *);
 int uwsgi_umount_hook(char *);

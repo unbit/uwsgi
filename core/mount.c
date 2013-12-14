@@ -102,7 +102,7 @@ uint64_t uwsgi_mount_flag(char *mflag) {
 	return 0;
 }
 
-int uwsgi_mount(char *fs, char *what, char *where, char *flags) {
+int uwsgi_mount(char *fs, char *what, char *where, char *flags, char *data) {
 #if defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	struct iovec iov[6];
 #endif
@@ -121,7 +121,7 @@ int uwsgi_mount(char *fs, char *what, char *where, char *flags) {
 	free(mflags);
 parsed:
 #ifdef __linux__
-	return mount(what, where, fs, mountflags, NULL);
+	return mount(what, where, fs, mountflags, data);
 #elif defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	iov[0].iov_base = "fstype";
 	iov[0].iov_len = 7;
@@ -197,6 +197,7 @@ unmountable:
 }
 
 int uwsgi_mount_hook(char *arg) {
+	char *data = NULL;
 	char *tmp_arg = uwsgi_str(arg);
 	char *fs = tmp_arg;
 	char *what = strchr(fs, ' ');
@@ -208,8 +209,12 @@ int uwsgi_mount_hook(char *arg) {
 	char *flags = strchr(where, ' ');
 	if (flags) {
 		*flags = 0; flags++;
+		data = strchr(flags, ' ');
+		if (data) {
+			*data = 0; data++;
+		}
 	}
-	if (uwsgi_mount(fs, what, where, flags)) {
+	if (uwsgi_mount(fs, what, where, flags, data)) {
 		uwsgi_error("uwsgi_mount()");
 		free(tmp_arg);
 		return -1;
