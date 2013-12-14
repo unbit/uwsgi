@@ -1,4 +1,4 @@
-#!./uwsgi --https :8443,foobar.crt,foobar.key --http-modifier1 6 --http-raw-body --threads 100 --lua tests/websocket_echo.lua
+#!./uwsgi --https :8443,foobar.crt,foobar.key --http-modifier1 6 --http-raw-body --threads 100 --lua tests/websockets_echo.lua
 
 function app(env)
     local function html()

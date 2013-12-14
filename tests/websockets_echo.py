@@ -1,4 +1,4 @@
-#!./uwsgi --https :8443,foobar.crt,foobar.key --http-raw-body --gevent 100 --module tests.websocket_echo
+#!./uwsgi --https :8443,foobar.crt,foobar.key --http-raw-body --gevent 100 --module tests.websockets_echo
 import uwsgi
 import time
 
