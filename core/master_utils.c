@@ -1661,3 +1661,92 @@ void uwsgi_go_cheap() {
                 uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
                 uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
 }
+
+#ifdef __linux__
+void uwsgi_master_manage_setns(int fd) {
+
+        struct sockaddr_un snsun;
+        socklen_t snsun_len = sizeof(struct sockaddr_un);
+
+        int setns_client = accept(fd, (struct sockaddr *) &snsun, &snsun_len);
+        if (setns_client < 0) {
+                uwsgi_error("uwsgi_master_manage_setns()/accept()");
+                return;
+        }
+
+	int i;
+	int fds[64];
+        int num_fds = 0;
+	struct dirent *de;
+	DIR *ns = opendir("/proc/self/ns");
+	if (!ns) {
+		uwsgi_error("uwsgi_master_manage_setns()/opendir()");
+		return;
+	}
+	while ((de = readdir(ns)) != NULL) {
+		if (strlen(de->d_name) > 0 && de->d_name[0] == '.') continue;
+		struct uwsgi_string_list *usl = NULL;
+		int found = 0;
+		uwsgi_foreach(usl, uwsgi.setns_socket_skip) {
+			if (!strcmp(de->d_name, usl->value)) {
+				found = 1;
+				break;
+			}
+		}
+		if (found) continue;
+		char *filename = uwsgi_concat2("/proc/self/ns/", de->d_name);
+		fds[num_fds] = open(filename, O_RDONLY);
+		if (fds[num_fds] < 0) {
+			uwsgi_error_open(filename);
+			free(filename);
+			goto clear;
+		}
+		free(filename);
+		num_fds++;
+	}
+
+        struct msghdr sn_msg;
+        void *sn_msg_control = uwsgi_malloc(CMSG_SPACE(sizeof(int) * num_fds));
+        struct iovec sn_iov[2];
+        struct cmsghdr *cmsg;
+
+        sn_iov[0].iov_base = "uwsgi-setns";
+        sn_iov[0].iov_len = 11;
+        sn_iov[1].iov_base = &num_fds;
+        sn_iov[1].iov_len = sizeof(int);
+
+        sn_msg.msg_name = NULL;
+        sn_msg.msg_namelen = 0;
+
+        sn_msg.msg_iov = sn_iov;
+        sn_msg.msg_iovlen = 2;
+
+        sn_msg.msg_flags = 0;
+        sn_msg.msg_control = sn_msg_control;
+        sn_msg.msg_controllen = CMSG_SPACE(sizeof(int) * num_fds);
+
+        cmsg = CMSG_FIRSTHDR(&sn_msg);
+        cmsg->cmsg_len = CMSG_LEN(sizeof(int) * num_fds);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+
+        int *sn_fd_ptr = (int *) CMSG_DATA(cmsg);
+	for(i=0;i<num_fds;i++) {
+		sn_fd_ptr[i] = fds[i];
+	}
+
+        if (sendmsg(setns_client, &sn_msg, 0) < 0) {
+                uwsgi_error("uwsgi_master_manage_setns()/sendmsg()");
+        }
+
+        free(sn_msg_control);
+
+        close(setns_client);
+clear:
+	closedir(ns);
+	for(i=0;i<num_fds;i++) {
+		close(fds[i]);
+	}
+}
+
+#endif

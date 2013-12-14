@@ -1917,6 +1917,10 @@ struct uwsgi_server {
 	int unshare2;
 	int emperor_clone;
 	char *pivot_root;
+	char *setns_socket;
+	struct uwsgi_string_list *setns_socket_skip;
+	char *setns;
+	int setns_socket_fd;
 #endif
 	char *emperor_wrapper;
 
@@ -3239,6 +3243,8 @@ int uwsgi_str4_num(char *);
 void linux_namespace_start(void *);
 void linux_namespace_jail(void);
 #endif
+void uwsgi_master_manage_setns(int);
+void uwsgi_setns(char *);
 #endif
 
 

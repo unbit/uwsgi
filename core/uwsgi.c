@@ -344,6 +344,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef __linux__
 	{"unshare", required_argument, 0, "unshare() part of the processes and put it in a new namespace", uwsgi_opt_set_unshare, &uwsgi.unshare, 0},
 	{"unshare2", required_argument, 0, "unshare() part of the processes and put it in a new namespace after rootfs change", uwsgi_opt_set_unshare, &uwsgi.unshare2, 0},
+	{"setns-socket", required_argument, 0, "expose a unix socket returning namespace fds from /proc/self/ns", uwsgi_opt_set_str, &uwsgi.setns_socket, UWSGI_OPT_MASTER},
+	{"setns-socket-skip", required_argument, 0, "skip the specified entry when sending setns file descriptors", uwsgi_opt_add_string_list, &uwsgi.setns_socket_skip, 0},
+	{"setns-skip", required_argument, 0, "skip the specified entry when sending setns file descriptors", uwsgi_opt_add_string_list, &uwsgi.setns_socket_skip, 0},
+	{"setns", required_argument, 0, "join a namespace created by an external uWSGI instance", uwsgi_opt_set_str, &uwsgi.setns, 0},
 #endif
 #if defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	{"jail", required_argument, 0, "put the instance in a FreeBSD jail", uwsgi_opt_set_str, &uwsgi.jail, 0},
@@ -2267,6 +2271,13 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 
 	// initialize shared sockets
 	uwsgi_setup_shared_sockets();
+
+#ifdef __linux__
+	// eventually join a linux namespace
+	if (uwsgi.setns) {
+		uwsgi_setns(uwsgi.setns);
+	}
+#endif
 
 	// start the Emperor if needed
 	if (uwsgi.early_emperor && uwsgi.emperor) {

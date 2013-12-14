@@ -206,7 +206,8 @@ void uwsgi_set_cgroup() {
 	if (!uwsgi.cgroup)
 		return;
 
-	if (getuid()) return;
+	if (getuid())
+		return;
 
 	usl = uwsgi.cgroup;
 
@@ -278,41 +279,41 @@ void uwsgi_set_cgroup() {
 #endif
 
 #ifdef UWSGI_CAP
-void uwsgi_apply_cap(cap_value_t *cap, int caps_count) {
-	 cap_value_t minimal_cap_values[] = { CAP_SYS_CHROOT, CAP_SETUID, CAP_SETGID, CAP_SETPCAP };
+void uwsgi_apply_cap(cap_value_t * cap, int caps_count) {
+	cap_value_t minimal_cap_values[] = { CAP_SYS_CHROOT, CAP_SETUID, CAP_SETGID, CAP_SETPCAP };
 
-                cap_t caps = cap_init();
+	cap_t caps = cap_init();
 
-                if (!caps) {
-                        uwsgi_error("cap_init()");
-                        exit(1);
-                }
-                cap_clear(caps);
+	if (!caps) {
+		uwsgi_error("cap_init()");
+		exit(1);
+	}
+	cap_clear(caps);
 
-                cap_set_flag(caps, CAP_EFFECTIVE, 4, minimal_cap_values, CAP_SET);
+	cap_set_flag(caps, CAP_EFFECTIVE, 4, minimal_cap_values, CAP_SET);
 
-                cap_set_flag(caps, CAP_PERMITTED, 4, minimal_cap_values, CAP_SET);
-                cap_set_flag(caps, CAP_PERMITTED, caps_count, cap, CAP_SET);
+	cap_set_flag(caps, CAP_PERMITTED, 4, minimal_cap_values, CAP_SET);
+	cap_set_flag(caps, CAP_PERMITTED, caps_count, cap, CAP_SET);
 
-                cap_set_flag(caps, CAP_INHERITABLE, caps_count, cap, CAP_SET);
+	cap_set_flag(caps, CAP_INHERITABLE, caps_count, cap, CAP_SET);
 
-                if (cap_set_proc(caps) < 0) {
-                        uwsgi_error("cap_set_proc()");
-                        exit(1);
-                }
-                cap_free(caps);
+	if (cap_set_proc(caps) < 0) {
+		uwsgi_error("cap_set_proc()");
+		exit(1);
+	}
+	cap_free(caps);
 
 #ifdef __linux__
 #ifdef SECBIT_KEEP_CAPS
-                if (prctl(SECBIT_KEEP_CAPS, 1, 0, 0, 0) < 0) {
-                        uwsgi_error("prctl()");
-                        exit(1);
-                }
+	if (prctl(SECBIT_KEEP_CAPS, 1, 0, 0, 0) < 0) {
+		uwsgi_error("prctl()");
+		exit(1);
+	}
 #else
-                if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
-                        uwsgi_error("prctl()");
-                        exit(1);
-                }
+	if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
+		uwsgi_error("prctl()");
+		exit(1);
+	}
 #endif
 #endif
 }
@@ -603,10 +604,10 @@ void uwsgi_as_root() {
 		}
 		*space = 0;
 #if defined(MS_REC) && defined(MS_PRIVATE)
-                if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL)) {
-                        uwsgi_error("mount()");
-                        exit(1);
-                }
+		if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL)) {
+			uwsgi_error("mount()");
+			exit(1);
+		}
 #endif
 		if (chdir(arg)) {
 			uwsgi_error("pivot_root()/chdir()");
@@ -632,25 +633,25 @@ void uwsgi_as_root() {
 #endif
 
 #if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
-        if (uwsgi.unshare2 && !uwsgi.reloads) {
+	if (uwsgi.unshare2 && !uwsgi.reloads) {
 
-                if (unshare(uwsgi.unshare2)) {
-                        uwsgi_error("unshare()");
-                        exit(1);
-                }
-                else {
-                        uwsgi_log("[linux-namespace] applied unshare() mask: %d\n", uwsgi.unshare2);
-                }
+		if (unshare(uwsgi.unshare2)) {
+			uwsgi_error("unshare()");
+			exit(1);
+		}
+		else {
+			uwsgi_log("[linux-namespace] applied unshare() mask: %d\n", uwsgi.unshare2);
+		}
 #ifdef CLONE_NEWUSER
-                if (uwsgi.unshare2 & CLONE_NEWUSER) {
-                        if (setuid(0)) {
-                                uwsgi_error("uwsgi_as_root()/setuid(0)");
-                                exit(1);
-                        }
-                }
+		if (uwsgi.unshare2 & CLONE_NEWUSER) {
+			if (setuid(0)) {
+				uwsgi_error("uwsgi_as_root()/setuid(0)");
+				exit(1);
+			}
+		}
 #endif
-                in_jail = 1;
-        }
+		in_jail = 1;
+	}
 #endif
 
 	if (uwsgi.refork_as_root) {
@@ -1077,7 +1078,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	// after_request custom hooks
 	struct uwsgi_string_list *usl = NULL;
 	uwsgi_foreach(usl, uwsgi.after_request_hooks) {
-		void (*func)(struct wsgi_request *) = (void (*)(struct wsgi_request *)) usl->custom_ptr;
+		void (*func) (struct wsgi_request *) = (void (*)(struct wsgi_request *)) usl->custom_ptr;
 		func(wsgi_req);
 	}
 
@@ -1560,15 +1561,7 @@ void parse_sys_envs(char **envs) {
 	char *earg, *eq_pos;
 
 	while (*uenvs) {
-		if (!strncmp(*uenvs, "UWSGI_", 6) &&
-				strncmp(*uenvs, "UWSGI_RELOADS=", 14) &&
-				strncmp(*uenvs, "UWSGI_VASSALS_DIR=", 18) &&
-				strncmp(*uenvs, "UWSGI_EMPEROR_FD=", 17) &&
-				strncmp(*uenvs, "UWSGI_BROODLORD_NUM=", 20) &&
-				strncmp(*uenvs, "UWSGI_EMPEROR_FD_CONFIG=", 24) &&
-				strncmp(*uenvs, "UWSGI_EMPEROR_PROXY=", 20) &&
-				strncmp(*uenvs, "UWSGI_JAIL_PID=", 15) &&
-				strncmp(*uenvs, "UWSGI_ORIGINAL_PROC_NAME=", 25)) {
+		if (!strncmp(*uenvs, "UWSGI_", 6) && strncmp(*uenvs, "UWSGI_RELOADS=", 14) && strncmp(*uenvs, "UWSGI_VASSALS_DIR=", 18) && strncmp(*uenvs, "UWSGI_EMPEROR_FD=", 17) && strncmp(*uenvs, "UWSGI_BROODLORD_NUM=", 20) && strncmp(*uenvs, "UWSGI_EMPEROR_FD_CONFIG=", 24) && strncmp(*uenvs, "UWSGI_EMPEROR_PROXY=", 20) && strncmp(*uenvs, "UWSGI_JAIL_PID=", 15) && strncmp(*uenvs, "UWSGI_ORIGINAL_PROC_NAME=", 25)) {
 			earg = uwsgi_malloc(strlen(*uenvs + 6) + 1);
 			env_to_arg(*uenvs + 6, earg);
 			eq_pos = strchr(earg, '=');
@@ -2779,6 +2772,7 @@ static struct uwsgi_unshare_id uwsgi_unshare_list[] = {
 	{"ns", CLONE_NEWNS},
 	{"fs", CLONE_NEWNS},
 	{"mount", CLONE_NEWNS},
+	{"mnt", CLONE_NEWNS},
 #endif
 #ifdef CLONE_SYSVSEM
 	{"sysvsem", CLONE_SYSVSEM},
@@ -2898,7 +2892,7 @@ static int uwsgi_get_cap_id(char *name) {
 	return -1;
 }
 
-int uwsgi_build_cap(char *what, cap_value_t **cap) {
+int uwsgi_build_cap(char *what, cap_value_t ** cap) {
 
 	int cap_id;
 	char *caps = uwsgi_str(what);
@@ -3192,128 +3186,139 @@ void http_url_decode(char *buf, uint16_t * len, char *dst) {
 
 	for (i = 0; i < *len; i++) {
 		char c = buf[i];
-		if (c == '#') break;
-		switch(status) {
-			case zero:
-				if (c == '%') {
-					status = percent1;
-					break;
-				}
-				if (c == '/') {
-					status = slash;
-					break;
-				}
-				*ptr++ = c;
-				new_len++;
+		if (c == '#')
+			break;
+		switch (status) {
+		case zero:
+			if (c == '%') {
+				status = percent1;
 				break;
-			case percent1:
-				if (c == '%') {
-					*ptr++ = '%';
-					new_len++;
-					status = zero;
-					break;
-				}
-				value[0] = c;
-				status = percent2;
+			}
+			if (c == '/') {
+				status = slash;
 				break;
-			case percent2:
-				value[1] = c;
-				*ptr++ = hex2num(value);
+			}
+			*ptr++ = c;
+			new_len++;
+			break;
+		case percent1:
+			if (c == '%') {
+				*ptr++ = '%';
 				new_len++;
 				status = zero;
 				break;
-			case slash:
-				if (c == '.') {
-					status = dot;
-					break;
-				}
-				// we could be at the first round (in non slash)
-				if (i > 0 || !no_slash) {
-					*ptr++ = '/'; new_len++;
-				}
-				if (c == '%') {
-					status = percent1;
-					break;
-				}
-				if (c == '/') {
-					status = slash;
-					break;
-				}
-				*ptr++ = c; new_len++;
-				status = zero;
+			}
+			value[0] = c;
+			status = percent2;
+			break;
+		case percent2:
+			value[1] = c;
+			*ptr++ = hex2num(value);
+			new_len++;
+			status = zero;
+			break;
+		case slash:
+			if (c == '.') {
+				status = dot;
 				break;
-			case dot:
-				if (c == '.') {
-					status = dotdot;
-					break;
-				}
-				if (c == '/') {
-					status = slash;
-					break;
-				}
-				if (i > 1) {
-					*ptr++ = '/'; new_len++;
-				}
-				*ptr++ = '.'; new_len++;
-				if (c == '%') {
-					status = percent1;	
-					break;
-				}
-                                *ptr++ = c; new_len++;
-                                status = zero;
+			}
+			// we could be at the first round (in non slash)
+			if (i > 0 || !no_slash) {
+				*ptr++ = '/';
+				new_len++;
+			}
+			if (c == '%') {
+				status = percent1;
 				break;
-			case dotdot:
-				// here we need to remove a segment
-				if (c == '/') {
-					current_new_len = new_len;
-					while(current_new_len) {
-						current_new_len--;
-						ptr--;
-						if (dst[current_new_len] == '/') {
-							break;
-						}
+			}
+			if (c == '/') {
+				status = slash;
+				break;
+			}
+			*ptr++ = c;
+			new_len++;
+			status = zero;
+			break;
+		case dot:
+			if (c == '.') {
+				status = dotdot;
+				break;
+			}
+			if (c == '/') {
+				status = slash;
+				break;
+			}
+			if (i > 1) {
+				*ptr++ = '/';
+				new_len++;
+			}
+			*ptr++ = '.';
+			new_len++;
+			if (c == '%') {
+				status = percent1;
+				break;
+			}
+			*ptr++ = c;
+			new_len++;
+			status = zero;
+			break;
+		case dotdot:
+			// here we need to remove a segment
+			if (c == '/') {
+				current_new_len = new_len;
+				while (current_new_len) {
+					current_new_len--;
+					ptr--;
+					if (dst[current_new_len] == '/') {
+						break;
 					}
-					new_len = current_new_len;
-					status = slash;
-					break;
 				}
-				if (i > 2) {
-					*ptr++ = '/'; new_len++;
-				}
-                                *ptr++ = '.'; new_len++; 
-                                *ptr++ = '.'; new_len++; 
-				if (c == '%') {
-                                        status = percent1;
-                                        break;
-                                }
-                                *ptr++ = c; new_len++;
-                                status = zero;
-                                break;
+				new_len = current_new_len;
+				status = slash;
+				break;
+			}
+			if (i > 2) {
+				*ptr++ = '/';
+				new_len++;
+			}
+			*ptr++ = '.';
+			new_len++;
+			*ptr++ = '.';
+			new_len++;
+			if (c == '%') {
+				status = percent1;
+				break;
+			}
+			*ptr++ = c;
+			new_len++;
+			status = zero;
+			break;
 			// over engineering
-			default:
-				*ptr++ = c;
-                                new_len++;
-                                break;
+		default:
+			*ptr++ = c;
+			new_len++;
+			break;
 		}
 	}
 
-	switch(status) {
-		case slash:
-		case dot:
-			*ptr++ = '/'; new_len++;
-			break;
-		case dotdot:
-			current_new_len = new_len;
-			while(current_new_len) {
-				if (dst[current_new_len-1] == '/') {
-					break;
-				}
-				current_new_len--;
+	switch (status) {
+	case slash:
+	case dot:
+		*ptr++ = '/';
+		new_len++;
+		break;
+	case dotdot:
+		current_new_len = new_len;
+		while (current_new_len) {
+			if (dst[current_new_len - 1] == '/') {
+				break;
 			}
-			new_len = current_new_len;
-			break;
-		default:
-			break;
+			current_new_len--;
+		}
+		new_len = current_new_len;
+		break;
+	default:
+		break;
 	}
 
 	*len = new_len;
@@ -3937,19 +3942,22 @@ void uwsgi_uuid(char *buf) {
 	uuid_generate(uuid_value);
 	uuid_unparse(uuid_value, buf);
 #else
-	int i,r[11];
-	if (!uwsgi_file_exists("/dev/urandom")) goto fallback;
+	int i, r[11];
+	if (!uwsgi_file_exists("/dev/urandom"))
+		goto fallback;
 	int fd = open("/dev/urandom", O_RDONLY);
-	if (fd < 0) goto fallback;
-	for(i=0;i<11;i++) {
+	if (fd < 0)
+		goto fallback;
+	for (i = 0; i < 11; i++) {
 		if (read(fd, &r[i], 4) != 4) {
-			close(fd); goto fallback;
+			close(fd);
+			goto fallback;
 		}
 	}
 	close(fd);
 	goto done;
 fallback:
-	for(i=0;i<11;i++) {
+	for (i = 0; i < 11; i++) {
 		r[i] = rand();
 	}
 done:
@@ -4339,15 +4347,59 @@ void uwsgi_exit(int status) {
 }
 
 int uwsgi_base128(struct uwsgi_buffer *ub, uint64_t l, int first) {
-	if( l > 127 ) {
-		if (uwsgi_base128(ub, l/128, 0)) return -1;
+	if (l > 127) {
+		if (uwsgi_base128(ub, l / 128, 0))
+			return -1;
 	}
 	l %= 128;
-	if(first) {
-		if (uwsgi_buffer_u8(ub, (uint8_t) l)) return -1;
+	if (first) {
+		if (uwsgi_buffer_u8(ub, (uint8_t) l))
+			return -1;
 	}
 	else {
-		if (uwsgi_buffer_u8(ub, 0x80 | (uint8_t) l)) return -1;
+		if (uwsgi_buffer_u8(ub, 0x80 | (uint8_t) l))
+			return -1;
 	}
 	return 0;
 }
+
+#ifdef __linux__
+void uwsgi_setns(char *path) {
+	int (*u_setns) (int, int) = (int (*)(int, int)) dlsym(RTLD_DEFAULT, "setns");
+	if (!u_setns) {
+		uwsgi_log("your system misses setns() syscall !!!\n");
+		exit(1);
+	}
+
+	// cound be overwritten
+	int count = 64;
+
+	uwsgi_log("joining namespaces from %s ...\n", path);
+	for (;;) {
+		int ns_fd = uwsgi_connect(path, 30, 0);
+		if (ns_fd < 0) {
+			uwsgi_error("uwsgi_setns()/uwsgi_connect()");
+			sleep(1);
+			continue;
+		}
+		int *fds = uwsgi_attach_fd(ns_fd, &count, "uwsgi-setns", 11);
+		if (fds && count > 0) {
+			int i;
+			for (i = 0; i < count; i++) {
+				if (fds[i] > -1) {
+					if (u_setns(fds[i], 0) < 0) {
+						uwsgi_error("uwsgi_setns()/setns()");
+						exit(1);
+					}
+					close(fds[i]);
+				}
+			}
+			break;
+		}
+		if (fds)
+			free(fds);
+		close(ns_fd);
+		sleep(1);
+	}
+}
+#endif

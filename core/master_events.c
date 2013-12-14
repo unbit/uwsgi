@@ -51,6 +51,12 @@ int uwsgi_master_manage_events(int interesting_fd) {
 		}
 	}
 
+#ifdef __linux__
+	if (uwsgi.setns_socket && uwsgi.setns_socket_fd > -1 && interesting_fd == uwsgi.setns_socket_fd) {
+		uwsgi_master_manage_setns(uwsgi.setns_socket_fd);
+	}
+#endif
+
 	if (uwsgi_fsmon_event(interesting_fd)) {
                 return 0;
 	}

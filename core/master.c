@@ -358,6 +358,18 @@ int master_loop(char **argv, char **environ) {
 		}
 	}
 
+#ifdef __linux__
+	if (uwsgi.setns_socket) {
+		uwsgi.setns_socket_fd = bind_to_unix(uwsgi.setns_socket, uwsgi.listen_queue, 0, 0);
+		if (uwsgi.setns_socket_fd < 0) exit(1);
+		if (chmod(uwsgi.setns_socket, S_IRUSR|S_IWUSR)) {
+                	uwsgi_error("[setns-socket] chmod()");
+                        exit(1);
+                }
+                event_queue_add_fd_read(uwsgi.master_queue, uwsgi.setns_socket_fd);
+	}
+#endif
+
 	if (uwsgi.zerg_server) {
 		uwsgi.zerg_server_fd = bind_to_unix(uwsgi.zerg_server, uwsgi.listen_queue, 0, 0);
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.zerg_server_fd);
