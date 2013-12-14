@@ -186,6 +186,8 @@ int uwsgi_calc_cheaper(void) {
 			uwsgi_log("worker %d should die...\n", oldest_worker);
 #endif
 			uwsgi.workers[oldest_worker].cheaped = 1;
+			uwsgi.workers[oldest_worker].rss_size = 0;
+			uwsgi.workers[oldest_worker].vsz_size = 0;
 			uwsgi.workers[oldest_worker].manage_next_request = 0;
 			uwsgi_curse(oldest_worker, SIGWINCH);
 		}
@@ -1649,6 +1651,8 @@ void uwsgi_go_cheap() {
 	uwsgi.status.is_cheap = 1;
                 for (i = 1; i <= uwsgi.numproc; i++) {
                         uwsgi.workers[i].cheaped = 1;
+			uwsgi.workers[i].rss_size = 0;
+        		uwsgi.workers[i].vsz_size = 0;
                         if (uwsgi.workers[i].pid == 0)
                                 continue;
 			uwsgi_log("killing worker %d (pid: %d)\n", i, (int) uwsgi.workers[i].pid);
