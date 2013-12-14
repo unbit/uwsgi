@@ -4,13 +4,13 @@ class WebsocketEcho
 
         def call(env)
 
-		ws_scheme = 'ws';
+		ws_scheme = 'ws'
 		if env.has_key?('HTTPS') or env['rack.url_scheme'] == 'https'
-			ws_scheme = 'wss';
+			ws_scheme = 'wss'
 		end
 
 		if env['PATH_INFO'] == '/'
-			body = <<EOF;
+			body = <<EOF
 <html>
       <head>
           <script language="Javascript">
@@ -51,7 +51,7 @@ class WebsocketEcho
 EOF
 
         		return [200, { 'Content-Type' => 'text/html'}, [body]]
-		else if env['PATH_INFO'] == '/foobar/'
+		elsif env['PATH_INFO'] == '/foobar/'
 			UWSGI::websocket_handshake(env['HTTP_SEC_WEBSOCKET_KEY'], env['HTTP_ORIGIN'])
         		puts "websockets..."
 			loop do

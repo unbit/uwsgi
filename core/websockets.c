@@ -367,18 +367,39 @@ ssize_t uwsgi_websockets_simple_send(struct wsgi_request *wsgi_req, struct uwsgi
 	return len;
 }
 
-int uwsgi_websocket_handshake(struct wsgi_request *wsgi_req, char *key, uint16_t key_len, char *origin, uint16_t origin_len) {
+int uwsgi_websocket_handshake(struct wsgi_request *wsgi_req, char *key, uint16_t key_len, char *origin, uint16_t origin_len, char *proto, uint16_t proto_len) {
 #ifdef UWSGI_SSL
+	if (!key_len) {
+		key = wsgi_req->http_sec_websocket_key;
+		key_len = wsgi_req->http_sec_websocket_key_len;
+	}
+	if (key_len == 0) return -1;
+
 	char sha1[20];
 	if (uwsgi_response_prepare_headers(wsgi_req, "101 Web Socket Protocol Handshake", 33)) return -1;
 	if (uwsgi_response_add_header(wsgi_req, "Upgrade", 7, "WebSocket", 9)) return -1;
 	if (uwsgi_response_add_header(wsgi_req, "Connection", 10, "Upgrade", 7)) return -1;
-        if (origin_len > 0) {
+
+	// if origin was requested or proto_len is specified, send it back
+        if (wsgi_req->http_origin_len > 0 || origin_len > 0) {
+		if (!origin_len) {
+			origin = wsgi_req->http_origin;
+			origin_len = wsgi_req->http_origin_len;
+		}
 		if (uwsgi_response_add_header(wsgi_req, "Sec-WebSocket-Origin", 20, origin, origin_len)) return -1;
         }
         else {
 		if (uwsgi_response_add_header(wsgi_req, "Sec-WebSocket-Origin", 20, "*", 1)) return -1;
         }
+	
+	// if protocol was requested or proto_len is specified, send it back
+	if (wsgi_req->http_sec_websocket_protocol_len > 0 || proto_len > 0) {
+		if (!proto_len) {
+			proto = wsgi_req->http_sec_websocket_protocol;
+			proto_len = wsgi_req->http_sec_websocket_protocol_len;
+		}
+		if (uwsgi_response_add_header(wsgi_req, "Sec-WebSocket-Protocol", 22, proto, proto_len)) return -1;
+	}
 	// generate websockets sha1 and encode it to base64
         if (!uwsgi_sha1_2n(key, key_len, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", 36, sha1)) return -1;
 	size_t b64_len = 0;

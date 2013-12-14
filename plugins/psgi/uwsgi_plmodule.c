@@ -473,16 +473,24 @@ XS(XS_websocket_handshake) {
         char *origin = NULL;
 	STRLEN origin_len = 0;
 
-	psgi_check_args(1);
-	
-	key = SvPV(ST(0), key_len);
+	char *proto = NULL;
+	STRLEN proto_len = 0;
 
-	if (items > 1) {
-		origin = SvPV(ST(0), origin_len);
+	psgi_check_args(0);
+	
+	if (items > 0) {
+		key = SvPV(ST(0), key_len);
+		if (items > 1) {
+			origin = SvPV(ST(1), origin_len);
+			if (items > 2) {
+				proto = SvPV(ST(2), proto_len);
+			}
+		}
+		
 	}
         struct wsgi_request *wsgi_req = current_wsgi_req();
 
-        if (uwsgi_websocket_handshake(wsgi_req, key, key_len, origin, origin_len)) {
+        if (uwsgi_websocket_handshake(wsgi_req, key, key_len, origin, origin_len, proto, proto_len)) {
                 croak("unable to complete websocket handshake");
 	}
 

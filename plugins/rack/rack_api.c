@@ -1048,25 +1048,26 @@ static VALUE uwsgi_ruby_websocket_handshake(int argc, VALUE *argv, VALUE *class)
 
         struct wsgi_request *wsgi_req = current_wsgi_req();
 
-	if (argc < 1) {
-		rb_raise(rb_eRuntimeError, "you neeto specify a valid websocket key");
-		return Qnil;
+	char *key = NULL, *origin = NULL, *proto = NULL;
+	size_t key_len = 0, origin_len = 0, proto_len = 0;
+
+	if (argc > 0) {
+        	Check_Type(argv[0], T_STRING);
+        	key = RSTRING_PTR(argv[0]);
+        	key_len = RSTRING_LEN(argv[0]);
+		if (argc > 1) {
+			Check_Type(argv[1], T_STRING);
+                	origin = RSTRING_PTR(argv[1]);
+                	origin_len = RSTRING_LEN(argv[1]);
+			if (argc > 2) {
+				Check_Type(argv[2], T_STRING);
+                		proto = RSTRING_PTR(argv[2]);
+                		proto_len = RSTRING_LEN(argv[2]);
+			}
+		}
 	}
 
-        Check_Type(argv[0], T_STRING);
-        char *key = RSTRING_PTR(argv[0]);
-        size_t key_len = RSTRING_LEN(argv[0]);
-
-	char *origin = NULL;
-	size_t origin_len = 0;
-
-	if (argc > 1) {
-		Check_Type(argv[1], T_STRING);
-		origin = RSTRING_PTR(argv[1]);
-        	origin_len = RSTRING_LEN(argv[1]);
-	}
-
-	if (uwsgi_websocket_handshake(wsgi_req, key, key_len, origin, origin_len)) {
+	if (uwsgi_websocket_handshake(wsgi_req, key, key_len, origin, origin_len, proto, proto_len)) {
         	rb_raise(rb_eRuntimeError, "unable to complete websocket handshake");
         }
 	return Qnil;

@@ -1515,6 +1515,14 @@ struct wsgi_request {
 	time_t websocket_last_ping;
 	time_t websocket_last_pong;
 	int websocket_closed;
+	// websocket specific headers
+	char *http_sec_websocket_key;
+	uint16_t http_sec_websocket_key_len;
+	char *http_origin;
+	uint16_t http_origin_len;
+	char *http_sec_websocket_protocol;
+	uint16_t http_sec_websocket_protocol_len;
+	
 
 	struct uwsgi_buffer *chunked_input_buf;
 	uint8_t chunked_input_parser_status;
@@ -1610,7 +1618,7 @@ struct uwsgi_stats_pusher;
 struct uwsgi_stats_pusher_instance;
 
 #define UWSGI_PROTO_MIN_CHECK 4
-#define UWSGI_PROTO_MAX_CHECK 23
+#define UWSGI_PROTO_MAX_CHECK 28
 
 struct uwsgi_offload_engine;
 
@@ -4196,7 +4204,7 @@ uint16_t uwsgi_be16(char *);
 uint32_t uwsgi_be32(char *);
 uint64_t uwsgi_be64(char *);
 
-int uwsgi_websocket_handshake(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+int uwsgi_websocket_handshake(struct wsgi_request *, char *, uint16_t, char *, uint16_t, char *, uint16_t);
 
 int uwsgi_response_prepare_headers(struct wsgi_request *, char *, uint16_t);
 int uwsgi_response_prepare_headers_int(struct wsgi_request *, int);

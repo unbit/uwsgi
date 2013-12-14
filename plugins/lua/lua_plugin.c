@@ -376,18 +376,22 @@ static int uwsgi_api_ready_fd(lua_State *L) {
 
 static int uwsgi_api_websocket_handshake(lua_State *L) {
 	uint8_t argc = lua_gettop(L);
-	if (argc == 0) goto error;
 
-	const char *key = NULL, *origin = NULL;
-	size_t key_len = 0, origin_len = 0;
+	const char *key = NULL, *origin = NULL, *proto = NULL;
+	size_t key_len = 0, origin_len = 0, proto_len = 0;
 		
-	key = lua_tolstring(L, 1, &key_len);
-	if (argc > 1) {
-		origin = lua_tolstring(L, 2, &origin_len);
+	if (argc > 0) {
+		key = lua_tolstring(L, 1, &key_len);
+		if (argc > 1) {
+			origin = lua_tolstring(L, 2, &origin_len);
+			if (argc > 2) {
+				proto = lua_tolstring(L, 3, &proto_len);
+			}
+		}
 	}
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	if (uwsgi_websocket_handshake(wsgi_req, (char *)key, key_len, (char *)origin, origin_len)) {
+	if (uwsgi_websocket_handshake(wsgi_req, (char *)key, key_len, (char *)origin, origin_len, (char *) proto, proto_len)) {
 		goto error;
 	}	
 
@@ -786,7 +790,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 		uwsgi_log("%s\n", lua_tostring(L, -1));
 		lua_pop(L, 1);
                 lua_pushvalue(L, -1);
-		goto clear;
+		goto clear2;
 	}
 
 	//uwsgi_log("%d %s %s %s\n",i,lua_typename(L, lua_type(L, -3)), lua_typename(L, lua_type(L, -2)) ,  lua_typename(L, lua_type(L, -1)));
@@ -827,6 +831,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	}
 clear:
 	lua_pop(L, 4);
+clear2:
 	// set frequency
 	if (!ulua.gc_freq || uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests % ulua.gc_freq == 0) {
 		lua_gc(L, LUA_GCCOLLECT, 0);

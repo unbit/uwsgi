@@ -412,6 +412,12 @@ static int uwsgi_proto_check_11(struct wsgi_request *wsgi_req, char *key, char *
 		return 0;
 	}
 
+	if (!uwsgi_proto_key("HTTP_ORIGIN", 11)) {
+                wsgi_req->http_origin = buf;
+                wsgi_req->http_origin_len = len;
+                return 0;
+        }
+
 	return 0;
 }
 
@@ -589,8 +595,27 @@ static int uwsgi_proto_check_22(struct wsgi_request *wsgi_req, char *key, char *
 		wsgi_req->if_modified_since_len = len;
 		return 0;
 	}
+
+	if (!uwsgi_proto_key("HTTP_SEC_WEBSOCKET_KEY", 22)) {
+		wsgi_req->http_sec_websocket_key = buf;
+		wsgi_req->http_sec_websocket_key_len = len;
+		return 0;
+	}
+
 	return 0;
 }
+
+static int uwsgi_proto_check_27(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
+
+        if (!uwsgi_proto_key("HTTP_SEC_WEBSOCKET_PROTOCOL", 27)) {
+                wsgi_req->http_sec_websocket_protocol = buf;
+                wsgi_req->http_sec_websocket_protocol_len = len;
+                return 0;
+        }
+
+        return 0;
+}
+
 
 void uwsgi_proto_hooks_setup() {
 	int i = 0;
@@ -609,6 +634,7 @@ void uwsgi_proto_hooks_setup() {
 	uwsgi.proto_hooks[18] = uwsgi_proto_check_18;
 	uwsgi.proto_hooks[20] = uwsgi_proto_check_20;
 	uwsgi.proto_hooks[22] = uwsgi_proto_check_22;
+	uwsgi.proto_hooks[27] = uwsgi_proto_check_27;
 }
 
 
