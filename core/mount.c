@@ -54,6 +54,9 @@ static struct uwsgi_mount_flag umflags[] = {
 #ifdef MS_REMOUNT
 	{"remount", MS_REMOUNT},
 #endif
+#ifdef MS_NOSUID
+	{"nosuid", MS_NOSUID},
+#endif
 #ifdef MS_SYNCHRONOUS
 	{"sync", MS_SYNCHRONOUS},
 #endif
