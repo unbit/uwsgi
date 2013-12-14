@@ -717,6 +717,8 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		goto end;
 	if (uwsgi_stats_keylong_comma(us, "listen_queue_errors", (unsigned long long) uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]))
 		goto end;
+	if (uwsgi_stats_keylong_comma(us, "listen_queue_max", (unsigned long long) uwsgi.shared->max_load))
+		goto end;
 #endif
 
 	int signal_queue = 0;
