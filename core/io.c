@@ -1236,6 +1236,7 @@ int uwsgi_is_connected(int fd) {
 
 
 int uwsgi_pass_cred(int fd, char *code, size_t code_len) {
+#ifdef SCM_CREDENTIALS
 	struct msghdr cr_msg;
         struct cmsghdr *cmsg;
         struct iovec cr_iov;
@@ -1272,9 +1273,13 @@ int uwsgi_pass_cred(int fd, char *code, size_t code_len) {
 
         free(cr_msg_control);
 	return 0;
+#else
+	return -1;
+#endif
 }
 
 int uwsgi_recv_cred(int fd, char *code, size_t code_len, pid_t *pid, uid_t *uid, gid_t *gid) {
+#ifdef SCM_CREDENTIALS
         struct iovec iov;
 	int ret = -1;
 
@@ -1309,11 +1314,16 @@ int uwsgi_recv_cred(int fd, char *code, size_t code_len, pid_t *pid, uid_t *uid,
         }
 
 	struct ucred *u = (struct ucred *) CMSG_DATA(cmsg);
-	uwsgi_log("CRED: %d %d %d\n", u->pid, u->uid, u->gid);
+	*pid = u->pid;
+	*uid = u->uid;
+	*gid = u->gid;
 	ret = 0;
 
 clear:
 	free(msg_control);
 	free(iov.iov_base);
 	return ret;
+#else
+	return -1;
+#endif
 }
