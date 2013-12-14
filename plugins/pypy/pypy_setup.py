@@ -224,7 +224,7 @@ int async_add_fd_write(struct wsgi_request *, int, int);
 int async_add_fd_read(struct wsgi_request *, int, int);
 int uwsgi_connect(char *, int, int);
 
-int uwsgi_websocket_handshake(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+int uwsgi_websocket_handshake(struct wsgi_request *, char *, uint16_t, char *, uint16_t, char *, uint16_t);
 int uwsgi_websocket_send(struct wsgi_request *, char *, size_t);
 struct uwsgi_buffer *uwsgi_websocket_recv(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_websocket_recv_nb(struct wsgi_request *);
@@ -837,11 +837,11 @@ def uwsgi_pypy_websocket_recv_nb():
 uwsgi.websocket_recv_nb = uwsgi_pypy_websocket_recv_nb
 
 """
-uwsgi.websocket_handshake(key, origin)
+uwsgi.websocket_handshake(key, origin, proto)
 """
-def uwsgi_pypy_websocket_handshake(key, origin=''):
+def uwsgi_pypy_websocket_handshake(key, origin='', proto=''):
     wsgi_req = uwsgi_pypy_current_wsgi_req();
-    if lib.uwsgi_websocket_handshake(wsgi_req, ffi.new('char[]', key), len(key), ffi.new('char[]',origin), len(origin)) < 0:
+    if lib.uwsgi_websocket_handshake(wsgi_req, ffi.new('char[]', key), len(key), ffi.new('char[]',origin), len(origin), ffi.new('char[]',proto), len(proto)) < 0:
         raise IOError("unable to complete websocket handshake")
 uwsgi.websocket_handshake = uwsgi_pypy_websocket_handshake
 

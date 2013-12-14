@@ -965,14 +965,17 @@ PyObject *py_uwsgi_websocket_handshake(PyObject * self, PyObject * args) {
         char *origin = NULL;
         Py_ssize_t origin_len = 0;
 
-        if (!PyArg_ParseTuple(args, "s#|s#:websocket_handshake", &key, &key_len, &origin, &origin_len)) {
+        char *proto = NULL;
+        Py_ssize_t proto_len = 0;
+
+        if (!PyArg_ParseTuple(args, "s#|s#|s#:websocket_handshake", &key, &key_len, &origin, &origin_len, &proto, &proto_len)) {
                 return NULL;
         }
 
 	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	UWSGI_RELEASE_GIL
-	int ret = uwsgi_websocket_handshake(wsgi_req, key, key_len, origin, origin_len);
+	int ret = uwsgi_websocket_handshake(wsgi_req, key, key_len, origin, origin_len, proto, proto_len);
 	UWSGI_GET_GIL
 
 	if (ret) {
