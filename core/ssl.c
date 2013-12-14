@@ -132,7 +132,6 @@ static int uwsgi_sni_cb(SSL *ssl, int *ad, void *arg) {
 			free(sni_dir_key);
 			free(sni_dir_client_ca);
 			SSL_set_SSL_CTX(ssl, usl->custom_ptr);
-			uwsgi_log("[uwsgi-sni for pid %d] added context for %s\n", (int) getpid(), servername);
 			return SSL_TLSEXT_ERR_OK;
 		}
 done:
@@ -511,10 +510,41 @@ struct uwsgi_string_list *uwsgi_ssl_add_sni_item(char *name, char *crt, char *ke
 	SSL_CTX *ctx = uwsgi_ssl_new_server_context(name, crt, key, ciphers, client_ca);
         if (!ctx) {
                 uwsgi_log("[uwsgi-ssl] DANGER unable to initialize context for \"%s\"\n", name);
+		free(name);
 		return NULL;
 	}
 
 	struct uwsgi_string_list *usl = uwsgi_string_new_list(&uwsgi.sni, name);
 	usl->custom_ptr = ctx;
+	// mark it as dynamic
+	usl->custom = 1;
+	uwsgi_log_verbose("[uwsgi-sni for pid %d] added SSL context for %s\n", (int) getpid(), name);
 	return usl;
+}
+
+void uwsgi_ssl_del_sni_item(char *name, uint16_t name_len) {
+	struct uwsgi_string_list *usl = NULL, *last_sni = NULL, *sni_item = NULL;
+	uwsgi_foreach(usl, uwsgi.sni) {
+		if (!uwsgi_strncmp(usl->value, usl->len, name, name_len) && usl->custom) {
+			sni_item = usl;
+			break;
+		}
+		last_sni = NULL;
+	}
+
+	if (!sni_item) return;
+
+	if (last_sni) {
+		last_sni = sni_item->next;
+	}
+	else {
+		uwsgi.sni = sni_item->next;
+	}
+
+	// we are free to destroy it as no more clients are using it
+	SSL_CTX_free((SSL_CTX *) sni_item->custom_ptr);
+	free(sni_item->value);
+	free(sni_item);	
+
+	uwsgi_log_verbose("[uwsgi-sni for pid %d] destroyed SSL context for %s\n",(int) getpid(), name);
 }

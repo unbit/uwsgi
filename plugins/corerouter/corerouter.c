@@ -272,6 +272,18 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
 		usr->sign = val;
                 usr->sign_len = vallen;
 	}
+	else if (!uwsgi_strncmp("sni_key", 7, key, keylen)) {
+		usr->sni_key = val;
+                usr->sni_key_len = vallen;
+	}
+	else if (!uwsgi_strncmp("sni_crt", 7, key, keylen)) {
+		usr->sni_crt = val;
+                usr->sni_crt_len = vallen;
+	}
+	else if (!uwsgi_strncmp("sni_ca", 6, key, keylen)) {
+		usr->sni_ca = val;
+                usr->sni_ca_len = vallen;
+	}
 }
 
 void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
@@ -1021,6 +1033,7 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 				if (uwsgi_stats_keyvaln_comma(us, "key", s_slot->key, s_slot->keylen)) goto end0;
 				if (uwsgi_stats_keylong_comma(us, "hash", (unsigned long long) s_slot->hash)) goto end0;
 				if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) s_slot->hits)) goto end0;
+				if (uwsgi_stats_keylong_comma(us, "sni_enabled", (unsigned long long) s_slot->sni_enabled)) goto end0;
 
 				if (uwsgi_stats_key(us , "nodes")) goto end0;
 				if (uwsgi_stats_list_open(us)) goto end0;

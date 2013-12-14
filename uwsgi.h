@@ -3201,6 +3201,15 @@ struct uwsgi_subscribe_req {
 
 	char *base;
 	uint16_t base_len;
+
+	char *sni_key;
+	uint16_t sni_key_len;
+
+	char *sni_crt;
+	uint16_t sni_crt_len;
+
+	char *sni_ca;
+	uint16_t sni_ca_len;
 };
 
 void uwsgi_nuclear_blast();
@@ -3479,6 +3488,7 @@ struct uwsgi_subscribe_slot {
 #ifdef UWSGI_SSL
 	EVP_PKEY *sign_public_key;
 	EVP_MD_CTX *sign_ctx;
+	uint8_t sni_enabled;
 #endif
 
 };
@@ -3506,7 +3516,7 @@ void uwsgi_configure();
 int uwsgi_read_response(int, struct uwsgi_header *, int, char **);
 char *uwsgi_simple_file_read(char *);
 
-void uwsgi_send_subscription(char *, char *, size_t, uint8_t, uint8_t, uint8_t, char *, char *);
+void uwsgi_send_subscription(char *, char *, size_t, uint8_t, uint8_t, uint8_t, char *, char *, char *, char *, char *);
 
 void uwsgi_subscribe(char *, uint8_t);
 void uwsgi_subscribe2(char *, uint8_t);
@@ -3599,6 +3609,7 @@ void uwsgi_opt_add_legion_cron(char *, char *, void *);
 void uwsgi_opt_add_unique_legion_cron(char *, char *, void *);
 void uwsgi_opt_sni(char *, char *, void *);
 struct uwsgi_string_list *uwsgi_ssl_add_sni_item(char *, char *, char *, char *, char *);
+void uwsgi_ssl_del_sni_item(char *, uint16_t);
 #endif
 void uwsgi_opt_flock(char *, char *, void *);
 void uwsgi_opt_flock_wait(char *, char *, void *);
