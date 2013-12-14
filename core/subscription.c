@@ -30,7 +30,15 @@ static void uwsgi_subscription_sni_check(struct uwsgi_subscribe_slot *current_sl
                                 if (usr->sni_ca_len > 0) {
                                         sni_ca = uwsgi_concat2n(usr->sni_ca, usr->sni_ca_len, "", 0);
                                 }
-                                if (uwsgi_ssl_add_sni_item(uwsgi_concat2n(current_slot->key, current_slot->keylen, "", 0), sni_crt, sni_key, uwsgi.sni_dir_ciphers , sni_ca)) {
+				char *servername = NULL;
+				char *colon = memchr(current_slot->key, ':', current_slot->keylen);
+				if (colon) {
+					servername = uwsgi_concat2n(current_slot->key, colon-current_slot->key, "", 0);
+				}
+				else {
+					servername = uwsgi_concat2n(current_slot->key, current_slot->keylen, "", 0);
+				}
+                                if (uwsgi_ssl_add_sni_item(servername, sni_crt, sni_key, uwsgi.sni_dir_ciphers , sni_ca)) {
                                         current_slot->sni_enabled = 1;
                                 }
                                 if (sni_key) free(sni_key);
