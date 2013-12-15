@@ -33,6 +33,10 @@ struct uwsgi_tuntap_peer {
 	uint64_t tx;
 	uint64_t rx;
 	uint64_t dropped;
+	uint8_t sent_credentials;
+	pid_t pid;
+	uid_t uid;
+	gid_t gid;
 };
 
 struct uwsgi_tuntap_firewall_rule {
@@ -65,6 +69,8 @@ struct uwsgi_tuntap {
         struct uwsgi_tuntap_firewall_rule *fw_in;
         struct uwsgi_tuntap_firewall_rule *fw_out;
 	char *stats_server;
+	char *use_credentials;
+	uint32_t (*addr_by_credentials)(pid_t, uid_t, gid_t);
 };
 
 int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *, struct uwsgi_tuntap_peer *, int);
@@ -73,10 +79,11 @@ void uwsgi_tuntap_enqueue(struct uwsgi_tuntap_router *);
 
 int uwsgi_tuntap_firewall_check(struct uwsgi_tuntap_firewall_rule *, char *, uint16_t);
 
-struct uwsgi_tuntap_peer *uwsgi_tuntap_peer_create(struct uwsgi_tuntap_router *, int);
+struct uwsgi_tuntap_peer *uwsgi_tuntap_peer_create(struct uwsgi_tuntap_router *, int, int);
 struct uwsgi_tuntap_peer *uwsgi_tuntap_peer_get_by_addr(struct uwsgi_tuntap_router *,uint32_t);
 void uwsgi_tuntap_peer_destroy(struct uwsgi_tuntap_router *, struct uwsgi_tuntap_peer *);
 
 int uwsgi_tuntap_device(char *);
 
 void uwsgi_tuntap_opt_firewall(char *, char *, void *);
+int uwsgi_tuntap_register_addr(struct uwsgi_tuntap_router *, struct uwsgi_tuntap_peer *);

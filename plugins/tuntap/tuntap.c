@@ -59,6 +59,7 @@ struct uwsgi_tuntap utt;
 static struct uwsgi_option uwsgi_tuntap_options[] = {
 	{"tuntap-router", required_argument, 0, "run the tuntap router (syntax: <device> <socket> [stats])", uwsgi_opt_add_string_list, &utt.routers, 0},
 	{"tuntap-device", required_argument, 0, "add a tuntap device to the instance (syntax: <device>[ <socket>])", uwsgi_opt_add_string_list, &utt.devices, 0},
+	{"tuntap-use-credentials", optional_argument, 0, "enable check of SCM_CREDENTIALS for tuntap client/server", uwsgi_opt_set_str, &utt.use_credentials, 0},
 	{"tuntap-router-firewall-in", required_argument, 0, "add a firewall rule to the tuntap router (syntax: <action> <src/mask> <dst/mask>)", uwsgi_tuntap_opt_firewall, &utt.fw_in, 0},
 	{"tuntap-router-firewall-out", required_argument, 0, "add a firewall rule to the tuntap router (syntax: <action> <src/mask> <dst/mask>)", uwsgi_tuntap_opt_firewall, &utt.fw_out, 0},
 	{"tuntap-router-stats", required_argument, 0, "run the tuntap router stats server", uwsgi_opt_set_str, &utt.stats_server, 0},
@@ -95,7 +96,7 @@ static void *uwsgi_tuntap_loop(void *arg) {
 
 	uwsgi_socket_nb(uttr->server_fd);
 
-	struct uwsgi_tuntap_peer *uttp = uwsgi_tuntap_peer_create(uttr, uttr->server_fd);
+	struct uwsgi_tuntap_peer *uttp = uwsgi_tuntap_peer_create(uttr, uttr->server_fd, 0);
 
 	for (;;) {
 		int interesting_fd = -1;
@@ -270,7 +271,13 @@ void uwsgi_tuntap_router_loop(int id, void *arg) {
 					uwsgi_error("uwsgi_tuntap_server_loop()/accept()");
 					continue;
 				}
-				struct uwsgi_tuntap_peer *uttp = uwsgi_tuntap_peer_create(uttr, client_fd);
+				if (utt.use_credentials) {
+					if (uwsgi_socket_passcred(client_fd)) {
+						close(client_fd);
+						continue;
+					}
+				}
+				struct uwsgi_tuntap_peer *uttp = uwsgi_tuntap_peer_create(uttr, client_fd, 1);
 				if (event_queue_add_fd_read(uttr->queue, uttp->fd)) {
 					uwsgi_tuntap_peer_destroy(uttr, uttp);
 				}
@@ -287,6 +294,33 @@ void uwsgi_tuntap_router_loop(int id, void *arg) {
 				if (interesting_fd == uttp->fd) {
 					// read from the client
 					if (event_queue_interesting_fd_is_read(events, i)) {
+						if (utt.use_credentials) {
+							if (uttp->addr == 0) {
+								if (!uttp->sent_credentials) {
+									if (uwsgi_recv_cred(uttp->fd, "uwsgi-tuntap", 12, &uttp->pid, &uttp->uid, &uttp->gid)) {
+										uwsgi_tuntap_peer_destroy(uttr, uttp);
+										break;
+									}
+									if (utt.addr_by_credentials) {
+										uttp->addr = utt.addr_by_credentials(uttp->pid, uttp->uid, uttp->gid);
+										if (!uttp->addr) {
+											uwsgi_tuntap_peer_destroy(uttr, uttp);
+											break;
+										}
+										if (uwsgi_tuntap_register_addr(uttr, uttp)) {
+											uwsgi_tuntap_peer_destroy(uttr, uttp);
+											break;
+										}
+									}
+									break;
+								}
+								else {
+									uwsgi_tuntap_peer_destroy(uttr, uttp);
+									break;
+								}
+							}
+						}
+
 						if (uwsgi_tuntap_peer_dequeue(uttr, uttp, 1)) {
 							uwsgi_tuntap_peer_destroy(uttr, uttp);
 							break;
@@ -318,6 +352,16 @@ static void uwsgi_tuntap_router() {
 
 	if (!utt.buffer_size)
 		utt.buffer_size = 8192;
+
+	if (utt.use_credentials) {
+		if (utt.use_credentials[0] != 0) {
+			utt.addr_by_credentials = (uint32_t (*)(pid_t, uid_t, gid_t)) dlsym(RTLD_DEFAULT, utt.use_credentials);
+			if (!utt.addr_by_credentials) {
+				uwsgi_log("[uwsgi-tuntap] unable to find symbol %s\n", utt.use_credentials);
+				exit(1);
+			}
+		}
+	}
 
 	struct uwsgi_string_list *usl;
 	uwsgi_foreach(usl, utt.routers) {
