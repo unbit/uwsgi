@@ -1278,6 +1278,50 @@ int uwsgi_pass_cred(int fd, char *code, size_t code_len) {
 #endif
 }
 
+int uwsgi_pass_cred2(int fd, char *code, size_t code_len, struct sockaddr *addr, size_t addr_len) {
+#ifdef SCM_CREDENTIALS
+        struct msghdr cr_msg;
+        struct cmsghdr *cmsg;
+        struct iovec cr_iov;
+        void *cr_msg_control = uwsgi_calloc(CMSG_SPACE(sizeof(struct ucred)));
+
+        cr_iov.iov_base = code;
+        cr_iov.iov_len = code_len;
+
+        cr_msg.msg_name = addr;
+        cr_msg.msg_namelen = addr_len;
+
+        cr_msg.msg_iov = &cr_iov;
+        cr_msg.msg_iovlen = 1;
+
+        cr_msg.msg_flags = 0;
+        cr_msg.msg_control = cr_msg_control;
+        cr_msg.msg_controllen = CMSG_SPACE(sizeof(struct ucred));
+
+        cmsg = CMSG_FIRSTHDR(&cr_msg);
+        cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_CREDENTIALS;
+
+        struct ucred *u = (struct ucred*) CMSG_DATA(cmsg);
+        u->pid = getpid();
+        u->uid = getuid();
+        u->gid = getgid();
+
+        if (sendmsg(fd, &cr_msg, 0) < 0) {
+                uwsgi_error("uwsgi_pass_cred2()/sendmsg()");
+                free(cr_msg_control);
+                return -1;
+        }
+
+        free(cr_msg_control);
+        return 0;
+#else
+        return -1;
+#endif
+}
+
+
 int uwsgi_recv_cred(int fd, char *code, size_t code_len, pid_t *pid, uid_t *uid, gid_t *gid) {
 #ifdef SCM_CREDENTIALS
         struct iovec iov;
@@ -1313,6 +1357,8 @@ int uwsgi_recv_cred(int fd, char *code, size_t code_len, pid_t *pid, uid_t *uid,
 		goto clear;
         }
 
+	if (uwsgi_strncmp(code, code_len, iov.iov_base, iov.iov_len)) goto clear;
+
 	struct ucred *u = (struct ucred *) CMSG_DATA(cmsg);
 	*pid = u->pid;
 	*uid = u->uid;
@@ -1327,3 +1373,53 @@ clear:
 	return -1;
 #endif
 }
+
+ssize_t uwsgi_recv_cred2(int fd, char *buf, size_t buf_len, pid_t *pid, uid_t *uid, gid_t *gid) {
+#ifdef SCM_CREDENTIALS
+        struct iovec iov;
+        ssize_t ret = -1;
+
+        void *msg_control = uwsgi_calloc(CMSG_SPACE(sizeof(struct ucred)));
+
+        iov.iov_base = buf;
+        iov.iov_len = buf_len;
+
+        struct msghdr msg;
+        memset(&msg, 0, sizeof(msg));
+
+        msg.msg_name = NULL;
+        msg.msg_namelen = 0;
+
+        msg.msg_iov = &iov;
+        msg.msg_iovlen = 1;
+
+        msg.msg_control = msg_control;
+        msg.msg_controllen = CMSG_SPACE(sizeof(struct ucred));
+
+        ssize_t len = recvmsg(fd, &msg, 0);
+        if (len <= 0) {
+                uwsgi_error("uwsgi_recv_cred2()/recvmsg()");
+                goto clear;
+        }
+
+        struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+        if (!cmsg) goto clear;
+
+        if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_CREDENTIALS) {
+                goto clear;
+        }
+
+        struct ucred *u = (struct ucred *) CMSG_DATA(cmsg);
+        *pid = u->pid;
+        *uid = u->uid;
+        *gid = u->gid;
+        ret = len;
+
+clear:
+        free(msg_control);
+        return ret;
+#else
+        return -1;
+#endif
+}
+

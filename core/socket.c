@@ -1928,6 +1928,19 @@ found:
 	return up;
 }
 
+int uwsgi_socket_passcred(int fd) {
+#ifdef SO_PASSCRED
+	int optval = 1;
+	if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &optval, sizeof(optval)) < 0) {
+                uwsgi_error("uwsgi_socket_passcred()/setsockopt()");
+		return -1;
+	}
+	return 0;
+#else
+	return -1;
+#endif
+}
+
 void uwsgi_protocols_register() {
 	uwsgi_register_protocol("uwsgi", uwsgi_proto_uwsgi_setup);
 	uwsgi_register_protocol("puwsgi", uwsgi_proto_puwsgi_setup);

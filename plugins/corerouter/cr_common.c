@@ -4,7 +4,7 @@ common functions for various routers (fastrouter, http...)
 
 */
 
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
@@ -79,6 +79,11 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 					}
 					else {
 						ugs->fd = bind_to_unix_dgram(ugs->name);
+						if (uwsgi.subscriptions_use_credentials) {
+							if (uwsgi_socket_passcred(ugs->fd)) {
+								exit(1);
+							}
+						}
 					}
 					uwsgi_socket_nb(ugs->fd);
 				}
@@ -113,10 +118,17 @@ void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, 
 	int i;
 	struct uwsgi_subscribe_req usr;
 	char bbuf[4096];
+	ssize_t len = -1;
 
-	ssize_t len = recv(ugs->fd, bbuf, 4096, 0);
+	memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
+
+	if (uwsgi.subscriptions_use_credentials) {
+		len = uwsgi_recv_cred2(ugs->fd, bbuf, 4096, &usr.pid, &usr.uid, &usr.gid);
+	}
+	else {
+		len = recv(ugs->fd, bbuf, 4096, 0);
+	}
 	if (len > 0) {
-		memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
 		uwsgi_hooked_parse(bbuf + 4, len - 4, corerouter_manage_subscription, &usr);
 		if (usr.sign_len > 0) {
 			// calc the base size

@@ -2145,6 +2145,9 @@ struct uwsgi_server {
 	const EVP_MD *subscriptions_sign_check_md;
 #endif
 
+	struct uwsgi_string_list *subscriptions_credentials_check_dir;
+	int subscriptions_use_credentials;
+
 	struct uwsgi_dyn_dict *static_maps;
 	struct uwsgi_dyn_dict *static_maps2;
 	struct uwsgi_dyn_dict *check_static;
@@ -2947,8 +2950,6 @@ uint32_t uwsgi_swap32(uint32_t);
 uint64_t uwsgi_swap64(uint64_t);
 #endif
 
-ssize_t send_udp_message(uint8_t, uint8_t, char *, char *, uint16_t);
-
 int uwsgi_parse_request(int, struct wsgi_request *, int);
 int uwsgi_parse_vars(struct wsgi_request *);
 
@@ -3210,6 +3211,10 @@ struct uwsgi_subscribe_req {
 
 	char *sni_ca;
 	uint16_t sni_ca_len;
+
+	pid_t pid;
+	uid_t uid;
+	gid_t gid;
 };
 
 void uwsgi_nuclear_blast();
@@ -4649,7 +4654,10 @@ int uwsgi_run(void);
 
 int uwsgi_is_connected(int);
 int uwsgi_pass_cred(int, char *, size_t);
+int uwsgi_pass_cred2(int, char *, size_t, struct sockaddr *, size_t);
 int uwsgi_recv_cred(int, char *, size_t, pid_t *, uid_t *, gid_t *);
+ssize_t uwsgi_recv_cred2(int, char *, size_t, pid_t *, uid_t *, gid_t *);
+int uwsgi_socket_passcred(int);
 
 #ifdef __cplusplus
 }
