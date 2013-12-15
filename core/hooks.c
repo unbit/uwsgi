@@ -138,6 +138,10 @@ static int uwsgi_hook_write(char *arg) {
         return 0;
 }
 
+static int uwsgi_hook_hostname(char *arg) {
+	return sethostname(arg, strlen(arg));
+}
+
 
 static int uwsgi_hook_callint(char *arg) {
         char *space = strchr(arg, ' ');
@@ -250,6 +254,8 @@ void uwsgi_register_base_hooks() {
 
 	uwsgi_register_hook("callint", uwsgi_hook_callint);
 	uwsgi_register_hook("callintret", uwsgi_hook_callintret);
+
+	uwsgi_register_hook("hostname", uwsgi_hook_hostname);
 
 	// for testing
 	uwsgi_register_hook("exit", uwsgi_hook_exit);
