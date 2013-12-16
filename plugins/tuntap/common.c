@@ -229,6 +229,10 @@ int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tun
 
 			}
 
+			// check four routing rule
+			if (uttr->gateway_fd > -1) {
+				if (uwsgi_tuntap_route_check(uttr->gateway_fd, uttp->buf, uttp->buf_pktsize)) return 0;
+			}
 enqueue:
 
 			memcpy(uttr->write_buf, uttp->buf, uttp->buf_pktsize);
