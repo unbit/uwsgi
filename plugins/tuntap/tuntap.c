@@ -362,11 +362,15 @@ void uwsgi_tuntap_router_loop(int id, void *arg) {
 											break;
 										}
 									}
+									uttp->sent_credentials = 1;
 									break;
 								}
 								else {
-									uwsgi_tuntap_peer_destroy(uttr, uttp);
-									break;
+									// if credentials are sent and a function is available, destroy the peer (if addr is 0)
+									if (utt.addr_by_credentials) {
+										uwsgi_tuntap_peer_destroy(uttr, uttp);
+										break;
+									}
 								}
 							}
 						}
@@ -404,7 +408,7 @@ static void uwsgi_tuntap_router() {
 		utt.buffer_size = 8192;
 
 	if (utt.use_credentials) {
-		if (utt.use_credentials[0] != 0) {
+		if (utt.use_credentials[0] != 0 && strcmp(utt.use_credentials, "true")) {
 			utt.addr_by_credentials = (uint32_t (*)(pid_t, uid_t, gid_t)) dlsym(RTLD_DEFAULT, utt.use_credentials);
 			if (!utt.addr_by_credentials) {
 				uwsgi_log("[uwsgi-tuntap] unable to find symbol %s\n", utt.use_credentials);
