@@ -57,7 +57,6 @@ int uwsgi_subscription_credentials_check(struct uwsgi_subscribe_slot *slot, stru
                 int ret = stat(filename, &st);
                 free(filename);
                 if (ret != 0) continue;
-		uwsgi_log("%d %d %d %d\n", st.st_uid, usr->uid, st.st_gid, usr->gid);
                 if (st.st_uid != usr->uid) continue;
                 if (st.st_gid != usr->gid) continue;
                 // accepted...
