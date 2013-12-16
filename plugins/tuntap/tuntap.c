@@ -64,6 +64,7 @@ static struct uwsgi_option uwsgi_tuntap_options[] = {
 	{"tuntap-router-firewall-out", required_argument, 0, "add a firewall rule to the tuntap router (syntax: <action> <src/mask> <dst/mask>)", uwsgi_tuntap_opt_firewall, &utt.fw_out, 0},
 	{"tuntap-router-route", required_argument, 0, "add a routing rule to the tuntap router (syntax: <src/mask> <dst/mask> <gateway>)", uwsgi_tuntap_opt_route, &utt.routes, 0},
 	{"tuntap-router-stats", required_argument, 0, "run the tuntap router stats server", uwsgi_opt_set_str, &utt.stats_server, 0},
+	{"tuntap-device-rule", required_argument, 0, "add a tuntap device rule (syntax: <src/mask> <dst/mask> <action> [target])", uwsgi_opt_add_string_list, &utt.device_rules, 0},
 	{NULL, 0, 0, NULL, NULL, NULL, 0},
 };
 

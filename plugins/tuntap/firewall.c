@@ -2,6 +2,54 @@
 
 extern struct uwsgi_tuntap utt;
 
+int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *uttr, struct uwsgi_tuntap_peer *uttp) {
+	if (uttp->rules_cnt == 0) return 0;
+
+	char *pkt = uttp->buf;
+	size_t len = uttp->buf_pktsize;
+
+	// sanity check
+        if (len < 20) return -1;
+        uint32_t *src_ip = (uint32_t *) &pkt[12];
+        uint32_t *dst_ip = (uint32_t *) &pkt[16];
+
+        uint32_t src = ntohl(*src_ip);
+        uint32_t dst = ntohl(*dst_ip);
+
+
+	int i;
+	for(i=0;i<uttp->rules_cnt;i++) {
+		struct uwsgi_tuntap_peer_rule *rule = &uttp->rules[i];
+
+		if (rule->src) {
+                        uint32_t src_masked = src & rule->src_mask;
+                        if (src_masked != rule->src) continue;
+                }
+
+                if (rule->dst) {
+                        uint32_t dst_masked = dst & rule->dst_mask;
+                        if (dst_masked != rule->dst) continue;
+                }
+
+		if (rule->action == 0) return 0;
+		if (rule->action == 1) return 1;
+		if (rule->action == 2) {
+			if (uttr->gateway_fd > -1) {
+				struct sockaddr_in sin;
+				memset(&sin, 0, sizeof(struct sockaddr_in));
+				sin.sin_family = AF_INET;
+				sin.sin_port = rule->target_port;
+				sin.sin_addr.s_addr = rule->target;
+				if (sendto(uttr->gateway_fd, pkt, len, 0, (struct sockaddr *) &sin, sizeof(struct sockaddr_in)) < 0) {
+					uwsgi_error("uwsgi_tuntap_route_check()/sendto()");
+				}
+			}
+			return 2;	
+		}
+	}
+	return 0;
+}
+
 int uwsgi_tuntap_firewall_check(struct uwsgi_tuntap_firewall_rule *direction, char *pkt, uint16_t len) {
         // sanity check
         if (len < 20) return -1;
@@ -212,3 +260,100 @@ void uwsgi_tuntap_opt_route(char *opt, char *value, void *table) {
 	utfr->addrlen = sizeof(struct sockaddr_in);
 }
 
+void uwsgi_tuntap_peer_send_rules(int fd, struct uwsgi_tuntap_peer *peer) {
+	struct uwsgi_string_list *usl = NULL;
+	if (!utt.device_rules) return;
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(sizeof(struct uwsgi_tuntap_peer_rule) + 4);
+	// leave space for the uwsgi header
+	ub->pos = 4;
+	uwsgi_foreach(usl, utt.device_rules) {
+		size_t rlen;
+		char **argv = uwsgi_split_quoted(usl->value, usl->len, " \t", &rlen); 
+		if (rlen < 3) {
+			uwsgi_log("invalid tuntap device rule, must be <src/mask> <dst/mask> <action> [target]\n");
+			exit(1);
+		}
+		struct uwsgi_tuntap_peer_rule utpr;
+		memset(&utpr, 0, sizeof(struct uwsgi_tuntap_peer_rule));
+		utpr.src_mask = 0xffffffff;
+		utpr.dst_mask = 0xffffffff;
+
+		char *slash = strchr(argv[0],'/');
+		if (slash) {
+			utpr.src_mask = (0xffffffff << ((atoi(slash+1))-utpr.src_mask));
+			*slash = 0;
+		}
+		if (inet_pton(AF_INET, argv[0], &utpr.src) != 1) {
+                	uwsgi_error("uwsgi_tuntap_peer_send_rules()/inet_pton()");
+                	exit(1);
+		}
+		if (slash) *slash = '/';
+		utpr.src = ntohl(utpr.src);
+
+		slash = strchr(argv[1],'/');
+                if (slash) {
+			utpr.dst_mask = (0xffffffff << ((atoi(slash+1))-utpr.dst_mask));
+                        *slash = 0;
+                }
+                if (inet_pton(AF_INET, argv[1], &utpr.dst) != 1) {
+                        uwsgi_error("uwsgi_tuntap_peer_send_rules()/inet_pton()");
+                        exit(1);
+                }
+                if (slash) *slash = '/';
+		utpr.dst = ntohl(utpr.dst);
+
+		if (!strcmp(argv[2], "deny")) {
+			utpr.action = 1;
+		}
+		else if (!strcmp(argv[2], "allow")) {
+			utpr.action = 0;
+		}
+		else if (!strcmp(argv[2], "route")) {
+			utpr.action = 2;
+		}
+		else if (!strcmp(argv[2], "gateway")) {
+			utpr.action = 2;
+		}
+		else {
+			uwsgi_log("unsupported tuntap rule action: %s\n", argv[2]);
+			exit(1);
+		}
+
+		if (utpr.action == 2) {
+			if (rlen < 4) {
+				uwsgi_log("tuntap rule route/gateway requires a target\n");
+				exit(1);
+			}
+			char *colon = strchr(argv[3], ':');
+			if (!colon) {
+				uwsgi_log("tuntap target must be in the form addr:port\n");
+				exit(1);
+			}
+			*colon = 0;
+			if (inet_pton(AF_INET, argv[3], &utpr.target) != 1) {
+                        	uwsgi_error("uwsgi_tuntap_peer_send_rules()/inet_pton()");
+                        	exit(1);
+                	}
+			*colon = ':';
+			utpr.target = ntohl(utpr.target);
+			utpr.target_port = htons(atoi(colon+1));
+		}
+
+		if (uwsgi_buffer_append(ub, (char *) &utpr, sizeof(struct uwsgi_tuntap_peer_rule))) goto error;
+		peer->rules_cnt++;
+        }
+	// we still do not have an official modifier for the tuntap router
+	if (uwsgi_buffer_set_uh(ub, 0, 1)) goto error;
+	peer->rules = (struct uwsgi_tuntap_peer_rule *)ub->buf;
+	ub->buf = NULL;
+	size_t len = ub->pos;
+	uwsgi_buffer_destroy(ub);
+	if (write(fd,peer->rules, len) != (ssize_t)len) {
+		uwsgi_error("uwsgi_tuntap_peer_send_rules()/write()");
+		exit(1);
+	}
+	return;
+error:
+	uwsgi_log("unable to create tuntap device rules packet\n");
+	exit(1);
+}

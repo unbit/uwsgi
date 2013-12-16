@@ -21,17 +21,21 @@ struct uwsgi_tuntap_peer *uwsgi_tuntap_peer_create(struct uwsgi_tuntap_router *u
 		uttr->peers_tail = uttp;
 	}
 
-	if (!is_router && utt.use_credentials) {
-		uwsgi_log_verbose("[uwsgi-tuntap] waiting for privileges drop...\n");
-		for(;;) {
-			if (getuid() > 0) break;
-			sleep(1);
+	if (!is_router) {
+		if (utt.use_credentials) {
+			uwsgi_log_verbose("[uwsgi-tuntap] waiting for privileges drop...\n");
+			for(;;) {
+				if (getuid() > 0) break;
+				sleep(1);
+			}
+			uwsgi_log_verbose("[uwsgi-tuntap] privileges dropped\n");
+			if (uwsgi_pass_cred(fd, "uwsgi-tuntap", 12)) {
+				// better to exit
+				exit(1);
+			}
 		}
-		uwsgi_log_verbose("[uwsgi-tuntap] privileges dropped\n");
-		if (uwsgi_pass_cred(fd, "uwsgi-tuntap", 12)) {
-			// better to exit
-			exit(1);
-		}
+
+		uwsgi_tuntap_peer_send_rules(fd, uttp);
 	}
 
 	return uttp;
@@ -60,6 +64,7 @@ void uwsgi_tuntap_peer_destroy(struct uwsgi_tuntap_router *uttr, struct uwsgi_tu
 
 	free(uttp->buf);
 	free(uttp->write_buf);
+	if (uttp->rules) free(uttp->rules);
 	close(uttp->fd);
 	free(uttp);
 }
@@ -213,6 +218,15 @@ int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tun
 
 			if (!is_router) goto enqueue;
 
+			// a rule block
+			if (uttp->header[3] == 1) {
+				if (uttp->rules) free(uttp->rules);
+				uttp->rules = uwsgi_malloc(uttp->buf_pktsize);
+				memcpy(uttp->rules, uttp->buf, uttp->buf_pktsize);
+				uttp->rules_cnt = uttp->buf_pktsize / sizeof(struct uwsgi_tuntap_peer_rule);
+				return 0;
+			}
+
 			if (uwsgi_tuntap_firewall_check(utt.fw_out, uttp->buf, uttp->buf_pktsize)) return 0;
 
 			// if there is no associated address store the source
@@ -228,6 +242,8 @@ int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tun
 				}
 
 			}
+
+			if (uwsgi_tuntap_peer_rules_check(uttr, uttp)) return 0;
 
 			// check four routing rule
 			if (uttr->gateway_fd > -1) {

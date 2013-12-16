@@ -12,6 +12,16 @@
 
 */
 
+struct uwsgi_tuntap_peer_rule {
+	uint32_t src;
+	uint32_t src_mask;
+	uint32_t dst;
+	uint32_t dst_mask;
+	uint8_t action;
+	uint32_t target;
+	uint16_t target_port;
+} __attribute__ ((__packed__));
+
 struct uwsgi_tuntap_peer {
         int fd;
         uint32_t addr;
@@ -37,6 +47,8 @@ struct uwsgi_tuntap_peer {
 	pid_t pid;
 	uid_t uid;
 	gid_t gid;
+	struct uwsgi_tuntap_peer_rule *rules;
+	int rules_cnt;
 };
 
 struct uwsgi_tuntap_firewall_rule {
@@ -78,6 +90,7 @@ struct uwsgi_tuntap {
         struct uwsgi_tuntap_firewall_rule *fw_in;
         struct uwsgi_tuntap_firewall_rule *fw_out;
         struct uwsgi_tuntap_firewall_rule *routes;
+        struct uwsgi_string_list *device_rules;
 	char *stats_server;
 	char *use_credentials;
 	uint32_t (*addr_by_credentials)(pid_t, uid_t, gid_t);
@@ -99,3 +112,6 @@ int uwsgi_tuntap_device(char *);
 void uwsgi_tuntap_opt_firewall(char *, char *, void *);
 void uwsgi_tuntap_opt_route(char *, char *, void *);
 int uwsgi_tuntap_register_addr(struct uwsgi_tuntap_router *, struct uwsgi_tuntap_peer *);
+
+void uwsgi_tuntap_peer_send_rules(int, struct uwsgi_tuntap_peer *);
+int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *, struct uwsgi_tuntap_peer *);
