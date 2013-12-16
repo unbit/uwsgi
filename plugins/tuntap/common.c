@@ -243,7 +243,7 @@ int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tun
 
 			}
 
-			if (uwsgi_tuntap_peer_rules_check(uttr, uttp)) return 0;
+			if (uwsgi_tuntap_peer_rules_check(uttr, uttp, uttp->buf, uttp->buf_pktsize, 1)) return 0;
 
 			// check four routing rule
 			if (uttr->gateway_fd > -1) {

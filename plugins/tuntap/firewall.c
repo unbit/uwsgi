@@ -2,11 +2,8 @@
 
 extern struct uwsgi_tuntap utt;
 
-int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *uttr, struct uwsgi_tuntap_peer *uttp) {
+int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *uttr, struct uwsgi_tuntap_peer *uttp, char *pkt, size_t len, int direction) {
 	if (uttp->rules_cnt == 0) return 0;
-
-	char *pkt = uttp->buf;
-	size_t len = uttp->buf_pktsize;
 
 	// sanity check
         if (len < 20) return -1;
@@ -16,10 +13,15 @@ int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *uttr, struct uwsgi
         uint32_t src = ntohl(*src_ip);
         uint32_t dst = ntohl(*dst_ip);
 
+#ifdef UWSGI_DEBUG
+	uwsgi_log("%X %X\n", src, dst);
+#endif
 
 	int i;
 	for(i=0;i<uttp->rules_cnt;i++) {
 		struct uwsgi_tuntap_peer_rule *rule = &uttp->rules[i];
+
+		if (rule->direction != direction) continue;
 
 		if (rule->src) {
                         uint32_t src_masked = src & rule->src_mask;
@@ -34,6 +36,8 @@ int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *uttr, struct uwsgi
 		if (rule->action == 0) return 0;
 		if (rule->action == 1) return 1;
 		if (rule->action == 2) {
+			// if IN do not honour gateway/route
+			if (!direction) return -1;
 			if (uttr->gateway_fd > -1) {
 				struct sockaddr_in sin;
 				memset(&sin, 0, sizeof(struct sockaddr_in));
@@ -269,8 +273,8 @@ void uwsgi_tuntap_peer_send_rules(int fd, struct uwsgi_tuntap_peer *peer) {
 	uwsgi_foreach(usl, utt.device_rules) {
 		size_t rlen;
 		char **argv = uwsgi_split_quoted(usl->value, usl->len, " \t", &rlen); 
-		if (rlen < 3) {
-			uwsgi_log("invalid tuntap device rule, must be <src/mask> <dst/mask> <action> [target]\n");
+		if (rlen < 4) {
+			uwsgi_log("invalid tuntap device rule, must be <direction> <src/mask> <dst/mask> <action> [target]\n");
 			exit(1);
 		}
 		struct uwsgi_tuntap_peer_rule utpr;
@@ -278,44 +282,55 @@ void uwsgi_tuntap_peer_send_rules(int fd, struct uwsgi_tuntap_peer *peer) {
 		utpr.src_mask = 0xffffffff;
 		utpr.dst_mask = 0xffffffff;
 
-		char *slash = strchr(argv[0],'/');
+		if (!strcmp(argv[0], "in")) {
+			utpr.direction = 0;
+		}
+		else if (!strcmp(argv[0], "out")) {
+			utpr.direction = 1;
+		}
+		else {
+			uwsgi_log("invalid tuntap device rule direction, must be 'in' or 'out'\n");
+			exit(1);
+		}
+
+		char *slash = strchr(argv[1],'/');
 		if (slash) {
 			utpr.src_mask = (0xffffffff << ((atoi(slash+1))-utpr.src_mask));
 			*slash = 0;
 		}
-		if (inet_pton(AF_INET, argv[0], &utpr.src) != 1) {
+		if (inet_pton(AF_INET, argv[1], &utpr.src) != 1) {
                 	uwsgi_error("uwsgi_tuntap_peer_send_rules()/inet_pton()");
                 	exit(1);
 		}
 		if (slash) *slash = '/';
 		utpr.src = ntohl(utpr.src);
 
-		slash = strchr(argv[1],'/');
+		slash = strchr(argv[2],'/');
                 if (slash) {
 			utpr.dst_mask = (0xffffffff << ((atoi(slash+1))-utpr.dst_mask));
                         *slash = 0;
                 }
-                if (inet_pton(AF_INET, argv[1], &utpr.dst) != 1) {
+                if (inet_pton(AF_INET, argv[2], &utpr.dst) != 1) {
                         uwsgi_error("uwsgi_tuntap_peer_send_rules()/inet_pton()");
                         exit(1);
                 }
                 if (slash) *slash = '/';
 		utpr.dst = ntohl(utpr.dst);
 
-		if (!strcmp(argv[2], "deny")) {
+		if (!strcmp(argv[3], "deny")) {
 			utpr.action = 1;
 		}
-		else if (!strcmp(argv[2], "allow")) {
+		else if (!strcmp(argv[3], "allow")) {
 			utpr.action = 0;
 		}
-		else if (!strcmp(argv[2], "route")) {
+		else if (!strcmp(argv[3], "route")) {
 			utpr.action = 2;
 		}
-		else if (!strcmp(argv[2], "gateway")) {
+		else if (!strcmp(argv[3], "gateway")) {
 			utpr.action = 2;
 		}
 		else {
-			uwsgi_log("unsupported tuntap rule action: %s\n", argv[2]);
+			uwsgi_log("unsupported tuntap rule action: %s\n", argv[3]);
 			exit(1);
 		}
 
@@ -324,13 +339,13 @@ void uwsgi_tuntap_peer_send_rules(int fd, struct uwsgi_tuntap_peer *peer) {
 				uwsgi_log("tuntap rule route/gateway requires a target\n");
 				exit(1);
 			}
-			char *colon = strchr(argv[3], ':');
+			char *colon = strchr(argv[4], ':');
 			if (!colon) {
 				uwsgi_log("tuntap target must be in the form addr:port\n");
 				exit(1);
 			}
 			*colon = 0;
-			if (inet_pton(AF_INET, argv[3], &utpr.target) != 1) {
+			if (inet_pton(AF_INET, argv[4], &utpr.target) != 1) {
                         	uwsgi_error("uwsgi_tuntap_peer_send_rules()/inet_pton()");
                         	exit(1);
                 	}

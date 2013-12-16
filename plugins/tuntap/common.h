@@ -13,6 +13,7 @@
 */
 
 struct uwsgi_tuntap_peer_rule {
+	uint8_t direction;
 	uint32_t src;
 	uint32_t src_mask;
 	uint32_t dst;
@@ -114,4 +115,4 @@ void uwsgi_tuntap_opt_route(char *, char *, void *);
 int uwsgi_tuntap_register_addr(struct uwsgi_tuntap_router *, struct uwsgi_tuntap_peer *);
 
 void uwsgi_tuntap_peer_send_rules(int, struct uwsgi_tuntap_peer *);
-int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *, struct uwsgi_tuntap_peer *);
+int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *, struct uwsgi_tuntap_peer *, char *, size_t, int);
