@@ -258,6 +258,9 @@ struct uwsgi_corerouter {
 
 	uint64_t active_sessions;
 
+	uid_t uid;
+	gid_t gid;
+
 };
 
 // a session is started when a client connect to the router

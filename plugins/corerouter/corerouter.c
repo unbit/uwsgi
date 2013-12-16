@@ -931,10 +931,13 @@ int uwsgi_corerouter_init(struct uwsgi_corerouter *ucr) {
 			uwsgi_log("starting %s in cheap mode\n", ucr->name);
 		}
 		for (i = 0; i < ucr->processes; i++) {
-			if (register_gateway(ucr->name, uwsgi_corerouter_loop, ucr) == NULL) {
+			struct uwsgi_gateway *ug = register_gateway(ucr->name, uwsgi_corerouter_loop, ucr);
+			if (ug == NULL) {
 				uwsgi_log("unable to register the %s gateway\n", ucr->name);
 				exit(1);
 			}
+			ug->uid = ucr->uid;
+			ug->gid = ucr->gid;
 		}
 	}
 

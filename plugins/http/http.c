@@ -54,6 +54,8 @@ struct uwsgi_option http_options[] = {
 	{"http-ss", required_argument, 0, "run the http router stats server", uwsgi_opt_set_str, &uhttp.cr.stats_server, 0},
 	{"http-harakiri", required_argument, 0, "enable http router harakiri", uwsgi_opt_set_int, &uhttp.cr.harakiri, 0},
 	{"http-stud-prefix", required_argument, 0, "expect a stud prefix (1byte family + 4/16 bytes address) on connections from the specified address", uwsgi_opt_add_addr_list, &uhttp.stud_prefix, 0},
+	{"http-uid", required_argument, 0, "drop http routr privileges to the specified uid", uwsgi_opt_uid, &uhttp.cr.uid, 0 },
+	{"http-gid", required_argument, 0, "drop http routr privileges to the specified gid", uwsgi_opt_gid, &uhttp.cr.gid, 0 },
 	{0, 0, 0, 0, 0, 0, 0},
 };
 

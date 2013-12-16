@@ -529,6 +529,9 @@ struct uwsgi_gateway {
 	int internal_subscription_pipe[2];
 	uint64_t respawns;
 
+	uid_t uid;
+	gid_t gid;
+
 	void *data;
 };
 
@@ -3592,6 +3595,8 @@ void uwsgi_opt_add_regexp_list(char *, char *, void *);
 void uwsgi_opt_add_regexp_custom_list(char *, char *, void *);
 #endif
 void uwsgi_opt_set_int(char *, char *, void *);
+void uwsgi_opt_uid(char *, char *, void *);
+void uwsgi_opt_gid(char *, char *, void *);
 void uwsgi_opt_set_rawint(char *, char *, void *);
 void uwsgi_opt_set_16bit(char *, char *, void *);
 void uwsgi_opt_set_64bit(char *, char *, void *);

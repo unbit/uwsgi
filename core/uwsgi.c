@@ -3732,6 +3732,42 @@ void uwsgi_opt_set_int(char *opt, char *value, void *key) {
 	}
 }
 
+void uwsgi_opt_uid(char *opt, char *value, void *key) {
+	uid_t uid = atoi(value);
+	if (!uid) {
+		struct passwd *p = getpwnam(value);
+		if (p) {
+			uid = p->pw_uid;	
+		}
+		else {
+			uwsgi_log("unable to find user %s\n", value);
+			exit(1);
+		}
+	}
+	if (key)  {
+        	uid_t *ptr = (uid_t *) key;
+        	*ptr = uid;
+        }
+}
+
+void uwsgi_opt_gid(char *opt, char *value, void *key) {
+        gid_t gid = atoi(value);
+        if (!gid) {
+                struct group *g = getgrnam(value);
+                if (g) {
+                        gid = g->gr_gid;
+                }
+                else {
+                        uwsgi_log("unable to find group %s\n", value);
+			exit(1);
+                }
+        }       
+        if (key)  {
+                gid_t *ptr = (gid_t *) key;
+                *ptr = gid;
+        }       
+}     
+
 void uwsgi_opt_set_rawint(char *opt, char *value, void *key) {
 	int *ptr = (int *) key;
 	if (value) {
