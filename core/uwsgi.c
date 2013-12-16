@@ -349,6 +349,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"setns-skip", required_argument, 0, "skip the specified entry when sending setns file descriptors", uwsgi_opt_add_string_list, &uwsgi.setns_socket_skip, 0},
 	{"setns", required_argument, 0, "join a namespace created by an external uWSGI instance", uwsgi_opt_set_str, &uwsgi.setns, 0},
 #endif
+	{"jailed", no_argument, 0, "mark the instance as jailed (force the execution of post_jail hooks)", uwsgi_opt_true, &uwsgi.jailed, 0},
 #if defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	{"jail", required_argument, 0, "put the instance in a FreeBSD jail", uwsgi_opt_set_str, &uwsgi.jail, 0},
 	{"jail-ip4", required_argument, 0, "add an ipv4 address to the FreeBSD jail", uwsgi_opt_add_string_list, &uwsgi.jail_ip4, 0},

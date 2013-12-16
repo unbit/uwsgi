@@ -1924,6 +1924,7 @@ struct uwsgi_server {
 #endif
 	char *emperor_wrapper;
 
+	int jailed;
 #if defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	char *jail;
 	struct uwsgi_string_list *jail_ip4;

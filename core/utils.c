@@ -518,7 +518,7 @@ void uwsgi_as_root() {
 #endif
 #endif
 
-	if (in_jail) {
+	if (in_jail || uwsgi.jailed) {
 		uwsgi_hooks_run(uwsgi.hook_post_jail, "post-jail", 1);
 		struct uwsgi_string_list *usl = NULL;
 		uwsgi_foreach(usl, uwsgi.mount_post_jail) {
