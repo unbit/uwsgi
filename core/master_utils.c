@@ -586,6 +586,14 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 		}
 
 		if (uwsgi.master_fifo_fd > -1) close(uwsgi.master_fifo_fd);
+
+#ifdef __linux__
+		if (uwsgi.setns_fds) {
+			for(i=0;i<uwsgi.setns_fds_count;i++) {
+				close(uwsgi.setns_fds[i]);
+			}
+		}
+#endif
 	}
 
 
@@ -1667,6 +1675,35 @@ void uwsgi_go_cheap() {
 }
 
 #ifdef __linux__
+void uwsgi_setns_preopen() {
+	struct dirent *de;
+        DIR *ns = opendir("/proc/self/ns");
+        if (!ns) {
+                uwsgi_error("uwsgi_setns_preopen()/opendir()");
+                return;
+        }
+        while ((de = readdir(ns)) != NULL) {
+                if (strlen(de->d_name) > 0 && de->d_name[0] == '.') continue;
+                struct uwsgi_string_list *usl = NULL;
+                int found = 0;
+                uwsgi_foreach(usl, uwsgi.setns_socket_skip) {
+                        if (!strcmp(de->d_name, usl->value)) {
+                                found = 1;
+                                break;
+                        }
+                }
+                if (found) continue;
+                char *filename = uwsgi_concat2("/proc/self/ns/", de->d_name);
+                uwsgi.setns_fds[uwsgi.setns_fds_count] = open(filename, O_RDONLY);
+                if (uwsgi.setns_fds[uwsgi.setns_fds_count] < 0) {
+                        uwsgi_error_open(filename);
+                        free(filename);
+			exit(1);
+                }
+                free(filename);
+                uwsgi.setns_fds_count++;
+        }
+}
 void uwsgi_master_manage_setns(int fd) {
 
         struct sockaddr_un snsun;
@@ -1679,10 +1716,24 @@ void uwsgi_master_manage_setns(int fd) {
         }
 
 	int i;
-	int fds[64];
+	int tmp_fds[64];
+	int *fds = tmp_fds;
         int num_fds = 0;
+
+	struct msghdr sn_msg;
+        void *sn_msg_control;
+        struct iovec sn_iov[2];
+        struct cmsghdr *cmsg;
+	DIR *ns = NULL;
+
+	if (uwsgi.setns_fds && uwsgi.setns_fds_count) {
+		fds = uwsgi.setns_fds;
+		num_fds = uwsgi.setns_fds_count;
+		goto send;
+	}
+
 	struct dirent *de;
-	DIR *ns = opendir("/proc/self/ns");
+	ns = opendir("/proc/self/ns");
 	if (!ns) {
 		uwsgi_error("uwsgi_master_manage_setns()/opendir()");
 		return;
@@ -1709,10 +1760,9 @@ void uwsgi_master_manage_setns(int fd) {
 		num_fds++;
 	}
 
-        struct msghdr sn_msg;
-        void *sn_msg_control = uwsgi_malloc(CMSG_SPACE(sizeof(int) * num_fds));
-        struct iovec sn_iov[2];
-        struct cmsghdr *cmsg;
+send:
+
+        sn_msg_control = uwsgi_malloc(CMSG_SPACE(sizeof(int) * num_fds));
 
         sn_iov[0].iov_base = "uwsgi-setns";
         sn_iov[0].iov_len = 11;
@@ -1747,9 +1797,11 @@ void uwsgi_master_manage_setns(int fd) {
 
         close(setns_client);
 clear:
-	closedir(ns);
-	for(i=0;i<num_fds;i++) {
-		close(fds[i]);
+	if (ns) {
+		closedir(ns);
+		for(i=0;i<num_fds;i++) {
+			close(fds[i]);
+		}
 	}
 }
 

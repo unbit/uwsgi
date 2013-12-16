@@ -1921,6 +1921,9 @@ struct uwsgi_server {
 	struct uwsgi_string_list *setns_socket_skip;
 	char *setns;
 	int setns_socket_fd;
+	int setns_preopen;
+	int setns_fds[64];
+	int setns_fds_count;
 #endif
 	char *emperor_wrapper;
 
@@ -3260,6 +3263,7 @@ void linux_namespace_jail(void);
 #endif
 void uwsgi_master_manage_setns(int);
 void uwsgi_setns(char *);
+void uwsgi_setns_preopen(void);
 #endif
 
 
