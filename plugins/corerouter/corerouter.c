@@ -1036,7 +1036,9 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 				if (uwsgi_stats_keyvaln_comma(us, "key", s_slot->key, s_slot->keylen)) goto end0;
 				if (uwsgi_stats_keylong_comma(us, "hash", (unsigned long long) s_slot->hash)) goto end0;
 				if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) s_slot->hits)) goto end0;
+#ifdef UWSGI_SSL
 				if (uwsgi_stats_keylong_comma(us, "sni_enabled", (unsigned long long) s_slot->sni_enabled)) goto end0;
+#endif
 
 				if (uwsgi_stats_key(us , "nodes")) goto end0;
 				if (uwsgi_stats_list_open(us)) goto end0;
