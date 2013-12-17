@@ -122,6 +122,8 @@ void uwsgi_master_check_idle() {
 			}
 			else {
 				uwsgi.workers[i].pid = 0;
+				uwsgi.workers[i].rss_size = 0;
+				uwsgi.workers[i].vsz_size = 0;
 			}
 		}
 		uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
