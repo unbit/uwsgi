@@ -1585,7 +1585,11 @@ void uwsgi_python_add_item(char *key, uint16_t keylen, char *val, uint16_t valle
 
 	PyObject *pydict = (PyObject *) data;
 
-	PyDict_SetItem(pydict, PyString_FromStringAndSize(key, keylen), PyString_FromStringAndSize(val, vallen));
+	PyObject *o_key = PyString_FromStringAndSize(key, keylen);
+	PyObject *zero = PyString_FromStringAndSize(val, vallen);
+	PyDict_SetItem(pydict, o_key, zero);
+	Py_DECREF(o_key);
+	Py_DECREF(zero);
 }
 
 int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, size_t body_len) {
@@ -1593,9 +1597,6 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 	static int random_seed_reset = 0;
 
 	UWSGI_GET_GIL;
-
-	PyObject *spool_dict = PyDict_New();
-	PyObject *spool_func, *pyargs, *ret;
 
 	if (!random_seed_reset) {
 		uwsgi_python_reset_random_seed();
@@ -1608,14 +1609,19 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 		return 0;
 	}
 
-	spool_func = PyDict_GetItemString(up.embedded_dict, "spooler");
+	PyObject *spool_func = PyDict_GetItemString(up.embedded_dict, "spooler");
 	if (!spool_func) {
 		// ignore
 		UWSGI_RELEASE_GIL;
 		return 0;
 	}
 
+	PyObject *spool_dict = PyDict_New();
+	PyObject *pyargs, *ret;
+
+
 	if (uwsgi_hooked_parse(buf, len, uwsgi_python_add_item, spool_dict)) {
+		Py_DECREF(spool_dict);
 		// malformed packet, destroy it
 		UWSGI_RELEASE_GIL;
 		return -2;
@@ -1623,7 +1629,9 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 
 	pyargs = PyTuple_New(1);
 
-	PyDict_SetItemString(spool_dict, "spooler_task_name", PyString_FromString(filename));
+	PyObject *zero = PyString_FromString(filename);
+	PyDict_SetItemString(spool_dict, "spooler_task_name", zero);
+	Py_DECREF(zero);
 
 	if (body && body_len > 0) {
 		PyDict_SetItemString(spool_dict, "body", PyString_FromStringAndSize(body, body_len));
@@ -1634,12 +1642,18 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 
 	if (ret) {
 		if (!PyInt_Check(ret)) {
+			Py_DECREF(ret);
+			Py_DECREF(spool_dict);
+			Py_DECREF(pyargs);
 			// error, retry
 			UWSGI_RELEASE_GIL;
 			return -1;
 		}	
 
 		int retval = (int) PyInt_AsLong(ret);
+		Py_DECREF(ret);
+		Py_DECREF(spool_dict);
+		Py_DECREF(pyargs);
 		UWSGI_RELEASE_GIL;
 		return retval;
 		
@@ -1647,6 +1661,9 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 	
 	if (PyErr_Occurred())
 		PyErr_Print();
+
+	Py_DECREF(spool_dict);
+	Py_DECREF(pyargs);
 
 	// error, retry
 	UWSGI_RELEASE_GIL;

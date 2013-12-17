@@ -245,6 +245,13 @@ XS(XS_register_signal) {
 	
 }
 
+XS(XS_spooler) {
+	dXSARGS;
+	psgi_check_args(1);
+	uperl.spooler = (CV *) newRV_inc(ST(0));
+	XSRETURN_YES;
+}
+
 XS(XS_register_rpc) {
         dXSARGS;
 
@@ -948,4 +955,6 @@ void init_perl_embedded_module() {
 	psgi_xs(sharedarea_readfast);
 	psgi_xs(sharedarea_write);
 	psgi_xs(sharedarea_wait);
+
+	psgi_xs(spooler);
 }

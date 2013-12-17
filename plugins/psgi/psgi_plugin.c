@@ -889,6 +889,59 @@ static void uwsgi_perl_hijack(void) {
 
 }
 
+static void uwsgi_perl_add_item(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
+
+        HV *spool_dict = (HV*) data;
+
+	hv_store(spool_dict, key, keylen, newSVpv(val, vallen), 0);
+}
+
+
+static int uwsgi_perl_spooler(char *filename, char *buf, uint16_t len, char *body, size_t body_len) {
+
+        int ret = -1;
+
+	if (!uperl.spooler) return 0;
+
+	dSP;
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+
+	HV *spool_dict = newHV();	
+
+	if (uwsgi_hooked_parse(buf, len, uwsgi_perl_add_item, (void *) spool_dict)) {
+                return 0;
+        }
+
+        hv_store(spool_dict, "spooler_task_name", 18, newSVpv(filename, 0), 0);
+
+        if (body && body_len > 0) {
+                hv_store(spool_dict, "body", 4, newSVpv(body, body_len), 0);
+        }
+
+        XPUSHs( sv_2mortal((SV*)newRV_noinc((SV*)spool_dict)) );
+        PUTBACK;
+
+        call_sv( SvRV((SV*)uperl.spooler), G_SCALAR|G_EVAL);
+
+        SPAGAIN;
+        if(SvTRUE(ERRSV)) {
+                uwsgi_log("[uwsgi-spooler-perl error] %s", SvPV_nolen(ERRSV));
+		ret = -1;
+        }
+	else {
+		ret = POPi;
+	}
+
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+
+	return ret;
+}
+
+
 
 struct uwsgi_plugin psgi_plugin = {
 
@@ -916,4 +969,6 @@ struct uwsgi_plugin psgi_plugin = {
 	.atexit = uwsgi_perl_atexit,
 
 	.magic = uwsgi_perl_magic,
+
+	.spooler = uwsgi_perl_spooler,
 };
