@@ -732,6 +732,7 @@ void uwsgi_setup_metrics() {
 	struct uwsgi_metric *total_tx = uwsgi_register_metric_do("core.total_tx", "5.100", UWSGI_METRIC_COUNTER, "sum", NULL, 0, NULL, 1);
 	struct uwsgi_metric *total_rss = uwsgi_register_metric_do("core.total_rss", "5.101", UWSGI_METRIC_GAUGE, "sum", NULL, 0, NULL, 1);
 	struct uwsgi_metric *total_vsz = uwsgi_register_metric_do("core.total_vsz", "5.102", UWSGI_METRIC_GAUGE, "sum", NULL, 0, NULL, 1);
+	struct uwsgi_metric *total_avg_rt = uwsgi_register_metric_do("core.avg_response_time", "5.103", UWSGI_METRIC_GAUGE, "avg", NULL, 0, NULL, 1);
 
 	// create the 'worker' namespace
 	int i;
@@ -750,19 +751,23 @@ void uwsgi_setup_metrics() {
 		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].respawn_count, 0, NULL);
 
 		uwsgi_metric_name("worker.%d.avg_response_time", i) ; uwsgi_metric_oid("3.%d.8", i);
-		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].avg_response_time, 0, NULL);
+		struct uwsgi_metric *avg_rt = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].avg_response_time, 0, NULL);
+		if (i > 0) uwsgi_metric_add_child(total_avg_rt, avg_rt);
 
 		uwsgi_metric_name("worker.%d.total_tx", i) ; uwsgi_metric_oid("3.%d.9", i);
 		struct uwsgi_metric *tx = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].tx, 0, NULL);
-		uwsgi_metric_add_child(total_tx, tx);
+		if (i > 0) uwsgi_metric_add_child(total_tx, tx);
 
 		uwsgi_metric_name("worker.%d.rss_size", i) ; uwsgi_metric_oid("3.%d.11", i);
 		struct uwsgi_metric *rss = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].rss_size, 0, NULL);
-		uwsgi_metric_add_child(total_rss, rss);
+		if (i > 0) uwsgi_metric_add_child(total_rss, rss);
 
 		uwsgi_metric_name("worker.%d.vsz_size", i) ; uwsgi_metric_oid("3.%d.12", i);
                 struct uwsgi_metric *vsz = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].vsz_size, 0, NULL);
-                uwsgi_metric_add_child(total_vsz, vsz);
+                if (i > 0) uwsgi_metric_add_child(total_vsz, vsz);
+
+		// skip core metrics for core 0
+		if (i == 0) continue;
 
 		int j;
 		for(j=0;j<uwsgi.cores;j++) {
@@ -794,6 +799,7 @@ void uwsgi_setup_metrics() {
 	uwsgi_metric_append(total_tx);
 	uwsgi_metric_append(total_rss);
 	uwsgi_metric_append(total_vsz);
+	uwsgi_metric_append(total_avg_rt);
 
 	// sockets
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
