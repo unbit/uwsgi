@@ -231,6 +231,8 @@ int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tun
 
 			// if there is no associated address store the source
 			if (!uttp->addr) {
+				// close on invalid first packet
+				if (uttp->buf_pktsize < 20) return -1;
 				uint32_t *src_ip = (uint32_t *) (&uttp->buf[12]);
 				uttp->addr = *src_ip;
 				// drop invalid ip addresses

@@ -252,6 +252,7 @@ void uwsgi_tuntap_router_loop(int id, void *arg) {
 					uwsgi_error("uwsgi_tuntap_router_loop()/read()");
 					exit(1);
 				}
+				if (rlen < 20) continue;
 
 				if (uwsgi_tuntap_firewall_check(utt.fw_in, uttr->buf, rlen)) continue;
 
@@ -313,8 +314,9 @@ void uwsgi_tuntap_router_loop(int id, void *arg) {
                                         uwsgi_error("uwsgi_tuntap_router_loop()/read()");
 					continue;
                                 }
-				if (uwsgi_tuntap_firewall_check(utt.fw_in, uttr->buf, rlen)) continue;
-				uint32_t *dst_ip = (uint32_t *) & uttr->buf[16];
+				if (rlen < 20) continue;
+				if (uwsgi_tuntap_firewall_check(utt.fw_in, uttr->gateway_buf, rlen)) continue;
+				uint32_t *dst_ip = (uint32_t *) & uttr->gateway_buf[16];
                                 struct uwsgi_tuntap_peer *uttp = uwsgi_tuntap_peer_get_by_addr(uttr, *dst_ip);
                                 if (!uttp)
                                         continue;
@@ -327,7 +329,7 @@ void uwsgi_tuntap_router_loop(int id, void *arg) {
 
                                 uint16_t pktsize = rlen;
                                 char *ptr = uttp->write_buf + uttp->write_buf_pktsize;
-                                memcpy(ptr + 4, uttr->buf, rlen);
+                                memcpy(ptr + 4, uttr->gateway_buf, rlen);
                                 ptr[0] = 0;
                                 ptr[1] = (uint8_t) (pktsize & 0xff);
                                 ptr[2] = (uint8_t) ((pktsize >> 8) & 0xff);
