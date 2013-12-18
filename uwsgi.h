@@ -3466,7 +3466,8 @@ struct uwsgi_subscribe_node {
 	// number of requests since last subscription ping
 	uint64_t last_requests;
 
-	uint64_t transferred;
+	uint64_t tx;
+	uint64_t rx;
 
 	int death_mark;
 	uint64_t reference;

@@ -480,6 +480,9 @@ void tuntaprouter_send_stats(struct uwsgi_tuntap_router *uttr) {
                 if (uwsgi_stats_object_open(us)) goto end0;
 		if (uwsgi_stats_keyval_comma(us, "addr", uttp->ip)) goto end0;
 		if (uwsgi_stats_keylong_comma(us, "addr_32", uttp->addr)) goto end0;
+		if (uwsgi_stats_keylong_comma(us, "uid", uttp->uid)) goto end0;
+		if (uwsgi_stats_keylong_comma(us, "gid", uttp->gid)) goto end0;
+		if (uwsgi_stats_keylong_comma(us, "pid", uttp->pid)) goto end0;
 		if (uwsgi_stats_keylong_comma(us, "tx", uttp->tx)) goto end0;
 		if (uwsgi_stats_keylong_comma(us, "rx", uttp->rx)) goto end0;
 		if (uwsgi_stats_keylong(us, "dropped", uttp->dropped)) goto end0;

@@ -21,6 +21,7 @@
                 uwsgi_cr_error(peer, f);\
                 return -1;\
         }\
+	if (peer != peer->session->main_peer && peer->un) peer->un->rx+=len;\
         peer->out_pos += len;
 
 #define cr_write_buf(peer, ubuf, f) write(peer->fd, ubuf->buf + ubuf##_pos, ubuf->pos - ubuf##_pos);\
@@ -29,6 +30,7 @@
                 uwsgi_cr_error(peer, f);\
                 return -1;\
         }\
+	if (peer != peer->session->main_peer && peer->un) peer->un->rx+=len;\
         ubuf##_pos += len;
 
 #define cr_write_complete(peer) peer->out_pos == peer->out->pos
@@ -51,6 +53,7 @@
                 uwsgi_cr_error(peer, f);\
                 return -1;\
         }\
+	if (peer != peer->session->main_peer && peer->un) peer->un->tx+=len;\
         peer->in->pos += len;\
 
 #define cr_read_exact(peer, l, f) read(peer->fd, peer->in->buf + peer->in->pos, (l - peer->in->pos));\
@@ -59,6 +62,7 @@
                 uwsgi_cr_error(peer, f);\
                 return -1;\
         }\
+	if (peer != peer->session->main_peer && peer->un) peer->un->tx+=len;\
         peer->in->pos += len;\
 
 #define cr_reset_hooks(peer) if(!peer->session->main_peer->disabled) {\

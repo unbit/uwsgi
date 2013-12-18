@@ -1054,7 +1054,8 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 					if (uwsgi_stats_keylong_comma(us, "last_check", (unsigned long long) s_node->last_check)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "requests", (unsigned long long) s_node->requests)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "last_requests", (unsigned long long) s_node->last_requests)) goto end0;
-					if (uwsgi_stats_keylong_comma(us, "tx", (unsigned long long) s_node->transferred)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "tx", (unsigned long long) s_node->tx)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "rx", (unsigned long long) s_node->rx)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "cores", (unsigned long long) s_node->cores)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "load", (unsigned long long) s_node->load)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "weight", (unsigned long long) s_node->weight)) goto end0;

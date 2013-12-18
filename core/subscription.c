@@ -454,7 +454,8 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node->modifier2 = usr->modifier2;
 		node->requests = 0;
 		node->last_requests = 0;
-		node->transferred = 0;
+		node->tx = 0;
+		node->rx = 0;
 		node->reference = 0;
 		node->death_mark = 0;
 		node->failcnt = 0;
@@ -541,7 +542,8 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes->reference = 0;
 		current_slot->nodes->requests = 0;
 		current_slot->nodes->last_requests = 0;
-		current_slot->nodes->transferred = 0;
+		current_slot->nodes->tx = 0;
+		current_slot->nodes->rx = 0;
 		current_slot->nodes->death_mark = 0;
 		current_slot->nodes->failcnt = 0;
 		current_slot->nodes->modifier1 = usr->modifier1;
