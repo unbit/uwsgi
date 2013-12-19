@@ -2044,6 +2044,12 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 	uwsgi.magic_table['V'] = UWSGI_VERSION;
 	uwsgi.magic_table['k'] = uwsgi_num2str(uwsgi.cpus);
 	uwsgi.magic_table['['] = "\033";
+	uwsgi.magic_table['u'] = uwsgi_num2str((int)getuid());
+	struct passwd *pw = getpwuid(getuid());
+	uwsgi.magic_table['U'] = pw ? pw->pw_name : uwsgi.magic_table['u'];
+	uwsgi.magic_table['g'] = uwsgi_num2str((int)getgid());
+	struct group *gr = getgrgid(getgid());
+	uwsgi.magic_table['G'] = gr ? gr->gr_name : uwsgi.magic_table['g'];
 
 	// you can embed a ini file in the uWSGi binary with default options
 #ifdef UWSGI_EMBED_CONFIG
