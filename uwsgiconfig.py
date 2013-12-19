@@ -1014,11 +1014,7 @@ class uConf(object):
             self.libs.append('-lcap')
             report['capabilities'] = True
 
-        has_json = False
-        has_uuid = False
-
         if self.has_include('uuid/uuid.h'):
-            has_uuid = True
             self.cflags.append("-DUWSGI_UUID")
             if uwsgi_os in ('Linux', 'GNU', 'GNU/kFreeBSD') or uwsgi_os.startswith('CYGWIN') or os.path.exists('/usr/lib/libuuid.so') or os.path.exists('/usr/local/lib/libuuid.so') or os.path.exists('/usr/lib64/libuuid.so') or os.path.exists('/usr/local/lib64/libuuid.so'):
                 self.libs.append('-luuid')
@@ -1109,16 +1105,11 @@ class uConf(object):
         if self.get('yaml'):
             self.cflags.append("-DUWSGI_YAML")
             self.gcc_list.append('core/yaml')
-            report['yaml'] = True
-            if self.get('yaml_implementation') == 'libyaml':
+            report['yaml'] = 'embedded'
+            if self.get('yaml') == 'libyaml':
                 self.cflags.append("-DUWSGI_LIBYAML")
                 self.libs.append('-lyaml')
                 report['yaml'] = 'libyaml'
-            if self.get('yaml_implementation') == 'auto':
-                if self.has_include('yaml.h'):
-                    self.cflags.append("-DUWSGI_LIBYAML")
-                    self.libs.append('-lyaml')
-                    report['yaml'] = 'libyaml'
 
         if self.get('json'):
             if self.get('json') == 'auto':
@@ -1128,21 +1119,51 @@ class uConf(object):
                     self.cflags.append("-DUWSGI_JSON")
                     self.gcc_list.append('core/json')
                     self.libs.append(spcall("pkg-config --libs jansson"))
-                    has_json = True
+                    report['json'] = 'jansson'
                 elif self.has_include('jansson.h'):
                     self.cflags.append("-DUWSGI_JSON")
                     self.gcc_list.append('core/json')
                     self.libs.append('-ljansson')
-                    has_json = True
-            else:
-                self.cflags.append("-DUWSGI_JSON")
-                self.gcc_list.append('core/json')
-                self.libs.append('-ljansson')
-                has_json = True
-
-        if has_json:
-            report['json'] = True
-
+                    report['json'] = 'jansson'
+                else:
+                    jsonconf = spcall("pkg-config --cflags yajl")
+                    if jsonconf:
+                        self.cflags.append(jsonconf)
+                        self.cflags.append("-DUWSGI_JSON")
+                        self.gcc_list.append('core/json')
+                        self.libs.append(spcall("pkg-config --libs yajl"))
+                        self.cflags.append("-DUWSGI_JSON_YAJL")
+                        report['json'] = 'yajl'
+            elif self.get('json') == 'jansson':
+                jsonconf = spcall("pkg-config --cflags jansson")
+                if jsonconf:
+                    self.cflags.append(jsonconf)
+                    self.cflags.append("-DUWSGI_JSON")
+                    self.gcc_list.append('core/json')
+                    self.libs.append(spcall("pkg-config --libs jansson"))
+                    report['json'] = 'jansson'
+                elif self.has_include('jansson.h'):
+                    self.cflags.append("-DUWSGI_JSON")
+                    self.gcc_list.append('core/json')
+                    self.libs.append('-ljansson')
+                    report['json'] = 'jansson'
+                else:
+                    print("*** jansson headers unavailable. uWSGI build is interrupted. You have to install jansson development package or use yajl or disable JSON")
+                    sys.exit(1)
+            elif self.get('json') == 'yajl':
+                jsonconf = spcall("pkg-config --cflags yajl")
+                if jsonconf:
+                    self.cflags.append(jsonconf)
+                    self.cflags.append("-DUWSGI_JSON")
+                    self.gcc_list.append('core/json')
+                    self.libs.append(spcall("pkg-config --libs yajl"))
+                    self.cflags.append("-DUWSGI_JSON_YAJL")
+                    report['json'] = 'yajl'
+                else:
+                    print("*** yajl headers unavailable. uWSGI build is interrupted. You have to install yajl development package or use jansson or disable JSON")
+                    sys.exit(1)
+        
+                
         if self.get('ssl'):
             if self.get('ssl') == 'auto':
                 if self.has_include('openssl/ssl.h'):
@@ -1175,7 +1196,7 @@ class uConf(object):
                     self.libs.append('-lexpat')
                     self.gcc_list.append('core/xmlconf')
                     report['xml'] = 'expat'
-            elif self.get('xml_implementation') == 'libxml2':
+            elif self.get('xml') == 'libxml2':
                 xmlconf = spcall('xml2-config --libs')
                 if xmlconf is None:
                     print("*** libxml2 headers unavailable. uWSGI build is interrupted. You have to install libxml2 development package or use libexpat or disable XML")
@@ -1191,7 +1212,7 @@ class uConf(object):
                         self.cflags.append("-DUWSGI_XML -DUWSGI_XML_LIBXML2")
                         self.gcc_list.append('core/xmlconf')
                         report['xml'] = 'libxml2'
-            elif self.get('xml_implementation') == 'expat':
+            elif self.get('xml') == 'expat':
                 self.cflags.append("-DUWSGI_XML -DUWSGI_XML_EXPAT")
                 self.libs.append('-lexpat')
                 self.gcc_list.append('core/xmlconf')
