@@ -1511,9 +1511,7 @@ void trigger_harakiri(int i) {
 			}
 		}
 
-		kill(uwsgi.workers[i].pid, SIGUSR2);
-		// allow SIGUSR2 to be delivered
-		sleep(1);
+		uwsgi_dump_worker(i);
 		kill(uwsgi.workers[i].pid, SIGKILL);
 		if (!uwsgi.workers[i].pending_harakiri)
 			uwsgi.workers[i].harakiri_count++;
@@ -1806,3 +1804,19 @@ clear:
 }
 
 #endif
+
+/*
+	this is racey, but the worst thing would be printing garbage in the logs...
+*/
+void uwsgi_dump_worker(int wid) {
+	int i;
+	uwsgi_log_verbose("!!! worker %d status !!!\n", wid);
+	for(i=0;i<uwsgi.cores;i++) {
+		struct uwsgi_core *uc = &uwsgi.workers[wid].cores[i];
+		struct wsgi_request *wsgi_req = &uc->req;
+		if (uc->in_request) {
+			uwsgi_log("[core %d] %.*s - %.*s %.*s since %llu\n", i, wsgi_req->remote_addr_len, wsgi_req->remote_addr, wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, (unsigned long long) (wsgi_req->start_of_request/(1000*1000)));
+		}
+	}
+	uwsgi_log_verbose("!!! end of worker %d status !!!\n", wid);
+}
