@@ -594,6 +594,13 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 			}
 		}
 #endif
+
+		// fd alarms
+		struct uwsgi_alarm_fd *uafd = uwsgi.alarm_fds;
+        	while(uafd) {
+			close(uafd->fd);
+                	uafd = uafd->next;
+        	}
 	}
 
 
