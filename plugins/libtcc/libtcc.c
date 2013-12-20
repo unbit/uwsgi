@@ -7,14 +7,16 @@ static int uwsgi_libtcc_hook(char *arg) {
 	char *func_base = "uwsgi_libtcc_func";
 	size_t func_len = strlen(func_base) + sizeof(UMAX64_STR);
 	char *func_name = uwsgi_malloc(func_len);
-	if (snprintf(func_name, func_len, "%s%llu", func_base, uwsgi_libtcc_counter) < (int) strlen(func_base)) {
+	int ret = snprintf(func_name, func_len, "%s%llu", func_base, uwsgi_libtcc_counter);
+	if (ret < (int) strlen(func_base) || ret >= (int) func_len) {
 		free(func_name);
 		return -1;
 	}
 	uwsgi_libtcc_counter++;
 	size_t source_len = 64 + func_len + strlen(arg);
 	char *source = uwsgi_malloc(source_len); 
-	if (snprintf(source, source_len, "void %s() { %s ;}", func_name, arg) < (int) ( strlen(func_base) + strlen(arg))) {
+	ret = snprintf(source, source_len, "void %s() { %s ;}", func_name, arg);
+	if (ret < (int) ( strlen(func_base) + strlen(arg)) || ret >= (int) (source_len)) {
 		free(func_name);
 		free(source);
 		return -1;

@@ -705,7 +705,7 @@ static int uwsgi_router_flush(struct uwsgi_route *ur, char *arg) {
 static int transform_fixcl(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
 	char buf[sizeof(UMAX64_STR)+1];
         int ret = snprintf(buf, sizeof(UMAX64_STR)+1, "%llu", (unsigned long long) ut->chunk->pos);
-        if (ret <= 0 || ret > (int) (sizeof(UMAX64_STR)+1)) {
+        if (ret <= 0 || ret >= (int) (sizeof(UMAX64_STR)+1)) {
                 wsgi_req->write_errors++;
                 return -1;
         }

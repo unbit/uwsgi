@@ -465,7 +465,7 @@ static void *uwsgi_metrics_loop(void *arg) {
 			if (uwsgi.metrics_dir && metric->map) {
 				if (value != new_value) {
 					int ret = snprintf(metric->map, uwsgi.page_size, "%lld\n", (long long) new_value);
-					if (ret > 0) {
+					if (ret > 0 && ret < uwsgi.page_size) {
 						memset(metric->map+ret, 0, 4096-ret);
 					}
 				}
@@ -694,11 +694,11 @@ int64_t uwsgi_metric_getn(char *name, size_t nlen, char *oid, size_t olen) {
         return ret;
 }
 
-#define uwsgi_metric_name(f, n) if (snprintf(buf, 4096, f, n) <= 1) { uwsgi_log("unable to register metric name %s\n", f); exit(1);}
-#define uwsgi_metric_name2(f, n, n2) if (snprintf(buf, 4096, f, n, n2) <= 1) { uwsgi_log("unable to register metric name %s\n", f); exit(1);}
+#define uwsgi_metric_name(f, n) ret = snprintf(buf, 4096, f, n); if (ret <= 1 || ret >= 4096) { uwsgi_log("unable to register metric name %s\n", f); exit(1);}
+#define uwsgi_metric_name2(f, n, n2) ret = snprintf(buf, 4096, f, n, n2); if (ret <= 1 || ret >= 4096) { uwsgi_log("unable to register metric name %s\n", f); exit(1);}
 
-#define uwsgi_metric_oid(f, n) if (snprintf(buf2, 4096, f, n) <= 1) { uwsgi_log("unable to register metric oid %s\n", f); exit(1);}
-#define uwsgi_metric_oid2(f, n, n2) if (snprintf(buf2, 4096, f, n, n2) <= 1) { uwsgi_log("unable to register metric oid %s\n", f); exit(1);}
+#define uwsgi_metric_oid(f, n) ret = snprintf(buf2, 4096, f, n); if (ret <= 1 || ret >= 4096) { uwsgi_log("unable to register metric oid %s\n", f); exit(1);}
+#define uwsgi_metric_oid2(f, n, n2) ret = snprintf(buf2, 4096, f, n, n2); if (ret <= 1 || ret >= 4096) { uwsgi_log("unable to register metric oid %s\n", f); exit(1);}
 
 void uwsgi_setup_metrics() {
 
@@ -733,6 +733,8 @@ void uwsgi_setup_metrics() {
 	struct uwsgi_metric *total_rss = uwsgi_register_metric_do("core.total_rss", "5.101", UWSGI_METRIC_GAUGE, "sum", NULL, 0, NULL, 1);
 	struct uwsgi_metric *total_vsz = uwsgi_register_metric_do("core.total_vsz", "5.102", UWSGI_METRIC_GAUGE, "sum", NULL, 0, NULL, 1);
 	struct uwsgi_metric *total_avg_rt = uwsgi_register_metric_do("core.avg_response_time", "5.103", UWSGI_METRIC_GAUGE, "avg", NULL, 0, NULL, 1);
+
+	int ret;
 
 	// create the 'worker' namespace
 	int i;

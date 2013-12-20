@@ -5,7 +5,7 @@ extern struct uwsgi_server uwsgi;
 int uwsgi_response_add_content_length(struct wsgi_request *wsgi_req, uint64_t cl) {
 	char buf[sizeof(UMAX64_STR)+1];
         int ret = snprintf(buf, sizeof(UMAX64_STR)+1, "%llu", (unsigned long long) cl);
-        if (ret <= 0 || ret > (int) (sizeof(UMAX64_STR)+1)) {
+        if (ret <= 0 || ret >= (int) (sizeof(UMAX64_STR)+1)) {
 		wsgi_req->write_errors++;
                 return -1;
         }
@@ -51,7 +51,7 @@ int uwsgi_response_add_content_range(struct wsgi_request *wsgi_req, uint64_t sta
 		end = cl-1;
 	}
         int ret = snprintf(buf, 6+(sizeof(UMAX64_STR)*3)+4, "bytes %llu-%llu/%llu", (unsigned long long) start, (unsigned long long) end, (unsigned long long) cl);
-        if (ret <= 0 || ret > (int) (6+(sizeof(UMAX64_STR)*3)+4)) {
+        if (ret <= 0 || ret >= (int) (6+(sizeof(UMAX64_STR)*3)+4)) {
                 wsgi_req->write_errors++;
                 return -1;
         }

@@ -432,7 +432,8 @@ static uint16_t ldap_passwd_check(struct uwsgi_ldapauth_config *ulc, char *auth)
 	LDAPMessage *msg, *entry;
 	// use the minimal amount of memory
 	char *filter = uwsgi_malloc( strlen(ulc->login_attr) + (colon-auth) + strlen(ulc->filter) + 7);
-	if (snprintf(filter, 1024, "(&(%s=%.*s)%s)", ulc->login_attr, (int) (colon-auth), auth, ulc->filter) <= 0) {
+	int ret = snprintf(filter, 1024, "(&(%s=%.*s)%s)", ulc->login_attr, (int) (colon-auth), auth, ulc->filter);
+	if (ret <= 0 || ret >= 1024) {
 		free(filter);
 		uwsgi_error("ldap_passwd_check()/sprintfn(filter)");
 		goto close;

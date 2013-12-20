@@ -1864,7 +1864,7 @@ int uwsgi_num2str2n(int num, char *ptr, int size) {
 
 int uwsgi_long2str2n(unsigned long long num, char *ptr, int size) {
 	int ret = snprintf(ptr, size, "%llu", num);
-	if (ret < 0)
+	if (ret <= 0 || ret > size)
 		return 0;
 	return ret;
 }
@@ -3578,7 +3578,7 @@ void uwsgi_set_cpu_affinity() {
 			base_cpu = base_cpu % uwsgi.cpus;
 		}
 		ret = snprintf(buf, 4096, "mapping worker %d to CPUs:", uwsgi.mywid);
-		if (ret < 25) {
+		if (ret < 25 || ret >= 4096) {
 			uwsgi_log("unable to initialize cpu affinity !!!\n");
 			exit(1);
 		}
@@ -3596,7 +3596,7 @@ void uwsgi_set_cpu_affinity() {
 				base_cpu = 0;
 			CPU_SET(base_cpu, &cpuset);
 			ret = snprintf(buf + pos, 4096 - pos, " %d", base_cpu);
-			if (ret < 2) {
+			if (ret < 2 || ret >= 4096) {
 				uwsgi_log("unable to initialize cpu affinity !!!\n");
 				exit(1);
 			}

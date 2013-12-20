@@ -487,7 +487,7 @@ void uwsgi_log_rotate() {
                         need_free = 1;
                 }
                 int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering rotation to %s...\n", (int) uwsgi_now(), (unsigned long long) uwsgi.shared->logsize, rot_name);
-                if (ret > 0) {
+                if (ret > 0 && ret < 1024) {
                         if (write(uwsgi.original_log_fd, message, ret) != ret) {
                                 // very probably this will never be printed
                                 uwsgi_error("write()");
@@ -519,7 +519,7 @@ void uwsgi_log_reopen() {
 	char message[1024];
 	if (!uwsgi.logfile) return;
 	int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering log-reopen...\n", (int) uwsgi_now(), (unsigned long long) uwsgi.shared->logsize);
-        if (ret > 0) {
+        if (ret > 0 && ret < 1024) {
                         if (write(uwsgi.original_log_fd, message, ret) != ret) {
                                 // very probably this will never be printed
                                 uwsgi_error("write()");
@@ -535,7 +535,7 @@ void uwsgi_log_reopen() {
 			return;
                 }
                 ret = snprintf(message, 1024, "[%d] %s reopened.\n", (int) uwsgi_now(), uwsgi.logfile);
-                if (ret > 0) {
+                if (ret > 0 && ret < 1024) {
                         if (write(uwsgi.original_log_fd, message, ret) != ret) {
                                 // very probably this will never be printed
                                 uwsgi_error("write()");

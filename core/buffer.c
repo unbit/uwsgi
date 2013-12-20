@@ -64,7 +64,7 @@ int uwsgi_buffer_insert_chunked(struct uwsgi_buffer *ub, size_t pos, size_t len)
 	// 0xFFFFFFFFFFFFFFFF\r\n\0
 	char chunked[19];
 	int ret = snprintf(chunked, 19, "%X\r\n", (unsigned int) len);
-        if (ret <= 0 || ret > 19) {
+        if (ret <= 0 || ret >= 19) {
                 return -1;
         }
 	return uwsgi_buffer_insert(ub, pos, chunked, ret);
@@ -74,7 +74,7 @@ int uwsgi_buffer_append_chunked(struct uwsgi_buffer *ub, size_t len) {
         // 0xFFFFFFFFFFFFFFFF\r\n\0
         char chunked[19];
         int ret = snprintf(chunked, 19, "%X\r\n", (unsigned int) len);
-        if (ret <= 0 || ret > 19) {
+        if (ret <= 0 || ret >= 19) {
                 return -1;
         }
         return uwsgi_buffer_append(ub, chunked, ret);
@@ -245,7 +245,7 @@ int uwsgi_buffer_append_ipv4(struct uwsgi_buffer *ub, void *addr) {
 int uwsgi_buffer_num64(struct uwsgi_buffer *ub, int64_t num) {
 	char buf[sizeof(UMAX64_STR)+1];
 	int ret = snprintf(buf, sizeof(UMAX64_STR)+1, "%lld", (long long) num);
-	if (ret <= 0 || ret > (int) (sizeof(UMAX64_STR)+1)) {
+	if (ret <= 0 || ret >= (int) (sizeof(UMAX64_STR)+1)) {
 		return -1;
 	}
 	return uwsgi_buffer_append(ub, buf, ret);
@@ -268,7 +268,7 @@ int uwsgi_buffer_append_keyval32(struct uwsgi_buffer *ub, char *key, uint32_t ke
 int uwsgi_buffer_append_keynum(struct uwsgi_buffer *ub, char *key, uint16_t keylen, int64_t num) {
 	char buf[sizeof(UMAX64_STR)+1];
         int ret = snprintf(buf, (sizeof(UMAX64_STR)+1), "%lld", (long long) num);
-        if (ret <= 0 || ret > (int) (sizeof(UMAX64_STR)+1)) {
+        if (ret <= 0 || ret >= (int) (sizeof(UMAX64_STR)+1)) {
                 return -1;
         }
 	if (uwsgi_buffer_u16le(ub, keylen)) return -1;
@@ -280,7 +280,7 @@ int uwsgi_buffer_append_keynum(struct uwsgi_buffer *ub, char *key, uint16_t keyl
 int uwsgi_buffer_append_valnum(struct uwsgi_buffer *ub, int64_t num) {
         char buf[sizeof(UMAX64_STR)+1];
         int ret = snprintf(buf, (sizeof(UMAX64_STR)+1), "%lld", (long long) num);
-        if (ret <= 0 || ret > (int) (sizeof(UMAX64_STR)+1)) {
+        if (ret <= 0 || ret >= (int) (sizeof(UMAX64_STR)+1)) {
                 return -1;
         }
         if (uwsgi_buffer_u16le(ub, ret)) return -1;

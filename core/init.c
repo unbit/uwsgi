@@ -196,7 +196,7 @@ void uwsgi_setup_reload() {
 		uwsgi.reloads++;
 		//convert reloads to string
 		int rlen = snprintf(env_reload_buf, 10, "%u", uwsgi.reloads);
-		if (rlen > 0) {
+		if (rlen > 0 && rlen < 10) {
 			env_reload_buf[rlen] = 0;
 			if (setenv("UWSGI_RELOADS", env_reload_buf, 1)) {
 				uwsgi_error("setenv()");

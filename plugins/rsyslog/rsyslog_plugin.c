@@ -91,7 +91,7 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 		if (pos > 0 && !u_rsyslog.split_msg) return pos;
 		msg_len = ( ((int)len)-pos > u_rsyslog.msg_size ? u_rsyslog.msg_size : ((int)len)-pos);
 		rlen = snprintf(ul->buf, u_rsyslog.packet_size, "<%d>%.*s %s: %.*s", ul->count, 15, ctime_storage+4, (char *) ul->data, msg_len, &message[pos]);
-		if (rlen > 0 && rlen <= u_rsyslog.packet_size) {
+		if (rlen > 0 && rlen < u_rsyslog.packet_size) {
 			ret = sendto(ul->fd, ul->buf, rlen, 0, (const struct sockaddr *) &ul->addr, ul->addr_len);
 			if (ret <= 0) return ret;
 			pos += msg_len;

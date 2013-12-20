@@ -90,7 +90,7 @@ ssize_t uwsgi_graylog2_logger(struct uwsgi_logger *ul, char *message, size_t len
 	int rlen = snprintf(g2c.json_buf, MAX_GELF, "{ \"version\": \"1.0\", \"host\": \"%s\", \"short_message\": \"%.*s\", \"full_message\": \"%.*s\", \"timestamp\": %d, \"level\": 5, \"facility\": \"uWSGI-%s\" }",
 		g2c.host, truncated, g2c.escaped_buf, (int)g2c.escaped_len, g2c.escaped_buf, (int) uwsgi_now(), UWSGI_VERSION);
 
-	if (rlen > 0) {
+	if (rlen > 0 && rlen < MAX_GELF) {
 		if (compressBound((uLong) rlen) <= MAX_GELF) {
 			if (compress((Bytef *) ul->buf, &destLen, (Bytef *) g2c.json_buf, (uLong) rlen) == Z_OK) {
 				return sendto(ul->fd, ul->buf, destLen, 0, (const struct sockaddr *) &ul->addr, ul->addr_len);

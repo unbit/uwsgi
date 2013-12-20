@@ -77,7 +77,7 @@ int uwsgi_upload_progress_update(struct wsgi_request *wsgi_req, int fd, size_t r
 	char buf[4096];
 
 	int ret = snprintf(buf, 4096, "{ \"state\" : \"uploading\", \"received\" : %llu, \"size\" : %llu }\r\n", (unsigned long long) (wsgi_req->post_cl - remains), (unsigned long long) wsgi_req->post_cl);
-	if (ret < 0) {
+	if (ret <= 0 || ret >= 4096) {
 		return -1;
 	}
 
