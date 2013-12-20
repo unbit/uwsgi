@@ -55,6 +55,14 @@ static int uwsgi_hook_chdir(char *arg) {
 	return ret;
 }
 
+static int uwsgi_hook_mkdir(char *arg) {
+        int ret = mkdir(arg, 0777);
+        if (ret) {
+                uwsgi_error("uwsgi_hook_mkdir()");
+        }
+        return ret;
+}
+
 static int uwsgi_hook_exec(char *arg) {
 	int ret = uwsgi_run_command_and_wait(NULL, arg);
 	if (ret != 0) {
@@ -240,6 +248,10 @@ static int uwsgi_hook_callret(char *arg) {
 
 void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("cd", uwsgi_hook_chdir);
+	uwsgi_register_hook("chdir", uwsgi_hook_chdir);
+
+	uwsgi_register_hook("mkdir", uwsgi_hook_mkdir);
+
 	uwsgi_register_hook("exec", uwsgi_hook_exec);
 
 	uwsgi_register_hook("write", uwsgi_hook_write);
