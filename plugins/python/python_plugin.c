@@ -1778,6 +1778,7 @@ static void uwsgi_python_harakiri(int wid) {
                 	uwsgi_log("%.*s", (int) len, buf);
         	}
 
+		close(fd);
 		free(address);
 	}
 
