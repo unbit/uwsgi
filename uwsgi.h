@@ -3002,6 +3002,7 @@ void parse_sys_envs(char **);
 
 void uwsgi_log(const char *, ...);
 void uwsgi_log_verbose(const char *, ...);
+void uwsgi_logfile_write(const char *, ...);
 
 
 void *uwsgi_load_plugin(int, char *, char *);

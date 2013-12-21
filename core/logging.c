@@ -119,6 +119,36 @@ void uwsgi_log_verbose(const char *fmt, ...) {
 }
 
 
+/*
+	commodity function mainly useful in log rotation
+*/
+void uwsgi_logfile_write(const char *fmt, ...) {
+	va_list ap;
+        char logpkt[4096];
+
+        struct timeval tv;
+        char ctime_storage[26];
+
+	gettimeofday(&tv, NULL);
+#if defined(__sun__) && !defined(__clang__)
+        ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
+#else
+        ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
+#endif
+        memcpy(logpkt, ctime_storage, 24);
+        memcpy(logpkt + 24, " - ", 3);
+
+        int rlen = 24 + 3;
+
+        va_start(ap, fmt);
+        rlen += vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
+        va_end(ap);
+
+        // do not check for errors
+        rlen = write(uwsgi.original_log_fd, logpkt, rlen);
+}
+
+
 
 static void fix_logpipe_buf(int *fd) {
 	int so_bufsize;
@@ -476,7 +506,6 @@ void uwsgi_check_logrotate(void) {
 }
 
 void uwsgi_log_rotate() {
-	char message[1024];
 	if (!uwsgi.logfile) return;
 	char *rot_name = uwsgi.log_backupname;
                 int need_free = 0;
@@ -486,24 +515,21 @@ void uwsgi_log_rotate() {
                         free(ts_str);
                         need_free = 1;
                 }
-                int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering rotation to %s...\n", (int) uwsgi_now(), (unsigned long long) uwsgi.shared->logsize, rot_name);
-                if (ret > 0 && ret < 1024) {
-                        if (write(uwsgi.original_log_fd, message, ret) != ret) {
-                                // very probably this will never be printed
-                                uwsgi_error("write()");
-                        }
-                }
+		// this will be rawly written to the logfile
+                uwsgi_logfile_write("logsize: %llu, triggering rotation to %s...\n", (unsigned long long) uwsgi.shared->logsize, rot_name);
                 if (rename(uwsgi.logfile, rot_name) == 0) {
-                        // reopen logfile dup'it and eventually gracefully reload workers;
+                        // reopen logfile and dup'it, on dup2 error, exit(1)
                         int fd = open(uwsgi.logfile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP);
                         if (fd < 0) {
+				// this will be written to the original file
                                 uwsgi_error_open(uwsgi.logfile);
-                                grace_them_all(0);
+				exit(1);
                         }
                         else {
                                 if (dup2(fd, uwsgi.original_log_fd) < 0) {
-                                        uwsgi_error("dup2()");
-                                        grace_them_all(0);
+					// this could be lost :(
+                                        uwsgi_error("uwsgi_log_rotate()/dup2()");
+					exit(1);
                                 }
                                 close(fd);
                         }
