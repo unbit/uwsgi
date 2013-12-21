@@ -4052,27 +4052,14 @@ void uwsgi_opt_scd(char *opt, char *value, void *foobar) {
 #endif
 
 void uwsgi_opt_set_umask(char *opt, char *value, void *mode) {
-
-	mode_t umask_mode = 0;
-
-	if (strlen(value) < 3) {
+	int error = 0;
+	mode_t mask = uwsgi_mode_t(value, &error);
+	if (error) {
 		uwsgi_log("invalid umask: %s\n", value);
 	}
-	umask_mode = 0;
-	if (strlen(value) == 3) {
-		umask_mode = (umask_mode << 3) + (value[0] - '0');
-		umask_mode = (umask_mode << 3) + (value[1] - '0');
-		umask_mode = (umask_mode << 3) + (value[2] - '0');
-	}
-	else {
-		umask_mode = (umask_mode << 3) + (value[1] - '0');
-		umask_mode = (umask_mode << 3) + (value[2] - '0');
-		umask_mode = (umask_mode << 3) + (value[3] - '0');
-	}
-	umask(umask_mode);
+	umask(mask);
 
 	uwsgi.do_not_change_umask = 1;
-
 }
 
 void uwsgi_opt_exit(char *opt, char *value, void *none) {

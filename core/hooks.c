@@ -154,6 +154,29 @@ static int uwsgi_hook_write(char *arg) {
         return 0;
 }
 
+static int uwsgi_hook_chmod(char *arg) {
+	char *space = strchr(arg, ' ');
+        if (!space) {
+                uwsgi_log("invalid hook chmod syntax, must be: <file> <mode>\n");
+                return -1;
+        }
+        *space = 0;
+	int error = 0;
+	mode_t mask = uwsgi_mode_t(space+1, &error);
+	if (error) {
+		uwsgi_log("invalid hook chmod mask: %s\n", space+1); 
+		*space = ' ';
+		return -1;
+	}
+
+	int ret = chmod(arg, mask);
+	*space = ' ';
+	if (ret) {
+		uwsgi_error("uwsgi_hook_chmod()/chmod()");
+	}
+	return ret;
+}
+
 static int uwsgi_hook_hostname(char *arg) {
 	return sethostname(arg, strlen(arg));
 }
@@ -260,6 +283,7 @@ void uwsgi_register_base_hooks() {
 
 	uwsgi_register_hook("mkdir", uwsgi_hook_mkdir);
 	uwsgi_register_hook("putenv", uwsgi_hook_putenv);
+	uwsgi_register_hook("chmod", uwsgi_hook_chmod);
 
 	uwsgi_register_hook("exec", uwsgi_hook_exec);
 

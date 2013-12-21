@@ -4404,3 +4404,27 @@ void uwsgi_setns(char *path) {
 	}
 }
 #endif
+
+mode_t uwsgi_mode_t(char *value, int *error) {
+	mode_t mode = 0;
+	*error = 0;
+
+        if (strlen(value) < 3) {
+		*error = 1;
+		return mode;
+	}
+
+        if (strlen(value) == 3) {
+                mode = (mode << 3) + (value[0] - '0');
+                mode = (mode << 3) + (value[1] - '0');
+                mode = (mode << 3) + (value[2] - '0');
+        }
+        else {
+                mode = (mode << 3) + (value[1] - '0');
+                mode = (mode << 3) + (value[2] - '0');
+                mode = (mode << 3) + (value[3] - '0');
+        }
+
+	return mode;
+}
+
