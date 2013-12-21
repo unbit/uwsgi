@@ -63,6 +63,14 @@ static int uwsgi_hook_mkdir(char *arg) {
         return ret;
 }
 
+static int uwsgi_hook_putenv(char *arg) {
+        int ret = putenv(arg);
+        if (ret) {
+                uwsgi_error("uwsgi_hook_putenv()");
+        }
+        return ret;
+}
+
 static int uwsgi_hook_exec(char *arg) {
 	int ret = uwsgi_run_command_and_wait(NULL, arg);
 	if (ret != 0) {
@@ -251,6 +259,7 @@ void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("chdir", uwsgi_hook_chdir);
 
 	uwsgi_register_hook("mkdir", uwsgi_hook_mkdir);
+	uwsgi_register_hook("putenv", uwsgi_hook_putenv);
 
 	uwsgi_register_hook("exec", uwsgi_hook_exec);
 
