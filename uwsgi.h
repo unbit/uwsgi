@@ -4671,7 +4671,7 @@ int uwsgi_recv_cred(int, char *, size_t, pid_t *, uid_t *, gid_t *);
 ssize_t uwsgi_recv_cred2(int, char *, size_t, pid_t *, uid_t *, gid_t *);
 int uwsgi_socket_passcred(int);
 
-void uwsgi_dump_worker(int);
+void uwsgi_dump_worker(int, char *);
 mode_t uwsgi_mode_t(char *, int *);
 
 #ifdef __cplusplus

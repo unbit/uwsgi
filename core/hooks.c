@@ -154,6 +154,31 @@ static int uwsgi_hook_write(char *arg) {
         return 0;
 }
 
+static int uwsgi_hook_append(char *arg) {
+        char *space = strchr(arg, ' ');
+        if (!space) {
+                uwsgi_log("invalid hook append syntax, must be: <file> <string>\n");
+                return -1;
+        }
+        *space = 0;
+        int fd = open(arg, O_WRONLY|O_CREAT|O_APPEND, 0666);
+        if (fd < 0) {
+                uwsgi_error_open(arg);
+                *space = ' ';
+                return -1;
+        }
+        *space = ' ';
+        size_t l = strlen(space+1);
+        if (write(fd, space+1, l) != (ssize_t) l) {
+                uwsgi_error("uwsgi_hook_append()/write()");
+                close(fd);
+                return -1;
+        }
+        close(fd);
+        return 0;
+}
+
+
 static int uwsgi_hook_writen(char *arg) {
         char *space = strchr(arg, ' ');
         if (!space) {
@@ -181,6 +206,35 @@ static int uwsgi_hook_writen(char *arg) {
         close(fd);
         return 0;
 }
+
+static int uwsgi_hook_appendn(char *arg) {
+        char *space = strchr(arg, ' ');
+        if (!space) {
+                uwsgi_log("invalid hook appendn syntax, must be: <file> <string>\n");
+                return -1;
+        }
+        *space = 0;
+        int fd = open(arg, O_WRONLY|O_CREAT|O_APPEND, 0666);
+        if (fd < 0) {
+                uwsgi_error_open(arg);
+                *space = ' ';
+                return -1;
+        }
+        *space = ' ';
+        size_t l = strlen(space+1);
+        char *buf = uwsgi_malloc(l + 1);
+        buf[l] = '\n';
+        if (write(fd, buf, l+1) != (ssize_t) (l+1)) {
+                uwsgi_error("uwsgi_hook_appendn()/write()");
+                free(buf);
+                close(fd);
+                return -1;
+        }
+        free(buf);
+        close(fd);
+        return 0;
+}
+
 
 
 static int uwsgi_hook_chmod(char *arg) {
@@ -318,6 +372,8 @@ void uwsgi_register_base_hooks() {
 
 	uwsgi_register_hook("write", uwsgi_hook_write);
 	uwsgi_register_hook("writen", uwsgi_hook_writen);
+	uwsgi_register_hook("append", uwsgi_hook_append);
+	uwsgi_register_hook("appendn", uwsgi_hook_appendn);
 	uwsgi_register_hook("writefifo", uwsgi_hook_writefifo);
 	uwsgi_register_hook("unlink", uwsgi_hook_unlink);
 
