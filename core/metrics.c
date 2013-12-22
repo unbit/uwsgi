@@ -268,6 +268,7 @@ found:
 	metric->freq = freq;
 	if (!metric->freq) metric->freq = 1;
 	metric->custom = custom;
+	metric->value = uwsgi_calloc_shared(sizeof(int64_t));
 
 	if (uwsgi.metrics_dir) {
 		char *filename = uwsgi_concat3(uwsgi.metrics_dir, "/", name);
@@ -305,6 +306,7 @@ found:
 struct uwsgi_metric *uwsgi_register_metric(char *name, char *oid, uint8_t value_type, char *collector, void *ptr, uint32_t freq, void *custom) {
 	return uwsgi_register_metric_do(name, oid, value_type, collector, ptr, freq, custom, 0);
 }
+
 
 struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	char *m_name = NULL;
@@ -826,19 +828,8 @@ void uwsgi_setup_metrics() {
 		}
 	}
 
-	// allocate shared memory
-	int64_t *values = uwsgi_calloc_shared(sizeof(int64_t) * uwsgi.metrics_cnt);
-	pos = 0;
-
-	struct uwsgi_metric *metric = uwsgi.metrics;
-	while(metric) {
-		metric->value = &values[pos];
-		pos++;
-		metric = metric->next;
-	}
-
 	// remap aliases
-	metric = uwsgi.metrics;
+	struct uwsgi_metric *metric = uwsgi.metrics;
         while(metric) {
 		if (metric->type == UWSGI_METRIC_ALIAS) {
 			struct uwsgi_metric *alias = (struct uwsgi_metric *) metric->ptr;
@@ -968,6 +959,7 @@ found:
 static int64_t uwsgi_metric_collector_ptr(struct uwsgi_metric *um) {
 	return *um->ptr;
 }
+
 
 static int64_t uwsgi_metric_collector_sum(struct uwsgi_metric *um) {
 	int64_t total = 0;
