@@ -4293,11 +4293,11 @@ void uwsgi_master_manage_udp(int);
 void uwsgi_threaded_logger_spawn(void);
 
 void uwsgi_master_check_idle(void);
-void uwsgi_master_check_workers_deadline(void);
-void uwsgi_master_check_gateways_deadline(void);
-void uwsgi_master_check_mules_deadline(void);
-void uwsgi_master_check_spoolers_deadline(void);
-void uwsgi_master_check_crons_deadline(void);
+int uwsgi_master_check_workers_deadline(void);
+int uwsgi_master_check_gateways_deadline(void);
+int uwsgi_master_check_mules_deadline(void);
+int uwsgi_master_check_spoolers_deadline(void);
+int uwsgi_master_check_crons_deadline(void);
 int uwsgi_master_check_spoolers_death(int);
 int uwsgi_master_check_emperor_death(int);
 int uwsgi_master_check_mules_death(int);

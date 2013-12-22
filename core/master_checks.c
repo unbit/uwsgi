@@ -133,19 +133,22 @@ void uwsgi_master_check_idle() {
 
 }
 
-void uwsgi_master_check_workers_deadline() {
+int uwsgi_master_check_workers_deadline() {
 	int i;
+	int ret = 0;
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		/* first check for harakiri */
 		if (uwsgi.workers[i].harakiri > 0) {
 			if (uwsgi.workers[i].harakiri < (time_t) uwsgi.current_time) {
 				trigger_harakiri(i);
+				ret = 1;
 			}
 		}
 		/* then user-defined harakiri */
 		if (uwsgi.workers[i].user_harakiri > 0) {
 			if (uwsgi.workers[i].user_harakiri < (time_t) uwsgi.current_time) {
 				trigger_harakiri(i);
+				ret = 1;
 			}
 		}
 		// then for evil memory checkers
@@ -154,6 +157,7 @@ void uwsgi_master_check_workers_deadline() {
 				uwsgi_log("*** EVIL RELOAD ON WORKER %d ADDRESS SPACE: %lld (pid: %d) ***\n", i, (long long) uwsgi.workers[i].vsz_size, uwsgi.workers[i].pid);
 				kill(uwsgi.workers[i].pid, SIGKILL);
 				uwsgi.workers[i].vsz_size = 0;
+				ret = 1;
 			}
 		}
 		if (uwsgi.evil_reload_on_rss) {
@@ -161,6 +165,7 @@ void uwsgi_master_check_workers_deadline() {
 				uwsgi_log("*** EVIL RELOAD ON WORKER %d RSS: %lld (pid: %d) ***\n", i, (long long) uwsgi.workers[i].rss_size, uwsgi.workers[i].pid);
 				kill(uwsgi.workers[i].pid, SIGKILL);
 				uwsgi.workers[i].rss_size = 0;
+				ret = 1;
 			}
 		}
 		// check if worker was running longer than allowed lifetime
@@ -170,6 +175,7 @@ void uwsgi_master_check_workers_deadline() {
 				uwsgi_log("worker %d lifetime reached, it was running for %llu second(s)\n", i, (unsigned long long) lifetime);
 				uwsgi.workers[i].manage_next_request = 0;
 				kill(uwsgi.workers[i].pid, SIGWINCH);
+				ret = 1;
 			}
 		}
 
@@ -178,29 +184,32 @@ void uwsgi_master_check_workers_deadline() {
 	}
 
 
-
+	return ret;
 }
 
 
-void uwsgi_master_check_gateways_deadline() {
+int uwsgi_master_check_gateways_deadline() {
 
 	int i;
-
+	int ret = 0;
 	for (i = 0; i < ushared->gateways_cnt; i++) {
 		if (ushared->gateways_harakiri[i] > 0) {
 			if (ushared->gateways_harakiri[i] < (time_t) uwsgi.current_time) {
 				if (ushared->gateways[i].pid > 0) {
 					uwsgi_log("*** HARAKIRI ON GATEWAY %s %d (pid: %d) ***\n", ushared->gateways[i].name, ushared->gateways[i].num, ushared->gateways[i].pid);
 					kill(ushared->gateways[i].pid, SIGKILL);
+					ret = 1;
 				}
 				ushared->gateways_harakiri[i] = 0;
 			}
 		}
 	}
+	return ret;
 }
 
-void uwsgi_master_check_mules_deadline() {
+int uwsgi_master_check_mules_deadline() {
 	int i;
+	int ret = 0;
 
 	for (i = 0; i < uwsgi.mules_cnt; i++) {
 		if (uwsgi.mules[i].harakiri > 0) {
@@ -208,6 +217,7 @@ void uwsgi_master_check_mules_deadline() {
 				uwsgi_log("*** HARAKIRI ON MULE %d HANDLING SIGNAL %d (pid: %d) ***\n", i + 1, uwsgi.mules[i].signum, uwsgi.mules[i].pid);
 				kill(uwsgi.mules[i].pid, SIGKILL);
 				uwsgi.mules[i].harakiri = 0;
+				ret = 1;
 			}
 		}
 		// user harakiri
@@ -216,26 +226,32 @@ void uwsgi_master_check_mules_deadline() {
                                 uwsgi_log("*** HARAKIRI ON MULE %d (pid: %d) ***\n", i + 1, uwsgi.mules[i].pid);
                                 kill(uwsgi.mules[i].pid, SIGKILL);
                                 uwsgi.mules[i].user_harakiri = 0;
+				ret = 1;
                         }
                 }
 	}
+	return ret;
 }
 
-void uwsgi_master_check_spoolers_deadline() {
+int uwsgi_master_check_spoolers_deadline() {
+	int ret = 0;
 	struct uwsgi_spooler *uspool = uwsgi.spoolers;
 	while (uspool) {
 		if (uspool->harakiri > 0 && uspool->harakiri < (time_t) uwsgi.current_time) {
 			uwsgi_log("*** HARAKIRI ON THE SPOOLER (pid: %d) ***\n", uspool->pid);
 			kill(uspool->pid, SIGKILL);
 			uspool->harakiri = 0;
+			ret = 1;
 		}
 		if (uspool->user_harakiri > 0 && uspool->user_harakiri < (time_t) uwsgi.current_time) {
                         uwsgi_log("*** HARAKIRI ON THE SPOOLER (pid: %d) ***\n", uspool->pid);
                         kill(uspool->pid, SIGKILL);
                         uspool->user_harakiri = 0;
+			ret = 1;
                 }
 		uspool = uspool->next;
 	}
+	return ret;
 }
 
 
@@ -318,15 +334,18 @@ int uwsgi_master_check_cron_death(int diedpid) {
 	return 0;
 }
 
-void uwsgi_master_check_crons_deadline() {
+int uwsgi_master_check_crons_deadline() {
+	int ret = 0;
 	struct uwsgi_cron *uc = uwsgi.crons;
 	while (uc) {
 		if (uc->pid >= 0 && uc->harakiri > 0 && uc->harakiri < (time_t) uwsgi.current_time) {
 			uwsgi_log("*** HARAKIRI ON CRON \"%s\" (pid: %d) ***\n", uc->command, uc->pid);
 			kill(-uc->pid, SIGKILL);
+			ret = 1;
 		}
 		uc = uc->next;
 	}
+	return ret;
 }
 
 void uwsgi_master_check_mountpoints() {

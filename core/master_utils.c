@@ -1470,7 +1470,7 @@ void uwsgi_register_cheaper_algo(char *name, int (*func) (int)) {
 
 void trigger_harakiri(int i) {
 	int j;
-	uwsgi_log("*** HARAKIRI ON WORKER %d (pid: %d, try: %d) ***\n", i, uwsgi.workers[i].pid, uwsgi.workers[i].pending_harakiri + 1);
+	uwsgi_log_verbose("*** HARAKIRI ON WORKER %d (pid: %d, try: %d) ***\n", i, uwsgi.workers[i].pid, uwsgi.workers[i].pending_harakiri + 1);
 	if (uwsgi.harakiri_verbose) {
 #ifdef __linux__
 		int proc_file;
@@ -1524,7 +1524,6 @@ void trigger_harakiri(int i) {
 			uwsgi.workers[i].harakiri_count++;
 		uwsgi.workers[i].pending_harakiri++;
 	}
-	// to avoid races
 
 }
 
@@ -1817,13 +1816,13 @@ clear:
 */
 void uwsgi_dump_worker(int wid, char *msg) {
 	int i;
-	uwsgi_log_verbose("!!! worker %d status !!!\n", wid);
+	uwsgi_log_verbose("%s !!! worker %d status !!!\n", msg, wid);
 	for(i=0;i<uwsgi.cores;i++) {
 		struct uwsgi_core *uc = &uwsgi.workers[wid].cores[i];
 		struct wsgi_request *wsgi_req = &uc->req;
 		if (uc->in_request) {
-			uwsgi_log("%s [core %d] %.*s - %.*s %.*s since %llu\n", msg, i, wsgi_req->remote_addr_len, wsgi_req->remote_addr, wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, (unsigned long long) (wsgi_req->start_of_request/(1000*1000)));
+			uwsgi_log_verbose("%s [core %d] %.*s - %.*s %.*s since %llu\n", msg, i, wsgi_req->remote_addr_len, wsgi_req->remote_addr, wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, (unsigned long long) (wsgi_req->start_of_request/(1000*1000)));
 		}
 	}
-	uwsgi_log_verbose("!!! end of worker %d status !!!\n", wid);
+	uwsgi_log_verbose("%s !!! end of worker %d status !!!\n",msg, wid);
 }

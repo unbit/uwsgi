@@ -722,13 +722,15 @@ int master_loop(char **argv, char **environ) {
 			// fix queue size on multiple sockets
 			uwsgi.shared->load = tmp_queue;
 
+			int someone_killed = 0;
 			// check if some worker has to die (harakiri, evil checks...)
-			uwsgi_master_check_workers_deadline();
+			if (uwsgi_master_check_workers_deadline()) someone_killed++;
+			if (uwsgi_master_check_gateways_deadline()) someone_killed++;
+			if (uwsgi_master_check_mules_deadline()) someone_killed++;
+			if (uwsgi_master_check_spoolers_deadline()) someone_killed++;
+			if (uwsgi_master_check_crons_deadline()) someone_killed++;
 
-			uwsgi_master_check_gateways_deadline();
-			uwsgi_master_check_mules_deadline();
-			uwsgi_master_check_spoolers_deadline();
-			uwsgi_master_check_crons_deadline();
+			// this could trigger a complete exit...
 			uwsgi_master_check_mountpoints();
 
 #ifdef __linux__
@@ -794,6 +796,8 @@ int master_loop(char **argv, char **environ) {
 				}
 			}
 
+			// allows the KILL signal to be delivered;
+			if (someone_killed > 0) sleep(1);
 			continue;
 
 		}
