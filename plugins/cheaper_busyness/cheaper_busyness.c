@@ -17,7 +17,7 @@ struct uwsgi_cheaper_busyness_global {
 	uint64_t tcheck;
 	uint64_t last_cheaped;      // last time worker was cheaped due to low busyness
 	uint64_t next_cheap;        // timestamp, we can cheap worker after it
-	uint64_t penalty;       // penelty for respawning to fast, it will be added to multiplier
+	uint64_t penalty;       // penalty for respawning to fast, it will be added to multiplier
 	uint64_t min_multi;     //initial multiplier will be stored here
 	uint64_t cheap_multi;   // current multiplier value
 	int last_action;            // 1 - spawn workers ; 2 - cheap worker
@@ -41,7 +41,7 @@ struct uwsgi_option uwsgi_cheaper_busyness_options[] = {
 		uwsgi_opt_set_64bit, &uwsgi_cheaper_busyness_global.busyness_max, 0},
 
 	{"cheaper-busyness-min", required_argument, 0,
-		"set the cheaper busyness low percent limit, belowe that value worker is considered idle (default 25)",
+		"set the cheaper busyness low percent limit, below that value worker is considered idle (default 25)",
 		uwsgi_opt_set_64bit, &uwsgi_cheaper_busyness_global.busyness_min, 0},
 
 	{"cheaper-busyness-multiplier", required_argument, 0,
@@ -57,7 +57,7 @@ struct uwsgi_option uwsgi_cheaper_busyness_options[] = {
 
 #ifdef __linux__
 	{"cheaper-busyness-backlog-alert", required_argument, 0,
-		"spawn emergency worker(s) if anytime listen queue is higher than this value (default 33)",
+		"spawn emergency worker(s) if any time listen queue is higher than this value (default 33)",
 		uwsgi_opt_set_int, &uwsgi_cheaper_busyness_global.backlog_alert, 0},
 	{"cheaper-busyness-backlog-multiplier", required_argument, 0,
 		"set cheaper multiplier used for emergency workers (default 3)",
@@ -261,7 +261,7 @@ int cheaper_busyness_algo(int can_spawn) {
 					// worker was cheaped and then spawned back in less than current multiplier*cheaper_overload seconds
 					// we will increase the multiplier so that next time worker will need to wait longer before being cheaped
 					uwsgi_cheaper_busyness_global.cheap_multi += uwsgi_cheaper_busyness_global.penalty;
-					uwsgi_log("[busyness] worker(s) respawned to fast, increasing chpeaper multiplier to %llu (+%llu)\n",
+					uwsgi_log("[busyness] worker(s) respawned to fast, increasing cheaper multiplier to %llu (+%llu)\n",
 						uwsgi_cheaper_busyness_global.cheap_multi, uwsgi_cheaper_busyness_global.penalty);
 				} else {
 					decrease_multi();
@@ -333,7 +333,7 @@ int cheaper_busyness_algo(int can_spawn) {
 				// time needed to cheap them, than a lot min<busy<max when we do not reset timer
 				// and then another idle cycle than would trigger cheaping
 				if (uwsgi_cheaper_busyness_global.verbose)
-					uwsgi_log("[busyness] %llus average busyness is at %llu%%, %llu non-idle cycle(s), reseting cheaper timer\n",
+					uwsgi_log("[busyness] %llus average busyness is at %llu%%, %llu non-idle cycle(s), resetting cheaper timer\n",
 						uwsgi.cheaper_overload, avg_busyness, uwsgi_cheaper_busyness_global.tolerance_counter);
 				set_next_cheap_time();
 			} else {
