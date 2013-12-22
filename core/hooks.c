@@ -300,6 +300,46 @@ static int uwsgi_hook_chown(char *arg) {
         return ret;
 }
 
+static int uwsgi_hook_chown2(char *arg) {
+        char *space = strchr(arg, ' ');
+        if (!space) {
+                uwsgi_log("invalid hook chown2 syntax, must be: <file> <uid> <gid>\n");
+                return -1;
+        }
+        *space = 0;
+
+        char *space2 = strchr(space+1, ' ');
+        if (!space2) {
+                *space = ' ';
+                uwsgi_log("invalid hook chown2 syntax, must be: <file> <uid> <gid>\n");
+                return -1;
+        }
+        *space2 = 0;
+
+	if (!is_a_number(space+1)) {
+		uwsgi_log("invalid hook chown2 syntax, uid must be a number\n");
+		*space = ' ';
+		*space2 = ' ';
+		return -1;
+	}
+
+	if (!is_a_number(space2+1)) {
+                uwsgi_log("invalid hook chown2 syntax, gid must be a number\n");
+                *space = ' ';
+                *space2 = ' ';
+                return -1;
+        }
+
+        int ret = chown(arg, atoi(space+1), atoi(space2+1));
+        *space = ' ';
+        *space2 = ' ';
+        if (ret) {
+                uwsgi_error("uwsgi_hook_chown2()/chown)");
+        }
+        return ret;
+}
+
+
 static int uwsgi_hook_hostname(char *arg) {
 	return sethostname(arg, strlen(arg));
 }
@@ -408,6 +448,7 @@ void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("putenv", uwsgi_hook_putenv);
 	uwsgi_register_hook("chmod", uwsgi_hook_chmod);
 	uwsgi_register_hook("chown", uwsgi_hook_chown);
+	uwsgi_register_hook("chown2", uwsgi_hook_chown2);
 
 	uwsgi_register_hook("exec", uwsgi_hook_exec);
 
