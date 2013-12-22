@@ -195,6 +195,7 @@ static int uwsgi_hook_writen(char *arg) {
         *space = ' ';
         size_t l = strlen(space+1);
 	char *buf = uwsgi_malloc(l + 1);
+	memcpy(buf, space+1, l);
 	buf[l] = '\n';
         if (write(fd, buf, l+1) != (ssize_t) (l+1)) {
                 uwsgi_error("uwsgi_hook_writen()/write()");
@@ -223,6 +224,7 @@ static int uwsgi_hook_appendn(char *arg) {
         *space = ' ';
         size_t l = strlen(space+1);
         char *buf = uwsgi_malloc(l + 1);
+	memcpy(buf, space+1, l);
         buf[l] = '\n';
         if (write(fd, buf, l+1) != (ssize_t) (l+1)) {
                 uwsgi_error("uwsgi_hook_appendn()/write()");
