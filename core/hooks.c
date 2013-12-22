@@ -486,14 +486,26 @@ void uwsgi_hooks_run(struct uwsgi_string_list *l, char *phase, int fatal) {
 			exit(1);
 		}
 		*colon = 0;
-		struct uwsgi_hook *uh = uwsgi_hook_by_name(usl->value);
+		int private = 0;
+		char *action = usl->value;
+		// private hook ?
+		if (action[0] == '!') {
+			action++;
+			private = 1;
+		}
+		struct uwsgi_hook *uh = uwsgi_hook_by_name(action);
 		if (!uh) {
-			uwsgi_log("hook not found: %s\n", usl->value);
+			uwsgi_log("hook action not found: %s\n", action);
 			exit(1);
 		}
 		*colon = ':';
 
-		uwsgi_log("running \"%s\" (%s)...\n", usl->value, phase);
+		if (private) {
+			uwsgi_log("running --- PRIVATE HOOK --- (%s)...\n", phase);
+		}
+		else {
+			uwsgi_log("running \"%s\" (%s)...\n", usl->value, phase);
+		}
 			
 		int ret = uh->func(colon+1);
 		if (fatal && ret != 0) {
