@@ -1097,7 +1097,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_keylong_comma(us, "exceptions", ua->exceptions))
 				goto end;
 
-			if (ua->chdir) {
+			if (*ua->chdir) {
 				if (uwsgi_stats_keyval(us, "chdir", ua->chdir))
 					goto end;
 			}
