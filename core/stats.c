@@ -111,7 +111,7 @@ int uwsgi_stats_keyval(struct uwsgi_stats *us, char *key, char *value) {
 	size_t available = watermark - ptr;
 
 	int ret = snprintf(ptr, available, "\"%s\":\"%s\"", key, value);
-	if (ret <= 0 || ret >= (int) available)
+	if (ret <= 0)
 		return -1;
 	while (ret >= (int) available) {
 		char *new_base = realloc(us->base, us->size + us->chunk);
@@ -123,7 +123,7 @@ int uwsgi_stats_keyval(struct uwsgi_stats *us, char *key, char *value) {
 		watermark = us->base + us->size;
 		available = watermark - ptr;
 		ret = snprintf(ptr, available, "\"%s\":\"%s\"", key, value);
-		if (ret <= 0 || ret >= (int) available)
+		if (ret <= 0)
 			return -1;
 	}
 
@@ -149,7 +149,7 @@ int uwsgi_stats_keyvalnum(struct uwsgi_stats *us, char *key, char *value, unsign
 	size_t available = watermark - ptr;
 
 	int ret = snprintf(ptr, available, "\"%s\":\"%s%llu\"", key, value, num);
-	if (ret <= 0 || ret >= (int) available)
+	if (ret <= 0)
 		return -1;
 	while (ret >= (int) available) {
 		char *new_base = realloc(us->base, us->size + us->chunk);
@@ -161,7 +161,7 @@ int uwsgi_stats_keyvalnum(struct uwsgi_stats *us, char *key, char *value, unsign
 		watermark = us->base + us->size;
 		available = watermark - ptr;
 		ret = snprintf(ptr, available, "\"%s\":\"%s%llu\"", key, value, num);
-		if (ret <= 0 || ret >= (int) available)
+		if (ret <= 0)
 			return -1;
 	}
 
@@ -188,7 +188,7 @@ int uwsgi_stats_keyvaln(struct uwsgi_stats *us, char *key, char *value, int vall
 	size_t available = watermark - ptr;
 
 	int ret = snprintf(ptr, available, "\"%s\":\"%.*s\"", key, vallen, value);
-	if (ret <= 0 || ret >= (int) available)
+	if (ret <= 0)
 		return -1;
 	while (ret >= (int) available) {
 		char *new_base = realloc(us->base, us->size + us->chunk);
@@ -200,7 +200,7 @@ int uwsgi_stats_keyvaln(struct uwsgi_stats *us, char *key, char *value, int vall
 		watermark = us->base + us->size;
 		available = watermark - ptr;
 		ret = snprintf(ptr, available, "\"%s\":\"%.*s\"", key, vallen, value);
-		if (ret <= 0 || ret >= (int) available)
+		if (ret <= 0)
 			return -1;
 	}
 
@@ -227,7 +227,7 @@ int uwsgi_stats_key(struct uwsgi_stats *us, char *key) {
 	size_t available = watermark - ptr;
 
 	int ret = snprintf(ptr, available, "\"%s\":", key);
-	if (ret <= 0 || ret >= (int) available)
+	if (ret <= 0)
 		return -1;
 	while (ret >= (int) available) {
 		char *new_base = realloc(us->base, us->size + us->chunk);
@@ -239,7 +239,7 @@ int uwsgi_stats_key(struct uwsgi_stats *us, char *key) {
 		watermark = us->base + us->size;
 		available = watermark - ptr;
 		ret = snprintf(ptr, available, "\"%s\":", key);
-		if (ret <= 0 || ret >= (int) available)
+		if (ret <= 0)
 			return -1;
 	}
 
@@ -254,7 +254,7 @@ int uwsgi_stats_str(struct uwsgi_stats *us, char *str) {
 	size_t available = watermark - ptr;
 
 	int ret = snprintf(ptr, available, "\"%s\"", str);
-	if (ret <= 0 || ret >= (int) available)
+	if (ret <= 0)
 		return -1;
 	while (ret >= (int) available) {
 		char *new_base = realloc(us->base, us->size + us->chunk);
@@ -266,7 +266,7 @@ int uwsgi_stats_str(struct uwsgi_stats *us, char *str) {
 		watermark = us->base + us->size;
 		available = watermark - ptr;
 		ret = snprintf(ptr, available, "\"%s\"", str);
-		if (ret <= 0 || ret >= (int) available)
+		if (ret <= 0)
 			return -1;
 	}
 
@@ -287,7 +287,7 @@ int uwsgi_stats_keylong(struct uwsgi_stats *us, char *key, unsigned long long nu
 	size_t available = watermark - ptr;
 
 	int ret = snprintf(ptr, available, "\"%s\":%llu", key, num);
-	if (ret <= 0 || ret >= (int) available)
+	if (ret <= 0)
 		return -1;
 	while (ret >= (int) available) {
 		char *new_base = realloc(us->base, us->size + us->chunk);
@@ -299,7 +299,7 @@ int uwsgi_stats_keylong(struct uwsgi_stats *us, char *key, unsigned long long nu
 		watermark = us->base + us->size;
 		available = watermark - ptr;
 		ret = snprintf(ptr, available, "\"%s\":%llu", key, num);
-		if (ret <= 0 || ret >= (int) available)
+		if (ret <= 0)
 			return -1;
 	}
 
@@ -325,7 +325,7 @@ int uwsgi_stats_keyslong(struct uwsgi_stats *us, char *key, long long num) {
         size_t available = watermark - ptr;
 
         int ret = snprintf(ptr, available, "\"%s\":%lld", key, num);
-        if (ret <= 0 || ret >= (int) available)
+        if (ret <= 0)
                 return -1;
         while (ret >= (int) available) {
                 char *new_base = realloc(us->base, us->size + us->chunk);
@@ -337,7 +337,7 @@ int uwsgi_stats_keyslong(struct uwsgi_stats *us, char *key, long long num) {
                 watermark = us->base + us->size;
                 available = watermark - ptr;
                 ret = snprintf(ptr, available, "\"%s\":%lld", key, num);
-                if (ret <= 0 || ret >= (int) available)
+                if (ret <= 0)
                         return -1;
         }
 
