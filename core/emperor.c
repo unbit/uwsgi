@@ -701,12 +701,12 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 
 	gettimeofday(&tv, NULL);
 	int now = tv.tv_sec;
-	uint64_t micros = (tv.tv_sec * 1000 * 1000) + tv.tv_usec;
+	uint64_t micros = (tv.tv_sec * 1000ULL * 1000ULL) + tv.tv_usec;
 
 	// blacklist check
 	struct uwsgi_emperor_blacklist_item *uebi = uwsgi_emperor_blacklist_check(name);
 	if (uebi) {
-		uint64_t i_micros = (uebi->last_attempt.tv_sec * 1000 * 1000) + uebi->last_attempt.tv_usec + uebi->throttle_level;
+		uint64_t i_micros = (uebi->last_attempt.tv_sec * 1000ULL * 1000ULL) + uebi->last_attempt.tv_usec + uebi->throttle_level;
 		if (i_micros > micros) {
 			return;
 		}

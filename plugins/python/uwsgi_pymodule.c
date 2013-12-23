@@ -2165,7 +2165,7 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 			PyDict_SetItemString(apps_dict, "exceptions", zero);
 			Py_DECREF(zero);
 
-			if (ua->chdir) {
+			if (*ua->chdir) {
 				zero = PyString_FromString(ua->chdir);
 			}
 			else {
