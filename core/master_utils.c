@@ -588,7 +588,7 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 		if (uwsgi.master_fifo_fd > -1) close(uwsgi.master_fifo_fd);
 
 #ifdef __linux__
-		if (uwsgi.setns_fds) {
+		if (uwsgi.setns_fds[0]) {
 			for(i=0;i<uwsgi.setns_fds_count;i++) {
 				close(uwsgi.setns_fds[i]);
 			}
@@ -1731,7 +1731,7 @@ void uwsgi_master_manage_setns(int fd) {
         struct cmsghdr *cmsg;
 	DIR *ns = NULL;
 
-	if (uwsgi.setns_fds && uwsgi.setns_fds_count) {
+	if (uwsgi.setns_fds[0] && uwsgi.setns_fds_count) {
 		fds = uwsgi.setns_fds;
 		num_fds = uwsgi.setns_fds_count;
 		goto send;
