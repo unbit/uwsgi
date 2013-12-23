@@ -1798,19 +1798,22 @@ static void uwsgi_python_harakiri(int wid) {
 		char *address = uwsgi_concat2(up.tracebacker, uwsgi_num2str(wid));
 
         	int fd = uwsgi_connect(address, -1, 0);
-        	while (fd >= 0) {
-                	int ret = uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-                	if (ret <= 0) {
-				break;
-                	}
-                	ssize_t len = read(fd, buf, 8192);
-                	if (len <= 0) {
-				break;
-                	}
-                	uwsgi_log("%.*s", (int) len, buf);
-        	}
+		if (fd < 1)
+			goto exit;
 
+                int ret = uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                if (ret <= 0) {
+			goto cleanup;
+                }
+                ssize_t len = read(fd, buf, 8192);
+                if (len <= 0) {
+			goto cleanup;
+                }
+                uwsgi_log("%.*s", (int) len, buf);
+
+cleanup:
 		close(fd);
+exit:
 		free(address);
 	}
 
