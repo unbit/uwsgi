@@ -226,7 +226,7 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 			current_depth = depth;
 			// end the parsing cycle
 			if (in_uwsgi_section)
-				return;
+				goto exit;
 		}
 		else if (depth > current_depth && !in_uwsgi_section) {
 			goto next;
@@ -240,7 +240,7 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 		// skip list and {} defined dict
 		if (key[0] == '-' || key[0] == '[' || key[0] == '{') {
 			if (in_uwsgi_section)
-				return;
+				goto exit;
 			goto next;
 		}
 
@@ -260,7 +260,7 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 				val = strstr(key, ":\t");
 			}
 			if (!val)
-				return;
+				goto exit;
 			// get the right key
 			val[0] = 0;
 			// yeah overengeneering....
@@ -282,6 +282,8 @@ next:
 
 	if (colon) colon[0] = ':';
 
+exit:
+	free(yaml);
 }
 
 #endif

@@ -287,7 +287,7 @@ static int uwsgi_hook_chown(char *arg) {
 	}
 
 	struct group *gr = getgrnam(space2+1);
-	if (!pw) {
+	if (!gr) {
                 uwsgi_log("unable to find gid %s\n", space2+1);
                 *space = ' ';
                 *space2 = ' ';

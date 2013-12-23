@@ -79,10 +79,8 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 					}
 					else {
 						ugs->fd = bind_to_unix_dgram(ugs->name);
-						if (uwsgi.subscriptions_use_credentials) {
-							if (uwsgi_socket_passcred(ugs->fd)) {
-								exit(1);
-							}
+						if (ugs->fd < 1 || (uwsgi.subscriptions_use_credentials && uwsgi_socket_passcred(ugs->fd))) {
+							exit(1);
 						}
 					}
 					uwsgi_socket_nb(ugs->fd);
