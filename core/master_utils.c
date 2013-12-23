@@ -1684,6 +1684,7 @@ void uwsgi_master_manage_setns(int fd) {
 	struct dirent *de;
 	DIR *ns = opendir("/proc/self/ns");
 	if (!ns) {
+		close(setns_client);
 		uwsgi_error("uwsgi_master_manage_setns()/opendir()");
 		return;
 	}
@@ -1745,8 +1746,9 @@ void uwsgi_master_manage_setns(int fd) {
 
         free(sn_msg_control);
 
-        close(setns_client);
 clear:
+        close(setns_client);
+
 	closedir(ns);
 	for(i=0;i<num_fds;i++) {
 		close(fds[i]);
