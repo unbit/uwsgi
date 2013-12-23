@@ -529,13 +529,13 @@ void uwsgi_ssl_del_sni_item(char *name, uint16_t name_len) {
 			sni_item = usl;
 			break;
 		}
-		last_sni = NULL;
+		last_sni = usl;
 	}
 
 	if (!sni_item) return;
 
 	if (last_sni) {
-		last_sni = sni_item->next;
+		last_sni->next = sni_item->next;
 	}
 	else {
 		uwsgi.sni = sni_item->next;
