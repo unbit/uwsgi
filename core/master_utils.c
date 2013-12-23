@@ -1707,6 +1707,7 @@ void uwsgi_setns_preopen() {
                 free(filename);
                 uwsgi.setns_fds_count++;
         }
+	closedir(ns);
 }
 void uwsgi_master_manage_setns(int fd) {
 
