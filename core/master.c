@@ -483,6 +483,14 @@ int master_loop(char **argv, char **environ) {
 		usl = usl->next;
 	}
 	uwsgi_check_touches(uwsgi.touch_signal);
+	// daemon touches
+	struct uwsgi_daemon *ud = uwsgi.daemons;
+        while (ud) {
+		if (ud->touch) {
+			uwsgi_check_touches(ud->touch);
+		}
+		ud = ud->next;
+	}
 
 	// fsmon
 	uwsgi_fsmon_setup();
@@ -794,6 +802,22 @@ int master_loop(char **argv, char **environ) {
 					uwsgi_route_signal(signum);
 					uwsgi_log_verbose("[uwsgi-touch-signal] raising %u\n", signum);
 				}
+
+				// daemon touches
+        			struct uwsgi_daemon *ud = uwsgi.daemons;
+        			while (ud) {
+                			if (ud->pid > 0 && ud->touch) {
+                        			touched = uwsgi_check_touches(ud->touch);
+						if (touched) {
+							uwsgi_log_verbose("*** %s has been touched... reloading daemon \"%s\" (pid: %d) !!! ***\n", touched, ud->command, (int) ud->pid);
+							if (kill(ud->pid, ud->stop_signal)) {
+								uwsgi_error("[uwsgi-daemon/touch] kill()");
+							}
+						}
+                			}
+					ud = ud->next;
+                		}
+
 			}
 
 			// allows the KILL signal to be delivered;

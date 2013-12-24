@@ -484,6 +484,14 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 		exit(1);
 	}
 
+#ifndef UWSGI_SSL
+	if (d_legion) {
+		uwsgi_log("legion subsystem is not supported on this uWSGI version, rebuild with ssl support\n");
+		exit(1);
+	}
+#endif
+
+
 
         if (!uwsgi_ud) {
                 uwsgi.daemons = uwsgi_malloc(sizeof(struct uwsgi_daemon));
@@ -498,7 +506,6 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
                 uwsgi_ud = uwsgi_malloc(sizeof(struct uwsgi_daemon));
                 old_ud->next = uwsgi_ud;
         }
-
         uwsgi_ud->command = d_command;
         uwsgi_ud->freq = d_freq ? atoi(d_freq) : 10;
         uwsgi_ud->daemonize = d_daemonize ? 1 : 0;
@@ -512,6 +519,15 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 #ifdef UWSGI_SSL
         uwsgi_ud->legion = d_legion;
 #endif
+
+	if (d_touch) {
+		size_t i,rlen = 0;
+		char **argv = uwsgi_split_quoted(d_touch, strlen(d_touch), ";", &rlen);
+		for(i=0;i<rlen;i++) {	
+			uwsgi_string_new_list(&uwsgi_ud->touch, argv[i]);
+		}
+		if (argv) free(argv);
+	}
 
         uwsgi.daemons_cnt++;
 
