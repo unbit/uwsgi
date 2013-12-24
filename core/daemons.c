@@ -494,7 +494,7 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 
 
         if (!uwsgi_ud) {
-                uwsgi.daemons = uwsgi_malloc(sizeof(struct uwsgi_daemon));
+                uwsgi.daemons = uwsgi_calloc(sizeof(struct uwsgi_daemon));
                 uwsgi_ud = uwsgi.daemons;
         }
         else {
@@ -503,7 +503,7 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
                         uwsgi_ud = uwsgi_ud->next;
                 }
 
-                uwsgi_ud = uwsgi_malloc(sizeof(struct uwsgi_daemon));
+                uwsgi_ud = uwsgi_calloc(sizeof(struct uwsgi_daemon));
                 old_ud->next = uwsgi_ud;
         }
         uwsgi_ud->command = d_command;
