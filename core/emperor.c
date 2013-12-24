@@ -2052,12 +2052,14 @@ void uwsgi_master_manage_emperor() {
                 uwsgi_log_verbose("received message %d from emperor\n", byte);
                 // remove me
                 if (byte == 0) {
+			uwsgi_hooks_run(uwsgi.hook_emperor_stop, "emperor-stop", 0);
                         close(uwsgi.emperor_fd);
                         if (!uwsgi.status.brutally_reloading)
                                 kill_them_all(0);
                 }
                 // reload me
                 else if (byte == 1) {
+			uwsgi_hooks_run(uwsgi.hook_emperor_reload, "emperor-reload", 0);
                         // un-lazy the stack to trigger a real reload
                         uwsgi.lazy = 0;
                         uwsgi_block_signal(SIGHUP);
@@ -2067,6 +2069,7 @@ void uwsgi_master_manage_emperor() {
         }
         else {
                 uwsgi_log("lost connection with my emperor !!!\n");
+		uwsgi_hooks_run(uwsgi.hook_emperor_lost, "emperor-lost", 0);
                 close(uwsgi.emperor_fd);
                 if (!uwsgi.status.brutally_reloading)
                         kill_them_all(0);
