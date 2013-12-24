@@ -358,6 +358,7 @@ void uwsgi_cheaper_register_busyness(void) {
 }
 
 static int uwsgi_cheaper_busyness_init(void) {
+	if (uwsgi.requested_cheaper_algo && strcmp(uwsgi.requested_cheaper_algo, "busyness")) return 0;
 	// this happens on the first run, the required memory is allocated
 	uwsgi_cheaper_busyness_global.last_values = uwsgi_calloc(sizeof(uint64_t) * uwsgi.numproc);
 	uwsgi_cheaper_busyness_global.was_busy = uwsgi_calloc(sizeof(int) * uwsgi.numproc);

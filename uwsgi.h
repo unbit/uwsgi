@@ -591,6 +591,13 @@ struct uwsgi_daemon {
 	int stop_signal;
 	int reload_signal;
 
+	uid_t uid;
+	uid_t gid;
+
+	int honour_stdin;
+
+	struct uwsgi_string_list *touch;
+
 #ifdef UWSGI_SSL
 	char *legion;
 #endif
@@ -3648,6 +3655,7 @@ void uwsgi_opt_load_json(char *, char *, void *);
 void uwsgi_opt_set_umask(char *, char *, void *);
 void uwsgi_opt_add_spooler(char *, char *, void *);
 void uwsgi_opt_add_daemon(char *, char *, void *);
+void uwsgi_opt_add_daemon2(char *, char *, void *);
 void uwsgi_opt_set_uid(char *, char *, void *);
 void uwsgi_opt_set_gid(char *, char *, void *);
 void uwsgi_opt_set_immediate_uid(char *, char *, void *);

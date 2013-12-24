@@ -291,6 +291,20 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 		uwsgi_close_all_sockets();
 		uwsgi_close_all_fds();
 
+		if (ud->gid) {
+			if (setgid(ud->gid)) {
+				uwsgi_error("uwsgi_spawn_daemon()/setgid()");
+				exit(1);
+			}
+		}
+
+		if (ud->uid) {
+			if (setuid(ud->uid)) {
+				uwsgi_error("uwsgi_spawn_daemon()/setuid()");
+				exit(1);
+			}
+		}
+
 		if (ud->daemonize) {
 			/* refork... */
 			pid = fork();
@@ -304,7 +318,7 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 			uwsgi_write_pidfile(ud->pidfile);
 		}
 
-		if (!uwsgi.daemons_honour_stdin) {
+		if (!uwsgi.daemons_honour_stdin && !ud->honour_stdin) {
 			// /dev/null will became stdin
 			uwsgi_remap_fd(0, "/dev/null");
 		}
@@ -328,7 +342,7 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 			sleep((unsigned int) throttle);
 		}
 
-		uwsgi_log("[uwsgi-daemons] %sspawning \"%s\"\n", ud->respawns > 0 ? "re" : "", ud->command);
+		uwsgi_log("[uwsgi-daemons] %sspawning \"%s\" (uid: %d gid: %d)\n", ud->respawns > 0 ? "re" : "", ud->command, (int) getuid(), (int) getgid());
 		uwsgi_exec_command_with_args(ud->command);
 		uwsgi_log("[uwsgi-daemons] unable to spawn \"%s\"\n", ud->command);
 
@@ -387,7 +401,7 @@ void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
 	}
 
 	if (!uwsgi_ud) {
-		uwsgi.daemons = uwsgi_malloc(sizeof(struct uwsgi_daemon));
+		uwsgi.daemons = uwsgi_calloc(sizeof(struct uwsgi_daemon));
 		uwsgi_ud = uwsgi.daemons;
 	}
 	else {
@@ -396,7 +410,7 @@ void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
 			uwsgi_ud = uwsgi_ud->next;
 		}
 
-		uwsgi_ud = uwsgi_malloc(sizeof(struct uwsgi_daemon));
+		uwsgi_ud = uwsgi_calloc(sizeof(struct uwsgi_daemon));
 		old_ud->next = uwsgi_ud;
 	}
 
@@ -423,3 +437,85 @@ void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
 	uwsgi.daemons_cnt++;
 
 }
+
+void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
+
+        struct uwsgi_daemon *uwsgi_ud = uwsgi.daemons, *old_ud;
+
+	char *d_command = NULL;
+	char *d_freq = NULL;
+	char *d_pidfile = NULL;
+	char *d_control = NULL;
+	char *d_legion = NULL;
+	char *d_daemonize = NULL;
+	char *d_touch = NULL;
+	char *d_stopsignal = NULL;
+	char *d_reloadsignal = NULL;
+	char *d_stdin = NULL;
+	char *d_uid = NULL;
+	char *d_gid = NULL;
+
+	char *arg = uwsgi_str(value);
+
+	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
+		"command", &d_command,	
+		"cmd", &d_command,	
+		"exec", &d_command,	
+		"freq", &d_freq,	
+		"pidfile", &d_pidfile,	
+		"control", &d_control,	
+		"daemonize", &d_daemonize,	
+		"daemon", &d_daemonize,	
+		"touch", &d_touch,	
+		"stopsignal", &d_stopsignal,	
+		"stop_signal", &d_stopsignal,	
+		"reloadsignal", &d_reloadsignal,	
+		"reload_signal", &d_reloadsignal,	
+		"stdin", &d_stdin,	
+		"uid", &d_uid,	
+		"gid", &d_gid,	
+	NULL)) {
+		uwsgi_log("invalid --%s keyval syntax\n", opt);
+		exit(1);
+	}
+
+	if (!d_command) {
+		uwsgi_log("--%s: you need to specify a 'command' key\n", opt);
+		exit(1);
+	}
+
+
+        if (!uwsgi_ud) {
+                uwsgi.daemons = uwsgi_malloc(sizeof(struct uwsgi_daemon));
+                uwsgi_ud = uwsgi.daemons;
+        }
+        else {
+                while (uwsgi_ud) {
+                        old_ud = uwsgi_ud;
+                        uwsgi_ud = uwsgi_ud->next;
+                }
+
+                uwsgi_ud = uwsgi_malloc(sizeof(struct uwsgi_daemon));
+                old_ud->next = uwsgi_ud;
+        }
+
+        uwsgi_ud->command = d_command;
+        uwsgi_ud->freq = d_freq ? atoi(d_freq) : 10;
+        uwsgi_ud->daemonize = d_daemonize ? 1 : 0;
+        uwsgi_ud->pidfile = d_pidfile;
+        uwsgi_ud->stop_signal = d_stopsignal ? atoi(d_stopsignal) : SIGTERM;
+        uwsgi_ud->reload_signal = d_reloadsignal ? atoi(d_reloadsignal) : 0;
+        uwsgi_ud->control = d_control ? 1 : 0;
+	uwsgi_ud->uid = d_uid ? atoi(d_uid) : 0;
+	uwsgi_ud->gid = d_gid ? atoi(d_gid) : 0;
+	uwsgi_ud->honour_stdin = d_stdin ? 1 : 0;
+#ifdef UWSGI_SSL
+        uwsgi_ud->legion = d_legion;
+#endif
+
+        uwsgi.daemons_cnt++;
+
+	free(arg);
+
+}
+

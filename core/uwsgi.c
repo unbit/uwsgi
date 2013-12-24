@@ -700,7 +700,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cheap", no_argument, 0, "set cheap mode (spawn workers only after the first request)", uwsgi_opt_true, &uwsgi.status.is_cheap, UWSGI_OPT_MASTER},
 	{"cheaper", required_argument, 0, "set cheaper mode (adaptive process spawning)", uwsgi_opt_set_int, &uwsgi.cheaper_count, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
 	{"cheaper-initial", required_argument, 0, "set the initial number of processes to spawn in cheaper mode", uwsgi_opt_set_int, &uwsgi.cheaper_initial, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
-	{"cheaper-algo", required_argument, 0, "choose to algorithm used for adaptive process spawning)", uwsgi_opt_set_str, &uwsgi.requested_cheaper_algo, UWSGI_OPT_MASTER},
+	{"cheaper-algo", required_argument, 0, "choose to algorithm used for adaptive process spawning", uwsgi_opt_set_str, &uwsgi.requested_cheaper_algo, UWSGI_OPT_MASTER},
 	{"cheaper-step", required_argument, 0, "number of additional processes to spawn at each overload", uwsgi_opt_set_int, &uwsgi.cheaper_step, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
 	{"cheaper-overload", required_argument, 0, "increase workers after specified overload", uwsgi_opt_set_64bit, &uwsgi.cheaper_overload, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
 	{"cheaper-algo-list", no_argument, 0, "list enabled cheapers algorithms", uwsgi_opt_true, &uwsgi.cheaper_algo_list, 0},
@@ -913,6 +913,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"legion-smart-attach-daemon2", required_argument, 0, "same as --smart-attach-daemon2 but daemon runs only on legion lord node", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
 #endif
 	{"daemons-honour-stdin", no_argument, 0, "do not change the stdin of external daemons to /dev/null", uwsgi_opt_true, &uwsgi.daemons_honour_stdin, UWSGI_OPT_MASTER},
+	{"attach-daemon2", required_argument, 0, "attach-daemon keyval variant (supports smart modes too)", uwsgi_opt_add_daemon2, NULL, UWSGI_OPT_MASTER},
 	{"plugins", required_argument, 0, "load uWSGI plugins", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"plugin", required_argument, 0, "load uWSGI plugins", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"need-plugins", required_argument, 0, "load uWSGI plugins (exit on error)", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
