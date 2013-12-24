@@ -466,6 +466,9 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		if (!node->weight)
 			node->weight = 1;
 		node->wrr = 0;
+		node->pid = usr->pid;
+		node->uid = usr->uid;
+		node->gid = usr->gid;
 		node->last_check = uwsgi_now();
 		node->slot = current_slot;
 		memcpy(node->name, usr->address, usr->address_len);
@@ -555,6 +558,9 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		if (!current_slot->nodes->weight)
 			current_slot->nodes->weight = 1;
 		current_slot->nodes->wrr = 0;
+		current_slot->nodes->pid = usr->pid;
+		current_slot->nodes->uid = usr->uid;
+		current_slot->nodes->gid = usr->gid;
 		memcpy(current_slot->nodes->name, usr->address, usr->address_len);
 		current_slot->nodes->last_check = uwsgi_now();
 

@@ -3492,6 +3492,11 @@ struct uwsgi_subscribe_node {
 
 	time_t unix_check;
 
+	// used by unix credentials
+	pid_t pid;
+	uid_t uid;
+	gid_t gid;
+
 	struct uwsgi_subscribe_slot *slot;
 
 	struct uwsgi_subscribe_node *next;

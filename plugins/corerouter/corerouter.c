@@ -1052,6 +1052,9 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 					if (uwsgi_stats_keylong_comma(us, "modifier1", (unsigned long long) s_node->modifier1)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "modifier2", (unsigned long long) s_node->modifier2)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "last_check", (unsigned long long) s_node->last_check)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) s_node->pid)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "uid", (unsigned long long) s_node->uid)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "gid", (unsigned long long) s_node->gid)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "requests", (unsigned long long) s_node->requests)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "last_requests", (unsigned long long) s_node->last_requests)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "tx", (unsigned long long) s_node->tx)) goto end0;
