@@ -385,13 +385,13 @@ void uwsgi_reload(char **argv) {
 		// call master cleanup hooks
 		uwsgi_master_cleanup_hooks();
 
-		// call atexit user exec
-		uwsgi_exec_atexit();
-
 		if (uwsgi.exit_on_reload) {
 			uwsgi_log("uWSGI: GAME OVER (insert coin)\n");
 			exit(0);
 		}
+
+		// call atexit user exec
+		uwsgi_exec_atexit();
 
 		uwsgi_log("binary reloading uWSGI...\n");
 	}
