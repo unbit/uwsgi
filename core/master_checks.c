@@ -169,9 +169,9 @@ int uwsgi_master_check_workers_deadline() {
 			}
 		}
 		// check if worker was running longer than allowed lifetime
-		if (uwsgi.workers[i].pid > 0 && uwsgi.workers[i].cheaped == 0 && uwsgi.min_worker_lifetime > 0) {
+		if (uwsgi.workers[i].pid > 0 && uwsgi.workers[i].cheaped == 0 && uwsgi.max_worker_lifetime > 0) {
 			uint64_t lifetime = uwsgi_now() - uwsgi.workers[i].last_spawn;
-			if (lifetime > uwsgi.min_worker_lifetime && uwsgi.workers[i].manage_next_request == 1) {
+			if (lifetime > uwsgi.max_worker_lifetime && uwsgi.workers[i].manage_next_request == 1) {
 				uwsgi_log("worker %d lifetime reached, it was running for %llu second(s)\n", i, (unsigned long long) lifetime);
 				uwsgi.workers[i].manage_next_request = 0;
 				kill(uwsgi.workers[i].pid, SIGWINCH);
