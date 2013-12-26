@@ -210,8 +210,8 @@ edge:
 	wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request/1000000;
 
 	// enter harakiri mode
-        if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-                set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
+        if (uwsgi.harakiri_options.workers > 0) {
+                set_harakiri(uwsgi.harakiri_options.workers);
         }
 
 	// hack to easily pass wsgi_req pointer to the greenlet
@@ -257,7 +257,7 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 	greenlet_switch = PyObject_GetAttrString(current_greenlet, "switch");
 
 	for(;;) {
-		int ret = uwsgi.wait_read_hook(wsgi_req->fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		int ret = uwsgi.wait_read_hook(wsgi_req->fd, uwsgi.socket_timeout);
                 wsgi_req->switches++;
 
                 if (ret <= 0) {
@@ -349,7 +349,7 @@ static void gevent_loop() {
 		uwsgi_log("!!! Running gevent without threads IS NOT recommended, enable them with --enable-threads !!!\n");
 	}
 
-	if (uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] < 30) {
+	if (uwsgi.socket_timeout < 30) {
 		uwsgi_log("!!! Running gevent with a socket-timeout lower than 30 seconds is not recommended, tune it with --socket-timeout !!!\n");
 	}
 

@@ -72,7 +72,7 @@ static int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct
 		}
         }
 
-	if (uwsgi_proxy_nb(wsgi_req, addr, ub, remains, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+	if (uwsgi_proxy_nb(wsgi_req, addr, ub, remains, uwsgi.socket_timeout)) {
                 uwsgi_log("error routing request to uwsgi server %s\n", addr);
         }
 end:

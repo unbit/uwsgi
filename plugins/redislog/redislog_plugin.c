@@ -118,7 +118,7 @@ done:
 
 	uredislog = (struct uwsgi_redislog_state *) ul->data;
 	if (uredislog->fd == -1) {
-		uredislog->fd = uwsgi_connect(uredislog->address, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
+		uredislog->fd = uwsgi_connect(uredislog->address, uwsgi.socket_timeout, 0);
 	}
 
 	if (uredislog->fd == -1) return -1;

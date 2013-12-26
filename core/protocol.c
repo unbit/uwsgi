@@ -494,7 +494,7 @@ static int uwsgi_proto_check_18(struct wsgi_request *wsgi_req, char *key, char *
 
 
 static int uwsgi_proto_check_20(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
-	if (uwsgi.log_x_forwarded_for && !uwsgi_proto_key("HTTP_X_FORWARDED_FOR", 20)) {
+	if (uwsgi.logging_options.log_x_forwarded_for && !uwsgi_proto_key("HTTP_X_FORWARDED_FOR", 20)) {
 		wsgi_req->remote_addr = buf;
 		wsgi_req->remote_addr_len = len;
 		return 0;

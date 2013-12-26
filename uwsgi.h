@@ -1647,6 +1647,7 @@ struct uwsgi_logging_options {
 	int ioerror;
 	uint32_t slow;
 	uint64_t big;
+	int log_x_forwarded_for;
 };
 
 struct uwsgi_harakiri_options {
@@ -2004,7 +2005,6 @@ struct uwsgi_server {
 	int logdate;
 	int log_micros;
 	char *log_strftime;
-	int log_x_forwarded_for;
 
 	int honour_stdin;
 	struct termios termios;
@@ -3596,6 +3596,7 @@ int uwsgi_manage_opt(char *, char *);
 
 void uwsgi_opt_print(char *, char *, void *);
 void uwsgi_opt_true(char *, char *, void *);
+void uwsgi_opt_false(char *, char *, void *);
 void uwsgi_opt_set_str(char *, char *, void *);
 void uwsgi_opt_custom(char *, char *, void *);
 void uwsgi_opt_set_null(char *, char *, void *);
@@ -3621,8 +3622,6 @@ void uwsgi_opt_set_16bit(char *, char *, void *);
 void uwsgi_opt_set_64bit(char *, char *, void *);
 void uwsgi_opt_set_megabytes(char *, char *, void *);
 void uwsgi_opt_set_dyn(char *, char *, void *);
-void uwsgi_opt_dyn_true(char *, char *, void *);
-void uwsgi_opt_dyn_false(char *, char *, void *);
 void uwsgi_opt_set_placeholder(char *, char *, void *);
 void uwsgi_opt_add_shared_socket(char *, char *, void *);
 void uwsgi_opt_add_socket(char *, char *, void *);

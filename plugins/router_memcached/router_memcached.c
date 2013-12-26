@@ -62,7 +62,7 @@ static size_t memcached_firstline_parse(char *buf, size_t len) {
 // store an item in memcached
 static void memcached_store(char *addr, struct uwsgi_buffer *key, struct uwsgi_buffer *value, char *expires) {
 	
-	int timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
+	int timeout = uwsgi.socket_timeout;
 
         int fd = uwsgi_connect(addr, 0, 1);
         if (fd < 0) return;
@@ -167,7 +167,7 @@ static int uwsgi_routing_func_memcached(struct wsgi_request *wsgi_req, struct uw
 	}
 
         // wait for connection;
-        int ret = uwsgi.wait_write_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+        int ret = uwsgi.wait_write_hook(fd, uwsgi.socket_timeout);
         if (ret <= 0) {
 		uwsgi_buffer_destroy(ub_key) ;
 		uwsgi_buffer_destroy(ub_addr);
@@ -177,7 +177,7 @@ static int uwsgi_routing_func_memcached(struct wsgi_request *wsgi_req, struct uw
 
 	// build the request and send it
 	char *cmd = uwsgi_concat3n("get ", 4, ub_key->buf, ub_key->pos, "\r\n", 2);
-	if (uwsgi_write_true_nb(fd, cmd, 6+ub_key->pos, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+	if (uwsgi_write_true_nb(fd, cmd, 6+ub_key->pos, uwsgi.socket_timeout)) {
 		uwsgi_buffer_destroy(ub_key);
 		uwsgi_buffer_destroy(ub_addr);
 		free(cmd);
@@ -204,7 +204,7 @@ static int uwsgi_routing_func_memcached(struct wsgi_request *wsgi_req, struct uw
 		close(fd);
 		goto end;
 wait:
-		ret = uwsgi.wait_read_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		ret = uwsgi.wait_read_hook(fd, uwsgi.socket_timeout);
 		// when we have a chunk try to read the first line
 		if (ret > 0) {
 			len = read(fd, buf + pos, MEMCACHED_BUFSIZE - pos);
@@ -270,7 +270,7 @@ read:
                 }
 		goto error;
 wait2:
-		ret = uwsgi.wait_read_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		ret = uwsgi.wait_read_hook(fd, uwsgi.socket_timeout);
 		if (ret > 0) {
                         len = read(fd, buf, UMIN(MEMCACHED_BUFSIZE, response_size));
 			if (len > 0) goto write;

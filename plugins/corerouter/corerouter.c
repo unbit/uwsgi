@@ -1098,7 +1098,7 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
         size_t remains = us->pos;
         off_t pos = 0;
         while(remains > 0) {
-		int ret = uwsgi_waitfd_write(client_fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		int ret = uwsgi_waitfd_write(client_fd, uwsgi.socket_timeout);
                 if (ret <= 0) {
                         goto end0;
                 }
