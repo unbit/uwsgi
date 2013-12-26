@@ -343,7 +343,11 @@ static int uwsgi_hook_chown2(char *arg) {
 
 
 static int uwsgi_hook_hostname(char *arg) {
+#ifdef __CYGWIN__
+	return -1;
+#else
 	return sethostname(arg, strlen(arg));
+#endif
 }
 
 
