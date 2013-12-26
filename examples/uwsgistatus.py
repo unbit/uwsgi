@@ -42,16 +42,6 @@ def application(env, start_response):
 
     yield '<h2>dynamic options</h2>'
 
-    yield '<b>logging</b>: ' + str(uwsgi.get_option(0)) + '<br/>'
-    yield '<b>max_requests</b>: '  + str(uwsgi.getoption(1)) + '<br/>'
-    yield '<b>socket_timeout</b>: ' + str(uwsgi.getoption(2)) + '<br/>'
-    yield '<b>memory_debug</b>: ' + str(uwsgi.getoption(3)) + '<br/>'
-    yield '<b>master_interval</b>: ' + str(uwsgi.getoption(4)) + '<br/>'
-    yield '<b>harakiri</b>: ' + str(uwsgi.getoption(5)) + '<br/>'
-    yield '<b>cgi_mode</b>: ' + str(uwsgi.get_option(6)) + '<br/>'
-    yield '<b>threads</b>: ' + str(uwsgi.get_option(7)) + '<br/>'
-    yield '<b>process_reaper</b>: ' + str(uwsgi.get_option(8)) + '<br/>'
-
     yield '<table border="1">'
     yield '<th>worker id</th><th>pid</th><th>in request</th><th>requests</th><th>running time</th><th>address space</th><th>rss</th>'
 

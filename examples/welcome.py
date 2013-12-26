@@ -47,11 +47,6 @@ def serve_logo(e, sr):
     uwsgi.sendfile('logo_uWSGI.png')
     return ''
 
-def serve_options(e, sr):
-    sr('200 OK', [('Content-Type', 'text/html')])
-    for opt in range(0,256):
-        yield "<b>%d</b> = %d<br/>" % (opt, uwsgi.get_option(opt))
-
 def serve_config(e, sr):
     sr('200 OK', [('Content-Type', 'text/html')])
     for opt in uwsgi.opt.keys():
@@ -61,7 +56,6 @@ routes = {}
 routes['/xsendfile'] = xsendfile
 routes['/logo'] = serve_logo
 routes['/config'] = serve_config
-routes['/options'] = serve_options
 
 @postfork
 def setprocname():
@@ -118,11 +112,6 @@ def application(env, start_response):
 
 Configuration<br/>
 <iframe src="/config"></iframe><br/>
-
-<br/>
-
-Dynamic options<br/>
-<iframe src="/options"></iframe><br/>
 
 <br/>
 Workers and applications<br/>

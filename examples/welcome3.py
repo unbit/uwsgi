@@ -9,12 +9,6 @@ def serve_logo(e, sr):
     sr('200 OK', [('Content-Type', 'image/png')])
     return uwsgi.sendfile('logo_uWSGI.png')
 
-def serve_options(e, sr):
-    sr('200 OK', [('Content-Type', 'text/html')])
-    for opt in range(0,256):
-        body = "{opt} = {optvalue}<br/>".format(opt=opt, optvalue=uwsgi.get_option(opt))
-        yield bytes(body.encode('ascii'))
-
 def serve_config(e, sr):
     sr('200 OK', [('Content-Type', 'text/html')])
     for opt in uwsgi.opt.keys():
@@ -25,7 +19,6 @@ routes = {}
 routes['/xsendfile'] = xsendfile
 routes['/logo'] = serve_logo
 routes['/config'] = serve_config
-routes['/options'] = serve_options
 
 def application(env, start_response):
 
@@ -42,9 +35,6 @@ Configuration<br/>
 <iframe src="/config"></iframe><br/>
 
 <br/>
-
-Dynamic options<br/>
-<iframe src="/options"></iframe><br/>
 
     """.format(version=uwsgi.version.decode('ascii'))
 
