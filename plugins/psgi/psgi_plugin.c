@@ -893,7 +893,7 @@ static void uwsgi_perl_add_item(char *key, uint16_t keylen, char *val, uint16_t 
 
         HV *spool_dict = (HV*) data;
 
-	hv_store(spool_dict, key, keylen, newSVpv(val, vallen), 0);
+	(void)hv_store(spool_dict, key, keylen, newSVpv(val, vallen), 0);
 }
 
 
@@ -914,10 +914,10 @@ static int uwsgi_perl_spooler(char *filename, char *buf, uint16_t len, char *bod
                 return 0;
         }
 
-        hv_store(spool_dict, "spooler_task_name", 18, newSVpv(filename, 0), 0);
+        (void) hv_store(spool_dict, "spooler_task_name", 18, newSVpv(filename, 0), 0);
 
         if (body && body_len > 0) {
-                hv_store(spool_dict, "body", 4, newSVpv(body, body_len), 0);
+                (void) hv_store(spool_dict, "body", 4, newSVpv(body, body_len), 0);
         }
 
         XPUSHs( sv_2mortal((SV*)newRV_noinc((SV*)spool_dict)) );
