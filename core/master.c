@@ -239,7 +239,7 @@ static void master_check_listen_queue() {
 		if (uwsgi_sock->queue > load) {
 			load = uwsgi_sock->queue;
 		}
-		if (uwsgi_sock->queue >= uwsgi_sock->max_queue) {
+		if (uwsgi_sock->queue > 0 && uwsgi_sock->queue >= uwsgi_sock->max_queue) {
 			uwsgi_log_verbose("*** uWSGI listen queue of socket \"%s\" (fd: %d) full !!! (%llu/%llu) ***\n", uwsgi_sock->name, uwsgi_sock->fd, (unsigned long long) uwsgi_sock->queue, (unsigned long long) uwsgi_sock->max_queue);
 			uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]++;	
 		}
