@@ -1801,7 +1801,7 @@ static void uwsgi_python_harakiri(int wid) {
 		if (fd < 1)
 			goto exit;
 
-                int ret = uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                int ret = uwsgi_waitfd(fd, uwsgi.socket_timeout);
                 if (ret <= 0) {
 			goto cleanup;
                 }

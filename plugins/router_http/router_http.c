@@ -68,7 +68,7 @@ static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_r
                 }
 	}
 
-	if (uwsgi_proxy_nb(wsgi_req, ub_addr->buf, ub, remains, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+	if (uwsgi_proxy_nb(wsgi_req, ub_addr->buf, ub, remains, uwsgi.socket_timeout)) {
 		uwsgi_log("error routing request to http server %s\n", ub_addr->buf);
 	}
 

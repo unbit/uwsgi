@@ -117,11 +117,11 @@ void uwsgi_init_default() {
 	uwsgi.max_vars = MAX_VARS;
 	uwsgi.vec_size = 4 + 1 + (4 * MAX_VARS);
 
-	uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = 4;
-	uwsgi.shared->options[UWSGI_OPTION_LOGGING] = 1;
+	uwsgi.socket_timeout = 4;
+	uwsgi.logging_options.enabled = 1;
 
 	// a workers hould be running for at least 10 seconds
-	uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] = 10;
+	uwsgi.min_worker_lifetime = 10;
 
 	uwsgi.shared->spooler_frequency = 30;
 
@@ -413,7 +413,7 @@ void sanitize_args() {
                 uwsgi.cores = uwsgi.threads;
         }
 
-        if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+        if (uwsgi.harakiri_options.workers > 0) {
                 if (!uwsgi.post_buffering) {
                         uwsgi_log(" *** WARNING: you have enabled harakiri without post buffering. Slow upload could be rejected on post-unbuffered webservers *** \n");
                 }
@@ -449,13 +449,13 @@ void sanitize_args() {
 		}
         }
 
-	if (uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME] > 0 && uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] >= uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME]) {
+	if (uwsgi.max_worker_lifetime > 0 && uwsgi.min_worker_lifetime >= uwsgi.max_worker_lifetime) {
 		uwsgi_log("invalid min-worker-lifetime value (%d), must be lower than max-worker-lifetime (%d)\n",
-			uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME], uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME]);
+			uwsgi.min_worker_lifetime, uwsgi.max_worker_lifetime);
 		exit(1);
 	}
 
-	if (uwsgi.cheaper_rss_limit_soft && uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] != 1 && uwsgi.force_get_memusage != 1) {
+	if (uwsgi.cheaper_rss_limit_soft && uwsgi.logging_options.memory_report != 1 && uwsgi.force_get_memusage != 1) {
 		uwsgi_log("enabling cheaper-rss-limit-soft requires enabling also memory-report\n");
 		exit(1);
 	}

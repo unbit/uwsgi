@@ -101,7 +101,7 @@ int uwsgi_calc_cheaper(void) {
 
 	int i;
 	static time_t last_check = 0;
-	int check_interval = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
+	int check_interval = uwsgi.master_interval;
 
 	if (!last_check)
 		last_check = uwsgi_now();
@@ -332,7 +332,7 @@ int uwsgi_cheaper_algo_backlog(int can_spawn) {
 
 	int i;
 #ifdef __linux__
-	int backlog = uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS];
+	int backlog = uwsgi.shared->load;
 #else
 	int backlog = 0;
 #endif
@@ -728,9 +728,9 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		goto end;
 
 #ifdef __linux__
-	if (uwsgi_stats_keylong_comma(us, "listen_queue", (unsigned long long) uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS]))
+	if (uwsgi_stats_keylong_comma(us, "listen_queue", (unsigned long long) uwsgi.shared->load))
 		goto end;
-	if (uwsgi_stats_keylong_comma(us, "listen_queue_errors", (unsigned long long) uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]))
+	if (uwsgi_stats_keylong_comma(us, "listen_queue_errors", (unsigned long long) uwsgi.shared->load))
 		goto end;
 #endif
 

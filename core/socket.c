@@ -750,7 +750,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	if (!uwsgi.no_defer_accept) {
 
 #ifdef __linux__
-		if (setsockopt(serverfd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], sizeof(int))) {
+		if (setsockopt(serverfd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &uwsgi.socket_timeout, sizeof(int))) {
 			uwsgi_error("TCP_DEFER_ACCEPT setsockopt()");
 		}
 		// OSX has no SO_ACCEPTFILTER !!!

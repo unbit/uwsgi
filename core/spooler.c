@@ -552,11 +552,11 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			for (i = 0; i < 256; i++) {
 				if (uwsgi.p[i]->spooler) {
 					time_t now = uwsgi_now();
-					if (uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
-						set_spooler_harakiri(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI]);
+					if (uwsgi.harakiri_options.spoolers > 0) {
+						set_spooler_harakiri(uwsgi.harakiri_options.spoolers);
 					}
 					ret = uwsgi.p[i]->spooler(task, spool_buf, uh.pktsize, body, body_len);
-					if (uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
+					if (uwsgi.harakiri_options.spoolers > 0) {
 						set_spooler_harakiri(0);
 					}
 					if (ret == 0)

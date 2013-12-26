@@ -15,7 +15,7 @@ int uwsgi_waitfd_event(int fd, int timeout, int event) {
 	struct pollfd upoll;
 
 	if (!timeout)
-		timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
+		timeout = uwsgi.socket_timeout;
 
 	timeout = timeout * 1000;
 	if (timeout < 0)

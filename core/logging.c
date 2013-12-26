@@ -573,7 +573,7 @@ void uwsgi_log_reopen() {
 
 void log_request(struct wsgi_request *wsgi_req) {
 
-	int log_it = uwsgi.shared->options[UWSGI_OPTION_LOGGING];
+	int log_it = uwsgi.logging_options.enabled;
 
 	if (wsgi_req->do_not_log)
 		return;
@@ -583,25 +583,25 @@ void log_request(struct wsgi_request *wsgi_req) {
 	}
 
 /* conditional logging */
-	if (uwsgi.shared->options[UWSGI_OPTION_LOG_ZERO] && wsgi_req->response_size == 0) {
+	if (uwsgi.logging_options.zero && wsgi_req->response_size == 0) {
 		goto logit;
 	}
-	if (uwsgi.shared->options[UWSGI_OPTION_LOG_SLOW] && (uint32_t) wsgi_req_time >= uwsgi.shared->options[UWSGI_OPTION_LOG_SLOW]) {
+	if (uwsgi.logging_options.slow && (uint32_t) wsgi_req_time >= uwsgi.logging_options.slow) {
 		goto logit;
 	}
-	if (uwsgi.shared->options[UWSGI_OPTION_LOG_4xx] && (wsgi_req->status >= 400 && wsgi_req->status <= 499)) {
+	if (uwsgi.logging_options._4xx && (wsgi_req->status >= 400 && wsgi_req->status <= 499)) {
 		goto logit;
 	}
-	if (uwsgi.shared->options[UWSGI_OPTION_LOG_5xx] && (wsgi_req->status >= 500 && wsgi_req->status <= 599)) {
+	if (uwsgi.logging_options._5xx && (wsgi_req->status >= 500 && wsgi_req->status <= 599)) {
 		goto logit;
 	}
-	if (uwsgi.shared->options[UWSGI_OPTION_LOG_BIG] && (wsgi_req->response_size >= uwsgi.shared->options[UWSGI_OPTION_LOG_BIG])) {
+	if (uwsgi.logging_options.big && (wsgi_req->response_size >= uwsgi.logging_options.big)) {
 		goto logit;
 	}
-	if (uwsgi.shared->options[UWSGI_OPTION_LOG_SENDFILE] && wsgi_req->via == UWSGI_VIA_SENDFILE) {
+	if (uwsgi.logging_options.sendfile && wsgi_req->via == UWSGI_VIA_SENDFILE) {
 		goto logit;
 	}
-	if (uwsgi.shared->options[UWSGI_OPTION_LOG_IOERROR] && wsgi_req->read_errors > 0 && wsgi_req->write_errors > 0) {
+	if (uwsgi.logging_options.ioerror && wsgi_req->read_errors > 0 && wsgi_req->write_errors > 0) {
 		goto logit;
 	}
 
@@ -686,7 +686,7 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 		logvecpos++;
 	}
 
-	if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1) {
+	if (uwsgi.logging_options.memory_report == 1) {
 		rlen = snprintf(mempkt, 4096, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size, (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024,
 			(unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size, (unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size / 1024 / 1024);
 		logvec[logvecpos].iov_base = mempkt;

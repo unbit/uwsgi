@@ -117,7 +117,7 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 		return NULL;
 
 	// wait for connection;
-	int ret = uwsgi.wait_write_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+	int ret = uwsgi.wait_write_hook(fd, uwsgi.socket_timeout);
 	if (ret <= 0) {
 		close(fd);
 		return NULL;
@@ -156,14 +156,14 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 	}
 
 	// ok the request is ready, let's send it in non blocking way
-	if (uwsgi_write_true_nb(fd, buffer, buffer_size+4, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+	if (uwsgi_write_true_nb(fd, buffer, buffer_size+4, uwsgi.socket_timeout)) {
 		goto error;
 	}
 
 	// ok time to wait for the response in non blocking way
 	size_t rlen = buffer_size+4;
 	uint8_t modifier2 = 0;
-	if (uwsgi_read_with_realloc(fd, &buffer, &rlen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], NULL, &modifier2)) {
+	if (uwsgi_read_with_realloc(fd, &buffer, &rlen, uwsgi.socket_timeout, NULL, &modifier2)) {
 		goto error;
 	}
 
@@ -181,7 +181,7 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 		rlen = content_len;
 
 		// read the raw value from the socket
-                if (uwsgi_read_whole_true_nb(fd, buffer, rlen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+                if (uwsgi_read_whole_true_nb(fd, buffer, rlen, uwsgi.socket_timeout)) {
 			goto error;
                 }
 	}

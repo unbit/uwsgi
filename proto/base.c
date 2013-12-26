@@ -156,7 +156,7 @@ end:
 
 struct uwsgi_buffer *uwsgi_proto_base_prepare_headers(struct wsgi_request *wsgi_req, char *s, uint16_t sl) {
         struct uwsgi_buffer *ub = NULL;
-	if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
+	if (uwsgi.cgi_mode == 0) {
 		if (wsgi_req->protocol_len) {
 			ub = uwsgi_buffer_new(wsgi_req->protocol_len + 1 + sl + 2);
 			if (uwsgi_buffer_append(ub, wsgi_req->protocol, wsgi_req->protocol_len)) goto end;

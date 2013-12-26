@@ -45,21 +45,21 @@ int uwsgi_signal_handler(uint8_t sig) {
 		uwsgi.workers[uwsgi.mywid].sig = 1;
 		uwsgi.workers[uwsgi.mywid].signum = sig;
 		uwsgi.workers[uwsgi.mywid].signals++;
-		if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-			set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
+		if (uwsgi.harakiri_options.workers > 0) {
+			set_harakiri(uwsgi.harakiri_options.workers);
 		}
 	}
 	else if (uwsgi.muleid > 0) {
 		uwsgi.mules[uwsgi.muleid - 1].sig = 1;
 		uwsgi.mules[uwsgi.muleid - 1].signum = sig;
 		uwsgi.mules[uwsgi.muleid - 1].signals++;
-		if (uwsgi.shared->options[UWSGI_OPTION_MULE_HARAKIRI] > 0) {
-			set_mule_harakiri(uwsgi.shared->options[UWSGI_OPTION_MULE_HARAKIRI]);
+		if (uwsgi.harakiri_options.mules > 0) {
+			set_mule_harakiri(uwsgi.harakiri_options.mules);
 		}
 	}
 	else if (uwsgi.i_am_a_spooler && (getpid() == uwsgi.i_am_a_spooler->pid)) {
-		if (uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
-			set_spooler_harakiri(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI]);
+		if (uwsgi.harakiri_options.spoolers > 0) {
+			set_spooler_harakiri(uwsgi.harakiri_options.spoolers);
 		}
 	}
 
@@ -78,7 +78,7 @@ int uwsgi_signal_handler(uint8_t sig) {
 		}
 	}
 	else if (uwsgi.i_am_a_spooler && (getpid() == uwsgi.i_am_a_spooler->pid)) {
-		if (uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
+		if (uwsgi.harakiri_options.spoolers > 0) {
 			set_spooler_harakiri(0);
 		}
 	}
@@ -269,7 +269,7 @@ int uwsgi_remote_signal_send(char *addr, uint8_t sig) {
 	uh.pktsize = 0;
 	uh.modifier2 = sig;
 
-	int fd = uwsgi_connect(addr, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
+	int fd = uwsgi_connect(addr, uwsgi.socket_timeout, 0);
 	if (fd < 0)
 		return -1;
 
@@ -279,7 +279,7 @@ int uwsgi_remote_signal_send(char *addr, uint8_t sig) {
 		return -1;
 	}
 
-	int ret = uwsgi_read_response(fd, &uh, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], NULL);
+	int ret = uwsgi_read_response(fd, &uh, uwsgi.socket_timeout, NULL);
 
 	close(fd);
 	return ret;

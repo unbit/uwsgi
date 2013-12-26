@@ -245,7 +245,7 @@ int uwsgi_proto_fastcgi_write(struct wsgi_request *wsgi_req, char *buf, size_t l
 		fr.reserved = 0;
 		fr.cl0 = (uint8_t) (fcgi_len & 0xff);
 		fr.cl1 = (uint8_t) ((fcgi_len >> 8) & 0xff);
-		if (uwsgi_write_true_nb(wsgi_req->fd, (char *) &fr, sizeof(struct fcgi_record), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+		if (uwsgi_write_true_nb(wsgi_req->fd, (char *) &fr, sizeof(struct fcgi_record), uwsgi.socket_timeout)) {
 			return -1;
 		}
 	}
@@ -278,7 +278,7 @@ void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
 	end_request[3] = sid[0];
 	end_request[10] = sid[1];
 	end_request[11] = sid[0];
-	(void) uwsgi_write_true_nb(wsgi_req->fd, end_request, 24, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+	(void) uwsgi_write_true_nb(wsgi_req->fd, end_request, 24, uwsgi.socket_timeout);
 	uwsgi_proto_base_close(wsgi_req);
 }
 
@@ -298,7 +298,7 @@ int uwsgi_proto_fastcgi_sendfile(struct wsgi_request *wsgi_req, int fd, size_t p
                 fr.reserved = 0;
                 fr.cl0 = (uint8_t) (fcgi_len & 0xff);
                 fr.cl1 = (uint8_t) ((fcgi_len >> 8) & 0xff);
-                if (uwsgi_write_true_nb(wsgi_req->fd, (char *) &fr, sizeof(struct fcgi_record), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+                if (uwsgi_write_true_nb(wsgi_req->fd, (char *) &fr, sizeof(struct fcgi_record), uwsgi.socket_timeout)) {
                         return -1;
                 }
         }

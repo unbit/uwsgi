@@ -241,13 +241,11 @@ static void master_check_listen_queue() {
 		}
 		if (uwsgi_sock->queue > 0 && uwsgi_sock->queue >= uwsgi_sock->max_queue) {
 			uwsgi_log_verbose("*** uWSGI listen queue of socket \"%s\" (fd: %d) full !!! (%llu/%llu) ***\n", uwsgi_sock->name, uwsgi_sock->fd, (unsigned long long) uwsgi_sock->queue, (unsigned long long) uwsgi_sock->max_queue);
-			uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]++;	
 		}
 		uwsgi_sock = uwsgi_sock->next;
 	}
 
 	uwsgi.shared->load = load;
-	uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS] = uwsgi.shared->load;
         if (uwsgi.vassal_sos_backlog > 0 && uwsgi.has_emperor) {
         	if (uwsgi.shared->load >= (uint64_t) uwsgi.vassal_sos_backlog) {
                 	// ask emperor for help
@@ -613,10 +611,10 @@ int master_loop(char **argv, char **environ) {
 		if (diedpid == 0) {
 
 			/* all processes ok, doing status scan after N seconds */
-			check_interval = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
+			check_interval = uwsgi.master_interval;
 			if (!check_interval) {
 				check_interval = 1;
-				uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL] = 1;
+				uwsgi.master_interval = 1;
 			}
 
 
@@ -715,10 +713,10 @@ int master_loop(char **argv, char **environ) {
 			// check for idle
 			uwsgi_master_check_idle();
 
-			check_interval = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
+			check_interval = uwsgi.master_interval;
 			if (!check_interval) {
 				check_interval = 1;
-				uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL] = 1;
+				uwsgi.master_interval = 1;
 			}
 
 

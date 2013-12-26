@@ -429,8 +429,8 @@ struct uwsgi_lock_ops {
 #define uwsgi_wlock(x) uwsgi.lock_ops.wlock(x)
 #define uwsgi_rwunlock(x) uwsgi.lock_ops.rwunlock(x)
 
-#define uwsgi_wait_read_req(x) uwsgi.wait_read_hook(x->fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) ; x->switches++
-#define uwsgi_wait_write_req(x) uwsgi.wait_write_hook(x->fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) ; x->switches++
+#define uwsgi_wait_read_req(x) uwsgi.wait_read_hook(x->fd, uwsgi.socket_timeout) ; x->switches++
+#define uwsgi_wait_write_req(x) uwsgi.wait_write_hook(x->fd, uwsgi.socket_timeout) ; x->switches++
 
 #ifdef UWSGI_PCRE
 #include <pcre.h>
@@ -853,29 +853,6 @@ struct uwsgi_opt {
 #else
 #include <machine/endian.h>
 #endif
-
-#define UWSGI_OPTION_LOGGING		0
-#define UWSGI_OPTION_MAX_REQUESTS	1
-#define UWSGI_OPTION_SOCKET_TIMEOUT	2
-#define UWSGI_OPTION_MEMORY_DEBUG	3
-#define UWSGI_OPTION_MASTER_INTERVAL	4
-#define UWSGI_OPTION_HARAKIRI		5
-#define UWSGI_OPTION_CGI_MODE		6
-#define UWSGI_OPTION_THREADS		7
-#define UWSGI_OPTION_REAPER		8
-#define UWSGI_OPTION_LOG_ZERO		9
-#define UWSGI_OPTION_LOG_SLOW		10
-#define UWSGI_OPTION_LOG_4xx		11
-#define UWSGI_OPTION_LOG_5xx		12
-#define UWSGI_OPTION_LOG_BIG		13
-#define UWSGI_OPTION_LOG_SENDFILE	14
-#define UWSGI_OPTION_BACKLOG_STATUS	15
-#define UWSGI_OPTION_BACKLOG_ERRORS	16
-#define UWSGI_OPTION_SPOOLER_HARAKIRI	17
-#define UWSGI_OPTION_MULE_HARAKIRI	18
-#define UWSGI_OPTION_MAX_WORKER_LIFETIME	19
-#define UWSGI_OPTION_MIN_WORKER_LIFETIME	20
-#define UWSGI_OPTION_LOG_IOERROR		21
 
 #define UWSGI_SPOOLER_EXTERNAL		1
 
@@ -1660,6 +1637,24 @@ void uwsgi_opt_load_config(char *, char *, void *);
 
 struct uwsgi_metric;
 
+struct uwsgi_logging_options {
+	int enabled;
+	int memory_report;
+	int zero;
+	int _4xx;
+	int _5xx;
+	int sendfile;
+	int ioerror;
+	uint32_t slow;
+	uint64_t big;
+};
+
+struct uwsgi_harakiri_options {
+	int workers;
+	int spoolers;
+	int mules;
+};
+
 struct uwsgi_server {
 
 	// store the machine hostname
@@ -1682,6 +1677,15 @@ struct uwsgi_server {
 	char *procname_append;
 	char *procname_master;
 	char *procname;
+
+	struct uwsgi_logging_options logging_options;
+	struct uwsgi_harakiri_options harakiri_options;
+	int socket_timeout;
+	int reaper;
+	int cgi_mode;
+	uint64_t max_requests;
+	uint64_t min_worker_lifetime;
+	uint64_t max_worker_lifetime;
 
 	// daemontools-like envdir
 	struct uwsgi_string_list *envdirs;
@@ -2324,6 +2328,7 @@ struct uwsgi_server {
 
 	int master_process;
 	int master_queue;
+	int master_interval;
 
 	// mainly iseful for broodlord mode
 	int vassal_sos_backlog;
@@ -2724,8 +2729,6 @@ struct uwsgi_shared {
 
 	//vga 80 x25 specific !
 	char warning_message[81];
-
-	uint32_t options[256];
 
 	off_t logsize;
 

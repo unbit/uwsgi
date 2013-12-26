@@ -124,7 +124,7 @@ done:
 	ums = (struct uwsgi_mongodb_state *) ul->data;
 
 	if (ums->fd == -1) {
-		ums->fd = uwsgi_connect(ums->address, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
+		ums->fd = uwsgi_connect(ums->address, uwsgi.socket_timeout, 0);
 	}
 
 	if (ums->fd == -1) return -1;

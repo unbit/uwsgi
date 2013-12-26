@@ -76,13 +76,13 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"processes", required_argument, 'p', "spawn the specified number of workers/processes", uwsgi_opt_set_int, &uwsgi.numproc, 0},
 	{"workers", required_argument, 'p', "spawn the specified number of workers/processes", uwsgi_opt_set_int, &uwsgi.numproc, 0},
 	{"thunder-lock", no_argument, 0, "serialize accept() usage (if possible)", uwsgi_opt_true, &uwsgi.use_thunder_lock, 0},
-	{"harakiri", required_argument, 't', "set harakiri timeout", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_HARAKIRI, 0},
+	{"harakiri", required_argument, 't', "set harakiri timeout", uwsgi_opt_set_int, &uwsgi.harakiri_options.workers, 0},
 	{"harakiri-verbose", no_argument, 0, "enable verbose mode for harakiri", uwsgi_opt_true, &uwsgi.harakiri_verbose, 0},
 	{"harakiri-no-arh", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh, 0},
 	{"no-harakiri-arh", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh, 0},
 	{"no-harakiri-after-req-hook", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh, 0},
 	{"backtrace-depth", required_argument, 0, "set backtrace depth", uwsgi_opt_set_int, &uwsgi.backtrace_depth, 0},
-	{"mule-harakiri", required_argument, 0, "set harakiri timeout for mule tasks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MULE_HARAKIRI, 0},
+	{"mule-harakiri", required_argument, 0, "set harakiri timeout for mule tasks", uwsgi_opt_set_int, &uwsgi.harakiri_options.mules, 0},
 #ifdef UWSGI_XML
 	{"xmlconfig", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
 	{"xml", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
@@ -164,9 +164,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"max-vars", required_argument, 'v', "set the amount of internal iovec/vars structures", uwsgi_opt_max_vars, NULL, 0},
 	{"max-apps", required_argument, 0, "set the maximum number of per-worker applications", uwsgi_opt_set_int, &uwsgi.max_apps, 0},
 	{"buffer-size", required_argument, 'b', "set internal buffer size", uwsgi_opt_set_16bit, &uwsgi.buffer_size, 0},
-	{"memory-report", no_argument, 'm', "enable memory report", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_MEMORY_DEBUG, 0},
+	{"memory-report", no_argument, 'm', "enable memory report", uwsgi_opt_true, &uwsgi.logging_options.memory_report, 0},
 	{"profiler", required_argument, 0, "enable the specified profiler", uwsgi_opt_set_str, &uwsgi.profiler, 0},
-	{"cgi-mode", no_argument, 'c', "force CGI-mode for plugins supporting it", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_CGI_MODE, 0},
+	{"cgi-mode", no_argument, 'c', "force CGI-mode for plugins supporting it", uwsgi_opt_true, &uwsgi.cgi_mode, 0},
 	{"abstract-socket", no_argument, 'a', "force UNIX socket in abstract mode (Linux only)", uwsgi_opt_true, &uwsgi.abstract_socket, 0},
 	{"chmod-socket", optional_argument, 'C', "chmod-socket", uwsgi_opt_chmod_socket, NULL, 0},
 	{"chmod", optional_argument, 'C', "chmod-socket", uwsgi_opt_chmod_socket, NULL, 0},
@@ -248,8 +248,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"print-sym", required_argument, 0, "print content of the specified binary symbol", uwsgi_print_sym, NULL, UWSGI_OPT_IMMEDIATE},
 	{"print-symbol", required_argument, 0, "print content of the specified binary symbol", uwsgi_print_sym, NULL, UWSGI_OPT_IMMEDIATE},
 
-	{"reaper", no_argument, 'r', "call waitpid(-1,...) after each request to get rid of zombies", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_REAPER, 0},
-	{"max-requests", required_argument, 'R', "reload workers after the specified amount of managed requests", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MAX_REQUESTS, 0},
+	{"reaper", no_argument, 'r', "call waitpid(-1,...) after each request to get rid of zombies", uwsgi_opt_dyn_true, uwsgi_reaper, 0},
+	{"max-requests", required_argument, 'R', "reload workers after the specified amount of managed requests", uwsgi_opt_set_64bit, uwsgi.max_requests, 0},
 	{"min-worker-lifetime", required_argument, 0, "number of seconds worker must run before being reloaded (default is 60)", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MIN_WORKER_LIFETIME, 0},
 	{"max-worker-lifetime", required_argument, 0, "reload workers after the specified amount of seconds (default is disabled)", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MAX_WORKER_LIFETIME, 0},
 
@@ -610,7 +610,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"sni-regexp", required_argument, 0, "add an SNI-governed SSL context (the key is a regexp)", uwsgi_opt_sni, NULL, 0},
 #endif
 #endif
-	{"check-interval", required_argument, 0, "set the interval (in seconds) of master checks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MASTER_INTERVAL, 0},
+	{"check-interval", required_argument, 0, "set the interval (in seconds) of master checks", uwsgi_opt_set_int, uwsgi.master_internal, UWSGI_OPT_MASTER},
 	{"forkbomb-delay", required_argument, 0, "sleep for the specified number of seconds when a forkbomb is detected", uwsgi_opt_set_int, &uwsgi.forkbomb_delay, UWSGI_OPT_MASTER},
 	{"binary-path", required_argument, 0, "force binary path", uwsgi_opt_set_str, &uwsgi.binary_path, 0},
 	{"privileged-binary-patch", required_argument, 0, "patch the uwsgi binary with a new command (before privileges drop)", uwsgi_opt_set_str, &uwsgi.privileged_binary_patch, 0},
@@ -677,7 +677,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-date", optional_argument, 0, "prefix logs with date or a strftime string", uwsgi_opt_log_date, NULL, 0},
 	{"log-prefix", optional_argument, 0, "prefix logs with a string", uwsgi_opt_log_date, NULL, 0},
 
-	{"log-zero", no_argument, 0, "log responses without body", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_ZERO, 0},
+	{"log-zero", no_argument, 0, "log responses without body", uwsgi_opt_true, uwsgi.logging_options.zero, 0},
 	{"log-slow", required_argument, 0, "log requests slower than the specified number of milliseconds", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_LOG_SLOW, 0},
 	{"log-4xx", no_argument, 0, "log requests with a 4xx response", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_4xx, 0},
 	{"log-5xx", no_argument, 0, "log requests with a 5xx response", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_5xx, 0},
@@ -1375,7 +1375,7 @@ void what_i_am_doing() {
 #else
 				ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, ctime_storage);
 #endif
-				if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now()) {
+				if (uwsgi.harakiri_options.workers > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now()) {
 					uwsgi_log("HARAKIRI: --- uWSGI worker %d core %d (pid: %d) WAS managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, i, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime_storage);
 				}
 				else {
@@ -1392,14 +1392,14 @@ void what_i_am_doing() {
 #else
 			ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, ctime_storage);
 #endif
-			if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now()) {
+			if (uwsgi.harakiri_options.workers > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now()) {
 				uwsgi_log("HARAKIRI: --- uWSGI worker %d (pid: %d) WAS managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime_storage);
 			}
 			else {
 				uwsgi_log("SIGUSR2: --- uWSGI worker %d (pid: %d) is managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime_storage);
 			}
 		}
-		else if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now() && uwsgi.workers[uwsgi.mywid].sig) {
+		else if (uwsgi.harakiri_options.workers > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now() && uwsgi.workers[uwsgi.mywid].sig) {
 			uwsgi_log("HARAKIRI: --- uWSGI worker %d (pid: %d) WAS handling signal %d ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, uwsgi.workers[uwsgi.mywid].signum);
 		}
 	}
@@ -3222,7 +3222,7 @@ void uwsgi_worker_run() {
 	}
 
 	// setup UNIX signals for the worker
-	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && !uwsgi.master_process) {
+	if (uwsgi.harakiri_options.workers > 0 && !uwsgi.master_process) {
 		signal(SIGALRM, (void *) &harakiri);
 	}
 	uwsgi_unix_signal(SIGHUP, gracefully_kill);
@@ -3818,27 +3818,6 @@ void uwsgi_opt_set_16bit(char *opt, char *value, void *key) {
 void uwsgi_opt_set_megabytes(char *opt, char *value, void *key) {
 	uint64_t *ptr = (uint64_t *) key;
 	*ptr = (uint64_t)strtoul(value, NULL, 10) * 1024 * 1024;
-}
-
-void uwsgi_opt_set_dyn(char *opt, char *value, void *key) {
-
-	long *fake_ptr = (long *) key;
-	uint8_t dyn_opt_id = (long) fake_ptr;
-	uwsgi.shared->options[dyn_opt_id] = atoi(value);
-}
-
-void uwsgi_opt_dyn_true(char *opt, char *value, void *key) {
-
-	long *fake_ptr = (long *) key;
-	uint8_t dyn_opt_id = (long) fake_ptr;
-	uwsgi.shared->options[dyn_opt_id] = 1;
-}
-
-void uwsgi_opt_dyn_false(char *opt, char *value, void *key) {
-
-	long *fake_ptr = (long *) key;
-	uint8_t dyn_opt_id = (long) fake_ptr;
-	uwsgi.shared->options[dyn_opt_id] = 0;
 }
 
 void uwsgi_opt_set_str(char *opt, char *value, void *key) {

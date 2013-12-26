@@ -174,7 +174,18 @@ char *uwsgi_encode_pydict(PyObject * pydict, uint16_t * size) {
 
 static PyObject *py_uwsgi_listen_queue(PyObject * self, PyObject * args) {
 
-	return PyInt_FromLong(uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS]);
+	int id = 0;
+
+	if (!PyArg_ParseTuple(args, "|i:listen_queue", &id)) {
+                return NULL;
+        }
+
+	struct uwsgi_socket *uwsgi_sock = uwsgi_get_socket_by_num(id);
+	if (!uwsgi_sock) {
+		return PyErr_Format(PyExc_ValueError, "unable to find socket %d", id);
+	}
+
+	return PyInt_FromLong(uwsgi_sock->queue);
 }
 
 static PyObject *py_uwsgi_close(PyObject * self, PyObject * args) {
@@ -1931,46 +1942,6 @@ PyObject *py_uwsgi_spooler_pid(PyObject * self, PyObject * args) {
 }
 
 
-PyObject *py_uwsgi_get_option(PyObject * self, PyObject * args) {
-	int opt_id;
-
-	if (!PyArg_ParseTuple(args, "i:get_option", &opt_id)) {
-		return NULL;
-	}
-
-	return PyInt_FromLong(uwsgi.shared->options[(uint8_t) opt_id]);
-}
-
-PyObject *py_uwsgi_set_option(PyObject * self, PyObject * args) {
-	int opt_id;
-	int value;
-
-	if (!PyArg_ParseTuple(args, "ii:set_option", &opt_id, &value)) {
-		return NULL;
-	}
-
-	uwsgi.shared->options[(uint8_t) opt_id] = (uint32_t) value;
-	return PyInt_FromLong(value);
-}
-
-PyObject *py_uwsgi_has_hook(PyObject * self, PyObject * args) {
-	int modifier1;
-
-	if (!PyArg_ParseTuple(args, "i:has_hook", &modifier1)) {
-		return NULL;
-	}
-
-	/*
-	   if (uwsgi.shared->hooks[modifier1] != unconfigured_hook) {
-	   Py_INCREF(Py_True);
-	   return Py_True;
-	   }
-	 */
-
-	Py_INCREF(Py_None);
-	return Py_None;
-}
-
 PyObject *py_uwsgi_connect(PyObject * self, PyObject * args) {
 
 	char *socket_name = NULL;
@@ -2221,21 +2192,6 @@ PyObject *py_uwsgi_stop(PyObject * self, PyObject * args) {
         return Py_True;
 }
 
-
-	/* blocking hint */
-PyObject *py_uwsgi_set_blocking(PyObject * self, PyObject * args) {
-
-	if (uwsgi.master_process) {
-		Py_INCREF(Py_True);
-		return Py_True;
-	}
-
-
-	Py_INCREF(Py_None);
-	return Py_None;
-}
-
-
 PyObject *py_uwsgi_request_id(PyObject * self, PyObject * args) {
 	return PyLong_FromUnsignedLongLong(uwsgi.workers[uwsgi.mywid].requests);
 }
@@ -2437,11 +2393,6 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"workers", py_uwsgi_workers, METH_VARARGS, ""},
 	{"masterpid", py_uwsgi_masterpid, METH_VARARGS, ""},
 	{"total_requests", py_uwsgi_total_requests, METH_VARARGS, ""},
-	{"getoption", py_uwsgi_get_option, METH_VARARGS, ""},
-	{"get_option", py_uwsgi_get_option, METH_VARARGS, ""},
-	{"setoption", py_uwsgi_set_option, METH_VARARGS, ""},
-	{"set_option", py_uwsgi_set_option, METH_VARARGS, ""},
-	{"sorry_i_need_to_block", py_uwsgi_set_blocking, METH_VARARGS, ""},
 	{"request_id", py_uwsgi_request_id, METH_VARARGS, ""},
 	{"worker_id", py_uwsgi_worker_id, METH_VARARGS, ""},
 	{"mule_id", py_uwsgi_mule_id, METH_VARARGS, ""},
@@ -2482,7 +2433,6 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"offload", py_uwsgi_offload, METH_VARARGS, ""},
 	{"set_warning_message", py_uwsgi_warning, METH_VARARGS, ""},
 	{"mem", py_uwsgi_mem, METH_VARARGS, ""},
-	{"has_hook", py_uwsgi_has_hook, METH_VARARGS, ""},
 	{"logsize", py_uwsgi_logsize, METH_VARARGS, ""},
 #ifdef UWSGI_SSL
 	{"i_am_the_lord", py_uwsgi_i_am_the_lord, METH_VARARGS, ""},

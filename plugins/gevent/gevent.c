@@ -8,8 +8,8 @@ static void uwsgi_opt_setup_gevent(char *opt, char *value, void *null) {
 
 	// set async mode
 	uwsgi_opt_set_int(opt, value, &uwsgi.async);
-	if (uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] < 30) {
-		uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = 30;
+	if (uwsgi.socket_timeout < 30) {
+		uwsgi.socket_timeout = 30;
 	}
 	// set loop engine
 	uwsgi.loop = "gevent";

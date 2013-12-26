@@ -476,8 +476,8 @@ int uwsgi_postbuffer_do_in_mem(struct wsgi_request *wsgi_req) {
         char *ptr = wsgi_req->post_buffering_buf;
 
         while (remains > 0) {
-                if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-                        inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                if (uwsgi.harakiri_options.workers > 0) {
+                        inc_harakiri(uwsgi.harakiri_options.workers);
                 }
 
                 ssize_t rlen = wsgi_req->socket->proto_read_body(wsgi_req, ptr, remains);
@@ -550,8 +550,8 @@ int uwsgi_postbuffer_do_in_disk(struct wsgi_request *wsgi_req) {
         while (post_remains > 0) {
 
                 // during post buffering we need to constantly reset the harakiri
-                if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-                        inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                if (uwsgi.harakiri_options.workers > 0) {
+                        inc_harakiri(uwsgi.harakiri_options.workers);
                 }
 
                 // we use the already available post buffering buffer to read chunks....

@@ -340,7 +340,7 @@ int uwsgi_buffer_send(struct uwsgi_buffer *ub, int fd) {
 	char *ptr = ub->buf;
 
 	while (remains > 0) {
-		int ret = uwsgi_waitfd_write(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		int ret = uwsgi_waitfd_write(fd, uwsgi.socket_timeout);
 		if (ret > 0) {
 			ssize_t len = write(fd, ptr, remains);
 			if (len > 0) {

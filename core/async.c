@@ -533,7 +533,7 @@ void async_loop() {
 						continue;
 					}
 					// re-add timer
-					async_add_timeout(uwsgi.wsgi_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+					async_add_timeout(uwsgi.wsgi_req, uwsgi.socket_timeout);
 					continue;
 				}
 

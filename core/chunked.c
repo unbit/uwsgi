@@ -20,7 +20,7 @@ extern struct uwsgi_server uwsgi;
 static ssize_t uwsgi_chunked_input_recv(struct wsgi_request *wsgi_req, int timeout, int nb) {
 
 	if (timeout == 0) timeout = uwsgi.chunked_input_timeout;
-	if (timeout == 0) timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
+	if (timeout == 0) timeout = uwsgi.socket_timeout;
 
 	int ret = -1;
 

@@ -26,7 +26,7 @@ int nagios() {
 	}
 
 
-	int fd = uwsgi_connect(uwsgi.sockets->name, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
+	int fd = uwsgi_connect(uwsgi.sockets->name, uwsgi.socket_timeout, 0);
 	if (fd < 0) {
 		fprintf(stdout, "UWSGI CRITICAL: could not connect() to workers %s\n", strerror(errno));
 		if (errno == EPERM || errno == EACCES) {
@@ -45,7 +45,7 @@ int nagios() {
 	}
 
 
-	int ret = uwsgi_read_response(fd, &uh, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], &buf);
+	int ret = uwsgi_read_response(fd, &uh, uwsgi.socket_timeout, &buf);
 
 	if (ret == -2) {
 		fprintf(stdout, "UWSGI CRITICAL: timed out waiting for response\n");

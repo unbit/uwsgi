@@ -47,7 +47,7 @@ void inc_harakiri(int sec) {
 		uwsgi.workers[uwsgi.mywid].harakiri += sec;
 	}
 	else {
-		alarm(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] + sec);
+		alarm(uwsgi.harakiri_options.workers + sec);
 	}
 }
 
@@ -588,7 +588,7 @@ void uwsgi_as_root() {
 			exit(1);
 		}
 #ifdef __linux__
-		if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG]) {
+		if (uwsgi.logging_options.memory_report) {
 			uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
 		}
 #endif
@@ -620,7 +620,7 @@ void uwsgi_as_root() {
 			uwsgi_error("pivot_root()");
 			exit(1);
 		}
-		if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG]) {
+		if (uwsgi.logging_options.memory_report) {
 			uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
 		}
 		free(arg);
@@ -1028,7 +1028,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	uwsgi.workers[uwsgi.mywid].avg_response_time = (uwsgi.workers[uwsgi.mywid].avg_response_time + tmp_rt) / 2;
 
 	// get memory usage
-	if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1 || uwsgi.force_get_memusage) {
+	if (uwsgi.logging_options.memory_report == 1 || uwsgi.force_get_memusage) {
 		get_memusage(&rss, &vsz);
 		uwsgi.workers[uwsgi.mywid].vsz_size = vsz;
 		uwsgi.workers[uwsgi.mywid].rss_size = rss;
@@ -1108,7 +1108,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// defunct process reaper
-	if (uwsgi.shared->options[UWSGI_OPTION_REAPER] == 1) {
+	if (uwsgi.reaper == 1) {
 		while (waitpid(WAIT_ANY, &waitpid_status, WNOHANG) > 0);
 	}
 
@@ -1160,16 +1160,16 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	// yes, this is pretty useless but we cannot ensure all of the plugin have the same behaviour
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
 
-	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi.workers[uwsgi.mywid].delta_requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]
-	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] * 1000000)) {
+	if (uwsgi.max_requests > 0 && uwsgi.workers[uwsgi.mywid].delta_requests >= uwsgi.max_requests
+	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
 		goodbye_cruel_world();
 	}
 
-	if (uwsgi.reload_on_as && (rlim_t) vsz >= uwsgi.reload_on_as && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] * 1000000)) {
+	if (uwsgi.reload_on_as && (rlim_t) vsz >= uwsgi.reload_on_as && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
 		goodbye_cruel_world();
 	}
 
-	if (uwsgi.reload_on_rss && (rlim_t) rss >= uwsgi.reload_on_rss && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] * 1000000)) {
+	if (uwsgi.reload_on_rss && (rlim_t) rss >= uwsgi.reload_on_rss && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
 		goodbye_cruel_world();
 	}
 
@@ -1345,13 +1345,13 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 		if (event_queue_add_fd_read(uwsgi.async_queue, wsgi_req->fd) < 0)
 			return -1;
 
-		async_add_timeout(wsgi_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		async_add_timeout(wsgi_req, uwsgi.socket_timeout);
 		uwsgi.async_proto_fd_table[wsgi_req->fd] = wsgi_req;
 	}
 
 	// enter harakiri mode
-	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-		set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
+	if (uwsgi.harakiri_options.workers > 0) {
+		set_harakiri(uwsgi.harakiri_options.workers);
 	}
 
 	return 0;
@@ -1382,8 +1382,8 @@ int wsgi_req_recv(int queue, struct wsgi_request *wsgi_req) {
 	}
 
 	// enter harakiri mode
-	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-		set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
+	if (uwsgi.harakiri_options.workers > 0) {
+		set_harakiri(uwsgi.harakiri_options.workers);
 	}
 
 #ifdef UWSGI_ROUTING
@@ -3859,7 +3859,7 @@ int uwsgi_send_http_stats(int fd) {
 
 	char buf[4096];
 
-	int ret = uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+	int ret = uwsgi_waitfd(fd, uwsgi.socket_timeout);
 	if (ret <= 0)
 		return -1;
 
