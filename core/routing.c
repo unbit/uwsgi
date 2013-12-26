@@ -1656,7 +1656,7 @@ static char *uwsgi_route_var_uwsgi(struct wsgi_request *wsgi_req, char *key, uin
         }
 
 	else if (!uwsgi_strncmp(key, keylen, "lq", 2)) {
-                ret = uwsgi_num2str(uwsgi.shared->load);
+                ret = uwsgi_num2str(uwsgi.shared->backlog);
                 *vallen = strlen(ret);
         }
 

@@ -40,7 +40,7 @@ extern "C" void stats_pusher_mongodb(struct uwsgi_stats_pusher_instance *uspi, t
 		// the connection object (will be automatically destroyed at each cycle)
 		mongo::DBClientConnection c;
 		// set the socket timeout
-		c.setSoTimeout(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		c.setSoTimeout(uwsgi.socket_timeout);
 		// connect
 		c.connect(spmc->address);
 		c.insert(spmc->collection, b);

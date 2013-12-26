@@ -169,7 +169,7 @@ static struct uwsgi_gridfs_mountpoint *uwsgi_gridfs_add_mountpoint(char *arg, si
 		ugm->timeout = atoi(ugm->timeout_str);
 	}
 	else {
-		ugm->timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
+		ugm->timeout = uwsgi.socket_timeout;
 	}
 
 	if (ugm->prefix) {

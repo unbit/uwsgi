@@ -222,7 +222,7 @@ static void get_linux_unbit_SIOBKLGQ(struct uwsgi_socket *uwsgi_sock) {
 
 static void master_check_listen_queue() {
 
-	uint64_t load = 0;
+	uint64_t backlog = 0;
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while(uwsgi_sock) {
 		if (uwsgi_sock->family == AF_INET) {
@@ -236,8 +236,8 @@ static void master_check_listen_queue() {
 #endif
 #endif
 
-		if (uwsgi_sock->queue > load) {
-			load = uwsgi_sock->queue;
+		if (uwsgi_sock->queue > backlog) {
+			backlog = uwsgi_sock->queue;
 		}
 		if (uwsgi_sock->queue > 0 && uwsgi_sock->queue >= uwsgi_sock->max_queue) {
 			uwsgi_log_verbose("*** uWSGI listen queue of socket \"%s\" (fd: %d) full !!! (%llu/%llu) ***\n", uwsgi_sock->name, uwsgi_sock->fd, (unsigned long long) uwsgi_sock->queue, (unsigned long long) uwsgi_sock->max_queue);
@@ -245,16 +245,20 @@ static void master_check_listen_queue() {
 		uwsgi_sock = uwsgi_sock->next;
 	}
 
-	uwsgi.shared->load = load;
+	// TODO load should be something more advanced based on different values
+	uwsgi.shared->load = backlog;
+
+	uwsgi.shared->backlog = backlog;
+
         if (uwsgi.vassal_sos_backlog > 0 && uwsgi.has_emperor) {
-        	if (uwsgi.shared->load >= (uint64_t) uwsgi.vassal_sos_backlog) {
+        	if (uwsgi.shared->backlog >= (uint64_t) uwsgi.vassal_sos_backlog) {
                 	// ask emperor for help
                         char byte = 30;
                         if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
                         	uwsgi_error("write()");
                         }
                         else {
-                        	uwsgi_log_verbose("asking Emperor for reinforcements (backlog: %llu)...\n", (unsigned long long) uwsgi.shared->load);
+                        	uwsgi_log_verbose("asking Emperor for reinforcements (backlog: %llu)...\n", (unsigned long long) uwsgi.shared->backlog);
                         }
                 }
 	}

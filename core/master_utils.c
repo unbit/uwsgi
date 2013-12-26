@@ -332,7 +332,7 @@ int uwsgi_cheaper_algo_backlog(int can_spawn) {
 
 	int i;
 #ifdef __linux__
-	int backlog = uwsgi.shared->load;
+	int backlog = uwsgi.shared->backlog;
 #else
 	int backlog = 0;
 #endif
@@ -728,9 +728,9 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		goto end;
 
 #ifdef __linux__
-	if (uwsgi_stats_keylong_comma(us, "listen_queue", (unsigned long long) uwsgi.shared->load))
+	if (uwsgi_stats_keylong_comma(us, "listen_queue", (unsigned long long) uwsgi.shared->backlog))
 		goto end;
-	if (uwsgi_stats_keylong_comma(us, "listen_queue_errors", (unsigned long long) uwsgi.shared->load))
+	if (uwsgi_stats_keylong_comma(us, "listen_queue_errors", (unsigned long long) uwsgi.shared->backlog_errors))
 		goto end;
 #endif
 

@@ -222,8 +222,8 @@ static void uwsgi_airbrake_loop(struct uwsgi_thread *ut) {
 	// ARGH !!!
 	if (!curl) return;
 
-	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-	curl_easy_setopt(curl, CURLOPT_TIMEOUT, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, uwsgi.socket_timeout);
+	curl_easy_setopt(curl, CURLOPT_TIMEOUT, uwsgi.socket_timeout);
 	curl_easy_setopt(curl, CURLOPT_READFUNCTION, NULL);
 	curl_easy_setopt(curl, CURLOPT_READDATA, ut);
 	curl_easy_setopt(curl, CURLOPT_POST, 1L);

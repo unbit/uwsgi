@@ -2765,6 +2765,9 @@ struct uwsgi_shared {
 	struct uwsgi_cron cron[MAX_CRONS];
 	int cron_cnt;
 
+	uint64_t backlog;
+	uint64_t backlog_errors;
+
 	// gateways
 	struct uwsgi_gateway gateways[MAX_GATEWAYS];
 	int gateways_cnt;

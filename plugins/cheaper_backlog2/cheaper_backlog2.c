@@ -17,7 +17,7 @@ int cheaper_backlog2_algo(int can_spawn) {
 
         int i;
 #ifdef __linux__
-        int backlog = uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS];
+        int backlog = uwsgi.socket_timeout;
 #else
         int backlog = 0;
 #endif

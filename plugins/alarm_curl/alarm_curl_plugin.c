@@ -146,8 +146,8 @@ static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 	// ARGH !!!
 	if (!curl) return;
 
-	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-	curl_easy_setopt(curl, CURLOPT_TIMEOUT, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, uwsgi.socket_timeout);
+	curl_easy_setopt(curl, CURLOPT_TIMEOUT, uwsgi.socket_timeout);
 	curl_easy_setopt(curl, CURLOPT_READFUNCTION, uwsgi_alarm_curl_read_callback);
 	curl_easy_setopt(curl, CURLOPT_READDATA, ut);
 	curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);

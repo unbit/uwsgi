@@ -10,7 +10,7 @@ static void curl_cron_func(struct uwsgi_cron *uc, time_t now) {
 
         curl_easy_setopt(curl, CURLOPT_URL, uc->command);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, uwsgi.socket_timeout);
         // use 1 minute as the cron resolution
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60);
         uwsgi_log("[uwsgi-curl-cron] requesting %s\n", uc->command);

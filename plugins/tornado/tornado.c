@@ -20,8 +20,8 @@ static void uwsgi_opt_setup_tornado(char *opt, char *value, void *null) {
 
 	// set async mode
 	uwsgi_opt_set_int(opt, value, &uwsgi.async);
-	if (uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] < 30) {
-		uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = 30;
+	if (uwsgi.socket_timeout < 30) {
+		uwsgi.socket_timeout = 30;
 	}
 	// set loop engine
 	uwsgi.loop = "tornado";
@@ -234,8 +234,8 @@ PyObject *py_uwsgi_tornado_accept(PyObject *self, PyObject *args) {
         wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request/1000000;
 
         // enter harakiri mode
-        if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-                set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
+        if (uwsgi.harakiri_options.workers > 0) {
+                set_harakiri(uwsgi.harakiri_options.workers);
         }
 
 	uwsgi.async_proto_fd_table[wsgi_req->fd] = wsgi_req;
@@ -322,7 +322,7 @@ static void tornado_loop() {
 		uwsgi_log("!!! Running tornado without threads IS NOT recommended, enable them with --enable-threads !!!\n");
 	}
 
-	if (uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] < 30) {
+	if (uwsgi.socket_timeout < 30) {
 		uwsgi_log("!!! Running tornado with a socket-timeout lower than 30 seconds is not recommended, tune it with --socket-timeout !!!\n");
 	}
 

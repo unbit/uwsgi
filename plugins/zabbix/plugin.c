@@ -110,7 +110,7 @@ end:
 
 	if (error) return;
 
-	int fd = uwsgi_connect(zn->addr, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
+	int fd = uwsgi_connect(zn->addr, uwsgi.socket_timeout, 0);
 	if (fd < 0) {
 		uwsgi_error("stats_pusher_zabbix()/connect()");
 		return;

@@ -25,7 +25,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 		// the connection object (will be automatically destroyed at each cycle)
 		mongo::DBClientConnection c;
 		// set the socket timeout
-		c.setSoTimeout(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		c.setSoTimeout(uwsgi.socket_timeout);
 		// connect
 		c.connect(uems->address);
 

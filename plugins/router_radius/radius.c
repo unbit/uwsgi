@@ -104,7 +104,7 @@ static uint16_t uwsgi_radius_auth(struct uwsgi_radius_conf *urc, char *auth, siz
 	}
 
 	// now wait for the response
-	int ret = uwsgi.wait_read_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]); 	
+	int ret = uwsgi.wait_read_hook(fd, uwsgi.socket_timeout); 	
 	if (ret <= 0) goto end;
 
 	ssize_t rlen = read(fd, access_request, access_request_len);

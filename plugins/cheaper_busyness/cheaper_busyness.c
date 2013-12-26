@@ -164,7 +164,7 @@ int cheaper_busyness_algo(int can_spawn) {
 	}
 
 #ifdef __linux__
-	int backlog = uwsgi.shared->load;
+	int backlog = uwsgi.shared->backlog;
 #endif
 
 	uint64_t now = uwsgi_micros();
