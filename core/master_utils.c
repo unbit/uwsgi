@@ -1682,7 +1682,7 @@ void uwsgi_setns_preopen() {
         DIR *ns = opendir("/proc/self/ns");
         if (!ns) {
                 uwsgi_error("uwsgi_setns_preopen()/opendir()");
-                return;
+		exit(1);
         }
         while ((de = readdir(ns)) != NULL) {
                 if (strlen(de->d_name) > 0 && de->d_name[0] == '.') continue;
