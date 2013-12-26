@@ -12,8 +12,8 @@ static void uwsgi_opt_setup_coroae(char *opt, char *value, void *null) {
 
         // set async mode
         uwsgi_opt_set_int(opt, value, &uwsgi.async);
-        if (uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] < 30) {
-                uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = 30;
+        if (uwsgi.socket_timeout < 30) {
+                uwsgi.socket_timeout = 30;
         }
         // set loop engine
         uwsgi.loop = "coroae";
@@ -164,7 +164,7 @@ XS(XS_coroae_accept_request) {
         }
 
 	for(;;) {
-		int ret = uwsgi.wait_read_hook(wsgi_req->fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		int ret = uwsgi.wait_read_hook(wsgi_req->fd, uwsgi.socket_timeout);
 		wsgi_req->switches++;
 	
 		if (ret <= 0) {
@@ -244,8 +244,8 @@ edge:
         wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request/1000000;
 
         // enter harakiri mode
-        if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-                set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
+        if (uwsgi.harakiri_options.workers > 0) {
+                set_harakiri(uwsgi.harakiri_options.workers);
         }
 
 

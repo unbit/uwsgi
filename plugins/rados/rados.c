@@ -158,7 +158,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 // this happens before fork() if not in lazy/lazy-apps mode
 static void uwsgi_rados_setup() {
 	if (!urados.timeout) {
-		urados.timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
+		urados.timeout = uwsgi.socket_timeout;
 	}
 	
 	struct uwsgi_string_list *usl = urados.mountpoints;

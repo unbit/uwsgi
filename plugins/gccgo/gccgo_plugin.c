@@ -264,7 +264,7 @@ static void uwsgi_gccgo_request_goroutine(void *arg) {
 	int ret,status;
 
         for(;;) {
-                ret = uwsgi.wait_read_hook(wsgi_req->fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                ret = uwsgi.wait_read_hook(wsgi_req->fd, uwsgi.socket_timeout);
                 wsgi_req->switches++;
 
                 if (ret <= 0) {
@@ -388,8 +388,8 @@ retry:
 		wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request/1000000;
 
 		// enter harakiri mode
-		if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-                	set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
+		if (uwsgi.harakiri_options.workers > 0) {
+                	set_harakiri(uwsgi.harakiri_options.workers);
         	}
 
 		// spawn the new goroutine
