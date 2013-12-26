@@ -924,7 +924,8 @@ struct uwsgi_socket {
 	int arg;
 	void *ctx;
 
-	int queue;
+	uint64_t queue;
+	uint64_t max_queue;
 	int no_defer;
 
 	int auto_port;
@@ -2756,9 +2757,6 @@ struct uwsgi_shared {
 	// used for request logging
 	int worker_req_log_pipe[2];
 
-#if defined(__linux__) || defined(__FreeBSD__)
-	struct tcp_info ti;
-#endif
 	uint64_t load;
 	uint64_t max_load;
 	struct uwsgi_cron cron[MAX_CRONS];

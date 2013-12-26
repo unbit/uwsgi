@@ -168,53 +168,34 @@ void expire_rb_timeouts(struct uwsgi_rbtree *tree) {
 	}
 }
 
-int uwsgi_get_tcp_info(int fd) {
+static void get_tcp_info(struct uwsgi_socket *uwsgi_sock) {
 
 #if defined(__linux__) || defined(__FreeBSD__)
+	int fd = uwsgi_sock->fd;
+	struct tcp_info ti;
 	socklen_t tis = sizeof(struct tcp_info);
 
-	if (!getsockopt(fd, IPPROTO_TCP, TCP_INFO, &uwsgi.shared->ti, &tis)) {
+	if (!getsockopt(fd, IPPROTO_TCP, TCP_INFO, &ti, &tis)) {
 
 		// checks for older kernels
 #if defined(__linux__)
-		if (!uwsgi.shared->ti.tcpi_sacked) {
+		if (!ti.tcpi_sacked) {
 #elif defined(__FreeBSD__)
-		if (!uwsgi.shared->ti.__tcpi_sacked) {
+		if (!ti.__tcpi_sacked) {
 #endif
-			return 0;
+			return;
 		}
 
 #if defined(__linux__)
-		uwsgi.shared->load = (uint64_t) uwsgi.shared->ti.tcpi_unacked;
-		uwsgi.shared->max_load = (uint64_t) uwsgi.shared->ti.tcpi_sacked;
+		uwsgi_sock->queue = (uint64_t) ti.tcpi_unacked;
+		uwsgi_sock->max_queue = (uint64_t) ti.tcpi_sacked;
 #elif defined(__FreeBSD__)
-		uwsgi.shared->load = (uint64_t) uwsgi.shared->ti.__tcpi_unacked;
-		uwsgi.shared->max_load = (uint64_t) uwsgi.shared->ti.__tcpi_sacked;
+		uwsgi_sock->queue = (uint64_t) ti.__tcpi_unacked;
+		uwsgi_sock->max_queue = (uint64_t) ti.__tcpi_sacked;
 #endif
-
-		uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS] = uwsgi.shared->load;
-		if (uwsgi.vassal_sos_backlog > 0 && uwsgi.has_emperor) {
-			if (uwsgi.shared->load >= (uint64_t) uwsgi.vassal_sos_backlog) {
-				// ask emperor for help
-				char byte = 30;
-				if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
-					uwsgi_error("write()");
-				}
-				else {
-					uwsgi_log("asking emperor for reinforcements (backlog: %llu)...\n", (unsigned long long) uwsgi.shared->load);
-				}
-			}
-		}
-		if (uwsgi.shared->load >= uwsgi.shared->max_load) {
-			uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%llu/%llu) ***\n", fd, (unsigned long long) uwsgi.shared->load, (unsigned long long) uwsgi.shared->max_load);
-			uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]++;
-		}
-
-		return uwsgi.shared->load;
 	}
-#endif
 
-	return 0;
+#endif
 }
 
 
@@ -227,25 +208,59 @@ int uwsgi_get_tcp_info(int fd) {
 
 #ifdef SIOBKLGQ
 
-int get_linux_unbit_SIOBKLGQ(int fd) {
+static void get_linux_unbit_SIOBKLGQ(struct uwsgi_socket *uwsgi_sock) {
 
+	int fd = uwsgi_sock->fd;
 	int queue = 0;
 	if (ioctl(fd, SIOBKLGQ, &queue) >= 0) {
-		uwsgi.shared->load = queue;
-		uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS] = queue;
-		if (queue >= uwsgi.listen_queue) {
-			uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, queue, uwsgi.listen_queue);
-			uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]++;
-		}
-		return queue;
+		uwsgi_sock->queue = (uint64_t) queue;
+		uwsgi_sock->max_queue = (uint64_t) uwsgi.listen_queue;
 	}
-
-	return 0;
-
 }
 #endif
 #endif
 
+static void master_check_listen_queue() {
+
+	uint64_t load = 0;
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+	while(uwsgi_sock) {
+		if (uwsgi_sock->family == AF_INET) {
+			get_tcp_info(uwsgi_sock);
+                }
+#ifdef __linux__
+#ifdef SIOBKLGQ
+                else if (uwsgi_sock->family == AF_UNIX) {
+                	get_linux_unbit_SIOBKLGQ(uwsgi_sock);
+                }
+#endif
+#endif
+
+		if (uwsgi_sock->queue > load) {
+			load = uwsgi_sock->queue;
+		}
+		if (uwsgi_sock->queue >= uwsgi_sock->max_queue) {
+			uwsgi_log_verbose("*** uWSGI listen queue of socket \"%s\" (fd: %d) full !!! (%llu/%llu) ***\n", uwsgi_sock->name, uwsgi_sock->fd, (unsigned long long) uwsgi_sock->queue, (unsigned long long) uwsgi_sock->max_queue);
+			uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]++;	
+		}
+		uwsgi_sock = uwsgi_sock->next;
+	}
+
+	uwsgi.shared->load = load;
+	uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS] = uwsgi.shared->load;
+        if (uwsgi.vassal_sos_backlog > 0 && uwsgi.has_emperor) {
+        	if (uwsgi.shared->load >= (uint64_t) uwsgi.vassal_sos_backlog) {
+                	// ask emperor for help
+                        char byte = 30;
+                        if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
+                        	uwsgi_error("write()");
+                        }
+                        else {
+                        	uwsgi_log_verbose("asking Emperor for reinforcements (backlog: %llu)...\n", (unsigned long long) uwsgi.shared->load);
+                        }
+                }
+	}
+}
 
 int master_loop(char **argv, char **environ) {
 
@@ -707,28 +722,8 @@ int master_loop(char **argv, char **environ) {
 			}
 
 
-			// get listen_queue status
-			struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-			int tmp_queue = 0;
-			while (uwsgi_sock) {
-				if (uwsgi_sock->family == AF_INET) {
-					uwsgi_sock->queue = uwsgi_get_tcp_info(uwsgi_sock->fd);
-				}
-#ifdef __linux__
-#ifdef SIOBKLGQ
-				else if (uwsgi_sock->family == AF_UNIX) {
-					uwsgi_sock->queue = get_linux_unbit_SIOBKLGQ(uwsgi_sock->fd);
-				}
-#endif
-#endif
-
-				if (uwsgi_sock->queue > tmp_queue) {
-					tmp_queue = uwsgi_sock->queue;
-				}
-				uwsgi_sock = uwsgi_sock->next;
-			}
-			// fix queue size on multiple sockets
-			uwsgi.shared->load = tmp_queue;
+			// check listen_queue status
+			master_check_listen_queue();
 
 			int someone_killed = 0;
 			// check if some worker has to die (harakiri, evil checks...)
