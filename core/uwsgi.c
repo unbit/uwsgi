@@ -348,7 +348,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"setns-socket-skip", required_argument, 0, "skip the specified entry when sending setns file descriptors", uwsgi_opt_add_string_list, &uwsgi.setns_socket_skip, 0},
 	{"setns-skip", required_argument, 0, "skip the specified entry when sending setns file descriptors", uwsgi_opt_add_string_list, &uwsgi.setns_socket_skip, 0},
 	{"setns", required_argument, 0, "join a namespace created by an external uWSGI instance", uwsgi_opt_set_str, &uwsgi.setns, 0},
-	{"setns-preopen", required_argument, 0, "open /proc/self/ns as soon as possible and cache fds", uwsgi_opt_true, &uwsgi.setns_preopen, 0},
+	{"setns-preopen", no_argument, 0, "open /proc/self/ns as soon as possible and cache fds", uwsgi_opt_true, &uwsgi.setns_preopen, 0},
 #endif
 	{"jailed", no_argument, 0, "mark the instance as jailed (force the execution of post_jail hooks)", uwsgi_opt_true, &uwsgi.jailed, 0},
 #if defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
