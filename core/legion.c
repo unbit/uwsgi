@@ -824,6 +824,7 @@ void uwsgi_opt_legion_mcast(char *opt, char *value, void *foobar) {
                 exit(1);
         }
 	uwsgi_legion_register_node(ul, uwsgi_str(ul->addr));
+	free(legion);
 }
 
 void uwsgi_opt_legion_node(char *opt, char *value, void *foobar) {
