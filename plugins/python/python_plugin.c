@@ -1795,7 +1795,8 @@ static void uwsgi_python_harakiri(int wid) {
 	if (up.tracebacker) {
 
         	char buf[8192];
-		char *address = uwsgi_concat2(up.tracebacker, uwsgi_num2str(wid));
+		char *wid_str = uwsgi_num2str(wid);
+		char *address = uwsgi_concat2(up.tracebacker, wid_str);
 
         	int fd = uwsgi_connect(address, -1, 0);
 		if (fd < 1)
@@ -1814,6 +1815,7 @@ static void uwsgi_python_harakiri(int wid) {
 cleanup:
 		close(fd);
 exit:
+		free(wid_str);
 		free(address);
 	}
 
