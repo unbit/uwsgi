@@ -134,6 +134,7 @@ static int uwsgi_request_xslt(struct wsgi_request *wsgi_req) {
 	size_t stylesheet_len = 0;
 	
 	char *params = NULL;
+	xmlDoc *doc = NULL;
 
 	if (uwsgi_parse_vars(wsgi_req)) {
 		return -1;
@@ -272,7 +273,7 @@ static int uwsgi_request_xslt(struct wsgi_request *wsgi_req) {
 
 apply:
 	// we have both the file and the stylesheet, let's run the engine
-	xmlDoc *doc = xmlParseFile(xmlfile);
+	doc = xmlParseFile(xmlfile);
 	free(xmlfile);
 	if (!doc) {
 		uwsgi_500(wsgi_req);
