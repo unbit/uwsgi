@@ -61,6 +61,7 @@ void linux_namespace_start(void *argv) {
 	for (;;) {
 		char stack[PTHREAD_STACK_MIN];
 		int waitpid_status;
+		char *pid_str = NULL;
 		uwsgi_log("*** jailing uWSGI in %s ***\n", uwsgi.ns);
 		int clone_flags = SIGCHLD | CLONE_NEWUTS | CLONE_NEWPID | CLONE_NEWIPC | CLONE_NEWNS;
 		if (uwsgi.ns_net) {
@@ -77,10 +78,12 @@ void linux_namespace_start(void *argv) {
 			exit(1);
 		}
 #endif
+		pid_str = uwsgi_num2str((int) pid);
 		// run the post-jail scripts
-		if (setenv("UWSGI_JAIL_PID", uwsgi_num2str((int) pid), 1)) {
+		if (setenv("UWSGI_JAIL_PID", pid_str, 1)) {
 			uwsgi_error("setenv()");
 		}
+		free(pid_str);
 		uwsgi_hooks_run(uwsgi.hook_post_jail, "post-jail", 1);
         	struct uwsgi_string_list *usl = uwsgi.exec_post_jail;
         	while(usl) {
