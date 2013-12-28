@@ -799,7 +799,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	if (lua_type(L, -3) == LUA_TSTRING || lua_type(L, -3) == LUA_TNUMBER) {
 		http = lua_tolstring(L, -3, &slen);
 		if (uwsgi_response_prepare_headers(wsgi_req, (char *) http, slen))
-			return -1;
+			goto clear2;
 	}
 	else {
 		uwsgi_log("[uwsgi-lua] invalid response status !!!\n");
