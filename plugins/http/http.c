@@ -618,6 +618,9 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 
 	// is it http body ?
 	if (hr->rnrn == 4) {
+		// something bad happened in keepalive mode...
+		if (!main_peer->session->peers) return -1;
+
 		if (hr->content_length == 0 && !hr->raw_body) {
 			// ignore data...
 			main_peer->in->pos = 0;
