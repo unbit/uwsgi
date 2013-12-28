@@ -1746,7 +1746,8 @@ void emperor_send_stats(int fd) {
 		goto end0;
 	struct uwsgi_emperor_scanner *ues = emperor_scanners;
 	while (ues) {
-		uwsgi_stats_str(us, ues->arg);
+		if (uwsgi_stats_str(us, ues->arg))
+			goto end0;
 		ues = ues->next;
 		if (ues) {
 			if (uwsgi_stats_comma(us))
