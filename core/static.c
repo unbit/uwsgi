@@ -450,7 +450,8 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	if (wsgi_req->if_modified_since_len) {
 		time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);
 		if (st->st_mtime <= ims) {
-			uwsgi_response_prepare_headers(wsgi_req, "304 Not Modified", 16); 
+			if (uwsgi_response_prepare_headers(wsgi_req, "304 Not Modified", 16))
+				return -1;
 			return uwsgi_response_write_headers_do(wsgi_req);
 		}
 	}
