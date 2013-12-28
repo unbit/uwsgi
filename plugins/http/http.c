@@ -874,7 +874,8 @@ int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket
 			break;
 #endif
 		default:
-			uwsgi_cr_set_hooks(cs->main_peer, cs->main_peer->last_hook_read, NULL);
+			if (uwsgi_cr_set_hooks(cs->main_peer, cs->main_peer->last_hook_read, NULL))
+				return -1;
 			cs->close = hr_session_close;
 			break;
 	}

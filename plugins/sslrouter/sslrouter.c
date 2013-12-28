@@ -362,7 +362,8 @@ static int sslrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_ga
         SSL_set_fd(sr->ssl, cs->main_peer->fd);
         SSL_set_accept_state(sr->ssl);
 
-	uwsgi_cr_set_hooks(cs->main_peer, sr_read, NULL);
+	if (uwsgi_cr_set_hooks(cs->main_peer, sr_read, NULL))
+		return -1;
 
 	return 0;
 }
