@@ -737,6 +737,7 @@ void uwsgi_legion_add(struct uwsgi_legion *ul) {
 
 int uwsgi_legion_announce(struct uwsgi_legion *ul) {
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(4096);
+	unsigned char *encrypted = NULL;
 
 	if (uwsgi_buffer_append_keyval(ub, "legion", 6, ul->legion, ul->legion_len))
 		goto err;
@@ -769,7 +770,7 @@ int uwsgi_legion_announce(struct uwsgi_legion *ul) {
                 	goto err;
 	}
 
-	unsigned char *encrypted = uwsgi_malloc(ub->pos + 4 + EVP_MAX_BLOCK_LENGTH);
+	encrypted = uwsgi_malloc(ub->pos + 4 + EVP_MAX_BLOCK_LENGTH);
 	if (EVP_EncryptInit_ex(ul->encrypt_ctx, NULL, NULL, NULL, NULL) <= 0) {
 		uwsgi_error("[uwsgi-legion] EVP_EncryptInit_ex()");
 		goto err;
@@ -808,6 +809,7 @@ int uwsgi_legion_announce(struct uwsgi_legion *ul) {
 	return 0;
 err:
 	uwsgi_buffer_destroy(ub);
+	free(encrypted);
 	return -1;
 }
 
@@ -824,6 +826,7 @@ void uwsgi_opt_legion_mcast(char *opt, char *value, void *foobar) {
                 exit(1);
         }
 	uwsgi_legion_register_node(ul, uwsgi_str(ul->addr));
+	free(legion);
 }
 
 void uwsgi_opt_legion_node(char *opt, char *value, void *foobar) {

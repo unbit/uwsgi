@@ -855,9 +855,8 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
                                 }
                                 keysize++;
                         }
-
-                        free(lines);
                 }
+                free(lines);
         }
         else {
                 modifier1 = strchr(subscription_key + 1, ',');

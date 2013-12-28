@@ -60,6 +60,12 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 	int current_defer_accept = uwsgi.no_defer_accept;
         uwsgi.no_defer_accept = 1;
 	int fd = bind_to_unix(sock_path, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+	if (fd < 0) {
+		uwsgi.no_defer_accept = current_defer_accept;
+		free(str_wid);
+		free(sock_path);
+		return NULL;
+	}
         uwsgi.no_defer_accept = current_defer_accept;
 
 	PyObject *traceback_module = PyImport_ImportModule("traceback");
