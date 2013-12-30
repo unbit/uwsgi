@@ -972,6 +972,9 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		if (uwsgi_stats_keylong_comma(us, "queue", (unsigned long long) uwsgi_sock->queue))
 			goto end;
 
+		if (uwsgi_stats_keylong_comma(us, "max_queue", (unsigned long long) uwsgi_sock->max_queue))
+			goto end;
+
 		if (uwsgi_stats_keylong_comma(us, "shared", (unsigned long long) uwsgi_sock->shared))
 			goto end;
 
