@@ -483,14 +483,16 @@ int uwsgi_rack_init(){
 		uwsgi_log("*** if you get errors about rubygems.rb, you can:\n");
 		uwsgi_log("*** 1) add a directory to the libdir search path using --ruby-libdir ***\n");
 		uwsgi_log("*** 2) force the RUBY_EXEC_PREFIX with --chdir ***\n");
-#ifdef UWSGI_RUBY_LIBDIR
-		uwsgi_string_new_list(&ur.libdir, UWSGI_RUBY_LIBDIR);
-#endif
-#ifdef UWSGI_RUBY_ARCHDIR
-		uwsgi_string_new_list(&ur.libdir, UWSGI_RUBY_ARCHDIR);
-#endif
 	}
 #endif
+
+#ifdef UWSGI_RUBY_LIBDIR
+	uwsgi_string_new_list(&ur.libdir, UWSGI_RUBY_LIBDIR);
+#endif
+#ifdef UWSGI_RUBY_ARCHDIR
+	uwsgi_string_new_list(&ur.libdir, UWSGI_RUBY_ARCHDIR);
+#endif
+
 	ruby_init();
 	struct uwsgi_string_list *usl = ur.libdir;
 	while(usl) {
