@@ -1520,6 +1520,8 @@ void emperor_loop() {
 
 	int freq = 0;
 
+	uwsgi_hooks_run(uwsgi.hook_emperor_start, "emperor-start", 1);
+
 	for (;;) {
 
 

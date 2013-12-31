@@ -47,6 +47,18 @@ void uwsgi_register_hook(char *name, int (*func)(char *)) {
 	}
 }
 
+static int uwsgi_hook_alarm(char *arg) {
+	char *space = strchr(arg,' ');
+	if (!space) {
+		uwsgi_log("invalid alarm hook syntax, must be: <alarm> <msg>\n");
+		return -1;
+	}
+	*space = 0;
+	uwsgi_alarm_trigger(arg, space+1,  strlen(space+1));
+	*space = ' ';
+	return 0;
+}
+
 static int uwsgi_hook_chdir(char *arg) {
 	int ret = chdir(arg);
 	if (ret) {
@@ -476,9 +488,12 @@ void uwsgi_register_base_hooks() {
 
 	uwsgi_register_hook("hostname", uwsgi_hook_hostname);
 
+	uwsgi_register_hook("alarm", uwsgi_hook_alarm);
+
 	// for testing
 	uwsgi_register_hook("exit", uwsgi_hook_exit);
 	uwsgi_register_hook("print", uwsgi_hook_print);
+	uwsgi_register_hook("log", uwsgi_hook_print);
 }
 
 void uwsgi_hooks_run(struct uwsgi_string_list *l, char *phase, int fatal) {

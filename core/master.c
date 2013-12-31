@@ -555,6 +555,7 @@ int master_loop(char **argv, char **environ) {
 	}
 
 	// here really starts the master loop
+	uwsgi_hooks_run(uwsgi.hook_master_start, "master-start", 1);
 
 	for (;;) {
 		//uwsgi_log("uwsgi.ready_to_reload %d %d\n", uwsgi.ready_to_reload, uwsgi.numproc);

@@ -385,6 +385,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
         {"hook-accepting-once", required_argument, 0, "run the specified hook after each worker enter the accepting phase (once per-instance)", uwsgi_opt_add_string_list, &uwsgi.hook_accepting_once, 0},
         {"hook-accepting1-once", required_argument, 0, "run the specified hook after the first worker enters the accepting phase (once per instance)", uwsgi_opt_add_string_list, &uwsgi.hook_accepting1_once, 0},
 
+        {"hook-master-start", required_argument, 0, "run the specified hook when the Master starts", uwsgi_opt_add_string_list, &uwsgi.hook_master_start, 0},
+
+        {"hook-emperor-start", required_argument, 0, "run the specified hook when the Emperor starts", uwsgi_opt_add_string_list, &uwsgi.hook_emperor_start, 0},
         {"hook-emperor-stop", required_argument, 0, "run the specified hook when the Emperor send a stop message", uwsgi_opt_add_string_list, &uwsgi.hook_emperor_stop, 0},
         {"hook-emperor-reload", required_argument, 0, "run the specified hook when the Emperor send a reload message", uwsgi_opt_add_string_list, &uwsgi.hook_emperor_reload, 0},
         {"hook-emperor-lost", required_argument, 0, "run the specified hook when the Emperor connection is lost", uwsgi_opt_add_string_list, &uwsgi.hook_emperor_lost, 0},

@@ -2051,6 +2051,9 @@ struct uwsgi_server {
         struct uwsgi_string_list *hook_accepting_once;
         struct uwsgi_string_list *hook_accepting1_once;
 
+	struct uwsgi_string_list *hook_emperor_start;
+	struct uwsgi_string_list *hook_master_start;
+
 	struct uwsgi_string_list *hook_emperor_stop;
 	struct uwsgi_string_list *hook_emperor_reload;
 	struct uwsgi_string_list *hook_emperor_lost;
