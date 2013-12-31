@@ -2150,6 +2150,7 @@ struct uwsgi_server {
 	struct uwsgi_alarm_fd *alarm_fds;
 	struct uwsgi_string_list *alarm_fd_list;
 	struct uwsgi_string_list *alarm_segfault;
+	struct uwsgi_string_list *alarm_backlog;
 	struct uwsgi_alarm *alarms;
 	struct uwsgi_alarm_instance *alarm_instances;
 	struct uwsgi_alarm_log *alarm_logs;
