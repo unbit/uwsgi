@@ -76,18 +76,23 @@ char *uwsgi_getsockname(int fd) {
 	return NULL;
 }
 
+static int create_server_socket(int domain, int type) {
+	int serverfd = socket(domain, type, 0);
+	if (serverfd < 0) {
+		uwsgi_error("socket()");
+		uwsgi_nuclear_blast();
+	}
+	return serverfd;
+}
+
 int bind_to_unix_dgram(char *socket_name) {
 
 	int serverfd;
 	struct sockaddr_un *uws_addr;
 	socklen_t len;
 
-	serverfd = socket(AF_UNIX, SOCK_DGRAM, 0);
-	if (serverfd < 0) {
-		uwsgi_error("socket()");
-		uwsgi_nuclear_blast();
-		return -1;
-	}
+	serverfd = create_server_socket(AF_UNIX, SOCK_DGRAM);
+	if (serverfd < 0) return -1;
 
 	if (unlink(socket_name) != 0 && errno != ENOENT) {
 		uwsgi_error("error removing unix socket, unlink()");
@@ -140,12 +145,8 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	}
 
 	memset(uws_addr, 0, sizeof(struct sockaddr_un));
-	serverfd = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (serverfd < 0) {
-		uwsgi_error("socket()");
-		uwsgi_nuclear_blast();
-		return -1;
-	}
+	serverfd = create_server_socket(AF_UNIX, SOCK_STREAM);
+	if (serverfd < 0) return -1;
 	if (abstract_socket == 0) {
 		if (unlink(socket_name) != 0 && errno != ENOENT) {
 			uwsgi_error("unlink()");
@@ -288,11 +289,8 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 	}
 
 
-	serverfd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (serverfd < 0) {
-		uwsgi_error("socket()");
-		return -1;
-	}
+	serverfd = create_server_socket(AF_INET, SOCK_DGRAM);
+	if (serverfd < 0) return -1;
 
 	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
 		uwsgi_error("setsockopt()");
@@ -667,12 +665,8 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 #endif
 
 
-	serverfd = socket(family, SOCK_STREAM, 0);
-	if (serverfd < 0) {
-		uwsgi_error("socket()");
-		uwsgi_nuclear_blast();
-		return -1;
-	}
+	serverfd = create_server_socket(family, SOCK_STREAM);
+	if (serverfd < 0) return -1;
 	
 	if (uwsgi.so_sndbuf) {
 		socklen_t sndbuf = (socklen_t) uwsgi.so_sndbuf;
