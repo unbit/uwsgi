@@ -81,7 +81,29 @@ static int create_server_socket(int domain, int type) {
 	if (serverfd < 0) {
 		uwsgi_error("socket()");
 		uwsgi_nuclear_blast();
+		return -1;
 	}
+
+	if (type == SOCK_STREAM) {
+		if (uwsgi.so_sndbuf) {
+			socklen_t sndbuf = (socklen_t) uwsgi.so_sndbuf;
+			if (setsockopt(serverfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(socklen_t)) < 0) {
+				uwsgi_error("SO_SNDBUF setsockopt()");
+				uwsgi_nuclear_blast();
+				return -1;
+			}
+		}
+
+		if (uwsgi.so_rcvbuf) {
+			socklen_t rcvbuf = (socklen_t) uwsgi.so_rcvbuf;
+			if (setsockopt(serverfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(socklen_t)) < 0) {
+				uwsgi_error("SO_RCVBUF setsockopt()");
+				uwsgi_nuclear_blast();
+				return -1;
+			}
+		}
+	}
+
 	return serverfd;
 }
 
@@ -156,24 +178,6 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	if (abstract_socket == 1) {
 		uwsgi_log("setting abstract socket mode (warning: only Linux supports this)\n");
 	}
-
-	if (uwsgi.so_sndbuf) {
-                socklen_t sndbuf = (socklen_t) uwsgi.so_sndbuf;
-                if (setsockopt(serverfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(socklen_t)) < 0) {
-                        uwsgi_error("SO_SNDBUF setsockopt()");
-                        uwsgi_nuclear_blast();
-                        return -1;
-                }
-        }
-
-        if (uwsgi.so_rcvbuf) {
-                socklen_t rcvbuf = (socklen_t) uwsgi.so_rcvbuf;
-                if (setsockopt(serverfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(socklen_t)) < 0) {
-                        uwsgi_error("SO_RCVBUF setsockopt()");
-                        uwsgi_nuclear_blast();
-                        return -1;
-                }
-        }
 
 	uws_addr->sun_family = AF_UNIX;
 	if (socket_name[0] == '@') {
@@ -668,24 +672,6 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	serverfd = create_server_socket(family, SOCK_STREAM);
 	if (serverfd < 0) return -1;
 	
-	if (uwsgi.so_sndbuf) {
-		socklen_t sndbuf = (socklen_t) uwsgi.so_sndbuf;
-		if (setsockopt(serverfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(socklen_t)) < 0) {
-                	uwsgi_error("SO_SNDBUF setsockopt()");
-                	uwsgi_nuclear_blast();
-                	return -1;
-        	}
-	}
-
-	if (uwsgi.so_rcvbuf) {
-                socklen_t rcvbuf = (socklen_t) uwsgi.so_rcvbuf;
-                if (setsockopt(serverfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(socklen_t)) < 0) {
-                        uwsgi_error("SO_RCVBUF setsockopt()");
-                        uwsgi_nuclear_blast();
-                        return -1;
-                }
-        }
-
 	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
 		uwsgi_error("SO_REUSEADDR setsockopt()");
 		uwsgi_nuclear_blast();
