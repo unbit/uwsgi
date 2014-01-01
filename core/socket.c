@@ -84,6 +84,15 @@ static int create_server_socket(int domain, int type) {
 		return -1;
 	}
 
+	if (domain != AF_UNIX) {
+		int reuse = 1;
+		if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
+			uwsgi_error("SO_REUSEADDR setsockopt()");
+			uwsgi_nuclear_blast();
+			return -1;
+		}
+	}
+
 	if (type == SOCK_STREAM) {
 		if (uwsgi.so_sndbuf) {
 			socklen_t sndbuf = (socklen_t) uwsgi.so_sndbuf;
@@ -248,7 +257,6 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 	struct sockaddr_in uws_addr;
 	char *udp_port;
 	int bcast = 1;
-	int reuse = 1;
 
 	struct ip_mreq mc;
 
@@ -295,10 +303,6 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 
 	serverfd = create_server_socket(AF_INET, SOCK_DGRAM);
 	if (serverfd < 0) return -1;
-
-	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
-		uwsgi_error("setsockopt()");
-	}
 
 	if (multicast) {
 		// if multicast is enabled remember to bind to INADDR_ANY
@@ -651,7 +655,6 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 #else
 	struct sockaddr_in uws_addr;
 #endif
-	int reuse = 1;
 	int family = AF_INET;
 	socklen_t addr_len = sizeof(struct sockaddr_in);
 
@@ -672,12 +675,6 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	serverfd = create_server_socket(family, SOCK_STREAM);
 	if (serverfd < 0) return -1;
 	
-	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
-		uwsgi_error("SO_REUSEADDR setsockopt()");
-		uwsgi_nuclear_blast();
-		return -1;
-	}
-
 #ifdef __linux__
 #ifndef IP_FREEBIND
 #define IP_FREEBIND 15
