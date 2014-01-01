@@ -871,7 +871,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"disable-sendfile", no_argument, 0, "disable sendfile() and rely on boring read()/write()", uwsgi_opt_true, &uwsgi.disable_sendfile, 0},
 
 	{"check-cache", optional_argument, 0, "check for response data in the specified cache (empty for default cache)", uwsgi_opt_set_str, &uwsgi.use_check_cache, 0},
-	{"close-on-exec", no_argument, 0, "set close-on-exec on sockets (could be required for spawning processes in requests)", uwsgi_opt_true, &uwsgi.close_on_exec, 0},
+	{"close-on-exec", no_argument, 0, "set close-on-exec on connection sockets (could be required for spawning processes in requests)", uwsgi_opt_true, &uwsgi.close_on_exec, 0},
+	{"close-on-exec2", no_argument, 0, "set close-on-exec on server sockets (could be required for spawning processes in requests)", uwsgi_opt_true, &uwsgi.close_on_exec2, 0},
 	{"mode", required_argument, 0, "set uWSGI custom mode", uwsgi_opt_set_str, &uwsgi.mode, 0},
 	{"env", required_argument, 0, "set environment variable", uwsgi_opt_set_env, NULL, 0},
 	{"envdir", required_argument, 0, "load a daemontools compatible envdir", uwsgi_opt_add_string_list, &uwsgi.envdirs, 0},
