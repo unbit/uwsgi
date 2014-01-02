@@ -2516,6 +2516,8 @@ struct uwsgi_server {
 	void (*gbcw_hook) (void);
 
 	int close_on_exec;
+	int close_on_exec2;
+
 	int tcp_nodelay;
 
 	char *loop;

@@ -84,6 +84,9 @@ static int create_server_socket(int domain, int type) {
 		return -1;
 	}
 
+	if (uwsgi.close_on_exec2 && fcntl(serverfd, F_SETFD, FD_CLOEXEC) < 0)
+		uwsgi_error("fcntl()");
+
 	if (domain != AF_UNIX) {
 		int reuse = 1;
 		if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
