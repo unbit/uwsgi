@@ -76,18 +76,63 @@ char *uwsgi_getsockname(int fd) {
 	return NULL;
 }
 
+static int create_server_socket(int domain, int type) {
+	int serverfd = socket(domain, type, 0);
+	if (serverfd < 0) {
+		uwsgi_error("socket()");
+		uwsgi_nuclear_blast();
+		return -1;
+	}
+
+	if (domain != AF_UNIX) {
+		int reuse = 1;
+		if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
+			uwsgi_error("SO_REUSEADDR setsockopt()");
+			uwsgi_nuclear_blast();
+			return -1;
+		}
+	}
+
+	if (type == SOCK_STREAM) {
+		if (uwsgi.so_sndbuf) {
+			socklen_t sndbuf = (socklen_t) uwsgi.so_sndbuf;
+			if (setsockopt(serverfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(socklen_t)) < 0) {
+				uwsgi_error("SO_SNDBUF setsockopt()");
+				uwsgi_nuclear_blast();
+				return -1;
+			}
+		}
+
+		if (uwsgi.so_rcvbuf) {
+			socklen_t rcvbuf = (socklen_t) uwsgi.so_rcvbuf;
+			if (setsockopt(serverfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(socklen_t)) < 0) {
+				uwsgi_error("SO_RCVBUF setsockopt()");
+				uwsgi_nuclear_blast();
+				return -1;
+			}
+		}
+
+#ifdef __linux__
+		long somaxconn = uwsgi_num_from_file("/proc/sys/net/core/somaxconn", 1);
+		if (somaxconn > 0 && uwsgi.listen_queue > somaxconn) {
+			uwsgi_log("Listen queue size is greater than the system max net.core.somaxconn (%li).\n", somaxconn);
+			uwsgi_nuclear_blast();
+			return -1;
+		}
+#endif
+	}
+
+	return serverfd;
+}
+
 int bind_to_unix_dgram(char *socket_name) {
 
 	int serverfd;
 	struct sockaddr_un *uws_addr;
 	socklen_t len;
 
-	serverfd = socket(AF_UNIX, SOCK_DGRAM, 0);
-	if (serverfd < 0) {
-		uwsgi_error("socket()");
-		uwsgi_nuclear_blast();
-		return -1;
-	}
+	serverfd = create_server_socket(AF_UNIX, SOCK_DGRAM);
+	if (serverfd < 0) return -1;
 
 	if (unlink(socket_name) != 0 && errno != ENOENT) {
 		uwsgi_error("error removing unix socket, unlink()");
@@ -140,12 +185,8 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	}
 
 	memset(uws_addr, 0, sizeof(struct sockaddr_un));
-	serverfd = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (serverfd < 0) {
-		uwsgi_error("socket()");
-		uwsgi_nuclear_blast();
-		return -1;
-	}
+	serverfd = create_server_socket(AF_UNIX, SOCK_STREAM);
+	if (serverfd < 0) return -1;
 	if (abstract_socket == 0) {
 		if (unlink(socket_name) != 0 && errno != ENOENT) {
 			uwsgi_error("unlink()");
@@ -155,24 +196,6 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	if (abstract_socket == 1) {
 		uwsgi_log("setting abstract socket mode (warning: only Linux supports this)\n");
 	}
-
-	if (uwsgi.so_sndbuf) {
-                socklen_t sndbuf = (socklen_t) uwsgi.so_sndbuf;
-                if (setsockopt(serverfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(socklen_t)) < 0) {
-                        uwsgi_error("SO_SNDBUF setsockopt()");
-                        uwsgi_nuclear_blast();
-                        return -1;
-                }
-        }
-
-        if (uwsgi.so_rcvbuf) {
-                socklen_t rcvbuf = (socklen_t) uwsgi.so_rcvbuf;
-                if (setsockopt(serverfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(socklen_t)) < 0) {
-                        uwsgi_error("SO_RCVBUF setsockopt()");
-                        uwsgi_nuclear_blast();
-                        return -1;
-                }
-        }
 
 	uws_addr->sun_family = AF_UNIX;
 	if (socket_name[0] == '@') {
@@ -202,15 +225,6 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		uwsgi_nuclear_blast();
 		return -1;
 	}
-
-#ifdef __linux__
-        long somaxconn = uwsgi_num_from_file("/proc/sys/net/core/somaxconn", 1);
-        if (somaxconn > 0 && uwsgi.listen_queue > somaxconn) {
-                uwsgi_log("Listen queue size is greater than the system max net.core.somaxconn (%li).\n", somaxconn);
-                uwsgi_nuclear_blast();
-                return -1;
-        }
-#endif
 
 	if (listen(serverfd, listen_queue) != 0) {
 		uwsgi_error("listen()");
@@ -243,7 +257,6 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 	struct sockaddr_in uws_addr;
 	char *udp_port;
 	int bcast = 1;
-	int reuse = 1;
 
 	struct ip_mreq mc;
 
@@ -288,15 +301,8 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 	}
 
 
-	serverfd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (serverfd < 0) {
-		uwsgi_error("socket()");
-		return -1;
-	}
-
-	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
-		uwsgi_error("setsockopt()");
-	}
+	serverfd = create_server_socket(AF_INET, SOCK_DGRAM);
+	if (serverfd < 0) return -1;
 
 	if (multicast) {
 		// if multicast is enabled remember to bind to INADDR_ANY
@@ -649,7 +655,6 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 #else
 	struct sockaddr_in uws_addr;
 #endif
-	int reuse = 1;
 	int family = AF_INET;
 	socklen_t addr_len = sizeof(struct sockaddr_in);
 
@@ -667,37 +672,9 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 #endif
 
 
-	serverfd = socket(family, SOCK_STREAM, 0);
-	if (serverfd < 0) {
-		uwsgi_error("socket()");
-		uwsgi_nuclear_blast();
-		return -1;
-	}
+	serverfd = create_server_socket(family, SOCK_STREAM);
+	if (serverfd < 0) return -1;
 	
-	if (uwsgi.so_sndbuf) {
-		socklen_t sndbuf = (socklen_t) uwsgi.so_sndbuf;
-		if (setsockopt(serverfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(socklen_t)) < 0) {
-                	uwsgi_error("SO_SNDBUF setsockopt()");
-                	uwsgi_nuclear_blast();
-                	return -1;
-        	}
-	}
-
-	if (uwsgi.so_rcvbuf) {
-                socklen_t rcvbuf = (socklen_t) uwsgi.so_rcvbuf;
-                if (setsockopt(serverfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(socklen_t)) < 0) {
-                        uwsgi_error("SO_RCVBUF setsockopt()");
-                        uwsgi_nuclear_blast();
-                        return -1;
-                }
-        }
-
-	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
-		uwsgi_error("SO_REUSEADDR setsockopt()");
-		uwsgi_nuclear_blast();
-		return -1;
-	}
-
 #ifdef __linux__
 #ifndef IP_FREEBIND
 #define IP_FREEBIND 15
@@ -780,15 +757,6 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		uwsgi_nuclear_blast();
 		return -1;
 	}
-
-#ifdef __linux__
-	long somaxconn = uwsgi_num_from_file("/proc/sys/net/core/somaxconn", 1);
-	if (somaxconn > 0 && uwsgi.listen_queue > somaxconn) {
-		uwsgi_log("Listen queue size is greater than the system max net.core.somaxconn (%li).\n", somaxconn);
-		uwsgi_nuclear_blast();
-		return -1;
-	}
-#endif
 
 	if (listen(serverfd, listen_queue) != 0) {
 		uwsgi_error("listen()");
