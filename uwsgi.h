@@ -625,10 +625,10 @@ struct uwsgi_logger {
 struct uwsgi_legion_node {
 	char *name;
 	uint16_t name_len;
+	uint16_t scroll_len;
+	char *scroll;
 	uint64_t valor;
 	char uuid[37];
-	char *scroll;
-	uint16_t scroll_len;
 	uint64_t checksum;
 	uint64_t lord_valor;
 	char lord_uuid[36];
@@ -640,13 +640,16 @@ struct uwsgi_legion_node {
 struct uwsgi_legion {
 	char *legion;
 	uint16_t legion_len;
+	uint16_t name_len;
+	char *name;
 	uint64_t valor;
 	char *addr;
-	char *name;
-	uint16_t name_len;
 	pid_t pid;
-	char uuid[37];
 	int socket;
+	char uuid[37];
+
+	uint16_t scroll_len;
+	char *scroll;
 
 	int quorum;
 	int changed;
@@ -657,9 +660,6 @@ struct uwsgi_legion {
 	int joined;
 
 	uint64_t checksum;
-
-	char *scroll;
-	uint16_t scroll_len;
 
 	char *lord_scroll;
 	uint16_t lord_scroll_len;
