@@ -407,7 +407,7 @@ void uwsgi_reload(char **argv) {
 	/* check fd table (a module can obviosly open some fd on initialization...) */
 	uwsgi_log("closing all non-uwsgi socket fds > 2 (max_fd = %d)...\n", (int) uwsgi.max_fd);
 	for (i = 3; i < (int) uwsgi.max_fd; i++) {
-		fcntl(i, F_SETFD, 0);
+		if (uwsgi.close_on_exec2) fcntl(i, F_SETFD, 0);
 
 		if (uwsgi_fd_is_safe(i)) continue;
 
