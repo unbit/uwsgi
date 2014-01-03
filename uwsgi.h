@@ -4231,7 +4231,7 @@ void uwsgi_start_legions(void);
 int uwsgi_legion_announce(struct uwsgi_legion *);
 struct uwsgi_legion *uwsgi_legion_get_by_name(char *);
 struct uwsgi_legion_action *uwsgi_legion_action_get(char *);
-void uwsgi_legion_action_register(char *, int (*)(struct uwsgi_legion *, char *));
+struct uwsgi_legion_action *uwsgi_legion_action_register(char *, int (*)(struct uwsgi_legion *, char *));
 int uwsgi_legion_action_call(char *, struct uwsgi_legion *, struct uwsgi_string_list *);
 void uwsgi_legion_atexit(void);
 #endif

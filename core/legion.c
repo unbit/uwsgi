@@ -1139,10 +1139,11 @@ struct uwsgi_legion_action *uwsgi_legion_action_get(char *name) {
 	return NULL;
 }
 
-void uwsgi_legion_action_register(char *name, int (*func) (struct uwsgi_legion *, char *)) {
-	if (uwsgi_legion_action_get(name)) {
+struct uwsgi_legion_action *uwsgi_legion_action_register(char *name, int (*func) (struct uwsgi_legion *, char *)) {
+	struct uwsgi_legion_action *found_ula = uwsgi_legion_action_get(name);
+	if (found_ula) {
 		uwsgi_log("[uwsgi-legion] action \"%s\" is already registered !!!\n", name);
-		return;
+		return found_ula;
 	}
 
 	struct uwsgi_legion_action *old_ula = NULL, *ula = uwsgi.legion_actions;
@@ -1161,6 +1162,8 @@ void uwsgi_legion_action_register(char *name, int (*func) (struct uwsgi_legion *
 	else {
 		uwsgi.legion_actions = ula;
 	}
+
+	return ula;
 }
 
 void uwsgi_legion_announce_death(void) {
