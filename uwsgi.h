@@ -704,6 +704,7 @@ struct uwsgi_legion {
 struct uwsgi_legion_action {
 	char *name;
 	int (*func) (struct uwsgi_legion *, char *);
+	char *log_msg;
 	struct uwsgi_legion_action *next;
 };
 #endif

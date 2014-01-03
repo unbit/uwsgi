@@ -661,7 +661,12 @@ int uwsgi_legion_action_call(char *phase, struct uwsgi_legion *ul, struct uwsgi_
 		return -1;
 	}
 
-	uwsgi_log("[uwsgi-legion] (phase: %s legion: %s) calling %s\n", phase, ul->legion, usl->value);
+	if (ula->log_msg) {
+		uwsgi_log("[uwsgi-legion] (phase: %s legion: %s) %s\n", phase, ul->legion, ula->log_msg);
+	}
+	else {
+		uwsgi_log("[uwsgi-legion] (phase: %s legion: %s) calling %s\n", phase, ul->legion, usl->value);
+	}
 	return ula->func(ul, usl->value + usl->custom);
 }
 
@@ -688,6 +693,7 @@ void uwsgi_start_legions() {
 
 	// register embedded actions
 	uwsgi_legion_action_register("cmd", legion_action_cmd);
+	uwsgi_legion_action_register("exec", legion_action_cmd);
 	uwsgi_legion_action_register("signal", legion_action_signal);
 	uwsgi_legion_action_register("log", legion_action_log);
 
