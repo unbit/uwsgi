@@ -132,6 +132,10 @@ static void greenlet_init_apps(void) {
 
 
 	PyGreenlet_Import();
+	if (PyErr_Occurred()){
+		PyErr_Print();
+		exit(1);
+	}
 
 	ugl.gl = uwsgi_malloc( sizeof(PyGreenlet *) * uwsgi.async );
 	ugl.main = PyGreenlet_GetCurrent();
