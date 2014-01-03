@@ -2037,6 +2037,8 @@ struct uwsgi_server {
 
 	struct uwsgi_hook *hooks;
 
+	struct uwsgi_string_list *hook_touch;
+
 	struct uwsgi_string_list *hook_asap;
 	struct uwsgi_string_list *hook_pre_jail;
         struct uwsgi_string_list *hook_post_jail;

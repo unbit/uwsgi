@@ -387,6 +387,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
         {"hook-master-start", required_argument, 0, "run the specified hook when the Master starts", uwsgi_opt_add_string_list, &uwsgi.hook_master_start, 0},
 
+        {"hook-touch", required_argument, 0, "run the specified hook when the specified file is touched (syntax: <file> <action>)", uwsgi_opt_add_string_list, &uwsgi.hook_touch, 0},
+
         {"hook-emperor-start", required_argument, 0, "run the specified hook when the Emperor starts", uwsgi_opt_add_string_list, &uwsgi.hook_emperor_start, 0},
         {"hook-emperor-stop", required_argument, 0, "run the specified hook when the Emperor send a stop message", uwsgi_opt_add_string_list, &uwsgi.hook_emperor_stop, 0},
         {"hook-emperor-reload", required_argument, 0, "run the specified hook when the Emperor send a reload message", uwsgi_opt_add_string_list, &uwsgi.hook_emperor_reload, 0},
