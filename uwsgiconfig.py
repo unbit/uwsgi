@@ -1117,7 +1117,7 @@ class uConf(object):
                 report['yaml'] = 'libyaml'
 
         if self.get('json'):
-            if self.get('json') == 'auto':
+            if self.get('json') in ('auto', 'true'):
                 jsonconf = spcall("pkg-config --cflags jansson")
                 if jsonconf:
                     self.cflags.append(jsonconf)
@@ -1139,6 +1139,9 @@ class uConf(object):
                         self.libs.append(spcall("pkg-config --libs yajl"))
                         self.cflags.append("-DUWSGI_JSON_YAJL")
                         report['json'] = 'yajl'
+                    elif self.get('json') == 'true':
+                        print("*** jansson and yajl headers unavailable. uWSGI build is interrupted. You have to install jansson or yajl development headers or disable JSON")
+                        sys.exit(1)
             elif self.get('json') == 'jansson':
                 jsonconf = spcall("pkg-config --cflags jansson")
                 if jsonconf:
