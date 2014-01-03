@@ -279,9 +279,12 @@ static void legions_check_nodes_step2() {
 		// go on if i am not an arbiter
 		else if (ul->valor > 0) {
 			// no potential Lord is available, i will propose myself
-			best_valor = ul->valor;
-			memcpy(best_uuid, ul->uuid, 36);
-			i_am_the_best = 1;
+			// but only if i am not suspended...
+			if (uwsgi_now() > ul->suspended_til) {
+				best_valor = ul->valor;
+				memcpy(best_uuid, ul->uuid, 36);
+				i_am_the_best = 1;
+			}
 		}
 		else {
 			// empty lord
@@ -337,16 +340,20 @@ static void legions_check_nodes_step2() {
 			}
 			if (i_am_the_best) {
 				if (!ul->i_am_the_lord) {
-					uwsgi_log("[uwsgi-legion] i am now the Lord of the Legion %s\n", ul->legion);
 					// triggering lord hooks
+					uwsgi_log("[uwsgi-legion] attempting to become the Lord of the Legion %s\n", ul->legion);
 					struct uwsgi_string_list *usl = ul->lord_hooks;
 					while (usl) {
 						int ret = uwsgi_legion_action_call("lord", ul, usl);
 						if (ret) {
 							uwsgi_log("[uwsgi-legion] ERROR, lord hook returned: %d\n", ret);
-							ul->dead = 1;
-                					uwsgi_legion_announce(ul);
-							goto next;
+							if (uwsgi.legion_death_on_lord_error) {
+								ul->dead = 1;
+                						uwsgi_legion_announce(ul);
+								ul->suspended_til = uwsgi_now() + uwsgi.legion_death_on_lord_error;
+								uwsgi_log("[uwsgi-legion] suspending myself from Legion \"%s\" for %d seconds\n", ul->legion, uwsgi.legion_death_on_lord_error);
+								goto next;
+							}
 						}
 						usl = usl->next;
 					}
@@ -359,6 +366,7 @@ static void legions_check_nodes_step2() {
         				else {
                 				ul->lord_scroll_len = 0;
         				}
+					uwsgi_log("[uwsgi-legion] i am now the Lord of the Legion %s\n", ul->legion);
 					ul->i_am_the_lord = uwsgi_now();
 					// trick: reduce the time needed by the old lord to unlord itself
 					uwsgi_legion_announce(ul);
@@ -741,6 +749,11 @@ void uwsgi_legion_add(struct uwsgi_legion *ul) {
 }
 
 int uwsgi_legion_announce(struct uwsgi_legion *ul) {
+	time_t now = uwsgi_now();
+
+	if (now <= ul->suspended_til) return 0;
+	ul->suspended_til = 0;
+
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(4096);
 	unsigned char *encrypted = NULL;
 
@@ -748,7 +761,7 @@ int uwsgi_legion_announce(struct uwsgi_legion *ul) {
 		goto err;
 	if (uwsgi_buffer_append_keynum(ub, "valor", 5, ul->valor))
 		goto err;
-	if (uwsgi_buffer_append_keynum(ub, "unix", 4, uwsgi_now()))
+	if (uwsgi_buffer_append_keynum(ub, "unix", 4, now))
 		goto err;
 	if (uwsgi_buffer_append_keynum(ub, "lord", 4, ul->i_am_the_lord ? ul->i_am_the_lord : 0))
 		goto err;

@@ -696,6 +696,8 @@ struct uwsgi_legion {
 	struct uwsgi_string_list *join_hooks;
 	struct uwsgi_string_list *node_joined_hooks;
 	struct uwsgi_string_list *node_left_hooks;
+
+	time_t suspended_til;
 	struct uwsgi_legion *next;
 };
 
@@ -2628,6 +2630,7 @@ struct uwsgi_server {
 	int legion_skew_tolerance;
 	uint16_t legion_scroll_max_size;
 	uint64_t legion_scroll_list_max_size;
+	int legion_death_on_lord_error;
 #endif
 
 #ifdef __linux__
