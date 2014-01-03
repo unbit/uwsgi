@@ -344,6 +344,9 @@ static void legions_check_nodes_step2() {
 						int ret = uwsgi_legion_action_call("lord", ul, usl);
 						if (ret) {
 							uwsgi_log("[uwsgi-legion] ERROR, lord hook returned: %d\n", ret);
+							ul->dead = 1;
+                					uwsgi_legion_announce(ul);
+							goto next;
 						}
 						usl = usl->next;
 					}
@@ -400,7 +403,7 @@ static void legions_check_nodes_step2() {
 			}
 			ul->last_warning = uwsgi_now();
 		}
-
+next:
 		ul = ul->next;
 	}
 }
@@ -591,6 +594,8 @@ static void *legion_loop(void *foobar) {
 			// check if the node is already accounted
 			struct uwsgi_legion_node *node = uwsgi_legion_get_node(ul, legion_msg.valor, legion_msg.name, legion_msg.name_len, legion_msg.uuid);
 			if (!node) {
+				// if a lord hook election fails, a node can announce itself as dead for long time...
+				if (legion_msg.dead) continue;
 				// add the new node
 				uwsgi_wlock(ul->lock);
 				node = uwsgi_legion_add_node(ul, legion_msg.valor, legion_msg.name, legion_msg.name_len, legion_msg.uuid);
