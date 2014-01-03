@@ -56,6 +56,8 @@ static struct uwsgi_option rawrouter_options[] = {
 
 	{"rawrouter-xclient", no_argument, 0, "use the xclient protocol to pass the client addres", uwsgi_opt_true, &urr.xclient, 0},
 
+	{"rawrouter-buffer-size", required_argument, 0, "set internal buffer size (default: page size)", uwsgi_opt_set_64bit, &urr.cr.buffer_size, 0},
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 

@@ -57,6 +57,7 @@ struct uwsgi_option http_options[] = {
 	{"http-uid", required_argument, 0, "drop http router privileges to the specified uid", uwsgi_opt_uid, &uhttp.cr.uid, 0 },
 	{"http-gid", required_argument, 0, "drop http router privileges to the specified gid", uwsgi_opt_gid, &uhttp.cr.gid, 0 },
 	{"http-resubscribe", required_argument, 0, "forward subscriptions to the specified subscription server", uwsgi_opt_add_string_list, &uhttp.cr.resubscribe, 0},
+	{"http-buffer-size", required_argument, 0, "set internal buffer size (default: page size)", uwsgi_opt_set_64bit, &uhttp.cr.buffer_size, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 

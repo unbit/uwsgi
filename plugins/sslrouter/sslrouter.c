@@ -155,6 +155,7 @@ static struct uwsgi_option sslrouter_options[] = {
 #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
 	{"sslrouter-sni", no_argument, 0, "use SNI to route requests", uwsgi_opt_true, &usr.sni, 0},
 #endif
+	{"sslrouter-buffer-size", required_argument, 0, "set internal buffer size (default: page size)", uwsgi_opt_set_64bit, &usr.cr.buffer_size, 0},
 
 	{0, 0, 0, 0, 0, 0, 0},
 };
