@@ -3564,6 +3564,7 @@ int uwsgi_read_response(int, struct uwsgi_header *, int, char **);
 char *uwsgi_simple_file_read(char *);
 
 void uwsgi_send_subscription(char *, char *, size_t, uint8_t, uint8_t, uint8_t, char *, char *, char *, char *, char *);
+void uwsgi_send_subscription_from_fd(int, char *, char *, size_t, uint8_t, uint8_t, uint8_t, char *, char *, char *, char *, char *);
 
 void uwsgi_subscribe(char *, uint8_t);
 void uwsgi_subscribe2(char *, uint8_t);

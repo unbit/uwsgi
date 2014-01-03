@@ -187,6 +187,47 @@ void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, 
 				}
 			}
 		}
+
+		// resubscribe if needed ?
+		if (ucr->resubscribe) {
+			static char *address = NULL;
+			if (!address) {
+				struct uwsgi_gateway_socket *augs = uwsgi.gateway_sockets;
+        			while (augs) {
+                			if (!strcmp(ucr->name, augs->owner)) {
+                        			if (!augs->subscription) {
+							address = augs->name;
+							break;
+						}
+					}
+					augs = augs->next;
+				}
+			}
+			struct uwsgi_string_list *usl = NULL;
+			char *sign = NULL;
+			char *sni_key = NULL;
+			char *sni_cert = NULL;
+			char *sni_ca = NULL;
+			if (usr.sign_len) {
+				sign = uwsgi_concat2n(usr.sign, usr.sign_len, "", 0);
+			}
+			if (usr.sni_key_len) {
+				sni_key = uwsgi_concat2n(usr.sni_key, usr.sni_key_len, "", 0);
+			}
+			if (usr.sni_crt_len) {
+				sni_cert = uwsgi_concat2n(usr.sni_crt, usr.sni_crt_len, "", 0);
+			}
+			if (usr.sni_ca_len) {
+				sni_ca = uwsgi_concat2n(usr.sni_ca, usr.sni_ca_len, "", 0);
+			}
+			uwsgi_foreach(usl, ucr->resubscribe) {	
+				uwsgi_send_subscription_from_fd(ugs->fd, usl->value, usr.key, usr.keylen, usr.modifier1, usr.modifier2, bbuf[3], address, sign, sni_key, sni_cert, sni_ca);
+			}
+			if (sign) free(sign);
+			if (sni_key) free(sni_key);
+			if (sni_cert) free(sni_cert);
+			if (sni_ca) free(sni_ca);
+		}
 	}
 
 }

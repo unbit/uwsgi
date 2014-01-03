@@ -41,7 +41,9 @@ struct corerouter_peer *uwsgi_cr_peer_add(struct corerouter_session *cs) {
 	peers->session = cs;
 	peers->fd = -1;
 	// create input buffer
-	peers->in = uwsgi_buffer_new(uwsgi.page_size);
+	size_t bufsize = cs->corerouter->buffer_size;
+	if (!bufsize) bufsize = uwsgi.page_size;
+	peers->in = uwsgi_buffer_new(bufsize);
 	// add timeout
         peers->timeout = cr_add_timeout(cs->corerouter, peers);
 	peers->prev = old_peers;
@@ -562,7 +564,9 @@ struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr
 
 	struct corerouter_peer *peer = uwsgi_calloc(sizeof(struct corerouter_peer));
 	// main_peer has only input buffer as output buffer is taken from backend peers
-	peer->in = uwsgi_buffer_new(uwsgi.page_size);
+	size_t bufsize = ucr->buffer_size;
+	if (!bufsize) bufsize = uwsgi.page_size;
+	peer->in = uwsgi_buffer_new(bufsize);
 
 	ucr->cr_table[new_connection] = peer;
 	cs->main_peer = peer;

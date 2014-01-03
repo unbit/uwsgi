@@ -265,6 +265,10 @@ struct uwsgi_corerouter {
 	uid_t uid;
 	gid_t gid;
 
+        struct uwsgi_string_list *resubscribe;
+
+	size_t buffer_size;
+
 };
 
 // a session is started when a client connect to the router
