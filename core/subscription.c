@@ -601,7 +601,7 @@ static void send_subscription(int sfd, char *host, char *message, uint16_t messa
 
         char *udp_port = strchr(host, ':');
 
-	if (fd < 0) {
+	if (fd == -1) {
 		if (udp_port) {
         		fd = socket(AF_INET, SOCK_DGRAM, 0);
 		}
@@ -613,6 +613,32 @@ static void send_subscription(int sfd, char *host, char *message, uint16_t messa
                 	return;
         	}
 		uwsgi_socket_nb(fd);
+	}
+	else if (fd == -2) {
+		static int unix_fd = -1;
+		static int inet_fd = -1;
+		if (udp_port) {
+			if (inet_fd == -1) {
+				inet_fd = socket(AF_INET, SOCK_DGRAM, 0);
+        			if (inet_fd < 0) {
+        				uwsgi_error("send_subscription()/socket()");
+                			return;
+        			}
+				uwsgi_socket_nb(inet_fd);
+			}
+			fd = inet_fd;
+		}
+		else {
+			if (unix_fd == -1) {
+                                unix_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+                                if (unix_fd < 0) {
+                                        uwsgi_error("send_subscription()/socket()");
+                                        return;
+                                }
+                                uwsgi_socket_nb(unix_fd);
+                        }
+                        fd = unix_fd;
+		}
 	}
 
         if (udp_port) {
@@ -642,7 +668,7 @@ static void send_subscription(int sfd, char *host, char *message, uint16_t messa
                 uwsgi_error("send_subscription()/sendto()");
         }
 
-	if (sfd < 0)
+	if (sfd == -1)
         	close(fd);
 }
 
