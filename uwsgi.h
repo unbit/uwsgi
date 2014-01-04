@@ -2976,7 +2976,7 @@ void snmp_init(void);
 
 void uwsgi_master_manage_snmp(int);
 
-int spool_request(struct uwsgi_spooler *uspool, char *, int, int, char *, int, char *, time_t, char *, size_t);
+char *uwsgi_spool_request(struct wsgi_request *, char *, size_t, char *, size_t);
 void spooler(struct uwsgi_spooler *);
 pid_t spooler_start(struct uwsgi_spooler *);
 
@@ -3615,7 +3615,7 @@ void *uwsgi_calloc_shared(size_t);
 
 struct uwsgi_spooler *uwsgi_new_spooler(char *);
 
-struct uwsgi_spooler *uwsgi_get_spooler_by_name(char *);
+struct uwsgi_spooler *uwsgi_get_spooler_by_name(char *, size_t);
 
 int uwsgi_zerg_attach(char *);
 

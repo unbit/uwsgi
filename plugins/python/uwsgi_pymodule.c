@@ -1745,25 +1745,13 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	PyObject *spool_dict, *spool_vars;
 	PyObject *zero, *key, *val;
 	uint16_t keysize, valsize;
-	char *cur_buf;
-	int i;
-	char spool_filename[1024];
 	struct wsgi_request *wsgi_req = py_current_wsgi_req();
-	char *priority = NULL;
-	long numprio = 0;
-	time_t at = 0;
 	char *body = NULL;
 	size_t body_len= 0;
-
-	// this is a counter for non-request-related tasks (like threads or greenlet)
-	static int internal_counter = 0xffff;
-
-	struct uwsgi_spooler *uspool = uwsgi.spoolers;
 
 	spool_dict = PyTuple_GetItem(args, 0);
 
 	if (spool_dict) {
-
 		if (!PyDict_Check(spool_dict)) {
 			return PyErr_Format(PyExc_ValueError, "The argument of spooler callable must be a dictionary");
 		}
@@ -1774,44 +1762,8 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 		spool_dict = kw;
 	}
 
-	
 	if (!spool_dict) {
 		return PyErr_Format(PyExc_ValueError, "The argument of spooler callable must be a dictionary");
-	}
-
-	// TODO if "spooler"  is a num, get the spooler by id, otherwise get it by directory
-	PyObject *py_spooler = uwsgi_py_dict_get(spool_dict, "spooler");
-	if (py_spooler) {
-		if (PyString_Check(py_spooler)) {
-			uspool = uwsgi_get_spooler_by_name(PyString_AsString(py_spooler));
-			if (!uspool) {
-				return PyErr_Format(PyExc_ValueError, "Unknown spooler requested");
-			}
-		}
-	}
-
-	PyObject *pyprio = uwsgi_py_dict_get(spool_dict, "priority");
-	if (pyprio) {
-		if (PyInt_Check(pyprio)) {
-			numprio = PyInt_AsLong(pyprio);
-			uwsgi_py_dict_del(spool_dict, "priority");
-		}
-	}
-
-	PyObject *pyat = uwsgi_py_dict_get(spool_dict, "at");
-	if (pyat) {
-		if (PyInt_Check(pyat)) {
-			at = (time_t) PyInt_AsLong(pyat);
-			uwsgi_py_dict_del(spool_dict, "at");
-		}
-		else if (PyLong_Check(pyat)) {
-			at = (time_t) PyLong_AsLong(pyat);
-			uwsgi_py_dict_del(spool_dict, "at");
-		}
-		else if (PyFloat_Check(pyat)) {
-			at = (time_t) PyFloat_AsDouble(pyat);
-			uwsgi_py_dict_del(spool_dict, "at");
-		}
 	}
 
 	PyObject *pybody = uwsgi_py_dict_get(spool_dict, "body");
@@ -1830,9 +1782,8 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 		return Py_None;
 	}
 
-	char *spool_buffer = uwsgi_malloc(UMAX16);
-
-	cur_buf = spool_buffer;
+	int i;
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
 
 	for (i = 0; i < PyList_Size(spool_vars); i++) {
 		zero = PyList_GetItem(spool_vars, i);
@@ -1841,98 +1792,80 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 				key = PyTuple_GetItem(zero, 0);
 				val = PyTuple_GetItem(zero, 1);
 
-#ifdef UWSGI_DEBUG
-				uwsgi_log("ob_type %s %s\n", key->ob_type->tp_name, val->ob_type->tp_name);
-#endif
-
-				if (PyString_Check(key) && PyString_Check(val)) {
-
+				if (PyString_Check(key)) {
 
 					keysize = PyString_Size(key);
-					valsize = PyString_Size(val);
-					if (cur_buf + keysize + 2 + valsize + 2 <= spool_buffer + UMAX16) {
-
-						*cur_buf++ = (uint8_t) (keysize & 0xff);
-        					*cur_buf++ = (uint8_t) ((keysize >> 8) & 0xff);
-
-						memcpy(cur_buf, PyString_AsString(key), keysize);
-						cur_buf += keysize;
-
-						*cur_buf++ = (uint8_t) (valsize & 0xff);
-        					*cur_buf++ = (uint8_t) ((valsize >> 8) & 0xff);
-
-						memcpy(cur_buf, PyString_AsString(val), valsize);
-						cur_buf += valsize;
+		
+					if (PyString_Check(val)) {
+						valsize = PyString_Size(val);
+						if (uwsgi_buffer_append_keyval(ub, PyString_AsString(key), keysize, PyString_AsString(val), valsize)) {
+							Py_DECREF(zero);
+							uwsgi_buffer_destroy(ub);
+							goto error;
+						}
 					}
 					else {
-						Py_DECREF(zero);
-						free(spool_buffer);	
-						return PyErr_Format(PyExc_ValueError, "spooler packet cannot be more than %d bytes", UMAX16);
+						PyObject *str = PyObject_Str(val);
+						if (!str) {
+							Py_DECREF(zero);
+							uwsgi_buffer_destroy(ub);
+							goto error;
+						}
+						if (uwsgi_buffer_append_keyval(ub, PyString_AsString(key), keysize, PyString_AsString(str), PyString_Size(str))) {
+                                                        Py_DECREF(zero);
+							Py_DECREF(str);
+                                                        uwsgi_buffer_destroy(ub);
+                                                        goto error;
+                                                }
+						Py_DECREF(str);
 					}
 				}
 				else {
 					Py_DECREF(zero);
-					free(spool_buffer);
-					return PyErr_Format(PyExc_ValueError, "spooler callable dictionary must contains only strings");
+					uwsgi_buffer_destroy(ub);
+                                        goto error;
 				}
 			}
 			else {
-				free(spool_buffer);
 				Py_DECREF(zero);
-				Py_INCREF(Py_None);
-				return Py_None;
+				uwsgi_buffer_destroy(ub);
+                                goto error;
 			}
+			Py_DECREF(zero);
 		}
 		else {
-			free(spool_buffer);
-			Py_INCREF(Py_None);
-			return Py_None;
+			uwsgi_buffer_destroy(ub);
+                        goto error;
 		}
 	}
 
-
-	if (numprio) {
-		priority = uwsgi_num2str(numprio);
-	} 
-
-	int async_id;
-
-	if (wsgi_req) {
-		async_id = wsgi_req->async_id;
-	}
-	else {
-		// the GIL is protecting this counter...
-		async_id = internal_counter;
-		internal_counter++;
-	}
 
 	UWSGI_RELEASE_GIL
 
-	i = spool_request(uspool, spool_filename, uwsgi.workers[0].requests + 1, async_id, spool_buffer, cur_buf - spool_buffer, priority, at, body, body_len);
+	char *filename = uwsgi_spool_request(wsgi_req, ub->buf, ub->pos, body, body_len);
+	uwsgi_buffer_destroy(ub);
 
 	UWSGI_GET_GIL
+
 
 	if (pybody) {
 		Py_DECREF(pybody);
 	}
 	
-	if (priority) {
-		free(priority);
-	}
-		
-	free(spool_buffer);
-
-
 	Py_DECREF(spool_vars);
 
-	if (i > 0) {
-		char *slash = uwsgi_get_last_char(spool_filename, '/');
-		if (slash) {
-			return PyString_FromString(slash+1);
-		}
-		return PyString_FromString(spool_filename);
+	if (filename) {
+		PyObject *ret = PyString_FromString(filename);
+		free(filename);
+		return ret;
 	}
 	return PyErr_Format(PyExc_ValueError, "unable to spool job");
+error:
+#ifdef PYTHREE
+	return PyErr_Format(PyExc_ValueError, "spooler callable dictionary must contains only bytes");
+#else
+	return PyErr_Format(PyExc_ValueError, "spooler callable dictionary must contains only strings");
+#endif
 }
 
 PyObject *py_uwsgi_spooler_pid(PyObject * self, PyObject * args) {

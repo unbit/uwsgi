@@ -72,12 +72,12 @@ struct uwsgi_spooler *uwsgi_new_spooler(char *dir) {
 }
 
 
-struct uwsgi_spooler *uwsgi_get_spooler_by_name(char *name) {
+struct uwsgi_spooler *uwsgi_get_spooler_by_name(char *name, size_t name_len) {
 
 	struct uwsgi_spooler *uspool = uwsgi.spoolers;
 
 	while (uspool) {
-		if (!strcmp(uspool->dir, name)) {
+		if (!uwsgi_strncmp(uspool->dir, strlen(uspool->dir), name, name_len)) {
 			return uspool;
 		}
 		uspool = uspool->next;
@@ -167,47 +167,122 @@ void destroy_spool(char *dir, char *file) {
 
 }
 
+struct spooler_req {
+	char *spooler;
+	size_t spooler_len;
+	char *priority;
+	size_t priority_len;
+	time_t at;
+};
 
-int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core_id, char *buffer, int size, char *priority, time_t at, char *body, size_t body_len) {
+static void spooler_req_parser_hook(char *key, uint16_t key_len, char *value, uint16_t value_len, void *data) {
+	struct spooler_req *sr = (struct spooler_req *) data;
+	if (!uwsgi_strncmp(key, key_len, "spooler", 7)) {
+		sr->spooler = value;
+		sr->spooler_len = value_len;
+		return;
+	} 
+
+	if (!uwsgi_strncmp(key, key_len, "priority", 8)) {
+                sr->priority = value;
+                sr->priority_len = value_len;
+                return;
+        }
+
+	if (!uwsgi_strncmp(key, key_len, "at", 2)) {
+		sr->at = uwsgi_str_num(value, value_len);
+		return;
+	}
+}
+
+char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, char *body, size_t body_len) {
 
 	struct timeval tv;
-	int fd;
-	struct uwsgi_header uh;
+	static uint64_t internal_counter = 0;
+	int core_id = 0;
+	int fd = -1;
+	struct spooler_req sr;
 
+	if (len > 0xffff) {
+		uwsgi_log("[uwsgi-spooler] args buffer is limited to 64k, use the 'body' for bigger values\n");
+		return NULL;
+	}
+
+	// parse the request buffer
+	memset(&sr, 0, sizeof(struct spooler_req));
+	uwsgi_hooked_parse(buf, len, spooler_req_parser_hook, &sr);
+	
+	struct uwsgi_spooler *uspool = uwsgi.spoolers;
 	if (!uspool) {
-		uspool = uwsgi.spoolers;
+		uwsgi_log("[uwsgi-spooler] no spooler available\n");
+		return NULL;
+	}
+
+	// if it is a number, get the spooler by id instead of by name
+	if (sr.spooler && sr.spooler_len) {
+		uspool = uwsgi_get_spooler_by_name(sr.spooler, sr.spooler_len);
+		if (!uspool) {
+			uwsgi_log("[uwsgi-spooler] unable to find spooler \"%.*s\"\n", sr.spooler_len, sr.spooler);
+			return NULL;
+		}
+	}
+
+	if (wsgi_req) {
+		core_id = wsgi_req->async_id;
 	}
 
 	// this lock is for threads, the pid value in filename will avoid multiprocess races
 	uwsgi_lock(uspool->lock);
 
+	// we increase it even if the request fails
+	internal_counter++;
+
 	gettimeofday(&tv, NULL);
 
-	if (priority) {
-		if (snprintf(filename, 1024, "%s/%s", uspool->dir, priority) <= 0) {
+	char *filename = NULL;
+	size_t filename_len = 0;
+
+	if (sr.priority && sr.priority_len) {
+		filename_len = strlen(uspool->dir) + sr.priority_len + strlen(uwsgi.hostname) + 256;	
+		filename = uwsgi_malloc(filename_len);
+		int ret = snprintf(filename, filename_len, "%s/%.*s", uspool->dir, sr.priority_len, sr.priority);
+		if (ret <= 0 || ret >= (int) filename_len) {
+			uwsgi_log("[uwsgi-spooler] error generating spooler filename\n");
+			free(filename);
 			uwsgi_unlock(uspool->lock);
-			return 0;
+			return NULL;
 		}
 		// no need to check for errors...
 		(void) mkdir(filename, 0777);
 
-		if (snprintf(filename, 1024, "%s/%s/uwsgi_spoolfile_on_%s_%d_%d_%d_%llu_%llu", uspool->dir, priority, uwsgi.hostname, (int) getpid(), rn, core_id, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
+		ret = snprintf(filename, filename_len, "%s/%.*s/uwsgi_spoolfile_on_%s_%d_%d_%d_%llu_%llu", uspool->dir, sr.priority_len, sr.priority, uwsgi.hostname, (int) getpid(), internal_counter, core_id,
+				(unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec);
+		if (ret <= 0 || ret >=(int)  filename_len) {
+                        uwsgi_log("[uwsgi-spooler] error generating spooler filename\n");
+			free(filename);
 			uwsgi_unlock(uspool->lock);
-			return 0;
+			return NULL;
 		}
 	}
 	else {
-		if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%d_%llu_%llu", uspool->dir, uwsgi.hostname, (int) getpid(), rn, core_id, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
+		filename_len = strlen(uspool->dir) + strlen(uwsgi.hostname) + 256;
+                filename = uwsgi_malloc(filename_len);
+		int ret = snprintf(filename, filename_len, "%s/uwsgi_spoolfile_on_%s_%d_%d_%d_%llu_%llu", uspool->dir, uwsgi.hostname, (int) getpid(), internal_counter, core_id,
+				(unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec);
+		if (ret <= 0 || ret >= (int) filename_len) {
+                        uwsgi_log("[uwsgi-spooler] error generating spooler filename\n");
+			free(filename);
 			uwsgi_unlock(uspool->lock);
-			return 0;
+			return NULL;
 		}
 	}
 
 	fd = open(filename, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR);
 	if (fd < 0) {
 		uwsgi_error_open(filename);
+		free(filename);
 		uwsgi_unlock(uspool->lock);
-		return 0;
+		return NULL;
 	}
 
 	// now lock the file, it will no be runnable, until the lock is not removed
@@ -215,13 +290,15 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 	// in such case the spooler will detect a zeroed file and will retry later
 	if (uwsgi_fcntl_lock(fd)) {
 		close(fd);
+		free(filename);
 		uwsgi_unlock(uspool->lock);
-		return 0;
+		return NULL;
 	}
 
+	struct uwsgi_header uh;
 	uh.modifier1 = 17;
 	uh.modifier2 = 0;
-	uh.pktsize = (uint16_t) size;
+	uh.pktsize = (uint16_t) len;
 #ifdef __BIG_ENDIAN__
 	uh.pktsize = uwsgi_swap16(uh.pktsize);
 #endif
@@ -231,7 +308,7 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 		goto clear;
 	}
 
-	if (write(fd, buffer, size) != size) {
+	if (write(fd, buf, len) != (ssize_t) len) {
 		uwsgi_log("[spooler] unable to write args for %s\n", filename);
 		goto clear;
 	}
@@ -243,28 +320,28 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 		}
 	}
 
-	if (at > 0) {
+	if (sr.at > 0) {
 #ifdef __UCLIBC__
 		struct timespec ts[2]; 
-		ts[0].tv_sec = at; 
+		ts[0].tv_sec = sr.at; 
 		ts[0].tv_nsec = 0;
-		ts[1].tv_sec = at;
+		ts[1].tv_sec = sr.at;
 		ts[1].tv_nsec = 0; 
 		if (futimens(fd, ts)) {
-			uwsgi_error("futimens()");	
+			uwsgi_error("uwsgi_spooler_request()/futimens()");	
 		}
 #else
 		struct timeval tv[2];
-		tv[0].tv_sec = at;
+		tv[0].tv_sec = sr.at;
 		tv[0].tv_usec = 0;
-		tv[1].tv_sec = at;
+		tv[1].tv_sec = sr.at;
 		tv[1].tv_usec = 0;
 #ifdef __sun__
 		if (futimesat(fd, NULL, tv)) {
 #else
 		if (futimes(fd, tv)) {
 #endif
-			uwsgi_error("futimes()");
+			uwsgi_error("uwsgi_spooler_request()/futimes()");
 		}
 #endif
 	}
@@ -273,7 +350,7 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 	close(fd);
 
 	if (!uwsgi.spooler_quiet)
-		uwsgi_log("[spooler] written %lu bytes to file %s\n", (unsigned long) size + body_len + 4, filename);
+		uwsgi_log("[spooler] written %lu bytes to file %s\n", (unsigned long) len + body_len + 4, filename);
 
 	// and here waiting threads can continue
 	uwsgi_unlock(uspool->lock);
@@ -293,18 +370,19 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 		spoolers = spoolers->next;
 	}
 
-	return 1;
+	return filename;
 
 
 clear:
+	if (filename) free(filename);
 	uwsgi_unlock(uspool->lock);
-	uwsgi_error("write()");
+	uwsgi_error("uwsgi_spool_request()/write()");
 	if (unlink(filename)) {
-		uwsgi_error("unlink()");
+		uwsgi_error("uwsgi_spool_request()/unlink()");
 	}
 	// unlock the file too
 	close(fd);
-	return 0;
+	return NULL;
 }
 
 

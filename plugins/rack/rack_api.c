@@ -932,35 +932,35 @@ static VALUE uwsgi_ruby_signal(int argc, VALUE *argv, VALUE *class) {
         return Qtrue;
 }
 
-int rack_uwsgi_build_spool(VALUE rbkey, VALUE rbval, VALUE argv) {
-	char **sa = (char **) argv;
+static int rack_uwsgi_build_spool(VALUE rbkey, VALUE rbval, VALUE argv) {
+	struct uwsgi_buffer *ub = (struct uwsgi_buffer *) argv;
 
-	char *cur_buf = sa[0];
-	char *watermark = sa[1];
-
-	if (TYPE(rbkey) != T_STRING || TYPE(rbval) != T_STRING) {
+	if (TYPE(rbkey) != T_STRING) {
 		rb_raise(rb_eRuntimeError, "spool hash must contains only strings");
 		return ST_STOP;
 	}
 
 	char *key = RSTRING_PTR(rbkey); uint16_t keylen = RSTRING_LEN(rbkey);
-	char *val = RSTRING_PTR(rbval); uint16_t vallen = RSTRING_LEN(rbval);
 
-	if (cur_buf + (2+keylen+2+vallen) > watermark) {
-		rb_raise(rb_eRuntimeError, "spool hash size can be no more than 64K");
-		return ST_STOP;
+	if (TYPE(rbval) == T_STRING) {
+		char *val = RSTRING_PTR(rbval); uint16_t vallen = RSTRING_LEN(rbval);
+		if (uwsgi_buffer_append_keyval(ub, key, keylen, val, vallen)) {
+			rb_raise(rb_eRuntimeError, "error building the spool packet");
+                	return ST_STOP;
+		}
 	}
-
-	*cur_buf++ = (uint8_t) (keylen & 0xff);
-        *cur_buf++ = (uint8_t) ((keylen >> 8) & 0xff);
-	memcpy(cur_buf, key, keylen); cur_buf += keylen;
-
-	*cur_buf++ = (uint8_t) (vallen & 0xff);
-        *cur_buf++ = (uint8_t) ((vallen >> 8) & 0xff);
-	memcpy(cur_buf, val, vallen); cur_buf += vallen;
-
-	// fix the ptr
-	sa[0] = cur_buf;
+	else {
+		VALUE str = rb_any_to_s(rbval);
+		if (!str) {
+			rb_raise(rb_eRuntimeError, "error building the spool packet");
+                        return ST_STOP;
+		}
+		char *val = RSTRING_PTR(str); uint16_t vallen = RSTRING_LEN(str);
+		if (uwsgi_buffer_append_keyval(ub, key, keylen, val, vallen)) {
+                        rb_raise(rb_eRuntimeError, "error building the spool packet");
+                        return ST_STOP;
+                }
+	}
 
 	return ST_CONTINUE;
 }
@@ -968,37 +968,11 @@ int rack_uwsgi_build_spool(VALUE rbkey, VALUE rbval, VALUE argv) {
 
 static VALUE rack_uwsgi_send_spool(VALUE *class, VALUE args) {
 
-        char spool_filename[1024];
         struct wsgi_request *wsgi_req = current_wsgi_req();
-        char *priority = NULL;
-        long numprio = 0;
-        time_t at = 0;
         char *body = NULL;
         size_t body_len= 0;
 
 	Check_Type(args, T_HASH);
-
-	// priority
-#ifdef RUBY19
-       VALUE rbprio = rb_hash_lookup(args, rb_str_new2("priority"));
-#else
-       VALUE rbprio = rb_hash_aref(args, rb_str_new2("priority"));
-#endif
-        if (TYPE(rbprio) == T_FIXNUM) {
-        	numprio = NUM2INT(rbprio);
-             	rb_hash_delete(args, rb_str_new2("priority")); 
-        }
-
-	// at
-#ifdef RUBY19
-       VALUE rbat = rb_hash_lookup(args, rb_str_new2("at"));
-#else
-       VALUE rbat = rb_hash_aref(args, rb_str_new2("at"));
-#endif
-        if (TYPE(rbat) == T_FIXNUM) {
-        	at = NUM2INT(rbat);
-             	rb_hash_delete(args, rb_str_new2("at")); 
-        }
 
 	// body
 #ifdef RUBY19
@@ -1012,31 +986,18 @@ static VALUE rack_uwsgi_send_spool(VALUE *class, VALUE args) {
              	rb_hash_delete(args, rb_str_new2("body")); 
         }
 
-	char *spool_buffer = uwsgi_malloc(UMAX16);
-	char *argv[2];
-	argv[0] = spool_buffer;
-	argv[1] = spool_buffer + UMAX16 ;
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
 
-	rb_hash_foreach(args, rack_uwsgi_build_spool, (VALUE) argv); 
+	rb_hash_foreach(args, rack_uwsgi_build_spool, (VALUE) ub); 
 
-        if (numprio) {
-                priority = uwsgi_num2str((int)numprio);
-        }
+        char *filename = uwsgi_spool_request(wsgi_req, ub->buf, ub->pos, body, body_len);
 
-        int ret = spool_request(uwsgi.spoolers, spool_filename, (int)(uwsgi.workers[0].requests + 1), wsgi_req->async_id, spool_buffer, (int)(argv[0] - spool_buffer), priority, at, body, body_len);
+	uwsgi_buffer_destroy(ub);
 
-        if (priority) {
-                free(priority);
-        }
-
-        free(spool_buffer);
-
-        if (ret > 0) {
-                char *slash = uwsgi_get_last_char(spool_filename, '/');
-                if (slash) {
-                        return rb_str_new2(slash+1);
-                }
-		return rb_str_new2(spool_filename);
+        if (filename) {
+		VALUE ret = rb_str_new2(filename);
+		free(filename);
+		return ret;
         }
 
         rb_raise(rb_eRuntimeError, "unable to spool job");

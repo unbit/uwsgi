@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 /*
 
@@ -10,15 +10,11 @@ extern struct uwsgi_server uwsgi;
 
 int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
 
-        int i;
-        char spool_filename[1024];
 	struct uwsgi_header uh;
 
-        // get the spooler from the modifier2
+        // TODO get the spooler from the modifier2
 
-        struct uwsgi_spooler *uspool = uwsgi.spoolers;
-
-        if (uspool == NULL) {
+        if (uwsgi.spoolers == NULL) {
                 uwsgi_log("the spooler is inactive !!!...skip\n");
 		uh.modifier1 = 255;
 		uh.pktsize = 0;
@@ -27,20 +23,21 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
-        i = spool_request(uspool, spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, wsgi_req->buffer, wsgi_req->uh->pktsize, NULL, 0, NULL, 0);
+        char *filename = uwsgi_spool_request(wsgi_req, wsgi_req->buffer, wsgi_req->uh->pktsize, NULL, 0);
         uh.modifier1 = 255;
         uh.pktsize = 0;
-        if (i > 0) {
+        if (filename) {
                 uh.modifier2 = 1;
 		if (uwsgi_response_write_body_do(wsgi_req, (char *) &uh, 4)) {
                         uwsgi_log("disconnected client, remove spool file.\n");
                         /* client disconnect, remove spool file */
-                        if (unlink(spool_filename)) {
+                        if (unlink(filename)) {
                                 uwsgi_error("uwsgi_request_spooler()/unlink()");
                                 uwsgi_log("something horrible happened !!! check your spooler ASAP !!!\n");
                                 exit(1);
                         }
                 }
+		free(filename);
                 return 0;
         }
         else {
