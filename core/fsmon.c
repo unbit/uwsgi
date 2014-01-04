@@ -8,207 +8,182 @@ extern struct uwsgi_server uwsgi;
 #endif
 #endif
 
-
-void uwsgi_fsmon_setup() {
-	struct uwsgi_string_list *usl = uwsgi.fs_reload;
-        while(usl) {
-                if (uwsgi_register_fsmon(usl)) {
-                        uwsgi_log("[uwsgi-fsmon] unable to register monitor for \"%s\"\n", usl->value);
-                }
-                else {
-                        uwsgi_log("[uwsgi-fsmon] registered monitor for \"%s\"\n", usl->value);
-                }
-                usl = usl->next;
-        }
-
-	usl = uwsgi.fs_brutal_reload;
-        while(usl) {
-                if (uwsgi_register_fsmon(usl)) {
-                        uwsgi_log("[uwsgi-fsmon] unable to register monitor for \"%s\"\n", usl->value);
-                }
-                else {
-                        uwsgi_log("[uwsgi-fsmon] registered monitor for \"%s\"\n", usl->value);
-                }
-                usl = usl->next;
-        }
-
-	usl = uwsgi.fs_signal;
-        while(usl) {
-		char *copy = uwsgi_str(usl->value);
-		char *space = strchr(copy, ' ');
-		if (!space) {
-			uwsgi_log("[uwsgi-fsmon] invalid syntax: \"%s\"\n", usl->value);
-			free(copy);
-			goto next;			
-		}
-		*space = 0;
-		usl->value = copy;
-		usl->len = strlen(copy);
-		usl->custom_ptr = space+1;	
-                if (uwsgi_register_fsmon(usl)) {
-                        uwsgi_log("[uwsgi-fsmon] unable to register monitor for \"%s\"\n", usl->value);
-                }
-                else {
-                        uwsgi_log("[uwsgi-fsmon] registered monitor for \"%s\"\n", usl->value);
-                }
-next:
-                usl = usl->next;
-        }
-}
-
-
-int uwsgi_register_fsmon(struct uwsgi_string_list *usl) {
+static int fsmon_add(struct uwsgi_fsmon *fs) {
 #ifdef UWSGI_EVENT_FILEMONITOR_USE_INOTIFY
 #ifndef OBSOLETE_LINUX_KERNEL
 	static int inotify_fd = -1;
 	if (inotify_fd == -1) {
 		inotify_fd = inotify_init();
 		if (inotify_fd < 0) {
-			uwsgi_error("uwsgi_register_fsmon()/inotify_init()");
+			uwsgi_error("fsmon_add()/inotify_init()");
 			return -1;
 		}
 		if (event_queue_add_fd_read(uwsgi.master_queue, inotify_fd)) {
-			uwsgi_error("uwsgi_register_fsmon()/event_queue_add_fd_read()");
+			uwsgi_error("fsmon_add()/event_queue_add_fd_read()");
 			return -1;
 		}
 	}
-	int wd = inotify_add_watch(inotify_fd, usl->value, IN_ATTRIB | IN_CREATE | IN_DELETE | IN_DELETE_SELF | IN_MODIFY | IN_MOVE_SELF | IN_MOVED_FROM | IN_MOVED_TO);
+	int wd = inotify_add_watch(inotify_fd, fs->path, IN_ATTRIB | IN_CREATE | IN_DELETE | IN_DELETE_SELF | IN_MODIFY | IN_MOVE_SELF | IN_MOVED_FROM | IN_MOVED_TO);
 	if (wd < 0) {
-		uwsgi_error("uwsgi_register_fsmon()/inotify_add_watch()");
+		uwsgi_error("fsmon_add()/inotify_add_watch()");
 		return -1;
 	}
-	usl->custom = inotify_fd;
-	usl->custom2 = wd;
+	fs->fd = inotify_fd;
+	fs->id = wd;
 	return 0;
 #endif
 #endif
 #ifdef UWSGI_EVENT_FILEMONITOR_USE_KQUEUE
-        struct kevent kev;
-        int fd = open(usl->value, O_RDONLY);
-        if (fd < 0) {
-                uwsgi_error_open(usl->value);
-		uwsgi_error("uwsgi_register_fsmon()/open()");	
-                return -1;
-        }
+	struct kevent kev;
+	int fd = open(fs->path, O_RDONLY);
+	if (fd < 0) {
+		uwsgi_error_open(fs->path);
+		uwsgi_error("fsmon_add()/open()");
+		return -1;
+	}
 
-        EV_SET(&kev, fd, EVFILT_VNODE, EV_ADD | EV_CLEAR, NOTE_WRITE | NOTE_DELETE | NOTE_EXTEND | NOTE_ATTRIB | NOTE_RENAME | NOTE_REVOKE, 0, 0);
-        if (kevent(uwsgi.master_queue, &kev, 1, NULL, 0, NULL) < 0) {
-                uwsgi_error("uwsgi_register_fsmon()/kevent()");
-                return -1;
-        }
-	usl->custom = fd;
-	usl->custom2 = fd;
+	EV_SET(&kev, fd, EVFILT_VNODE, EV_ADD | EV_CLEAR, NOTE_WRITE | NOTE_DELETE | NOTE_EXTEND | NOTE_ATTRIB | NOTE_RENAME | NOTE_REVOKE, 0, 0);
+	if (kevent(uwsgi.master_queue, &kev, 1, NULL, 0, NULL) < 0) {
+		uwsgi_error("fsmon_add()/kevent()");
+		return -1;
+	}
+	fs->fd = fd;
 	return 0;
 #endif
-
 	uwsgi_log("[uwsgi-fsmon] filesystem monitoring interface not available in this platform !!!\n");
 	return 1;
 }
 
-static struct uwsgi_string_list *uwsgi_fsmon_ack(int interesting_fd) {
-	int found_fd = -1;
-	struct uwsgi_string_list *usl = uwsgi.fs_reload;
-	while(usl) {
-		if ((int)usl->custom == interesting_fd) {
-			found_fd = usl->custom;
-			goto found;
-		}
-		usl = usl->next;
+static void fsmon_reload(struct uwsgi_fsmon *fs) {
+	uwsgi_block_signal(SIGHUP);
+	grace_them_all(0);
+	uwsgi_unblock_signal(SIGHUP);
+}
+
+static void fsmon_brutal_reload(struct uwsgi_fsmon *fs) {
+	if (uwsgi.die_on_term) {
+		uwsgi_block_signal(SIGQUIT);
+		reap_them_all(0);
+		uwsgi_unblock_signal(SIGQUIT);
 	}
-	usl = uwsgi.fs_brutal_reload;
-	while(usl) {
-                if ((int)usl->custom == interesting_fd) {
-                        found_fd = usl->custom;
-                        goto found;
-                }
-                usl = usl->next;
-        }
-	usl = uwsgi.fs_signal;
-        while(usl) {
-                if ((int)usl->custom == interesting_fd) {
-                        found_fd = usl->custom;
-                        goto found;
-                }
-                usl = usl->next;
-        }
-found:
-	if (found_fd == -1) return NULL;
+	else {
+		uwsgi_block_signal(SIGTERM);
+		reap_them_all(0);
+		uwsgi_unblock_signal(SIGTERM);
+	}
+}
+
+static void fsmon_signal(struct uwsgi_fsmon *fs) {
+	uwsgi_route_signal(atoi((char *) fs->data));
+}
+
+void uwsgi_fsmon_setup() {
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, uwsgi.fs_reload) {
+		uwsgi_register_fsmon(usl->value, fsmon_reload, NULL);
+	}
+	uwsgi_foreach(usl, uwsgi.fs_brutal_reload) {
+		uwsgi_register_fsmon(usl->value, fsmon_brutal_reload, NULL);
+	}
+	uwsgi_foreach(usl, uwsgi.fs_signal) {
+		char *copy = uwsgi_str(usl->value);
+		char *space = strchr(copy, ' ');
+		if (!space) {
+			uwsgi_log("[uwsgi-fsmon] invalid syntax: \"%s\"\n", usl->value);
+			free(copy);
+			continue;
+		}
+		*space = 0;
+		uwsgi_register_fsmon(copy, fsmon_signal, space + 1);
+	}
+
+	struct uwsgi_fsmon *fs = uwsgi.fsmon;
+	while (fs) {
+		if (fsmon_add(fs)) {
+			uwsgi_log("[uwsgi-fsmon] unable to register monitor for \"%s\"\n", fs->path);
+		}
+		else {
+			uwsgi_log("[uwsgi-fsmon] registered monitor for \"%s\"\n", fs->path);
+		}
+		fs = fs->next;
+	}
+}
+
+
+struct uwsgi_fsmon *uwsgi_register_fsmon(char *path, void (*func) (struct uwsgi_fsmon *), void *data) {
+	struct uwsgi_fsmon *old_fs = NULL, *fs = uwsgi.fsmon;
+	while(fs) {
+		old_fs = fs;
+		fs = fs->next;
+	}
+
+	fs = uwsgi_calloc(sizeof(struct uwsgi_fsmon));
+	fs->path = path;
+	fs->func = func;
+	fs->data = data;
+	
+	if (old_fs) {
+		old_fs->next = fs;
+	}
+	else {
+		uwsgi.fsmon = fs;
+	}
+
+	return fs;
+}
+
+static struct uwsgi_fsmon *uwsgi_fsmon_ack(int interesting_fd) {
+	struct uwsgi_fsmon *found_fs = NULL;
+	struct uwsgi_fsmon *fs = uwsgi.fsmon;
+	while (fs) {
+		if (fs->fd == interesting_fd) {
+			found_fs = fs;
+			break;
+		}
+		fs = fs->next;
+	}
+
 #ifdef UWSGI_EVENT_FILEMONITOR_USE_INOTIFY
 #ifndef OBSOLETE_LINUX_KERNEL
+	if (!found_fs)
+		return NULL;
+	found_fs = NULL;
 	unsigned int isize = 0;
-	if (ioctl(found_fd, FIONREAD, &isize) < 0) {
-                uwsgi_error("uwsgi_fsmon_ack()/ioctl()");
-                return 0;
-        }
-	if (isize == 0) return NULL;
+	if (ioctl(interesting_fd, FIONREAD, &isize) < 0) {
+		uwsgi_error("uwsgi_fsmon_ack()/ioctl()");
+		return NULL;
+	}
+	if (isize == 0)
+		return NULL;
 	struct inotify_event *ie = uwsgi_malloc(isize);
 	// read from the inotify descriptor
-	ssize_t len = read(found_fd, ie, isize);
-	if (len < 0) { free(ie); uwsgi_error("uwsgi_fsmon_ack()/read()"); return NULL;}
-	found_fd = ie->wd;
+	ssize_t len = read(interesting_fd, ie, isize);
+	if (len < 0) {
+		free(ie);
+		uwsgi_error("uwsgi_fsmon_ack()/read()");
+		return NULL;
+	}
+	fs = uwsgi.fsmon;
+	while (fs) {
+		if (fs->fd == interesting_fd && fs->id == ie->wd) {
+			found_fs = fs;
+			break;
+		}
+		fs = fs->next;
+	}
 	free(ie);
 #endif
 #endif
-	// search for the item id and print it
-	usl = uwsgi.fs_reload;	
-        while(usl) {
-                if ((int)usl->custom2 == found_fd) {
-                        uwsgi_log("[uwsgi-fsmon] \"%s\" has been modified\n", usl->value);
-                        return uwsgi.fs_reload;
-                }
-                usl = usl->next;
-        }
-
-	usl = uwsgi.fs_brutal_reload;
-        while(usl) {
-                if ((int)usl->custom2 == found_fd) {
-                        uwsgi_log("[uwsgi-fsmon] \"%s\" has been modified\n", usl->value);
-                        return uwsgi.fs_brutal_reload;
-                } 
-                usl = usl->next;
-        }
-
-	usl = uwsgi.fs_signal;
-        while(usl) {
-                if ((int)usl->custom2 == found_fd) {
-                        uwsgi_log("[uwsgi-fsmon] \"%s\" has been modified\n", usl->value);
-                        return usl;
-                } 
-                usl = usl->next;
-        }
-
-	return NULL;
+	return found_fs;
 }
 
 int uwsgi_fsmon_event(int interesting_fd) {
 
-	struct uwsgi_string_list *usl = uwsgi_fsmon_ack(interesting_fd);
+	struct uwsgi_fsmon *fs = uwsgi_fsmon_ack(interesting_fd);
+	if (!fs)
+		return 0;
 
-	if (!usl) return 0;
-
-	if (usl == uwsgi.fs_reload) {
-		uwsgi_block_signal(SIGHUP);
-                grace_them_all(0);
-                uwsgi_unblock_signal(SIGHUP);
-                return 1;
-        }
-
-	if (usl == uwsgi.fs_brutal_reload) {
-                if (uwsgi.die_on_term) {
-                        uwsgi_block_signal(SIGQUIT);
-                        reap_them_all(0);
-                        uwsgi_unblock_signal(SIGQUIT);
-                }
-                else {
-                        uwsgi_block_signal(SIGTERM);
-                        reap_them_all(0);
-                        uwsgi_unblock_signal(SIGTERM);
-                }
-                return 1;
-        }
-
-	// fallback to signal
-        uwsgi_route_signal(atoi(usl->custom_ptr));
+	uwsgi_log_verbose("[uwsgi-fsmon] detected event on \"%s\"\n", fs->path);
+	fs->func(fs);
 	return 1;
 }
-

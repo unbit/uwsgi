@@ -1659,6 +1659,15 @@ struct uwsgi_harakiri_options {
 	int mules;
 };
 
+struct uwsgi_fsmon {
+	char *path;
+	int fd;
+	int id;
+	void *data;
+	void (*func)(struct uwsgi_fsmon *);
+	struct uwsgi_fsmon *next;
+};
+
 struct uwsgi_server {
 
 	// store the machine hostname
@@ -2287,6 +2296,8 @@ struct uwsgi_server {
 	struct uwsgi_string_list *fs_reload;
 	struct uwsgi_string_list *fs_brutal_reload;
 	struct uwsgi_string_list *fs_signal;
+
+	struct uwsgi_fsmon *fsmon;
 
 	struct uwsgi_string_list *signal_timers;
 	struct uwsgi_string_list *rb_signal_timers;
@@ -4480,7 +4491,7 @@ int uwsgi_init(int, char **, char **);
 #endif
 
 int uwsgi_master_check_cron_death(int);
-int uwsgi_register_fsmon(struct uwsgi_string_list *);
+struct uwsgi_fsmon *uwsgi_register_fsmon(char *, void (*)(struct uwsgi_fsmon *), void *data);
 int uwsgi_fsmon_event(int);
 void uwsgi_fsmon_setup();
 
