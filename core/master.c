@@ -519,6 +519,16 @@ int master_loop(char **argv, char **environ) {
 		}
 		ud = ud->next;
 	}
+	// hook touches
+	uwsgi_foreach(usl, uwsgi.hook_touch) {
+		char *space = strchr(usl->value, ' ');
+		if (space) {
+                        *space = 0;
+                        usl->len = strlen(usl->value);
+			uwsgi_string_new_list((struct uwsgi_string_list **)&usl->custom_ptr, space+1);
+                }
+	}
+	uwsgi_check_touches(uwsgi.hook_touch);
 
 	// fsmon
 	uwsgi_fsmon_setup();
@@ -826,6 +836,12 @@ int master_loop(char **argv, char **environ) {
                 			}
 					ud = ud->next;
                 		}
+
+				// hook touches
+				touched = uwsgi_check_touches(uwsgi.hook_touch);
+				if (touched) {
+					uwsgi_hooks_run((struct uwsgi_string_list *) touched, "touch", 0);
+				}
 
 			}
 
