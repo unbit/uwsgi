@@ -685,6 +685,18 @@ static int legion_action_log(struct uwsgi_legion *ul, char *arg) {
 	return 0;
 }
 
+static int legion_action_alarm(struct uwsgi_legion *ul, char *arg) {
+	char *space = strchr(arg,' ');
+        if (!space) {
+                uwsgi_log("invalid alarm action syntax, must be: <alarm> <msg>\n");
+                return -1;
+        }
+        *space = 0;
+        uwsgi_alarm_trigger(arg, space+1,  strlen(space+1));
+        *space = ' ';
+        return 0;
+}
+
 void uwsgi_start_legions() {
 	pthread_t legion_loop_t;
 
@@ -696,6 +708,7 @@ void uwsgi_start_legions() {
 	uwsgi_legion_action_register("exec", legion_action_cmd);
 	uwsgi_legion_action_register("signal", legion_action_signal);
 	uwsgi_legion_action_register("log", legion_action_log);
+	uwsgi_legion_action_register("alarm", legion_action_alarm);
 
 	uwsgi.legion_queue = event_queue_init();
 	struct uwsgi_legion *legion = uwsgi.legions;
