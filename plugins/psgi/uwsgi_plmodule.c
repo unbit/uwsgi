@@ -912,7 +912,13 @@ XS(XS_spool) {
 		env = (HV *) SvRV(arg);
 	}
 	else {
-		env = (HV *) arg;
+		croak("spool argument must be a hashref");
+		XSRETURN_UNDEF;
+	}
+
+	if (SvTYPE(env) != SVt_PVHV) {
+		croak("spool argument must be a hashref");
+                XSRETURN_UNDEF;
 	}
 
 	if (hv_exists(env, "body", 4)) {

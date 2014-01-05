@@ -399,7 +399,7 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 	free(buf);
 
 	if(SvTRUE(ERRSV)) {
-        	uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+        	uwsgi_log("%s", SvPV_nolen(ERRSV));
 		free(callables);
 		uwsgi_perl_free_stashes();
 		goto clear;
