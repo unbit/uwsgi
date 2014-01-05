@@ -197,6 +197,7 @@ xs_init(pTHX)
 {
         char *file = __FILE__;
         dXSUB_SYS;
+	HV *stash;
 
         /* DynaLoader is a special case */
         newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
@@ -219,11 +220,15 @@ xs_init(pTHX)
         newXS("uwsgi::streaming::close", XS_streaming_close, "uwsgi::streaming");
 
         newXS("uwsgi::stacktrace", XS_uwsgi_stacktrace, "uwsgi");
-
-
         uperl.tmp_streaming_stash[uperl.tmp_current_i] = gv_stashpv("uwsgi::streaming", 0);
 
 nonworker:
+
+	stash = gv_stashpv("uwsgi", 1);
+	newCONSTSUB(stash, "VERSION", newSVpv(UWSGI_VERSION, 0));
+	newCONSTSUB(stash, "SPOOL_OK", newSViv(-2));
+	newCONSTSUB(stash, "SPOOL_RETRY", newSViv(-1));
+	newCONSTSUB(stash, "SPOOL_IGNORE", newSViv(0));
 
         init_perl_embedded_module();
 
@@ -456,6 +461,17 @@ clear2:
        	return -1; 
 }
 
+void uwsgi_psgi_preinit_apps() {
+	if (uperl.exec) {
+		PERL_SET_CONTEXT(uperl.main[0]);
+                perl_parse(uperl.main[0], xs_init, 3, uperl.embedding, NULL);
+		struct uwsgi_string_list *usl;
+        	uwsgi_foreach(usl, uperl.exec) {
+                	uwsgi_perl_exec(usl->value);
+        	}
+	}
+}
+
 void uwsgi_psgi_app() {
 
         if (uperl.psgi) {
@@ -463,15 +479,11 @@ void uwsgi_psgi_app() {
 		init_psgi_app(NULL, uperl.psgi, strlen(uperl.psgi), uperl.main);
         }
 	// create a perl environment (if needed)
-	else if (uperl.exec || uperl.shell) {
+	else if (!uperl.exec && uperl.shell) {
 		PERL_SET_CONTEXT(uperl.main[0]);
-                perl_parse(uperl.main[0], xs_init, 2, uperl.embedding, NULL);
+                perl_parse(uperl.main[0], xs_init, 3, uperl.embedding, NULL);
 	}
 
-	struct uwsgi_string_list *usl;
-        uwsgi_foreach(usl, uperl.exec) {
-                uwsgi_perl_exec(usl->value);
-        }
 
 }
 
@@ -480,7 +492,7 @@ int uwsgi_perl_mule(char *opt) {
         if (uwsgi_endswith(opt, ".pl")) {
                 PERL_SET_CONTEXT(uperl.main[0]);
                 uperl.embedding[1] = opt;
-                if (perl_parse(uperl.main[0], xs_init, 2, uperl.embedding, NULL)) {
+                if (perl_parse(uperl.main[0], xs_init, 3, uperl.embedding, NULL)) {
                         return 0;
                 }
                 perl_run(uperl.main[0]);
@@ -497,4 +509,8 @@ void uwsgi_perl_exec(char *filename) {
         char *buf = uwsgi_open_and_read(filename, &size, 1, NULL);
         perl_eval_pv(buf, 0);
 	free(buf);
+	if (SvTRUE(ERRSV)) {
+		uwsgi_log("%s", SvPV_nolen(ERRSV));
+		exit(1);
+	}
 }

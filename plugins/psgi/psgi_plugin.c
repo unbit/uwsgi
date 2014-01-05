@@ -950,6 +950,7 @@ struct uwsgi_plugin psgi_plugin = {
 	.init = uwsgi_perl_init,
 	.options = uwsgi_perl_options,
 
+	.preinit_apps = uwsgi_psgi_preinit_apps,
 	.init_apps = uwsgi_psgi_app,
 	.mount_app = uwsgi_perl_mount_app,
 

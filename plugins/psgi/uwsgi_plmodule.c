@@ -897,6 +897,58 @@ XS(XS_chunked_read_nb) {
         XSRETURN(1);
 }
 
+XS(XS_spool) {
+
+	dXSARGS;
+	psgi_check_args(1);
+
+	SV *arg = ST(0);
+	HV *env = NULL;
+
+	char *body = NULL;
+	STRLEN body_len = 0;
+
+	if (SvROK(arg)) {
+		env = (HV *) SvRV(arg);
+	}
+	else {
+		env = (HV *) arg;
+	}
+
+	if (hv_exists(env, "body", 4)) {
+		SV **body_sv = hv_fetch(env, "body", 4, 0);
+		body = SvPV(*body_sv, body_len);
+		hv_delete(env, "body", 4, 0);
+	}	
+
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	
+	HE *he;
+	hv_iterinit(env);
+        while((he = hv_iternext(env))) {
+		I32 klen;
+		STRLEN vlen;
+		char *key = hv_iterkey(he, &klen);
+                char *value = SvPV(hv_iterval(env, he), vlen);
+		if (uwsgi_buffer_append_keyval(ub, key, klen, value, vlen)) {
+			croak("unable to serialize hash to spool file");
+			uwsgi_buffer_destroy(ub);
+			XSRETURN_UNDEF;
+		}
+        }
+
+	char *filename = uwsgi_spool_request(current_wsgi_req(), ub->buf, ub->pos, body, body_len);
+	uwsgi_buffer_destroy(ub);
+	if (filename) {
+		ST(0) = newSVpv(filename, strlen(filename));
+		free(filename);
+		XSRETURN(1);
+	}
+
+	croak("unable to spool request");
+	XSRETURN_UNDEF;
+}
+
 void init_perl_embedded_module() {
 	psgi_xs(reload);
 
@@ -957,4 +1009,6 @@ void init_perl_embedded_module() {
 	psgi_xs(sharedarea_wait);
 
 	psgi_xs(spooler);
+	psgi_xs(spool);
+	
 }
