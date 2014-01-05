@@ -950,7 +950,8 @@ static int rack_uwsgi_build_spool(VALUE rbkey, VALUE rbval, VALUE argv) {
 		}
 	}
 	else {
-		VALUE str = rb_any_to_s(rbval);
+		//VALUE str = rb_any_to_s(rbval);
+		VALUE str = rb_funcall( rbval, rb_intern("to_s"), 0);
 		if (!str) {
 			rb_raise(rb_eRuntimeError, "error building the spool packet");
                         return ST_STOP;
