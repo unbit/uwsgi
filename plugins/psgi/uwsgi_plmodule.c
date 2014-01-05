@@ -924,7 +924,7 @@ XS(XS_spool) {
 	if (hv_exists(env, "body", 4)) {
 		SV **body_sv = hv_fetch(env, "body", 4, 0);
 		body = SvPV(*body_sv, body_len);
-		hv_delete(env, "body", 4, 0);
+		(void)hv_delete(env, "body", 4, 0);
 	}	
 
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
