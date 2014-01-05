@@ -244,7 +244,10 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         ep = uc.get('embedded_plugins').split(',')
         epc = "-DUWSGI_DECLARE_EMBEDDED_PLUGINS=\""
         eplc = "-DUWSGI_LOAD_EMBEDDED_PLUGINS=\""
-        for p in ep:
+        for item in ep:
+            # allow name=path syntax
+            kv = item.split('=')
+            p = kv[0]
             if p is None or p == 'None':
                 continue
             p = p.strip()
@@ -358,15 +361,25 @@ def build_uwsgi(uc, print_only=False, gcll=None):
 
         if len(ep) > 0:
             push_print("*** uWSGI compiling embedded plugins ***")
-            for p in ep:
+            for item in ep:
+                # allows name=path syntax
+                kv = item.split('=')
+                if len(kv) > 1:
+                    p = kv[1]
+                    p = p.strip()
+                    path = os.path.abspath(p)
+                else:
+                    p = kv[0]
+                    p = p.strip()
+                    path = 'plugins/%s' % p
+
                 if p is None or p == 'None':
                     continue
-                p = p.strip()
 
                 if p == 'ugreen':
                     if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku' or uwsgi_os.startswith('CYGWIN') or (uwsgi_os == 'Darwin' and uwsgi_os_k.startswith('8')):
                         continue
-                path = 'plugins/%s' % p
+
                 path = path.rstrip('/')
 
                 if not os.path.isdir(path):
