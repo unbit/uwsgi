@@ -445,7 +445,7 @@ void spooler(struct uwsgi_spooler *uspool) {
 			spooler_readdir(uspool, NULL);
 		}
 
-		int timeout = uwsgi.shared->spooler_frequency;
+		int timeout = uwsgi.shared->spooler_frequency ? uwsgi.shared->spooler_frequency : uwsgi.spooler_frequency;
 		if (wakeup > 0) {
 			timeout = 0;
 		}

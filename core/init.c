@@ -123,7 +123,7 @@ void uwsgi_init_default() {
 	// a workers hould be running for at least 10 seconds
 	uwsgi.min_worker_lifetime = 10;
 
-	uwsgi.shared->spooler_frequency = 30;
+	uwsgi.spooler_frequency = 30;
 
 	uwsgi.shared->spooler_signal_pipe[0] = -1;
 	uwsgi.shared->spooler_signal_pipe[1] = -1;
