@@ -734,7 +734,7 @@ class uConf(object):
         if 'UWSGI_PROFILE_OVERRIDE' in os.environ:
             for item in os.environ['UWSGI_PROFILE_OVERRIDE'].split(';'):
                 k,v = item.split('=', 2)
-                uc.set(k, v)
+                self.set(k, v)
 
         if 'UWSGI_AS_LIB' in os.environ:
             self.set('as_shared_library', 'true')
