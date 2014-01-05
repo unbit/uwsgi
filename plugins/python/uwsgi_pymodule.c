@@ -1805,7 +1805,11 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 						}
 					}
 					else {
+#ifdef PYTHREE
+						PyObject *str = PyObject_Bytes(val);
+#else
 						PyObject *str = PyObject_Str(val);
+#endif
 						if (!str) {
 							Py_DECREF(zero);
 							uwsgi_buffer_destroy(ub);
