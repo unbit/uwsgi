@@ -245,7 +245,7 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 	if (sr.priority && sr.priority_len) {
 		filename_len = strlen(uspool->dir) + sr.priority_len + strlen(uwsgi.hostname) + 256;	
 		filename = uwsgi_malloc(filename_len);
-		int ret = snprintf(filename, filename_len, "%s/%.*s", uspool->dir, sr.priority_len, sr.priority);
+		int ret = snprintf(filename, filename_len, "%s/%.*s", uspool->dir, (int) sr.priority_len, sr.priority);
 		if (ret <= 0 || ret >= (int) filename_len) {
 			uwsgi_log("[uwsgi-spooler] error generating spooler filename\n");
 			free(filename);
@@ -255,7 +255,7 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 		// no need to check for errors...
 		(void) mkdir(filename, 0777);
 
-		ret = snprintf(filename, filename_len, "%s/%.*s/uwsgi_spoolfile_on_%s_%d_%d_%d_%llu_%llu", uspool->dir, sr.priority_len, sr.priority, uwsgi.hostname, (int) getpid(), internal_counter, core_id,
+		ret = snprintf(filename, filename_len, "%s/%.*s/uwsgi_spoolfile_on_%s_%d_%llu_%d_%llu_%llu", uspool->dir, (int)sr.priority_len, sr.priority, uwsgi.hostname, (int) getpid(), internal_counter, core_id,
 				(unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec);
 		if (ret <= 0 || ret >=(int)  filename_len) {
                         uwsgi_log("[uwsgi-spooler] error generating spooler filename\n");
@@ -267,7 +267,7 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 	else {
 		filename_len = strlen(uspool->dir) + strlen(uwsgi.hostname) + 256;
                 filename = uwsgi_malloc(filename_len);
-		int ret = snprintf(filename, filename_len, "%s/uwsgi_spoolfile_on_%s_%d_%d_%d_%llu_%llu", uspool->dir, uwsgi.hostname, (int) getpid(), internal_counter, core_id,
+		int ret = snprintf(filename, filename_len, "%s/uwsgi_spoolfile_on_%s_%d_%llu_%d_%llu_%llu", uspool->dir, uwsgi.hostname, (int) getpid(), internal_counter, core_id,
 				(unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec);
 		if (ret <= 0 || ret >= (int) filename_len) {
                         uwsgi_log("[uwsgi-spooler] error generating spooler filename\n");
