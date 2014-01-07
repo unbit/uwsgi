@@ -1180,6 +1180,18 @@ class uConf(object):
                     self.libs.append(spcall("pkg-config --libs yajl"))
                     self.cflags.append("-DUWSGI_JSON_YAJL")
                     report['json'] = 'yajl'
+                elif self.has_include('yajl/yajl_tree.h'):
+                    self.cflags.append("-DUWSGI_JSON")
+                    self.gcc_list.append('core/json')
+                    self.libs.append('-lyajl')
+                    self.cflags.append("-DUWSGI_JSON_YAJL")
+                    report['json'] = 'yajl'
+                elif self.has_include('yajl/yajl_parse.h'):
+                    self.cflags.append("-DUWSGI_JSON")
+                    self.gcc_list.append('core/json')
+                    self.libs.append('-lyajl')
+                    self.cflags.append("-DUWSGI_JSON_YAJL_OLD")
+                    report['json'] = 'yajl_old'
                 else:
                     print("*** yajl headers unavailable. uWSGI build is interrupted. You have to install yajl development package or use jansson or disable JSON")
                     sys.exit(1)
