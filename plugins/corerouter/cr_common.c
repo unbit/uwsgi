@@ -217,7 +217,16 @@ void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, 
 				sni_ca = uwsgi_concat2n(usr.sni_ca, usr.sni_ca_len, "", 0);
 			}
 			uwsgi_foreach(usl, ucr->resubscribe) {	
-				uwsgi_send_subscription_from_fd(-2, usl->value, usr.key, usr.keylen, usr.modifier1, usr.modifier2, bbuf[3], address, NULL, sni_key, sni_cert, sni_ca);
+				if (ucr->resubscribe_bind) {
+					static int rfd = -1;
+					if (rfd == -1) {
+						rfd = bind_to_udp(ucr->resubscribe_bind, 0, 0);
+					}
+					uwsgi_send_subscription_from_fd(rfd, usl->value, usr.key, usr.keylen, usr.modifier1, usr.modifier2, bbuf[3], address, NULL, sni_key, sni_cert, sni_ca);
+				}
+				else {
+					uwsgi_send_subscription_from_fd(-2, usl->value, usr.key, usr.keylen, usr.modifier1, usr.modifier2, bbuf[3], address, NULL, sni_key, sni_cert, sni_ca);
+				}
 			}
 			if (sni_key) free(sni_key);
 			if (sni_cert) free(sni_cert);

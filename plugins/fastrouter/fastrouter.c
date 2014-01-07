@@ -52,6 +52,7 @@ static struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter-uid", required_argument, 0, "drop fastrouter privileges to the specified uid", uwsgi_opt_uid, &ufr.cr.uid, 0 },
         {"fastrouter-gid", required_argument, 0, "drop fastrouter privileges to the specified gid", uwsgi_opt_gid, &ufr.cr.gid, 0 },
 	{"fastrouter-resubscribe", required_argument, 0, "forward subscriptions to the specified subscription server", uwsgi_opt_add_string_list, &ufr.cr.resubscribe, 0},
+	{"fastrouter-resubscribe-bind", required_argument, 0, "bind to the specified address when re-subscribing", uwsgi_opt_set_str, &ufr.cr.resubscribe_bind, 0},
 
 	{"fastrouter-buffer-size", required_argument, 0, "set internal buffer size (default: page size)", uwsgi_opt_set_64bit, &ufr.cr.buffer_size, 0},
 	{0, 0, 0, 0, 0, 0, 0},

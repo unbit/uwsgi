@@ -266,6 +266,7 @@ struct uwsgi_corerouter {
 	gid_t gid;
 
         struct uwsgi_string_list *resubscribe;
+        char *resubscribe_bind;
 
 	size_t buffer_size;
 
