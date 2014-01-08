@@ -295,7 +295,25 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 		if (ud->ns_pid) {
 			if (unshare(CLONE_NEWPID)) {
 				uwsgi_error("uwsgi_spawn_daemon()/unshare()");
+				exit(1);
 			}
+
+			pid_t pid = fork();
+                        if (pid < 0) {
+                                uwsgi_error("uwsgi_spawn_daemon()/fork()");
+                                exit(1);
+                        }
+                        if (pid > 0) {
+                                // block all signals
+                                sigset_t smask;
+                                sigfillset(&smask);
+                                sigprocmask(SIG_BLOCK, &smask, NULL);
+                                int status;
+                                if (waitpid(pid, &status, 0) < 0) {
+                                        uwsgi_error("uwsgi_spawn_daemon()/waitpid()");
+                                }
+                                _exit(0);
+                        }
 		}
 #endif
 
