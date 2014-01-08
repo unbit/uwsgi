@@ -81,6 +81,22 @@ int uwsgi_logic_opt_for_glob(char *key, char *value) {
         return 1;
 }
 
+int uwsgi_logic_opt_for_readline(char *key, char *value) {
+
+	char line[1024];
+
+        FILE *fh = fopen(uwsgi.logic_opt_data, "r");
+        if (fh) {
+                while (fgets(line, 1024, fh)) {
+			add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi_chomp(uwsgi_str(line))), 0);
+                }
+                fclose(fh);
+                return 1;
+        }
+        uwsgi_error_open(uwsgi.logic_opt_data);
+	return 0;
+}
+
 int uwsgi_logic_opt_for_times(char *key, char *value) {
 
         int num = atoi(uwsgi.logic_opt_data);
