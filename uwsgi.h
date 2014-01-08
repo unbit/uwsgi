@@ -602,6 +602,8 @@ struct uwsgi_daemon {
 	char *legion;
 #endif
 
+	int ns_pid;
+
 };
 
 struct uwsgi_logger {

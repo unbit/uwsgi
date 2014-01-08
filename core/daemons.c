@@ -291,6 +291,14 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 		uwsgi_close_all_sockets();
 		uwsgi_close_all_fds();
 
+#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
+		if (ud->ns_pid) {
+			if (unshare(CLONE_NEWPID)) {
+				uwsgi_error("uwsgi_spawn_daemon()/unshare()");
+			}
+		}
+#endif
+
 		if (ud->gid) {
 			if (setgid(ud->gid)) {
 				uwsgi_error("uwsgi_spawn_daemon()/setgid()");
@@ -454,6 +462,7 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 	char *d_stdin = NULL;
 	char *d_uid = NULL;
 	char *d_gid = NULL;
+	char *d_ns_pid = NULL;
 
 	char *arg = uwsgi_str(value);
 
@@ -474,6 +483,7 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 		"stdin", &d_stdin,	
 		"uid", &d_uid,	
 		"gid", &d_gid,	
+		"ns_pid", &d_ns_pid,	
 	NULL)) {
 		uwsgi_log("invalid --%s keyval syntax\n", opt);
 		exit(1);
@@ -519,6 +529,7 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 #ifdef UWSGI_SSL
         uwsgi_ud->legion = d_legion;
 #endif
+        uwsgi_ud->ns_pid = d_ns_pid ? 1 : 0;
 
 	if (d_touch) {
 		size_t i,rlen = 0;
