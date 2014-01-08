@@ -1016,6 +1016,11 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 	magic_table['b'] = uwsgi.binary_path;
 	magic_table['p'] = fullname;
 
+	struct stat st;
+	if (!stat(fullname, &st)) {
+		magic_table['i'] = uwsgi_num2str(st.st_ino);
+	}
+
 	magic_table['s'] = uwsgi_get_last_char(fullname, '/') + 1;
 
 	magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s'] - magic_table['p'], "", 0);
@@ -1088,6 +1093,7 @@ reuse:
                 magic_table['E'] = magic_table['e'];
                 magic_table['N'] = magic_table['n'];
                 magic_table['X'] = magic_table['x'];
+                magic_table['I'] = magic_table['i'];
 		uwsgi.magic_table_first_round = 1;
         }
 
