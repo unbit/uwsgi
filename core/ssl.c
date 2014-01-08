@@ -99,7 +99,15 @@ static int uwsgi_sni_cb(SSL *ssl, int *ad, void *arg) {
         struct uwsgi_string_list *usl = uwsgi.sni;
         while(usl) {
                 if (!uwsgi_strncmp(usl->value, usl->len, (char *)servername, servername_len)) {
-                        SSL_set_SSL_CTX(ssl, usl->custom_ptr);
+                        SSL_set_SSL_CTX(ssl, (SSL_CTX *) usl->custom_ptr);
+			// the following steps are taken from nginx
+			SSL_set_verify(ssl, SSL_CTX_get_verify_mode((SSL_CTX *)usl->custom_ptr),
+				 SSL_CTX_get_verify_callback((SSL_CTX *)usl->custom_ptr));
+			SSL_set_verify_depth(ssl, SSL_CTX_get_verify_depth((SSL_CTX *)usl->custom_ptr));	
+#ifdef SSL_CTRL_CLEAR_OPTIONS
+			SSL_clear_options(ssl, SSL_get_options(ssl) & ~SSL_CTX_get_options((SSL_CTX *)usl->custom_ptr));
+#endif
+			SSL_set_options(ssl, SSL_CTX_get_options((SSL_CTX *)usl->custom_ptr));
                         return SSL_TLSEXT_ERR_OK;
                 }
                 usl = usl->next;
