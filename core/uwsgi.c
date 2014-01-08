@@ -1017,7 +1017,7 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 	magic_table['p'] = fullname;
 
 	struct stat st;
-	if (!stat(fullname, &st)) {
+	if (!lstat(fullname, &st)) {
 		magic_table['i'] = uwsgi_num2str(st.st_ino);
 	}
 
