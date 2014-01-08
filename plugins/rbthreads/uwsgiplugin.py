@@ -24,6 +24,9 @@ else:
     CFLAGS.append('-I' + archdir)
     CFLAGS.append('-I' + archdir + '/' + arch)
     CFLAGS.append('-I' + includedir + '/' + arch)
+    archdir2 = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['rubyarchhdrdir']\"" % rbconfig).read().rstrip()
+    if archdir2:
+        CFLAGS.append('-I' + archdir2)
 
 LDFLAGS = []
 LIBS = []
