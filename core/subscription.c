@@ -691,6 +691,18 @@ static struct uwsgi_buffer *uwsgi_subscription_ub(char *key, size_t keysize, uin
                 if (uwsgi_buffer_append_keynum(ub, "weight", 6, uwsgi.weight )) goto end;
         }
 
+        if (sni_key) {
+                if (uwsgi_buffer_append_keyval(ub, "sni_key", 7, sni_key, strlen(sni_key))) goto end;
+        }
+
+        if (sni_crt) {
+                if (uwsgi_buffer_append_keyval(ub, "sni_crt", 7, sni_crt, strlen(sni_crt))) goto end;
+        }
+
+        if (sni_ca) {
+                if (uwsgi_buffer_append_keyval(ub, "sni_ca", 6, sni_ca, strlen(sni_ca))) goto end;
+        }
+
 #ifdef UWSGI_SSL
         if (sign) {
                 if (uwsgi_buffer_append_keynum(ub, "unix", 4, (uwsgi_now() + (time_t) cmd) )) goto end;
@@ -706,18 +718,6 @@ static struct uwsgi_buffer *uwsgi_subscription_ub(char *key, size_t keysize, uin
                 }
         }
 #endif
-
-        if (sni_key) {
-                if (uwsgi_buffer_append_keyval(ub, "sni_key", 7, sni_key, strlen(sni_key))) goto end;
-        }
-
-        if (sni_crt) {
-                if (uwsgi_buffer_append_keyval(ub, "sni_crt", 7, sni_crt, strlen(sni_crt))) goto end;
-        }
-
-        if (sni_ca) {
-                if (uwsgi_buffer_append_keyval(ub, "sni_ca", 6, sni_ca, strlen(sni_ca))) goto end;
-        }
 
         // add uwsgi header
         if (uwsgi_buffer_set_uh(ub, 224, cmd)) goto end;
