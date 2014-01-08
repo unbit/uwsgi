@@ -304,6 +304,9 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
                                 exit(1);
                         }
                         if (pid > 0) {
+				if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
+                                	uwsgi_error("uwsgi_spawn_daemon()/prctl()");
+                        	}
                                 // block all signals
                                 sigset_t smask;
                                 sigfillset(&smask);
