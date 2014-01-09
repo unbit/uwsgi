@@ -575,6 +575,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"master-fifo", required_argument, 0, "enable the master fifo", uwsgi_opt_add_string_list, &uwsgi.master_fifo, UWSGI_OPT_MASTER},
 
 	{"notify-socket", required_argument, 0, "enable the notification socket", uwsgi_opt_set_str, &uwsgi.notify_socket, UWSGI_OPT_MASTER},
+	{"subscription-notify-socket", required_argument, 0, "set the notification socket for subscriptions", uwsgi_opt_set_str, &uwsgi.subscription_notify_socket, UWSGI_OPT_MASTER},
 
 #ifdef UWSGI_SSL
 	{"legion", required_argument, 0, "became a member of a legion", uwsgi_opt_legion, NULL, UWSGI_OPT_MASTER},

@@ -469,6 +469,10 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node->pid = usr->pid;
 		node->uid = usr->uid;
 		node->gid = usr->gid;
+		if (usr->notify_len > 0 && usr->notify_len < 102) {
+			memcpy(node->notify, usr->notify, usr->notify_len);
+			node->notify[usr->notify_len] = 0;
+		}
 		node->last_check = uwsgi_now();
 		node->slot = current_slot;
 		memcpy(node->name, usr->address, usr->address_len);
@@ -561,6 +565,10 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes->pid = usr->pid;
 		current_slot->nodes->uid = usr->uid;
 		current_slot->nodes->gid = usr->gid;
+		if (usr->notify_len > 0 && usr->notify_len < 102) {
+			memcpy(current_slot->nodes->notify, usr->notify, usr->notify_len);
+			current_slot->nodes->notify[usr->notify_len] = 0;
+		}
 		memcpy(current_slot->nodes->name, usr->address, usr->address_len);
 		current_slot->nodes->last_check = uwsgi_now();
 
@@ -703,7 +711,10 @@ static struct uwsgi_buffer *uwsgi_subscription_ub(char *key, size_t keysize, uin
                 if (uwsgi_buffer_append_keyval(ub, "sni_ca", 6, sni_ca, strlen(sni_ca))) goto end;
         }
 
-	if (uwsgi.notify_socket_fd > -1 && uwsgi.notify_socket) {
+	if (uwsgi.subscription_notify_socket) {
+                if (uwsgi_buffer_append_keyval(ub, "notify", 6, uwsgi.subscription_notify_socket, strlen(uwsgi.subscription_notify_socket))) goto end;
+	}
+	else if (uwsgi.notify_socket_fd > -1 && uwsgi.notify_socket) {
                 if (uwsgi_buffer_append_keyval(ub, "notify", 6, uwsgi.notify_socket, strlen(uwsgi.notify_socket))) goto end;
 	}
 

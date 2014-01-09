@@ -286,6 +286,10 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
 		usr->sni_ca = val;
                 usr->sni_ca_len = vallen;
 	}
+	else if (!uwsgi_strncmp("notify", 6, key, keylen)) {
+		usr->notify = val;
+                usr->notify_len = vallen;
+	}
 }
 
 void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {

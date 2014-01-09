@@ -2691,6 +2691,7 @@ struct uwsgi_server {
 	// this is a unix socket receiving external notifications (like subscription replies)
 	char *notify_socket;
 	int notify_socket_fd;
+	char *subscription_notify_socket;
 };
 
 struct uwsgi_rpc {
@@ -3271,6 +3272,9 @@ struct uwsgi_subscribe_req {
 	pid_t pid;
 	uid_t uid;
 	gid_t gid;
+
+	char *notify;
+	uint16_t notify_len;
 };
 
 void uwsgi_nuclear_blast();
@@ -3533,6 +3537,8 @@ struct uwsgi_subscribe_node {
 	pid_t pid;
 	uid_t uid;
 	gid_t gid;
+
+	char notify[102];
 
 	struct uwsgi_subscribe_slot *slot;
 
@@ -4730,6 +4736,7 @@ void uwsgi_dump_worker(int, char *);
 mode_t uwsgi_mode_t(char *, int *);
 
 int uwsgi_notify_socket_manage(int);
+int uwsgi_notify_msg(char *, char *, size_t);
 
 #ifdef __cplusplus
 }

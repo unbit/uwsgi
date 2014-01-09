@@ -92,3 +92,22 @@ int uwsgi_notify_socket_manage(int fd) {
         return 0;
 }
 
+int uwsgi_notify_msg(char *dst, char *msg, size_t len) {
+	static int notify_fd = -1;
+	if (notify_fd < 0) {
+		notify_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+		if (notify_fd < 0) {
+			uwsgi_error("uwsgi_notify_msg()/socket()");
+			return -1;
+		}
+	}
+	struct sockaddr_un un_addr;
+	memset(&un_addr, 0, sizeof(struct sockaddr_un));
+        un_addr.sun_family = AF_UNIX;
+        // use 102 as the magic number
+        strncat(un_addr.sun_path, dst, 102);
+        if (sendto(notify_fd, msg, len, 0, (struct sockaddr *) &un_addr, sizeof(un_addr)) < 0) {
+		return -1;
+	}
+	return 0;
+}
