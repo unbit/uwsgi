@@ -22,6 +22,10 @@ int uwsgi_master_manage_events(int interesting_fd) {
 		return uwsgi_master_fifo_manage(uwsgi.master_fifo_fd);
 	}
 
+	if (uwsgi.notify_socket_fd > -1 && interesting_fd == uwsgi.notify_socket_fd) {
+		return uwsgi_notify_socket_manage(interesting_fd);
+	}
+
 	// stats server ?
 	if (uwsgi.stats && uwsgi.stats_fd > -1) {
 		if (interesting_fd == uwsgi.stats_fd) {

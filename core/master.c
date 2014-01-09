@@ -334,6 +334,12 @@ int master_loop(char **argv, char **environ) {
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.master_fifo_fd);
 	}
 
+	if (uwsgi.notify_socket) {
+		uwsgi.notify_socket_fd = bind_to_unix_dgram(uwsgi.notify_socket);
+		uwsgi_log("notification socket enabled on %s (fd: %d)\n", uwsgi.notify_socket, uwsgi.notify_socket_fd);
+		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.notify_socket_fd);
+	}
+
 	if (uwsgi.spoolers) {
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->spooler_signal_pipe[0]);
 	}

@@ -183,6 +183,8 @@ void uwsgi_init_default() {
 
 	uwsgi.master_fifo_fd = -1;
 	uwsgi_master_fifo_prepare();
+
+	uwsgi.notify_socket_fd = -1;
 }
 
 void uwsgi_setup_reload() {

@@ -703,6 +703,10 @@ static struct uwsgi_buffer *uwsgi_subscription_ub(char *key, size_t keysize, uin
                 if (uwsgi_buffer_append_keyval(ub, "sni_ca", 6, sni_ca, strlen(sni_ca))) goto end;
         }
 
+	if (uwsgi.notify_socket_fd > -1 && uwsgi.notify_socket) {
+                if (uwsgi_buffer_append_keyval(ub, "notify", 6, uwsgi.notify_socket, strlen(uwsgi.notify_socket))) goto end;
+	}
+
 #ifdef UWSGI_SSL
         if (sign) {
                 if (uwsgi_buffer_append_keynum(ub, "unix", 4, (uwsgi_now() + (time_t) cmd) )) goto end;

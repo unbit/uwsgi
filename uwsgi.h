@@ -2687,6 +2687,10 @@ struct uwsgi_server {
 	// inject text files (useful for advanced templating)
         struct uwsgi_string_list *inject_before;
         struct uwsgi_string_list *inject_after;
+
+	// this is a unix socket receiving external notifications (like subscription replies)
+	char *notify_socket;
+	int notify_socket_fd;
 };
 
 struct uwsgi_rpc {
@@ -4724,6 +4728,8 @@ int uwsgi_socket_passcred(int);
 
 void uwsgi_dump_worker(int, char *);
 mode_t uwsgi_mode_t(char *, int *);
+
+int uwsgi_notify_socket_manage(int);
 
 #ifdef __cplusplus
 }

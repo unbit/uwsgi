@@ -588,6 +588,8 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 
 		if (uwsgi.master_fifo_fd > -1) close(uwsgi.master_fifo_fd);
 
+		if (uwsgi.notify_socket_fd > -1) close(uwsgi.notify_socket_fd);
+
 #ifdef __linux__
 		for(i=0;i<uwsgi.setns_fds_count;i++) {
 			close(uwsgi.setns_fds[i]);

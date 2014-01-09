@@ -75,3 +75,20 @@ void uwsgi_systemd_init(char *systemd_socket) {
 	uwsgi.notify_ready = uwsgi_systemd_notify_ready;
 
 }
+
+int uwsgi_notify_socket_manage(int fd) {
+	char buf[8192];
+        ssize_t rlen = read(fd, buf, 8192);
+        if (rlen < 0) {
+                if (uwsgi_is_again()) return 0;
+                uwsgi_error("uwsgi_notify_socket_manage()/read()");
+                exit(1);
+        }
+
+	if (rlen > 0) {
+		uwsgi_log_verbose("[notify-socket] %.*s\n", rlen, buf);
+        }
+
+        return 0;
+}
+
