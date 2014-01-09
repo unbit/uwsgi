@@ -201,9 +201,11 @@ int cheaper_busyness_algo(int can_spawn) {
 		}
 
 		avg_busyness = (active_workers ? total_busyness / active_workers : 0);
-		uwsgi_wlock(uwsgi.metrics_lock);
-		uwsgi_cheaper_busyness_global.total_avg_busyness = avg_busyness;
-		uwsgi_rwunlock(uwsgi.metrics_lock);
+		if (uwsgi.has_metrics) {
+			uwsgi_wlock(uwsgi.metrics_lock);
+			uwsgi_cheaper_busyness_global.total_avg_busyness = avg_busyness;
+			uwsgi_rwunlock(uwsgi.metrics_lock);
+		}
 
 		if (uwsgi_cheaper_busyness_global.verbose)
 			uwsgi_log("[busyness] %ds average busyness of %d worker(s) is at %d%%\n",
