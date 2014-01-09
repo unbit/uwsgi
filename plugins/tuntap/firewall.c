@@ -14,12 +14,17 @@ int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *uttr, struct uwsgi
         uint32_t dst = ntohl(*dst_ip);
 
 #ifdef UWSGI_DEBUG
-	uwsgi_log("%X %X\n", src, dst);
+	uwsgi_log("%d %X %X\n",direction, src, dst);
 #endif
 
 	int i;
 	for(i=0;i<uttp->rules_cnt;i++) {
 		struct uwsgi_tuntap_peer_rule *rule = &uttp->rules[i];
+
+#ifdef UWSGI_DEBUG
+		uwsgi_log("cnt = %i/%d direction = %d action = %d %X %X\n", i, uttp->rules_cnt, rule->direction, rule->action, rule->src_mask, rule->dst_mask);
+#endif
+
 
 		if (rule->direction != direction) continue;
 
@@ -32,6 +37,7 @@ int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *uttr, struct uwsgi
                         uint32_t dst_masked = dst & rule->dst_mask;
                         if (dst_masked != rule->dst) continue;
                 }
+
 
 		if (rule->action == 0) return 0;
 		if (rule->action == 1) return 1;
@@ -295,7 +301,7 @@ void uwsgi_tuntap_peer_send_rules(int fd, struct uwsgi_tuntap_peer *peer) {
 
 		char *slash = strchr(argv[1],'/');
 		if (slash) {
-			utpr.src_mask = (0xffffffff << ((atoi(slash+1))-utpr.src_mask));
+			utpr.src_mask = (0xffffffff << ((atoi(slash+1))-32));
 			*slash = 0;
 		}
 		if (inet_pton(AF_INET, argv[1], &utpr.src) != 1) {
@@ -307,7 +313,7 @@ void uwsgi_tuntap_peer_send_rules(int fd, struct uwsgi_tuntap_peer *peer) {
 
 		slash = strchr(argv[2],'/');
                 if (slash) {
-			utpr.dst_mask = (0xffffffff << ((atoi(slash+1))-utpr.dst_mask));
+			utpr.dst_mask = (0xffffffff << ((atoi(slash+1))-32));
                         *slash = 0;
                 }
                 if (inet_pton(AF_INET, argv[2], &utpr.dst) != 1) {
