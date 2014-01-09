@@ -535,7 +535,46 @@ fallback:
 end:
 
 	if (magic_table) {
-
+		// here we inject blobs
+		struct uwsgi_string_list *usl = NULL;
+		if (uwsgi.inject_before || uwsgi.inject_after) {
+			struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+			uwsgi_foreach(usl, uwsgi.inject_before) {
+				size_t rlen = 0;
+				char *before = uwsgi_open_and_read(usl->value, &rlen, 0, NULL);
+				if (uwsgi_buffer_append(ub, before, rlen)) {
+					uwsgi_log("unable to inject data in the config file\n");
+					exit(1);
+				}	
+				free(before);
+			}
+			if (uwsgi_buffer_append(ub, buffer, *size - add_zero)) {
+                        	uwsgi_log("unable to inject data in the config file\n");
+                                exit(1);
+                        }
+			uwsgi_foreach(usl, uwsgi.inject_after) {
+				size_t rlen = 0;
+                                char *after = uwsgi_open_and_read(usl->value, &rlen, 0, NULL);
+                                if (uwsgi_buffer_append(ub, after, rlen)) {
+                                        uwsgi_log("unable to inject data in the config file\n");
+                                        exit(1);
+                                }       
+                                free(after);
+			}
+			if (add_zero) {
+				if (uwsgi_buffer_append(ub, "\0", 1)) {
+                                        uwsgi_log("unable to inject data in the config file\n");
+                                        exit(1);
+                                }
+			}
+			*size = ub->pos; 
+			// free resources
+			free(buffer);
+			buffer = ub->buf;
+			// aboid destroying buffer
+			ub->buf = NULL;
+			uwsgi_buffer_destroy(ub);
+		}
 		magic_buf = magic_sub(buffer, *size, size, magic_table);
 		free(buffer);
 		return magic_buf;

@@ -151,6 +151,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"inherit", required_argument, 0, "use the specified file as config template", uwsgi_opt_load, NULL, 0},
 	{"include", required_argument, 0, "include the specified file as immediate configuration", uwsgi_opt_load, NULL, UWSGI_OPT_IMMEDIATE},
+	{"inject-before", required_argument, 0, "inject a text file before the config file (advanced templating)", uwsgi_opt_add_string_list, &uwsgi.inject_before, UWSGI_OPT_IMMEDIATE},
+	{"inject-after", required_argument, 0, "inject a text file after the config file (advanced templating)", uwsgi_opt_add_string_list, &uwsgi.inject_after, UWSGI_OPT_IMMEDIATE},
 	{"daemonize", required_argument, 'd', "daemonize uWSGI", uwsgi_opt_set_str, &uwsgi.daemonize, 0},
 	{"daemonize2", required_argument, 0, "daemonize uWSGI after app loading", uwsgi_opt_set_str, &uwsgi.daemonize2, 0},
 	{"stop", required_argument, 0, "stop an instance", uwsgi_opt_pidfile_signal, (void *) SIGINT, UWSGI_OPT_IMMEDIATE},

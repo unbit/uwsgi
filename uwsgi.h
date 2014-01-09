@@ -2684,6 +2684,9 @@ struct uwsgi_server {
 
 	struct uwsgi_string_list *schemes;
 
+	// inject text files (useful for advanced templating)
+        struct uwsgi_string_list *inject_before;
+        struct uwsgi_string_list *inject_after;
 };
 
 struct uwsgi_rpc {
