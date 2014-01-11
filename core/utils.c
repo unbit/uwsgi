@@ -754,7 +754,11 @@ void uwsgi_as_root() {
 	}
 
 	if (uwsgi.logfile_chown) {
-		if (fchown(2, uwsgi.uid, uwsgi.gid)) {
+		int log_fd = 2;
+		if (uwsgi.log_master && uwsgi.original_log_fd > -1) {
+			log_fd = uwsgi.original_log_fd;
+		}
+		if (fchown(log_fd, uwsgi.uid, uwsgi.gid)) {
 			uwsgi_error("fchown()");
 			exit(1);
 		}
