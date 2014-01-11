@@ -578,7 +578,7 @@ static void stats_dump_var(char *k, uint16_t kl, char *v, uint16_t vl, void *dat
 
 int uwsgi_stats_dump_vars(struct uwsgi_stats *us, struct uwsgi_core *uc) {
 	if (!uc->in_request) return 0;
-	struct uwsgi_header *uh = (struct uwsgi_header *) uwsgi.workers[0].cores[0].buffer;
+	struct uwsgi_header *uh = (struct uwsgi_header *) uc->buffer;
 	uint16_t pktsize = uh->pktsize;
 	if (!pktsize) return 0;
 	char *dst = uwsgi.workers[0].cores[0].buffer;
