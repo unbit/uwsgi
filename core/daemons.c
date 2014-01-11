@@ -55,7 +55,7 @@ void uwsgi_daemons_smart_check() {
 				if (ud->pid > 0) {
 					if (!kill(ud->pid, 0)) {
 						uwsgi_log("[uwsgi_daemons] stopping legion \"%s\" daemon: %s (pid: %d)\n", ud->legion, ud->command, ud->pid);
-						kill(-ud->pid, ud->stop_signal);
+						kill(-(ud->pid), ud->stop_signal);
 					}
 					else {
 						// pid already died
@@ -237,12 +237,12 @@ void uwsgi_detach_daemons() {
 			time_t timeout = uwsgi_now() + (uwsgi.reload_mercy ? uwsgi.reload_mercy : 3);
 			int waitpid_status;
 			while (!kill(ud->pid, 0)) {
-				kill(-ud->pid, ud->stop_signal);
+				kill(-(ud->pid), ud->stop_signal);
 				sleep(1);
-				waitpid(-ud->pid, &waitpid_status, WNOHANG);
+				waitpid(ud->pid, &waitpid_status, WNOHANG);
 				if (uwsgi_now() >= timeout) {
 					uwsgi_log("[uwsgi-daemons] daemon did not die in time, killing (pid: %d): %s\n", (int) ud->pid, ud->command);
-					kill(-ud->pid, SIGKILL);
+					kill(-(ud->pid), SIGKILL);
 					break;
 				}
 			}
@@ -253,18 +253,19 @@ void uwsgi_detach_daemons() {
 	}
 }
 
+static int daemon_spawn(void *);
 
 void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 
 	// skip unregistered daemons
 	if (!ud->registered) return;
 
-	int throttle = 0;
+	ud->throttle = 0;
 
 	if (uwsgi.current_time - ud->last_spawn <= 3) {
-		throttle = ud->respawns - (uwsgi.current_time - ud->last_spawn);
+		ud->throttle = ud->respawns - (uwsgi.current_time - ud->last_spawn);
 		// if ud->respawns == 0 then we can end up with throttle < 0
-		if (throttle <= 0) throttle = 1;
+		if (ud->throttle <= 0) ud->throttle = 1;
 	}
 
 	pid_t pid = uwsgi_fork("uWSGI external daemon");
@@ -291,27 +292,29 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 		uwsgi_close_all_sockets();
 		uwsgi_close_all_fds();
 
-#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
+#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL) && defined(CLONE_NEWPID)
 		if (ud->ns_pid) {
-			if (unshare(CLONE_NEWPID)) {
-				uwsgi_error("uwsgi_spawn_daemon()/unshare()");
+			// we need to create a new session
+			if (setsid() < 0) {
+				uwsgi_error("setsid()");
 				exit(1);
 			}
+			// avoid the need to set stop_signal in attach-daemon2
+			signal(SIGTERM, end_me);
 
-			pid_t pid = fork();
-                        if (pid < 0) {
-                                uwsgi_error("uwsgi_spawn_daemon()/fork()");
-                                exit(1);
-                        }
+			char stack[PTHREAD_STACK_MIN];
+                	pid_t pid = clone((int (*)(void *))daemon_spawn, stack + PTHREAD_STACK_MIN, SIGCHLD | CLONE_NEWPID, (void *) ud);
                         if (pid > 0) {
+
 #ifdef PR_SET_PDEATHSIG
 				if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
                                 	uwsgi_error("uwsgi_spawn_daemon()/prctl()");
                         	}
 #endif
-                                // block all signals
+                                // block all signals except SIGTERM
                                 sigset_t smask;
                                 sigfillset(&smask);
+				sigdelset(&smask, SIGTERM);
                                 sigprocmask(SIG_BLOCK, &smask, NULL);
                                 int status;
                                 if (waitpid(pid, &status, 0) < 0) {
@@ -319,8 +322,19 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
                                 }
                                 _exit(0);
                         }
+			uwsgi_error("uwsgi_spawn_daemon()/clone()");
+                        exit(1);
 		}
 #endif
+		daemon_spawn((void *) ud);
+
+	}
+}
+
+
+static int daemon_spawn(void *arg) {
+
+	struct uwsgi_daemon *ud = (struct uwsgi_daemon *) arg;
 
 		if (ud->gid) {
 			if (setgid(ud->gid)) {
@@ -338,7 +352,7 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 
 		if (ud->daemonize) {
 			/* refork... */
-			pid = fork();
+			pid_t pid = fork();
 			if (pid < 0) {
 				uwsgi_error("fork()");
 				exit(1);
@@ -360,7 +374,7 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 		}
 
 		if (!ud->pidfile) {
-#ifdef __linux__
+#ifdef PR_SET_PDEATHSIG
 			if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
 				uwsgi_error("prctl()");
 			}
@@ -368,9 +382,9 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 		}
 
 
-		if (throttle) {
-			uwsgi_log("[uwsgi-daemons] throttling \"%s\" for %d seconds\n", ud->command, throttle);
-			sleep((unsigned int) throttle);
+		if (ud->throttle) {
+			uwsgi_log("[uwsgi-daemons] throttling \"%s\" for %d seconds\n", ud->command, ud->throttle);
+			sleep((unsigned int) ud->throttle);
 		}
 
 		uwsgi_log("[uwsgi-daemons] %sspawning \"%s\" (uid: %d gid: %d)\n", ud->respawns > 0 ? "re" : "", ud->command, (int) getuid(), (int) getgid());
@@ -379,9 +393,6 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 
 		// never here;
 		exit(1);
-	}
-
-	return;
 }
 
 

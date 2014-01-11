@@ -603,7 +603,7 @@ struct uwsgi_daemon {
 #endif
 
 	int ns_pid;
-
+	int throttle;
 };
 
 struct uwsgi_logger {
