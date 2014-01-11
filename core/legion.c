@@ -507,7 +507,14 @@ static void *legion_loop(void *foobar) {
 		last_round = now;
 		// wait for event
 		int interesting_fd = -1;
+		if (uwsgi_instance_is_reloading || uwsgi_instance_is_dying) return NULL;
 		int rlen = event_queue_wait(uwsgi.legion_queue, timeout, &interesting_fd);
+
+		if (rlen < 0 && errno != EINTR) {
+			if (uwsgi_instance_is_reloading || uwsgi_instance_is_dying) return NULL;
+			uwsgi_nuclear_blast();
+			return NULL;	
+		}
 
 		now = uwsgi_now();
 		if (timeout == 0 || rlen == 0 || (now - last_round) >= timeout) {
