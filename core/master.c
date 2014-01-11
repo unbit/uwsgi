@@ -835,7 +835,7 @@ int master_loop(char **argv, char **environ) {
                         			touched = uwsgi_check_touches(ud->touch);
 						if (touched) {
 							uwsgi_log_verbose("*** %s has been touched... reloading daemon \"%s\" (pid: %d) !!! ***\n", touched, ud->command, (int) ud->pid);
-							if (kill(-ud->pid, ud->stop_signal)) {
+							if (kill(-(ud->pid), ud->stop_signal)) {
 								uwsgi_error("[uwsgi-daemon/touch] kill()");
 							}
 						}
