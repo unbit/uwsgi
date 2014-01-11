@@ -92,6 +92,8 @@ void gateway_respawn(int id) {
 		signal(SIGSTOP, SIG_IGN);
 		signal(SIGTSTP, SIG_IGN);
 
+		uwsgi_hooks_run(uwsgi.hook_as_gateway, "as-gateway", 1);
+
 		if (ug->gid) {
 			uwsgi_log("%s %d setgid() to %d\n", ug->name, ug->num, (int) ug->gid);
 			if (setgid(ug->gid)) {

@@ -2077,6 +2077,7 @@ struct uwsgi_server {
         struct uwsgi_string_list *hook_as_vassal;
         struct uwsgi_string_list *hook_as_emperor;
         struct uwsgi_string_list *hook_as_mule;
+        struct uwsgi_string_list *hook_as_gateway;
 	
 
 	struct uwsgi_string_list *exec_asap;

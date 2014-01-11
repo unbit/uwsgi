@@ -404,6 +404,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
         {"hook-as-mule", required_argument, 0, "run the specified hook in each mule", uwsgi_opt_add_string_list, &uwsgi.hook_as_mule, 0},
 
+        {"hook-as-gateway", required_argument, 0, "run the specified hook in each gateway", uwsgi_opt_add_string_list, &uwsgi.hook_as_gateway, 0},
+
         {"after-request-hook", required_argument, 0, "run the specified function/symbol after each request", uwsgi_opt_add_string_list, &uwsgi.after_request_hooks, 0},
         {"after-request-call", required_argument, 0, "run the specified function/symbol after each request", uwsgi_opt_add_string_list, &uwsgi.after_request_hooks, 0},
 
