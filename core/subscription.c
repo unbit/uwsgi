@@ -395,6 +395,7 @@ end:
 }
 
 static int subscription_new_sign_ctx(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_req *);
+static int subscription_is_safe(struct uwsgi_subscribe_req *);
 
 struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi_subscribe_req *usr) {
 
@@ -420,7 +421,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 			if (!uwsgi_strncmp(node->name, node->len, usr->address, usr->address_len)) {
 #ifdef UWSGI_SSL
 				// this should avoid sending sniffed packets...
-				if (current_slot->sign_ctx && usr->unix_check <= node->unix_check) {
+				if (current_slot->sign_ctx && !subscription_is_safe(usr) && usr->unix_check <= node->unix_check) {
 					uwsgi_log("[uwsgi-subscription for pid %d] invalid (sniffed ?) packet sent for slot: %.*s node: %.*s unix_check: %lu\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, (unsigned long) usr->unix_check);
 					return NULL;
 				}
@@ -441,6 +442,10 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		}
 
 #ifdef UWSGI_SSL
+		if (current_slot->sign_ctx && !subscription_is_safe(usr) && usr->unix_check < (uwsgi_now() - (time_t) uwsgi.subscriptions_sign_check_tolerance)) {
+			uwsgi_log("[uwsgi-subscription for pid %d] invalid (sniffed ?) packet sent for slot: %.*s node: %.*s unix_check: %lu\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, (unsigned long) usr->unix_check);
+                        return NULL;
+		}
 		// check here as we are sure the node will be added
 		uwsgi_subscription_sni_check(current_slot, usr);
 #endif
