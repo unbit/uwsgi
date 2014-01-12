@@ -2630,6 +2630,7 @@ struct uwsgi_server {
 	char *ssl_sessions_use_cache;
 	int ssl_sessions_timeout;
 	struct uwsgi_cache *ssl_sessions_cache;
+	char *ssl_tmp_dir;
 #ifdef UWSGI_PCRE
 	struct uwsgi_regexp_list *sni_regexp;
 #endif
@@ -3688,6 +3689,7 @@ void uwsgi_opt_add_unique_legion_cron(char *, char *, void *);
 void uwsgi_opt_sni(char *, char *, void *);
 struct uwsgi_string_list *uwsgi_ssl_add_sni_item(char *, char *, char *, char *, char *);
 void uwsgi_ssl_del_sni_item(char *, uint16_t);
+char *uwsgi_write_pem_to_file(char *, char *, size_t, char *);
 #endif
 void uwsgi_opt_flock(char *, char *, void *);
 void uwsgi_opt_flock_wait(char *, char *, void *);

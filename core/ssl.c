@@ -152,7 +152,32 @@ done:
 }
 #endif
 
+char *uwsgi_write_pem_to_file(char *name, char *buf, size_t len, char *ext) {
+	if (!uwsgi.ssl_tmp_dir) return NULL;
+	char *filename = uwsgi_concat4(uwsgi.ssl_tmp_dir, "/", name, ext);
+	int fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR);
+	if (fd < 0) {
+		uwsgi_error_open(filename);
+		free(filename);
+		return NULL;
+	}
+
+	if (write(fd, buf, len) != (ssize_t) len) {
+		uwsgi_log("unable to write pem data in file %s\n", filename);
+		uwsgi_error("uwsgi_write_pem_to_file()/write()");
+		free(filename);
+                return NULL;
+	}
+
+	close(fd);
+	return filename;
+}
+
 SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ciphers, char *client_ca) {
+
+	int crt_need_free = 0;
+	int key_need_free = 0;
+	int client_ca_need_free = 0;
 
         SSL_CTX *ctx = SSL_CTX_new(SSLv23_server_method());
         if (!ctx) {
@@ -173,11 +198,27 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 #ifdef SSL_MODE_RELEASE_BUFFERS
         SSL_CTX_set_mode(ctx, SSL_MODE_RELEASE_BUFFERS);
 #endif
+	
+	/*
+		we need to support both file-based certs and stream based
+		as dealing with openssl memory bio for keys is really overkill,
+		we store them in a tmp directory
+	*/
+
+	if (uwsgi.ssl_tmp_dir && !uwsgi_starts_with(crt, strlen(crt), "-----BEGIN ", 11)) {
+		crt = uwsgi_write_pem_to_file(name, crt, strlen(crt), ".crt");
+		if (!crt) {
+			SSL_CTX_free(ctx);
+                	return NULL;
+		}	
+		crt_need_free = 1;	
+	}
 
         if (SSL_CTX_use_certificate_chain_file(ctx, crt) <= 0) {
-                uwsgi_log("[uwsgi-ssl] unable to assign certificate %s for context \"%s\"\n", crt, name);
-                SSL_CTX_free(ctx);
-                return NULL;
+               	uwsgi_log("[uwsgi-ssl] unable to assign certificate %s for context \"%s\"\n", crt, name);
+               	SSL_CTX_free(ctx);
+		if (crt_need_free) free(crt);
+               	return NULL;
         }
 
 // this part is based from stud
@@ -200,12 +241,25 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
                 }
         }
 
+	if (crt_need_free) free(crt);
+
+	if (uwsgi.ssl_tmp_dir && !uwsgi_starts_with(key, strlen(key), "-----BEGIN ", 11)) {
+                key = uwsgi_write_pem_to_file(name, key, strlen(key), ".key");
+                if (!key) {
+                        SSL_CTX_free(ctx);
+                        return NULL;
+                }
+                key_need_free = 1;
+        }
+
         if (SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM) <= 0) {
                 uwsgi_log("[uwsgi-ssl] unable to assign key %s for context \"%s\"\n", key, name);
                 SSL_CTX_free(ctx);
+		if (key_need_free) free(key);
                 return NULL;
         }
 
+	if (key_need_free) free(key);
 
 	// if ciphers are specified, prefer server ciphers
         if (ciphers && strlen(ciphers) > 0) {
@@ -233,19 +287,33 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
                 }
                 // in the future we should allow to set the verify depth
                 SSL_CTX_set_verify_depth(ctx, 1);
+
+		if (uwsgi.ssl_tmp_dir && !uwsgi_starts_with(client_ca, strlen(client_ca), "-----BEGIN ", 11)) {
+                	client_ca = uwsgi_write_pem_to_file(name, client_ca, strlen(client_ca), ".ca");
+                	if (!client_ca) {
+                        	SSL_CTX_free(ctx);
+                        	return NULL;
+                	}
+                	client_ca_need_free = 1;
+        	}
+
                 if (SSL_CTX_load_verify_locations(ctx, client_ca, NULL) == 0) {
                         uwsgi_log("[uwsgi-ssl] unable to set ssl verify locations (%s) for context \"%s\"\n", client_ca, name);
                         SSL_CTX_free(ctx);
+			if (client_ca_need_free) free(client_ca);
                         return NULL;
                 }
                 STACK_OF(X509_NAME) * list = SSL_load_client_CA_file(client_ca);
                 if (!list) {
                         uwsgi_log("unable to load client CA certificate (%s) for context \"%s\"\n", client_ca, name);
                         SSL_CTX_free(ctx);
+			if (client_ca_need_free) free(client_ca);
                         return NULL;
                 }
 
                 SSL_CTX_set_client_CA_list(ctx, list);
+
+		if (client_ca_need_free) free(client_ca);
         }
 
 

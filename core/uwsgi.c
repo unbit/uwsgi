@@ -628,6 +628,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef UWSGI_PCRE
 	{"sni-regexp", required_argument, 0, "add an SNI-governed SSL context (the key is a regexp)", uwsgi_opt_sni, NULL, 0},
 #endif
+	{"ssl-tmp-dir", required_argument, 0, "store ssl-related temp files in the specified directory", uwsgi_opt_set_str, &uwsgi.ssl_tmp_dir, 0},
 #endif
 	{"check-interval", required_argument, 0, "set the interval (in seconds) of master checks", uwsgi_opt_set_int, &uwsgi.master_interval, UWSGI_OPT_MASTER},
 	{"forkbomb-delay", required_argument, 0, "sleep for the specified number of seconds when a forkbomb is detected", uwsgi_opt_set_int, &uwsgi.forkbomb_delay, UWSGI_OPT_MASTER},
