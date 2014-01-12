@@ -396,13 +396,6 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 	if (usr->address_len > 0xff || usr->address_len == 0)
 		return NULL;
 
-#ifdef UWSGI_SSL
-	if (uwsgi.subscriptions_sign_check_dir) {
-		if (usr->sign_len == 0 || usr->base_len == 0)
-			return NULL;
-	}
-#endif
-
 	if (current_slot) {
 #ifdef UWSGI_SSL
 		if (uwsgi.subscriptions_sign_check_dir && !uwsgi_subscription_sign_check(current_slot, usr)) {
@@ -493,6 +486,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 #ifdef UWSGI_SSL
 		FILE *kf = NULL;
 		if (uwsgi.subscriptions_sign_check_dir) {
+			if (usr->sign_len == 0 || usr->base_len == 0) return NULL;
 			if (usr->unix_check < (uwsgi_now() - (time_t) uwsgi.subscriptions_sign_check_tolerance)) {
 				uwsgi_log("[uwsgi-subscription for pid %d] invalid (sniffed ?) packet sent for slot: %.*s node: %.*s unix_check: %lu\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, (unsigned long) usr->unix_check);
 				return NULL;
@@ -790,6 +784,8 @@ int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *slot, struct uwsg
 			return 1;
 		}
 	}
+
+	if (usr->sign_len == 0 || usr->base_len == 0) return 0;
 
 	if (EVP_VerifyInit_ex(slot->sign_ctx, uwsgi.subscriptions_sign_check_md, NULL) == 0) {
 		ERR_print_errors_fp(stderr);
