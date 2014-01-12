@@ -114,7 +114,6 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 		}
 		PyObject *frame = PyIter_Next(frames_iter);
 		while(frame) {
-
 			PyObject *thread_id = PyTuple_GetItem(frame, 0);
 			if (!thread_id) goto next2;
 

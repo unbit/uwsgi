@@ -1802,15 +1802,13 @@ static void uwsgi_python_harakiri(int wid) {
 		if (fd < 1)
 			goto exit;
 
-                int ret = uwsgi_waitfd(fd, uwsgi.socket_timeout);
-                if (ret <= 0) {
-			goto cleanup;
-                }
-                ssize_t len = read(fd, buf, 8192);
-                if (len <= 0) {
-			goto cleanup;
-                }
-                uwsgi_log("%.*s", (int) len, buf);
+		for(;;) {
+                	int ret = uwsgi_waitfd(fd, uwsgi.socket_timeout);
+                	if (ret <= 0) goto cleanup;
+                	ssize_t len = read(fd, buf, 8192);
+                	if (len <= 0) goto cleanup;
+                	uwsgi_log("%.*s", (int) len, buf);
+		}
 
 cleanup:
 		close(fd);
