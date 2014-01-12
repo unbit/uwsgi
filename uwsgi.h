@@ -2187,6 +2187,7 @@ struct uwsgi_server {
 	char *subscriptions_sign_check_dir;
 	int subscriptions_sign_check_tolerance;
 	const EVP_MD *subscriptions_sign_check_md;
+	struct uwsgi_string_list *subscriptions_sign_skip_uid;
 #endif
 
 	struct uwsgi_string_list *subscriptions_credentials_check_dir;

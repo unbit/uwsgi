@@ -781,6 +781,16 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
 #ifdef UWSGI_SSL
 int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *slot, struct uwsgi_subscribe_req *usr) {
 
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, uwsgi.subscriptions_sign_skip_uid) {
+		if (usl->custom == 0) {
+			usl->custom = atoi(usl->value);
+		}
+		if (usr->uid > 0 && usr->uid == (uid_t) usl->custom) {
+			return 1;
+		}
+	}
+
 	if (EVP_VerifyInit_ex(slot->sign_ctx, uwsgi.subscriptions_sign_check_md, NULL) == 0) {
 		ERR_print_errors_fp(stderr);
 		return 0;
