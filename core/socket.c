@@ -192,7 +192,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	if (serverfd < 0) return -1;
 	if (abstract_socket == 0) {
 		if (unlink(socket_name) != 0 && errno != ENOENT) {
-			uwsgi_error("unlink()");
+			uwsgi_error("error removing unix socket, unlink()");
 		}
 	}
 
