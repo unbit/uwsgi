@@ -471,6 +471,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node->pid = usr->pid;
 		node->uid = usr->uid;
 		node->gid = usr->gid;
+		node->notify[0] = 0;
 		if (usr->notify_len > 0 && usr->notify_len < 102) {
 			memcpy(node->notify, usr->notify, usr->notify_len);
 			node->notify[usr->notify_len] = 0;
@@ -540,6 +541,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes->pid = usr->pid;
 		current_slot->nodes->uid = usr->uid;
 		current_slot->nodes->gid = usr->gid;
+		current_slot->nodes->notify[0] = 0;
 		if (usr->notify_len > 0 && usr->notify_len < 102) {
 			memcpy(current_slot->nodes->notify, usr->notify, usr->notify_len);
 			current_slot->nodes->notify[usr->notify_len] = 0;
