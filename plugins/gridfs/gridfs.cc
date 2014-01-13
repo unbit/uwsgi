@@ -79,6 +79,11 @@ static void uwsgi_gridfs_do(struct wsgi_request *wsgi_req, struct uwsgi_gridfs_m
 			}
 			uwsgi_response_add_content_length(wsgi_req, gfile.getContentLength());
 
+			char http_last_modified[49];
+			time_t t = gfile.getUploadDate().toTimeT();
+			int size = uwsgi_http_date(t, http_last_modified);
+                	uwsgi_response_add_header(wsgi_req, (char *)"Last-Modified", 13, http_last_modified, size);
+
 			if (ugm->etag) {
 				std::string g_md5 = gfile.getMD5();
 				if (!g_md5.empty()) {
