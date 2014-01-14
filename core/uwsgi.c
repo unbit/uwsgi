@@ -2765,6 +2765,9 @@ int uwsgi_start(void *v_argv) {
 		!uwsgi.daemons_cnt &&
 		!uwsgi.crons &&
 		!uwsgi.emperor_proxy
+#ifdef __linux__
+		&& !uwsgi.setns_socket
+#endif
 #ifdef UWSGI_SSL
 && !uwsgi.legions
 #endif
