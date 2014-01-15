@@ -459,6 +459,10 @@ static void rack_hack_dollar_zero(VALUE name, ID id) {
 	rb_obj_taint(ur.dollar_zero);
 }
 
+#ifndef RUBY19
+void Init_stack(VALUE*);
+#endif
+
 int uwsgi_rack_init(){
 
 #ifdef RUBY19
@@ -503,6 +507,8 @@ int uwsgi_rack_init(){
 	ruby_options(argc, argv);
 #else
 	ruby_init();
+	VALUE dummy;
+	Init_stack(&dummy);
 	ruby_init_loadpath();
 #endif
 
