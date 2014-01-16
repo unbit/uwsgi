@@ -18,6 +18,8 @@ int emperor_throttle_level;
 
 struct uwsgi_instance *ui;
 
+time_t on_royal_death = 0;
+
 /*
 
 	blacklist subsystem
@@ -482,6 +484,10 @@ void uwsgi_register_imperial_monitor(char *name, void (*init) (struct uwsgi_empe
 // the sad death of an Emperor
 static void royal_death(int signum) {
 
+	if (on_royal_death) {
+		uwsgi_log("[emperor] *** RAGNAROK ALREADY EVOKED (mercyless in %d seconds)***\n", uwsgi.reload_mercy - (uwsgi_now() - on_royal_death));
+		return;
+	}
 
 	struct uwsgi_instance *c_ui = ui->ui_next;
 
@@ -502,8 +508,14 @@ static void royal_death(int signum) {
 	}
 
 	uwsgi_log("[emperor] *** RAGNAROK EVOKED ***\n");
-	uwsgi_notify("The Emperor is buried.");
-	exit(0);
+
+	while (c_ui) {
+                emperor_stop(c_ui);
+                c_ui = c_ui->ui_next;
+        }
+
+	if (!uwsgi.reload_mercy) uwsgi.reload_mercy = 30;
+	on_royal_death = uwsgi_now();
 }
 
 // massive reload of vassals
@@ -1524,6 +1536,29 @@ void emperor_loop() {
 
 	for (;;) {
 
+		if (on_royal_death) {
+			if (!ui->ui_next) break;
+			if (uwsgi_now() - on_royal_death >= uwsgi.reload_mercy) {
+				ui_current = ui->ui_next;
+				while (ui_current) {
+					uwsgi_log_verbose("[emperor] NO MERCY for vassal %s !!!\n", ui_current->name);
+					kill(ui_current->pid, SIGKILL);
+					ui_current = ui_current->ui_next;
+				}
+				break;
+			}
+			ui_current = ui->ui_next;
+			while (ui_current) {
+				struct uwsgi_instance *dead_vassal = ui_current;
+				ui_current = ui_current->ui_next;	
+                        	pid_t dead_pid = waitpid(dead_vassal->pid, &waitpid_status, WNOHANG);
+				if (dead_pid > 0 || dead_pid < 0) {
+					emperor_del(dead_vassal);	
+				}
+			}
+			sleep(1);
+			continue;
+                }
 
 		if (!i_am_alone) {
 			diedpid = waitpid(uwsgi.emperor_pid, &waitpid_status, WNOHANG);
@@ -1706,6 +1741,10 @@ void emperor_loop() {
 
 
 	}
+
+	uwsgi_log_verbose("The Emperor is buried.\n");
+	uwsgi_notify("The Emperor is buried.");
+        exit(0);
 
 }
 
