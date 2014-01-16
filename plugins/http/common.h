@@ -40,6 +40,8 @@ struct uwsgi_http {
 	size_t spdy3_settings_size;
 #endif
 
+	int server_name_as_http_host;
+
 }; 
 
 struct http_session {

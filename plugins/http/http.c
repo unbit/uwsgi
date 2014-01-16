@@ -58,6 +58,8 @@ struct uwsgi_option http_options[] = {
 	{"http-gid", required_argument, 0, "drop http router privileges to the specified gid", uwsgi_opt_gid, &uhttp.cr.gid, 0 },
 	{"http-resubscribe", required_argument, 0, "forward subscriptions to the specified subscription server", uwsgi_opt_add_string_list, &uhttp.cr.resubscribe, 0},
 	{"http-buffer-size", required_argument, 0, "set internal buffer size (default: page size)", uwsgi_opt_set_64bit, &uhttp.cr.buffer_size, 0},
+
+	{"http-server-name-as-http-host", required_argument, 0, "force SERVER_NAME to HTTP_HOST", uwsgi_opt_true, &uhttp.server_name_as_http_host, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -122,6 +124,7 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 	if (!uwsgi_strncmp("HOST", 4, hh, keylen)) {
 		peer->key = val;
 		peer->key_len = vallen;
+		if (uhttp.server_name_as_http_host && uwsgi_buffer_append_keyval(out, "SERVER_NAME", 11, peer->key, peer->key_len)) return -1;
 	}
 
 	else if (!uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
@@ -296,7 +299,7 @@ int http_headers_parse(struct corerouter_peer *peer) {
 	if (uwsgi_buffer_append_keyval(out, "SCRIPT_NAME", 11, "", 0)) return -1;
 
 	// SERVER_NAME
-	if (uwsgi_buffer_append_keyval(out, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len)) return -1;
+	if (!uhttp.server_name_as_http_host && uwsgi_buffer_append_keyval(out, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len)) return -1;
 	peer->key = uwsgi.hostname;
 	peer->key_len = uwsgi.hostname_len;
 
