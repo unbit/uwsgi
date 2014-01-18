@@ -166,6 +166,17 @@ static int uwsgi_hook_write(char *arg) {
         return 0;
 }
 
+static int uwsgi_hook_creat(char *arg) {
+        int fd = open(arg, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+        if (fd < 0) {
+                uwsgi_error_open(arg);
+                return -1;
+        }
+        close(fd);
+        return 0;
+}
+
+
 static int uwsgi_hook_append(char *arg) {
         char *space = strchr(arg, ' ');
         if (!space) {
@@ -469,6 +480,9 @@ void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("chown2", uwsgi_hook_chown2);
 
 	uwsgi_register_hook("exec", uwsgi_hook_exec);
+
+	uwsgi_register_hook("create", uwsgi_hook_creat);
+	uwsgi_register_hook("creat", uwsgi_hook_creat);
 
 	uwsgi_register_hook("write", uwsgi_hook_write);
 	uwsgi_register_hook("writen", uwsgi_hook_writen);
