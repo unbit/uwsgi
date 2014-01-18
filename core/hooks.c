@@ -285,6 +285,20 @@ static int uwsgi_hook_chmod(char *arg) {
 	return ret;
 }
 
+static int uwsgi_hook_sticky(char *arg) {
+	struct stat st;
+	if (stat(arg, &st)) {
+                uwsgi_error("uwsgi_hook_sticky()/stat()");
+		return -1;
+	}
+        if (chmod(arg, st.st_mode | S_ISVTX)) {
+                uwsgi_error("uwsgi_hook_sticky()/chmod()");
+		return -1;
+        }
+        return 0;
+}
+
+
 static int uwsgi_hook_chown(char *arg) {
         char *space = strchr(arg, ' ');
         if (!space) {
@@ -478,6 +492,8 @@ void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("chmod", uwsgi_hook_chmod);
 	uwsgi_register_hook("chown", uwsgi_hook_chown);
 	uwsgi_register_hook("chown2", uwsgi_hook_chown2);
+
+	uwsgi_register_hook("sticky", uwsgi_hook_sticky);
 
 	uwsgi_register_hook("exec", uwsgi_hook_exec);
 
