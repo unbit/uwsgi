@@ -123,6 +123,7 @@ static int uwsgi_sni_cb(SSL *ssl, int *ad, void *arg) {
 			count--;
 			continue;
 		}
+		break;
 	}
 
 	if (uwsgi.subscription_dotsplit) goto end;
