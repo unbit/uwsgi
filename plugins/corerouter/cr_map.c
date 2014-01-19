@@ -65,8 +65,11 @@ int uwsgi_cr_map_use_subscription_dotsplit(struct uwsgi_corerouter *ucr, struct 
 
 	char *name = peer->key;
 	uint16_t name_len = peer->key_len;
+	// max 5 split, reduce DOS attempts
+	int count = 5;
 
 split:
+	if (!count) return 0;
 #ifdef UWSGI_DEBUG
 	uwsgi_log("trying with %.*s\n", name_len, name);
 #endif
@@ -76,6 +79,7 @@ split:
 		if (next) {
 			name_len -= next - name;
 			name = next;
+			count--;
 			goto split;
 		}
 	}

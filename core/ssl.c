@@ -95,23 +95,37 @@ static int uwsgi_sni_cb(SSL *ssl, int *ad, void *arg) {
         const char *servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
         if (!servername) return SSL_TLSEXT_ERR_NOACK;
         size_t servername_len = strlen(servername);
+	// reduce DOS attempts
+	int count = 5;
 
-        struct uwsgi_string_list *usl = uwsgi.sni;
-        while(usl) {
-                if (!uwsgi_strncmp(usl->value, usl->len, (char *)servername, servername_len)) {
-                        SSL_set_SSL_CTX(ssl, (SSL_CTX *) usl->custom_ptr);
-			// the following steps are taken from nginx
-			SSL_set_verify(ssl, SSL_CTX_get_verify_mode((SSL_CTX *)usl->custom_ptr),
-				 SSL_CTX_get_verify_callback((SSL_CTX *)usl->custom_ptr));
-			SSL_set_verify_depth(ssl, SSL_CTX_get_verify_depth((SSL_CTX *)usl->custom_ptr));	
+	while(count > 0) {
+        	struct uwsgi_string_list *usl = uwsgi.sni;
+        	while(usl) {
+                	if (!uwsgi_strncmp(usl->value, usl->len, (char *)servername, servername_len)) {
+                        	SSL_set_SSL_CTX(ssl, (SSL_CTX *) usl->custom_ptr);
+				// the following steps are taken from nginx
+				SSL_set_verify(ssl, SSL_CTX_get_verify_mode((SSL_CTX *)usl->custom_ptr),
+				SSL_CTX_get_verify_callback((SSL_CTX *)usl->custom_ptr));
+				SSL_set_verify_depth(ssl, SSL_CTX_get_verify_depth((SSL_CTX *)usl->custom_ptr));	
 #ifdef SSL_CTRL_CLEAR_OPTIONS
-			SSL_clear_options(ssl, SSL_get_options(ssl) & ~SSL_CTX_get_options((SSL_CTX *)usl->custom_ptr));
+				SSL_clear_options(ssl, SSL_get_options(ssl) & ~SSL_CTX_get_options((SSL_CTX *)usl->custom_ptr));
 #endif
-			SSL_set_options(ssl, SSL_CTX_get_options((SSL_CTX *)usl->custom_ptr));
-                        return SSL_TLSEXT_ERR_OK;
-                }
-                usl = usl->next;
-        }
+				SSL_set_options(ssl, SSL_CTX_get_options((SSL_CTX *)usl->custom_ptr));
+                        	return SSL_TLSEXT_ERR_OK;
+                	}
+                	usl = usl->next;
+        	}
+		if (!uwsgi.subscription_dotsplit) break;
+		char *next = memchr(servername+1, '.', servername_len-1);
+		if (next) {
+			servername_len -= next - servername;
+			servername = next;
+			count--;
+			continue;
+		}
+	}
+
+	if (uwsgi.subscription_dotsplit) goto end;
 
 #ifdef UWSGI_PCRE
         struct uwsgi_regexp_list *url = uwsgi.sni_regexp;
@@ -134,7 +148,7 @@ static int uwsgi_sni_cb(SSL *ssl, int *ad, void *arg) {
 			if (uwsgi_file_exists(sni_dir_client_ca)) {
 				client_ca = sni_dir_client_ca;
 			}
-			usl = uwsgi_ssl_add_sni_item(uwsgi_str((char *)servername), sni_dir_cert, sni_dir_key, uwsgi.sni_dir_ciphers, client_ca);
+			struct uwsgi_string_list *usl = uwsgi_ssl_add_sni_item(uwsgi_str((char *)servername), sni_dir_cert, sni_dir_key, uwsgi.sni_dir_ciphers, client_ca);
 			if (!usl) goto done;
 			free(sni_dir_cert);
 			free(sni_dir_key);
@@ -147,7 +161,7 @@ done:
 		free(sni_dir_key);
 		free(sni_dir_client_ca);
 	}
-
+end:
         return SSL_TLSEXT_ERR_NOACK;
 }
 #endif
