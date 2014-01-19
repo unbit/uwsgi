@@ -1534,6 +1534,16 @@ void emperor_loop() {
 
 	uwsgi_hooks_run(uwsgi.hook_emperor_start, "emperor-start", 1);
 
+	// signal parent-Emperor about my loyalty
+        if (uwsgi.has_emperor && !uwsgi.loyal) {
+                uwsgi_log("announcing my loyalty to the Emperor...\n");
+                char byte = 17;
+                if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
+                        uwsgi_error("write()");
+                }
+                uwsgi.loyal = 1;
+        }
+
 	for (;;) {
 
 		if (on_royal_death) {
