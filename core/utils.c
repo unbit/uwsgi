@@ -4186,7 +4186,8 @@ char *uwsgi_str_to_hex(char *src, size_t slen) {
 	char *ptr = dst;
 	size_t i;
 	for (i = 0; i < slen; i++) {
-		memcpy(ptr, uwsgi_hex_table[(int) src[i]], 2);
+		uint8_t pos = (uint8_t) src[i];
+		memcpy(ptr, uwsgi_hex_table[pos], 2);
 		ptr += 2;
 	}
 	return dst;
