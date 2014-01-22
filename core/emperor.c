@@ -2046,7 +2046,6 @@ next:
 		uwsgi.has_emperor = 1;
 		uwsgi.emperor_fd = atoi(emperor_env);
 		uwsgi.master_process = 1;
-		uwsgi.no_orphans = 1;
 		uwsgi_log("*** has_emperor mode detected (fd: %d) ***\n", uwsgi.emperor_fd);
 
 		if (getenv("UWSGI_EMPEROR_FD_CONFIG")) {

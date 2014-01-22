@@ -3144,6 +3144,16 @@ int uwsgi_run() {
 		//from now on the process is a real worker
 	}
 
+#if defined(__linux__) && defined(PR_SET_PDEATHSIG)
+	// avoid workers running without master at all costs !!! (dangerous)
+	if (uwsgi.master_process && uwsgi.no_orphans) {
+		if (prctl(PR_SET_PDEATHSIG, SIGKILL)) {
+			uwsgi_error("uwsgi_run()/prctl()");
+		}
+	}
+#endif
+
+
 	// eventually maps (or disable) sockets for the  worker
 	uwsgi_map_sockets();
 
