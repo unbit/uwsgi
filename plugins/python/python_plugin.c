@@ -1634,7 +1634,9 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 	Py_DECREF(zero);
 
 	if (body && body_len > 0) {
-		PyDict_SetItemString(spool_dict, "body", PyString_FromStringAndSize(body, body_len));
+		PyObject *value = PyString_FromStringAndSize(body, body_len);
+		PyDict_SetItemString(spool_dict, "body", value);
+		Py_DECREF(value);
 	}
 	PyTuple_SetItem(pyargs, 0, spool_dict);
 
