@@ -72,7 +72,6 @@ static void uwsgi_symcall_init(){
 			exit(1);
         	}
 		*space = ' ';
-		usl = usl->next;
 	}
 }
 
