@@ -26,6 +26,7 @@ int close(int);
 
 void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_file_loader)(char *);
+void (*uwsgi_pypy_hook_paste_loader)(char *);
 void (*uwsgi_pypy_hook_pythonpath)(char *);
 void (*uwsgi_pypy_hook_request)(struct wsgi_request *);
 void (*uwsgi_pypy_post_fork_hook)(void);
@@ -305,6 +306,18 @@ def uwsgi_pypy_file_loader(filename):
     wsgi_application = getattr(mod, c)
 
 """
+load a .ini paste app
+"""
+@ffi.callback("void(char *)")
+def uwsgi_pypy_paste_loader(config):
+    global wsgi_application
+    c = ffi.string(config)
+    if c[0] != '/':
+        c = os.getcwd() + '/' + c
+    from paste.deploy import loadapp
+    wsgi_application = loadapp('config:%s' % c)
+
+"""
 .post_fork_hook
 """
 @ffi.callback("void()")
@@ -462,6 +475,7 @@ def uwsgi_pypy_wsgi_handler(wsgi_req):
 
 lib.uwsgi_pypy_hook_loader = uwsgi_pypy_loader
 lib.uwsgi_pypy_hook_file_loader = uwsgi_pypy_file_loader
+lib.uwsgi_pypy_hook_paste_loader = uwsgi_pypy_paste_loader
 lib.uwsgi_pypy_hook_pythonpath = uwsgi_pypy_pythonpath
 lib.uwsgi_pypy_hook_request = uwsgi_pypy_wsgi_handler
 lib.uwsgi_pypy_post_fork_hook = uwsgi_pypy_post_fork_hook

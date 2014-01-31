@@ -16,6 +16,7 @@ struct uwsgi_pypy {
 	char *home;
 	char *wsgi;
 	char *wsgi_file;
+	char *paste;
 	struct uwsgi_string_list *eval;
 	struct uwsgi_string_list *eval_post_fork;
 	struct uwsgi_string_list *exec;
@@ -34,6 +35,7 @@ void (*u_pypy_init_threads)(void);
 // the hooks you can override with pypy
 void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_file_loader)(char *);
+void (*uwsgi_pypy_hook_paste_loader)(char *);
 void (*uwsgi_pypy_hook_pythonpath)(char *);
 void (*uwsgi_pypy_hook_request)(void *, int);
 void (*uwsgi_pypy_post_fork_hook)(void);
@@ -231,6 +233,10 @@ static void uwsgi_pypy_init_apps() {
 	if (uwsgi_pypy_hook_file_loader && upypy.wsgi_file) {
 		uwsgi_pypy_hook_file_loader(upypy.wsgi_file);
 	}
+
+	if (uwsgi_pypy_hook_paste_loader && upypy.paste) {
+		uwsgi_pypy_hook_paste_loader(upypy.paste);
+	}
 }
 
 /*
@@ -240,12 +246,19 @@ static void uwsgi_pypy_atexit() {
 }
 */
 
+static void uwsgi_opt_pypy_ini_paste(char *opt, char *value, void *foobar) {
+        uwsgi_opt_load_ini(opt, value, NULL);
+        upypy.paste = value;
+}
+
+
 static struct uwsgi_option uwsgi_pypy_options[] = {
 	{"pypy-lib", required_argument, 0, "set the path/name of the pypy library", uwsgi_opt_set_str, &upypy.lib, 0},
 	{"pypy-setup", required_argument, 0, "set the path of the python setup script", uwsgi_opt_set_str, &upypy.setup, 0},
 	{"pypy-home", required_argument, 0, "set the home of pypy library", uwsgi_opt_set_str, &upypy.home, 0},
 	{"pypy-wsgi", required_argument, 0, "load a WSGI module", uwsgi_opt_set_str, &upypy.wsgi, 0},
 	{"pypy-wsgi-file", required_argument, 0, "load a WSGI/mod_wsgi file", uwsgi_opt_set_str, &upypy.wsgi_file, 0},
+	{"pypy-ini-paste", required_argument, 0, "load a paste.deploy config file containing uwsgi section", uwsgi_opt_pypy_ini_paste, NULL, UWSGI_OPT_IMMEDIATE},
 	{"pypy-eval", required_argument, 0, "evaluate pypy code before fork()", uwsgi_opt_add_string_list, &upypy.eval, 0},
 	{"pypy-eval-post-fork", required_argument, 0, "evaluate pypy code soon after fork()", uwsgi_opt_add_string_list, &upypy.eval_post_fork, 0},
 	{"pypy-exec", required_argument, 0, "execute pypy code from file before fork()", uwsgi_opt_add_string_list, &upypy.exec, 0},
