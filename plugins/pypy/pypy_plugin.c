@@ -259,6 +259,7 @@ static struct uwsgi_option uwsgi_pypy_options[] = {
 	{"pypy-wsgi", required_argument, 0, "load a WSGI module", uwsgi_opt_set_str, &upypy.wsgi, 0},
 	{"pypy-wsgi-file", required_argument, 0, "load a WSGI/mod_wsgi file", uwsgi_opt_set_str, &upypy.wsgi_file, 0},
 	{"pypy-ini-paste", required_argument, 0, "load a paste.deploy config file containing uwsgi section", uwsgi_opt_pypy_ini_paste, NULL, UWSGI_OPT_IMMEDIATE},
+	{"pypy-paste", required_argument, 0, "load a paste.deploy config file", uwsgi_opt_set_str, &upypy.paste, 0},
 	{"pypy-eval", required_argument, 0, "evaluate pypy code before fork()", uwsgi_opt_add_string_list, &upypy.eval, 0},
 	{"pypy-eval-post-fork", required_argument, 0, "evaluate pypy code soon after fork()", uwsgi_opt_add_string_list, &upypy.eval_post_fork, 0},
 	{"pypy-exec", required_argument, 0, "execute pypy code from file before fork()", uwsgi_opt_add_string_list, &upypy.exec, 0},

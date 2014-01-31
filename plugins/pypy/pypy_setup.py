@@ -312,8 +312,15 @@ load a .ini paste app
 def uwsgi_pypy_paste_loader(config):
     global wsgi_application
     c = ffi.string(config)
+    if c.startswith('config:'):
+        c = c[7:]
     if c[0] != '/':
         c = os.getcwd() + '/' + c
+    try:
+        from paste.script.util.logging_config import fileConfig
+        fileConfig(c)
+    except ImportError:
+        print "PyPy WARNING: unable to load paste.script.util.logging_config"
     from paste.deploy import loadapp
     wsgi_application = loadapp('config:%s' % c)
 
