@@ -506,9 +506,9 @@ def build_uwsgi(uc, print_only=False, gcll=None):
     bin_name = os.environ.get('UWSGI_BIN_NAME', uc.get('bin_name'))
 
     if uc.embed_config:
-        gcc_list.append(uc.embed_config)
+        gcc_list.append("%s.o" % binarize(uc.embed_config))
     for ef in binary_list:
-        gcc_list.append("build/%s" % ef)
+        gcc_list.append("%s.o" % ef)
 
     additional_sources = os.environ.get('UWSGI_ADDITIONAL_SOURCES')
     if not additional_sources:
@@ -1054,13 +1054,16 @@ class uConf(object):
             if not self.embed_config:
                 self.embed_config = self.get('embed_config')
             if self.embed_config:
-                binary_link_cmd = "ld -r -b binary -o %s.o %s" % (self.embed_config, self.embed_config)
+                binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(self.embed_config), self.embed_config)
                 print(binary_link_cmd)
                 os.system(binary_link_cmd)
-                self.cflags.append("-DUWSGI_EMBED_CONFIG=_binary_%s_start" % self.embed_config.replace('.','_'))
-                self.cflags.append("-DUWSGI_EMBED_CONFIG_END=_binary_%s_end" % self.embed_config.replace('.','_'))
-            if self.get('embed_files'):
-                for ef in self.get('embed_files').split(','):
+                self.cflags.append("-DUWSGI_EMBED_CONFIG=_binary_%s_start" % binarize(self.embed_config))
+                self.cflags.append("-DUWSGI_EMBED_CONFIG_END=_binary_%s_end" % binarize(self.embed_config))
+            embed_files = os.environ.get('UWSGI_EMBED_FILES')
+            if not embed_files:
+                embed_files = self.get('embed_files')
+            if embed_files:
+                for ef in embed_files.split(','):
                     ef_parts = ef.split('=')
                     symbase = None
                     if len(ef_parts) > 1:
@@ -1070,7 +1073,7 @@ class uConf(object):
                         for directory, directories, files in os.walk(ef):
                             for f in files:
                                 fname = "%s/%s" % (directory, f)
-                                binary_link_cmd = "ld -r -b binary -o build/%s.o %s" % (binarize(fname), fname)
+                                binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(fname), fname)
                                 print(binary_link_cmd)
                                 os.system(binary_link_cmd)
                                 if symbase:
@@ -1080,7 +1083,7 @@ class uConf(object):
                                         os.system(objcopy_cmd)
                                 binary_list.append(binarize(fname))
                     else:
-                        binary_link_cmd = "ld -r -b binary -o build/%s.o %s" % (binarize(ef), ef)
+                        binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(ef), ef)
                         print(binary_link_cmd)
                         os.system(binary_link_cmd)
                         binary_list.append(binarize(ef))
