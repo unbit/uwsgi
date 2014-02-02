@@ -1289,7 +1289,7 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwar
 	int timeout = -1;
 	int manage_signals = 1, manage_farms = 1;
 
-	static char *kwlist[] = {"signals", "buffer_size", "timeout", "farms", NULL};
+	static char *kwlist[] = {"signals", "farms", "buffer_size", "timeout", NULL};
 
 	if (uwsgi.muleid == 0) {
 		return PyErr_Format(PyExc_ValueError, "you can receive mule messages only in a mule !!!");
