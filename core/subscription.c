@@ -394,8 +394,10 @@ end:
 	return ret;
 }
 
+#ifdef UWSGI_SSL
 static int subscription_new_sign_ctx(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_req *);
 static int subscription_is_safe(struct uwsgi_subscribe_req *);
+#endif
 
 struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi_subscribe_req *usr) {
 
