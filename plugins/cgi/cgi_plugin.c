@@ -186,13 +186,18 @@ static int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len)
 	size_t header_size = 0;
 	int status_sent = 0;
 
+	// Search for Status/Location headers
 	for(i=0;i<len;i++) {
 		// end of a line
 		if (buf[i] == '\n') {
 			// end of headers
 			if (key == NULL) {
-				i++;
-				goto send_body;
+				// Default status
+#ifdef UWSGI_DEBUG
+				uwsgi_log("setting default Status header\n");
+#endif
+				if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) return -1;
+				break;
 			}
 			// invalid header
 			else if (value == NULL) {
@@ -206,37 +211,74 @@ static int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len)
 				}
 			}
 
-#ifdef UWSGI_DEBUG
-			uwsgi_log("found CGI header: %.*s\n", header_size, key);
-#endif
-
-			if (status_sent == 0) {
+			if (header_size >= 11) {
 				// "Status: NNN"
+				if (!strncasecmp("Status: ", key, 8)) {
+#ifdef UWSGI_DEBUG
+					uwsgi_log("found Status header: %.*s\n", header_size, key);
+#endif
+					if (uwsgi_response_prepare_headers(wsgi_req, key+8, header_size - 8)) return -1;
+					break;
+				}
+				// Location: X
 				if (header_size >= 11) {
-					if (!strncasecmp("Status: ", key, 8)) {
-						if (uwsgi_response_prepare_headers(wsgi_req, key+8, header_size - 8)) return -1;
-						status_sent = 1;
-						key = NULL;
-						value = NULL;
-						continue;
+					if (!strncasecmp("Location: ", key, 10)) {
+#ifdef UWSGI_DEBUG
+					uwsgi_log("found Location header: %.*s\n", header_size, key);
+#endif
+						if (uwsgi_response_prepare_headers(wsgi_req, "302 Found", 9)) return -1;
+						break;
 					}
 				}
 			}
 
-			// default status
-			if (status_sent == 0) {
+			key = NULL;
+			value = NULL;
+		}
+		else if (buf[i] == ':') {
+			value = buf+i;
+		}
+		else if (buf[i] != '\r') {
+			if (key == NULL) {
+				key = buf + i;
+			}
+		}
+	}
 
-				// Location: X
-				if (header_size >= 11) {
-					if (!strncasecmp("Location: ", key, 10)) {
-						if (uwsgi_response_prepare_headers(wsgi_req, "302 Found", 9)) return -1;
-						status_sent = 1;
-					}
+	key = buf;
+	value = NULL;
+
+	for(i=0;i<len;i++) {
+		// end of a line
+		if (buf[i] == '\n') {
+			// end of headers
+			if (key == NULL) {
+				i++;
+				goto send_body;
+			}
+			// invalid header
+			else if (value == NULL) {
+				return -1;
+			}
+			header_size = (buf+i) - key;
+			// security check
+			if (buf+i > buf) {
+				if ((buf[i-1]) == '\r') {
+					header_size--;
 				}
+			}
 
-				if (status_sent == 0) {
-					if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) return -1;
+#ifdef UWSGI_DEBUG
+			uwsgi_log("found CGI header: %.*s\n", header_size, key);
+#endif
+
+			// Ignore "Status: NNN" header
+			if (status_sent == 0 && header_size >= 11) {
+				if (!strncasecmp("Status: ", key, 8)) {
 					status_sent = 1;
+					key = NULL;
+					value = NULL;
+					continue;
 				}
 			}
 
