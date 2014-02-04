@@ -498,6 +498,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 	else {
 		current_slot = uwsgi_malloc(sizeof(struct uwsgi_subscribe_slot));
 #ifdef UWSGI_SSL
+		current_slot->sign_ctx = NULL;
 		if (uwsgi.subscriptions_sign_check_dir && !subscription_new_sign_ctx(current_slot, usr)) {
 			free(current_slot);
 			return NULL;
