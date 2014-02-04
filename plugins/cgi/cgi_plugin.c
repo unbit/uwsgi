@@ -221,14 +221,12 @@ static int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len)
 					break;
 				}
 				// Location: X
-				if (header_size >= 11) {
-					if (!strncasecmp("Location: ", key, 10)) {
+				if (!strncasecmp("Location: ", key, 10)) {
 #ifdef UWSGI_DEBUG
 					uwsgi_log("found Location header: %.*s\n", header_size, key);
 #endif
-						if (uwsgi_response_prepare_headers(wsgi_req, "302 Found", 9)) return -1;
-						break;
-					}
+					if (uwsgi_response_prepare_headers(wsgi_req, "302 Found", 9)) return -1;
+					break;
 				}
 			}
 
