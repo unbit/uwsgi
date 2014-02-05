@@ -386,21 +386,9 @@ static void coroae_loop() {
 		exit(1);
 	}
 
-	perl_eval_pv("use Coro;", 0);
-        if (SvTRUE(ERRSV)) {
-		uwsgi_log("unable to load Coro module\n");
-		exit(1);
-	}
-	perl_eval_pv("use AnyEvent;", 0);
-        if (SvTRUE(ERRSV)) {
-		uwsgi_log("unable to load AnyEvent module\n");
-		exit(1);
-	}
-	perl_eval_pv("use Coro::AnyEvent;", 0);
-        if (SvTRUE(ERRSV)) {
-		uwsgi_log("unable to load Coro::AnyEvent module\n");
-		exit(1);
-	}
+	perl_eval_pv("use Coro;", 1);
+	perl_eval_pv("use AnyEvent;", 1);
+	perl_eval_pv("use Coro::AnyEvent;", 1);
 	
 	uwsgi.current_wsgi_req = coroae_current_wsgi_req;
 	uwsgi.wait_write_hook = coroae_wait_fd_write;

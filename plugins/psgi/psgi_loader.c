@@ -107,11 +107,62 @@ XS(XS_input_read) {
         SV *read_buf = ST(1);
         unsigned long arg_len = SvIV(ST(2));
 
+	long offset = 0;
+	uwsgi_log("items = %d\n", items);
+	if (items > 2) {
+		uwsgi_log("OFFSET\n");
+		offset = (long) SvIV(ST(3));
+	}
+
+	uwsgi_log("offset = %lld\n", offset);
+
 	ssize_t rlen = 0;
 
 	char *buf = uwsgi_request_body_read(wsgi_req, arg_len, &rlen);
         if (buf) {
-		sv_setpvn(read_buf, buf, rlen);
+		if (rlen > 0 && offset != 0) {
+			STRLEN orig_len;
+			// get data from original string
+        		char *orig = SvPV(read_buf, orig_len);	
+			size_t new_size = orig_len;
+			// check for negative case first
+			if (offset < 0) {
+				 // first of all get the new orig_len;   
+                                offset = abs(offset);
+                                if (offset > (long) orig_len) { 
+                                        new_size = offset;
+                                        offset = 0;
+                                }
+                                else {
+                                        offset = orig_len - offset;
+                                } 
+			}
+			// still valid ?
+			if (offset > 0) {
+				// if the new string is bigger than the old one, allocate a bigger chunk
+				if ((size_t) rlen + offset > orig_len) {
+					new_size += rlen;
+					new_size -= offset;
+				}
+				// if offset is bigger than orig_len, pad with "\0", so we use (slower) calloc
+				char *new_buf = uwsgi_calloc(new_size);
+				// put back older value
+				memcpy(new_buf, orig, orig_len);
+				// put the new value
+				memcpy(new_buf + offset, buf, rlen);
+				// free the old value
+				free(buf);
+				sv_setpvn(read_buf, new_buf, new_size);
+			}
+			// fallback
+			else {
+				goto zerofallback;
+			}
+		}
+		else {
+zerofallback:
+			sv_setpvn(read_buf, buf, rlen);
+		}
 		goto ret;
         }
 
@@ -352,16 +403,12 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
         		}
 		}
 
-		perl_eval_pv("use IO::Handle;", 0);
-		perl_eval_pv("use IO::File;", 0);
-		perl_eval_pv("use IO::Socket;", 0);
-		perl_eval_pv("use Scalar::Util;", 0);
+		perl_eval_pv("use IO::Handle;", 1);
+		perl_eval_pv("use IO::File;", 1);
+		perl_eval_pv("use IO::Socket;", 1);
+		perl_eval_pv("use Scalar::Util;", 1);
 		if (!uperl.no_die_catch) {
-			perl_eval_pv("use Devel::StackTrace;", 0);
-			if (!SvTRUE(ERRSV)) {
-				uperl.stacktrace_available = 1;
-				perl_eval_pv("$SIG{__DIE__} = \\&uwsgi::stacktrace;", 0);
-			}
+			perl_eval_pv("use Devel::StackTrace; $SIG{__DIE__} = \\&uwsgi::stacktrace;", 0);
 		}
 
 		if (uperl.argv_items || uperl.argv_item) {
@@ -507,10 +554,6 @@ int uwsgi_perl_mule(char *opt) {
 void uwsgi_perl_exec(char *filename) {
 	size_t size = 0;
         char *buf = uwsgi_open_and_read(filename, &size, 1, NULL);
-        perl_eval_pv(buf, 0);
+        perl_eval_pv(buf, 1);
 	free(buf);
-	if (SvTRUE(ERRSV)) {
-		uwsgi_log("%s", SvPV_nolen(ERRSV));
-		exit(1);
-	}
 }
