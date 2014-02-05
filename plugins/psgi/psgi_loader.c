@@ -108,13 +108,9 @@ XS(XS_input_read) {
         unsigned long arg_len = SvIV(ST(2));
 
 	long offset = 0;
-	uwsgi_log("items = %d\n", items);
 	if (items > 2) {
-		uwsgi_log("OFFSET\n");
 		offset = (long) SvIV(ST(3));
 	}
-
-	uwsgi_log("offset = %lld\n", offset);
 
 	ssize_t rlen = 0;
 
@@ -125,24 +121,11 @@ XS(XS_input_read) {
 			// get data from original string
         		char *orig = SvPV(read_buf, orig_len);	
 			size_t new_size = orig_len;
-			// check for negative case first
-			if (offset < 0) {
-				 // first of all get the new orig_len;   
-                                offset = abs(offset);
-                                if (offset > (long) orig_len) { 
-                                        new_size = offset;
-                                        offset = 0;
-                                }
-                                else {
-                                        offset = orig_len - offset;
-                                } 
-			}
 			// still valid ?
 			if (offset > 0) {
 				// if the new string is bigger than the old one, allocate a bigger chunk
 				if ((size_t) rlen + offset > orig_len) {
-					new_size += rlen;
-					new_size -= offset;
+					new_size = rlen + offset;
 				}
 				// if offset is bigger than orig_len, pad with "\0", so we use (slower) calloc
 				char *new_buf = uwsgi_calloc(new_size);
@@ -150,17 +133,39 @@ XS(XS_input_read) {
 				memcpy(new_buf, orig, orig_len);
 				// put the new value
 				memcpy(new_buf + offset, buf, rlen);
-				// free the old value
-				free(buf);
 				sv_setpvn(read_buf, new_buf, new_size);
+				// free the new value
+				free(new_buf);
 			}
-			// fallback
+			// negative (a little bit more complex)
 			else {
-				goto zerofallback;
+				long orig_offset = 0;
+				 // first of all get the new orig_len;   
+                                offset = abs(offset);
+                                if (offset > (long) orig_len) {
+                                        new_size = offset;
+					orig_offset = offset - orig_len;
+                                        offset = 0;
+                                }
+                                else {
+                                        offset = orig_len - offset;
+                                }
+
+				if ((size_t) rlen + offset > new_size) {
+					new_size = rlen + offset;
+				}
+
+				char *new_buf = uwsgi_calloc(new_size);
+				// put back older value
+                                memcpy(new_buf + orig_offset, orig, orig_len);
+				 // put the new value
+                                memcpy(new_buf + offset, buf, rlen);
+				sv_setpvn(read_buf, new_buf, new_size);
+				// free the new value
+				free(new_buf);
 			}
 		}
 		else {
-zerofallback:
 			sv_setpvn(read_buf, buf, rlen);
 		}
 		goto ret;
