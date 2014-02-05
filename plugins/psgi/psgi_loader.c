@@ -222,20 +222,6 @@ XS(XS_error_print) {
         XSRETURN(0);
 }
 
-XS(XS_uwsgi_stacktrace) {
-
-	dXSARGS;
-
-        psgi_check_args(0);
-	uwsgi_log("%s", SvPV_nolen(ERRSV));
-	uwsgi_log("*** uWSGI perl stacktrace ***\n");
-	SV *ret = perl_eval_pv("Devel::StackTrace->new->as_string;", 0);
-        uwsgi_log("%s", SvPV_nolen(ret));
-	uwsgi_log("*** end of perl stacktrace ***\n\n");
-	XSRETURN(0);
-
-}
-
 
 /* automatically generated */
 
@@ -270,7 +256,6 @@ xs_init(pTHX)
         newXS("uwsgi::streaming::write", XS_streaming_write, "uwsgi::streaming");
         newXS("uwsgi::streaming::close", XS_streaming_close, "uwsgi::streaming");
 
-        newXS("uwsgi::stacktrace", XS_uwsgi_stacktrace, "uwsgi");
         uperl.tmp_streaming_stash[uperl.tmp_current_i] = gv_stashpv("uwsgi::streaming", 0);
 
 nonworker:
@@ -408,7 +393,7 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 		perl_eval_pv("use IO::Socket;", 1);
 		perl_eval_pv("use Scalar::Util;", 1);
 		if (!uperl.no_die_catch) {
-			perl_eval_pv("use Devel::StackTrace; $SIG{__DIE__} = \\&uwsgi::stacktrace;", 0);
+			perl_eval_pv("use Devel::StackTrace; $SIG{__DIE__} = sub { print Devel::StackTrace->new()->as_string() };", 0);
 		}
 
 		if (uperl.argv_items || uperl.argv_item) {
