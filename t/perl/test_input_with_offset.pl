@@ -16,6 +16,9 @@ push @tests, ['-22', 'HELLOHELLOHELLOTEST2TEST3', "HELLOHELLOHELLOTEST2TEST3"];
 push @tests, ['-22', 'HELLO', "HELLOne_two_three_four"];
 push @tests, ['-23', 'HELLO', "HELLOone_two_three_four"];
 push @tests, ['-25', 'HELLO', "HELLO\0\0one_two_three_four"];
+push @tests, ['1', 'HELLO', "oHELLOo_three_four"];
+push @tests, ['3', 'HELLO', "oneHELLOthree_four"];
+push @tests, ['30', 'HELLO', "one_two_three_four\0\0\0\0\0\0\0\0\0\0\0\0HELLO"];
 
 foreach(@tests) {
         print "testing: offset(".$_->[0].") body(".$_->[1].")\n";
