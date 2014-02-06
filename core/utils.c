@@ -1491,7 +1491,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	}
 
 	// check for heartbeat
-	if (timeout > 0 || ret == 0) {
+	if (uwsgi.has_emperor && uwsgi.heartbeat) {
 		uwsgi_heartbeat();
 		// no need to continue if timed-out
 		if (ret == 0) {
