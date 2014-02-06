@@ -1659,6 +1659,9 @@ void emperor_loop() {
 		ui_current = ui->ui_next;
 		while (ui_current) {
 			if (ui_current->last_heartbeat > 0) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("%d %d %d %d\n", ui_current->last_heartbeat, uwsgi.emperor_heartbeat,  ui_current->last_heartbeat + uwsgi.emperor_heartbeat, uwsgi_now());
+#endif
 				if ((ui_current->last_heartbeat + uwsgi.emperor_heartbeat) < uwsgi_now()) {
 					uwsgi_log("[emperor] vassal %s sent no heartbeat in last %d seconds, brutally respawning it...\n", ui_current->name, uwsgi.emperor_heartbeat);
 					// set last_heartbeat to 0 avoiding races

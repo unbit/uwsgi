@@ -1436,7 +1436,7 @@ void uwsgi_heartbeat() {
 		return;
 
 	time_t now = uwsgi_now();
-	if (uwsgi.next_heartbeat < now) {
+	if (uwsgi.next_heartbeat <= now) {
 		char byte = 26;
 		if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
 			uwsgi_error("write()");
@@ -1460,7 +1460,15 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	// heartbeat
 	// in multithreaded mode we are now locked
 	if (uwsgi.has_emperor && uwsgi.heartbeat) {
+		time_t now = uwsgi_now();
+		// overengineering ... (reduce skew problems)
 		timeout = uwsgi.heartbeat;
+		if (!uwsgi.next_heartbeat) {
+			uwsgi.next_heartbeat = now;
+		}
+		if (uwsgi.next_heartbeat >= now) {
+			timeout = uwsgi.next_heartbeat - now;
+		}
 	}
 
 	// need edge trigger ?
@@ -1483,7 +1491,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	}
 
 	// check for heartbeat
-	if (timeout > 0) {
+	if (timeout > 0 || ret == 0) {
 		uwsgi_heartbeat();
 		// no need to continue if timed-out
 		if (ret == 0) {
