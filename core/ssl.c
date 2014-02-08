@@ -181,6 +181,7 @@ char *uwsgi_write_pem_to_file(char *name, char *buf, size_t len, char *ext) {
 		uwsgi_log("unable to write pem data in file %s\n", filename);
 		uwsgi_error("uwsgi_write_pem_to_file()/write()");
 		free(filename);
+		close(fd);
                 return NULL;
 	}
 
