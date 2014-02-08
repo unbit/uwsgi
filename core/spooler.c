@@ -379,7 +379,7 @@ clear:
 	if (unlink(filename)) {
 		uwsgi_error("uwsgi_spool_request()/unlink()");
 	}
-	if (filename) free(filename);
+	free(filename);
 	// unlock the file too
 	close(fd);
 	return NULL;
