@@ -305,6 +305,10 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
                 SSL_CTX_set_verify_depth(ctx, 1);
 
 		if (uwsgi.ssl_tmp_dir && !uwsgi_starts_with(client_ca, strlen(client_ca), "-----BEGIN ", 11)) {
+			if (!name) {
+                        	SSL_CTX_free(ctx);
+                        	return NULL;
+			}
                 	client_ca = uwsgi_write_pem_to_file(name, client_ca, strlen(client_ca), ".ca");
                 	if (!client_ca) {
                         	SSL_CTX_free(ctx);
