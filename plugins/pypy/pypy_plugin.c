@@ -23,6 +23,8 @@ struct uwsgi_pypy {
 	struct uwsgi_string_list *exec_post_fork;
 
 	struct uwsgi_string_list *pp;
+
+	pthread_mutex_t attach_thread_lock;
 } upypy;
 
 // the functions exposed by libpypy-c
@@ -278,7 +280,9 @@ static void uwsgi_pypy_enable_threads() {
 
 static void uwsgi_pypy_init_thread() {
 	if (u_pypy_thread_attach) {
+		pthread_mutex_lock(&upypy.attach_thread_lock);
 		u_pypy_thread_attach();
+		pthread_mutex_unlock(&upypy.attach_thread_lock);
 	}
 }
 
@@ -300,6 +304,7 @@ static uint64_t uwsgi_pypy_rpc(void *func, uint8_t argc, char **argv, uint16_t a
 }
 
 static void uwsgi_pypy_post_fork() {
+	pthread_mutex_init(&upypy.attach_thread_lock, NULL);
 	struct uwsgi_string_list *usl = upypy.eval_post_fork;
         while(usl) {
                 if (u_pypy_execute_source(usl->value)) {
