@@ -374,12 +374,12 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 
 
 clear:
-	if (filename) free(filename);
 	uwsgi_unlock(uspool->lock);
 	uwsgi_error("uwsgi_spool_request()/write()");
 	if (unlink(filename)) {
 		uwsgi_error("uwsgi_spool_request()/unlink()");
 	}
+	if (filename) free(filename);
 	// unlock the file too
 	close(fd);
 	return NULL;
