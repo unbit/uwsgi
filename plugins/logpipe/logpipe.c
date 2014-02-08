@@ -29,6 +29,10 @@ static ssize_t uwsgi_pipe_logger(struct uwsgi_logger *ul, char *message, size_t 
 			else {
 				// child
 				setsid();
+				if (setsid() < 0) {
+					uwsgi_error("setsid()");
+					exit(1);
+				}
 				close(pipefd[1]);
 				dup2(pipefd[0], STDIN_FILENO);
 				close(pipefd[0]);
