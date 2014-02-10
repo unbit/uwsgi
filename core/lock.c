@@ -99,7 +99,7 @@ retry:
 			uwsgi_log("unable to set PTHREAD_PRIO_INHERIT\n");
 			exit(1);
 		}
-		if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST)) {
+		if (pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) {
 			uwsgi_log("unable to make the mutex 'robust'\n");
 			exit(1);
 		}
@@ -161,7 +161,7 @@ void uwsgi_lock_fast(struct uwsgi_lock_item *uli) {
 #ifdef EOWNERDEAD
 	if (pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr) == EOWNERDEAD) {
 		uwsgi_log("[deadlock-detector] a process holding a robust mutex died. recovering...\n");
-		pthread_mutex_consistent_np((pthread_mutex_t *) uli->lock_ptr);
+		pthread_mutex_consistent((pthread_mutex_t *) uli->lock_ptr);
 	}
 #else
 	pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr);
