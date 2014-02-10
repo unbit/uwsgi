@@ -45,7 +45,7 @@ char *ini_get_key(char *key) {
 
 	for (i = 0; i < (int) strlen(key); i++) {
 		ptr++;
-		if (key[i] == '=') {
+		if (key[i] == '=' || key[i] == ':') {
 			key[i] = 0;
 			return ptr;
 		}
