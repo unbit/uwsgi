@@ -261,6 +261,9 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #include <stdint.h>
 
 #include <sys/wait.h>
+#ifndef WAIT_ANY
+#define WAIT_ANY (-1)
+#endif
 
 #ifdef __APPLE__
 #ifndef MAC_OS_X_VERSION_MIN_REQUIRED
