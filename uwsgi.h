@@ -153,22 +153,7 @@ extern "C" {
 #endif
 #endif
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-#include <stdio.h>
-#ifdef __UCLIBC__
-#include <sched.h>
-#endif
-#undef _GNU_SOURCE
-
-#include <stdlib.h>
-#include <stddef.h>
-#include <signal.h>
-#include <math.h>
-
-#include <sys/types.h>
-#ifdef __linux__
+#if defined(__linux__) || defined(__GNUC__)
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -176,6 +161,14 @@ extern "C" {
 #define __USE_GNU
 #endif
 #endif
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stddef.h>
+#include <signal.h>
+#include <math.h>
+
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <net/if.h>
 #ifdef __linux__
@@ -183,7 +176,6 @@ extern "C" {
 #define MSG_FASTOPEN   0x20000000
 #endif
 #endif
-#undef _GNU_SOURCE
 #include <netinet/in.h>
 
 #include <termios.h>
@@ -346,6 +338,9 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #undef _XOPEN_SOURCE
 #ifdef __sun__
 #undef __EXTENSIONS__
+#endif
+#ifdef _GNU_SOURCE
+#undef _GNU_SOURCE
 #endif
 
 #define UWSGI_CACHE_FLAG_UNGETTABLE	0x01
