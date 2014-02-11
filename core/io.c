@@ -517,12 +517,28 @@ fallback:
 			goto end;
 		}
 
+		// is it a potential virtual file (/proc, /sys...) ?
+		int is_virtual = 0;
+		if (sb.st_size == 0) {
+			is_virtual = 1;
+			sb.st_size = 4096;
+		}
+
 		buffer = uwsgi_malloc(sb.st_size + add_zero);
 
 		len = read(fd, buffer, sb.st_size);
-		if (len != sb.st_size) {
-			uwsgi_error("read()");
-			exit(1);
+		if (!is_virtual) {
+			if (len != sb.st_size) {
+			}
+		}
+		else {
+			if (len >= 0) {
+				sb.st_size = len;
+			}
+			else {
+				uwsgi_error("read()");
+				exit(1);
+			}
 		}
 
 		close(fd);

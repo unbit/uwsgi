@@ -1916,6 +1916,17 @@ int main(int argc, char *argv[], char *envp[]) {
 	return uwsgi_run();
 }
 
+static char *uwsgi_at_file_read(char *filename) {
+	size_t size = 0;
+	char *buffer = uwsgi_open_and_read(filename, &size, 1, NULL);
+	if (size > 1) {
+		if (buffer[size-2] == '\n' || buffer[size-2] == '\r') {
+			buffer[size-2] = 0;
+		}
+	}
+	return buffer;
+}
+
 void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_AS_SHARED_LIBRARY
 #ifdef __APPLE__
@@ -2113,7 +2124,7 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 	uwsgi_apply_config_pass('$', (char *(*)(char *)) getenv);
 
 	// third pass: FILEs
-	uwsgi_apply_config_pass('@', uwsgi_simple_file_read);
+	uwsgi_apply_config_pass('@', uwsgi_at_file_read);
 
 	// last pass: REFERENCEs
 	uwsgi_apply_config_pass('%', uwsgi_manage_placeholder);
