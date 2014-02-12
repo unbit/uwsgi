@@ -140,7 +140,7 @@ static void cache_unmark_blocks(struct uwsgi_cache *uc, uint64_t index, uint64_t
 
         uint64_t first_byte = index/8;
         uint8_t first_byte_bit = index % 8;
-        // offset starts with 0, so actial last byte is index + needed_blocks - 1
+        // offset starts with 0, so last byte is index + needed_blocks - 1
         uint64_t last_byte = (index + needed_blocks - 1)/8;
         uint8_t last_byte_bit = (index + needed_blocks - 1) % 8;
 
@@ -309,8 +309,12 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 
 	if (uc->use_blocks_bitmap) {
 		uc->blocks_bitmap_size = uc->blocks/8;
-		if (uc->blocks % 8 > 0) uc->blocks_bitmap_size++;
+                uint8_t m = uc->blocks % 8;
+		if (m > 0) uc->blocks_bitmap_size++;
 		uc->blocks_bitmap = uwsgi_calloc_shared(uc->blocks_bitmap_size);
+		if (m > 0) {
+			uc->blocks_bitmap[uc->blocks_bitmap_size-1] = 0xff >> (8 - m);
+		}
 	}
 
 	//uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
@@ -549,14 +553,14 @@ int uwsgi_cache_del2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_
 
 	if (index) {
 		uci = cache_item(index);
+		// unmark blocks
+		if (uci->keysize > 0 && uc->blocks_bitmap) {
+			cache_unmark_blocks(uc, uci->first_block, uci->valsize);
+		}
 		uci->keysize = 0;
 		uci->valsize = 0;
 		uc->unused_blocks_stack_ptr++;
 		uc->unused_blocks_stack[uc->unused_blocks_stack_ptr] = index;
-		// unmark blocks
-		if (uc->blocks_bitmap) {
-			cache_unmark_blocks(uc, uci->first_block, uci->valsize);
-		}
 		ret = 0;
 		// relink collisioned entry
 		if (uci->prev) {
