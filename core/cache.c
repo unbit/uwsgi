@@ -361,7 +361,7 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 			uc->name,
 			(unsigned long long) uc->filesize / (1024 * 1024),
 			(unsigned long long) sizeof(struct uwsgi_cache_item)+uc->keysize,
-			(unsigned long long) ((sizeof(struct uwsgi_cache_item)+uc->keysize) * uc->max_items), (unsigned long long) (uc->blocksize * uc->max_items),
+			(unsigned long long) ((sizeof(struct uwsgi_cache_item)+uc->keysize) * uc->max_items), (unsigned long long) (uc->blocksize * uc->blocks),
 			(unsigned long long) uc->blocks_bitmap_size);
 
 	uwsgi_cache_setup_nodes(uc);
