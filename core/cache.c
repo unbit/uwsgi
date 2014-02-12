@@ -104,7 +104,7 @@ static uint64_t cache_mark_blocks(struct uwsgi_cache *uc, uint64_t index, uint64
 
 	uint64_t first_byte = index/8;
 	uint8_t first_byte_bit = index % 8;
-	// offset starts with 0, so actial last byte is index + needed_blocks - 1
+	// offset starts with 0, so actual last bit is index + needed_blocks - 1
 	uint64_t last_byte = (index + needed_blocks - 1) / 8;
 	uint8_t last_byte_bit = (index + needed_blocks - 1) % 8;
 	
