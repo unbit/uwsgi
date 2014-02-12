@@ -73,7 +73,9 @@ static uint64_t uwsgi_cache_find_free_blocks(struct uwsgi_cache *uc, uint64_t ne
                                 }
                                 found++;
                                 if (found == needed_blocks) {
-                                        //printf("found %llu consecutive bit starting from byte %llu\n", found, base);
+#ifdef UWSGI_DEBUG
+                                        printf("found %llu consecutive bit starting from byte %llu\n", (unsigned long long) found, (unsigned long long) base);
+#endif
 					return ((base*8) + base_bit);
                                 }
                         }
@@ -82,8 +84,8 @@ static uint64_t uwsgi_cache_find_free_blocks(struct uwsgi_cache *uc, uint64_t ne
                 }
 		j++;
 		need_to_scan--;
-		// check for overlap
-		if (j >= need_to_scan) {
+		// check for overlap (that is not supported)
+		if (j >= uc->blocks_bitmap_size) {
 			j = 0;
 			found = 0;
 			base = 0xffffffffffffffffLLU;
