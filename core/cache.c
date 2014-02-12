@@ -786,7 +786,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
                                 uc->blocks_bitmap_pos = uci->first_block + needed_blocks;
                         }
 			// unmark the old blocks
-			cache_unmark_blocks(uc, uci->first_block, uci->valsize);
+			cache_unmark_blocks(uc, old_first_block, uci->valsize);
 		}
 		if ( !(flags & UWSGI_CACHE_FLAG_MATH)) {
 			memcpy(((char *) uc->data) + (uci->first_block * uc->blocksize), val, vallen);
