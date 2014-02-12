@@ -43,13 +43,6 @@ void uwsgi_destroy_processes() {
 
         uwsgi_signal_spoolers(SIGKILL);
 
-        if (uwsgi.emperor_pid >= 0) {
-                kill(uwsgi.emperor_pid, SIGKILL);
-                waitpid(uwsgi.emperor_pid, &waitpid_status, 0);
-		uwsgi_log("The Emperor has been buried (pid: %d)\n", (int) uwsgi.emperor_pid);
-        }
-
-
         uwsgi_detach_daemons();
 
         for (i = 0; i < ushared->gateways_cnt; i++) {
@@ -68,6 +61,27 @@ void uwsgi_destroy_processes() {
 			uwsgi_log("mule %d has been buried (pid: %d)\n", i, (int) uwsgi.mules[i].pid);
 		}
         }
+
+
+	if (uwsgi.emperor_pid > 0) {
+                kill(uwsgi.emperor_pid, SIGINT);
+		time_t timeout = uwsgi_now() + (uwsgi.reload_mercy ? uwsgi.reload_mercy : 3);
+		// increase timeout for being more tolerant
+		timeout+=2;
+		int waitpid_status;
+		while (uwsgi_now() < timeout) {
+			pid_t diedpid = waitpid(uwsgi.emperor_pid, &waitpid_status, WNOHANG);
+			if (diedpid == uwsgi.emperor_pid) {
+				goto nomoremperor;
+			}
+			uwsgi_log("waiting for Emperor death...\n");
+			sleep(1);
+		}
+		kill(uwsgi.emperor_pid, SIGKILL);
+		waitpid(uwsgi.emperor_pid, &waitpid_status, 0);
+nomoremperor:
+		uwsgi_log("The Emperor has been buried (pid: %d)\n", (int) uwsgi.emperor_pid);
+	}
 }
 
 
