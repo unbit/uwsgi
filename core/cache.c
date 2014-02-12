@@ -681,11 +681,11 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 			// mark used blocks;
 			uint64_t needed_blocks = cache_mark_blocks(uc, uci->first_block, vallen);
 			// optimize the scan
-			if (uc->blocks_bitmap_pos + (needed_blocks+1) > uc->blocks) {
+			if (uc->blocks_bitmap_pos + needed_blocks > uc->blocks) {
                         	uc->blocks_bitmap_pos = 0;
                         }
                         else {
-                        	uc->blocks_bitmap_pos = uci->first_block + needed_blocks + 1;
+                        	uc->blocks_bitmap_pos = uci->first_block + needed_blocks;
                         }
 		}
 		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
@@ -773,11 +773,11 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
                         // mark used blocks;
                         uint64_t needed_blocks = cache_mark_blocks(uc, uci->first_block, vallen);
                         // optimize the scan
-                        if (uc->blocks_bitmap_pos + (needed_blocks+1) > uc->blocks) {
+                        if (uc->blocks_bitmap_pos + needed_blocks > uc->blocks) {
                                 uc->blocks_bitmap_pos = 0;
                         }
                         else {
-                                uc->blocks_bitmap_pos = uci->first_block + needed_blocks + 1;
+                                uc->blocks_bitmap_pos = uci->first_block + needed_blocks;
                         }
 			// unmark the old blocks
 			cache_unmark_blocks(uc, uci->first_block, uci->valsize);
