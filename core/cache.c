@@ -116,14 +116,14 @@ static uint64_t cache_mark_blocks(struct uwsgi_cache *uc, uint64_t index, uint64
 	
 	if (needed_bytes == 1) {
 		// kinda hacky, but it does the job
-		mask >>= (8 - last_byte_bit);
-		mask <<= (8 - last_byte_bit);
+		mask >>= (7 - last_byte_bit);
+		mask <<= (7 - last_byte_bit);
 	}
 	
 	uc->blocks_bitmap[first_byte] |= mask;
 
 	if (needed_bytes > 1) {
-		mask = 0xff << (8 - last_byte_bit);
+		mask = 0xff << (7 - last_byte_bit);
 		uc->blocks_bitmap[last_byte] |= mask;
 	}
 
@@ -140,19 +140,25 @@ static void cache_unmark_blocks(struct uwsgi_cache *uc, uint64_t index, uint64_t
 
         uint64_t first_byte = index/8;
         uint8_t first_byte_bit = index % 8;
-        uint64_t last_byte = (index+needed_blocks)/8;
-        uint8_t last_byte_bit = (index+needed_blocks) % 8;
+        // offset starts with 0, so actial last byte is index + needed_blocks - 1
+        uint64_t last_byte = (index + needed_blocks - 1)/8;
+        uint8_t last_byte_bit = (index + needed_blocks - 1) % 8;
 
-	// here we use XOR (0+0 = 0 | 1+0 = 1 | 0+1 = 1| 1+1 = 0|
+	uint8_t mask = 0xff >> first_byte_bit;
 
-        uint8_t mask = 0xff >> first_byte_bit;
-        uc->blocks_bitmap[first_byte] ^= mask;
+        if (needed_bytes == 1) {
+		mask >>= (7 - last_byte_bit);
+		mask <<= (7 - last_byte_bit);
+        }
 
-        uint64_t needed_bytes = (last_byte - first_byte)+1;
+        // here we use AND (0+0 = 0 | 1+0 = 0 | 0+1 = 0| 1+1 = 1)
+    	// 0 in mask means "unmark", 1 in mask means "do not change" 
+    	// so we need to invert the mask 
+        uc->blocks_bitmap[first_byte] &= ~mask;
 
         if (needed_bytes > 1) {
-                mask = 0xff << (8 - last_byte_bit);
-                uc->blocks_bitmap[last_byte-1] ^= mask;
+                mask = 0xff << (7 - last_byte_bit);
+                uc->blocks_bitmap[last_byte] &= ~mask;
         }
 
         if (needed_bytes > 2) {
