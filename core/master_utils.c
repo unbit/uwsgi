@@ -62,7 +62,6 @@ void uwsgi_destroy_processes() {
 		}
         }
 
-
 	if (uwsgi.emperor_pid > 0) {
                 kill(uwsgi.emperor_pid, SIGINT);
 		time_t timeout = uwsgi_now() + (uwsgi.reload_mercy ? uwsgi.reload_mercy : 3);
@@ -560,9 +559,10 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 			}
 		}
 
+		
+		if (uwsgi.shared->spooler_signal_pipe[0] != -1)
+                	close(uwsgi.shared->spooler_signal_pipe[0]);
 		if (uwsgi.i_am_a_spooler && uwsgi.i_am_a_spooler->pid != getpid()) {
-			if (uwsgi.shared->spooler_signal_pipe[0] != -1)
-				close(uwsgi.shared->spooler_signal_pipe[0]);
 			if (uwsgi.shared->spooler_signal_pipe[1] != -1)
 				close(uwsgi.shared->spooler_signal_pipe[1]);
 		}
