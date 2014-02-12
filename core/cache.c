@@ -32,7 +32,7 @@ static uint64_t uwsgi_cache_find_free_blocks(struct uwsgi_cache *uc, uint64_t ne
 	// which is the first free bit?
 	uint64_t bitmap_byte = 0;
 	uint8_t bitmap_bit = 0;
-
+	
 	if (uc->blocks_bitmap_pos > 0) {
 		bitmap_byte = uc->blocks_bitmap_pos/8;
 		bitmap_bit = uc->blocks_bitmap_pos % 8;
@@ -45,6 +45,8 @@ static uint64_t uwsgi_cache_find_free_blocks(struct uwsgi_cache *uc, uint64_t ne
 	uint64_t j;
 	uint64_t found = 0;
 	uint64_t need_to_scan = uc->blocks_bitmap_size;
+	// we make an addition round for the corner case of a single byte map not starting from 0
+	if (bitmap_bit > 0) need_to_scan++;
 	j = bitmap_byte;
 	//uwsgi_log("start scanning %llu bytes starting from %llu need: %llu\n", (unsigned long long) need_to_scan, (unsigned long long) bitmap_byte, (unsigned long long) needed_blocks);
 	while(need_to_scan) {
@@ -90,6 +92,8 @@ static uint64_t uwsgi_cache_find_free_blocks(struct uwsgi_cache *uc, uint64_t ne
 			found = 0;
 			base = 0xffffffffffffffffLLU;
 			base_bit = 0;
+			// we use bitmap_bit only at the first round
+			bitmap_bit = 0;
 		}
 	}
 
@@ -148,9 +152,10 @@ static void cache_unmark_blocks(struct uwsgi_cache *uc, uint64_t index, uint64_t
 
 	uint8_t mask = 0xff >> first_byte_bit;
 
-        if (needed_bytes == 1) {
-		mask >>= (7 - last_byte_bit);
-		mask <<= (7 - last_byte_bit);
+	if (needed_bytes == 1) {
+                // kinda hacky, but it does the job
+                mask >>= (7 - last_byte_bit);
+                mask <<= (7 - last_byte_bit);
         }
 
         // here we use AND (0+0 = 0 | 1+0 = 0 | 0+1 = 0| 1+1 = 1)
@@ -545,11 +550,11 @@ char *uwsgi_cache_get4(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint6
 
 int uwsgi_cache_del2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_t index, uint16_t flags) {
 
+
 	struct uwsgi_cache_item *uci;
 	int ret = -1;
 
-	if (!index)
-		index = uwsgi_cache_get_index(uc, key, keylen);
+	if (!index) index = uwsgi_cache_get_index(uc, key, keylen);
 
 	if (index) {
 		uci = cache_item(index);
@@ -659,7 +664,6 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 			goto end;
 		}
 		if (uc->unused_blocks_stack_ptr) {
-			//uwsgi_log("!!! REUSING CACHE SLOT !!! (faci: %llu)\n", (unsigned long long) uwsgi.shared->cache_first_available_block);
 			index = uc->unused_blocks_stack[uc->unused_blocks_stack_ptr];
 			uc->unused_blocks_stack_ptr--;
 		}
@@ -1810,7 +1814,7 @@ int uwsgi_cache_magic_clear(char *cache) {
         if (uc) {
 		uint64_t i;
                 uwsgi_wlock(uc->lock);
-		for (i = 1; i < uwsgi.caches->max_items; i++) {
+		for (i = 1; i < uc->max_items; i++) {
                 	if (uwsgi_cache_del2(uc, NULL, 0, i, 0)) {
                         	uwsgi_rwunlock(uc->lock);
                         	return -1;
