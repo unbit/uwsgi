@@ -18,9 +18,15 @@ class BitmapTest(unittest.TestCase):
     def test_two_items_using_four_blocks(self):
         self.assertTrue(uwsgi.cache_update('key1', 'HE', 0, 'items_2'))
         self.assertTrue(uwsgi.cache_update('key2', 'LL', 0, 'items_2'))
-        uwsgi.cache_del('key1', 'items_2')
+        self.assertTrue(uwsgi.cache_del('key1', 'items_2'))
         self.assertFalse(uwsgi.cache_update('key1', 'HEL', 0, 'items_2'))
         self.assertTrue(uwsgi.cache_update('key1', 'HE', 0, 'items_2'))
+
+    def test_overlapping(self):
+        self.assertTrue(uwsgi.cache_update('key1', 'HE', 0, 'items_2'))
+        self.assertFalse(uwsgi.cache_update('key1', 'HELL', 0, 'items_2'))
+        self.assertTrue(uwsgi.cache_del('key1', 'items_2')) 
+        self.assertTrue(uwsgi.cache_update('key1', 'HELL', 0, 'items_2'))
 
 
 unittest.main()
