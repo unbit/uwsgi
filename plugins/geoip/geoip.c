@@ -8,18 +8,20 @@ struct uwsgi_geoip {
 	char *city_db;
 	GeoIP *country;
 	GeoIP *city;
+	int use_disk;
 	
 } ugeoip;
 
 struct uwsgi_option uwsgi_geoip_options[] = {
         {"geoip-country", required_argument, 0, "load the specified geoip country database", uwsgi_opt_set_str, &ugeoip.country_db, 0},
         {"geoip-city", required_argument, 0, "load the specified geoip city database", uwsgi_opt_set_str, &ugeoip.city_db, 0},
-        { 0, 0, 0, 0, 0, 0, 0 }
+        {"geoip-use-disk", no_argument, 0, "do not cache geoip databases in memory", uwsgi_opt_true, &ugeoip.use_disk, 0},
+	UWSGI_END_OF_OPTIONS
 };
 
 static int uwsgi_geoip_init() {
 	if (ugeoip.country_db) {
-		ugeoip.country = GeoIP_open(ugeoip.country_db, GEOIP_MEMORY_CACHE);
+		ugeoip.country = GeoIP_open(ugeoip.country_db, ugeoip.use_disk ? GEOIP_STANDARD : GEOIP_MEMORY_CACHE);
 		if (!ugeoip.country) {
 			uwsgi_log("unable to open GeoIP country database: %s\n", ugeoip.country_db);
 			exit(1);
@@ -27,7 +29,7 @@ static int uwsgi_geoip_init() {
 	}
 
 	if (ugeoip.city_db) {
-                ugeoip.city = GeoIP_open(ugeoip.city_db, GEOIP_MEMORY_CACHE);
+                ugeoip.city = GeoIP_open(ugeoip.city_db, ugeoip.use_disk ? GEOIP_STANDARD : GEOIP_MEMORY_CACHE);
                 if (!ugeoip.city) {
                         uwsgi_log("unable to open GeoIP city database: %s\n", ugeoip.city_db);
                         exit(1);
