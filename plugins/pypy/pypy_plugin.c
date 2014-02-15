@@ -35,6 +35,7 @@ void (*u_pypy_thread_attach)(void);
 void (*u_pypy_init_threads)(void);
 
 // the hooks you can override with pypy
+void (*uwsgi_pypy_hook_execute_source)(char *);
 void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_file_loader)(char *);
 void (*uwsgi_pypy_hook_paste_loader)(char *);
@@ -186,23 +187,21 @@ ready:
 
 static void uwsgi_pypy_preinit_apps() {
 
-	struct uwsgi_string_list *usl = upypy.eval;
-	while(usl) {
-		if (u_pypy_execute_source(usl->value)) {
-			exit(1);
-		}
-		usl = usl->next;
+	if (!uwsgi_pypy_hook_execute_source) {
+		uwsgi_log("*** WARNING your pypy setup code does not expose a callback for \"execute_source\" ***\n");
+		return;
 	}
 
-	usl = upypy.exec;
-	while(usl) {
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, upypy.eval) {
+		uwsgi_pypy_hook_execute_source(usl->value);
+	}
+
+	uwsgi_foreach(usl, upypy.exec) {
 		size_t rlen = 0;
 		char *buffer = uwsgi_open_and_read(usl->value, &rlen, 1, NULL);
-		if (u_pypy_execute_source(buffer)) {
-			exit(1);
-		}
+		uwsgi_pypy_hook_execute_source(buffer);
 		free(buffer);
-		usl = usl->next;
 	}
 }
 
@@ -305,22 +304,15 @@ static uint64_t uwsgi_pypy_rpc(void *func, uint8_t argc, char **argv, uint16_t a
 
 static void uwsgi_pypy_post_fork() {
 	pthread_mutex_init(&upypy.attach_thread_lock, NULL);
-	struct uwsgi_string_list *usl = upypy.eval_post_fork;
-        while(usl) {
-                if (u_pypy_execute_source(usl->value)) {
-			exit(1);
-		}
-                usl = usl->next;
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, upypy.eval_post_fork) {
+                uwsgi_pypy_hook_execute_source(usl->value);
         }
-	usl = upypy.exec_post_fork;
-        while(usl) {
+	uwsgi_foreach(usl, upypy.exec_post_fork) {
                 size_t rlen = 0;
                 char *buffer = uwsgi_open_and_read(usl->value, &rlen, 1, NULL);
-                if (u_pypy_execute_source(buffer)) {
-			exit(1);
-		}
+                uwsgi_pypy_hook_execute_source(buffer);
                 free(buffer);
-                usl = usl->next;
         }
 
 	if (uwsgi_pypy_post_fork_hook) {
@@ -337,10 +329,15 @@ static void uwsgi_pypy_onload() {
 
 static int uwsgi_pypy_mule(char *opt) {
 
+	if (!uwsgi_pypy_hook_execute_source) {
+		uwsgi_log("!!! no \"execute_source\" callback in your pypy setup code !!!\n");
+		exit(1);
+	}
+
         if (uwsgi_endswith(opt, ".py")) {
                 size_t rlen = 0;
                 char *buffer = uwsgi_open_and_read(opt, &rlen, 1, NULL);
-                u_pypy_execute_source(buffer);
+                uwsgi_pypy_hook_execute_source(buffer);
 		free(buffer);
                 return 1;
         }

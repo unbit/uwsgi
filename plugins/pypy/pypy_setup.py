@@ -24,6 +24,7 @@ ssize_t read(int, void *, size_t);
 ssize_t write(int, const void *, size_t);
 int close(int);
 
+void (*uwsgi_pypy_hook_execute_source)(char *);
 void (*uwsgi_pypy_hook_loader)(char *);
 void (*uwsgi_pypy_hook_file_loader)(char *);
 void (*uwsgi_pypy_hook_paste_loader)(char *);
@@ -277,6 +278,14 @@ wsgi_application = None
 if len(sys.argv) == 0:
     sys.argv.insert(0, ffi.string(lib.uwsgi_binary_path()))
 
+"""
+execute source, we expose it as cffi callback to avoid deadlocks
+after GIL initialization
+"""
+@ffi.callback("void(char *)")
+def uwsgi_pypy_execute_source(s):
+    source = ffi.string(s)
+    exec(source)
 
 """
 load a wsgi module
@@ -480,6 +489,7 @@ def uwsgi_pypy_wsgi_handler(wsgi_req):
             if hasattr(response, 'close'):
                 response.close()
 
+lib.uwsgi_pypy_hook_execute_source = uwsgi_pypy_execute_source
 lib.uwsgi_pypy_hook_loader = uwsgi_pypy_loader
 lib.uwsgi_pypy_hook_file_loader = uwsgi_pypy_file_loader
 lib.uwsgi_pypy_hook_paste_loader = uwsgi_pypy_paste_loader
