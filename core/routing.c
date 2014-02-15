@@ -312,6 +312,7 @@ int uwsgi_apply_error_routes(struct wsgi_request *wsgi_req) {
 
 int uwsgi_apply_response_routes(struct wsgi_request *wsgi_req) {
 
+
         if (!uwsgi.response_routes) return 0;
         if (wsgi_req->response_routes_applied) return 0;
 

@@ -82,12 +82,14 @@ int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, 
 	wsgi_req->status = uwsgi_str3_num(status);
 #ifdef UWSGI_ROUTING
 	// apply error routes
-	if (uwsgi_apply_error_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
-		// from now on ignore write body requests...
-		wsgi_req->ignore_body = 1;
-		return -1;
+	if (wsgi_req->is_error_routing == 0) {
+		if (uwsgi_apply_error_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
+			// from now on ignore write body requests...
+			wsgi_req->ignore_body = 1;
+			return -1;
+		}
+		wsgi_req->is_error_routing = 0;
 	}
-	wsgi_req->is_error_routing = 0;
 #endif
 	if (status_len <= 4) {
 		char *new_sc = NULL;
@@ -186,12 +188,14 @@ static int uwsgi_response_write_headers_do0(struct wsgi_request *wsgi_req) {
 
 #ifdef UWSGI_ROUTING
         // apply response routes
-        if (uwsgi_apply_response_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
-                // from now on ignore write body requests...
-                wsgi_req->ignore_body = 1;
-                return -1;
-        }
-        wsgi_req->is_response_routing = 0;
+	if (wsgi_req->is_response_routing == 0) {
+        	if (uwsgi_apply_response_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
+                	// from now on ignore write body requests...
+                	wsgi_req->ignore_body = 1;
+                	return -1;
+        	}
+        	wsgi_req->is_response_routing = 0;
+	}
 #endif
 
 	struct uwsgi_string_list *ah = uwsgi.additional_headers;
@@ -352,12 +356,14 @@ int uwsgi_response_write_body_do(struct wsgi_request *wsgi_req, char *buf, size_
 	// special case here, we could need to set transformations before
 	if (!wsgi_req->headers_sent) {
         	// apply response routes
-        	if (uwsgi_apply_response_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
-                	// from now on ignore write body requests...
-                	wsgi_req->ignore_body = 1;
-                	return -1;
-        	}
-        	wsgi_req->is_response_routing = 0;
+		if (wsgi_req->is_response_routing == 0) {
+        		if (uwsgi_apply_response_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
+                		// from now on ignore write body requests...
+                		wsgi_req->ignore_body = 1;
+                		return -1;
+        		}
+        		wsgi_req->is_response_routing = 0;
+		}
 	}
 #endif
 
@@ -435,12 +441,14 @@ int uwsgi_response_writev_body_do(struct wsgi_request *wsgi_req, struct iovec *i
         // special case here, we could need to set transformations before
         if (!wsgi_req->headers_sent) {
                 // apply response routes
-                if (uwsgi_apply_response_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
-                        // from now on ignore write body requests...
-                        wsgi_req->ignore_body = 1;
-                        return -1;
-                }
-                wsgi_req->is_response_routing = 0;
+		if (wsgi_req->is_response_routing == 0) {
+                	if (uwsgi_apply_response_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
+                        	// from now on ignore write body requests...
+                        	wsgi_req->ignore_body = 1;
+                        	return -1;
+                	}
+                	wsgi_req->is_response_routing = 0;
+		}
         }
 #endif
 
