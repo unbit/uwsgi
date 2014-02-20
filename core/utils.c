@@ -982,19 +982,44 @@ nonroot:
 	}
 }
 
+static void close_and_free_request(struct wsgi_request *wsgi_req) {
+
+	// close the connection with the client
+        if (!wsgi_req->fd_closed) {
+                // NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
+                wsgi_req->socket->proto_close(wsgi_req);
+        }
+
+        if (wsgi_req->post_file) {
+                fclose(wsgi_req->post_file);
+        }
+
+        if (wsgi_req->post_read_buf) {
+                free(wsgi_req->post_read_buf);
+        }
+
+        if (wsgi_req->post_readline_buf) {
+                free(wsgi_req->post_readline_buf);
+        }
+
+        if (wsgi_req->proto_parser_buf) {
+                free(wsgi_req->proto_parser_buf);
+        }
+
+}
+
 // destroy a request
 void uwsgi_destroy_request(struct wsgi_request *wsgi_req) {
 
-	wsgi_req->socket->proto_close(wsgi_req);
+	close_and_free_request(wsgi_req);
 
 	int foo;
-	if (uwsgi.threads > 1) {
-		// now the thread can die...
-		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &foo);
-	}
+        if (uwsgi.threads > 1) {
+                // now the thread can die...
+                pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &foo);
+        }
 
-	memset(wsgi_req, 0, sizeof(struct wsgi_request));
-
+        memset(wsgi_req, 0, sizeof(struct wsgi_request));
 
 }
 
@@ -1053,27 +1078,8 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	uwsgi_apply_final_routes(wsgi_req);
 #endif
 
-	// close the connection with the client
-	if (!wsgi_req->fd_closed) {
-		// NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
-		wsgi_req->socket->proto_close(wsgi_req);
-	}
-
-	if (wsgi_req->post_file) {
-		fclose(wsgi_req->post_file);
-	}
-
-	if (wsgi_req->post_read_buf) {
-		free(wsgi_req->post_read_buf);
-	}
-
-	if (wsgi_req->post_readline_buf) {
-		free(wsgi_req->post_readline_buf);
-	}
-
-	if (wsgi_req->proto_parser_buf) {
-		free(wsgi_req->proto_parser_buf);
-	}
+	// close socket and free parsers-allocated memory
+	close_and_free_request(wsgi_req);
 
 	// after_request hook
 	if (!wsgi_req->is_raw && uwsgi.p[wsgi_req->uh->modifier1]->after_request)
