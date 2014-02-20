@@ -269,20 +269,22 @@ int uwsgi_remote_signal_send(char *addr, uint8_t sig) {
 	uh.pktsize = 0;
 	uh.modifier2 = sig;
 
-	int fd = uwsgi_connect(addr, uwsgi.socket_timeout, 0);
-	if (fd < 0)
-		return -1;
+        int fd = uwsgi_connect(addr, 0, 1);
+        if (fd < 0) return -1;
 
-	if (write(fd, (char *) &uh, 4) != 4) {
-		uwsgi_error("uwsgi_remote_signal_send()");
-		close(fd);
-		return -1;
-	}
+        // wait for connection
+        if (uwsgi.wait_write_hook(fd, uwsgi.socket_timeout) <= 0) goto end;
 
-	int ret = uwsgi_read_response(fd, &uh, uwsgi.socket_timeout, NULL);
+        if (uwsgi_write_true_nb(fd, (char *) &uh, 4, uwsgi.socket_timeout)) goto end;
 
+	if (uwsgi_read_whole_true_nb(fd, (char *) &uh, 4, uwsgi.socket_timeout)) goto end;
 	close(fd);
-	return ret;
+
+	return uh.modifier2;
+
+end:
+	close(fd);
+	return -1;
 
 }
 
