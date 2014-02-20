@@ -13,6 +13,26 @@ pthread_mutex_t ur_basicauth_crypt_mutex;
 
 extern struct uwsgi_server uwsgi;
 
+static char *htpasswd_check_sha1(char *pwd) {
+#ifdef UWSGI_SSL
+	char sha1[20];
+	uwsgi_sha1(pwd, strlen(pwd), sha1);
+
+	size_t len = 0;
+	char *b64 = uwsgi_base64_encode(sha1, 20, &len);
+	if (!b64) return NULL;
+
+	// we add a new line for being fgets-friendly
+	char *crypted = uwsgi_concat3n("{SHA}", 5, b64, len, "\n", 1);
+	free(b64);
+	return crypted;
+
+#else
+	uwsgi_log("*** WARNING, rebuild uWSGI with SSL support for htpasswd sha1 feature ***\n");
+	return NULL;
+#endif
+}
+
 static uint16_t htpasswd_check(char *filename, char *auth) {
 
 	char line[1024];
@@ -25,11 +45,23 @@ static uint16_t htpasswd_check(char *filename, char *auth) {
 		return 0;
 	}
 	while(fgets(line, 1024, htpasswd)) {
+		char *crypted = NULL;
+		int need_free = 0;
 		char *colon2 = strchr(line, ':');
 		if (!colon2) break;	
 
 		char *cpwd = colon2+1;
 		size_t clen = strlen(cpwd);
+
+		// now we check which algo to use
+		// {SHA} ?
+		if (!uwsgi_starts_with(cpwd, clen, "{SHA}", 5)) {
+			crypted = htpasswd_check_sha1(colon+1);
+			if (crypted) need_free = 1;
+			goto check;
+		}
+
+
 		if (clen < 13) break;
 
 		if (clen > 13) cpwd[13] = 0;
@@ -39,20 +71,24 @@ static uint16_t htpasswd_check(char *filename, char *auth) {
 		cd.initialized = 0;
 		// we do as nginx here
 		cd.current_salt[0] = ~cpwd[0];
-		char *crypted = crypt_r( colon+1, cpwd, &cd);
+		crypted = crypt_r( colon+1, cpwd, &cd);
 #else
 		if (uwsgi.threads > 1) pthread_mutex_lock(&ur_basicauth_crypt_mutex);
-		char *crypted = crypt( colon+1, cpwd);
+		crypted = crypt( colon+1, cpwd);
 		if (uwsgi.threads > 1) pthread_mutex_unlock(&ur_basicauth_crypt_mutex);
 #endif
+check:
 		if (!crypted) continue;
 
 		if (!strcmp( crypted, cpwd )) {
 			if (!uwsgi_strncmp(auth, colon-auth, line, colon2-line)) {
 				fclose(htpasswd);
+				if (need_free) free(crypted);
 				return colon-auth;
 			}
 		}
+
+		if (need_free) free(crypted);
 	}
 	
 	fclose(htpasswd);
