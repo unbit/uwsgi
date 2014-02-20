@@ -400,7 +400,8 @@ void add_exported_option_do(char *key, char *value, int configured, int placehol
 	if (uwsgi.logic_opt_running)
 		goto add;
 
-	if (!strcmp(key, "end") || !strcmp(key, "endfor") || !strcmp(key, "endif")) {
+	if (!strcmp(key, "end") || !strcmp(key, "endfor") || !strcmp(key, "endif")
+		|| !strcmp(key, "end-if") || !strcmp(key, "end-for")) {
 		if (uwsgi.logic_opt_data) {
 			free(uwsgi.logic_opt_data);
 		}
