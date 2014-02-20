@@ -157,7 +157,7 @@ static void cache_unmark_blocks(struct uwsgi_cache *uc, uint64_t index, uint64_t
                 mask >>= (7 - last_byte_bit);
                 mask <<= (7 - last_byte_bit);
         }
-
+	
         // here we use AND (0+0 = 0 | 1+0 = 0 | 0+1 = 0| 1+1 = 1)
     	// 0 in mask means "unmark", 1 in mask means "do not change" 
     	// so we need to invert the mask 
@@ -306,11 +306,15 @@ next2:
 void uwsgi_cache_init(struct uwsgi_cache *uc) {
 
 	uc->hashtable = uwsgi_calloc_shared(sizeof(uint64_t) * uc->hashsize);
-	uc->unused_blocks_stack = uwsgi_calloc_shared(sizeof(uint64_t) * uc->blocks);
-	// the first cache item is always zero
-	uc->first_available_block = 1;
+	uc->unused_blocks_stack = uwsgi_calloc_shared(sizeof(uint64_t) * uc->max_items);
 	uc->unused_blocks_stack_ptr = 0;
 	uc->filesize = ( (sizeof(struct uwsgi_cache_item)+uc->keysize) * uc->max_items) + (uc->blocksize * uc->blocks);
+
+	uint64_t i;
+	for (i = 1; i < uc->max_items; i++) {
+        	uc->unused_blocks_stack_ptr++;
+                uc->unused_blocks_stack[uc->unused_blocks_stack_ptr] = i;
+        }
 
 	if (uc->use_blocks_bitmap) {
 		uc->blocks_bitmap_size = uc->blocks/8;
@@ -318,7 +322,7 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 		if (m > 0) uc->blocks_bitmap_size++;
 		uc->blocks_bitmap = uwsgi_calloc_shared(uc->blocks_bitmap_size);
 		if (m > 0) {
-			uc->blocks_bitmap[uc->blocks_bitmap_size-1] = 0xff >> (8 - m);
+			uc->blocks_bitmap[uc->blocks_bitmap_size-1] = 0xff >> m;
 		}
 	}
 
@@ -558,41 +562,43 @@ int uwsgi_cache_del2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_
 
 	if (index) {
 		uci = cache_item(index);
-		// unmark blocks
-		if (uci->keysize > 0 && uc->blocks_bitmap) {
-			cache_unmark_blocks(uc, uci->first_block, uci->valsize);
+		if (uci->keysize > 0) {
+			// unmark blocks
+			if (uc->blocks_bitmap) cache_unmark_blocks(uc, uci->first_block, uci->valsize);
+			// put back the block in unused stack
+			uc->unused_blocks_stack_ptr++;
+			uc->unused_blocks_stack[uc->unused_blocks_stack_ptr] = index;
+
+			// unlink prev and next (if any)
+			if (uci->prev) {
+                        	struct uwsgi_cache_item *ucii = cache_item(uci->prev);
+                        	ucii->next = uci->next;
+                	}
+                	else {
+                        	// set next as the new entry point (could be 0)
+                        	uc->hashtable[uci->hash % uc->hashsize] = uci->next;
+                	}
+
+                	if (uci->next) {
+                        	struct uwsgi_cache_item *ucii = cache_item(uci->next);
+                        	ucii->prev = uci->prev;
+                	}
+
+                	if (!uci->prev && !uci->next) {
+                        	// reset hashtable entry
+                        	uc->hashtable[uci->hash % uc->hashsize] = 0;
+                	}
+			uc->n_items--;
 		}
+
+		ret = 0;
+
 		uci->keysize = 0;
 		uci->valsize = 0;
-		uc->unused_blocks_stack_ptr++;
-		uc->unused_blocks_stack[uc->unused_blocks_stack_ptr] = index;
-		ret = 0;
-		// relink collisioned entry
-		if (uci->prev) {
-			struct uwsgi_cache_item *ucii = cache_item(uci->prev);
-			ucii->next = uci->next;
-		}
-		else {
-			// set next as the new entry point (could be 0)
-			uc->hashtable[uci->hash % uc->hashsize] = uci->next;
-		}
-
-		if (uci->next) {
-			struct uwsgi_cache_item *ucii = cache_item(uci->next);
-			ucii->prev = uci->prev;
-		}
-
-		if (!uci->prev && !uci->next) {
-			// reset hashtable entry
-			//uwsgi_log("!!! resetted hashtable entry !!!\n");
-			uc->hashtable[uci->hash % uc->hashsize] = 0;
-		}
 		uci->hash = 0;
 		uci->prev = 0;
 		uci->next = 0;
 		uci->expires = 0;
-
-		uc->n_items--;
 
 		if (uc->use_last_modified) {
 			uc->last_modified_at = uwsgi_now();
@@ -611,7 +617,10 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 	uint64_t i;
 	unsigned long long restored = 0;
 
-	for (i = 0; i < uc->max_items; i++) {
+	// reset unused blocks
+	uc->unused_blocks_stack_ptr = 0;
+
+	for (i = 1; i < uc->max_items; i++) {
 		// valid record ?
 		struct uwsgi_cache_item *uci = cache_item(i);
 		if (uci->keysize) {
@@ -623,7 +632,6 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 		}
 		else {
 			// put this record in unused stack
-			uc->first_available_block = i;
 			uc->unused_blocks_stack_ptr++;
 			uc->unused_blocks_stack[uc->unused_blocks_stack_ptr] = i;
 		}
@@ -640,7 +648,6 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 	struct uwsgi_cache_item *uci, *ucii;
 
 	// used to reset key allocation in bitmap mode
-	uint8_t rollback_mode = 0;
 
 	int ret = -1;
 	time_t now = 0;
@@ -658,23 +665,14 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 	//uwsgi_log("putting cache data in key %.*s %d\n", keylen, key, vallen);
 	index = uwsgi_cache_get_index(uc, key, keylen);
 	if (!index) {
-		if (uc->first_available_block >= uc->max_items && !uc->unused_blocks_stack_ptr) {
+		if (!uc->unused_blocks_stack_ptr) {
 			uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
 			uc->full++;
 			goto end;
 		}
-		if (uc->unused_blocks_stack_ptr) {
-			index = uc->unused_blocks_stack[uc->unused_blocks_stack_ptr];
-			uc->unused_blocks_stack_ptr--;
-		}
-		else {
-			rollback_mode = 1;
-			index = uc->first_available_block;
-			if (uc->first_available_block < uc->max_items) {
-				rollback_mode = 2;
-				uc->first_available_block++;
-			}
-		}
+
+		index = uc->unused_blocks_stack[uc->unused_blocks_stack_ptr];
+		uc->unused_blocks_stack_ptr--;
 
 		uci = cache_item(index);
 		if (!uc->blocks_bitmap) {
@@ -682,16 +680,10 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		}
 		else {
 			uci->first_block = uwsgi_cache_find_free_blocks(uc, vallen);
-			//uwsgi_log("first block = %llu\n", uci->first_block);
 			if (uci->first_block == 0xffffffffffffffffLLU) {
 				uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
                                 uc->full++;
-				if (rollback_mode == 0) {
-					uc->unused_blocks_stack_ptr++;
-				}
-				else if (rollback_mode == 2) {
-					uc->first_available_block--;
-				}
+				uc->unused_blocks_stack_ptr++;
                                 goto end;
 			}
 			// mark used blocks;
