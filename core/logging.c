@@ -1116,7 +1116,7 @@ static ssize_t uwsgi_lf_ltime(struct wsgi_request * wsgi_req, char **buf) {
 }
 
 static ssize_t uwsgi_lf_ftime(struct wsgi_request * wsgi_req, char **buf) {
-	if (!uwsgi.log_strftime) {
+	if (!uwsgi.logformat_strftime || !uwsgi.log_strftime) {
 		return uwsgi_lf_ltime(wsgi_req, buf);
 	}
 	*buf = uwsgi_malloc(64);
