@@ -2783,6 +2783,7 @@ int uwsgi_start(void *v_argv) {
 		!uwsgi.command_mode &&
 		!uwsgi.daemons_cnt &&
 		!uwsgi.crons &&
+		!uwsgi.spoolers &&
 		!uwsgi.emperor_proxy
 #ifdef __linux__
 		&& !uwsgi.setns_socket
@@ -3079,15 +3080,13 @@ next:
 
 
 
-	if (uwsgi.spoolers != NULL && (uwsgi.sockets || uwsgi.loop)) {
-		struct uwsgi_spooler *uspool = uwsgi.spoolers;
-		while (uspool) {
-			if (uspool->mode == UWSGI_SPOOLER_EXTERNAL)
-				goto next2;
-			uspool->pid = spooler_start(uspool);
+	struct uwsgi_spooler *uspool = uwsgi.spoolers;
+	while (uspool) {
+		if (uspool->mode == UWSGI_SPOOLER_EXTERNAL)
+			goto next2;
+		uspool->pid = spooler_start(uspool);
 next2:
-			uspool = uspool->next;
-		}
+		uspool = uspool->next;
 	}
 
 	if (!uwsgi.master_process) {
