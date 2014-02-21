@@ -2941,7 +2941,7 @@ unsafe:
 	}
 
 	// initialize locks and socket as soon as possible, as the master could enqueue tasks
-	if (uwsgi.spoolers != NULL && (uwsgi.sockets || uwsgi.loop)) {
+	if (uwsgi.spoolers != NULL) {
 		create_signal_pipe(uwsgi.shared->spooler_signal_pipe);
 		struct uwsgi_spooler *uspool = uwsgi.spoolers;
 		while (uspool) {
