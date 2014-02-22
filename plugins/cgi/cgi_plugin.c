@@ -732,29 +732,16 @@ clear2:
 		// now wait for process exit/death
 		// in async mode we need a trick...
 		if (uwsgi.async > 1) {
-			int max_attempts = uc.async_max_attempts;
-			if (!max_attempts) max_attempts = 10;
-			while(max_attempts) {
-				pid_t diedpid = waitpid(cgi_pid, &waitpid_status, WNOHANG);
-				if (diedpid < 0) {
-                                	uwsgi_error("waitpid()");
-					break;
-                        	}
-				else if (diedpid == 0) {
-					int ret = uwsgi.wait_milliseconds_hook(1000);
-					if (ret < 0) {
-						kill_on_error;
-						goto wait_for_pid_sync;
-					}
-				}
-				else {
-					break;
-				}
-				max_attempts--;
+			pid_t diedpid = waitpid(cgi_pid, &waitpid_status, WNOHANG);
+			if (diedpid < 0) {
+                               	uwsgi_error("waitpid()");
+                        }
+			else if (diedpid == 0) {
+				// pass the pid of the cgi to async_plagued (the after request hook will clear the process)
+				wsgi_req->async_plagued = (int) cgi_pid;
 			}
 		}
 		else {
-wait_for_pid_sync:
 			if (waitpid(cgi_pid, &waitpid_status, 0) < 0) {
 				uwsgi_error("waitpid()");
 			}
@@ -763,34 +750,18 @@ wait_for_pid_sync:
 		return UWSGI_OK;
 	}
 
-	// close all the fd except wsgi_req->poll.fd and 2;
-
-	for(i=0;i< (int)uwsgi.max_fd;i++) {
-		if (post_pipe[0] == i) {
-			continue;
-		}
-		if (wsgi_req->post_file) {
-			if (fileno(wsgi_req->post_file) == i) {
-				continue;
-			}
-		}
-		if (i != wsgi_req->fd && i != 2 && i != cgi_pipe[1]) {
-			close(i);
-		}
-	}
-
 	// now map wsgi_req->poll.fd (or async_post) to 0 & cgi_pipe[1] to 1
-	if (post_pipe[0] != 0) {
-		dup2(post_pipe[0], 0);
-		close(post_pipe[0]);
-	}
-
-#ifdef UWSGI_DEBUG
-	uwsgi_log("mapping cgi_pipe %d to 1\n", cgi_pipe[1]);
-#endif
+	dup2(post_pipe[0], 0);
+	close(post_pipe[0]);
 
 	dup2(cgi_pipe[1],1);
-	
+	close(cgi_pipe[1]);
+
+	// close all the fd > 2
+	for(i=3;i<(int)uwsgi.max_fd;i++) {
+		close(i);
+	}
+
 	// fill cgi env
 	for(i=0;i<wsgi_req->var_cnt;i++) {
 		// no need to free the putenv() memory
@@ -954,6 +925,39 @@ wait_for_pid_sync:
 
 
 static void uwsgi_cgi_after_request(struct wsgi_request *wsgi_req) {
+	if (wsgi_req->async_plagued > 0) {
+		int waitpid_status;
+		pid_t cgi_pid = (pid_t) wsgi_req->async_plagued;
+		int max_attempts = uc.async_max_attempts;
+                        if (!max_attempts) max_attempts = 10;
+                        while(max_attempts) {
+                                pid_t diedpid = waitpid(cgi_pid, &waitpid_status, WNOHANG);
+                                if (diedpid < 0) {
+                                        uwsgi_error("waitpid()");
+                                        break;
+                                }
+                                else if (diedpid == 0) {
+                                        int ret = uwsgi.wait_milliseconds_hook(1000);
+                                        if (ret < 0) {
+                                                kill_on_error
+						if (waitpid(cgi_pid, &waitpid_status, 0) < 0) {
+                                			uwsgi_error("waitpid()");
+                        			}
+                                        }
+                                }
+                                else {
+                                        break;
+                                }
+                                max_attempts--;
+                        }
+                        if (max_attempts == 0) {
+                                kill_on_error
+				if (waitpid(cgi_pid, &waitpid_status, 0) < 0) {
+                                	uwsgi_error("waitpid()");
+                        	}
+                        }
+	}
+
 	log_request(wsgi_req);
 }
 
