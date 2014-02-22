@@ -2,6 +2,8 @@
 
 extern struct uwsgi_server uwsgi;
 
+#define kill_on_error if (!uc.do_not_kill_on_error) { if (kill(cgi_pid, SIGKILL)) uwsgi_error("kill()");}
+
 struct uwsgi_cgi {
 	struct uwsgi_dyn_dict *mountpoint;
 	struct uwsgi_dyn_dict *helpers;
@@ -16,6 +18,8 @@ struct uwsgi_cgi {
 	int has_mountpoints;
 	struct uwsgi_dyn_dict *default_cgi;
 	int path_info;
+	int do_not_kill_on_error;
+	int async_max_attempts;
 } uc ;
 
 static void uwsgi_opt_add_cgi(char *opt, char *value, void *foobar) {
@@ -61,6 +65,9 @@ struct uwsgi_option uwsgi_cgi_options[] = {
         {"cgi-optimized", no_argument, 0, "enable cgi realpath() optimizer", uwsgi_opt_true, &uc.optimize, 0},
 
         {"cgi-path-info", no_argument, 0, "disable PATH_INFO management in cgi scripts", uwsgi_opt_true, &uc.path_info, 0},
+
+        {"cgi-do-not-kill-on-error", no_argument, 0, "do not send SIGKILL to cgi script on errors", uwsgi_opt_true, &uc.do_not_kill_on_error, 0},
+        {"cgi-async-max-attempts", no_argument, 0, "max waitpid() attempts in cgi async mode (default 10)", uwsgi_opt_set_int, &uc.async_max_attempts, 0},
 
         {0, 0, 0, 0, 0, 0, 0},
 
@@ -179,118 +186,154 @@ static char *uwsgi_cgi_get_helper(char *filename) {
 	
 }
 
-static int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len) {
-
-	size_t i;
+/*
+start reading each line until Status or Location are found
+-1 error
+0 not found
+1 found
+*/
+static int uwsgi_cgi_check_status(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 	char *key = buf, *value = NULL;
 	size_t header_size = 0;
-	int status_sent = 0;
+	size_t i;
 
-	// Search for Status/Location headers
 	for(i=0;i<len;i++) {
-		// end of a line
-		if (buf[i] == '\n') {
-			// end of headers
-			if (key == NULL) {
-				// Default status
+       		// end of a line
+                if (buf[i] == '\n') {
+                	// end of headers
+                        if (key == NULL) {
+                        	// Default status
 #ifdef UWSGI_DEBUG
 				uwsgi_log("setting default Status header\n");
 #endif
 				if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) return -1;
-				break;
+				return 1;
 			}
-			// invalid header
-			else if (value == NULL) {
-				return -1;	
-			}
-			header_size = (buf+i) - key;
-			// security check
-			if (buf+i > buf) {
-				if ((buf[i-1]) == '\r') {
-					header_size--;
-				}
+                        // invalid header
+                        else if (value == NULL) return -1;
+                        header_size = (buf+i) - key;
+                        // security check
+                        if (buf+i > buf) {
+				// remove \r
+                        	if ((buf[i-1]) == '\r') {
+                                	header_size--;
+                                }
+                        }
+
+			// enough space for Status ?
+                        if (header_size >= 11) {
+                        	// "Status: NNN"
+                                if (!strncasecmp("Status: ", key, 8)) {
+#ifdef UWSGI_DEBUG
+                                	uwsgi_log("found Status header: %.*s\n", header_size, key);
+#endif
+                                        if (uwsgi_response_prepare_headers(wsgi_req, key+8, header_size - 8)) return -1;
+					return 1;
+                                }
+                                // Location: X
+                                if (!strncasecmp("Location: ", key, 10)) {
+#ifdef UWSGI_DEBUG
+                                	uwsgi_log("found Location header: %.*s\n", header_size, key);
+#endif
+                                        if (uwsgi_response_prepare_headers(wsgi_req, "302 Found", 9)) return -1;
+					return 1;
+                                }
 			}
 
-			if (header_size >= 11) {
-				// "Status: NNN"
-				if (!strncasecmp("Status: ", key, 8)) {
-#ifdef UWSGI_DEBUG
-					uwsgi_log("found Status header: %.*s\n", header_size, key);
-#endif
-					if (uwsgi_response_prepare_headers(wsgi_req, key+8, header_size - 8)) return -1;
-					break;
-				}
-				// Location: X
-				if (!strncasecmp("Location: ", key, 10)) {
-#ifdef UWSGI_DEBUG
-					uwsgi_log("found Location header: %.*s\n", header_size, key);
-#endif
-					if (uwsgi_response_prepare_headers(wsgi_req, "302 Found", 9)) return -1;
-					break;
-				}
-			}
-
-			key = NULL;
-			value = NULL;
+                        key = NULL;
+                        value = NULL;
 		}
-		else if (buf[i] == ':') {
+                else if (buf[i] == ':') {
 			value = buf+i;
-		}
-		else if (buf[i] != '\r') {
-			if (key == NULL) {
-				key = buf + i;
-			}
-		}
+                }
+                else if (buf[i] != '\r') {
+                	if (key == NULL) key = buf + i;
+                }
+
 	}
 
-	key = buf;
-	value = NULL;
+	// no Status/Location found
+	return 0;
 
-	for(i=0;i<len;i++) {
-		// end of a line
-		if (buf[i] == '\n') {
-			// end of headers
-			if (key == NULL) {
-				i++;
-				goto send_body;
-			}
-			// invalid header
-			else if (value == NULL) {
-				return -1;
-			}
-			header_size = (buf+i) - key;
-			// security check
-			if (buf+i > buf) {
-				if ((buf[i-1]) == '\r') {
-					header_size--;
+}
+
+static int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, int fd, char *buf, size_t blen) {
+
+	size_t i;
+	size_t header_size = 0;
+	int status_sent = 0;
+	size_t remains = blen;
+	char *ptr = buf;
+	size_t len = 0;
+
+	while(remains > 0) {
+		ssize_t rlen = uwsgi_read_true_nb(fd, ptr, remains, uc.timeout);
+		if (rlen < 0) {
+			if (!errno) return 1;
+			return -1;
+		}
+		// timed out
+		if (rlen == 0) return -1;
+		remains -= rlen;
+		len += rlen;
+		ptr += rlen;
+
+		// Search for Status/Location headers
+		if (!status_sent) {
+			status_sent = uwsgi_cgi_check_status(wsgi_req, buf, len); 
+			if (status_sent < 0) return -1;
+			// need more data ?
+			if (status_sent == 0) continue;
+		}
+
+		// send headers
+		char *key = buf;
+		char *value = NULL;
+
+		for(i=0;i<len;i++) {
+			// end of a line
+			if (buf[i] == '\n') {
+				// end of headers
+				if (key == NULL) {
+					i++;
+					goto send_body;
 				}
-			}
+				// invalid header
+				else if (value == NULL) {
+					return -1;
+				}
+				header_size = (buf+i) - key;
+				// security check
+				if (buf+i > buf) {
+					if ((buf[i-1]) == '\r') {
+						header_size--;
+					}
+				}
 
 #ifdef UWSGI_DEBUG
-			uwsgi_log("found CGI header: %.*s\n", header_size, key);
+				uwsgi_log("found CGI header: %.*s\n", header_size, key);
 #endif
 
-			// Ignore "Status: NNN" header
-			if (status_sent == 0 && header_size >= 11) {
-				if (!strncasecmp("Status: ", key, 8)) {
-					status_sent = 1;
-					key = NULL;
-					value = NULL;
-					continue;
+				// Ignore "Status: NNN" header
+				if (header_size >= 11) {
+					if (!strncasecmp("Status: ", key, 8)) {
+						key = NULL;
+						value = NULL;
+						continue;
+					}
 				}
+
+				uwsgi_response_add_header(wsgi_req, NULL, 0, key, header_size);
+				key = NULL;
+				value = NULL;
 			}
-
-			uwsgi_response_add_header(wsgi_req, NULL, 0, key, header_size);
-
-			key = NULL;
-			value = NULL;
-		}
-		else if (buf[i] == ':') {
-			value = buf+i;
-		}
-		else if (buf[i] != '\r') {
-			if (key == NULL) {
-				key = buf + i;
+			else if (buf[i] == ':') {
+				value = buf+i;
+			}
+			else if (buf[i] != '\r') {
+				if (key == NULL) {
+					key = buf + i;
+				}
 			}
 		}
 	}
@@ -592,7 +635,6 @@ static int uwsgi_cgi_run(struct wsgi_request *wsgi_req, char *docroot, size_t do
 	int post_pipe[2];
 	int nargs = 0;
 	int waitpid_status;
-	ssize_t len;
 	int i;
 	char **argv;
 
@@ -630,6 +672,9 @@ static int uwsgi_cgi_run(struct wsgi_request *wsgi_req, char *docroot, size_t do
 		close(cgi_pipe[1]);
 		close(post_pipe[0]);
 
+		uwsgi_socket_nb(cgi_pipe[0]);
+		uwsgi_socket_nb(post_pipe[1]);
+
 		// ok start sending post data...
 		size_t remains = wsgi_req->post_cl;
 		while(remains > 0) {
@@ -650,73 +695,72 @@ static int uwsgi_cgi_run(struct wsgi_request *wsgi_req, char *docroot, size_t do
 
 		close(post_pipe[1]);
 		// wait for data
-		char *headers_buf = uwsgi_malloc(uc.buffer_size);
-		char *ptr = headers_buf;
-		remains = uc.buffer_size;
-		int completed = 0;
-		while(remains > 0) {
-			int ret = uwsgi.wait_read_hook(cgi_pipe[0], uc.timeout);
-			if (ret > 0) {
-				len = read(cgi_pipe[0], ptr, remains);
-				if (len > 0) {
-					ptr+=len;
-					remains -= len;
-				}
-				else if (len == 0) {
-					completed = 1;
-					break;
-				}
-				else {
-					uwsgi_error("read()");
-					goto clear;
-				}
-				continue;
-			}
-			else if (ret == 0) {
-				uwsgi_log("CGI timeout !!!\n");
-				goto clear;
-			}
-			break;
-		}
+		char *buf = uwsgi_malloc(uc.buffer_size);
 
-		if (uwsgi_cgi_parse(wsgi_req, headers_buf, uc.buffer_size-remains)) {
-			uwsgi_log("invalid CGI output !!!\n");
+		int completed = uwsgi_cgi_parse(wsgi_req, cgi_pipe[0], buf, uc.buffer_size);
+		if (completed < 0) {
+			uwsgi_log("invalid CGI response !!!\n");
+			kill_on_error
 			goto clear;
 		}
 
 		while (!completed) {
-			int ret = uwsgi.wait_read_hook(cgi_pipe[0], uc.timeout);
-			if (ret > 0) {
-				len = read(cgi_pipe[0], headers_buf, uc.buffer_size);
-				if (len > 0) {
-					uwsgi_response_write_body_do(wsgi_req, headers_buf, len);
-				}
-				// end of output
-				else if (len == 0) {
-					break;
-				}
-				else {
-					uwsgi_error("read()");
+			ssize_t rlen = uwsgi_read_true_nb(cgi_pipe[0], buf, uc.buffer_size, uc.timeout);
+			if (rlen > 0) {
+				if (uwsgi_response_write_body_do(wsgi_req, buf, rlen)) {
+					kill_on_error
 					goto clear;
 				}
-				continue;
 			}
-			else if (ret == 0) {
-                                uwsgi_log("CGI timeout !!!\n");
-                                goto clear;
-                        }
-                        break;
+			else if (rlen == 0) {
+				uwsgi_log("CGI timeout !!!\n");
+				kill_on_error
+				goto clear;
+			}
+			else {
+				if (errno) {
+					uwsgi_req_error("error reading CGI response\n");
+					kill_on_error
+				}
+				goto clear;
+			}
 		}
 
 clear:
-		free(headers_buf);
+		free(buf);
 clear2:
 		close(cgi_pipe[0]);
 		close(post_pipe[1]);
 
 		// now wait for process exit/death
-		if (waitpid(cgi_pid, &waitpid_status, 0) < 0) {
-			uwsgi_error("waitpid()");
+		// in async mode we need a trick...
+		if (uwsgi.async > 1) {
+			int max_attempts = uc.async_max_attempts;
+			if (!max_attempts) max_attempts = 10;
+			while(max_attempts) {
+				pid_t diedpid = waitpid(cgi_pid, &waitpid_status, WNOHANG);
+				if (diedpid < 0) {
+                                	uwsgi_error("waitpid()");
+					break;
+                        	}
+				else if (diedpid == 0) {
+					int ret = uwsgi.wait_milliseconds_hook(1000);
+					if (ret < 0) {
+						kill_on_error;
+						goto wait_for_pid_sync;
+					}
+				}
+				else {
+					break;
+				}
+				max_attempts--;
+			}
+		}
+		else {
+wait_for_pid_sync:
+			if (waitpid(cgi_pid, &waitpid_status, 0) < 0) {
+				uwsgi_error("waitpid()");
+			}
 		}
 
 		return UWSGI_OK;
