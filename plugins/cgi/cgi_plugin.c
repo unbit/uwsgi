@@ -681,19 +681,16 @@ static int uwsgi_cgi_run(struct wsgi_request *wsgi_req, char *docroot, size_t do
                 	ssize_t rlen = 0;
                 	char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
                 	if (!buf) {
-				close(post_pipe[1]);
 				goto clear2;
                 	}
                 	if (buf == uwsgi.empty) break;
                 	// write data to the node
                 	if (uwsgi_write_true_nb(post_pipe[1], buf, rlen, uc.timeout)) {
-				close(post_pipe[1]);
 				goto clear2;
                 	}
                 	remains -= rlen;
         	}
 
-		close(post_pipe[1]);
 		// wait for data
 		char *buf = uwsgi_malloc(uc.buffer_size);
 
