@@ -978,6 +978,7 @@ ssize_t uwsgi_read_true_nb(int fd, char *buf, size_t len, int timeout) {
         }
         return -1;
 wait:
+	errno = 0;
         ret = uwsgi.wait_read_hook(fd, timeout);
         if (ret > 0) {
 		errno = 0;
