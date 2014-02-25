@@ -368,31 +368,26 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 
 		uperl.tmp_current_i = i;
 
-
-		if (uperl.locallib) {
-                        uwsgi_log("using %s as local::lib directory\n", uperl.locallib);
-                        uperl.embedding[1] = uwsgi_concat2("-Mlocal::lib=", uperl.locallib);
-                        uperl.embedding[2] = app_name;
-                        if (perl_parse(interpreters[i], xs_init, 3, uperl.embedding, NULL)) {
-				// what to do here ? i hope no-one will use threads with dynamic apps... but clear the whole stuff...
-				free(uperl.embedding[1]);
-				uperl.embedding[1] = app_name;
-				free(callables);
-				uwsgi_perl_free_stashes();
-				goto clear;
-                        }
-			free(uperl.embedding[1]);
-			uperl.embedding[1] = app_name;
-                }
-		else {
-			if (perl_parse(interpreters[i], xs_init, 2, uperl.embedding, NULL)) {
+		// We need to initialize the interpreter to execute
+		// our xs_init hook, but we're *not* calling it with
+		// uperl.embedding as an argument so we won't execute
+		// BEGIN blocks in app_name twice.
+		{
+			char *perl_init_arg[] = { "", "-e", "1" };
+			if (perl_parse(interpreters[i], xs_init, 3, perl_init_arg, NULL)) {
 				// what to do here ? i hope no-one will use threads with dynamic apps... but clear the whole stuff...
 				free(callables);
 				uwsgi_perl_free_stashes();
 				goto clear;
-        		}
+			}
 		}
 
+		if (uperl.locallib) {
+			uwsgi_log("using %s as local::lib directory\n", uperl.locallib);
+			char *local_lib_use = uwsgi_concat3("use local::lib qw(", uperl.locallib, ");");
+			perl_eval_pv(local_lib_use, 1);
+			free(local_lib_use);
+		}
 		perl_eval_pv("use IO::Handle;", 1);
 		perl_eval_pv("use IO::File;", 1);
 		perl_eval_pv("use IO::Socket;", 1);

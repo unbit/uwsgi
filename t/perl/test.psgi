@@ -1,5 +1,9 @@
 use strict;
 use warnings;
+BEGIN {
+    die "PANIC: We should only load this once" if ++$main::count_BEGIN > 1;
+}
+die "PANIC: We should only run this once" if ++$main::count_runs > 1;
 
 uwsgi::register_rpc('hello', sub {
 	my ($one, $two, $three) = @_;
