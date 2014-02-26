@@ -515,6 +515,8 @@ void uwsgi_psgi_preinit_apps() {
                 perl_parse(uperl.main[0], xs_init, 3, uperl.embedding, NULL);
 		struct uwsgi_string_list *usl;
         	uwsgi_foreach(usl, uperl.exec) {
+			SV *dollar_zero = get_sv("0", GV_ADD);
+                	sv_setsv(dollar_zero, newSVpv(usl->value, usl->len));
                 	uwsgi_perl_exec(usl->value);
         	}
 	}

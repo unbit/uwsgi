@@ -707,6 +707,8 @@ void uwsgi_perl_post_fork() {
 
 	struct uwsgi_string_list *usl;
 	uwsgi_foreach(usl, uperl.exec_post_fork) {
+		SV *dollar_zero = get_sv("0", GV_ADD);
+                sv_setsv(dollar_zero, newSVpv(usl->value, usl->len));
 		uwsgi_perl_exec(usl->value);
 	}
 
