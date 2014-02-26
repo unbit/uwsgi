@@ -441,17 +441,13 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 
 		if (!uperl.no_die_catch) {
 			perl_eval_pv("use Devel::StackTrace; $SIG{__DIE__} = sub { print Devel::StackTrace->new()->as_string() };", 0);
+			if(SvTRUE(ERRSV)) {
+				uwsgi_log("%s", SvPV_nolen(ERRSV));
+			}
 		}
 
 		PERL_SET_CONTEXT(interpreters[0]);
 	}
-
-	if(SvTRUE(ERRSV)) {
-        	uwsgi_log("%s", SvPV_nolen(ERRSV));
-		free(callables);
-		uwsgi_perl_free_stashes();
-		goto clear;
-        }
 
 	if (uwsgi_apps_cnt >= uwsgi.max_apps) {
 		uwsgi_log("ERROR: you cannot load more than %d apps in a worker\n", uwsgi.max_apps);
