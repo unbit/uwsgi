@@ -409,10 +409,16 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 		SV *dollar_zero = get_sv("0", GV_ADD);
 		sv_setsv(dollar_zero, newSVpv(app, app_len));
 
-		SV *has_plack = perl_eval_pv("use Plack::Util;", 0);
+		SV *has_plack = NULL;
+		if (!uperl.no_plack) {
+			has_plack = perl_eval_pv("use Plack::Util;", 0);
+		}
+
 		if (!has_plack || SvTRUE(ERRSV)) {
-			uwsgi_log("Plack::Util is not installed, using \"do\" instead of \"load_psgi\"\n");
-			char *code = uwsgi_concat3("do '", app_name, "';");
+			if (!uperl.no_plack) { 
+				uwsgi_log("Plack::Util is not installed, using \"do\" instead of \"load_psgi\"\n");
+			}
+			char *code = uwsgi_concat3("my $app = do '", app_name, "';  if ( !$app && ( my $error = $@ || $! )) { die $error; }; $app");
 			callables[i] = perl_eval_pv(code, 0);
 			free(code);
 		}

@@ -44,6 +44,8 @@ struct uwsgi_option uwsgi_perl_options[] = {
 
 	{"plshell", optional_argument, 0, "run a perl interactive shell", uwsgi_opt_plshell, NULL, 0},
         {"plshell-oneshot", no_argument, 0, "run a perl interactive shell (one shot)", uwsgi_opt_plshell, NULL, 0},
+
+        {"perl-no-plack", no_argument, 0, "force the use of do instead of Plack::Util::load_psgi", uwsgi_opt_true, &uperl.no_plack, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
 };

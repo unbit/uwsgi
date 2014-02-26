@@ -65,6 +65,8 @@ struct uwsgi_perl {
 	int shell_oneshot;
 
 	CV *spooler;
+
+	int no_plack;
 };
 
 void init_perl_embedded_module(void);
