@@ -39,6 +39,59 @@ struct uwsgi_emperor_blacklist_item {
 
 struct uwsgi_emperor_blacklist_item *emperor_blacklist;
 
+/*
+this should be placed in core/socket.c but we realized it was needed
+only after 2.0 so we cannot change uwsgi.h
+
+basically it is a stripped down bind_to_tcp/bind_to_unix with rollback
+*/
+static int on_demand_bind(char *socket_name) {
+	union uwsgi_sockaddr us;
+	socklen_t addr_len = sizeof(struct sockaddr_un);
+	char *is_tcp = strchr(socket_name, ':');
+	int af_family = is_tcp ? AF_INET : AF_UNIX;
+	int fd = socket(af_family, SOCK_STREAM, 0);
+	if (fd < 0) return -1;
+
+	memset(&us, 0, sizeof(union uwsgi_sockaddr));
+
+	if (is_tcp) {
+		int reuse = 1;
+                if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
+			goto error;
+                }
+		us.sa_in.sin_family = AF_INET;
+		us.sa_in.sin_port = htons(atoi(is_tcp+1));
+		*is_tcp = 0;
+		us.sa_in.sin_addr.s_addr = inet_addr(socket_name);
+		*is_tcp = ':';
+		addr_len = sizeof(struct sockaddr_in);
+	}
+	else {
+		if (unlink(socket_name) != 0 && errno != ENOENT) {
+			goto error;
+		}
+
+		us.sa_un.sun_family = AF_UNIX;
+		memcpy(us.sa_un.sun_path, socket_name, UMIN(strlen(socket_name), 102));
+		addr_len = strlen(socket_name) + ((void *) us.sa_un.sun_path - (void *) &us.sa_un);
+	}
+
+	if (bind(fd, (struct sockaddr *) &us, addr_len) != 0) {
+		goto error;
+	}
+
+	if (listen(fd, uwsgi.listen_queue) != 0) {
+		goto error;
+	}
+
+	return fd;
+	
+error:
+	close(fd);
+	return -1;
+}
+
 struct uwsgi_emperor_blacklist_item *uwsgi_emperor_blacklist_check(char *id) {
 	struct uwsgi_emperor_blacklist_item *uebi = emperor_blacklist;
 	while (uebi) {
@@ -157,7 +210,7 @@ static char *emperor_check_on_demand_socket(char *filename) {
 		if (fd < 0) return NULL;
 		char *ret = uwsgi_read_fd(fd, &len, 1);
 		close(fd);
-		// change the first non prinabel character to 0
+		// change the first non printable character to 0
 		size_t i;
 		for(i=0;i<len;i++) {
 			if (ret[i] < 32) {
@@ -629,6 +682,10 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 		free(c_ui->socket_name);
 	}
 
+	if (c_ui->on_demand_fd != -1) {
+		close(c_ui->on_demand_fd);
+	}
+
 	free(c_ui);
 
 }
@@ -637,8 +694,10 @@ void emperor_stop(struct uwsgi_instance *c_ui) {
 	if (c_ui->status == 1) return;
 	// remove uWSGI instance
 
-	if (write(c_ui->pipe[0], "\0", 1) != 1) {
-		uwsgi_error("emperor_stop()/write()");
+	if (c_ui->pid != -1) {
+		if (write(c_ui->pipe[0], "\0", 1) != 1) {
+			uwsgi_error("emperor_stop()/write()");
+		}
 	}
 
 	c_ui->status = 1;
@@ -797,18 +856,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 
 	// ok here we check if we need to bind to the specified socket or continue with the activation
 	if (socket_name) {
-		char *tcp_port = strchr(socket_name, ':');
-                if (tcp_port) {
-                        // disable deferred accept for this socket
-                        int current_defer_accept = uwsgi.no_defer_accept;
-                        uwsgi.no_defer_accept = 1;
-                        n_ui->on_demand_fd = bind_to_tcp(socket_name, uwsgi.listen_queue, tcp_port);
-                        uwsgi.no_defer_accept = current_defer_accept;
-                }
-                else {
-                        n_ui->on_demand_fd = bind_to_unix(socket_name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
-                }
-
+		n_ui->on_demand_fd = on_demand_bind(socket_name);
 		if (n_ui->on_demand_fd < 0) {
 			uwsgi_error("emperor_add()/bind()");
 			free(n_ui);
@@ -1743,12 +1791,18 @@ void emperor_loop() {
 					break;
 				}
 			}
-			else if (ui_current->cursed_at > 0 && now - ui_current->cursed_at >= uwsgi.emperor_curse_tolerance) {
-				ui_current->cursed_at = now;
-				if (kill(ui_current->pid, SIGKILL)) {
-					uwsgi_error("[emperor] kill");
+			else if (ui_current->cursed_at > 0) {
+				if (ui_current->pid == -1) {
+					emperor_del(ui_current);
+                                        break;
 				}
-				break;
+				else if (now - ui_current->cursed_at >= uwsgi.emperor_curse_tolerance) {
+					ui_current->cursed_at = now;
+					if (kill(ui_current->pid, SIGKILL)) {
+						uwsgi_error("[emperor] kill");
+					}
+					break;
+				}
 			}
 		}
 
