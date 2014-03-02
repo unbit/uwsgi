@@ -81,6 +81,12 @@ static int on_demand_bind(char *socket_name) {
 		goto error;
 	}
 
+	if (!is_tcp) {
+		if (chmod(socket_name, 0666)) {
+			goto error;
+		}
+	}
+
 	if (listen(fd, uwsgi.listen_queue) != 0) {
 		goto error;
 	}
