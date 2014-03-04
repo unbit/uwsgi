@@ -582,7 +582,7 @@ static void mongrel2_connect() {
 		}
 		char *responder = strchr(uwsgi_sock->name, ',');
         	if (!responder) {
-                	uwsgi_log("invalid zeromq address\n");
+                	uwsgi_log("invalid zeromq address: %s\n", uwsgi_sock->name);
                 	exit(1);
         	}
         	uwsgi_sock->receiver = uwsgi_concat2n(uwsgi_sock->name, responder - uwsgi_sock->name, "", 0);
