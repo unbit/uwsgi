@@ -18,18 +18,18 @@ void uwsgi_alarm_init_log(struct uwsgi_alarm_instance *uai) {
 void uwsgi_alarm_func_log(struct uwsgi_alarm_instance *uai, char *msg, size_t len) {
 	if (msg[len-1] != '\n') {
 		if (uai->arg && strlen(uai->arg) > 0) {
-			uwsgi_log_alarm("] %s %.*s\n", uai->arg, len, msg);
+			uwsgi_log_verbose("ALARM: %s %.*s\n", uai->arg, len, msg);
 		}
 		else {
-			uwsgi_log_alarm("] %.*s\n", len, msg);
+			uwsgi_log_verbose("ALARM: %.*s\n", len, msg);
 		}
 	}
 	else {
 		if (uai->arg && strlen(uai->arg) > 0) {
-			uwsgi_log_alarm("] %s %.*s", uai->arg, len, msg);
+			uwsgi_log_verbose("ALARM: %s %.*s", uai->arg, len, msg);
 		}
 		else {
-			uwsgi_log_alarm("] %.*s", len, msg);
+			uwsgi_log_verbose("ALARM: %.*s", len, msg);
 		}
 	}
 }
