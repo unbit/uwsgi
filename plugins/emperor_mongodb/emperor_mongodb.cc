@@ -31,7 +31,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 
 		// run the query
 		std::auto_ptr<mongo::DBClientCursor> cursor = c.query(uems->collection, q, 0, 0, &p);
-		while( cursor->more() ) {
+		while(cursor.get() && cursor->more() ) {
                 	mongo::BSONObj p = cursor->next();
 
 			// checking for an empty string is not required, but we reduce the load
@@ -78,6 +78,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 				b.append("name", c_ui->name);
 				mongo::BSONObj q2 = b.obj();
 				cursor = c.query(uems->collection, q2, 0, 0, &p);
+				if (!cursor.get()) return;
 #ifdef UWSGI_DEBUG
 				uwsgi_log("JSON: %s\n", q2.toString().c_str());
 #endif
