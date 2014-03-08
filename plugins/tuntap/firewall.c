@@ -61,15 +61,15 @@ int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *uttr, struct uwsgi
 						int ret = poll(&pfd, 1, uwsgi.socket_timeout * 1000);
 						if (ret > 0) {
 							if (sendto(uttr->gateway_fd, pkt, len, 0, (struct sockaddr *) &sin, sizeof(struct sockaddr_in)) < 0) {
-								uwsgi_error("uwsgi_tuntap_route_check()/sendto()");
+								uwsgi_tuntap_error(uttp,"uwsgi_tuntap_route_check()/sendto()");
 							}
 						}
 						else {
-							uwsgi_error("uwsgi_tuntap_route_check()/poll()");
+							uwsgi_tuntap_error(uttp,"uwsgi_tuntap_route_check()/poll()");
 						}
 					}
 					else {
-						uwsgi_error("uwsgi_tuntap_route_check()/sendto()");
+						uwsgi_tuntap_error(uttp,"uwsgi_tuntap_route_check()/sendto()");
 					}
 				}
 			}
@@ -324,7 +324,7 @@ void uwsgi_tuntap_peer_send_rules(int fd, struct uwsgi_tuntap_peer *peer) {
 			*slash = 0;
 		}
 		if (inet_pton(AF_INET, argv[1], &utpr.src) != 1) {
-                	uwsgi_error("uwsgi_tuntap_peer_send_rules()/inet_pton()");
+                	uwsgi_tuntap_error(peer, "uwsgi_tuntap_peer_send_rules()/inet_pton()");
                 	exit(1);
 		}
 		if (slash) *slash = '/';
@@ -336,7 +336,7 @@ void uwsgi_tuntap_peer_send_rules(int fd, struct uwsgi_tuntap_peer *peer) {
                         *slash = 0;
                 }
                 if (inet_pton(AF_INET, argv[2], &utpr.dst) != 1) {
-                        uwsgi_error("uwsgi_tuntap_peer_send_rules()/inet_pton()");
+                        uwsgi_tuntap_error(peer, "uwsgi_tuntap_peer_send_rules()/inet_pton()");
                         exit(1);
                 }
                 if (slash) *slash = '/';
@@ -371,7 +371,7 @@ void uwsgi_tuntap_peer_send_rules(int fd, struct uwsgi_tuntap_peer *peer) {
 			}
 			*colon = 0;
 			if (inet_pton(AF_INET, argv[4], &utpr.target) != 1) {
-                        	uwsgi_error("uwsgi_tuntap_peer_send_rules()/inet_pton()");
+                        	uwsgi_tuntap_error(peer, "uwsgi_tuntap_peer_send_rules()/inet_pton()");
                         	exit(1);
                 	}
 			*colon = ':';
@@ -389,7 +389,7 @@ void uwsgi_tuntap_peer_send_rules(int fd, struct uwsgi_tuntap_peer *peer) {
 	size_t len = ub->pos;
 	uwsgi_buffer_destroy(ub);
 	if (write(fd,peer->rules, len) != (ssize_t)len) {
-		uwsgi_error("uwsgi_tuntap_peer_send_rules()/write()");
+		uwsgi_tuntap_error(peer, "uwsgi_tuntap_peer_send_rules()/write()");
 		exit(1);
 	}
 	return;
