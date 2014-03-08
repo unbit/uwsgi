@@ -3,12 +3,12 @@
 extern struct uwsgi_tuntap utt;
 
 // error reporting
-void uwsgi_tuntap_error(struct uwsgi_tuntap_peer *uttp, char *msg) {
+void uwsgi_tuntap_error_do(struct uwsgi_tuntap_peer *uttp, char *msg, char *file, int line) {
 	if (uttp) {
-		uwsgi_log_verbose("[tuntap] peer fd: %d ip: %s %s: %s [%s line %d]\n", uttp->fd, uttp->ip, msg, strerror(errno), __FILE__, __LINE__);
+		uwsgi_log_verbose("[tuntap] peer fd: %d ip: %s %s: %s [%s line %d]\n", uttp->fd, uttp->ip, msg, strerror(errno), file, line);
 	}
 	else {
-		uwsgi_log_verbose("[tuntap] %s: %s [%s line %d]\n", msg, strerror(errno), __FILE__, __LINE__);
+		uwsgi_log_verbose("[tuntap] %s: %s [%s line %d]\n", msg, strerror(errno), file, line);
 	}
 }
 

@@ -117,6 +117,13 @@ static void *uwsgi_tuntap_loop(void *arg) {
 				uwsgi_error("uwsgi_tuntap_loop()/read()");
 				exit(1);
 			}
+
+			// check for full write buffer
+                        if (uttp->write_buf_pktsize + 4 + rlen > utt.buffer_size) {
+                        	uttp->dropped++;
+                                continue;
+                        }
+
 			uint16_t pktsize = rlen;
 			char *ptr = uttp->write_buf + uttp->write_buf_pktsize;
 			memcpy(ptr + 4, uttr->buf, rlen);
