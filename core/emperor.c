@@ -1506,6 +1506,8 @@ int uwsgi_emperor_scanner_event(int fd) {
 
 }
 
+static void emperor_wakeup(int sn) {}
+
 void emperor_loop() {
 
 	// monitor a directory
@@ -1534,6 +1536,7 @@ void emperor_loop() {
 	}
 
 	signal(SIGPIPE, SIG_IGN);
+	signal(SIGWINCH, emperor_wakeup);
 	uwsgi_unix_signal(SIGINT, royal_death);
 	uwsgi_unix_signal(SIGTERM, royal_death);
 	uwsgi_unix_signal(SIGQUIT, royal_death);
