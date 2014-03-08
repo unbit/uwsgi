@@ -58,7 +58,6 @@ int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *uttr, struct uwsgi
 						memset(&pfd, 0, sizeof(struct pollfd));
 						pfd.fd = uttr->gateway_fd;
 						pfd.events = POLLOUT;
-						uwsgi_log("waiting for %d\n", len);
 						int ret = poll(&pfd, 1, uwsgi.socket_timeout * 1000);
 						if (ret > 0) {
 							if (sendto(uttr->gateway_fd, pkt, len, 0, (struct sockaddr *) &sin, sizeof(struct sockaddr_in)) < 0) {
