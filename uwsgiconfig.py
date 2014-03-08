@@ -367,6 +367,15 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                 if len(kv) > 1:
                     p = kv[1]
                     p = p.strip()
+                    if p.startswith('http://') or p.startswith('https://') or p.startswith('git://') or p.startswith('ssh://'):
+                        git_dir = p.split('/').pop()
+                        if not os.path.isdir(git_dir):
+                            if os.system('git clone %s' % p) != 0:
+                                sys.exit(1)
+                        else:
+                            if os.system('cd %s ; git pull' % git_dir) != 0:
+                                sys.exit(1)
+                        p = git_dir
                     path = os.path.abspath(p)
                 else:
                     p = kv[0]

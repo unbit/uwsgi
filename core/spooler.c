@@ -190,6 +190,11 @@ static void spooler_req_parser_hook(char *key, uint16_t key_len, char *value, ui
         }
 
 	if (!uwsgi_strncmp(key, key_len, "at", 2)) {
+		// at can be a float...
+		char *dot = memchr(value, '.', value_len);
+		if (dot) {
+			value_len = dot - value;
+		}
 		sr->at = uwsgi_str_num(value, value_len);
 		return;
 	}

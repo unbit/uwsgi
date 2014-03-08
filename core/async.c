@@ -387,6 +387,23 @@ end:
 	
 }
 
+static int uwsgi_async_wait_milliseconds_hook(int timeout) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	timeout = timeout / 1000;
+	if (!timeout) timeout = 1;
+	async_add_timeout(wsgi_req, timeout);
+	wsgi_req->async_force_again = 1;
+	if (uwsgi.schedule_to_main) {
+                uwsgi.schedule_to_main(wsgi_req);
+        }
+        if (wsgi_req->async_timed_out) {
+                wsgi_req->async_timed_out = 0;
+                return 0;
+        }
+
+	return -1;
+}
+
 void async_loop() {
 
 	if (uwsgi.async < 2) {
@@ -414,6 +431,7 @@ void async_loop() {
 	uwsgi.wait_write_hook = async_wait_fd_write;
         uwsgi.wait_read_hook = async_wait_fd_read;
         uwsgi.wait_read2_hook = async_wait_fd_read2;
+	uwsgi.wait_milliseconds_hook = uwsgi_async_wait_milliseconds_hook;
 
 	if (uwsgi.signal_socket > -1) {
 		event_queue_add_fd_read(uwsgi.async_queue, uwsgi.signal_socket);

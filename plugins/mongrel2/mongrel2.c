@@ -574,6 +574,7 @@ static void mongrel2_register_proto() {
 static void mongrel2_connect() {
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while(uwsgi_sock) {
+		if (uwsgi_sock->proto != uwsgi_proto_zeromq_parser) goto next;
 		uwsgi_sock->ctx = zmq_init(1);
 		if (!uwsgi_sock->ctx) {
 			uwsgi_error("mongrel2_connect()/zmq_init()");
@@ -581,7 +582,7 @@ static void mongrel2_connect() {
 		}
 		char *responder = strchr(uwsgi_sock->name, ',');
         	if (!responder) {
-                	uwsgi_log("invalid zeromq address\n");
+                	uwsgi_log("invalid zeromq address: %s\n", uwsgi_sock->name);
                 	exit(1);
         	}
         	uwsgi_sock->receiver = uwsgi_concat2n(uwsgi_sock->name, responder - uwsgi_sock->name, "", 0);
@@ -653,6 +654,7 @@ static void mongrel2_connect() {
 #else
         	uwsgi_sock->recv_flag = ZMQ_NOBLOCK;
 #endif
+next:
 		uwsgi_sock = uwsgi_sock->next;
 	}
 }

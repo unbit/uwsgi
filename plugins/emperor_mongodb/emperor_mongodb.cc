@@ -20,7 +20,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 	try {
 
 		// requested fields
-        	mongo::BSONObj p = BSON( "name" << 1 << "config" << 1 << "ts" << 1 << "uid" << 1 << "gid" << 1 );
+        	mongo::BSONObj p = BSON( "name" << 1 << "config" << 1 << "ts" << 1 << "uid" << 1 << "gid" << 1 << "socket" << 1 );
 		mongo::BSONObj q = mongo::fromjson(uems->json);
 		// the connection object (will be automatically destroyed at each cycle)
 		mongo::DBClientConnection c;
@@ -31,7 +31,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 
 		// run the query
 		std::auto_ptr<mongo::DBClientCursor> cursor = c.query(uems->collection, q, 0, 0, &p);
-		while( cursor->more() ) {
+		while(cursor.get() && cursor->more() ) {
                 	mongo::BSONObj p = cursor->next();
 
 			// checking for an empty string is not required, but we reduce the load
@@ -40,6 +40,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 			if (strlen(name) == 0) continue;
 
 			const char *config = p.getStringField("config");
+			if (strlen(config) == 0) config = NULL;
 
 			time_t vassal_ts = 0;
 			// ts must be a Date object !!!
@@ -61,6 +62,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 			} 
 
 			const char *socket_name = p.getStringField("socket");
+			if (strlen(socket_name) == 0) socket_name = NULL;
 
 			uwsgi_emperor_simple_do(ues, (char *) name, (char *) config, vassal_ts/1000, vassal_uid, vassal_gid, (char *) socket_name);
 		}
@@ -76,6 +78,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 				b.append("name", c_ui->name);
 				mongo::BSONObj q2 = b.obj();
 				cursor = c.query(uems->collection, q2, 0, 0, &p);
+				if (!cursor.get()) return;
 #ifdef UWSGI_DEBUG
 				uwsgi_log("JSON: %s\n", q2.toString().c_str());
 #endif

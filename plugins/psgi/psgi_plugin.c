@@ -44,6 +44,8 @@ struct uwsgi_option uwsgi_perl_options[] = {
 
 	{"plshell", optional_argument, 0, "run a perl interactive shell", uwsgi_opt_plshell, NULL, 0},
         {"plshell-oneshot", no_argument, 0, "run a perl interactive shell (one shot)", uwsgi_opt_plshell, NULL, 0},
+
+        {"perl-no-plack", no_argument, 0, "force the use of do instead of Plack::Util::load_psgi", uwsgi_opt_true, &uperl.no_plack, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -705,6 +707,8 @@ void uwsgi_perl_post_fork() {
 
 	struct uwsgi_string_list *usl;
 	uwsgi_foreach(usl, uperl.exec_post_fork) {
+		SV *dollar_zero = get_sv("0", GV_ADD);
+                sv_setsv(dollar_zero, newSVpv(usl->value, usl->len));
 		uwsgi_perl_exec(usl->value);
 	}
 

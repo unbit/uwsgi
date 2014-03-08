@@ -21,11 +21,12 @@ int uwsgi_python_send_body(struct wsgi_request *wsgi_req, PyObject *chunk) {
 	char *content = NULL;
 	size_t content_len = 0;
 
-	if (!up.wsgi_accept_buffer && !wsgi_req->is_raw) goto strict;
 #if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
 	Py_buffer pbuf;
 	int has_buffer = 0;
 #endif
+
+	if (!up.wsgi_accept_buffer && !wsgi_req->is_raw) goto strict;
 
 #if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
 	if (PyObject_CheckBuffer(chunk)) {
