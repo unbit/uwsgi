@@ -1,6 +1,7 @@
 #include "common.h"
 
 extern struct uwsgi_tuntap utt;
+extern struct uwsgi_server uwsgi;
 
 int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *uttr, struct uwsgi_tuntap_peer *uttp, char *pkt, size_t len, int direction) {
 	if (uttp->rules_cnt == 0) return 0;
@@ -51,7 +52,26 @@ int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *uttr, struct uwsgi
 				sin.sin_port = rule->target_port;
 				sin.sin_addr.s_addr = rule->target;
 				if (sendto(uttr->gateway_fd, pkt, len, 0, (struct sockaddr *) &sin, sizeof(struct sockaddr_in)) < 0) {
-					uwsgi_error("uwsgi_tuntap_route_check()/sendto()");
+					if (uwsgi_is_again()) {
+						// suspend and retry
+						struct pollfd pfd;
+						memset(&pfd, 0, sizeof(struct pollfd));
+						pfd.fd = uttr->gateway_fd;
+						pfd.events = POLLOUT;
+						uwsgi_log("waiting for %d\n", len);
+						int ret = poll(&pfd, 1, uwsgi.socket_timeout * 1000);
+						if (ret > 0) {
+							if (sendto(uttr->gateway_fd, pkt, len, 0, (struct sockaddr *) &sin, sizeof(struct sockaddr_in)) < 0) {
+								uwsgi_error("uwsgi_tuntap_route_check()/sendto()");
+							}
+						}
+						else {
+							uwsgi_error("uwsgi_tuntap_route_check()/poll()");
+						}
+					}
+					else {
+						uwsgi_error("uwsgi_tuntap_route_check()/sendto()");
+					}
 				}
 			}
 			return 2;	
