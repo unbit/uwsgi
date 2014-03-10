@@ -1606,7 +1606,11 @@ void emperor_loop() {
 				ui_current = ui->ui_next;
 				while (ui_current) {
 					uwsgi_log_verbose("[emperor] NO MERCY for vassal %s !!!\n", ui_current->name);
-					kill(ui_current->pid, SIGKILL);
+					if (kill(ui_current->pid, SIGKILL) < 0) {
+						uwsgi_error("[emperor] kill()");
+						emperor_del(ui_current);	
+						break;
+					}
 					ui_current = ui_current->ui_next;
 				}
 				break;
@@ -1721,8 +1725,10 @@ void emperor_loop() {
 					// set last_heartbeat to 0 avoiding races
 					ui_current->last_heartbeat = 0;
 					if (ui_current->pid > 0) {
-						if (kill(ui_current->pid, SIGKILL)) {
+						if (kill(ui_current->pid, SIGKILL) < 0) {
 							uwsgi_error("[emperor] kill()");
+							emperor_del(ui_current);
+							break;
 						}
 					}
 				}
@@ -1804,8 +1810,10 @@ void emperor_loop() {
 				}
 				else if (now - ui_current->cursed_at >= uwsgi.emperor_curse_tolerance) {
 					ui_current->cursed_at = now;
-					if (kill(ui_current->pid, SIGKILL)) {
-						uwsgi_error("[emperor] kill");
+					if (kill(ui_current->pid, SIGKILL) < 0) {
+						uwsgi_error("[emperor] kill()");
+						// delete the vassal, something is seriously wrong better to not leak memory...
+						emperor_del(ui_current);
 					}
 					break;
 				}
