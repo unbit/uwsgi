@@ -48,6 +48,14 @@ static void subscriptions_blocker() {
 	}
 }
 
+static void emperor_rescan() {
+	if (uwsgi.emperor_pid > 0) {
+		if (kill(uwsgi.emperor_pid, SIGWINCH)) {
+			uwsgi_error("emperor_rescan()/kill()");
+		}
+	}
+}
+
 /*
 
 this is called as soon as possibile allowing plugins (or hooks) to override it
@@ -74,6 +82,7 @@ void uwsgi_master_fifo_prepare() {
 	uwsgi_fifo_table['+'] = uwsgi_cheaper_increase;
 	uwsgi_fifo_table['c'] = uwsgi_chain_reload;
 	uwsgi_fifo_table['C'] = uwsgi_go_cheap;
+	uwsgi_fifo_table['E'] = emperor_rescan;
 	uwsgi_fifo_table['f'] = uwsgi_refork_master;
 	uwsgi_fifo_table['l'] = uwsgi_log_reopen;
 	uwsgi_fifo_table['L'] = uwsgi_log_rotate;

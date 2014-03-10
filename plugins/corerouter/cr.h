@@ -7,8 +7,8 @@
 #define cr_add_timeout_fast(u, x, t) uwsgi_add_rb_timer(u->timeouts, t+u->socket_timeout, x)
 #define cr_del_timeout(u, x) uwsgi_del_rb_timer(u->timeouts, x->timeout); free(x->timeout);
 
-#define uwsgi_cr_error(x, y) uwsgi_log("[uwsgi-%s client_addr: %s client_port: %s] %s: %s [%s line %d]\n", x->session->corerouter->short_name, x->session->client_address, x->session->client_port, y, strerror(errno), __FILE__, __LINE__)
-#define uwsgi_cr_log(x, y, ...) uwsgi_log("[uwsgi-%s client_addr: %s client_port: %s]" y, x->session->corerouter->short_name, x->session->client_address, x->session->client_port, __VA_ARGS__)
+#define uwsgi_cr_error(x, y) uwsgi_log("[uwsgi-%s key: %.*s client_addr: %s client_port: %s] %s: %s [%s line %d]\n", x->session->corerouter->short_name, x->session->main_peer ? x->session->main_peer->key_len : 0, x->session->main_peer ? x->session->main_peer->key: "", x->session->client_address, x->session->client_port, y, strerror(errno), __FILE__, __LINE__)
+#define uwsgi_cr_log(x, y, ...) uwsgi_log("[uwsgi-%s key: %.*s client_addr: %s client_port: %s]" y, x->session->corerouter->short_name, x->session->main_peer ? x->session->main_peer->key_len : 0, x->session->main_peer ? x->session->main_peer->key : "", x->session->client_address, x->session->client_port, __VA_ARGS__)
 
 #define cr_try_again if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {\
                      	errno = EINPROGRESS;\

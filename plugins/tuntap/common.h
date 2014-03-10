@@ -116,3 +116,5 @@ int uwsgi_tuntap_register_addr(struct uwsgi_tuntap_router *, struct uwsgi_tuntap
 
 void uwsgi_tuntap_peer_send_rules(int, struct uwsgi_tuntap_peer *);
 int uwsgi_tuntap_peer_rules_check(struct uwsgi_tuntap_router *, struct uwsgi_tuntap_peer *, char *, size_t, int);
+#define uwsgi_tuntap_error(x, y) uwsgi_tuntap_error_do(x, y, __FILE__, __LINE__)
+void uwsgi_tuntap_error_do(struct uwsgi_tuntap_peer *, char *, char *, int);

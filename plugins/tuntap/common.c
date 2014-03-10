@@ -2,6 +2,16 @@
 
 extern struct uwsgi_tuntap utt;
 
+// error reporting
+void uwsgi_tuntap_error_do(struct uwsgi_tuntap_peer *uttp, char *msg, char *file, int line) {
+	if (uttp) {
+		uwsgi_log_verbose("[tuntap] peer fd: %d ip: %s %s: %s [%s line %d]\n", uttp->fd, uttp->ip, msg, strerror(errno), file, line);
+	}
+	else {
+		uwsgi_log_verbose("[tuntap] %s: %s [%s line %d]\n", msg, strerror(errno), file, line);
+	}
+}
+
 // create a new peer
 struct uwsgi_tuntap_peer *uwsgi_tuntap_peer_create(struct uwsgi_tuntap_router *uttr, int fd, int is_router) {
 
@@ -183,7 +193,7 @@ int uwsgi_tuntap_register_addr(struct uwsgi_tuntap_router *uttr, struct uwsgi_tu
         char ip[INET_ADDRSTRLEN + 1];
         memset(ip, 0, INET_ADDRSTRLEN + 1);
         if (!inet_ntop(AF_INET, &uttp->addr, ip, INET_ADDRSTRLEN)) {
-        	uwsgi_error("uwsgi_tuntap_register_addr()/inet_ntop()");
+        	uwsgi_tuntap_error(uttp, "uwsgi_tuntap_register_addr()/inet_ntop()");
                 return -1;
         }
         if (uttp != tmp_uttp) {
@@ -205,7 +215,7 @@ int uwsgi_tuntap_peer_dequeue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tun
 		if (rlen < 0) {
 			if (uwsgi_is_again())
 				return 0;
-			uwsgi_error("uwsgi_tuntap_peer_dequeue()/read()");
+			uwsgi_tuntap_error(uttp, "uwsgi_tuntap_peer_dequeue()/read()");
 			return -1;
 		}
 		uttp->buf_pos += rlen;
@@ -265,7 +275,7 @@ enqueue:
 	if (rlen < 0) {
 		if (uwsgi_is_again())
 			return 0;
-		uwsgi_error("uwsgi_tuntap_peer_dequeue()/read()");
+		uwsgi_tuntap_error(uttp, "uwsgi_tuntap_peer_dequeue()/read()");
 		return -1;
 	}
 	uttp->header_pos += rlen;
@@ -282,14 +292,14 @@ int uwsgi_tuntap_peer_enqueue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tun
 
 	ssize_t rlen = write(uttp->fd, uttp->write_buf + uttp->written, uttp->write_buf_pktsize - uttp->written);
 	if (rlen == 0) {
-		uwsgi_error("uwsgi_tuntap_peer_enqueue()/write()");
+		uwsgi_tuntap_error(uttp, "uwsgi_tuntap_peer_enqueue()/write()");
 		return -1;
 	}
 
 	if (rlen < 0) {
 		if (uwsgi_is_again())
 			goto retry;
-		uwsgi_error("uwsgi_tuntap_peer_enqueue()/write()");
+		uwsgi_tuntap_error(uttp, "uwsgi_tuntap_peer_enqueue()/write()");
 		return -1;
 	}
 
@@ -303,13 +313,13 @@ int uwsgi_tuntap_peer_enqueue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tun
 			if (uttr->wait_for_write) {
 				uttp->blocked_read = 1;
 				if (event_queue_del_fd(uttr->queue, uttp->fd, event_queue_write())) {
-					uwsgi_error("uwsgi_tuntap_peer_enqueue()/event_queue_del_fd()");
+					uwsgi_tuntap_error(uttp, "uwsgi_tuntap_peer_enqueue()/event_queue_del_fd()");
 					return -1;
 				}
 			}
 			else {
 				if (event_queue_fd_readwrite_to_read(uttr->queue, uttp->fd)) {
-					uwsgi_error("uwsgi_tuntap_peer_enqueue()/event_queue_fd_write_to_read()");
+					uwsgi_tuntap_error(uttp, "uwsgi_tuntap_peer_enqueue()/event_queue_fd_write_to_read()");
 					return -1;
 				}
 			}
@@ -324,7 +334,7 @@ int uwsgi_tuntap_peer_enqueue(struct uwsgi_tuntap_router *uttr, struct uwsgi_tun
 retry:
 	if (!uttp->wait_for_write) {
 		if (event_queue_fd_read_to_readwrite(uttr->queue, uttp->fd)) {
-			uwsgi_error("uwsgi_tuntap_peer_enqueue()/event_queue_fd_read_to_write()");
+			uwsgi_tuntap_error(uttp, "uwsgi_tuntap_peer_enqueue()/event_queue_fd_read_to_write()");
 			return -1;
 		}
 		uttp->wait_for_write = 1;

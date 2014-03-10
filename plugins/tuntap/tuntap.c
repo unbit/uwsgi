@@ -117,6 +117,13 @@ static void *uwsgi_tuntap_loop(void *arg) {
 				uwsgi_error("uwsgi_tuntap_loop()/read()");
 				exit(1);
 			}
+
+			// check for full write buffer
+                        if (uttp->write_buf_pktsize + 4 + rlen > utt.buffer_size) {
+                        	uttp->dropped++;
+                                continue;
+                        }
+
 			uint16_t pktsize = rlen;
 			char *ptr = uttp->write_buf + uttp->write_buf_pktsize;
 			memcpy(ptr + 4, uttr->buf, rlen);
@@ -126,7 +133,7 @@ static void *uwsgi_tuntap_loop(void *arg) {
 			ptr[3] = 0;
 			uttp->write_buf_pktsize+= pktsize+4;
 			if (uwsgi_tuntap_peer_enqueue(uttr, uttp)) {
-				uwsgi_log("server disconnected...\n");
+				uwsgi_log_verbose("tuntap server disconnected...\n");
 				exit(1);
 			}
 			continue;
@@ -137,7 +144,7 @@ static void *uwsgi_tuntap_loop(void *arg) {
 			// read from the client
 			if (!uttp->wait_for_write) {
 				if (uwsgi_tuntap_peer_dequeue(uttr, uttp, 0)) {
-					uwsgi_log("server disconnected...\n");
+					uwsgi_log_verbose("tuntap server disconnected...\n");
 					exit(1);
 				}
 			}
@@ -149,7 +156,7 @@ static void *uwsgi_tuntap_loop(void *arg) {
 
 				// write to the client
 				if (uwsgi_tuntap_peer_enqueue(uttr, uttp)) {
-					uwsgi_log("server disconnected...\n");
+					uwsgi_log_verbose("tuntap server disconnected...\n");
 					exit(1);
 				}
 			}
@@ -507,7 +514,7 @@ void tuntaprouter_send_stats(struct uwsgi_tuntap_router *uttr) {
                 ssize_t res = write(client_fd, us->base + pos, remains);
                 if (res <= 0) {
                         if (res < 0) {
-                                uwsgi_error("write()");
+                                uwsgi_error("tuntaprouter_send_stats()/write()");
                         }
                         goto end0;
                 }
