@@ -412,9 +412,17 @@ void uwsgi_reload(char **argv) {
 		uwsgi_log("fork()'ing uWSGI...\n");
 	}
 
+	// ask for configuration (if needed)
+	if (uwsgi.has_emperor && uwsgi.emperor_fd_config > -1) {
+		char byte = 2;
+                if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
+                        uwsgi_error("uwsgi_reload()/write()");
+                }
+	}
+
 	uwsgi_log("chdir() to %s\n", uwsgi.cwd);
 	if (chdir(uwsgi.cwd)) {
-		uwsgi_error("chdir()");
+		uwsgi_error("uwsgi_reload()/chdir()");
 	}
 
 	/* check fd table (a module can obviosly open some fd on initialization...) */

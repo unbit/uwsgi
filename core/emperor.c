@@ -63,7 +63,12 @@ static int on_demand_bind(char *socket_name) {
 		us.sa_in.sin_family = AF_INET;
 		us.sa_in.sin_port = htons(atoi(is_tcp+1));
 		*is_tcp = 0;
-		us.sa_in.sin_addr.s_addr = inet_addr(socket_name);
+		if (socket_name[0] != 0) {
+			us.sa_in.sin_addr.s_addr = inet_addr(socket_name);
+		}
+		else {
+			us.sa_in.sin_addr.s_addr = INADDR_ANY;
+		}
 		*is_tcp = ':';
 		addr_len = sizeof(struct sockaddr_in);
 	}
@@ -723,10 +728,27 @@ void emperor_curse(struct uwsgi_instance *c_ui) {
 
 }
 
+// send configuration (if required to the vassal)
+static void emperor_push_config(struct uwsgi_instance *c_ui) {
+	struct uwsgi_header uh;
+
+	if (c_ui->use_config) {
+                uh.modifier1 = 115;
+                uh.pktsize = c_ui->config_len;
+                uh.modifier2 = 0;
+                if (write(c_ui->pipe_config[0], &uh, 4) != 4) {
+                        uwsgi_error("[uwsgi-emperor] write() header config");
+                }
+                else {
+                        if (write(c_ui->pipe_config[0], c_ui->config, c_ui->config_len) != (long) c_ui->config_len) {
+                                uwsgi_error("[uwsgi-emperor] write() config");
+                        }
+                }
+        }
+}
 
 void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 
-	struct uwsgi_header uh;
 
 	// reload the uWSGI instance
 	if (write(c_ui->pipe[0], "\1", 1) != 1) {
@@ -734,20 +756,7 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 	}
 
 	// push the config to the config pipe (if needed)
-	if (c_ui->use_config) {
-		uh.modifier1 = 115;
-		uh.pktsize = c_ui->config_len;
-		uh.modifier2 = 0;
-		if (write(c_ui->pipe_config[0], &uh, 4) != 4) {
-			uwsgi_error("[uwsgi-emperor] write() header config");
-		}
-		else {
-			if (write(c_ui->pipe_config[0], c_ui->config, c_ui->config_len) != (long) c_ui->config_len) {
-                		uwsgi_error("[uwsgi-emperor] write() config");
-        		}
-		}
-	}
-
+	emperor_push_config(c_ui);
 
 	c_ui->respawns++;
 	c_ui->last_mod = mod;
@@ -892,6 +901,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		uwsgi_error("socketpair()");
 		return -1;
 	}
+	uwsgi_socket_nb(n_ui->pipe[0]);
 
 	event_queue_add_fd_read(uwsgi.emperor_queue, n_ui->pipe[0]);
 
@@ -900,6 +910,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 			uwsgi_error("socketpair()");
 			return -1;
 		}
+		uwsgi_socket_nb(n_ui->pipe_config[0]);
 	}
 
 	if (n_ui->zerg) {
@@ -1695,6 +1706,9 @@ void emperor_loop() {
 						ui_current->ready = 1;
 						ui_current->last_ready = uwsgi_now();
 						uwsgi_log_verbose("[emperor] vassal %s has been spawned\n", ui_current->name);
+					}
+					else if (byte == 2) {
+						emperor_push_config(ui_current);
 					}
 				}
 			}
