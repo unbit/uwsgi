@@ -1284,6 +1284,16 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
 
     up = {}
 
+    if path.startswith('http://') or path.startswith('https://') or path.startswith('git://') or path.startswith('ssh://'):
+        git_dir = path.split('/').pop()
+        if not os.path.isdir(git_dir):
+            if os.system('git clone %s' % path) != 0:
+                sys.exit(1)
+        else:
+            if os.system('cd %s ; git pull' % git_dir) != 0:
+                sys.exit(1)
+        path = os.path.abspath(git_dir)
+
     if os.path.isfile(path):
         bname = os.path.basename(path)
         # override path
