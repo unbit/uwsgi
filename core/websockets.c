@@ -1,4 +1,4 @@
-#include "uwsgi.h"
+#include <uwsgi.h>
 
 /*
 
@@ -9,6 +9,8 @@
 */
 
 extern struct uwsgi_server uwsgi;
+
+#define REQ_DATA wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, wsgi_req->remote_addr_len, wsgi_req->remote_addr 
 
 static struct uwsgi_buffer *uwsgi_websocket_message(struct wsgi_request *wsgi_req, char *msg, size_t len, uint8_t opcode) {
 	struct uwsgi_buffer *ub = wsgi_req->websocket_send_buf;
@@ -61,7 +63,7 @@ static int uwsgi_websockets_check_pingpong(struct wsgi_request *wsgi_req) {
 	// pong not received ?
 	if (wsgi_req->websocket_last_pong < wsgi_req->websocket_last_ping) {
 		if (wsgi_req->websocket_last_ping - wsgi_req->websocket_last_pong > uwsgi.websockets_pong_tolerance) {
-                                uwsgi_log("[uwsgi-websocket] no PONG received in %d seconds !!!\n", uwsgi.websockets_pong_tolerance);
+                                uwsgi_log("[uwsgi-websocket] \"%.*s %.*s\" (%.*s) no PONG received in %d seconds !!!\n", REQ_DATA, uwsgi.websockets_pong_tolerance);
 				return -1;
 		}
 		return 0;
@@ -189,7 +191,7 @@ static ssize_t uwsgi_websockets_recv_pkt(struct wsgi_request *wsgi_req, int nb) 
 				}
                                 goto wait;
                         }
-                        uwsgi_error("uwsgi_websockets_recv_pkt()");
+                        uwsgi_req_error("uwsgi_websockets_recv_pkt()");
                         return -1;
                 }
 
@@ -201,7 +203,7 @@ wait:
 			if (rlen <= 0) return -1;
 		}
                 if (ret < 0) {
-                        uwsgi_error("uwsgi_websockets_recv_pkt()");
+                        uwsgi_req_error("uwsgi_websockets_recv_pkt()");
 			return -1;
                 }
 		// send unsolicited pong
@@ -254,11 +256,11 @@ static struct uwsgi_buffer *uwsgi_websocket_recv_do(struct wsgi_request *wsgi_re
 						wsgi_req->websocket_size = uwsgi_be64(wsgi_req->websocket_buf->buf+2);
 					}
 					else {
-						uwsgi_log("[uwsgi-websocket] BUG error in websocket parser\n");
+						uwsgi_log("[uwsgi-websocket] \"%.*s %.*s\" (%.*s) BUG error in websocket parser\n", REQ_DATA);
 						return NULL;
 					}
 					if (wsgi_req->websocket_size > (uwsgi.websockets_max_size*1024)) {
-						uwsgi_log("[uwsgi-websocket] invalid packet size received: %llu, max allowed: %llu\n", wsgi_req->websocket_size, uwsgi.websockets_max_size * 1024);
+						uwsgi_log("[uwsgi-websocket] \"%.*s %.*s\" (%.*s) invalid packet size received: %llu, max allowed: %llu\n", REQ_DATA, wsgi_req->websocket_size, uwsgi.websockets_max_size * 1024);
 						return NULL;
 					}
 					wsgi_req->websocket_phase = 2;
@@ -312,7 +314,7 @@ static struct uwsgi_buffer *uwsgi_websocket_recv_do(struct wsgi_request *wsgi_re
 					break;
 				// oops
 				default:
-					uwsgi_log("[uwsgi-websocket] BUG error in websocket parser\n");
+					uwsgi_log("[uwsgi-websocket] \"%.*s %.*s\" (%.*s) BUG error in websocket parser\n", REQ_DATA);
 					return NULL;
 			}
 		}
