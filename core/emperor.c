@@ -1753,6 +1753,8 @@ void emperor_loop() {
 			ui_current = ui_current->ui_next;
 		}
 
+
+recheck:
 		// check for removed instances
 		ui_current = ui;
 		has_children = 0;
@@ -1797,7 +1799,7 @@ void emperor_loop() {
 		while (ui_current->ui_next) {
 			ui_current = ui_current->ui_next;
 			time_t now = uwsgi_now();
-			if (ui_current->pid == diedpid) {
+			if (diedpid > 0 && ui_current->pid == diedpid) {
 				if (ui_current->status == 0) {
 					// respawn an accidentally dead instance if its exit code is not UWSGI_EXILE_CODE
 					if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_EXILE_CODE) {
@@ -1836,6 +1838,9 @@ void emperor_loop() {
 				}
 			}
 		}
+
+		// if waitpid returned an item, let's check for another (potential) one
+		if (diedpid > 0) goto recheck;
 
 
 	}
