@@ -868,6 +868,8 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 	}
 
 	n_ui->pid = -1;
+	n_ui->pipe[0] = -1;
+	n_ui->pipe[1] = -1;
 
 	// ok here we check if we need to bind to the specified socket or continue with the activation
 	if (socket_name) {
