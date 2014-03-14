@@ -1521,6 +1521,15 @@ int uwsgi_emperor_scanner_event(int fd) {
 
 static void emperor_wakeup(int sn) {}
 
+static void emperor_cleanup() {
+	uwsgi_log_verbose("[uwsgi-emperor] cleaning up blacklist ...\n");
+	struct uwsgi_instance *ui_current = ui;
+        while (ui_current->ui_next) {
+		uwsgi_emperor_blacklist_remove(ui_current->name);
+        	ui_current = ui_current->ui_next;
+	}
+}
+
 void emperor_loop() {
 
 	// monitor a directory
@@ -1555,6 +1564,7 @@ void emperor_loop() {
 	uwsgi_unix_signal(SIGQUIT, royal_death);
 	uwsgi_unix_signal(SIGUSR1, emperor_stats);
 	uwsgi_unix_signal(SIGHUP, emperor_massive_reload);
+	uwsgi_unix_signal(SIGURG, emperor_cleanup);
 
 	memset(&ui_base, 0, sizeof(struct uwsgi_instance));
 
