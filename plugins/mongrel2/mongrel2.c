@@ -102,6 +102,10 @@ static int uwsgi_mongrel2_json_parse(json_t * root, struct wsgi_request *wsgi_re
 		}
 	}
 
+	if ((json_val = uwsgi_mongrel2_json_get_string(root, "URL_SCHEME"))) {
+                wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "UWSGI_SCHEME", 12, json_val, strlen(json_val));
+        }
+
 	if ((json_val = uwsgi_mongrel2_json_get_string(root, "host"))) {
 		char *colon = strchr(json_val, ':');
 		if (colon) {
