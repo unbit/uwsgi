@@ -20,11 +20,13 @@ push @tests, ['1', 'HELLO', "oHELLOo_three_four"];
 push @tests, ['3', 'HELLO', "oneHELLOthree_four"];
 push @tests, ['30', 'HELLO', "one_two_three_four\0\0\0\0\0\0\0\0\0\0\0\0HELLO"];
 
+@ARGV or die "You must provide a host to test on, e.g. localhost:8080";
+
 foreach(@tests) {
         print "testing: offset(".$_->[0].") body(".$_->[1].")\n";
         my $req = "POST /?".$base." HTTP/1.0\r\nContent-Length: ".length($_->[1])."\r\nuWSGI-Offset: ".$_->[0]."\r\n\r\n".$_->[1];
 
-        my $s = IO::Socket::INET->new(PeerAddr => $ARGV[0]);
+        my $s = IO::Socket::INET->new(PeerAddr => $ARGV[0]) or die "PANIC: Unable to construct socket";
         $s->send($req);
 
         my $response = '';
