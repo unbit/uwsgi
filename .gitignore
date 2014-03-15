@@ -7,6 +7,7 @@
 
 /uwsgi
 /uwsgibuild.*
+/core/config_py.c
 
 /t/ring/target
 
