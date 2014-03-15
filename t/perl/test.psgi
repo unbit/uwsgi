@@ -59,6 +59,10 @@ my $app = sub {
 	uwsgi::signal(17);
 	uwsgi::signal(30);
 
+	my ($package, $filename, $line) = caller;
+	die "Expecting reasonable caller() return values, not [$package, $filename, $line]"
+	    unless $package eq 'main' and $filename =~ /\btest\.psgi$/s and $line == 0;
+
 	if ($env->{'psgix.cleanup'}) {
 		print "cleanup supported\n";
 		push @{$env->{'psgix.cleanup.handlers'}}, $one;
