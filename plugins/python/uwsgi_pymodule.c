@@ -11,7 +11,7 @@ static PyObject *py_uwsgi_add_var(PyObject * self, PyObject * args) {
         Py_ssize_t vallen = 0;
 	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
-	if (!PyArg_ParseTuple(args, "#s#s", &key, &keylen, &val, &vallen)) {
+	if (!PyArg_ParseTuple(args, "s#s#", &key, &keylen, &val, &vallen)) {
         	return NULL;
         }
 
