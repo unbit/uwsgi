@@ -4,6 +4,26 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 extern struct uwsgi_plugin python_plugin;
 
+static PyObject *py_uwsgi_add_var(PyObject * self, PyObject * args) {
+	 char *key = NULL;
+        Py_ssize_t keylen = 0;
+        char *val = NULL;
+        Py_ssize_t vallen = 0;
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
+
+	if (!PyArg_ParseTuple(args, "#s#s", &key, &keylen, &val, &vallen)) {
+        	return NULL;
+        }
+
+	if (!uwsgi_req_append(wsgi_req, key, keylen, val, vallen)) {
+		return PyErr_Format(PyExc_ValueError, "unable to add request var, check your buffer size");
+	}
+
+	Py_INCREF(Py_True);
+	return Py_True;
+}
+
+
 static PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 
         struct wsgi_request *wsgi_req = py_current_wsgi_req();
@@ -2416,6 +2436,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"chunked_read_nb", py_uwsgi_chunked_read_nb, METH_VARARGS, ""},
 
 	{"ready_fd", py_uwsgi_ready_fd, METH_VARARGS, ""},
+
+	{"add_var", py_uwsgi_add_var, METH_VARARGS, ""},
 
 	{NULL, NULL},
 };
