@@ -54,7 +54,7 @@ XS(XS_psgix_logger) {
 	psgi_check_args(1);
 	HV *hv_args = (HV *) (SvRV(ST(0)));
 	if (!hv_exists(hv_args, "level", 5) || !hv_exists(hv_args, "message", 7)) {
-		Perl_croak(aTHX_ "psgix.logger requires bot level and message items");
+		Perl_croak(aTHX_ "psgix.logger requires both level and message items");
 	}
 	char *level = SvPV_nolen(*(hv_fetch(hv_args, "level", 5, 0)));
 	char *message = SvPV_nolen(*(hv_fetch(hv_args, "message", 7, 0)));
