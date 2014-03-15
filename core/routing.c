@@ -943,6 +943,20 @@ static int uwsgi_router_clearheaders(struct uwsgi_route *ur, char *arg) {
         return 0;
 }
 
+// disable headers
+static int uwsgi_router_disableheaders_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	wsgi_req->headers_sent = 1;
+        return UWSGI_ROUTE_NEXT;
+}
+
+static int uwsgi_router_disableheaders(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_disableheaders_func;
+        ur->data = arg;
+        ur->data_len = strlen(arg);
+        return 0;
+}
+
+
 
 // signal route
 static int uwsgi_router_signal_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
@@ -1737,6 +1751,7 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("remheader", uwsgi_router_remheader);
         uwsgi_register_router("clearheaders", uwsgi_router_clearheaders);
         uwsgi_register_router("resetheaders", uwsgi_router_clearheaders);
+        uwsgi_register_router("disableheaders", uwsgi_router_disableheaders);
         uwsgi_register_router("signal", uwsgi_router_signal);
         uwsgi_register_router("send", uwsgi_router_send);
         uwsgi_register_router("send-crnl", uwsgi_router_send_crnl);
