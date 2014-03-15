@@ -197,6 +197,12 @@ int uwsgi_python_init() {
         	uwsgi_log_initial("Python version: %.*s %s\n", pyversion-Py_GetVersion(), Py_GetVersion(), Py_GetCompiler()+1);
 	}
 
+	if (Py_IsInitialized()) {
+		uwsgi_log("--- Python VM already initialized ---\n");
+		PyGILState_Ensure();
+		goto ready;
+	}
+
 	if (up.home != NULL) {
 #ifdef PYTHREE
 		// check for PEP 405 virtualenv (starting from python 3.3)
@@ -250,6 +256,8 @@ pep405:
 	Py_OptimizeFlag = up.optimize;
 
 	Py_Initialize();
+
+ready:
 
 	if (!uwsgi.has_threads) {
 		uwsgi_log_initial("*** Python threads support is disabled. You can enable it with --enable-threads ***\n");
