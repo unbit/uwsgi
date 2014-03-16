@@ -108,7 +108,7 @@ XS(XS_input_read) {
         unsigned long arg_len = SvIV(ST(2));
 
 	long offset = 0;
-	if (items > 2) {
+	if (items > 3) {
 		offset = (long) SvIV(ST(3));
 	}
 
