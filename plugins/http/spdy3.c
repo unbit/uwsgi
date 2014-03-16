@@ -192,6 +192,7 @@ struct uwsgi_buffer *spdy_http_to_spdy(char *buf, size_t len, uint32_t *hh) {
 				// tolower !!!
 				size_t j;
 				for(j=0;j<h_len;j++) {
+					if (key[j] == ':') break;
 					key[j] = tolower((int) key[j]);	
 				}
 				if (uwsgi_buffer_append_keyval32(ub, key, colon-key, colon+2, h_len-((colon-key)+2))) goto end;
