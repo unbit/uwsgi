@@ -955,6 +955,27 @@ XS(XS_spool) {
 	XSRETURN_UNDEF;
 }
 
+XS(XS_add_var) {
+	dXSARGS;
+        psgi_check_args(2);
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	STRLEN keylen;
+	char *key = SvPV(ST(0), keylen);
+
+	STRLEN vallen;
+	char *val = SvPV(ST(1), vallen);
+
+	if (!uwsgi_req_append(wsgi_req, key, keylen, val, vallen)) {
+		croak("unable to add request var, check your buffer size");
+		XSRETURN_UNDEF;
+	}
+
+	XSRETURN_YES;
+	
+}
+
 void init_perl_embedded_module() {
 	psgi_xs(reload);
 
@@ -1016,5 +1037,7 @@ void init_perl_embedded_module() {
 
 	psgi_xs(spooler);
 	psgi_xs(spool);
+
+	psgi_xs(add_var);
 	
 }
