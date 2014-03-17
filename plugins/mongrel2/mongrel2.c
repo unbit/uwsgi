@@ -214,6 +214,9 @@ static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *
 					wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, val, vallen);
 				}
 			}
+			else if (!uwsgi_strncmp("URL_SCHEME", 10, key, keylen)) {	
+				wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "UWSGI_SCHEME", 12, val, vallen);
+			}
 		}
 		else {
 			// add header
