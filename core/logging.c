@@ -917,7 +917,7 @@ struct uwsgi_logger *uwsgi_get_logger_from_id(char *id) {
 	struct uwsgi_logger *ul = uwsgi.choosen_logger;
 
 	while (ul) {
-		if (!strcmp(ul->id, id)) {
+		if (ul->id && !strcmp(ul->id, id)) {
 			return ul;
 		}
 		ul = ul->next;
