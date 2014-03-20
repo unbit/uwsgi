@@ -485,6 +485,60 @@ static int uwsgi_hook_callret(char *arg) {
         return func();
 }
 
+static int uwsgi_hook_rpc(char *arg) {
+
+	int ret = -1;
+	size_t i, argc = 0;
+        char **rargv = uwsgi_split_quoted(arg, strlen(arg), " \t", &argc);
+        if (!argc) goto end;
+	if (argc > 256) goto destroy;
+
+        char *argv[256];
+        uint16_t argvs[256];
+
+        char *node = NULL;
+        char *func = rargv[0];
+
+	char *at = strchr(func, '@');
+	if (at) {
+		*at = 0;
+		node = at + 1;
+	}
+
+        for(i=0;i<(argc-1);i++) {
+		size_t a_len = strlen(rargv[i+1]);
+		if (a_len > 0xffff) goto destroy;
+                argv[i] = rargv[i+1] ;
+                argvs[i] = a_len;
+        }
+
+        uint64_t size = 0;
+        // response must be always freed
+        char *response = uwsgi_do_rpc(node, func, argc-1, argv, argvs, &size);
+        if (response) {
+		if (at) *at = '@';
+		uwsgi_log("[rpc result from \"%s\"] %.*s\n", rargv[0], size, response);
+                free(response);
+		ret = 0;
+        }
+
+destroy:
+        for(i=0;i<argc;i++) {
+                free(rargv[i]);
+        }
+end:
+	free(rargv);
+	return ret;
+}
+
+static int uwsgi_hook_retryrpc(char *arg) {
+	for(;;) {
+		int ret = uwsgi_hook_rpc(arg);
+		if (!ret) break;
+		sleep(2);
+	}
+	return 0;
+}
 
 void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("cd", uwsgi_hook_chdir);
@@ -522,6 +576,9 @@ void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("hostname", uwsgi_hook_hostname);
 
 	uwsgi_register_hook("alarm", uwsgi_hook_alarm);
+
+	uwsgi_register_hook("rpc", uwsgi_hook_rpc);
+	uwsgi_register_hook("retryrpc", uwsgi_hook_retryrpc);
 
 	// for testing
 	uwsgi_register_hook("exit", uwsgi_hook_exit);

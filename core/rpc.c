@@ -104,8 +104,12 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 
 	if (node == NULL || !strcmp(node, "")) {
 		// allocate the whole buffer
+		if (!uwsgi.rpc_table) {
+                	uwsgi_log("local rpc subsystem is still not initialized !!!\n");
+                	return NULL;
+        	}
 		*len = uwsgi_rpc(func, argc, argv, argvs, &buffer);
-		if (*buffer)
+		if (buffer)
 			return buffer;
 		return NULL;
 	}
