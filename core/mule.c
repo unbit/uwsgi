@@ -330,10 +330,10 @@ next:
 	}
 
 	int ret = poll(mulepoll, count + farms_count, timeout);
-	if (ret <= 0) {
+	if (ret < 0) {
 		uwsgi_error("poll");
 	}
-	else {
+	else if (ret > 0 ) {
 		if (mulepoll[0].revents & POLLIN) {
 			len = read(uwsgi.mules[uwsgi.muleid - 1].queue_pipe[1], message, buffer_size);
 		}
