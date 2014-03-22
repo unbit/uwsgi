@@ -618,6 +618,22 @@ void uwsgi_hooks_run(struct uwsgi_string_list *l, char *phase, int fatal) {
 			
 		int ret = uh->func(colon+1);
 		if (fatal && ret != 0) {
+			uwsgi_log_verbose("FATAL hook failed, destroying instance\n");
+			if (uwsgi.master_process) {
+				if (uwsgi.workers) {
+					if (uwsgi.workers[0].pid == getpid()) {
+						kill_them_all(0);
+						return;
+					}
+					else {
+                                        	if (kill(uwsgi.workers[0].pid, SIGINT)) {
+							uwsgi_error("uwsgi_hooks_run()/kill()");
+							exit(1);
+						}
+						return;
+                                	}
+				}
+			}
 			exit(1);
 		}
 	}
