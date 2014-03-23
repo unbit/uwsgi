@@ -1159,6 +1159,26 @@ static int uwsgi_router_setscheme(struct uwsgi_route *ur, char *arg) {
         return 0;
 }
 
+// setmodifiers
+static int uwsgi_router_setmodifier1_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	wsgi_req->uh->modifier1 = ur->custom;
+	return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_setmodifier1(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_setmodifier1_func;
+	ur->custom = atoi(arg);
+        return 0;
+}
+static int uwsgi_router_setmodifier2_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	wsgi_req->uh->modifier2 = ur->custom;
+	return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_setmodifier2(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_setmodifier2_func;
+	ur->custom = atoi(arg);
+        return 0;
+}
+
 
 // setuser route
 static int uwsgi_router_setuser_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
@@ -1768,6 +1788,9 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("setscheme", uwsgi_router_setscheme);
         uwsgi_register_router("setprocname", uwsgi_router_setprocname);
         uwsgi_register_router("alarm", uwsgi_router_alarm);
+
+        uwsgi_register_router("setmodifier1", uwsgi_router_setmodifier1);
+        uwsgi_register_router("setmodifier2", uwsgi_router_setmodifier2);
 
         uwsgi_register_router("+", uwsgi_router_simple_math_plus);
         uwsgi_register_router("-", uwsgi_router_simple_math_minus);
