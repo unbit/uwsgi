@@ -331,6 +331,13 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         uwsgi_config_py = uwsgi_config_py_content.encode('hex')
     open('core/config_py.c', 'w').write('char *uwsgi_config_py = "%s";\n' % uwsgi_config_py);
     gcc_list.append('core/config_py')
+
+    additional_sources = os.environ.get('UWSGI_ADDITIONAL_SOURCES')
+    if not additional_sources:
+        additional_sources = uc.get('additional_sources')
+    if additional_sources:
+        for item in additional_sources.split(','):
+            gcc_list.append(item)
     
     cflags.append('-DUWSGI_CFLAGS=\\"%s\\"' % uwsgi_cflags)
     cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
@@ -518,13 +525,6 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         gcc_list.append("%s.o" % binarize(uc.embed_config))
     for ef in binary_list:
         gcc_list.append("%s.o" % ef)
-
-    additional_sources = os.environ.get('UWSGI_ADDITIONAL_SOURCES')
-    if not additional_sources:
-        additional_sources = uc.get('additional_sources')
-    if additional_sources:
-        for item in additional_sources.split(','):
-            gcc_list.append(item)
 
     if compile_queue:
         for t in thread_compilers:
