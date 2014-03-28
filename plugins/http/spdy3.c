@@ -180,8 +180,10 @@ struct uwsgi_buffer *spdy_http_to_spdy(char *buf, size_t len, uint32_t *hh) {
 	if (!key) return ub;
 
 	uint32_t h_len = 0;
-	
-	// headers (key lowercase...)
+	// merge header values and ensure keys are all lowercase
+	struct uwsgi_string_list *hr=NULL, *usl=NULL;
+	char *line_value;
+	size_t line_key_len, line_value_len;
 	for(i=next;i<len;i++) {
 		if (key) {
 			if (buf[i] == '\r' || buf[i] == '\n') {
@@ -192,11 +194,37 @@ struct uwsgi_buffer *spdy_http_to_spdy(char *buf, size_t len, uint32_t *hh) {
 				// tolower !!!
 				size_t j;
 				for(j=0;j<h_len;j++) {
+					// don't lowercase values, only keys
 					if (key[j] == ':') break;
-					key[j] = tolower((int) key[j]);	
+					key[j] = tolower((int) key[j]);
 				}
-				if (uwsgi_buffer_append_keyval32(ub, key, colon-key, colon+2, h_len-((colon-key)+2))) goto end;
-				*hh+=1;
+				line_key_len = colon - key;
+				key[line_key_len] = 0;
+				line_value_len = h_len - 2 - line_key_len;
+				line_value = uwsgi_strncopy(colon+2, line_value_len);
+				if (hr) {
+					// check if we already store values for this key
+					usl = uwsgi_string_list_has_item(hr, key, line_key_len);
+					if (usl) {
+						// we have this key, append new value
+						char *oldval = usl->custom_ptr;
+						usl->custom_ptr = uwsgi_concat3n(usl->custom_ptr, usl->custom, "\0", 1, line_value, line_value_len);
+						usl->custom = usl->custom + 1 + line_value_len;
+						free(oldval);
+					}
+					else {
+						// this key is new
+						usl = uwsgi_string_new_list(&hr, key);
+						usl->custom_ptr = line_value;
+						usl->custom = line_value_len;
+					}
+				}
+				else {
+					// this is first key
+					usl = uwsgi_string_new_list(&hr, key);
+					usl->custom_ptr = line_value;
+					usl->custom = line_value_len;
+				}
 				key = NULL;
 				h_len = 0;
 			}
@@ -211,6 +239,18 @@ struct uwsgi_buffer *spdy_http_to_spdy(char *buf, size_t len, uint32_t *hh) {
 			}
 		}
 	}
+
+	// append all merged header lines to buffer and free memory
+	struct uwsgi_string_list *ohr;
+	while (hr) {
+		if (uwsgi_buffer_append_keyval32(ub, hr->value, hr->len, hr->custom_ptr, hr->custom)) goto end;
+		*hh+=1;
+		ohr = hr;
+		hr = hr->next;
+		free(ohr->custom_ptr);
+		free(ohr);
+	}
+
 	return ub;
 
 end:
