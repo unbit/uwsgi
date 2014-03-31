@@ -4,52 +4,55 @@
 
 extern struct uwsgi_server uwsgi;
 
-static uint16_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, int hhlen) {
+static char * http_header_to_cgi(char *hh, size_t hhlen, size_t *keylen, size_t *vallen, int *has_prefix) {
+	size_t i;
+	char *val = hh;
+	int status = 0;
+	for (i = 0; i < hhlen; i++) {
+                if (!status) {
+                        hh[i] = toupper((int) hh[i]);
+                        if (hh[i] == '-')
+                                hh[i] = '_';
+                        if (hh[i] == ':') {
+                                status = 1;
+                                *keylen = i;
+                        }
+                }
+                else if (status == 1 && hh[i] != ' ') {
+                        status = 2;
+                        val += i;
+                        *vallen+=1;
+                }
+                else if (status == 2) {
+                        *vallen+=1;
+                }
+        }
+
+	if (!(*keylen))
+                return NULL;
+
+	if (uwsgi_strncmp("CONTENT_LENGTH", 14, hh, *keylen) && uwsgi_strncmp("CONTENT_TYPE", 12, hh, *keylen)) {
+		*has_prefix = 0x02;
+        }
+
+	return val;
+}
+
+static uint16_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, size_t hhlen, char *hv, size_t hvlen, int has_prefix) {
 
 	char *buffer = wsgi_req->buffer + wsgi_req->uh->pktsize;
 	char *watermark = wsgi_req->buffer + uwsgi.buffer_size;
-
-	int i;
-	int status = 0;
-	char *val = hh;
-	uint16_t keylen = 0, vallen = 0;
-	int prefix = 0;
 	char *ptr = buffer;
+	size_t keylen = hhlen;
 
-	for (i = 0; i < hhlen; i++) {
-		if (!status) {
-			hh[i] = toupper((int) hh[i]);
-			if (hh[i] == '-')
-				hh[i] = '_';
-			if (hh[i] == ':') {
-				status = 1;
-				keylen = i;
-			}
-		}
-		else if (status == 1 && hh[i] != ' ') {
-			status = 2;
-			val += i;
-			vallen++;
-		}
-		else if (status == 2) {
-			vallen++;
-		}
-	}
+	if (has_prefix) keylen += 5;
 
-	if (!keylen)
-		return 0;
-
-	if (uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen) && uwsgi_strncmp("CONTENT_TYPE", 12, hh, keylen)) {
-		keylen += 5;
-		prefix = 1;
-	}
-
-	if (buffer + keylen + vallen + 2 + 2 >= watermark) {
-		if (prefix) {
-			uwsgi_log("[WARNING] unable to add HTTP_%.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen, hh, vallen, val);
+	if (buffer + keylen + hvlen + 2 + 2 >= watermark) {
+		if (has_prefix) {
+			uwsgi_log("[WARNING] unable to add HTTP_%.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen, hh, hvlen, hv);
 		}
 		else {
-			uwsgi_log("[WARNING] unable to add %.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen, hh, vallen, val);
+			uwsgi_log("[WARNING] unable to add %.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen, hh, hvlen, hv);
 		}
 		return 0;
 	}
@@ -58,7 +61,7 @@ static uint16_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, i
 	*ptr++ = (uint8_t) (keylen & 0xff);
 	*ptr++ = (uint8_t) ((keylen >> 8) & 0xff);
 
-	if (prefix) {
+	if (has_prefix) {
 		memcpy(ptr, "HTTP_", 5);
 		ptr += 5;
 		memcpy(ptr, hh, keylen - 5);
@@ -69,11 +72,11 @@ static uint16_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, i
 		ptr += keylen;
 	}
 
-	*ptr++ = (uint8_t) (vallen & 0xff);
-	*ptr++ = (uint8_t) ((vallen >> 8) & 0xff);
-	memcpy(ptr, val, vallen);
+	*ptr++ = (uint8_t) (hvlen & 0xff);
+	*ptr++ = (uint8_t) ((hvlen >> 8) & 0xff);
+	memcpy(ptr, hv, hvlen);
 
-	return 2 + keylen + 2 + vallen;
+	return 2 + keylen + 2 + hvlen;
 }
 
 static char *proxy1_parse(char *ptr, char *watermark, char **src, uint16_t *src_len, char **dst, uint16_t *dst_len,  char **src_port, uint16_t *src_port_len, char **dst_port, uint16_t *dst_port_len) {
@@ -304,6 +307,8 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	//HEADERS
 	base = ptr;
 
+	struct uwsgi_string_list *headers = NULL, *usl = NULL;
+
 	while (ptr < watermark) {
 		if (*ptr == '\r') {
 			if (ptr + 1 >= watermark)
@@ -317,15 +322,71 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 					continue;
 				}
 			}
-			wsgi_req->uh->pktsize += http_add_uwsgi_header(wsgi_req, base, ptr - base);
+			size_t key_len = 0, value_len = 0;
+			int has_prefix;
+			// last line, do not waste time
+			if (ptr - base == 0) break;
+			char *value = http_header_to_cgi(base, ptr - base, &key_len, &value_len, &has_prefix);
+			if (!value) {
+				uwsgi_log_verbose("invalid HTTP request\n");
+				goto clear;
+			}
+			usl = uwsgi_string_list_has_item(headers, base, key_len);
+			// there is already a HTTP header with the same name, let's merge them
+			if (usl) {	
+				char *old_value = usl->custom_ptr;
+				usl->custom_ptr = uwsgi_concat3n(old_value, (size_t) usl->custom, ", ", 2, value, value_len);
+				usl->custom += 2 + value_len;
+				if (usl->custom2 & 0x01) free(old_value);
+				usl->custom2 |= 0x01;
+			}
+			else {
+			// add an entry
+				usl = uwsgi_string_new_list(&headers, NULL);
+				usl->value = base;
+				usl->len = key_len;
+				usl->custom_ptr = value;
+				usl->custom = value_len;
+				usl->custom2 = has_prefix;
+			}
 			ptr++;
 			base = ptr + 1;
 		}
 		ptr++;
 	}
 
-	return 0;
+	usl = headers;
+	int broken = 0;
+	while(usl) {
+		if (!broken) {
+			uint16_t old_pktsize = wsgi_req->uh->pktsize;
+			wsgi_req->uh->pktsize += http_add_uwsgi_header(wsgi_req, usl->value, usl->len, usl->custom_ptr, (size_t) usl->custom, usl->custom2 & 0x02);
+			// if the packet remains unchanged, the buffer is full, mark the request as broken
+			if (old_pktsize == wsgi_req->uh->pktsize) {
+				broken = 1;
+			}
+		}
+		if (usl->custom2 & 0x01) {
+			free(usl->custom_ptr);
+		}
+		struct uwsgi_string_list *tmp_usl = usl;
+		usl = usl->next;
+		free(tmp_usl);
+	}
 
+	return broken;
+
+clear:
+	usl = headers;
+        while(usl) {
+		if (usl->custom2 & 0x01) {
+			free(usl->custom_ptr);
+		}
+		struct uwsgi_string_list *tmp_usl = usl;
+                usl = usl->next;
+                free(tmp_usl);
+	}
+	return -1;
 }
 
 
