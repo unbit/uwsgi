@@ -819,6 +819,8 @@ struct uwsgi_cache {
 	struct uwsgi_lock_item *lock;
 
 	struct uwsgi_cache *next;
+
+	int ignore_full;
 };
 
 struct uwsgi_option {
