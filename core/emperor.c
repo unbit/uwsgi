@@ -1684,6 +1684,10 @@ void emperor_loop() {
 				if (rlen <= 0) {
 					// SAFE
 					event_queue_del_fd(uwsgi.emperor_queue, interesting_fd, event_queue_read());
+					if (ui_current->status == 1) {
+						// temporarily set frequency to 0, so we can eventually fast-restart the instance
+						freq = 0;
+					}
 					emperor_curse(ui_current);
 				}
 				else {
@@ -1822,6 +1826,8 @@ recheck:
 						// UNSAFE
 						emperor_add(ui_current->scanner, ui_current->name, ui_current->last_mod, ui_current->config, ui_current->config_len, ui_current->uid, ui_current->gid, ui_current->socket_name);
 						emperor_del(ui_current);
+						// temporarily set frequency to 0, so we can eventually fast-restart the instance
+						freq = 0;
 					}
 					break;
 				}
@@ -1831,6 +1837,8 @@ recheck:
 						free(ui_current->config);
 					// SAFE
 					emperor_del(ui_current);
+					// temporarily set frequency to 0, so we can eventually fast-restart the instance
+					freq = 0;
 					break;
 				}
 			}
