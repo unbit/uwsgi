@@ -427,6 +427,8 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 					uwsgi_log("[uwsgi-subscription for pid %d] invalid (sniffed ?) packet sent for slot: %.*s node: %.*s unix_check: %lu\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, (unsigned long) usr->unix_check);
 					return NULL;
 				}
+				// eventually the packet could be upgraded to sni...
+				uwsgi_subscription_sni_check(current_slot, usr);
 #endif
 				// remove death mark and update cores and load
 				node->death_mark = 0;
