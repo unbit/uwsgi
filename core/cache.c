@@ -666,7 +666,8 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 	index = uwsgi_cache_get_index(uc, key, keylen);
 	if (!index) {
 		if (!uc->unused_blocks_stack_ptr) {
-			uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
+			if (!uc->ignore_full)
+				uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
 			uc->full++;
 			goto end;
 		}
@@ -681,7 +682,8 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		else {
 			uci->first_block = uwsgi_cache_find_free_blocks(uc, vallen);
 			if (uci->first_block == 0xffffffffffffffffLLU) {
-				uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
+				if (!uc->ignore_full)
+					uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
                                 uc->full++;
 				uc->unused_blocks_stack_ptr++;
                                 goto end;
@@ -773,7 +775,8 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 			uint64_t old_first_block = uci->first_block;
 			uci->first_block = uwsgi_cache_find_free_blocks(uc, vallen);
                         if (uci->first_block == 0xffffffffffffffffLLU) {
-                                uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
+				if (!uc->ignore_full)
+					uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
                                 uc->full++;
 				uci->first_block = old_first_block;
                                 goto end;
@@ -1121,6 +1124,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		char *c_bitmap = NULL;
 		char *c_use_last_modified = NULL;
 		char *c_math_initial = NULL;
+		char *c_ignore_full = NULL;
 
 		if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
                         "name", &c_name,
@@ -1148,6 +1152,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                         "bitmap", &c_bitmap,
                         "lastmod", &c_use_last_modified,
                         "math_initial", &c_math_initial,
+                        "ignore_full", &c_ignore_full,
                 	NULL)) {
 			uwsgi_log("unable to parse cache definition\n");
 			exit(1);
@@ -1195,6 +1200,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 			uc->max_item_size = uc->blocksize * uc->blocks;
 		}
 		if (c_use_last_modified) uc->use_last_modified = 1;
+		if (c_ignore_full) uc->ignore_full = 1;
 
 		if (c_math_initial) uc->math_initial = strtol(c_math_initial, NULL, 10);
 
