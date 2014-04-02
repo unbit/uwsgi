@@ -749,10 +749,15 @@ static void emperor_push_config(struct uwsgi_instance *c_ui) {
 
 void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 
+	// if the vassal is being destroyed, do not honour respawns
+	if (c_ui->status == 1) return;
 
 	// reload the uWSGI instance
 	if (write(c_ui->pipe[0], "\1", 1) != 1) {
+		// the vassal could be already dead, better to curse it
 		uwsgi_error("emperor_respawn/write()");
+		emperor_curse(c_ui);
+		return;
 	}
 
 	// push the config to the config pipe (if needed)
