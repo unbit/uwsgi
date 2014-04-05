@@ -701,6 +701,23 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 
 }
 
+void emperor_back_to_ondemand(struct uwsgi_instance *c_ui) {
+	if (c_ui->status > 0) return;
+
+	// remove uWSGI instance
+
+        if (c_ui->pid != -1) {
+                if (write(c_ui->pipe[0], "\0", 1) != 1) {
+                        uwsgi_error("emperor_stop()/write()");
+                }
+        }
+
+	c_ui->status = 2;
+        c_ui->cursed_at = uwsgi_now();
+
+        uwsgi_log_verbose("[emperor] bringing back instance %s to on-demand mode\n", c_ui->name);
+}
+
 void emperor_stop(struct uwsgi_instance *c_ui) {
 	if (c_ui->status == 1) return;
 	// remove uWSGI instance
@@ -721,7 +738,8 @@ void emperor_curse(struct uwsgi_instance *c_ui) {
 	if (c_ui->status == 1) return;
         // curse uWSGI instance
 
-        c_ui->status = 1;
+	// take in account on-demand mode
+	if (c_ui->status == 0) c_ui->status = 1;
         c_ui->cursed_at = uwsgi_now();
 
         uwsgi_log_verbose("[emperor] curse the uwsgi instance %s (pid: %d)\n", c_ui->name, (int) c_ui->pid);
@@ -750,7 +768,7 @@ static void emperor_push_config(struct uwsgi_instance *c_ui) {
 void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 
 	// if the vassal is being destroyed, do not honour respawns
-	if (c_ui->status == 1) return;
+	if (c_ui->status > 0) return;
 
 	// reload the uWSGI instance
 	if (write(c_ui->pipe[0], "\1", 1) != 1) {
@@ -945,11 +963,14 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		n_ui->pid = pid;
 		// close the right side of the pipe
 		close(n_ui->pipe[1]);
+		/* THE ON-DEMAND file descriptir is left mapped to the emperor to allow fast-respawn
+		// TODO add an option to force closing it
 		// close the "on demand" socket
 		if (n_ui->on_demand_fd > -1) {
 			close(n_ui->on_demand_fd);
 			n_ui->on_demand_fd = -1;
 		}
+		*/
 		if (n_ui->use_config) {
 			close(n_ui->pipe_config[1]);
 		}
@@ -1689,9 +1710,9 @@ void emperor_loop() {
 				if (rlen <= 0) {
 					// SAFE
 					event_queue_del_fd(uwsgi.emperor_queue, interesting_fd, event_queue_read());
-					if (ui_current->status == 1) {
-						// temporarily set frequency to 0, so we can eventually fast-restart the instance
-						freq = 0;
+					if (ui_current->status > 0) {
+						// temporarily set frequency to a low value , so we can eventually fast-restart the instance
+						freq = ui_current->status;
 					}
 					emperor_curse(ui_current);
 				}
@@ -1709,7 +1730,13 @@ void emperor_loop() {
 						ui_current->last_heartbeat = uwsgi_now();
 					}
 					else if (byte == 22) {
-						emperor_stop(ui_current);
+						// command 22 changes meaning when in "on_demand" mode	
+						if (ui_current->on_demand_fd != -1) {
+							emperor_back_to_ondemand(ui_current);
+						}
+						else {
+							emperor_stop(ui_current);
+						}
 					}
 					else if (byte == 30 && uwsgi.emperor_broodlord > 0 && uwsgi.emperor_broodlord_count < uwsgi.emperor_broodlord) {
 						uwsgi_log_verbose("[emperor] going in broodlord mode: launching zergs for %s\n", ui_current->name);
@@ -1844,6 +1871,15 @@ recheck:
 					emperor_del(ui_current);
 					// temporarily set frequency to 0, so we can eventually fast-restart the instance
 					freq = 0;
+					break;
+				}
+				// back to on_demand mode ...
+				else if (ui_current->status == 2) {
+					event_queue_add_fd_read(uwsgi.emperor_queue, ui_current->on_demand_fd);
+					ui_current->pid = -1;
+					ui_current->status = 0;
+					ui_current->cursed_at = 0;
+                			uwsgi_log("[uwsgi-emperor] %s -> back to \"on demand\" mode, waiting for connections on socket \"%s\" ...\n", ui_current->name, ui_current->socket_name);
 					break;
 				}
 			}

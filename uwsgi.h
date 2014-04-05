@@ -4046,6 +4046,7 @@ void emperor_stop(struct uwsgi_instance *);
 void emperor_curse(struct uwsgi_instance *);
 void emperor_respawn(struct uwsgi_instance *, time_t);
 void emperor_add(struct uwsgi_emperor_scanner *, char *, time_t, char *, uint32_t, uid_t, gid_t, char *);
+void emperor_back_to_ondemand(struct uwsgi_instance *);
 
 void uwsgi_exec_command_with_args(char *);
 
