@@ -45,6 +45,7 @@ struct corerouter_peer *uwsgi_cr_peer_add(struct corerouter_session *cs) {
 	if (!bufsize) bufsize = uwsgi.page_size;
 	peers->in = uwsgi_buffer_new(bufsize);
 	// add timeout
+	peers->current_timeout = cs->corerouter->socket_timeout;
         peers->timeout = cr_add_timeout(cs->corerouter, peers);
 	peers->prev = old_peers;
 
@@ -582,8 +583,8 @@ struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr
 	cs->corerouter = ucr;
 	cs->ugs = ugs;
 
-	// set initial timeout
-        peer->timeout = cr_add_timeout(ucr, ucr->cr_table[new_connection]);
+	// set initial timeout (could be overridden)
+	peer->current_timeout = ucr->socket_timeout;
 
 	ucr->active_sessions++;
 
@@ -621,6 +622,10 @@ struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr
 	if (ucr->alloc_session(ucr, ugs, cs, cr_addr, cr_addr_len)) {
 		corerouter_close_session(ucr, cs);
 		cs = NULL;
+	}
+	else {
+		// truly set the timeout
+        	peer->timeout = cr_add_timeout(ucr, ucr->cr_table[new_connection]);
 	}
 
 	return cs;

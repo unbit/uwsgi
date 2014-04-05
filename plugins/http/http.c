@@ -60,8 +60,16 @@ struct uwsgi_option http_options[] = {
 	{"http-buffer-size", required_argument, 0, "set internal buffer size (default: page size)", uwsgi_opt_set_64bit, &uhttp.cr.buffer_size, 0},
 
 	{"http-server-name-as-http-host", required_argument, 0, "force SERVER_NAME to HTTP_HOST", uwsgi_opt_true, &uhttp.server_name_as_http_host, 0},
+	{"http-headers-timeout", required_argument, 0, "set internal http socket timeout for headers", uwsgi_opt_set_int, &uhttp.headers_timeout, 0},
+	{"http-connect-timeout", required_argument, 0, "set internal http socket timeout for backend connections", uwsgi_opt_set_int, &uhttp.connect_timeout, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
+
+static void http_set_timeout(struct corerouter_peer *peer, int timeout) {
+	if (peer->current_timeout == timeout) return;
+	peer->current_timeout = timeout;
+	peer->timeout = corerouter_reset_timeout(peer->session->corerouter, peer);
+}
 
 int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen) {
 
@@ -446,6 +454,7 @@ ssize_t hr_write(struct corerouter_peer *main_peer) {
 			return 0;
 		}
 		if (main_peer->session->connect_peer_after_write) {
+			http_set_timeout(main_peer->session->connect_peer_after_write, uhttp.connect_timeout);
 			cr_connect(main_peer->session->connect_peer_after_write, hr_instance_connected);
 			main_peer->session->connect_peer_after_write = NULL;
 			return len;
@@ -459,6 +468,9 @@ ssize_t hr_write(struct corerouter_peer *main_peer) {
 ssize_t hr_instance_connected(struct corerouter_peer* peer) {
 
 	cr_peer_connected(peer, "hr_instance_connected()");
+	
+	// set the default timeout
+	http_set_timeout(peer, uhttp.cr.socket_timeout);
 
 	// we are connected, we cannot retry anymore
         peer->can_retry = 0;
@@ -523,10 +535,7 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 			hr->has_gzip = 0;
 #endif
 			if (uhttp.keepalive > 1) {
-				int orig_timeout = peer->session->corerouter->socket_timeout;
-				peer->session->corerouter->socket_timeout = uhttp.keepalive;
-				peer->session->main_peer->timeout = corerouter_reset_timeout(peer->session->corerouter, peer->session->main_peer);
-				peer->session->corerouter->socket_timeout = orig_timeout;
+				http_set_timeout(peer->session->main_peer, uhttp.keepalive);
 			}
 		}
 #ifdef UWSGI_ZLIB
@@ -620,6 +629,9 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 ssize_t http_parse(struct corerouter_peer *main_peer) {
 	struct corerouter_session *cs = main_peer->session;
 	struct http_session *hr = (struct http_session *) cs;
+
+	// ensure the headers timeout is honoured
+	http_set_timeout(main_peer, uhttp.headers_timeout);
 
 	// is it http body ?
 	if (hr->rnrn == 4) {
@@ -744,6 +756,10 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				hr->raw_body = 1;
 			}
 			new_peer->can_retry = 1;
+			// reset main timeout
+			http_set_timeout(main_peer, uhttp.cr.socket_timeout);
+			// set peer timeout
+			http_set_timeout(new_peer, uhttp.connect_timeout);
                 	cr_connect(new_peer, hr_instance_connected);
 			break;
 		}
@@ -830,12 +846,17 @@ static int hr_retry(struct corerouter_peer *peer) {
 
 retry:
         // start async connect (again)
+	http_set_timeout(peer, uhttp.connect_timeout);
         cr_connect(peer, hr_instance_connected);
         return 0;
 }
 
 
 int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, struct corerouter_session *cs, struct sockaddr *sa, socklen_t s_len) {
+
+	if (!uhttp.headers_timeout) uhttp.headers_timeout = uhttp.cr.socket_timeout;
+	if (!uhttp.connect_timeout) uhttp.connect_timeout = uhttp.cr.socket_timeout;
+
 	// set the retry hook
         cs->retry = hr_retry;
 	struct http_session *hr = (struct http_session *) cs;
@@ -844,6 +865,9 @@ int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket
 	cs->main_peer->modifier2 = uhttp.modifier2;
 	// default hook
 	cs->main_peer->last_hook_read = hr_read;
+
+	// headers timeout
+	cs->main_peer->current_timeout = uhttp.headers_timeout;
 
 	if (uhttp.raw_body) {
 		hr->raw_body = 1;
@@ -906,7 +930,6 @@ int http_init() {
 		uhttp.cr.socket_num = 0;
 	}
 	uwsgi_corerouter_init((struct uwsgi_corerouter *) &uhttp);
-
 	return 0;
 }
 
