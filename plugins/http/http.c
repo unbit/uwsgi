@@ -71,39 +71,44 @@ static void http_set_timeout(struct corerouter_peer *peer, int timeout) {
 	peer->timeout = corerouter_reset_timeout(peer->session->corerouter, peer);
 }
 
-int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen) {
+static char * http_header_to_cgi(char *hh, size_t hhlen, size_t *keylen, size_t *vallen, int *has_prefix) {
+	size_t i;
+	char *val = hh;
+	int status = 0;
+	for (i = 0; i < hhlen; i++) {
+                if (!status) {
+                        hh[i] = toupper((int) hh[i]);
+                        if (hh[i] == '-')
+                                hh[i] = '_';
+                        if (hh[i] == ':') {
+                                status = 1;
+                                *keylen = i;
+                        }
+                }
+                else if (status == 1 && hh[i] != ' ') {
+                        status = 2;
+                        val += i;
+                        *vallen+=1;
+                }
+                else if (status == 2) {
+                        *vallen+=1;
+                }
+        }
+
+	if (!(*keylen))
+                return NULL;
+
+	if (uwsgi_strncmp("CONTENT_LENGTH", 14, hh, *keylen) && uwsgi_strncmp("CONTENT_TYPE", 12, hh, *keylen)) {
+		*has_prefix = 0x02;
+        }
+
+	return val;
+}
+
+static int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, size_t keylen, char *val, size_t vallen, int prefix) {
 
 	struct uwsgi_buffer *out = peer->out;
 	struct http_session *hr = (struct http_session *) peer->session;
-
-	int i;
-	int status = 0;
-	char *val = hh;
-	uint16_t keylen = 0, vallen = 0;
-	int prefix = 0;
-
-	for (i = 0; i < hhlen; i++) {
-		if (!status) {
-			hh[i] = toupper((int) hh[i]);
-			if (hh[i] == '-')
-				hh[i] = '_';
-			if (hh[i] == ':') {
-				status = 1;
-				keylen = i;
-			}
-		}
-		else if (status == 1 && hh[i] != ' ') {
-			status = 2;
-			val += i;
-			vallen++;
-		}
-		else if (status == 2) {
-			vallen++;
-		}
-	}
-
-	if (!keylen)
-		return -1;
 
 	if (hr->websockets) {
 		if (!uwsgi_strncmp("UPGRADE", 7, hh, keylen)) {
@@ -159,11 +164,7 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 #endif
 
 done:
-
-	if (uwsgi_strncmp("CONTENT_TYPE", 12, hh, keylen) && uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
-		keylen += 5;
-		prefix = 1;
-	}
+	if (prefix) keylen += 5;
 
 	if (uwsgi_buffer_u16le(out, keylen)) return -1;
 
@@ -171,7 +172,7 @@ done:
 		if (uwsgi_buffer_append(out, "HTTP_", 5)) return -1;
 	}
 
-	if (uwsgi_buffer_append(out, hh, keylen - (prefix * 5))) return -1;
+	if (uwsgi_buffer_append(out, hh, keylen - (prefix ? 5 : 0))) return -1;
 
 	if (uwsgi_buffer_u16le(out, vallen)) return -1;
 	if (uwsgi_buffer_append(out, val, vallen)) return -1;
@@ -333,6 +334,8 @@ int http_headers_parse(struct corerouter_peer *peer) {
 	//HEADERS
 	base = ptr;
 
+	struct uwsgi_string_list *headers = NULL, *usl = NULL;
+
 	while (ptr < watermark) {
 		if (*ptr == '\r') {
 			if (ptr + 1 >= watermark)
@@ -353,12 +356,52 @@ int http_headers_parse(struct corerouter_peer *peer) {
 					hr->send_expect_100 = 1;
 				}
 			}
-			if (http_add_uwsgi_header(peer, base, ptr - base)) return -1;
+
+			size_t key_len = 0, value_len = 0;
+			int has_prefix = 0;
+			// last line, do not waste time
+			if (ptr - base == 0) break;
+			char *value = http_header_to_cgi(base, ptr - base, &key_len, &value_len, &has_prefix);
+			if (!value) goto clear;
+			usl = uwsgi_string_list_has_item(headers, base, key_len);
+			// there is already a HTTP header with the same name, let's merge them
+			if (usl) {	
+				char *old_value = usl->custom_ptr;
+				usl->custom_ptr = uwsgi_concat3n(old_value, (size_t) usl->custom, ", ", 2, value, value_len);
+				usl->custom += 2 + value_len;
+				if (usl->custom2 & 0x01) free(old_value);
+				usl->custom2 |= 0x01;
+			}
+			else {
+			// add an entry
+				usl = uwsgi_string_new_list(&headers, NULL);
+				usl->value = base;
+				usl->len = key_len;
+				usl->custom_ptr = value;
+				usl->custom = value_len;
+				usl->custom2 = has_prefix;
+			}	
 			ptr++;
 			base = ptr + 1;
 		}
 		ptr++;
 	}
+
+	usl = headers;
+	int broken = 0;
+	while(usl) {
+		if (!broken) {
+			if (http_add_uwsgi_header(peer, usl->value, usl->len, usl->custom_ptr, (size_t) usl->custom, usl->custom2 & 0x02)) broken = 1;
+		}
+		if (usl->custom2 & 0x01) {
+			free(usl->custom_ptr);
+		}
+		struct uwsgi_string_list *tmp_usl = usl;
+		usl = usl->next;
+		free(tmp_usl);
+	}	
+
+	if (broken) return -1;
 
 	struct uwsgi_string_list *hv = uhttp.http_vars;
 	while (hv) {
@@ -370,6 +413,18 @@ int http_headers_parse(struct corerouter_peer *peer) {
 	}
 
 	return 0;
+
+clear:
+	usl = headers;
+        while(usl) {
+		if (usl->custom2 & 0x01) {
+			free(usl->custom_ptr);
+		}
+		struct uwsgi_string_list *tmp_usl = usl;
+                usl = usl->next;
+                free(tmp_usl);
+	}
+	return -1;
 
 }
 

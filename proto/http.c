@@ -323,7 +323,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 				}
 			}
 			size_t key_len = 0, value_len = 0;
-			int has_prefix;
+			int has_prefix = 0;
 			// last line, do not waste time
 			if (ptr - base == 0) break;
 			char *value = http_header_to_cgi(base, ptr - base, &key_len, &value_len, &has_prefix);
