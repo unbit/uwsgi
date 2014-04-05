@@ -1704,7 +1704,7 @@ static char *uwsgi_route_var_mime(struct wsgi_request *wsgi_req, char *key, uint
         char *var_value = uwsgi_get_var(wsgi_req, key, keylen, &var_vallen);
         if (var_value) {
 		size_t mime_type_len = 0;
-		char *ret = uwsgi_get_mime_type(key, keylen, &mime_type_len);
+		ret = uwsgi_get_mime_type(var_value, var_vallen, &mime_type_len);
 		if (ret) *vallen = mime_type_len;
         }
         return ret;
