@@ -477,13 +477,19 @@ void uwsgi_check_logrotate(void) {
 
 	int need_rotation = 0;
 	int need_reopen = 0;
+	off_t logsize;
 
 	if (uwsgi.log_master) {
-		uwsgi.shared->logsize = lseek(uwsgi.original_log_fd, 0, SEEK_CUR);
+		logsize = lseek(uwsgi.original_log_fd, 0, SEEK_CUR);
 	}
 	else {
-		uwsgi.shared->logsize = lseek(2, 0, SEEK_CUR);
+		logsize = lseek(2, 0, SEEK_CUR);
 	}
+	if (logsize < 0) {
+		uwsgi_error("uwsgi_check_logrotate()/lseek()");
+		return;
+	}
+	uwsgi.shared->logsize = logsize;
 
 	if (uwsgi.log_maxsize > 0 && (uint64_t) uwsgi.shared->logsize > uwsgi.log_maxsize) {
 		need_rotation = 1;
