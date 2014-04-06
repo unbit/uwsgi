@@ -685,9 +685,6 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 	struct corerouter_session *cs = main_peer->session;
 	struct http_session *hr = (struct http_session *) cs;
 
-	// ensure the headers timeout is honoured
-	http_set_timeout(main_peer, uhttp.headers_timeout);
-
 	// is it http body ?
 	if (hr->rnrn == 4) {
 		// something bad happened in keepalive mode...
@@ -721,6 +718,9 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 		cr_write_to_backend(main_peer->session->peers, hr_instance_write);
 		return 1;
 	}
+
+	// ensure the headers timeout is honoured
+	http_set_timeout(main_peer, uhttp.headers_timeout);
 
 	// read until \r\n\r\n is found
 	size_t j;
