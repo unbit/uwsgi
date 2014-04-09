@@ -46,6 +46,7 @@ static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_r
 			uwsgi_buffer_destroy(ub_addr);
                		return UWSGI_ROUTE_NEXT;
 		}
+		wsgi_req->post_pos += wsgi_req->proto_parser_remains;
 		wsgi_req->proto_parser_remains = 0;
 	}
 

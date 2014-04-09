@@ -54,6 +54,7 @@ static int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct
                 if (uwsgi_buffer_append(ub, wsgi_req->proto_parser_remains_buf, wsgi_req->proto_parser_remains)) {
 			goto end;
                 }
+		wsgi_req->post_pos += wsgi_req->proto_parser_remains;
                 wsgi_req->proto_parser_remains = 0;
         }
 
