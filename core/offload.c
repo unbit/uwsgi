@@ -237,6 +237,7 @@ static void uwsgi_offload_loop(struct uwsgi_thread *ut) {
 	void *events = event_queue_alloc(uwsgi.offload_threads_events);
 
 	for (;;) {
+		// TODO make timeout tunable
 		int nevents = event_queue_wait_multi(ut->queue, -1, events, uwsgi.offload_threads_events);
 		for (i = 0; i < nevents; i++) {
 			int interesting_fd = event_queue_interesting_fd(events, i);
