@@ -456,6 +456,13 @@ static int u_offload_transfer_do(struct uwsgi_thread *ut, struct uwsgi_offload_r
 		// write event (or just connected)
 		case 1:
 			if (fd == uor->fd) {
+				// maybe we want only a connection...
+				if (uor->ubuf->pos == 0) {
+					uor->status = 2;
+					if (event_queue_add_fd_read(ut->queue, uor->s)) return -1;
+					if (event_queue_fd_write_to_read(ut->queue, uor->fd)) return -1;
+					return 0;
+				}
 				rlen = write(uor->fd, uor->ubuf->buf + uor->written, uor->ubuf->pos-uor->written);	
 				if (rlen > 0) {
 					uor->written += rlen;

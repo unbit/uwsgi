@@ -5,6 +5,8 @@
 extern struct uwsgi_server uwsgi;
 
 static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	
+	struct uwsgi_buffer *ub = NULL;
 
 	// mark a route request
         wsgi_req->via = UWSGI_VIA_ROUTE;
@@ -24,9 +26,14 @@ static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_r
 		}
 	}
 
-
 	// convert the wsgi_request to an http proxy request
-	struct uwsgi_buffer *ub = uwsgi_to_http(wsgi_req, ur->data2, ur->data2_len, ub_url ? ub_url->buf : NULL, ub_url ? ub_url->pos : 0);	
+	if (ur->custom & 0x02) {
+		ub = uwsgi_buffer_new(uwsgi.page_size);
+	}
+	else {
+		ub = uwsgi_to_http(wsgi_req, ur->data2, ur->data2_len, ub_url ? ub_url->buf : NULL, ub_url ? ub_url->pos : 0);	
+	}
+
 	if (!ub) {
 		if (ub_url) uwsgi_buffer_destroy(ub_url);
 		uwsgi_log("unable to generate http request for %s\n", ub_addr->buf);
@@ -51,7 +58,7 @@ static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_r
 	}
 
 	// ok now if have offload threads, directly use them
-	if (!wsgi_req->post_file && !ur->custom && wsgi_req->socket->can_offload) {
+	if (!wsgi_req->post_file && !(ur->custom & 0x01) && wsgi_req->socket->can_offload) {
 		// append buffered body
 		if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > 0) {
 			if (uwsgi_buffer_append(ub, wsgi_req->post_buffering_buf, wsgi_req->post_cl)) {
@@ -61,6 +68,14 @@ static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_r
                			return UWSGI_ROUTE_NEXT;
 			}
 		}
+
+		// if we have a CONNECT request, let's confirm it to the client
+		if (ur->custom & 0x02) {
+			if (uwsgi_response_prepare_headers(wsgi_req, "200 Connection established", 26)) goto end;
+                        // no need to check for return value
+                        uwsgi_response_write_headers_do(wsgi_req);	
+		}
+
         	if (!uwsgi_offload_request_net_do(wsgi_req, ub_addr->buf, ub)) {
                 	wsgi_req->via = UWSGI_VIA_OFFLOAD;
 			wsgi_req->status = 202;
@@ -73,6 +88,7 @@ static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_r
 		uwsgi_log("error routing request to http server %s\n", ub_addr->buf);
 	}
 
+end:
 	uwsgi_buffer_destroy(ub);
 	uwsgi_buffer_destroy(ub_addr);
 
@@ -103,8 +119,18 @@ static int uwsgi_router_http(struct uwsgi_route *ur, char *args) {
 }
 
 static int uwsgi_router_proxyhttp(struct uwsgi_route *ur, char *args) {
-	ur->custom = 1;
+	ur->custom = 0x1;
 	return uwsgi_router_http(ur, args);
+}
+
+static int uwsgi_router_proxyhttp_connect(struct uwsgi_route *ur, char *args) {
+        ur->custom = 0x1|0x02;
+        return uwsgi_router_http(ur, args);
+}
+
+static int uwsgi_router_http_connect(struct uwsgi_route *ur, char *args) {
+        ur->custom = 0x02;
+        return uwsgi_router_http(ur, args);
 }
 
 
@@ -112,6 +138,8 @@ static void router_http_register(void) {
 
 	uwsgi_register_router("http", uwsgi_router_http);
 	uwsgi_register_router("proxyhttp", uwsgi_router_proxyhttp);
+	uwsgi_register_router("httpconnect", uwsgi_router_http_connect);
+	uwsgi_register_router("proxyhttpconnect", uwsgi_router_proxyhttp_connect);
 }
 
 struct uwsgi_plugin router_http_plugin = {
