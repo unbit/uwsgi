@@ -10,6 +10,10 @@ struct uwsgi_emperor_mongodb_state {
 	char *address;
 	char *collection;
 	char *json;
+	char *database;
+	char *username;
+	char *password;
+	char *predigest;
 };
 
 
@@ -28,6 +32,14 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 		c.setSoTimeout(uwsgi.socket_timeout);
 		// connect
 		c.connect(uems->address);
+
+		if (uems->database && uems->username && uems->password) {
+			std::string err;
+			if (c.auth(uems->database, uems->username, uems->password, err, uems->predigest ? false : true) == false) {
+				uwsgi_log_verbose("[emperor-mongodb] unabel to authenticate to db %s: %s\n", uems->database, err.c_str());
+				return;
+			}
+		}
 
 		// run the query
 		std::auto_ptr<mongo::DBClientCursor> cursor = c.query(uems->collection, q, 0, 0, &p);
@@ -123,4 +135,41 @@ extern "C" void uwsgi_imperial_monitor_mongodb_init(struct uwsgi_emperor_scanner
 done:
         uwsgi_log("[emperor] enabled emperor MongoDB monitor for %s on collection %s\n", uems->address, uems->collection);
 }
+
+// setup a new mongodb imperial monitor (keyval based)
+extern "C" void uwsgi_imperial_monitor_mongodb_init2(struct uwsgi_emperor_scanner *ues) {
+
+        // allocate a new state
+        ues->data = uwsgi_calloc(sizeof(struct uwsgi_emperor_mongodb_state));
+        size_t arg_len = strlen(ues->arg);
+        struct uwsgi_emperor_mongodb_state *uems = (struct uwsgi_emperor_mongodb_state *) ues->data;
+
+        // parse args/ set defaults
+        uems->address = (char *) "127.0.0.1:27017";
+        uems->collection = (char *) "uwsgi.emperor.vassals";
+        uems->json = (char *) "";
+	char *args = NULL;
+        if (arg_len <= 11) goto done;
+	args = ues->arg+11;
+	if (uwsgi_kvlist_parse(args, strlen(args), ',', '=',
+		"addr", &uems->address,
+		"address", &uems->address,
+		"server", &uems->address,
+		"collection", &uems->collection,
+		"coll", &uems->collection,
+		"json", &uems->json,
+		"database", &uems->database,
+		"db", &uems->database,
+		"username", &uems->username,
+		"password", &uems->password,
+		"predigest", &uems->predigest,
+		NULL)) {
+
+		uwsgi_log("[emperor-mongodb] invalid keyval syntax !\n");
+		exit(1);
+	}
+done:
+        uwsgi_log("[emperor] enabled emperor MongoDB monitor for %s on collection %s\n", uems->address, uems->collection);
+}
+
 
