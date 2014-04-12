@@ -23,6 +23,9 @@ static PyObject *py_uwsgi_add_var(PyObject * self, PyObject * args) {
 	return Py_True;
 }
 
+static PyObject *py_uwsgi_micros(PyObject * self, PyObject * args) {
+        return PyLong_FromUnsignedLongLong(uwsgi_micros());
+}
 
 static PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 
@@ -2438,6 +2441,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"ready_fd", py_uwsgi_ready_fd, METH_VARARGS, ""},
 
 	{"add_var", py_uwsgi_add_var, METH_VARARGS, ""},
+
+	{"micros", py_uwsgi_micros, METH_VARARGS, ""},
 
 	{NULL, NULL},
 };
