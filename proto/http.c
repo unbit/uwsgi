@@ -304,6 +304,10 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 		}
 	}
 
+	if (wsgi_req->https_len > 0) {
+		wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "HTTPS", 5, wsgi_req->https, wsgi_req->https_len);
+	}
+
 	//HEADERS
 	base = ptr;
 
