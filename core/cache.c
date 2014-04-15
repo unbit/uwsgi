@@ -701,6 +701,8 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
 			now = uwsgi_now();
 			expires += now;
+			if (!uc->next_scan || uc->next_scan > expires)
+				uc->next_scan = expires;
 		}
 		uci->expires = expires;
 		uci->hash = uc->hash->func(key, keylen);
@@ -769,6 +771,8 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 			now = uwsgi_now();
 			expires += now;
 			uci->expires = expires;
+			if (!uc->next_scan || uc->next_scan > expires)
+				uc->next_scan = expires;
 		}
 		if (uc->blocks_bitmap) {
 			// we have a special case here, as we need to find a new series of free blocks
@@ -993,13 +997,30 @@ static uint64_t cache_sweeper_free_items(struct uwsgi_cache *uc) {
 	if (uc->no_expire)
 		return 0;
 
+	uwsgi_rlock(uc->lock);
+	if (!uc->next_scan || uc->next_scan > (uint64_t)uwsgi.current_time) {
+		uwsgi_rwunlock(uc->lock);
+		return 0;
+	}
+	uwsgi_rwunlock(uc->lock);
+
 	// skip the first slot
 	for (i = 1; i < uc->max_items; i++) {
-		uwsgi_wlock(uc->lock);
 		struct uwsgi_cache_item *uci = cache_item(i);
-		if (uci->expires && uci->expires < (uint64_t) uwsgi.current_time) {
-			uwsgi_cache_del2(uc, NULL, 0, i, UWSGI_CACHE_FLAG_LOCAL);
-			freed_items++;
+
+		uwsgi_wlock(uc->lock);
+		// we reset next scan time first, then we find the least
+		// expiration time from those that are NOT expired yet.
+		if (i == 1)
+			uc->next_scan = 0;
+
+		if (uci->expires) {
+			if (uci->expires <= (uint64_t)uwsgi.current_time) {
+				uwsgi_cache_del2(uc, NULL, 0, i, UWSGI_CACHE_FLAG_LOCAL);
+				freed_items++;
+			} else if (!uc->next_scan || uc->next_scan > uci->expires) {
+				uc->next_scan = uci->expires;
+			}
 		}
 		uwsgi_rwunlock(uc->lock);
 	}

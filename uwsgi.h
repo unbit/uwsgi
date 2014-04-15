@@ -821,6 +821,8 @@ struct uwsgi_cache {
 	struct uwsgi_cache *next;
 
 	int ignore_full;
+
+	uint64_t next_scan;
 };
 
 struct uwsgi_option {
