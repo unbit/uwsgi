@@ -1038,9 +1038,13 @@ void uwsgi_cache_sync_all() {
 
 void uwsgi_cache_start_sweepers() {
 	struct uwsgi_cache *uc = uwsgi.caches;
+
+	if (uwsgi.cache_no_expire)
+		return;
+
 	while(uc) {
 		pthread_t cache_sweeper;
-		if (!uwsgi.cache_no_expire && !uc->no_expire) {
+		if (!uc->no_expire) {
                 	if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, (void *) uc)) {
                         	uwsgi_error("pthread_create()");
                         	uwsgi_log("unable to run the sweeper for cache \"%s\" !!!\n", uc->name);
