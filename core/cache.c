@@ -701,6 +701,8 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
 			now = uwsgi_now();
 			expires += now;
+			if (!uc->next_scan || uc->next_scan > expires)
+				uc->next_scan = expires;
 		}
 		uci->expires = expires;
 		uci->hash = uc->hash->func(key, keylen);
@@ -769,6 +771,8 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 			now = uwsgi_now();
 			expires += now;
 			uci->expires = expires;
+			if (!uc->next_scan || uc->next_scan > expires)
+				uc->next_scan = expires;
 		}
 		if (uc->blocks_bitmap) {
 			// we have a special case here, as we need to find a new series of free blocks
@@ -986,39 +990,66 @@ void *cache_udp_server_loop(void *ucache) {
         return NULL;
 }
 
+static uint64_t cache_sweeper_free_items(struct uwsgi_cache *uc) {
+	uint64_t i;
+	uint64_t freed_items = 0;
+
+	if (uc->no_expire)
+		return 0;
+
+	uwsgi_rlock(uc->lock);
+	if (!uc->next_scan || uc->next_scan > (uint64_t)uwsgi.current_time) {
+		uwsgi_rwunlock(uc->lock);
+		return 0;
+	}
+	uwsgi_rwunlock(uc->lock);
+
+	// skip the first slot
+	for (i = 1; i < uc->max_items; i++) {
+		struct uwsgi_cache_item *uci = cache_item(i);
+
+		uwsgi_wlock(uc->lock);
+		// we reset next scan time first, then we find the least
+		// expiration time from those that are NOT expired yet.
+		if (i == 1)
+			uc->next_scan = 0;
+
+		if (uci->expires) {
+			if (uci->expires <= (uint64_t)uwsgi.current_time) {
+				uwsgi_cache_del2(uc, NULL, 0, i, UWSGI_CACHE_FLAG_LOCAL);
+				freed_items++;
+			} else if (!uc->next_scan || uc->next_scan > uci->expires) {
+				uc->next_scan = uci->expires;
+			}
+		}
+		uwsgi_rwunlock(uc->lock);
+	}
+
+	return freed_items;
+}
+
 static void *cache_sweeper_loop(void *ucache) {
 
-        uint64_t i;
         // block all signals
         sigset_t smask;
         sigfillset(&smask);
         pthread_sigmask(SIG_BLOCK, &smask, NULL);
-
-	struct uwsgi_cache *uc = (struct uwsgi_cache *) ucache;
 
         if (!uwsgi.cache_expire_freq)
                 uwsgi.cache_expire_freq = 3;
 
         // remove expired cache items TODO use rb_tree timeouts
         for (;;) {
+		struct uwsgi_cache *uc;
+
+		for (uc = (struct uwsgi_cache *)ucache; uc; uc = uc->next) {
+			uint64_t freed_items = cache_sweeper_free_items(uc);
+			if (uwsgi.cache_report_freed_items && freed_items)
+				uwsgi_log("freed %llu items for cache \"%s\"\n", (unsigned long long)freed_items, uc->name);
+		}
+
 		sleep(uwsgi.cache_expire_freq);
-                uint64_t freed_items = 0;
-                // skip the first slot
-                for (i = 1; i < uc->max_items; i++) {
-                        uwsgi_wlock(uc->lock);
-			struct uwsgi_cache_item *uci = cache_item(i);
-                        if (uci->expires) {
-                                if (uci->expires < (uint64_t) uwsgi.current_time) {
-                                        uwsgi_cache_del2(uc, NULL, 0, i, UWSGI_CACHE_FLAG_LOCAL);
-                                        freed_items++;
-                                }
-                        }
-                        uwsgi_rwunlock(uc->lock);
-                }
-                if (uwsgi.cache_report_freed_items && freed_items > 0) {
-                        uwsgi_log("freed %llu items for cache \"%s\"\n", (unsigned long long) freed_items, uc->name);
-                }
-        };
+        }
 
         return NULL;
 }
@@ -1038,16 +1069,21 @@ void uwsgi_cache_sync_all() {
 
 void uwsgi_cache_start_sweepers() {
 	struct uwsgi_cache *uc = uwsgi.caches;
+
+	if (uwsgi.cache_no_expire)
+		return;
+
 	while(uc) {
 		pthread_t cache_sweeper;
-		if (!uwsgi.cache_no_expire && !uc->no_expire) {
-                	if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, (void *) uc)) {
+		if (!uc->no_expire) {
+                	if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, uwsgi.caches)) {
                         	uwsgi_error("pthread_create()");
-                        	uwsgi_log("unable to run the sweeper for cache \"%s\" !!!\n", uc->name);
+                        	uwsgi_log("unable to run the sweeper!!!\n");
 			}
                 	else {
-                        	uwsgi_log("sweeper thread enabled for cache \"%s\"\n", uc->name);
+                        	uwsgi_log("sweeper thread enabled\n");
                 	}
+			break;
 		}
 		uc = uc->next;
         }
