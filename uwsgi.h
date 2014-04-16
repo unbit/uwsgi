@@ -489,8 +489,10 @@ struct uwsgi_rb_timer {
 	void *data;
 };
 
+struct uwsgi_rbtree *__uwsgi_init_rb_timer(struct uwsgi_rbtree *, struct uwsgi_rb_timer *);
 struct uwsgi_rbtree *uwsgi_init_rb_timer(void);
 struct uwsgi_rb_timer *uwsgi_min_rb_timer(struct uwsgi_rbtree *, struct uwsgi_rb_timer *);
+struct uwsgi_rb_timer *__uwsgi_add_rb_timer(struct uwsgi_rbtree *, struct uwsgi_rb_timer *);
 struct uwsgi_rb_timer *uwsgi_add_rb_timer(struct uwsgi_rbtree *, uint64_t, void *);
 void uwsgi_del_rb_timer(struct uwsgi_rbtree *, struct uwsgi_rb_timer *);
 
