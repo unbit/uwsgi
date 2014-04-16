@@ -395,6 +395,8 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 			(unsigned long long) ((sizeof(struct uwsgi_cache_item)+uc->keysize) * uc->max_items), (unsigned long long) (uc->blocksize * uc->blocks),
 			(unsigned long long) uc->blocks_bitmap_size);
 
+	__uwsgi_init_rb_timer(&uc->tree, &uc->sentinel);
+
 	uwsgi_cache_setup_nodes(uc);
 
 	uc->udp_node_socket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -519,7 +521,7 @@ char *uwsgi_cache_get3(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint6
                         return NULL;
                 *valsize = uci->valsize;
 		if (expires)
-			*expires = uci->expires;
+			*expires = uci->timer.value;
                 uci->hits++;
                 uc->hits++;
                 return uc->data + (uci->first_block * uc->blocksize);
@@ -598,7 +600,7 @@ int uwsgi_cache_del2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_
 		uci->hash = 0;
 		uci->prev = 0;
 		uci->next = 0;
-		uci->expires = 0;
+		uwsgi_del_rb_timer(&uc->tree, &uci->timer);
 
 		if (uc->use_last_modified) {
 			uc->last_modified_at = uwsgi_now();
@@ -701,10 +703,13 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
 			now = uwsgi_now();
 			expires += now;
-			if (!uc->next_scan || uc->next_scan > expires)
-				uc->next_scan = expires;
 		}
-		uci->expires = expires;
+		uci->timer.value = expires;
+		uci->timer.data = (void *)index;
+		// only add an item when it will expire
+		if (expires)
+			__uwsgi_add_rb_timer(&uc->tree, &uci->timer);
+
 		uci->hash = uc->hash->func(key, keylen);
 		uci->hits = 0;
 		uci->flags = flags;
@@ -767,12 +772,21 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 	}
 	else if (flags & UWSGI_CACHE_FLAG_UPDATE) {
 		uci = cache_item(index);
-		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE) && !(flags & UWSGI_CACHE_FLAG_FIXEXPIRE)) {
-			now = uwsgi_now();
-			expires += now;
-			uci->expires = expires;
-			if (!uc->next_scan || uc->next_scan > expires)
-				uc->next_scan = expires;
+		if (!(flags & UWSGI_CACHE_FLAG_FIXEXPIRE)) {
+			if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
+				now = uwsgi_now();
+				expires += now;
+			}
+			// don't bother if the new expiration time is the same
+			if (uci->timer.value != expires) {
+				// only delete an item when it was going to expire
+				if (uci->timer.value)
+					uwsgi_del_rb_timer(&uc->tree, &uci->timer);
+				uci->timer.value = expires;
+				// only add an item when it will expire
+				if (uci->timer.value)
+					__uwsgi_add_rb_timer(&uc->tree, &uci->timer);
+			}
 		}
 		if (uc->blocks_bitmap) {
 			// we have a special case here, as we need to find a new series of free blocks
@@ -992,40 +1006,27 @@ void *cache_udp_server_loop(void *ucache) {
 
 static uint64_t cache_sweeper_free_items(struct uwsgi_cache *uc) {
 	uint64_t i;
-	uint64_t freed_items = 0;
+	struct uwsgi_rb_timer *timer;
 
 	if (uc->no_expire)
 		return 0;
+	
+	uwsgi_wlock(uc->lock);
 
-	uwsgi_rlock(uc->lock);
-	if (!uc->next_scan || uc->next_scan > (uint64_t)uwsgi.current_time) {
-		uwsgi_rwunlock(uc->lock);
-		return 0;
+	for (i = 0; ; i++) {
+		timer = uwsgi_min_rb_timer(&uc->tree, NULL);
+		if (!timer)
+			break;
+
+		if (timer->value > (uint64_t)uwsgi.current_time)
+			break;
+		
+		uwsgi_cache_del2(uc, NULL, 0, (uint64_t)timer->data, UWSGI_CACHE_FLAG_LOCAL);
 	}
+
 	uwsgi_rwunlock(uc->lock);
 
-	// skip the first slot
-	for (i = 1; i < uc->max_items; i++) {
-		struct uwsgi_cache_item *uci = cache_item(i);
-
-		uwsgi_wlock(uc->lock);
-		// we reset next scan time first, then we find the least
-		// expiration time from those that are NOT expired yet.
-		if (i == 1)
-			uc->next_scan = 0;
-
-		if (uci->expires) {
-			if (uci->expires <= (uint64_t)uwsgi.current_time) {
-				uwsgi_cache_del2(uc, NULL, 0, i, UWSGI_CACHE_FLAG_LOCAL);
-				freed_items++;
-			} else if (!uc->next_scan || uc->next_scan > uci->expires) {
-				uc->next_scan = uci->expires;
-			}
-		}
-		uwsgi_rwunlock(uc->lock);
-	}
-
-	return freed_items;
+	return i;
 }
 
 static void *cache_sweeper_loop(void *ucache) {
@@ -1038,7 +1039,6 @@ static void *cache_sweeper_loop(void *ucache) {
         if (!uwsgi.cache_expire_freq)
                 uwsgi.cache_expire_freq = 3;
 
-        // remove expired cache items TODO use rb_tree timeouts
         for (;;) {
 		struct uwsgi_cache *uc;
 

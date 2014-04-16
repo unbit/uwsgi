@@ -759,14 +759,14 @@ struct uwsgi_cache_item {
 	uint64_t valsize;
 	// block position (in non-bitmap mode maps to the key index)
 	uint64_t first_block;
-	// 64bit expiration (0 for immortal)
-	uint64_t expires;
 	// 64bit hits
 	uint64_t hits;
 	// previous same-hash item
 	uint64_t prev;
 	// next same-hash item
 	uint64_t next;
+	// rb-tree timer
+	struct uwsgi_rb_timer timer;
 	// key characters follows...
 	char key[];
 } __attribute__ ((__packed__));
@@ -824,7 +824,8 @@ struct uwsgi_cache {
 
 	int ignore_full;
 
-	uint64_t next_scan;
+	struct uwsgi_rbtree tree;
+	struct uwsgi_rb_timer sentinel;
 };
 
 struct uwsgi_option {
