@@ -826,6 +826,7 @@ struct uwsgi_cache {
 
 	struct uwsgi_rbtree tree;
 	struct uwsgi_rb_timer sentinel;
+	int purge_lru;
 };
 
 struct uwsgi_option {

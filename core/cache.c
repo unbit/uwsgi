@@ -516,12 +516,19 @@ char *uwsgi_cache_get3(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint6
         uint64_t index = uwsgi_cache_get_index(uc, key, keylen);
 
         if (index) {
+		uint64_t now = uwsgi_now();
                 struct uwsgi_cache_item *uci = cache_item(index);
                 if (uci->flags & UWSGI_CACHE_FLAG_UNGETTABLE)
                         return NULL;
                 *valsize = uci->valsize;
+		// expires serves as time interval between two accesses when pruge_lur is set
 		if (expires)
-			*expires = uci->timer.value;
+			*expires = uc->purge_lru ? now - uci->timer.value : uci->timer.value;
+		if (uc->purge_lru && uci->timer.value != now) {
+			uwsgi_del_rb_timer(&uc->tree, &uci->timer);
+			uci->timer.value = uwsgi_now();
+			__uwsgi_add_rb_timer(&uc->tree, &uci->timer);
+		}
                 uci->hits++;
                 uc->hits++;
                 return uc->data + (uci->first_block * uc->blocksize);
@@ -668,10 +675,19 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 	index = uwsgi_cache_get_index(uc, key, keylen);
 	if (!index) {
 		if (!uc->unused_blocks_stack_ptr) {
-			if (!uc->ignore_full)
-				uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
+			struct uwsgi_rb_timer *timer = uwsgi_min_rb_timer(&uc->tree, NULL);
+
+			if (!uc->ignore_full) {
+				if (uc->purge_lru && timer)
+					uwsgi_log("item last accessed %lu will be purged from cache \"%s\"\n", timer->value, uc->name);
+				else
+					uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
+			}
 			uc->full++;
-			goto end;
+			if (uc->purge_lru && timer)
+				uwsgi_cache_del2(uc, NULL, 0, (uint64_t)timer->data, UWSGI_CACHE_FLAG_LOCAL);
+			if (!uc->unused_blocks_stack_ptr)
+				goto end;
 		}
 
 		index = uc->unused_blocks_stack[uc->unused_blocks_stack_ptr];
@@ -700,7 +716,10 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
                         	uc->blocks_bitmap_pos = uci->first_block + needed_blocks;
                         }
 		}
-		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
+		// expires serves as time stamp when purge_lru is set
+		if (uc->purge_lru)
+			expires = uwsgi_now();
+		else if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
 			now = uwsgi_now();
 			expires += now;
 		}
@@ -773,7 +792,10 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 	else if (flags & UWSGI_CACHE_FLAG_UPDATE) {
 		uci = cache_item(index);
 		if (!(flags & UWSGI_CACHE_FLAG_FIXEXPIRE)) {
-			if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
+			// expires serves as time stamp when purge_lru is set
+			if (uc->purge_lru)
+				expires = uwsgi_now();
+			else if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
 				now = uwsgi_now();
 				expires += now;
 			}
@@ -1008,7 +1030,7 @@ static uint64_t cache_sweeper_free_items(struct uwsgi_cache *uc) {
 	uint64_t i;
 	struct uwsgi_rb_timer *timer;
 
-	if (uc->no_expire)
+	if (uc->no_expire || uc->purge_lru)
 		return 0;
 	
 	uwsgi_wlock(uc->lock);
@@ -1161,6 +1183,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		char *c_use_last_modified = NULL;
 		char *c_math_initial = NULL;
 		char *c_ignore_full = NULL;
+		char *c_purge_lru = NULL;
 
 		if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
                         "name", &c_name,
@@ -1189,6 +1212,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                         "lastmod", &c_use_last_modified,
                         "math_initial", &c_math_initial,
                         "ignore_full", &c_ignore_full,
+                        "purge_lru", &c_purge_lru,
                 	NULL)) {
 			uwsgi_log("unable to parse cache definition\n");
 			exit(1);
@@ -1270,7 +1294,9 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                                 uwsgi_string_new_list(&uc->udp_servers, p);
                         }
                 }
-		
+
+		if (c_purge_lru)
+			uc->purge_lru = 1;
 	}
 
 	uwsgi_cache_init(uc);
@@ -1526,7 +1552,10 @@ char *uwsgi_cache_magic_get(char *key, uint16_t keylen, uint64_t *vallen, uint64
 
 	// we have a local cache !!!
 	if (uc) {
-		uwsgi_rlock(uc->lock);
+		if (uc->purge_lru)
+			uwsgi_wlock(uc->lock);
+		else
+			uwsgi_rlock(uc->lock);
 		char *value = uwsgi_cache_get3(uc, key, keylen, vallen, expires);
 		if (!value) {
 			uwsgi_rwunlock(uc->lock);
