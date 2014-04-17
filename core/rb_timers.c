@@ -19,16 +19,21 @@
 #define uwsgi_rbt_copy_color(n1, n2)      (n1->color = n2->color)
 
 
-struct uwsgi_rbtree *uwsgi_init_rb_timer() {
-
-	struct uwsgi_rbtree *tree = uwsgi_calloc(sizeof(struct uwsgi_rbtree));
-	struct uwsgi_rb_timer *sentinel = uwsgi_calloc(sizeof(struct uwsgi_rb_timer));
+struct uwsgi_rbtree *__uwsgi_init_rb_timer(struct uwsgi_rbtree *tree, struct uwsgi_rb_timer *sentinel) {
 	// no need to set it black, calloc already did it
 	//uwsgi_rbt_black(sentinel);
 	tree->root = sentinel;
 	tree->sentinel = sentinel;
 
 	return tree;
+}
+
+struct uwsgi_rbtree *uwsgi_init_rb_timer() {
+
+	struct uwsgi_rbtree *tree = uwsgi_calloc(sizeof(struct uwsgi_rbtree));
+	struct uwsgi_rb_timer *sentinel = uwsgi_calloc(sizeof(struct uwsgi_rb_timer));
+
+	return __uwsgi_init_rb_timer(tree, sentinel);
 }
 
 struct uwsgi_rb_timer *uwsgi_min_rb_timer(struct uwsgi_rbtree *tree, struct uwsgi_rb_timer *node) {
@@ -125,12 +130,9 @@ static void uwsgi_rbt_add(struct uwsgi_rb_timer *temp, struct uwsgi_rb_timer *no
 }
 
 
-struct uwsgi_rb_timer *uwsgi_add_rb_timer(struct uwsgi_rbtree *tree, uint64_t value, void *data) {
+struct uwsgi_rb_timer *__uwsgi_add_rb_timer(struct uwsgi_rbtree *tree, struct uwsgi_rb_timer *node) {
 
-	struct uwsgi_rb_timer *node = uwsgi_malloc(sizeof(struct uwsgi_rb_timer));
 	struct uwsgi_rb_timer *new_node = node;
-	node->value = value;
-	node->data = data;
 
 	struct uwsgi_rb_timer *temp = NULL;
 
@@ -202,6 +204,14 @@ struct uwsgi_rb_timer *uwsgi_add_rb_timer(struct uwsgi_rbtree *tree, uint64_t va
 	uwsgi_rbt_black(*root);
 
 	return new_node;
+}
+
+struct uwsgi_rb_timer *uwsgi_add_rb_timer(struct uwsgi_rbtree *tree, uint64_t value, void *data) {
+	struct uwsgi_rb_timer *node = uwsgi_malloc(sizeof(struct uwsgi_rb_timer));
+	node->value = value;
+	node->data = data;
+
+	return __uwsgi_add_rb_timer(tree, node);
 }
 
 void uwsgi_del_rb_timer(struct uwsgi_rbtree *tree, struct uwsgi_rb_timer *node) {

@@ -489,8 +489,10 @@ struct uwsgi_rb_timer {
 	void *data;
 };
 
+struct uwsgi_rbtree *__uwsgi_init_rb_timer(struct uwsgi_rbtree *, struct uwsgi_rb_timer *);
 struct uwsgi_rbtree *uwsgi_init_rb_timer(void);
 struct uwsgi_rb_timer *uwsgi_min_rb_timer(struct uwsgi_rbtree *, struct uwsgi_rb_timer *);
+struct uwsgi_rb_timer *__uwsgi_add_rb_timer(struct uwsgi_rbtree *, struct uwsgi_rb_timer *);
 struct uwsgi_rb_timer *uwsgi_add_rb_timer(struct uwsgi_rbtree *, uint64_t, void *);
 void uwsgi_del_rb_timer(struct uwsgi_rbtree *, struct uwsgi_rb_timer *);
 
@@ -757,14 +759,14 @@ struct uwsgi_cache_item {
 	uint64_t valsize;
 	// block position (in non-bitmap mode maps to the key index)
 	uint64_t first_block;
-	// 64bit expiration (0 for immortal)
-	uint64_t expires;
 	// 64bit hits
 	uint64_t hits;
 	// previous same-hash item
 	uint64_t prev;
 	// next same-hash item
 	uint64_t next;
+	// rb-tree timer
+	struct uwsgi_rb_timer timer;
 	// key characters follows...
 	char key[];
 } __attribute__ ((__packed__));
@@ -822,7 +824,9 @@ struct uwsgi_cache {
 
 	int ignore_full;
 
-	uint64_t next_scan;
+	struct uwsgi_rbtree tree;
+	struct uwsgi_rb_timer sentinel;
+	int purge_lru;
 };
 
 struct uwsgi_option {
