@@ -765,6 +765,10 @@ struct uwsgi_cache_item {
 	uint64_t prev;
 	// next same-hash item
 	uint64_t next;
+	// previous lru item
+	uint64_t lru_prev;
+	// next lru item
+	uint64_t lru_next;
 	// key characters follows...
 	char key[];
 } __attribute__ ((__packed__));
@@ -823,6 +827,9 @@ struct uwsgi_cache {
 	int ignore_full;
 
 	uint64_t next_scan;
+	int purge_lru;
+	uint64_t lru_head;
+	uint64_t lru_tail;
 };
 
 struct uwsgi_option {
