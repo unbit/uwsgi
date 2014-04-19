@@ -4,6 +4,8 @@
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
+#define is_not_python(x) strcmp(uwsgi.p[x]->name, "python")
+
 struct ugreenlet {
 	int enabled;
 	PyObject *callable;
@@ -69,7 +71,7 @@ static void greenlet_schedule_to_req() {
 	}
 
 	// call it in the main core
-        if (uwsgi.p[modifier1]->suspend) {
+        if (is_not_python(modifier1) && uwsgi.p[modifier1]->suspend) {
                 uwsgi.p[modifier1]->suspend(NULL);
         }
 
@@ -81,7 +83,7 @@ static void greenlet_schedule_to_req() {
 	}
 	Py_DECREF(ret);
 
-	if (uwsgi.p[modifier1]->resume) {
+	if (is_not_python(modifier1) && uwsgi.p[modifier1]->resume) {
                 uwsgi.p[modifier1]->resume(NULL);
         }
 
@@ -93,7 +95,7 @@ static void greenlet_schedule_to_main(struct wsgi_request *wsgi_req) {
 	// ensure gil
         UWSGI_GET_GIL
 
-        if (uwsgi.p[wsgi_req->uh->modifier1]->suspend) {
+        if (is_not_python(wsgi_req->uh->modifier1) && uwsgi.p[wsgi_req->uh->modifier1]->suspend) {
                 uwsgi.p[wsgi_req->uh->modifier1]->suspend(wsgi_req);
         }
 	PyObject *ret = PyGreenlet_Switch(ugl.main, NULL, NULL);
@@ -103,7 +105,7 @@ static void greenlet_schedule_to_main(struct wsgi_request *wsgi_req) {
                 exit(1);
         }
         Py_DECREF(ret);
-        if (uwsgi.p[wsgi_req->uh->modifier1]->resume) {
+        if (is_not_python(wsgi_req->uh->modifier1) && uwsgi.p[wsgi_req->uh->modifier1]->resume) {
                 uwsgi.p[wsgi_req->uh->modifier1]->resume(wsgi_req);
         }
 	uwsgi.wsgi_req = wsgi_req;
