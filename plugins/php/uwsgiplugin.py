@@ -25,4 +25,4 @@ phplibdir = os.environ.get('UWSGICONFIG_PHPLIBDIR')
 if phplibdir:
     LIBS.append('-Wl,-rpath=%s' % phplibdir)
 
-GCC_LIST = ['php_plugin']
+GCC_LIST = ['php_plugin', 'session']

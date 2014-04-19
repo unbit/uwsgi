@@ -1,12 +1,4 @@
-#include "php.h"
-#include "SAPI.h"
-#include "php_main.h"
-#include "php_variables.h"
-
-#include "ext/standard/php_smart_str.h"
-#include "ext/standard/info.h"
-
-#include "../../uwsgi.h"
+#include "common.h"
 
 extern struct uwsgi_server uwsgi;
 
@@ -233,8 +225,9 @@ void uwsgi_php_set(char *opt) {
 	uwsgi_sapi_module.ini_entries[uphp.ini_size] = 0;
 }
 
-// future implementation...
+extern ps_module ps_mod_uwsgi;
 PHP_MINIT_FUNCTION(uwsgi_php_minit) {
+	php_session_register_module(&ps_mod_uwsgi);
 	return SUCCESS;
 }
 
@@ -341,7 +334,7 @@ PHP_FUNCTION(uwsgi_cache_set) {
                 RETURN_NULL();
         }
 
-	if (uwsgi_cache_magic_set(key, keylen, value, vallen, expires, 0, cache)) {
+	if (!uwsgi_cache_magic_set(key, keylen, value, vallen, expires, 0, cache)) {
 		RETURN_TRUE;
 	}
 	RETURN_NULL();
@@ -363,7 +356,7 @@ PHP_FUNCTION(uwsgi_cache_update) {
                 RETURN_NULL();
         }
 
-        if (uwsgi_cache_magic_set(key, keylen, value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE, cache)) {
+        if (!uwsgi_cache_magic_set(key, keylen, value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE, cache)) {
                 RETURN_TRUE;
         }
         RETURN_NULL();
