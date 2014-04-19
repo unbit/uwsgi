@@ -52,8 +52,6 @@ static void gil_asyncio_release() {
 
 static int uwsgi_asyncio_wait_read_hook(int fd, int timeout) {
 
-	uwsgi_log("uwsgi_asyncio_wait_read_hook()\n");
-
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	if (PyObject_CallMethod(uasyncio.loop, "add_reader", "iOl", fd, uasyncio.hook_fd,(long) wsgi_req) == NULL) {
@@ -84,8 +82,6 @@ error:
 }
 
 static int uwsgi_asyncio_wait_write_hook(int fd, int timeout) {
-
-	uwsgi_log("uwsgi_asyncio_wait_write_hook()\n");
 
         struct wsgi_request *wsgi_req = current_wsgi_req();
 
