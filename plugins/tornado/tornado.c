@@ -326,6 +326,11 @@ static void tornado_loop() {
 		uwsgi_log("!!! Running tornado with a socket-timeout lower than 30 seconds is not recommended, tune it with --socket-timeout !!!\n");
 	}
 
+	if (!uwsgi.async_waiting_fd_table)
+                uwsgi.async_waiting_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
+        if (!uwsgi.async_proto_fd_table)
+                uwsgi.async_proto_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
+
 	// get the GIL
 	UWSGI_GET_GIL
 
