@@ -770,6 +770,13 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 	// if the vassal is being destroyed, do not honour respawns
 	if (c_ui->status > 0) return;
 
+	// check if we are in on_demand mode (the respawn will be ignored)
+	if (c_ui->pid == -1 && c_ui->on_demand_fd > -1) {
+		c_ui->last_mod = mod;
+		uwsgi_log_verbose("[emperor] updated configuration for \"on demand\" instance %s\n", c_ui->name);
+		return;
+	}
+
 	// reload the uWSGI instance
 	if (write(c_ui->pipe[0], "\1", 1) != 1) {
 		// the vassal could be already dead, better to curse it
