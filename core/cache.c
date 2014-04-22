@@ -1249,6 +1249,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                         "math_initial", &c_math_initial,
                         "ignore_full", &c_ignore_full,
 			"purge_lru", &c_purge_lru,
+			"lru", &c_purge_lru,
                 	NULL)) {
 			uwsgi_log("unable to parse cache definition\n");
 			exit(1);
