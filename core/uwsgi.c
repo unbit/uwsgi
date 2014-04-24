@@ -243,6 +243,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"reload-mercy", required_argument, 0, "set the maximum time (in seconds) we wait for workers and other processes to die during reload/shutdown", uwsgi_opt_set_int, &uwsgi.reload_mercy, 0},
 	{"worker-reload-mercy", required_argument, 0, "set the maximum time (in seconds) a worker can take to reload/shutdown (default is 60)", uwsgi_opt_set_int, &uwsgi.worker_reload_mercy, 0},
+	{"mule-reload-mercy", required_argument, 0, "set the maximum time (in seconds) a mule can take to reload/shutdown (default is 60)", uwsgi_opt_set_int, &uwsgi.mule_reload_mercy, 0},
 	{"exit-on-reload", no_argument, 0, "force exit even if a reload is requested", uwsgi_opt_true, &uwsgi.exit_on_reload, 0},
 	{"die-on-term", no_argument, 0, "exit instead of brutal reload on SIGTERM", uwsgi_opt_true, &uwsgi.die_on_term, 0},
 	{"force-gateway", no_argument, 0, "force the spawn of the first registered gateway without a master", uwsgi_opt_true, &uwsgi.force_gateway, 0},
@@ -1247,6 +1248,11 @@ void kill_them_all(int signum) {
                         uwsgi_curse(i, SIGINT);
                 }
         }
+	for (i = 0; i < uwsgi.mules_cnt; i++) {
+		if (uwsgi.mules[i].pid > 0) {
+			uwsgi_curse_mule(i, SIGINT);
+		}
+	}
 
 	uwsgi_destroy_processes();
 }
@@ -1266,6 +1272,11 @@ void gracefully_kill_them_all(int signum) {
         for (i = 1; i <= uwsgi.numproc; i++) {
                 if (uwsgi.workers[i].pid > 0) {
                         uwsgi_curse(i, SIGHUP);
+                }
+        }
+        for (i = 0; i < uwsgi.mules_cnt; i++) {
+                if (uwsgi.mules[i].pid > 0) {
+                        uwsgi_curse_mule(i, SIGHUP);
                 }
         }
 
@@ -1307,6 +1318,12 @@ void grace_them_all(int signum) {
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].pid > 0) {
 			uwsgi_curse(i, SIGHUP);
+		}
+	}
+
+	for (i = 0; i < uwsgi.mules_cnt; i++) {
+		if (uwsgi.mules[i].pid > 0) {
+			uwsgi_curse_mule(i, SIGHUP);
 		}
 	}
 }
@@ -1354,6 +1371,11 @@ void reap_them_all(int signum) {
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].pid > 0)
 			uwsgi_curse(i, SIGTERM);
+	}
+	for (i = 0; i < uwsgi.mules_cnt; i++) {
+		if (uwsgi.mules[i].pid > 0) {
+			uwsgi_curse_mule(i, SIGTERM);
+		}
 	}
 }
 

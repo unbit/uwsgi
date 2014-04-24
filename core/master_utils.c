@@ -24,6 +24,15 @@ void uwsgi_curse(int wid, int sig) {
 	}
 }
 
+void uwsgi_curse_mule(int mid, int sig) {
+	uwsgi.mules[mid].cursed_at = uwsgi_now();
+	uwsgi.mules[mid].no_mercy_at = uwsgi.mules[mid].cursed_at + uwsgi.mule_reload_mercy;
+
+	if (sig) {
+		(void) kill(uwsgi.mules[mid].pid, sig);
+	}
+}
+
 static void uwsgi_signal_spoolers(int signum) {
 
         struct uwsgi_spooler *uspool = uwsgi.spoolers;
@@ -50,15 +59,6 @@ void uwsgi_destroy_processes() {
                         kill(ushared->gateways[i].pid, SIGKILL);
 			waitpid(ushared->gateways[i].pid, &waitpid_status, 0);
 			uwsgi_log("gateway \"%s %d\" has been buried (pid: %d)\n", ushared->gateways[i].name, ushared->gateways[i].num, (int) ushared->gateways[i].pid);
-		}
-        }
-
-	// TODO mules can be programmed to be gracefully reloaded
-        for (i = 0; i < uwsgi.mules_cnt; i++) {
-                if (uwsgi.mules[i].pid > 0) {
-                        kill(uwsgi.mules[i].pid, SIGKILL);
-			waitpid(uwsgi.mules[i].pid, &waitpid_status, 0);
-			uwsgi_log("mule %d has been buried (pid: %d)\n", i, (int) uwsgi.mules[i].pid);
 		}
         }
 
