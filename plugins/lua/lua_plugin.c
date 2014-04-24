@@ -811,8 +811,25 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	lua_pushnil(L);
 	while(lua_next(L, -3) != 0) {
 		http = lua_tolstring(L, -2, &slen);
-		http2 = lua_tolstring(L, -1, &slen2);
-		uwsgi_response_add_header(wsgi_req, (char *) http, slen, (char *) http2, slen2);
+
+		if (lua_type(L, -1) == LUA_TTABLE) {
+			for (i = 1; /*empty*/ ; ++i) {
+				lua_rawgeti(L, -1, i);
+
+				if (lua_isnil(L, -1)) {
+					lua_pop(L, 1);
+					break;
+				}
+
+				http2 = lua_tolstring(L, -1, &slen2);
+				uwsgi_response_add_header(wsgi_req, (char *) http, slen, (char *) http2, slen2);
+				lua_pop(L, 1);
+			}
+		}
+		else {
+			http2 = lua_tolstring(L, -1, &slen2);
+			uwsgi_response_add_header(wsgi_req, (char *) http, slen, (char *) http2, slen2);
+		}
 		lua_pop(L, 1);
 	}
 
