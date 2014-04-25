@@ -17,7 +17,7 @@ struct uwsgi_alarm_curl_opt {
 };
 
 
-#ifdef CURLOPT_MAIL_RCPT
+#ifdef CURLPROTO_SMTP
 static void uwsgi_alarm_curl_to(CURL *curl, CURLoption option, char *arg, struct uwsgi_alarm_curl_config *uacc) {
 	uacc->to = arg;
 	struct curl_slist *list = NULL;
@@ -46,10 +46,8 @@ static void uwsgi_alarm_curl_set_subject(CURL *curl, CURLoption option, char *ar
 
 static struct uwsgi_alarm_curl_opt uaco[] = {
 	{"url", CURLOPT_URL, NULL},
-#ifdef CURLOPT_MAIL_RCPT
-	{"mail_to", CURLOPT_MAIL_RCPT, uwsgi_alarm_curl_to },
-#endif
-#ifdef CURLOPT_MAIL_FROM
+#ifdef CURLPROTO_SMTP
+	{"mail_to", CURLOPT_MAIL_RCPT, uwsgi_alarm_curl_to},
 	{"mail_from", CURLOPT_MAIL_FROM, NULL},
 #endif
 	{"subject", 0, uwsgi_alarm_curl_set_subject},
