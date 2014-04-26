@@ -25,6 +25,11 @@ int uwsgi_master_check_reload(char **argv) {
                                 return 0;
                         }
                 }
+		for(i=0;i<uwsgi.mules_cnt;i++) {
+			if (uwsgi.mules[i].pid > 0) {
+				return 0;
+			}
+		}
 		uwsgi_reload(argv);
 		// never here (unless in shared library mode)
 		return -1;

@@ -2706,6 +2706,8 @@ struct uwsgi_server {
 	char *notify_socket;
 	int notify_socket_fd;
 	char *subscription_notify_socket;
+
+	int mule_reload_mercy;
 };
 
 struct uwsgi_rpc {
@@ -2939,6 +2941,9 @@ struct uwsgi_mule {
 	time_t user_harakiri;
 
 	char name[0xff];
+
+	time_t cursed_at;
+	time_t no_mercy_at;
 };
 
 struct uwsgi_mule_farm {
@@ -3006,6 +3011,7 @@ void spooler(struct uwsgi_spooler *);
 pid_t spooler_start(struct uwsgi_spooler *);
 
 void uwsgi_curse(int, int);
+void uwsgi_curse_mule(int, int);
 void uwsgi_destroy_processes(void);
 
 void set_harakiri(int);

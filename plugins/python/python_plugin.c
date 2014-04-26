@@ -168,6 +168,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"py-sharedarea", required_argument, 0, "create a sharedarea from a python bytearray object of the specified size", uwsgi_opt_add_string_list, &up.sharedarea, 0},
 #endif
 
+	{"py-call-osafterfork", no_argument, 0, "enable child processes running cpython to trap OS signals", uwsgi_opt_true, &up.call_osafterfork, 0},
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -376,6 +378,11 @@ void uwsgi_python_post_fork() {
 	if (uwsgi.i_am_a_spooler) {
 		UWSGI_GET_GIL
 	}	
+
+	// reset python signal flags so child processes can trap signals
+	if (up.call_osafterfork) {
+		PyOS_AfterFork();
+	}
 
 	uwsgi_python_reset_random_seed();
 

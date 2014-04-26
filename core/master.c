@@ -135,6 +135,15 @@ void uwsgi_master_check_mercy() {
 			}
 		}
 	}
+
+	for (i = 0; i < uwsgi.mules_cnt; i++) {
+		if (uwsgi.mules[i].pid > 0 && uwsgi.mules[i].cursed_at) {
+			if (uwsgi_now() > uwsgi.mules[i].no_mercy_at) {
+				uwsgi_log_verbose("mule %d (pid: %d) is taking too much time to die...NO MERCY !!!\n", i + 1, uwsgi.mules[i].pid);
+				uwsgi_curse_mule(i, SIGKILL);
+			}
+		}
+	}
 }
 
 
@@ -907,6 +916,7 @@ int master_loop(char **argv, char **environ) {
 			for (i = 0; i < uwsgi.mules_cnt; i++) {
 				if (uwsgi.mules[i].pid == diedpid) {
 					uwsgi_log("mule %d (pid: %d) annihilated\n", i + 1, (int) diedpid);
+					uwsgi.mules[i].pid = 0;
 					goto next;
 				}
 			}

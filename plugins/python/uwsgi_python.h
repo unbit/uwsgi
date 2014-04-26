@@ -197,6 +197,8 @@ struct uwsgi_python {
 	PyObject *raw_callable;
 
 	struct uwsgi_string_list *sharedarea;
+
+	int call_osafterfork;
 };
 
 
