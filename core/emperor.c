@@ -773,6 +773,10 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 	// check if we are in on_demand mode (the respawn will be ignored)
 	if (c_ui->pid == -1 && c_ui->on_demand_fd > -1) {
 		c_ui->last_mod = mod;
+		// reset readyness
+		c_ui->ready = 0;
+		// reset accepting
+		c_ui->accepting = 0;
 		uwsgi_log_verbose("[emperor] updated configuration for \"on demand\" instance %s\n", c_ui->name);
 		return;
 	}
@@ -1886,6 +1890,8 @@ recheck:
 					ui_current->pid = -1;
 					ui_current->status = 0;
 					ui_current->cursed_at = 0;
+					ui_current->ready = 0;
+					ui_current->accepting = 0;
                 			uwsgi_log("[uwsgi-emperor] %s -> back to \"on demand\" mode, waiting for connections on socket \"%s\" ...\n", ui_current->name, ui_current->socket_name);
 					break;
 				}
