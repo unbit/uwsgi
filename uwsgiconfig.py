@@ -1058,7 +1058,7 @@ class uConf(object):
 
         self.embed_config = None
 
-        if uwsgi_os in ('Linux','FreeBSD'):
+        if uwsgi_os in ('Linux','FreeBSD','OpenBSD'):
             self.embed_config = os.environ.get('UWSGI_EMBED_CONFIG')
             if not self.embed_config:
                 self.embed_config = self.get('embed_config')
