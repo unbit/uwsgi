@@ -3,6 +3,14 @@
 
 extern struct uwsgi_server uwsgi;
 
+struct uwsgi_alarm_curl {
+	int	pos;
+	int	blen;
+	char	*body;
+	int	hlen;
+	char	hdr[];
+};
+
 struct uwsgi_alarm_curl_config {
 	char *url;
 	char *arg;
@@ -96,63 +104,77 @@ static void uwsgi_alarm_curl_setopt(CURL *curl, char *opt, struct uwsgi_alarm_cu
 			else {
 				curl_easy_setopt(curl, o->option, equal+1);
 			}
-			goto end;
+			break;
 		}
 		o++;
 	}
-end:
-	*equal = '=';
 }
 
 static size_t uwsgi_alarm_curl_read_callback(void *ptr, size_t size, size_t nmemb, void *userp) {
-	struct uwsgi_thread *ut = (struct uwsgi_thread *) userp;
+	struct uwsgi_alarm_curl *uac = userp;
 	size_t full_size = size * nmemb;
-	size_t remains = ut->len - ut->pos;
-	struct uwsgi_alarm_curl_config *uacc = ut->data;
+	int remains = full_size;
 
-	if (remains == 0) return 0;
-
-	if (ut->custom0 == 0) {
-		size_t newline = 0;
-		size_t required = 2;
-		char *addr = ptr;
-		if (uacc->to) required += 4 + strlen(uacc->to) + 2;
-		if (uacc->subject) required += 9 + strlen(uacc->subject) + 2;
-		if (required > full_size) goto skip;
-
-
-		if (uacc->to) {
-			memcpy(addr, "To: ", 4); addr+=4;
-			memcpy(addr, uacc->to, strlen(uacc->to)); addr += strlen(uacc->to);
-			*addr++ = '\r';
-			*addr ++= '\n';
-			newline = 1;
+	if (uac->pos < uac->hlen) {
+		if (remains > uac->hlen - uac->pos) {
+			memcpy(ptr, uac->hdr + uac->pos, uac->hlen - uac->pos);
+			ptr += uac->hlen - uac->pos;
+			remains -= uac->hlen - uac->pos;
+			uac->pos = uac->hlen;
+		} else {
+			memcpy(ptr, uac->hdr + uac->pos, remains);
+			uac->pos += remains;
+			return full_size;
 		}
-
-		if (uacc->subject) {
-			memcpy(addr, "Subject: ", 9); addr+=9;
-			memcpy(addr, uacc->subject, strlen(uacc->subject)); addr += strlen(uacc->subject);
-			*addr++ = '\r';
-			*addr ++= '\n';
-			newline = 1;
-		}
-skip:
-		if (newline > 0) {
-			*addr++ = '\r';
-			*addr = '\n';
-		}
-		ut->custom0 = 1;
-		return required;
 	}
 
-	if (full_size < remains) {
-		remains = full_size;
+	if (remains > uac->blen + uac->hlen - uac->pos) {
+		memcpy(ptr, uac->body + uac->pos - uac->hlen, uac->blen + uac->hlen - uac->pos);
+		remains -= uac->blen + uac->hlen - uac->pos;
+		uac->pos = uac->blen + uac->hlen;
+		return full_size - remains;
 	}
 
-	memcpy(ptr, ut->buf + ut->pos, remains);
-	ut->pos += remains;
+	memcpy(ptr, uac->body + uac->pos - uac->hlen, remains);
+	uac->pos += remains;
+	return full_size;
+}
 
-	return remains;	
+static struct uwsgi_alarm_curl *uwsgi_alarm_curl_alloc(struct uwsgi_alarm_curl_config *uacc)
+{
+	char *addr;
+	struct uwsgi_alarm_curl *uac;
+	size_t required = 0;
+
+	if (uacc->to) required += 4 + strlen(uacc->to) + 2;
+	if (uacc->subject) required += 9 + strlen(uacc->subject) + 2;
+	if (required)
+		required += 2;	/* newline between MIME header and body */
+
+	uac = uwsgi_malloc(sizeof(*uac) + required);
+	uac->hlen = required;
+	addr = uac->hdr;
+
+	if (uacc->to) {
+		memcpy(addr, "To: ", 4); addr += 4;
+		memcpy(addr, uacc->to, strlen(uacc->to)); addr += strlen(uacc->to);
+		*addr++ = '\r';
+		*addr++ = '\n';
+	}
+
+	if (uacc->subject) {
+		memcpy(addr, "Subject: ", 9); addr += 9;
+		memcpy(addr, uacc->subject, strlen(uacc->subject)); addr += strlen(uacc->subject);
+		*addr++ = '\r';
+		*addr++ = '\n';
+	}
+
+	if (required) {
+		*addr++ = '\r';
+		*addr = '\n';
+	}
+
+	return uac;
 }
 
 static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
@@ -166,7 +188,6 @@ static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, uwsgi.socket_timeout);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, uwsgi.socket_timeout);
 	curl_easy_setopt(curl, CURLOPT_READFUNCTION, uwsgi_alarm_curl_read_callback);
-	curl_easy_setopt(curl, CURLOPT_READDATA, ut);
 	curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
 	curl_easy_setopt(curl, CURLOPT_POST, 1L);
 	struct curl_slist *expect = NULL; expect = curl_slist_append(expect, "Expect:");
@@ -180,7 +201,7 @@ static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 	char *ctx = NULL;
 	char *p = strtok_r(opts, ";", &ctx);
 	while(p) {
-		uwsgi_alarm_curl_setopt(curl, uwsgi_str(p), uacc);
+		uwsgi_alarm_curl_setopt(curl, p, uacc);
 		p = strtok_r(NULL, ";", &ctx);
 	}
 
@@ -189,6 +210,8 @@ static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 		exit(1);
 	}
 
+	struct uwsgi_alarm_curl *uac = uwsgi_alarm_curl_alloc(uacc);
+	curl_easy_setopt(curl, CURLOPT_READDATA, uac);
 	free(opts);
 
 	for(;;) {
@@ -198,10 +221,10 @@ static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 		if (interesting_fd != ut->pipe[1]) continue;
 		ssize_t rlen = read(ut->pipe[1], ut->buf, uwsgi.log_master_bufsize);
 		if (rlen <= 0) continue;
-		ut->pos = 0;
-		ut->len = (size_t) rlen;
-		ut->custom0 = 0;
-		curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, (curl_off_t) ut->len);
+		uac->pos = 0;
+		uac->blen = (size_t) rlen;
+		uac->body = ut->buf;
+		curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, (curl_off_t)(uac->hlen + uac->blen));
 		CURLcode res = curl_easy_perform(curl);
 		if (res != CURLE_OK) {
 			uwsgi_log_alarm("-curl] curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
