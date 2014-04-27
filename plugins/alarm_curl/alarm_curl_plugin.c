@@ -4,7 +4,7 @@
 extern struct uwsgi_server uwsgi;
 
 struct uwsgi_alarm_curl_config {
-	int first;
+	char *url;
 	char *arg;
 	char *subject;
 	char *to;
@@ -44,8 +44,20 @@ static void uwsgi_alarm_curl_set_subject(CURL *curl, CURLoption option, char *ar
 	uacc->subject = arg;	
 }
 
+static void uwsgi_alarm_curl_url(CURL *curl, CURLoption option, char *arg, struct uwsgi_alarm_curl_config *uacc)
+{
+#ifndef CURLPROTO_SMTP
+	if (!uwsgi_strnicmp(arg, 4, "smtp", 4)) {
+		uwsgi_error("Please update libcurl to use SMTP protocol.\n");
+		exit(1);
+	}
+#endif
+	uacc->url = arg;
+	curl_easy_setopt(curl, option, arg);
+}
+
 static struct uwsgi_alarm_curl_opt uaco[] = {
-	{"url", CURLOPT_URL, NULL},
+	{"url", CURLOPT_URL, uwsgi_alarm_curl_url},
 #ifdef CURLPROTO_SMTP
 	{"mail_to", CURLOPT_MAIL_RCPT, uwsgi_alarm_curl_to},
 	{"mail_from", CURLOPT_MAIL_FROM, NULL},
@@ -63,14 +75,10 @@ static struct uwsgi_alarm_curl_opt uaco[] = {
 static void uwsgi_alarm_curl_setopt(CURL *curl, char *opt, struct uwsgi_alarm_curl_config *uacc) {
 	struct uwsgi_alarm_curl_opt *o = uaco;
 	char *equal = strchr(opt,'=');
-	if (!equal) {
-		if (!uacc->first) {
-			curl_easy_setopt(curl, CURLOPT_URL, opt);
-			uacc->first = 1;
-		}
+	if (!equal && !uacc->url) {
+		uwsgi_alarm_curl_url(curl, CURLOPT_URL, opt, uacc);
 		return;
 	}
-	uacc->first = 1;
 	*equal = 0;
 	while(o->name) {
 		if (!strcmp(o->name, opt)) {
@@ -163,6 +171,11 @@ static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 	while(p) {
 		uwsgi_alarm_curl_setopt(curl, uwsgi_str(p), uacc);
 		p = strtok_r(NULL, ";", &ctx);
+	}
+
+	if (!uacc->url) {
+		uwsgi_error("An URL is required to trigger curl-based alarm.\n");
+		exit(1);
 	}
 
 	for(;;) {
