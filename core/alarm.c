@@ -363,6 +363,19 @@ void uwsgi_alarm_thread_start() {
 	}
 }
 
+void uwsgi_alarm_trigger_uai(struct uwsgi_alarm_instance *uai, char *msg, size_t len) {
+	struct iovec iov[2];
+	iov[0].iov_base = &uai;
+	iov[0].iov_len = sizeof(long);
+	iov[1].iov_base = msg;
+	iov[1].iov_len = len;
+
+	// now send the message to the alarm thread
+	if (writev(uwsgi.alarm_thread->pipe[0], iov, 2) != (ssize_t) (len+sizeof(long))) {
+		uwsgi_error("[uwsgi-alarm-error] uwsgi_alarm_trigger()/writev()");
+	}
+}
+
 #ifdef UWSGI_PCRE
 // check if a log should raise an alarm
 void uwsgi_alarm_log_check(char *msg, size_t len) {
@@ -372,7 +385,14 @@ void uwsgi_alarm_log_check(char *msg, size_t len) {
 	while (ual) {
 		if (uwsgi_regexp_match(ual->pattern, ual->pattern_extra, msg, len) >= 0) {
 			if (!ual->negate) {
-				uwsgi_alarm_log_run(ual, msg, len);
+				struct uwsgi_alarm_ll *uall = ual->alarms;
+				while (uall) {
+					if (uwsgi.alarm_cheap)
+						uwsgi_alarm_trigger_uai(uall->alarm, msg, len);
+					else
+						uwsgi_alarm_run(uall->alarm, msg, len);
+					uall = uall->next;
+				}
 			}
 			else {
 				break;
@@ -397,18 +417,6 @@ void uwsgi_alarm_run(struct uwsgi_alarm_instance *uai, char *msg, size_t len) {
 	uai->last_msg_size = len;
 }
 
-#ifdef UWSGI_PCRE
-// call the alarms mapped to a log line
-void uwsgi_alarm_log_run(struct uwsgi_alarm_log *ual, char *msg, size_t len) {
-	struct uwsgi_alarm_ll *uall = ual->alarms;
-	while (uall) {
-		uwsgi_alarm_run(uall->alarm, msg, len);
-		uall = uall->next;
-	}
-}
-#endif
-
-
 // this is the api function workers,mules and whatever you want can call from code
 void uwsgi_alarm_trigger(char *alarm_instance_name, char *msg, size_t len) {
 	if (!uwsgi.alarm_thread) return;
@@ -416,16 +424,7 @@ void uwsgi_alarm_trigger(char *alarm_instance_name, char *msg, size_t len) {
 	struct uwsgi_alarm_instance *uai = uwsgi_alarm_get_instance(alarm_instance_name);
 	if (!uai) return;
 
-	struct iovec iov[2];
-	iov[0].iov_base = &uai;
-	iov[0].iov_len = sizeof(long);
-	iov[1].iov_base = msg;
-	iov[1].iov_len = len;
-
-	// now send the message to the alarm thread
-	if (writev(uwsgi.alarm_thread->pipe[0], iov, 2) != (ssize_t) (len+sizeof(long))) {
-		uwsgi_error("[uwsgi-alarm-error] uwsgi_alarm_trigger()/writev()");
-	}
+	uwsgi_alarm_trigger_uai(uai, msg, len);
 }
 
 struct uwsgi_alarm_fd *uwsgi_add_alarm_fd(int fd, char *alarm, size_t buf_len, char *msg, size_t msg_len) {

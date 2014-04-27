@@ -2708,6 +2708,7 @@ struct uwsgi_server {
 	char *subscription_notify_socket;
 
 	int mule_reload_mercy;
+	int alarm_cheap;
 };
 
 struct uwsgi_rpc {
@@ -4149,7 +4150,6 @@ char *uwsgi_elf_section(char *, char *, size_t *);
 
 void uwsgi_alarm_log_check(char *, size_t);
 void uwsgi_alarm_run(struct uwsgi_alarm_instance *, char *, size_t);
-void uwsgi_alarm_log_run(struct uwsgi_alarm_log *, char *, size_t);
 void uwsgi_register_alarm(char *, void (*)(struct uwsgi_alarm_instance *), void (*)(struct uwsgi_alarm_instance *, char *, size_t));
 void uwsgi_register_embedded_alarms();
 void uwsgi_alarms_init();
