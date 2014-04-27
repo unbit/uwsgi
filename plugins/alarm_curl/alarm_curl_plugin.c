@@ -234,12 +234,11 @@ static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 }
 
 static void uwsgi_alarm_curl_init(struct uwsgi_alarm_instance *uai) {
-	struct uwsgi_thread *ut = uwsgi_thread_new(uwsgi_alarm_curl_loop);
-	if (!ut) return;
-	uai->data_ptr = ut;
 	struct uwsgi_alarm_curl_config *uacc = uwsgi_calloc(sizeof(struct uwsgi_alarm_curl_config));
 	uacc->arg = uai->arg;
-	ut->data = uacc;
+	struct uwsgi_thread *ut = uwsgi_thread_new_with_data(uwsgi_alarm_curl_loop, uacc);
+	if (!ut) return;
+	uai->data_ptr = ut;
 }
 
 // pipe the message into the thread;

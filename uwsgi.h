@@ -4175,6 +4175,7 @@ struct uwsgi_thread {
 	void (*func) (struct uwsgi_thread *);
 };
 struct uwsgi_thread *uwsgi_thread_new(void (*)(struct uwsgi_thread *));
+struct uwsgi_thread *uwsgi_thread_new_with_data(void (*)(struct uwsgi_thread *), void *data);
 
 struct uwsgi_offload_request {
 	// the request socket

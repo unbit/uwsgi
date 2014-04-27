@@ -271,12 +271,11 @@ static void uwsgi_airbrake_loop(struct uwsgi_thread *ut) {
 }
 
 static void uwsgi_airbrake_init(struct uwsgi_alarm_instance *uai) {
-	struct uwsgi_thread *ut = uwsgi_thread_new(uwsgi_airbrake_loop);
-	if (!ut) return;
-	uai->data_ptr = ut;
 	struct uwsgi_airbrake_config *uacc = uwsgi_calloc(sizeof(struct uwsgi_airbrake_config));
 	uacc->arg = uai->arg;
-	ut->data = uacc;
+	struct uwsgi_thread *ut = uwsgi_thread_new_with_data(uwsgi_airbrake_loop, uacc);
+	if (!ut) return;
+	uai->data_ptr = ut;
 }
 
 static void uwsgi_airbrake_func(struct uwsgi_alarm_instance *uai, char *msg, size_t len) {
