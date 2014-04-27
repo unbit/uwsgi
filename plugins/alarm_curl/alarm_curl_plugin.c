@@ -107,16 +107,17 @@ static size_t uwsgi_alarm_curl_read_callback(void *ptr, size_t size, size_t nmem
 
 	if (ut->custom0 == 0) {
 		size_t newline = 0;
-		size_t required = 1;
+		size_t required = 2;
 		char *addr = ptr;
-		if (uacc->to) required += 4 + strlen(uacc->to) + 1;
-		if (uacc->subject) required += 9 + strlen(uacc->subject) + 1;
+		if (uacc->to) required += 4 + strlen(uacc->to) + 2;
+		if (uacc->subject) required += 9 + strlen(uacc->subject) + 2;
 		if (required > full_size) goto skip;
 
 
 		if (uacc->to) {
 			memcpy(addr, "To: ", 4); addr+=4;
 			memcpy(addr, uacc->to, strlen(uacc->to)); addr += strlen(uacc->to);
+			*addr++ = '\r';
 			*addr ++= '\n';
 			newline = 1;
 		}
@@ -124,11 +125,13 @@ static size_t uwsgi_alarm_curl_read_callback(void *ptr, size_t size, size_t nmem
 		if (uacc->subject) {
 			memcpy(addr, "Subject: ", 9); addr+=9;
 			memcpy(addr, uacc->subject, strlen(uacc->subject)); addr += strlen(uacc->subject);
+			*addr++ = '\r';
 			*addr ++= '\n';
 			newline = 1;
 		}
 skip:
 		if (newline > 0) {
+			*addr++ = '\r';
 			*addr = '\n';
 		}
 		ut->custom0 = 1;
