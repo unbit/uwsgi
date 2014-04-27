@@ -57,6 +57,12 @@ static void uwsgi_alarm_curl_url(CURL *curl, CURLoption option, char *arg, struc
 	curl_easy_setopt(curl, option, arg);
 }
 
+static void uwsgi_alarm_curl_ssl_insecure(CURL *curl, CURLoption option, char *arg, struct uwsgi_alarm_curl_config *uacc)
+{
+	curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+	curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+}
+
 static struct uwsgi_alarm_curl_opt uaco[] = {
 	{"url", CURLOPT_URL, uwsgi_alarm_curl_url},
 #ifdef CURLPROTO_SMTP
@@ -65,6 +71,7 @@ static struct uwsgi_alarm_curl_opt uaco[] = {
 #endif
 	{"subject", 0, uwsgi_alarm_curl_set_subject},
 	{"ssl", CURLOPT_USE_SSL, uwsgi_alarm_curl_ssl},
+	{"ssl_insecure", 0, uwsgi_alarm_curl_ssl_insecure},
 	{"auth_user", CURLOPT_USERNAME, NULL},
 	{"auth_pass", CURLOPT_PASSWORD, NULL},
 	{"method", CURLOPT_CUSTOMREQUEST, NULL},
