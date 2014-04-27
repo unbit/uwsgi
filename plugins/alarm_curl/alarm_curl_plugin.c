@@ -29,6 +29,7 @@ static void uwsgi_alarm_curl_to(CURL *curl, CURLoption option, char *arg, struct
 		p = strtok_r(NULL, ",", &ctx);
 	}
 	curl_easy_setopt(curl, option, list);
+	free(items);
 }
 #endif
 
@@ -177,6 +178,8 @@ static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 		uwsgi_error("An URL is required to trigger curl-based alarm.\n");
 		exit(1);
 	}
+
+	free(opts);
 
 	for(;;) {
 		int ret = event_queue_wait(ut->queue, -1, &interesting_fd);	
