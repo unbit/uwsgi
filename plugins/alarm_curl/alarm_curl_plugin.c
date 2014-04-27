@@ -4,6 +4,8 @@
 extern struct uwsgi_server uwsgi;
 
 struct uwsgi_alarm_curl {
+	CURL	*curl;
+	struct uwsgi_thread *ut;
 	int	pos;
 	int	blen;
 	char	*body;
@@ -13,7 +15,6 @@ struct uwsgi_alarm_curl {
 
 struct uwsgi_alarm_curl_config {
 	char *url;
-	char *arg;
 	char *subject;
 	char *to;
 };
@@ -177,13 +178,12 @@ static struct uwsgi_alarm_curl *uwsgi_alarm_curl_alloc(struct uwsgi_alarm_curl_c
 	return uac;
 }
 
-static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
-	int interesting_fd;
-	ut->buf = uwsgi_malloc(uwsgi.log_master_bufsize);
-
+static struct uwsgi_alarm_curl *uwsgi_alarm_curl_init_curl(struct uwsgi_alarm_instance *uai) {
 	CURL *curl = curl_easy_init();
-	// ARGH !!!
-	if (!curl) return;
+	if (!curl) {
+		uwsgi_error("Failed to initialize libcurl.\n");
+		exit(1);
+	}
 
 	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, uwsgi.socket_timeout);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, uwsgi.socket_timeout);
@@ -194,26 +194,48 @@ static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, expect);
 	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 
-	struct uwsgi_alarm_curl_config *uacc = (struct uwsgi_alarm_curl_config *) ut->data;
-	char *opts = uwsgi_str(uacc->arg);
+	struct uwsgi_alarm_curl_config uacc;
+	memset(&uacc, 0, sizeof(uacc));
+	char *opts = uwsgi_str(uai->arg);
 
 	// fill curl options
 	char *ctx = NULL;
 	char *p = strtok_r(opts, ";", &ctx);
 	while(p) {
-		uwsgi_alarm_curl_setopt(curl, p, uacc);
+		uwsgi_alarm_curl_setopt(curl, p, &uacc);
 		p = strtok_r(NULL, ";", &ctx);
 	}
 
-	if (!uacc->url) {
+	if (!uacc.url) {
 		uwsgi_error("An URL is required to trigger curl-based alarm.\n");
 		exit(1);
 	}
 
-	struct uwsgi_alarm_curl *uac = uwsgi_alarm_curl_alloc(uacc);
+	struct uwsgi_alarm_curl *uac = uwsgi_alarm_curl_alloc(&uacc);
 	curl_easy_setopt(curl, CURLOPT_READDATA, uac);
 	free(opts);
+	uac->curl = curl;
+	uai->data_ptr = uac;
 
+	return uac;
+}
+
+static void uwsgi_alarm_curl_call_curl(struct uwsgi_alarm_curl *uac, char *msg, int len)
+{
+	uac->pos = 0;
+	uac->body = msg;
+	uac->blen = len;
+	curl_easy_setopt(uac->curl, CURLOPT_INFILESIZE, uac->hlen + uac->blen);
+	CURLcode res = curl_easy_perform(uac->curl);
+	if (res != CURLE_OK)
+		uwsgi_log_alarm("-curl] curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+}
+
+static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
+	int interesting_fd;
+	struct uwsgi_alarm_curl *uac = uwsgi_alarm_curl_init_curl(ut->data);
+	uac->ut = ut;
+	ut->buf = uwsgi_malloc(uwsgi.log_master_bufsize);
 	for(;;) {
 		int ret = event_queue_wait(ut->queue, -1, &interesting_fd);	
 		if (ret < 0) return;
@@ -221,29 +243,18 @@ static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 		if (interesting_fd != ut->pipe[1]) continue;
 		ssize_t rlen = read(ut->pipe[1], ut->buf, uwsgi.log_master_bufsize);
 		if (rlen <= 0) continue;
-		uac->pos = 0;
-		uac->blen = (size_t) rlen;
-		uac->body = ut->buf;
-		curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, (curl_off_t)(uac->hlen + uac->blen));
-		CURLcode res = curl_easy_perform(curl);
-		if (res != CURLE_OK) {
-			uwsgi_log_alarm("-curl] curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-		}
-		
+		uwsgi_alarm_curl_call_curl(uac, ut->buf, rlen);
 	}
 }
 
 static void uwsgi_alarm_curl_init(struct uwsgi_alarm_instance *uai) {
-	struct uwsgi_alarm_curl_config *uacc = uwsgi_calloc(sizeof(struct uwsgi_alarm_curl_config));
-	uacc->arg = uai->arg;
-	struct uwsgi_thread *ut = uwsgi_thread_new_with_data(uwsgi_alarm_curl_loop, uacc);
-	if (!ut) return;
-	uai->data_ptr = ut;
+	uwsgi_thread_new_with_data(uwsgi_alarm_curl_loop, uai);
 }
 
 // pipe the message into the thread;
 static void uwsgi_alarm_curl_func(struct uwsgi_alarm_instance *uai, char *msg, size_t len) {
-	struct uwsgi_thread *ut = (struct uwsgi_thread *) uai->data_ptr;
+	struct uwsgi_alarm_curl *uac = uai->data_ptr;
+	struct uwsgi_thread *ut = uac->ut;
 	ut->rlen = write(ut->pipe[0], msg, len);
 }
 
