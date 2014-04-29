@@ -229,7 +229,7 @@ int uwsgi_sharedarea_wait(int id, int freq, int timeout) {
 	uwsgi_rlock(sa->lock);
 	uint64_t updates = sa->updates;
 	uwsgi_rwunlock(sa->lock);
-	while(timeout == 0 || (timeout > 0 && (waiting/1000) >= timeout)) {
+	while(timeout == 0 || waiting == 0 || (timeout > 0 && waiting > 0 && (waiting/1000) < timeout)) {
 		if (uwsgi.wait_milliseconds_hook(freq)) {
 			uwsgi_rwunlock(sa->lock);
 			return -1;

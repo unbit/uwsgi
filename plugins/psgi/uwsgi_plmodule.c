@@ -768,6 +768,9 @@ XS(XS_sharedarea_wait) {
 	id = SvIV(ST(0));
 	if (items > 1) {
 		freq = SvIV(ST(1));
+		if (items > 2) {
+			timeout = SvIV(ST(2));
+		}
 	}
 
 	if (uwsgi_sharedarea_wait(id, freq, timeout)) {
