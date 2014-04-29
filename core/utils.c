@@ -3752,7 +3752,7 @@ static void *uwsgi_thread_run(void *arg) {
 	return NULL;
 }
 
-struct uwsgi_thread *uwsgi_thread_new(void (*func) (struct uwsgi_thread *)) {
+struct uwsgi_thread *uwsgi_thread_new_with_data(void (*func) (struct uwsgi_thread *), void *data) {
 
 	struct uwsgi_thread *ut = uwsgi_calloc(sizeof(struct uwsgi_thread));
 
@@ -3769,6 +3769,7 @@ struct uwsgi_thread *uwsgi_thread_new(void (*func) (struct uwsgi_thread *)) {
 	uwsgi_socket_nb(ut->pipe[1]);
 
 	ut->func = func;
+	ut->data = data;
 
 	pthread_attr_init(&ut->tattr);
 	pthread_attr_setdetachstate(&ut->tattr, PTHREAD_CREATE_DETACHED);
@@ -3786,6 +3787,10 @@ error:
 	close(ut->pipe[1]);
 	free(ut);
 	return NULL;
+}
+
+struct uwsgi_thread *uwsgi_thread_new(void (*func) (struct uwsgi_thread *)) {
+	return uwsgi_thread_new_with_data(func, NULL);
 }
 
 int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, char kv_separator, ...) {
