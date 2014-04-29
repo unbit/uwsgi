@@ -110,6 +110,9 @@ parse:
 			if (fcgi_type == 5) {
 				wsgi_req->uh->modifier1 = uwsgi.fastcgi_modifier1;
 				wsgi_req->uh->modifier2 = uwsgi.fastcgi_modifier2;
+				if (fcgi_len == 0) {
+					wsgi_req->fastcgi_eof_read = 1;
+				}
 				return UWSGI_OK;
 			}
 			// if we have a full packet, parse it and reset the memory
@@ -181,6 +184,9 @@ ssize_t uwsgi_proto_fastcgi_read_body(struct wsgi_request *wsgi_req, char *buf, 
                                 if (fcgi_type == 5) {
 					// copy data to the buf
 					size_t remains = UMIN(fcgi_len, len);
+					if (fcgi_len == 0) {
+						wsgi_req->fastcgi_eof_read = 1;
+					}
 					memcpy(buf, wsgi_req->proto_parser_buf + sizeof(struct fcgi_record), remains);
 					// copy remaining
 					wsgi_req->proto_parser_remains = fcgi_len - remains;
@@ -279,6 +285,34 @@ void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
 	end_request[10] = sid[1];
 	end_request[11] = sid[0];
 	(void) uwsgi_write_true_nb(wsgi_req->fd, end_request, 24, uwsgi.socket_timeout);
+	if (!wsgi_req->fastcgi_eof_read) {
+		/* Check if already read but not noticed */
+		while (wsgi_req->proto_parser_pos >= sizeof(struct fcgi_record)) {
+			struct fcgi_record *fr = (struct fcgi_record *) wsgi_req->proto_parser_buf;
+			uint16_t fcgi_len = uwsgi_be16((char *)&fr->cl1);
+			uint32_t fcgi_all_len = sizeof(struct fcgi_record) + fcgi_len + fr->pad;
+			uint8_t fcgi_type = fr->type;
+
+			if (fr->version != 1 || fr->req1 != sid[1] || fr->req0 != sid[0]) {
+				/* just crap, presumably after some earlier error; don't look for EOF */
+				wsgi_req->fastcgi_eof_read = 1;
+				break;
+			}
+			if (fcgi_type == 5 && fcgi_len == 0) {
+				wsgi_req->fastcgi_eof_read = 1;
+				break;
+			}
+			if (wsgi_req->proto_parser_pos < fcgi_all_len) {
+				break;
+			}
+			memmove(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_buf + fcgi_all_len, wsgi_req->proto_parser_pos - fcgi_all_len);
+			wsgi_req->proto_parser_pos -= fcgi_all_len;
+		}
+		if (!wsgi_req->fastcgi_eof_read) {
+			/* one last read with minimum timeout, don't care what we got */
+			uwsgi_read_true_nb(wsgi_req->fd, end_request, sizeof(end_request), 1);
+		}
+	}
 	uwsgi_proto_base_close(wsgi_req);
 }
 

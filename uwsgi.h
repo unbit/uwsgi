@@ -1566,6 +1566,8 @@ struct wsgi_request {
 #ifdef UWSGI_SSL
 	SSL *ssl;
 #endif
+
+	int fastcgi_eof_read;
 };
 
 
