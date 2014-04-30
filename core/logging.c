@@ -1845,7 +1845,7 @@ static char *uwsgi_log_encoder_json(struct uwsgi_log_encoder *ule, char *msg, si
                         if (!uwsgi_strncmp(usl->value, usl->len, "msg", 3)) {
 				size_t msg_len = len;
                                 if (msg[len-1] == '\n') msg_len--;
-				char *e_json = uwsgi_malloc(msg_len * 2);
+				char *e_json = uwsgi_malloc((msg_len * 2)+1);
 				escape_json(msg, msg_len, e_json);
 				if (uwsgi_buffer_append(ub, e_json, strlen(e_json))){
                                 	free(e_json);
@@ -1854,7 +1854,7 @@ static char *uwsgi_log_encoder_json(struct uwsgi_log_encoder *ule, char *msg, si
                                 free(e_json);
                         }
                         else if (!uwsgi_strncmp(usl->value, usl->len, "msgnl", 5)) {
-				char *e_json = uwsgi_malloc(len * 2);
+				char *e_json = uwsgi_malloc((len * 2)+1);
                                 escape_json(msg, len, e_json);
                                 if (uwsgi_buffer_append(ub, e_json, strlen(e_json))){
                                         free(e_json);
@@ -1875,7 +1875,7 @@ static char *uwsgi_log_encoder_json(struct uwsgi_log_encoder *ule, char *msg, si
                                 int strftime_len = strftime(sftime, 64, buf, localtime(&now));
                                 free(buf);
                                 if (strftime_len > 0) {
-					char *e_json = uwsgi_malloc(strftime_len * 2);
+					char *e_json = uwsgi_malloc((strftime_len * 2)+1);
 					escape_json(sftime, strftime_len, e_json);
                                         if (uwsgi_buffer_append(ub, e_json, strlen(e_json))){
 						free(e_json);
