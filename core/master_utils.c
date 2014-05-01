@@ -796,7 +796,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 
 			// allocate 2x the size of original command
 			// in case we need to escape all chars
-			char *cmd = uwsgi_malloc(strlen(ud->command)*2);
+			char *cmd = uwsgi_malloc((strlen(ud->command)*2)+1);
 			escape_json(ud->command, strlen(ud->command), cmd);
 			if (uwsgi_stats_keyval_comma(us, "cmd", cmd)) {
 				free(cmd);
@@ -1284,7 +1284,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_keyslong_comma(us, "week", (long long) ucron->week))
 				goto end;
 
-			char *cmd = uwsgi_malloc(strlen(ucron->command)*2);
+			char *cmd = uwsgi_malloc((strlen(ucron->command)*2)+1);
 			escape_json(ucron->command, strlen(ucron->command), cmd);
 			if (uwsgi_stats_keyval_comma(us, "command", cmd)) {
 				free(cmd);

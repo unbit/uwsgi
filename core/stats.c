@@ -551,25 +551,16 @@ struct uwsgi_stats_pusher *uwsgi_register_stats_pusher(char *name, void (*func) 
 static void stats_dump_var(char *k, uint16_t kl, char *v, uint16_t vl, void *data) {
 	struct uwsgi_stats *us = (struct uwsgi_stats *) data;
 	if (us->dirty) return;
-	uint16_t i;
-	// replace " with '
-	for(i=0;i<kl;i++) {
-		if (k[i] == '"') {
-			k[i] = '\'';
-		}
-	}
-	for(i=0;i<vl;i++) {
-		if (v[i] == '"') {
-			v[i] = '\'';
-		}
-	}
 	char *var = uwsgi_concat3n(k, kl, "=", 1, v,vl);
-	if (uwsgi_stats_str(us, var)) {
+	char *escaped_var = uwsgi_malloc(((kl+vl+1)*2)+1);
+	escape_json(var, strlen(var), escaped_var);
+	free(var);
+	if (uwsgi_stats_str(us, escaped_var)) {
 		us->dirty = 1;
-		free(var);
+		free(escaped_var);
 		return;
 	}
-	free(var);
+	free(escaped_var);
 	if (uwsgi_stats_comma(us)) {
 		us->dirty = 1;
 	}	

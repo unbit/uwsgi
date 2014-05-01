@@ -3155,6 +3155,10 @@ void escape_json(char *src, size_t len, char *dst) {
 			*ptr++ = '\\';
 			*ptr++ = '"';
 		}
+		else if (src[i] == '\\') {
+			*ptr++ = '\\';
+			*ptr++ = '\\';
+		}
 		else {
 			*ptr++ = src[i];
 		}
