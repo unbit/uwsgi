@@ -583,6 +583,44 @@ static int uwsgi_router_break(struct uwsgi_route *ur, char *arg) {
 	return 0;
 }
 
+static int uwsgi_router_return_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route)
+{
+	char *buf;
+	struct http_status_codes *code;
+
+	if (route->data_len < sizeof(code->key))
+		return UWSGI_ROUTE_BREAK;
+
+	for (code = hsc; code->message != NULL; code++) {
+		if (!memcmp(code->key, route->data, sizeof(code->key)))
+			goto found;
+	}
+
+	return UWSGI_ROUTE_BREAK;
+
+found:
+	buf = uwsgi_concat3n((char *)code->key, sizeof(code->key), " ", 1, (char *)code->message, code->message_size);
+	if (uwsgi_response_prepare_headers(wsgi_req, buf, sizeof(code->key) + 1 + code->message_size))
+		goto end;
+	if (uwsgi_response_add_content_type(wsgi_req, "text/plain", 10))
+		goto end;
+	if (uwsgi_response_add_content_length(wsgi_req, code->message_size))
+		goto end;
+	uwsgi_response_write_body_do(wsgi_req, (char *)code->message, code->message_size);
+
+end:
+	free(buf);
+	return UWSGI_ROUTE_BREAK;
+}
+
+static int uwsgi_router_return(struct uwsgi_route *ur, char *arg)
+{
+	ur->func = uwsgi_router_return_func;
+	ur->data = arg;
+	ur->data_len = strlen(arg);
+	return 0;
+}
+
 // simple math router
 static int uwsgi_router_simple_math_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
@@ -1761,6 +1799,8 @@ void uwsgi_register_embedded_routers() {
 	uwsgi_register_router("continue", uwsgi_router_continue);
         uwsgi_register_router("last", uwsgi_router_continue);
         uwsgi_register_router("break", uwsgi_router_break);
+	uwsgi_register_router("return", uwsgi_router_return);
+	uwsgi_register_router("break-with-status", uwsgi_router_return);
         uwsgi_register_router("log", uwsgi_router_log);
         uwsgi_register_router("donotlog", uwsgi_router_donotlog);
         uwsgi_register_router("logvar", uwsgi_router_logvar);
