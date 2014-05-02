@@ -4761,14 +4761,6 @@ mode_t uwsgi_mode_t(char *, int *);
 int uwsgi_notify_socket_manage(int);
 int uwsgi_notify_msg(char *, char *, size_t);
 
-struct http_status_codes {
-	const char	key[3];
-	const char	*message;
-	int		message_size;
-};
-
-extern struct http_status_codes hsc[];
-
 #ifdef __cplusplus
 }
 #endif

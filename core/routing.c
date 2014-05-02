@@ -585,28 +585,23 @@ static int uwsgi_router_break(struct uwsgi_route *ur, char *arg) {
 
 static int uwsgi_router_return_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route)
 {
-	char *buf;
-	struct http_status_codes *code;
 
-	if (route->data_len < sizeof(code->key))
+	if (route->data_len < 3)
+		return UWSGI_ROUTE_BREAK;
+	uint16_t status_msg_len = 0;
+	const char *status_msg = uwsgi_http_status_msg(route->data, &status_msg_len);
+
+	if (!status_msg)
 		return UWSGI_ROUTE_BREAK;
 
-	for (code = hsc; code->message != NULL; code++) {
-		if (!memcmp(code->key, route->data, sizeof(code->key)))
-			goto found;
-	}
-
-	return UWSGI_ROUTE_BREAK;
-
-found:
-	buf = uwsgi_concat3n((char *)code->key, sizeof(code->key), " ", 1, (char *)code->message, code->message_size);
-	if (uwsgi_response_prepare_headers(wsgi_req, buf, sizeof(code->key) + 1 + code->message_size))
+	char *buf = uwsgi_concat3n(route->data, route->data_len, " ", 1, (char *) status_msg, status_msg_len);
+	if (uwsgi_response_prepare_headers(wsgi_req, buf, route->data_len + 1 + status_msg_len))
 		goto end;
 	if (uwsgi_response_add_content_type(wsgi_req, "text/plain", 10))
 		goto end;
-	if (uwsgi_response_add_content_length(wsgi_req, code->message_size))
+	if (uwsgi_response_add_content_length(wsgi_req, status_msg_len))
 		goto end;
-	uwsgi_response_write_body_do(wsgi_req, (char *)code->message, code->message_size);
+	uwsgi_response_write_body_do(wsgi_req, (char *) status_msg, status_msg_len);
 
 end:
 	free(buf);

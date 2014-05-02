@@ -2,6 +2,12 @@
 
 extern struct uwsgi_server uwsgi;
 
+struct http_status_codes {
+        const char      key[3];
+        const char      *message;
+        int             message_size;
+};
+
 /* statistically ordered */
 struct http_status_codes hsc[] = {
         {"200", "OK"},
