@@ -280,6 +280,31 @@ void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
 	end_request[10] = sid[1];
 	end_request[11] = sid[0];
 	(void) uwsgi_write_true_nb(wsgi_req->fd, end_request, 24, uwsgi.socket_timeout);
+
+        if (wsgi_req->socket->family == AF_INET || wsgi_req->socket->family == AF_INET6) {
+            shutdown(wsgi_req->socket->fd, 1); /* for write */
+
+            /* uWSGI really should do this asynchronously -- eat up anything the client sends
+             * (within a reasonable limit, for up to a reasonable period of time) until
+             * getting FIN from client, then close; otherwise the thread is hung up too
+             * long
+             *
+             * Another issue: uWSGI doesn't support multiple requests on the same
+             * connection and will go ahead and close, but some clients may ask for
+             * that in the FCGI_BEGIN_REQUEST (flag FCGI_KEEP_CONN).  We may not see EOF
+             * before hitting a timeout in that case.
+             *
+             * But more seriously: This issue applies to multiple protocols, when TCP sockets
+             * are used.  The protocol code (e.g., FastCGI or HTTP) should enable that.
+             */
+            while (1) {
+                int rc = uwsgi_read_true_nb(wsgi_req->fd, end_request, 24, uwsgi.socket_timeout);
+                if (rc <= 0) {
+                    break;
+                }
+            }
+        }
+        
 	uwsgi_proto_base_close(wsgi_req);
 }
 
