@@ -2299,6 +2299,7 @@ void uwsgi_master_manage_emperor() {
                 }
         }
         else {
+		uwsgi_error("uwsgi_master_manage_emperor()/read()");
                 uwsgi_log("lost connection with my emperor !!!\n");
 		uwsgi_hooks_run(uwsgi.hook_emperor_lost, "emperor-lost", 0);
                 close(uwsgi.emperor_fd);
