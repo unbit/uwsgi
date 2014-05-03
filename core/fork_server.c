@@ -29,6 +29,7 @@ void uwsgi_fork_server(char *socket) {
 			goto end;		
 		}
 		else if (pid > 0) {
+			waitpid(pid, NULL, 0);
 			goto end;
 		}
 		else {
@@ -50,12 +51,22 @@ void uwsgi_fork_server(char *socket) {
 			}
 			else {
 				uwsgi_log("double fork() and reparenting successfull (new pid: %d)\n", getpid());
-				uwsgi.argc = 3;
-				uwsgi.argv = uwsgi_malloc(sizeof(char *) * (uwsgi.argc+1));
-				uwsgi.argv[0] = uwsgi.binary_path;
-				uwsgi.argv[1] = uwsgi_str("--socket");
-				uwsgi.argv[2] = uwsgi_str(":1717");
-				uwsgi.argv[3] = NULL;
+				uwsgi.new_argc = 6;
+				// we do not free old uwsgi.argv as it could contains still used pointers
+				uwsgi_log("%s\n", uwsgi.binary_path);
+				uwsgi.new_argv = uwsgi_malloc(sizeof(char *) * (uwsgi.argc+1));
+				uwsgi.new_argv[0] = uwsgi.binary_path;
+				uwsgi.new_argv[1] = uwsgi_str("--http-socket");
+				uwsgi.new_argv[2] = uwsgi_str(":1717");
+				uwsgi.new_argv[3] = uwsgi_str("--master");
+				uwsgi.new_argv[4] = uwsgi_str("--processes");
+				uwsgi.new_argv[5] = uwsgi_str("8");
+				uwsgi.new_argv[6] = NULL;
+// on linux and sun we need to fix orig_argv
+#if defined(__linux__) || defined(__sun__)
+#endif
+
+	
 				// this is the only step required to have a consistent environment
 				uwsgi.fork_socket = NULL;
 				return;

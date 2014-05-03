@@ -444,8 +444,9 @@ int uwsgi_perl_init(){
 	int argc;
 	int i;
 
-	// the perl interpreter could be already initialized
-	if (uperl.main) return 0;
+	if (uperl.main) {
+		goto already_initialized;
+	}
 
 	uperl.embedding[0] = "";
 	uperl.embedding[1] = "-e";
@@ -487,6 +488,7 @@ int uwsgi_perl_init(){
 
 	PERL_SET_CONTEXT(uperl.main[0]);
 
+already_initialized:
 #ifdef PERL_VERSION_STRING
 	uwsgi_log_initial("initialized Perl %s main interpreter at %p\n", PERL_VERSION_STRING, uperl.main[0]);
 #else

@@ -455,7 +455,8 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 
 	// is it an early loading ?
 	if (!uwsgi.workers) {
-		uperl.early_psgi_callable = callables[0];
+		uperl.early_psgi_app_name = app_name;
+		uperl.early_psgi_callable = callables;
 		return 0;
 	}
 
@@ -464,41 +465,7 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 		goto clear;
 	}
 
-	int id = uwsgi_apps_cnt;
-	struct uwsgi_app *wi = NULL;
-
-	if (wsgi_req) {
-		// we need a copy of app_id
-		wi = uwsgi_add_app(id, psgi_plugin.modifier1, uwsgi_concat2n(wsgi_req->appid, wsgi_req->appid_len, "", 0), wsgi_req->appid_len, interpreters, callables);
-	}
-	else {
-		wi = uwsgi_add_app(id, psgi_plugin.modifier1, "", 0, interpreters, callables);
-	}
-
-	wi->started_at = now;
-	wi->startup_time = uwsgi_now() - now;
-
-        uwsgi_log("PSGI app %d (%s) loaded in %d seconds at %p (interpreter %p)\n", id, app_name, (int) wi->startup_time, callables[0], interpreters[0]);
-	free(app_name);
-
-	// copy global data to app-specific areas
-	wi->stream = uperl.tmp_streaming_stash;
-	wi->input = uperl.tmp_input_stash;
-	wi->error = uperl.tmp_error_stash;
-	wi->responder0 = uperl.tmp_stream_responder;
-	wi->responder1 = uperl.tmp_psgix_logger;
-
-	uwsgi_emulate_cow_for_apps(id);
-
-
-	// restore context if required
-	if (interpreters != uperl.main) {
-		PERL_SET_CONTEXT(uperl.main[0]);
-	}
-
-	uperl.loaded = 1;
-
-	return id;
+	return uwsgi_perl_add_app(wsgi_req, app_name, interpreters, callables, now);
 
 clear:
 	if (interpreters != uperl.main) {
@@ -515,6 +482,44 @@ clear2:
        	return -1; 
 }
 
+int uwsgi_perl_add_app(struct wsgi_request *wsgi_req, char *app_name, PerlInterpreter **interpreters, SV **callables, time_t now) {
+	int id = uwsgi_apps_cnt;
+        struct uwsgi_app *wi = NULL;
+
+        if (wsgi_req) {
+                // we need a copy of app_id
+                wi = uwsgi_add_app(id, psgi_plugin.modifier1, uwsgi_concat2n(wsgi_req->appid, wsgi_req->appid_len, "", 0), wsgi_req->appid_len, interpreters, callables);
+        }
+        else {
+                wi = uwsgi_add_app(id, psgi_plugin.modifier1, "", 0, interpreters, callables);
+        }
+
+        wi->started_at = now;
+        wi->startup_time = uwsgi_now() - now;
+
+        uwsgi_log("PSGI app %d (%s) loaded in %d seconds at %p (interpreter %p)\n", id, app_name, (int) wi->startup_time, callables[0], interpreters[0]);
+        free(app_name);
+
+        // copy global data to app-specific areas
+        wi->stream = uperl.tmp_streaming_stash;
+        wi->input = uperl.tmp_input_stash;
+        wi->error = uperl.tmp_error_stash;
+        wi->responder0 = uperl.tmp_stream_responder;
+        wi->responder1 = uperl.tmp_psgix_logger;
+
+        uwsgi_emulate_cow_for_apps(id);
+
+
+        // restore context if required
+        if (interpreters != uperl.main) {
+                PERL_SET_CONTEXT(uperl.main[0]);
+        }
+
+        uperl.loaded = 1;
+
+        return id;
+}
+
 void uwsgi_psgi_preinit_apps() {
 	if (uperl.exec) {
 		PERL_SET_CONTEXT(uperl.main[0]);
@@ -529,6 +534,10 @@ void uwsgi_psgi_preinit_apps() {
 }
 
 void uwsgi_psgi_app() {
+
+	if (uperl.early_psgi_callable) {
+		uwsgi_perl_add_app(NULL, uperl.early_psgi_app_name, uperl.main, uperl.early_psgi_callable, uwsgi_now());	
+	}
 
         if (uperl.psgi) {
 		//load app in the main interpreter list

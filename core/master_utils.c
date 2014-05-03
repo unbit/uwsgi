@@ -388,6 +388,8 @@ void uwsgi_reload(char **argv) {
 	int i;
 	int waitpid_status;
 
+	if (uwsgi.new_argv) argv = uwsgi.new_argv;
+
 	if (!uwsgi.master_is_reforked) {
 
 		// call a series of waitpid to ensure all processes (gateways, mules and daemons) are dead

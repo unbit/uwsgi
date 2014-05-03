@@ -2711,6 +2711,8 @@ struct uwsgi_server {
 	int alarm_cheap;
 
 	char *fork_socket;
+	int new_argc;
+	char **new_argv;
 };
 
 struct uwsgi_rpc {

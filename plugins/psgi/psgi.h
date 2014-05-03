@@ -68,7 +68,8 @@ struct uwsgi_perl {
 
 	int no_plack;
 
-	void *early_psgi_callable;
+	SV **early_psgi_callable;
+	char *early_psgi_app_name;
 };
 
 void init_perl_embedded_module(void);
@@ -89,3 +90,5 @@ void uwsgi_perl_exec(char *);
 
 void uwsgi_perl_check_auto_reload(void);
 void uwsgi_psgi_preinit_apps(void);
+
+int uwsgi_perl_add_app(struct wsgi_request *, char *, PerlInterpreter **, SV **, time_t);
