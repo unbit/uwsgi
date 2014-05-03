@@ -356,6 +356,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"setns-skip", required_argument, 0, "skip the specified entry when sending setns file descriptors", uwsgi_opt_add_string_list, &uwsgi.setns_socket_skip, 0},
 	{"setns", required_argument, 0, "join a namespace created by an external uWSGI instance", uwsgi_opt_set_str, &uwsgi.setns, 0},
 	{"setns-preopen", no_argument, 0, "open /proc/self/ns as soon as possible and cache fds", uwsgi_opt_true, &uwsgi.setns_preopen, 0},
+	{"fork-socket", required_argument, 0, "suspend the execution after early initialization and fork() at every unix socket connection", uwsgi_opt_set_str, &uwsgi.fork_socket, 0},
 #endif
 	{"jailed", no_argument, 0, "mark the instance as jailed (force the execution of post_jail hooks)", uwsgi_opt_true, &uwsgi.jailed, 0},
 #if defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
@@ -2131,6 +2132,8 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 	struct group *gr = getgrgid(getgid());
 	uwsgi.magic_table['G'] = gr ? gr->gr_name : uwsgi.magic_table['g'];
 
+configure:
+
 	// you can embed a ini file in the uWSGi binary with default options
 #ifdef UWSGI_EMBED_CONFIG
 	uwsgi_ini_config("", uwsgi.magic_table);
@@ -2154,6 +2157,14 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();
+
+	// stop the execution until a connection arrives on the fork socket
+	if (uwsgi.fork_socket) {
+		uwsgi_log_verbose("waiting for fork-socket connections...\n");
+		uwsgi_fork_server(uwsgi.fork_socket);
+		// if we are here a new process has been spawned
+		goto configure;
+	}
 
 	// fixup cwd
 	if (uwsgi.force_cwd) uwsgi.cwd = uwsgi.force_cwd;

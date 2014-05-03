@@ -252,6 +252,8 @@ void uwsgi_commandline_config() {
 	int i;
 
 	uwsgi.option_index = -1;
+	// required in case we want to call getopt_long from the beginning
+	optind = 0;
 
 	char *optname;
 	while ((i = getopt_long(uwsgi.argc, uwsgi.argv, uwsgi.short_options, uwsgi.long_options, &uwsgi.option_index)) != -1) {

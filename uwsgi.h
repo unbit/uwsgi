@@ -2709,6 +2709,8 @@ struct uwsgi_server {
 
 	int mule_reload_mercy;
 	int alarm_cheap;
+
+	char *fork_socket;
 };
 
 struct uwsgi_rpc {
@@ -4760,6 +4762,8 @@ mode_t uwsgi_mode_t(char *, int *);
 
 int uwsgi_notify_socket_manage(int);
 int uwsgi_notify_msg(char *, char *, size_t);
+
+void uwsgi_fork_server(char *);
 
 #ifdef __cplusplus
 }

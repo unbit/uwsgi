@@ -67,6 +67,8 @@ struct uwsgi_perl {
 	CV *spooler;
 
 	int no_plack;
+
+	void *early_psgi_callable;
 };
 
 void init_perl_embedded_module(void);

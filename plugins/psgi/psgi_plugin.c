@@ -26,6 +26,12 @@ static void uwsgi_opt_plshell(char *opt, char *value, void *foobar) {
         }
 }
 
+int uwsgi_perl_init(void);
+static void uwsgi_opt_early_psgi(char *opt, char *value, void *foobar) {
+	uwsgi_perl_init();
+	init_psgi_app(NULL, value, strlen(value), uperl.main);
+}
+
 struct uwsgi_option uwsgi_perl_options[] = {
 
         {"psgi", required_argument, 0, "load a psgi app", uwsgi_opt_set_str, &uperl.psgi, 0},
@@ -46,6 +52,7 @@ struct uwsgi_option uwsgi_perl_options[] = {
         {"plshell-oneshot", no_argument, 0, "run a perl interactive shell (one shot)", uwsgi_opt_plshell, NULL, 0},
 
         {"perl-no-plack", no_argument, 0, "force the use of do instead of Plack::Util::load_psgi", uwsgi_opt_true, &uperl.no_plack, 0},
+        {"early-psgi", required_argument, 0, "load a psgi app soon after perl initialization", uwsgi_opt_early_psgi, NULL, UWSGI_OPT_IMMEDIATE},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -436,6 +443,9 @@ int uwsgi_perl_init(){
 
 	int argc;
 	int i;
+
+	// the perl interpreter could be already initialized
+	if (uperl.main) return 0;
 
 	uperl.embedding[0] = "";
 	uperl.embedding[1] = "-e";

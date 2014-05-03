@@ -453,6 +453,12 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 		PERL_SET_CONTEXT(interpreters[0]);
 	}
 
+	// is it an early loading ?
+	if (!uwsgi.workers) {
+		uperl.early_psgi_callable = callables[0];
+		return 0;
+	}
+
 	if (uwsgi_apps_cnt >= uwsgi.max_apps) {
 		uwsgi_log("ERROR: you cannot load more than %d apps in a worker\n", uwsgi.max_apps);
 		goto clear;
