@@ -1952,6 +1952,7 @@ static char *uwsgi_at_file_read(char *filename) {
 }
 
 void uwsgi_setup(int argc, char *argv[], char *envp[]) {
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 #ifdef __APPLE__
 	char ***envPtr = _NSGetEnviron();

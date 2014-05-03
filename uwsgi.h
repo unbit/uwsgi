@@ -2710,9 +2710,11 @@ struct uwsgi_server {
 	int mule_reload_mercy;
 	int alarm_cheap;
 
+	// uWSGI 2.0.5
 	char *fork_socket;
 	int new_argc;
 	char **new_argv;
+	char *emperor_use_fork_server;
 };
 
 struct uwsgi_rpc {

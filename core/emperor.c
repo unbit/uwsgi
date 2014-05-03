@@ -929,6 +929,68 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 
 static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *);
 
+/*
+	there are max 3 file descriptors we need to pass to the fork server:
+
+	n_ui->pipe[1]
+	n_ui->pipe_config[1]
+	n_ui->on_demand_fd[1]
+
+*/
+static pid_t emperor_connect_to_fork_server(char *socket, struct uwsgi_instance *n_ui) {
+	int fd = uwsgi_connect(socket, uwsgi.socket_timeout, 0);
+
+        int num_fds = 1;
+	if (n_ui->use_config) num_fds ++;	
+	if (n_ui->on_demand_fd > -1) num_fds++;
+
+        struct msghdr ep_msg;
+        void *ep_msg_control = uwsgi_malloc(CMSG_SPACE(sizeof(int) * num_fds));
+        struct iovec ep_iov[2];
+        struct cmsghdr *cmsg;
+
+	// build the parameters (passed as a uwsgi array)
+
+        ep_iov[0].iov_base = "uwsgi-emperor";
+        ep_iov[0].iov_len = 13;
+        ep_iov[1].iov_base = &num_fds;
+        ep_iov[1].iov_len = sizeof(int);
+
+        ep_msg.msg_name = NULL;
+        ep_msg.msg_namelen = 0;
+
+        ep_msg.msg_iov = ep_iov;
+        ep_msg.msg_iovlen = 2;
+
+        ep_msg.msg_flags = 0;
+        ep_msg.msg_control = ep_msg_control;
+        ep_msg.msg_controllen = CMSG_SPACE(sizeof(int) * num_fds);
+
+        cmsg = CMSG_FIRSTHDR(&ep_msg);
+        cmsg->cmsg_len = CMSG_LEN(sizeof(int) * num_fds);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+
+        unsigned char *ep_fd_ptr = CMSG_DATA(cmsg);
+
+        memcpy(ep_fd_ptr, &uwsgi.emperor_fd, sizeof(int));
+        if (num_fds > 1) {
+                memcpy(ep_fd_ptr + sizeof(int), &uwsgi.emperor_fd_config, sizeof(int));
+        }
+
+        if (sendmsg(fd, &ep_msg, 0) < 0) {
+                uwsgi_error("emperor_connect_to_fork_server()/sendmsg()");
+        }
+
+        free(ep_msg_control);
+
+	// now wait for the response (the pid number)
+
+        close(fd);
+
+	return -1;
+}
+
 int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 
 	pid_t pid;
@@ -956,17 +1018,20 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 	// TODO pre-start hook
 
 	// a new uWSGI instance will start 
+	if (uwsgi.emperor_use_fork_server) {
+		// pid can only be > 0 or -1
+		pid = emperor_connect_to_fork_server(uwsgi.emperor_use_fork_server, n_ui);
+	}
 #if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL) && !defined(__ia64__)
-	if (uwsgi.emperor_clone) {
+	else if (uwsgi.emperor_clone) {
 		char stack[PTHREAD_STACK_MIN];
 		pid = clone((int (*)(void *))uwsgi_emperor_spawn_vassal, stack + PTHREAD_STACK_MIN, SIGCHLD | uwsgi.emperor_clone, (void *) n_ui);
 	}
+#endif
 	else {
-#endif
-	pid = fork();
-#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL) && !defined(__ia64__)
+		pid = fork();
 	}
-#endif
+
 	if (pid < 0) {
 		uwsgi_error("uwsgi_emperor_spawn_vassal()/fork()")
 	}
@@ -1854,6 +1919,10 @@ recheck:
 				uwsgi_error("waitpid()");
 			}
 		}
+
+		if (diedpid > 0) {
+			uwsgi_log("DIEDPID = %d\n", diedpid);
+		}
 		ui_current = ui;
 		while (ui_current->ui_next) {
 			ui_current = ui_current->ui_next;
@@ -2132,6 +2201,13 @@ end:
 }
 
 void uwsgi_emperor_start() {
+
+#ifdef __linux__
+        if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)) {
+                uwsgi_error("uwsgi_fork_server()/fork()");
+                exit(1);
+        }
+#endif
 
 	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.master_process) {
 		if (uwsgi.emperor_procname) {
