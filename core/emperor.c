@@ -2230,6 +2230,10 @@ void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char
 	struct uwsgi_instance *ui_current = emperor_get(name);
 
 	if (ui_current) {
+
+		// skip in case the instance is going down...
+		if (ui_current->status > 0) return;
+
 		// check if uid or gid are changed, in such case, stop the instance
 		if (uwsgi.emperor_tyrant) {
 			if (uid != ui_current->uid || gid != ui_current->gid) {
@@ -2248,7 +2252,7 @@ void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char
                         	return;
 			}
 			else if ((ui_current->socket_name && ui_current->on_demand_fd > -1) && !socket_name) {
-				uwsgi_log("[uwsgi-emperor] %s -> asked for leaving \"on demand\" mode for socket \"%s\" ...\n", name, socket_name);
+				uwsgi_log("[uwsgi-emperor] %s -> asked for leaving \"on demand\" mode for socket \"%s\" ...\n", name, ui_current->socket_name);
 				emperor_stop(ui_current);
                         	return;
 			}
