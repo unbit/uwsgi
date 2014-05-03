@@ -459,6 +459,8 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	uwsgi_log("[uwsgi-fileserve] file %s found\n", real_filename);
 #endif
 
+	// static file - don't update avg_rt after request
+	wsgi_req->do_not_account_avg_rt = 1;
 
 	size_t fsize = st->st_size;
         if (wsgi_req->range_to) {

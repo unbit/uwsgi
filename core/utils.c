@@ -1051,10 +1051,11 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	uint64_t end_of_request = uwsgi_micros();
 	wsgi_req->end_of_request = end_of_request;
 
-	tmp_rt = wsgi_req->end_of_request - wsgi_req->start_of_request;
-
-	uwsgi.workers[uwsgi.mywid].running_time += tmp_rt;
-	uwsgi.workers[uwsgi.mywid].avg_response_time = (uwsgi.workers[uwsgi.mywid].avg_response_time + tmp_rt) / 2;
+	if (!wsgi_req->do_not_account_avg_rt) {
+		tmp_rt = wsgi_req->end_of_request - wsgi_req->start_of_request;
+		uwsgi.workers[uwsgi.mywid].running_time += tmp_rt;
+		uwsgi.workers[uwsgi.mywid].avg_response_time = (uwsgi.workers[uwsgi.mywid].avg_response_time + tmp_rt) / 2;
+	}
 
 	// get memory usage
 	if (uwsgi.logging_options.memory_report == 1 || uwsgi.force_get_memusage) {
