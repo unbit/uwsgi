@@ -36,7 +36,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 		if (uems->database && uems->username && uems->password) {
 			std::string err;
 			if (c.auth(uems->database, uems->username, uems->password, err, uems->predigest ? false : true) == false) {
-				uwsgi_log_verbose("[emperor-mongodb] unabel to authenticate to db %s: %s\n", uems->database, err.c_str());
+				uwsgi_log_verbose("[emperor-mongodb] unable to authenticate to db %s: %s\n", uems->database, err.c_str());
 				return;
 			}
 		}
