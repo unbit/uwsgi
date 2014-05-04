@@ -1566,6 +1566,9 @@ struct wsgi_request {
 #ifdef UWSGI_SSL
 	SSL *ssl;
 #endif
+
+	// do not update avg_rt after request
+	int do_not_account_avg_rt;
 };
 
 
