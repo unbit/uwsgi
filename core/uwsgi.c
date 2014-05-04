@@ -219,6 +219,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-on-demand-exec", required_argument, 0, "use the output of the specified command as on demand socket name (the vassal name is passed as the only argument)", uwsgi_opt_set_str, &uwsgi.emperor_on_demand_exec, 0},
 	{"emperor-extra-extension", required_argument, 0, "allows the specified extension in the Emperor (vassal will be called with --config)", uwsgi_opt_add_string_list, &uwsgi.emperor_extra_extension, 0},
 	{"emperor-extra-ext", required_argument, 0, "allows the specified extension in the Emperor (vassal will be called with --config)", uwsgi_opt_add_string_list, &uwsgi.emperor_extra_extension, 0},
+	{"emperor-no-blacklist", no_argument, 0, "disable Emperor blacklisting subsystem", uwsgi_opt_true, &uwsgi.emperor_no_blacklist, 0},
 #if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
 	{"emperor-use-clone", required_argument, 0, "use clone() instead of fork() passing the specified unshare() flags", uwsgi_opt_set_unshare, &uwsgi.emperor_clone, 0},
 #endif

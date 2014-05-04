@@ -2710,8 +2710,13 @@ struct uwsgi_server {
 	int notify_socket_fd;
 	char *subscription_notify_socket;
 
+	//uWSGI 2.0.5
+
 	int mule_reload_mercy;
 	int alarm_cheap;
+
+	int emperor_no_blacklist;
+
 };
 
 struct uwsgi_rpc {

@@ -681,7 +681,7 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 
 	uwsgi_log_verbose("[emperor] removed uwsgi instance %s\n", c_ui->name);
 	// put the instance in the blacklist (or update its throttling value)
-	if (!c_ui->loyal) {
+	if (!c_ui->loyal && !uwsgi.emperor_no_blacklist) {
 		uwsgi_emperor_blacklist_add(c_ui->name);
 	}
 
@@ -1899,6 +1899,8 @@ recheck:
 			else if (ui_current->cursed_at > 0) {
 				if (ui_current->pid == -1) {
 					emperor_del(ui_current);
+					// temporarily set frequency to 0, so we can eventually fast-restart the instance
+					freq = 0;
                                         break;
 				}
 				else if (now - ui_current->cursed_at >= uwsgi.emperor_curse_tolerance) {
