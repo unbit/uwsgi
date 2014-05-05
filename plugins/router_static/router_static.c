@@ -64,6 +64,9 @@ int uwsgi_routing_func_file(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 	struct uwsgi_buffer *ub_s = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urfc->status, urfc->status_len);
         if (!ub_s) goto end2;
 
+	// static file - don't update avg_rt after request
+	wsgi_req->do_not_account_avg_rt = 1;
+
 	if (urfc->no_headers) goto send;
 
 	if (uwsgi_response_prepare_headers(wsgi_req, ub_s->buf, ub_s->pos)) {
@@ -132,6 +135,9 @@ int uwsgi_routing_func_sendfile(struct wsgi_request *wsgi_req, struct uwsgi_rout
         struct uwsgi_buffer *ub_s = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urfc->status, urfc->status_len);
         if (!ub_s) goto end2;
 
+        // static file - don't update avg_rt after request
+        wsgi_req->do_not_account_avg_rt = 1;
+
 	if (urfc->no_headers) goto send;
 
         if (uwsgi_response_prepare_headers(wsgi_req, ub_s->buf, ub_s->pos)) {
@@ -198,6 +204,9 @@ int uwsgi_routing_func_fastfile(struct wsgi_request *wsgi_req, struct uwsgi_rout
 
         struct uwsgi_buffer *ub_s = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urfc->status, urfc->status_len);
         if (!ub_s) goto end2;
+
+        // static file - don't update avg_rt after request
+        wsgi_req->do_not_account_avg_rt = 1;
 
 	if (urfc->no_headers) goto send;
 

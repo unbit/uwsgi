@@ -1566,6 +1566,9 @@ struct wsgi_request {
 #ifdef UWSGI_SSL
 	SSL *ssl;
 #endif
+
+	// do not update avg_rt after request
+	int do_not_account_avg_rt;
 };
 
 
@@ -2707,10 +2710,13 @@ struct uwsgi_server {
 	int notify_socket_fd;
 	char *subscription_notify_socket;
 
+	//uWSGI 2.0.5
+
 	int mule_reload_mercy;
 	int alarm_cheap;
+	int emperor_no_blacklist;
 
-	// uWSGI 2.0.5
+	// uWSGI 2.1
 	char *fork_socket;
 	int new_argc;
 	char **new_argv;
