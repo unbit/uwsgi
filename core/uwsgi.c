@@ -562,6 +562,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"metrics-dir-restore", no_argument, 0, "restore last value taken from the metrics dir", uwsgi_opt_true, &uwsgi.metrics_dir_restore, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 	{"metric-dir", required_argument, 0, "export metrics as text files to the specified directory", uwsgi_opt_set_str, &uwsgi.metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 	{"metric-dir-restore", no_argument, 0, "restore last value taken from the metrics dir", uwsgi_opt_true, &uwsgi.metrics_dir_restore, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
+	{"metrics-no-cores", no_argument, 0, "disable generation of cores-related metrics", uwsgi_opt_true, &uwsgi.metrics_no_cores, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 
 	{"udp", required_argument, 0, "run the udp server on the specified address", uwsgi_opt_set_str, &uwsgi.udp_socket, UWSGI_OPT_MASTER},
 	{"stats", required_argument, 0, "enable the stats server on the specified address", uwsgi_opt_set_str, &uwsgi.stats, UWSGI_OPT_MASTER},
@@ -572,6 +573,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"stats-push", required_argument, 0, "push the stats json to the specified destination", uwsgi_opt_add_string_list, &uwsgi.requested_stats_pushers, UWSGI_OPT_MASTER|UWSGI_OPT_METRICS},
 	{"stats-pusher-default-freq", required_argument, 0, "set the default frequency of stats pushers", uwsgi_opt_set_int, &uwsgi.stats_pusher_default_freq, UWSGI_OPT_MASTER},
 	{"stats-pushers-default-freq", required_argument, 0, "set the default frequency of stats pushers", uwsgi_opt_set_int, &uwsgi.stats_pusher_default_freq, UWSGI_OPT_MASTER},
+	{"stats-no-cores", no_argument, 0, "disable generation of cores-related stats", uwsgi_opt_true, &uwsgi.stats_no_cores, UWSGI_OPT_MASTER},
+	{"stats-no-metrics", no_argument, 0, "do not include metrics in stats output", uwsgi_opt_true, &uwsgi.stats_no_metrics, UWSGI_OPT_MASTER},
 	{"multicast", required_argument, 0, "subscribe to specified multicast group", uwsgi_opt_set_str, &uwsgi.multicast_group, UWSGI_OPT_MASTER},
 	{"multicast-ttl", required_argument, 0, "set multicast ttl", uwsgi_opt_set_int, &uwsgi.multicast_ttl, 0},
 	{"multicast-loop", required_argument, 0, "set multicast loop (default 1)", uwsgi_opt_set_int, &uwsgi.multicast_loop, 0},
