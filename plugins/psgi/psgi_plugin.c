@@ -30,6 +30,7 @@ int uwsgi_perl_init(void);
 static void uwsgi_opt_early_psgi(char *opt, char *value, void *foobar) {
 	uwsgi_perl_init();
 	init_psgi_app(NULL, value, strlen(value), uperl.main);
+	if (!uperl.early_psgi_callable) exit(1);
 }
 
 struct uwsgi_option uwsgi_perl_options[] = {
