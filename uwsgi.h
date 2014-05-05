@@ -1569,6 +1569,8 @@ struct wsgi_request {
 
 	// do not update avg_rt after request
 	int do_not_account_avg_rt;
+	// used for protocol parsers requiring EOF signaling
+	int proto_parser_eof;
 };
 
 
