@@ -21,9 +21,14 @@ void uwsgi_opt_add_spooler(char *opt, char *directory, void *mode) {
 	int i;
 	struct uwsgi_spooler *us;
 
+
 	if (access(directory, R_OK | W_OK | X_OK)) {
-		uwsgi_error("[spooler directory] access()");
-		exit(1);
+		mkdir(directory,0700);
+		
+		if (access(directory, R_OK | W_OK | X_OK)) {
+			uwsgi_error("[spooler directory] access()");
+			exit(1);
+			}
 	}
 
 	if (uwsgi.spooler_numproc > 0) {

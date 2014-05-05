@@ -2481,6 +2481,7 @@ struct uwsgi_server {
 	int skip_atexit;
 
 	char *force_cwd;
+	char *mkdir;
 	char *chdir;
 	char *chdir2;
 	struct uwsgi_string_list *binsh;

@@ -723,6 +723,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"force-cwd", required_argument, 0, "force the initial working directory to the specified value", uwsgi_opt_set_str, &uwsgi.force_cwd, 0},
 	{"binsh", required_argument, 0, "override /bin/sh (used by exec hooks, it always fallback to /bin/sh)", uwsgi_opt_add_string_list, &uwsgi.binsh, 0},
+	{"mkdir", required_argument, 0, "chdir to specified directory before apps loading", uwsgi_opt_set_str, &uwsgi.mkdir, 0},
 	{"chdir", required_argument, 0, "chdir to specified directory before apps loading", uwsgi_opt_set_str, &uwsgi.chdir, 0},
 	{"chdir2", required_argument, 0, "chdir to specified directory after apps loading", uwsgi_opt_set_str, &uwsgi.chdir2, 0},
 	{"lazy", no_argument, 0, "set lazy mode (load apps in workers instead of master)", uwsgi_opt_true, &uwsgi.lazy, 0},
@@ -2506,6 +2507,13 @@ int uwsgi_start(void *v_argv) {
 		if (!uwsgi.is_a_reload || uwsgi.log_reopen) {
 			logto(uwsgi.logto2);
 			uwsgi_setup_log_master();
+		}
+	}
+
+	if (uwsgi.mkdir) {
+		if (mkdir(uwsgi.mkdir,0777)) {
+			uwsgi_error("mkdir()");
+			exit(1);
 		}
 	}
 
