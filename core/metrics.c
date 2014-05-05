@@ -768,8 +768,10 @@ void uwsgi_setup_metrics() {
                 struct uwsgi_metric *vsz = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].vsz_size, 0, NULL);
                 if (i > 0) uwsgi_metric_add_child(total_vsz, vsz);
 
-		// skip core metrics for core 0
+		// skip core metrics for worker 0
 		if (i == 0) continue;
+
+		if (uwsgi.metrics_no_cores) continue;
 
 		int j;
 		for(j=0;j<uwsgi.cores;j++) {

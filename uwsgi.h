@@ -2717,6 +2717,9 @@ struct uwsgi_server {
 	int mule_reload_mercy;
 	int alarm_cheap;
 	int emperor_no_blacklist;
+	int metrics_no_cores;
+	int stats_no_cores;
+	int stats_no_metrics;
 
 	// uWSGI 2.1
 	char *fork_socket;

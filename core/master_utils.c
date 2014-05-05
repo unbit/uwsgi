@@ -915,7 +915,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		goto end;
 	}
 
-	if (uwsgi.has_metrics) {
+	if (uwsgi.has_metrics && !uwsgi.stats_no_metrics) {
 		if (uwsgi_stats_key(us, "metrics"))
                 	goto end;
 
@@ -1147,6 +1147,8 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		if (uwsgi_stats_list_close(us))
 			goto end;
 
+		if (uwsgi.stats_no_cores) goto nocores;
+
 		if (uwsgi_stats_comma(us))
 			goto end;
 
@@ -1208,8 +1210,11 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		if (uwsgi_stats_list_close(us))
 			goto end;
 
+nocores:
+
 		if (uwsgi_stats_object_close(us))
 			goto end;
+
 
 		if (i < uwsgi.numproc - 1) {
 			if (uwsgi_stats_comma(us))
