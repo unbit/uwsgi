@@ -2,6 +2,18 @@
 
 extern struct uwsgi_server uwsgi;
 
+/*
+
+on connection retrieve the uid,gid and pid of the connecting process, in addition to up to 3
+file descriptors (emperor pipe, emperor pipe_config, on_demand socket dup()'ed to 0)
+
+if authorized, double fork, get the pid of the second child and exit()
+its parent (this will force the Emperor to became its subreaper).
+
+from now on, we can consider the new child as a full-featured vassal
+
+*/
+
 void uwsgi_fork_server(char *socket) {
 	int fd = bind_to_unix(socket, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 	if (fd < 0) exit(1);
