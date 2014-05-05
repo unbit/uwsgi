@@ -116,6 +116,8 @@ parse:
 			if (fcgi_type == 5) {
 				wsgi_req->uh->modifier1 = uwsgi.fastcgi_modifier1;
 				wsgi_req->uh->modifier2 = uwsgi.fastcgi_modifier2;
+				// does the request stream ended ?
+				if (fcgi_len == 0) wsgi_req->proto_parser_eof = 1;
 				return UWSGI_OK;
 			}
 			// if we have a full packet, parse it and reset the memory
@@ -167,6 +169,9 @@ ssize_t uwsgi_proto_fastcgi_read_body(struct wsgi_request * wsgi_req, char *buf,
 		return remains;
 	}
 
+	// if we already have seen eof, return 0
+	if (wsgi_req->proto_parser_eof) return 0;
+
 	ssize_t rlen;
 
 	for (;;) {
@@ -179,6 +184,11 @@ ssize_t uwsgi_proto_fastcgi_read_body(struct wsgi_request * wsgi_req, char *buf,
 			if (wsgi_req->proto_parser_pos >= fcgi_all_len) {
 				// STDIN ? (ignore other types)
 				if (fcgi_type == 5) {
+					// EOF ?
+					if (fcgi_len == 0) {
+						wsgi_req->proto_parser_eof = 1;
+						return 0;	
+					}
 					// copy data to the buf
 					size_t remains = UMIN(fcgi_len, len);
 					memcpy(buf, wsgi_req->proto_parser_buf + sizeof(struct fcgi_record), remains);
@@ -270,6 +280,23 @@ int uwsgi_proto_fastcgi_write(struct wsgi_request *wsgi_req, char *buf, size_t l
 }
 
 void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
+	// before sending the END_REQUEST and closing the connection we need to check for EOF
+	if (!wsgi_req->proto_parser_eof) {
+		// we use a custom tiny buffer, all the data will be discarded...
+		char buf[4096];
+		for(;;) {
+			ssize_t rlen = uwsgi_proto_fastcgi_read_body(wsgi_req, buf, 4096);
+			if (rlen < 0) {
+				if (uwsgi_is_again()) {
+					int ret = uwsgi.wait_read_hook(wsgi_req->fd, uwsgi.socket_timeout);
+					if (ret <= 0) goto end;
+					continue;
+				}
+				goto end;
+			}
+			if (rlen == 0) break;
+		}
+	}
 	// special case here, we run in void context, so we need to wait directly here
 	char end_request[24];
 	memcpy(end_request, FCGI_END_REQUEST, 24);
@@ -280,6 +307,7 @@ void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
 	end_request[10] = sid[1];
 	end_request[11] = sid[0];
 	(void) uwsgi_write_true_nb(wsgi_req->fd, end_request, 24, uwsgi.socket_timeout);
+end:
 	uwsgi_proto_base_close(wsgi_req);
 }
 
