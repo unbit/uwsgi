@@ -1187,7 +1187,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 	// TODO pre-start hook
 
 	// a new uWSGI instance will start 
-	if (uwsgi.emperor_use_fork_server) {
+	if (uwsgi.emperor_use_fork_server && !uwsgi_string_list_has_item(uwsgi.vassal_fork_base, n_ui->name, strlen(n_ui->name))) {
 		// pid can only be > 0 or -1
 		n_ui->adopted = 1;
 		pid = emperor_connect_to_fork_server(uwsgi.emperor_use_fork_server, n_ui);
@@ -1975,7 +1975,7 @@ recheck:
 		has_children = 0;
 		while (ui_current->ui_next) {
 			ui_current = ui_current->ui_next;
-			if (ui_current->pid > -1 && !ui_current->adopted) {
+			if (ui_current->pid > -1) {
 				has_children++;
 			}
 		}

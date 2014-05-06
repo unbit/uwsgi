@@ -205,6 +205,10 @@ int http_headers_parse(struct corerouter_peer *peer) {
 	while (ptr < watermark) {
 		if (*ptr == ' ') {
 			if (uwsgi_buffer_append_keyval(out, "REQUEST_METHOD", 14, base, ptr - base)) return -1;
+			// on SOURCE METHOD, force raw body
+			if (!uwsgi_strncmp(base, ptr - base, "SOURCE", 6)) {
+				hr->raw_body = 1;
+			}
 			ptr++;
 			found = 1;
 			break;

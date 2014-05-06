@@ -113,7 +113,7 @@ void uwsgi_fork_server(char *socket) {
 				struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
 				// leave space for header
 				ub->pos = 4;
-				if (uwsgi_buffer_append_keynum(ub, "pid", 3, getppid())) exit(1); 
+				if (uwsgi_buffer_append_keynum(ub, "pid", 3, getpid())) exit(1); 
 				// fix uwsgi header
         			if (uwsgi_buffer_set_uh(ub, 35, 0)) goto end;
 				// send_pid()
