@@ -1938,8 +1938,8 @@ recheck:
 						// UNSAFE
 						emperor_add(ui_current->scanner, ui_current->name, ui_current->last_mod, ui_current->config, ui_current->config_len, ui_current->uid, ui_current->gid, ui_current->socket_name);
 						emperor_del(ui_current);
-						// temporarily set frequency to 0, so we can eventually fast-restart the instance
-						freq = 0;
+						// temporarily set frequency to 1, so we can eventually fast-restart the instance
+						freq = 1;
 					}
 					break;
 				}
@@ -1949,8 +1949,8 @@ recheck:
 						free(ui_current->config);
 					// SAFE
 					emperor_del(ui_current);
-					// temporarily set frequency to 0, so we can eventually fast-restart the instance
-					freq = 0;
+					// temporarily set frequency to 1, so we can eventually fast-restart the instance
+					freq = 1;
 					break;
 				}
 				// back to on_demand mode ...
@@ -1970,8 +1970,8 @@ recheck:
 			else if (ui_current->cursed_at > 0) {
 				if (ui_current->pid == -1) {
 					emperor_del(ui_current);
-					// temporarily set frequency to 0, so we can eventually fast-restart the instance
-					freq = 0;
+					// temporarily set frequency to 1, so we can eventually fast-restart the instance
+					freq = 1;
                                         break;
 				}
 				else if (now - ui_current->cursed_at >= uwsgi.emperor_curse_tolerance) {
