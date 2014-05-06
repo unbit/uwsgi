@@ -176,6 +176,8 @@ void uwsgi_fork_server(char *socket) {
 				}
 				// this is the only step required to have a consistent environment
 				uwsgi.fork_socket = NULL;
+				// this avoids the process to re-exec itself
+				uwsgi.exit_on_reload = 1;
 				// fixup the Emperor communication
 				uwsgi_check_emperor();
 				// continue with uWSGI startup
