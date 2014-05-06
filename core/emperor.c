@@ -1047,12 +1047,23 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 
 static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *);
 
+static void vassal_fork_server_parser_hook(char *key, uint16_t key_len, char *value, uint16_t value_len, void *data) {
+	pid_t *pid = (pid_t *) data;
+
+        if (!uwsgi_strncmp(key, key_len, "pid", 3)) {
+		// ignore negative values
+		if (value_len > 0 && value[0] == '-') return;
+                *pid = uwsgi_str_num(value, value_len);
+        }
+}
+
+
 /*
 	there are max 3 file descriptors we need to pass to the fork server:
 
 	n_ui->pipe[1]
 	n_ui->pipe_config[1]
-	n_ui->on_demand_fd[1]
+	n_ui->on_demand_fd
 
 */
 static pid_t emperor_connect_to_fork_server(char *socket, struct uwsgi_instance *n_ui) {
@@ -1078,14 +1089,42 @@ static pid_t emperor_connect_to_fork_server(char *socket, struct uwsgi_instance 
 	}
 
 	free(vassal_argv);
+	if (error) {
+		uwsgi_log_verbose("[uwsgi-emperor] %s: unable to complete fork-server session\n", n_ui->name);
+		goto end;
+	}
 
+	// bit 0 -> pipe (0x01)
+	// bit 1 -> config_pipe (0x02)
+	// bit 2 -> on_demand (0x04)
+	uint8_t modifier2_mask = 0x01;
 	int fds[8];
 	int fds_count = 1;
+	fds[0] = n_ui->pipe[1];
+
+	// add pipe config ?
+	if (n_ui->use_config) {
+		modifier2_mask |= 0x02;
+		fds[fds_count] = n_ui->pipe_config[1];
+		fds_count++;
+	}
+
+	// add ondemand ?
+	if (n_ui->on_demand_fd > -1) {
+		modifier2_mask |= 0x04;
+		fds[fds_count] = n_ui->on_demand_fd;
+		fds_count++;
+	}
+
+	// fix uwsgi header
+	if (uwsgi_buffer_set_uh(ub, 35, modifier2_mask)) goto end;
 
 	if (uwsgi_send_fds_and_body(fd, fds, fds_count, ub->buf, ub->pos)) {
 		uwsgi_log_verbose("[uwsgi-emperor] %s: unable to complete fork-server session\n", n_ui->name);
 		goto end;
 	}
+
+	uwsgi_buffer_destroy(ub);
 
 	// now wait for the response (the pid number)
 	// the response could contain various info, currently we only need the "pid" attribute
@@ -1100,17 +1139,19 @@ static pid_t emperor_connect_to_fork_server(char *socket, struct uwsgi_instance 
 		goto end;
 	}
 
+	pid_t pid = -1;
+	uwsgi_hooked_parse(buf, buf_len, vassal_fork_server_parser_hook, &pid);
 	free(buf);
 
 	// close the connection
 	close(fd);
 
 	// return the pid to the Emperor
-	pid_t pid = -1;
 	return pid;
 
 end:
 	uwsgi_buffer_destroy(ub);
+	close(fd);
 	return -1;
 }
 
