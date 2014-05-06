@@ -37,7 +37,10 @@ void uwsgi_fork_server(char *socket) {
 		pid_t ppid = -1;
 		uid_t uid = -1;
 		gid_t gid = -1;
-		ssize_t len = uwsgi_recv_cred2(client_fd, buf, 4096, &ppid, &uid, &gid);
+		int fds_count = 0;
+		// we can receive upto 8 fds (generally from 1 to 3)
+		int fds[8];
+		ssize_t len = uwsgi_recv_cred_and_fds(client_fd, buf, 4096, &ppid, &uid, &gid, fds, &fds_count);
 		uwsgi_log("RET = %d %d %d %d\n", len, ppid, uid, gid);
 
 		pid_t pid = fork();

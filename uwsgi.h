@@ -4779,6 +4779,7 @@ int uwsgi_notify_socket_manage(int);
 int uwsgi_notify_msg(char *, char *, size_t);
 
 int uwsgi_send_fds_and_body(int, int *, int, char *, size_t);
+ssize_t uwsgi_recv_cred_and_fds(int, char *, size_t buf_len, pid_t *, uid_t *, gid_t *, int *, int *);
 void uwsgi_fork_server(char *);
 
 #ifdef __cplusplus

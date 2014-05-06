@@ -1061,10 +1061,28 @@ static pid_t emperor_connect_to_fork_server(char *socket, struct uwsgi_instance 
 
 	free(vassal_argv);
 
-	//uwsgi_send_fds_and_body(fd, *fds, *fds_count, ub->buf, ub->pos);
+	int fds[8];
+	int fds_count = 1;
+
+	if (uwsgi_send_fds_and_body(fd, fds, fds_count, ub->buf, ub->pos)) {
+		uwsgi_log_verbose("[uwsgi-emperor] %s: unable to complete fork-server session\n",n_ui->name);
+		goto end;
+	}
 
 	// now wait for the response (the pid number)
 	// the response could contain various info, currently we only need the "pid" attribute
+	size_t buf_len = uwsgi.page_size;
+	char *buf = uwsgi_malloc(buf_len);
+	uint8_t modifier1 = 0;
+	uint8_t modifier2 = 0;
+	int ret = uwsgi_read_with_realloc(fd, &buf, &buf_len, uwsgi.socket_timeout, &modifier1, &modifier2);
+	if (ret) {
+		free(buf);
+		uwsgi_log_verbose("[uwsgi-emperor] %s: unable to complete fork-server session\n",n_ui->name);
+		goto end;
+	}
+
+	free(buf);
 
 	// close the connection
         close(fd);
@@ -1073,6 +1091,7 @@ static pid_t emperor_connect_to_fork_server(char *socket, struct uwsgi_instance 
 	pid_t pid = -1;
 	return pid;
 
+end:
 	uwsgi_buffer_destroy(ub);
 	return -1;
 }
