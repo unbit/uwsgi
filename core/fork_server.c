@@ -14,10 +14,14 @@ from now on, we can consider the new child as a full-featured vassal
 
 */
 
+#define VASSAL_HAS_CONFIG 0x02
+#define VASSAL_HAS_ON_DEMAND 0x04
+
 static void parse_argv_hook(uint16_t item, char *value, uint16_t vlen, void *data) {
 	struct uwsgi_string_list **usl = (struct uwsgi_string_list **) data;
 	uwsgi_string_new_list(usl, uwsgi_concat2n(value, vlen, "", 0));
 }
+
 
 void uwsgi_fork_server(char *socket) {
 	// map fd 0 to /dev/null to avoid mess
@@ -49,7 +53,7 @@ void uwsgi_fork_server(char *socket) {
 		// we only read 4 bytes header
 		ssize_t len = uwsgi_recv_cred_and_fds(client_fd, hbuf, remains, &ppid, &uid, &gid, fds, &fds_count);
 		uwsgi_log("RET = %d %d %d %d fds:%d\n", len, ppid, uid, gid, fds_count);
-		if (len <= 0) {
+		if (len <= 0 || fds_count < 1) {
 			uwsgi_error("uwsgi_fork_server()/recvmsg()");
 			goto end;
 		}
@@ -89,15 +93,46 @@ void uwsgi_fork_server(char *socket) {
 			goto end;
 		}
 		else {
-			// close everything excluded the passed fds and client_fd
+			// close everything excluded 0,1,2, the passed fds and client_fd
 			// set EMPEROR_FD and FD_CONFIG env vars	
 			char *uef = uwsgi_num2str(fds[0]);
         		if (setenv("UWSGI_EMPEROR_FD", uef, 1)) {
-                		uwsgi_error("setenv()");
+                		uwsgi_error("uwsgi_fork_server()/setenv()");
                 		exit(1);
         		}
         		free(uef);
+
+			int pipe_config = -1;
+			int on_demand = -1;
+
+			if (uh->modifier2 & VASSAL_HAS_CONFIG && fds_count > 1) {
+				pipe_config = fds[1];	
+				char *uef = uwsgi_num2str(pipe_config);
+				if (setenv("UWSGI_EMPEROR_FD_CONFIG", uef, 1)) {
+                                	uwsgi_error("uwsgi_fork_server()/setenv()");
+                                	exit(1);
+                        	}
+                        	free(uef);
+			}
+
+			if (uh->modifier2 & VASSAL_HAS_ON_DEMAND && fds_count > 1) {
+				if (pipe_config > -1) {
+					if (fds_count > 2) {
+						on_demand = fds[2];
+					}
+				}
+				else {
+					on_demand = fds[1];
+				}
+			}
 			// dup the on_demand socket to 0 and close it
+			if (on_demand > -1) {
+				if (dup2(on_demand, 0) < 0) {
+					uwsgi_error("uwsgi_fork_server()/dup2()");
+					exit(1);
+				}
+				close(on_demand);
+			}
 
 			// now fork again and die
 			pid_t new_pid = fork();
