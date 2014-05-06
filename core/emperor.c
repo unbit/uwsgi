@@ -1053,15 +1053,15 @@ static pid_t emperor_connect_to_fork_server(char *socket, struct uwsgi_instance 
 	ub->pos = 4;
 	int error=0,counter=0;
 	while(vassal_argv[counter]) {
-		if (!error && uwsgi_buffer_u16le(ub, strlen(vassal_argv[counter])) error = 1;
-		if (!error && uwsgi_buffer_append(ub, vassal_argv[counter], strlen(vassal_argv[counter])) error = 1;
+		if (!error && uwsgi_buffer_u16le(ub, strlen(vassal_argv[counter]))) error = 1;
+		if (!error && uwsgi_buffer_append(ub, vassal_argv[counter], strlen(vassal_argv[counter]))) error = 1;
 		if (counter == slot_to_free) free(vassal_argv[counter]);
 		counter++;
 	}
 
 	free(vassal_argv);
 
-	uwsgi_send_fds_and_body(fd, *fds, *fds_count, ub->buf, ub->pos);
+	//uwsgi_send_fds_and_body(fd, *fds, *fds_count, ub->buf, ub->pos);
 
 	// now wait for the response (the pid number)
 	// the response could contain various info, currently we only need the "pid" attribute
@@ -1070,6 +1070,7 @@ static pid_t emperor_connect_to_fork_server(char *socket, struct uwsgi_instance 
         close(fd);
 
 	// return the pid to the Emperor
+	pid_t pid = -1;
 	return pid;
 
 	uwsgi_buffer_destroy(ub);

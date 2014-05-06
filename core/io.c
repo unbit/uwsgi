@@ -1544,3 +1544,66 @@ clear:
         return -1;
 #endif
 }
+
+
+int uwsgi_send_fds_and_body(int fd, int *fds, int fds_count, char *body, size_t len) {
+
+	int ret = -1;
+
+        struct msghdr msg;
+        void *msg_control = uwsgi_malloc(CMSG_SPACE(sizeof(int) * fds_count));
+        struct iovec iov;
+        struct cmsghdr *cmsg;
+
+        iov.iov_base = body;
+        iov.iov_len = len;
+
+        msg.msg_name = NULL;
+        msg.msg_namelen = 0;
+
+        msg.msg_iov = &iov;
+        msg.msg_iovlen = 1;
+
+        msg.msg_flags = 0;
+        msg.msg_control = msg_control;
+        msg.msg_controllen = CMSG_SPACE(sizeof(int) * fds_count);
+
+        cmsg = CMSG_FIRSTHDR(&msg);
+        cmsg->cmsg_len = CMSG_LEN(sizeof(int) * fds_count);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+
+        unsigned char *fd_ptr = CMSG_DATA(cmsg);
+
+        memcpy(fd_ptr, fds, sizeof(int) * fds_count);
+
+        ssize_t rlen = sendmsg(fd, &msg, 0);
+	if (rlen <= 0) {
+                uwsgi_error("uwsgi_send_fds_and_body()/sendmsg()");
+		goto end;	
+        }
+	else {
+		size_t remains = len - rlen;
+		while(remains > 0) {
+			char *buf = body + rlen;
+			ssize_t wlen = write(fd, buf, remains);
+			if (wlen == 0) goto end;
+			if (wlen < 0) {
+				if (uwsgi_is_again()) {
+					// wait for write
+					continue;
+				}
+				uwsgi_error("uwsgi_send_fds_and_body()/write()");
+				goto end;
+			}
+			rlen += wlen;
+			remains -= wlen;
+		}
+	}
+	ret = 0;
+
+end:
+        free(msg_control);
+	return ret;	
+}
+
