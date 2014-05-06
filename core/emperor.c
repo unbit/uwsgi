@@ -775,10 +775,12 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 	}
 
 	// this will destroy the whole uWSGI instance (and workers)
-	close(c_ui->pipe[0]);
+	if (c_ui->pipe[0] != -1) close(c_ui->pipe[0]);
+	if (c_ui->pipe[1] != -1) close(c_ui->pipe[1]);
 
 	if (c_ui->use_config) {
-		close(c_ui->pipe_config[0]);
+		if (c_ui->pipe_config[0] != -1) close(c_ui->pipe_config[0]);
+		if (c_ui->pipe_config[1] != -1) close(c_ui->pipe_config[1]);
 	}
 
 	if (uwsgi.vassals_stop_hook) {
@@ -810,8 +812,9 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 		close(c_ui->on_demand_fd);
 	}
 
-	free(c_ui);
+	if (c_ui->use_config) free(c_ui->config);
 
+	free(c_ui);
 }
 
 void emperor_back_to_ondemand(struct uwsgi_instance *c_ui) {
@@ -1023,13 +1026,15 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 	n_ui->pipe[0] = -1;
 	n_ui->pipe[1] = -1;
 
+	n_ui->pipe_config[0] = -1;
+	n_ui->pipe_config[1] = -1;
+
 	// ok here we check if we need to bind to the specified socket or continue with the activation
 	if (socket_name) {
 		n_ui->on_demand_fd = on_demand_bind(socket_name);
 		if (n_ui->on_demand_fd < 0) {
 			uwsgi_error("emperor_add()/bind()");
-			free(n_ui);
-			c_ui->ui_next = NULL;
+			emperor_del(n_ui);
 			return;
 		}
 
@@ -1040,8 +1045,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 
 	if (uwsgi_emperor_vassal_start(n_ui)) {
 		// clear the vassal
-		free(n_ui);
-		c_ui->ui_next = NULL;
+		emperor_del(n_ui);
 	}
 }
 
@@ -1136,7 +1140,7 @@ static pid_t emperor_connect_to_fork_server(char *socket, struct uwsgi_instance 
 	if (ret) {
 		free(buf);
 		uwsgi_log_verbose("[uwsgi-emperor] %s: unable to complete fork-server session\n", n_ui->name);
-		goto end;
+		goto end2;
 	}
 
 	pid_t pid = -1;
@@ -1151,6 +1155,7 @@ static pid_t emperor_connect_to_fork_server(char *socket, struct uwsgi_instance 
 
 end:
 	uwsgi_buffer_destroy(ub);
+end2:
 	close(fd);
 	return -1;
 }
@@ -1184,6 +1189,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 	// a new uWSGI instance will start 
 	if (uwsgi.emperor_use_fork_server) {
 		// pid can only be > 0 or -1
+		n_ui->adopted = 1;
 		pid = emperor_connect_to_fork_server(uwsgi.emperor_use_fork_server, n_ui);
 	}
 #if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL) && !defined(__ia64__)
@@ -1203,6 +1209,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		n_ui->pid = pid;
 		// close the right side of the pipe
 		close(n_ui->pipe[1]);
+		n_ui->pipe[1] = -1;
 		/* THE ON-DEMAND file descriptor is left mapped to the emperor to allow fast-respawn
 		   // TODO add an option to force closing it
 		   // close the "on demand" socket
@@ -1213,6 +1220,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		 */
 		if (n_ui->use_config) {
 			close(n_ui->pipe_config[1]);
+			n_ui->pipe_config[1] = -1;
 		}
 
 		if (n_ui->use_config) {
@@ -1967,7 +1975,7 @@ recheck:
 		has_children = 0;
 		while (ui_current->ui_next) {
 			ui_current = ui_current->ui_next;
-			if (ui_current->pid > -1) {
+			if (ui_current->pid > -1 && !ui_current->adopted) {
 				has_children++;
 			}
 		}
@@ -2189,6 +2197,9 @@ void emperor_send_stats(int fd) {
 		if (uwsgi_stats_keyval_comma(us, "on_demand", c_ui->socket_name ? c_ui->socket_name : ""))
 			goto end0;
 
+		if (uwsgi_stats_keylong_comma(us, "adopted", (unsigned long long) c_ui->adopted))
+			goto end0;
+
 		if (uwsgi_stats_keylong_comma(us, "uid", (unsigned long long) c_ui->uid))
 			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "gid", (unsigned long long) c_ui->gid))
@@ -2292,9 +2303,11 @@ end:
 void uwsgi_emperor_start() {
 
 #ifdef __linux__
-	if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)) {
-		uwsgi_error("uwsgi_fork_server()/fork()");
-		exit(1);
+	if (uwsgi.emperor_use_fork_server) {
+		if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)) {
+			uwsgi_error("uwsgi_fork_server()/fork()");
+			exit(1);
+		}
 	}
 #endif
 
@@ -2548,6 +2561,7 @@ static void emperor_notify_ready() {
 	char byte = 1;
 	if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
 		uwsgi_error("emperor_notify_ready()/write()");
+		exit(1);
 	}
 }
 

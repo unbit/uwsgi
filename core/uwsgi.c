@@ -223,6 +223,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
 	{"emperor-use-clone", required_argument, 0, "use clone() instead of fork() passing the specified unshare() flags", uwsgi_opt_set_unshare, &uwsgi.emperor_clone, 0},
 #endif
+	{"emperor-use-fork-server", required_argument, 0, "connect to the specified fork server instead of using plain fork() for new vassals", uwsgi_opt_set_str, &uwsgi.emperor_use_fork_server, 0},
 #ifdef UWSGI_CAP
 	{"emperor-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},
 	{"vassals-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},

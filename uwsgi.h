@@ -4071,6 +4071,8 @@ struct uwsgi_instance {
 	int on_demand_fd;
 	char *socket_name;
 	time_t cursed_at;
+
+	int adopted;
 };
 
 struct uwsgi_instance *emperor_get_by_fd(int);

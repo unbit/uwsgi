@@ -1519,9 +1519,11 @@ ssize_t uwsgi_recv_cred_and_fds(int fd, char *buf, size_t buf_len, pid_t *pid, u
 
         struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
 	while(cmsg) {
+		uwsgi_log("ROUND ROUND\n");
         	if (cmsg->cmsg_level != SOL_SOCKET) goto next;
 		if (cmsg->cmsg_type == SCM_RIGHTS) {
 			size_t fds_len = cmsg->cmsg_len - ((char *) CMSG_DATA(cmsg) - (char *) cmsg);			
+			uwsgi_log("FDS_LEN = %d\n", fds_len);
 			memcpy(fds, CMSG_DATA(cmsg), fds_len);
 			*fds_count = fds_len/sizeof(int);
 		}
