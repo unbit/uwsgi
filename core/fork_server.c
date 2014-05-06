@@ -15,11 +15,16 @@ from now on, we can consider the new child as a full-featured vassal
 */
 
 void uwsgi_fork_server(char *socket) {
+	// map fd 0 to /dev/null to avoid mess
+	uwsgi_remap_fd(0, "/dev/null");
+
 	int fd = bind_to_unix(socket, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 	if (fd < 0) exit(1);
 
+	// automatically receive credentials (TODO make something useful with them, like checking the pid is from the Emperor)
 	if (uwsgi_socket_passcred(fd)) exit(1);
 
+	// now start waiting for connections
 	for(;;) {
 		struct sockaddr_un client_src;
         	socklen_t client_src_len = 0;
@@ -37,22 +42,21 @@ void uwsgi_fork_server(char *socket) {
 
 		pid_t pid = fork();
 		if (pid < 0) {
+			// error on fork()
 			uwsgi_error("uwsgi_fork_server()/fork()");
 			goto end;		
 		}
 		else if (pid > 0) {
+			// wait for child death...
 			waitpid(pid, NULL, 0);
 			goto end;
 		}
 		else {
-			// reparent the process
-#ifdef __linux__
-			if (prctl(PR_SET_CHILD_SUBREAPER, ppid, 0, 0, 0)) {
-				uwsgi_error("uwsgi_fork_server()/fork()");
-				exit(1);
-			}
-#endif
-			// now fork again and kill
+			// close everything excluded the passed fds and client_fd
+			// set EMPEROR_FD and FD_CONFIG env vars	
+			// dup the on_demand socket to 0 and close it
+
+			// now fork again and die
 			pid_t new_pid = fork();
 			if (new_pid < 0) {
                         	uwsgi_error("uwsgi_fork_server()/fork()");
@@ -62,7 +66,13 @@ void uwsgi_fork_server(char *socket) {
 				exit(0);
 			}
 			else {
+				// send the pid to the client_fd and close it
+				// send_pid()
+				close(client_fd);
 				uwsgi_log("double fork() and reparenting successfull (new pid: %d)\n", getpid());
+
+
+				// now parse the uwsgi packet array and build the argv
 				uwsgi.new_argc = 6;
 				// we do not free old uwsgi.argv as it could contains still used pointers
 				uwsgi_log("%s\n", uwsgi.binary_path);
@@ -74,13 +84,10 @@ void uwsgi_fork_server(char *socket) {
 				uwsgi.new_argv[4] = uwsgi_str("--processes");
 				uwsgi.new_argv[5] = uwsgi_str("8");
 				uwsgi.new_argv[6] = NULL;
-// on linux and sun we need to fix orig_argv
-#if defined(__linux__) || defined(__sun__)
-#endif
 
-	
 				// this is the only step required to have a consistent environment
 				uwsgi.fork_socket = NULL;
+				// continue with uWSGI startup
 				return;
 			}
 		}	

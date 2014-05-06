@@ -1481,3 +1481,66 @@ clear:
 #endif
 }
 
+ssize_t uwsgi_recv_cred_and_fds(int fd, char *buf, size_t buf_len, pid_t *pid, uid_t *uid, gid_t *gid, int *fds, int *fds_count) {
+#if defined(SCM_CREDENTIALS) && defined(SCM_RIGHTS)
+        ssize_t ret = -1;
+
+	size_t msg_len = CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int) * (*fds_count));
+
+	// allocate space for credentials and file descriptors
+        void *msg_control = uwsgi_calloc(msg_len);
+
+	// read into buf
+        struct iovec iov;
+        iov.iov_base = buf;
+        iov.iov_len = buf_len;
+
+        struct msghdr msg;
+        memset(&msg, 0, sizeof(msg));
+
+        msg.msg_name = NULL;
+        msg.msg_namelen = 0;
+
+        msg.msg_iov = &iov;
+        msg.msg_iovlen = 1;
+
+	// set cmsg
+        msg.msg_control = msg_control;
+        msg.msg_controllen = msg_len;
+
+        ssize_t len = recvmsg(fd, &msg, 0);
+        if (len <= 0) {
+                uwsgi_error("uwsgi_recv_cred_and_fds()/recvmsg()");
+                goto clear;
+        }
+
+	// reset the number of fds
+	*fds_count = 0;
+
+        struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+	while(cmsg) {
+        	if (cmsg->cmsg_level != SOL_SOCKET) goto next;
+		if (cmsg->cmsg_type == SCM_RIGHTS) {
+			size_t fds_len = cmsg->cmsg_len - ((char *) CMSG_DATA(cmsg) - (char *) cmsg);			
+			memcpy(fds, CMSG_DATA(cmsg), fds_len);
+			*fds_count = fds_len/sizeof(int);
+		}
+		else if (cmsg->cmsg_type == SCM_CREDENTIALS) {
+        		struct ucred *u = (struct ucred *) CMSG_DATA(cmsg);
+        		*pid = u->pid;
+        		*uid = u->uid;
+        		*gid = u->gid;
+		}
+next:
+		cmsg=CMSG_NXTHDR(&msg,cmsg);
+        }
+
+        ret = len;
+
+clear:
+        free(msg_control);
+        return ret;
+#else
+        return -1;
+#endif
+}
