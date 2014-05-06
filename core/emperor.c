@@ -804,15 +804,16 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 		uwsgi.emperor_broodlord_count--;
 	}
 
+	uwsgi_log("%s socket_name\n", c_ui->socket_name);
 	if (c_ui->socket_name) {
 		free(c_ui->socket_name);
 	}
 
-	if (c_ui->on_demand_fd != -1) {
+	if (c_ui->on_demand_fd > -1) {
 		close(c_ui->on_demand_fd);
 	}
-
-	if (c_ui->use_config) free(c_ui->config);
+	uwsgi_log("%s %p\n", c_ui->config, c_ui->config);
+	if (c_ui->config) free(c_ui->config);
 
 	free(c_ui);
 }
@@ -2020,6 +2021,7 @@ recheck:
 			time_t now = uwsgi_now();
 			if (diedpid > 0 && ui_current->pid == diedpid) {
 				if (ui_current->status == 0) {
+					uwsgi_log("OOOOPS\n");
 					// respawn an accidentally dead instance if its exit code is not UWSGI_EXILE_CODE
 					if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_EXILE_CODE) {
 						// SAFE
@@ -2027,7 +2029,15 @@ recheck:
 					}
 					else {
 						// UNSAFE
-						emperor_add(ui_current->scanner, ui_current->name, ui_current->last_mod, ui_current->config, ui_current->config_len, ui_current->uid, ui_current->gid, ui_current->socket_name);
+						char *config = NULL;
+						if (ui_current->config) {
+							config = uwsgi_str(ui_current->config);
+						}
+						char *socket_name = NULL;
+						if (ui_current->socket_name) {
+							socket_name = uwsgi_str(ui_current->socket_name);
+						}
+						emperor_add(ui_current->scanner, ui_current->name, ui_current->last_mod, config, ui_current->config_len, ui_current->uid, ui_current->gid, socket_name);
 						emperor_del(ui_current);
 						// temporarily set frequency to 1, so we can eventually fast-restart the instance
 						freq = 1;
@@ -2036,9 +2046,6 @@ recheck:
 				}
 				else if (ui_current->status == 1) {
 					// remove 'marked for dead' instance
-					if (ui_current->config)
-						free(ui_current->config);
-					// SAFE
 					emperor_del(ui_current);
 					// temporarily set frequency to 1, so we can eventually fast-restart the instance
 					freq = 1;
