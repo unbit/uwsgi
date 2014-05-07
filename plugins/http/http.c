@@ -156,7 +156,7 @@ static int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, size_t 
 			hr->session.can_keepalive = 0;
 		}
 	}
-	else if (peer->key_len == 0 && hr->raw_body && !uwsgi_strncmp("ICE_URL", 7, hh, keylen)) {
+	else if (peer->key == uwsgi.hostname && hr->raw_body && !uwsgi_strncmp("ICE_URL", 7, hh, keylen)) {
 		peer->key = val;
 		peer->key_len = vallen;
 	}
