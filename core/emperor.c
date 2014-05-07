@@ -741,7 +741,7 @@ struct uwsgi_instance *emperor_get_by_socket_fd(int fd) {
 		c_ui = c_ui->ui_next;
 
 		// over engineering...
-		if (c_ui->on_demand_fd != -1 && c_ui->on_demand_fd == fd) {
+		if (c_ui->on_demand_fd > -1 && c_ui->on_demand_fd == fd) {
 			return c_ui;
 		}
 	}
