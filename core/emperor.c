@@ -628,7 +628,7 @@ struct uwsgi_instance *emperor_get_by_socket_fd(int fd) {
                 c_ui = c_ui->ui_next;
 
 		// over engineering...
-                if (c_ui->on_demand_fd != -1 && c_ui->on_demand_fd == fd) {
+                if (c_ui->on_demand_fd > -1 && c_ui->on_demand_fd == fd) {
                         return c_ui;
                 }
         }
@@ -662,11 +662,13 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 	}
 
 	// this will destroy the whole uWSGI instance (and workers)
-	close(c_ui->pipe[0]);
+	if (c_ui->pipe[0] != -1) close(c_ui->pipe[0]);
+	if (c_ui->pipe[1] != -1) close(c_ui->pipe[1]);
 
 	if (c_ui->use_config) {
-		close(c_ui->pipe_config[0]);
-	}
+		if (c_ui->pipe_config[0] != -1) close(c_ui->pipe_config[0]);
+		if (c_ui->pipe_config[1] != -1) close(c_ui->pipe_config[1]);
+	}	
 
 	if (uwsgi.vassals_stop_hook) {
 		uwsgi_log("[emperor] running vassal stop-hook: %s %s\n", uwsgi.vassals_stop_hook, c_ui->name);
@@ -693,7 +695,9 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 		free(c_ui->socket_name);
 	}
 
-	if (c_ui->on_demand_fd != -1) {
+	if (c_ui->config) free(c_ui->config);
+
+	if (c_ui->on_demand_fd > -1) {
 		close(c_ui->on_demand_fd);
 	}
 
@@ -905,13 +909,15 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 	n_ui->pipe[0] = -1;
 	n_ui->pipe[1] = -1;
 
+	n_ui->pipe_config[0] = -1;
+	n_ui->pipe_config[1] = -1;
+
 	// ok here we check if we need to bind to the specified socket or continue with the activation
 	if (socket_name) {
 		n_ui->on_demand_fd = on_demand_bind(socket_name);
 		if (n_ui->on_demand_fd < 0) {
 			uwsgi_error("emperor_add()/bind()");
-			free(n_ui);
-			c_ui->ui_next = NULL;
+			emperor_del(n_ui);
 			return;
 		}
 
@@ -922,8 +928,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 	
 	if (uwsgi_emperor_vassal_start(n_ui)) {
 		// clear the vassal
-		free(n_ui);
-		c_ui->ui_next = NULL;
+		emperor_del(n_ui);
 	}
 }
 
@@ -974,6 +979,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		n_ui->pid = pid;
 		// close the right side of the pipe
 		close(n_ui->pipe[1]);
+		n_ui->pipe[1] = -1;
 		/* THE ON-DEMAND file descriptir is left mapped to the emperor to allow fast-respawn
 		// TODO add an option to force closing it
 		// close the "on demand" socket
@@ -984,22 +990,8 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		*/
 		if (n_ui->use_config) {
 			close(n_ui->pipe_config[1]);
-		}
-
-		if (n_ui->use_config) {
-			struct uwsgi_header uh;
-			uh.modifier1 = 115;
-                	uh.pktsize = n_ui->config_len;
-                	uh.modifier2 = 0;
-                	if (write(n_ui->pipe_config[0], &uh, 4) != 4) {
-                        	uwsgi_error("[uwsgi-emperor] write() header config");
-                	}
-                	else {
-                        	if (write(n_ui->pipe_config[0], n_ui->config, n_ui->config_len) != (long) n_ui->config_len) {
-                                	uwsgi_error("[uwsgi-emperor] write() config");
-                        	}
-                	}
-
+			n_ui->pipe_config[1] = -1;
+			emperor_push_config(n_ui);
 		}
 
 		// once the config is sent we can run hooks (they can fail)
@@ -1867,8 +1859,15 @@ recheck:
 					}
 					else {
 						// UNSAFE
-						emperor_add(ui_current->scanner, ui_current->name, ui_current->last_mod, ui_current->config, ui_current->config_len, ui_current->uid, ui_current->gid, ui_current->socket_name);
-						emperor_del(ui_current);
+						char *config = NULL;
+ 						if (ui_current->config) {
+ 							config = uwsgi_str(ui_current->config);
+ 						}
+ 						char *socket_name = NULL;
+ 						if (ui_current->socket_name) {
+ 							socket_name = uwsgi_str(ui_current->socket_name);
+ 						}
+ 						emperor_add(ui_current->scanner, ui_current->name, ui_current->last_mod, config, ui_current->config_len, ui_current->uid, ui_current->gid, socket_name);
 						// temporarily set frequency to 0, so we can eventually fast-restart the instance
 						freq = 0;
 					}
@@ -1876,9 +1875,6 @@ recheck:
 				}
 				else if (ui_current->status == 1) {
 					// remove 'marked for dead' instance
-					if (ui_current->config)
-						free(ui_current->config);
-					// SAFE
 					emperor_del(ui_current);
 					// temporarily set frequency to 0, so we can eventually fast-restart the instance
 					freq = 0;
@@ -2379,6 +2375,7 @@ static void emperor_notify_ready() {
         char byte = 1;
         if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
         	uwsgi_error("emperor_notify_ready()/write()");
+		exit(1);
         }
 }
 
