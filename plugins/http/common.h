@@ -44,6 +44,7 @@ struct uwsgi_http {
 
 	int headers_timeout;
 	int connect_timeout;
+	int manage_source;
 }; 
 
 struct http_session {

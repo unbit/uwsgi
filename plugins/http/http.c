@@ -62,6 +62,8 @@ struct uwsgi_option http_options[] = {
 	{"http-server-name-as-http-host", required_argument, 0, "force SERVER_NAME to HTTP_HOST", uwsgi_opt_true, &uhttp.server_name_as_http_host, 0},
 	{"http-headers-timeout", required_argument, 0, "set internal http socket timeout for headers", uwsgi_opt_set_int, &uhttp.headers_timeout, 0},
 	{"http-connect-timeout", required_argument, 0, "set internal http socket timeout for backend connections", uwsgi_opt_set_int, &uhttp.connect_timeout, 0},
+
+	{"http-manage-source", optional_argument, 0, "manage the SOURCE HTTP method placing the session in rw mode", uwsgi_opt_true, &uhttp.manage_source, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -205,6 +207,9 @@ int http_headers_parse(struct corerouter_peer *peer) {
 	while (ptr < watermark) {
 		if (*ptr == ' ') {
 			if (uwsgi_buffer_append_keyval(out, "REQUEST_METHOD", 14, base, ptr - base)) return -1;
+			if (uhttp.manage_source && !uwsgi_strncmp(base, ptr - base, "SOURCE", 6)) {
+				hr->raw_body = 1;
+			}
 			ptr++;
 			found = 1;
 			break;
