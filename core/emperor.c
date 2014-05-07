@@ -2055,8 +2055,11 @@ recheck:
 				else if (ui_current->status == 2) {
 					event_queue_add_fd_read(uwsgi.emperor_queue, ui_current->on_demand_fd);
 					close(ui_current->pipe[0]);
-					if (ui_current->use_config)
+					ui_current->pipe[0] = -1;
+					if (ui_current->use_config) {
 						close(ui_current->pipe_config[0]);
+						ui_current->pipe_config[0] = -1;
+					}
 					ui_current->pid = -1;
 					ui_current->status = 0;
 					ui_current->cursed_at = 0;
