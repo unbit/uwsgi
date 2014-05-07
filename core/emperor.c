@@ -2,10 +2,8 @@
 
 The uWSGI Emperor
 
-a supervisor for multiple uWSGI instances
-
 */
-#include "uwsgi.h"
+#include <uwsgi.h>
 
 
 extern struct uwsgi_server uwsgi;
@@ -996,7 +994,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		// close the right side of the pipe
 		close(n_ui->pipe[1]);
 		n_ui->pipe[1] = -1;
-		/* THE ON-DEMAND file descriptir is left mapped to the emperor to allow fast-respawn
+		/* THE ON-DEMAND file descriptor is left mapped to the emperor to allow fast-respawn
 		   // TODO add an option to force closing it
 		   // close the "on demand" socket
 		   if (n_ui->on_demand_fd > -1) {
@@ -1899,6 +1897,7 @@ recheck:
 						}
 						emperor_add(ui_current->scanner, ui_current->name, ui_current->last_mod, config, ui_current->config_len, ui_current->uid, ui_current->gid, socket_name);
 						// temporarily set frequency to 0, so we can eventually fast-restart the instance
+						emperor_del(ui_current);
 						freq = 0;
 					}
 					break;
@@ -1914,8 +1913,11 @@ recheck:
 				else if (ui_current->status == 2) {
 					event_queue_add_fd_read(uwsgi.emperor_queue, ui_current->on_demand_fd);
 					close(ui_current->pipe[0]);
-					if (ui_current->use_config)
+					ui_current->pipe[0] = -1;
+					if (ui_current->use_config) {
 						close(ui_current->pipe_config[0]);
+						ui_current->pipe_config[0] = -1;
+					}
 					ui_current->pid = -1;
 					ui_current->status = 0;
 					ui_current->cursed_at = 0;
