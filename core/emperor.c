@@ -1222,22 +1222,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		if (n_ui->use_config) {
 			close(n_ui->pipe_config[1]);
 			n_ui->pipe_config[1] = -1;
-		}
-
-		if (n_ui->use_config) {
-			struct uwsgi_header uh;
-			uh.modifier1 = 115;
-			uh.pktsize = n_ui->config_len;
-			uh.modifier2 = 0;
-			if (write(n_ui->pipe_config[0], &uh, 4) != 4) {
-				uwsgi_error("[uwsgi-emperor] write() header config");
-			}
-			else {
-				if (write(n_ui->pipe_config[0], n_ui->config, n_ui->config_len) != (long) n_ui->config_len) {
-					uwsgi_error("[uwsgi-emperor] write() config");
-				}
-			}
-
+			emperor_push_config(n_ui);
 		}
 
 		// once the config is sent we can run hooks (they can fail)
