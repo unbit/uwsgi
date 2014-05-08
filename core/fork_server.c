@@ -164,16 +164,25 @@ void uwsgi_fork_server(char *socket) {
 
 				// build new argc/argv
 				uwsgi.new_argc = 0;
+				size_t procname_len = 1;
 				uwsgi_foreach(usl, usl_argv) {
 					uwsgi.new_argc++;
+					procname_len += usl->len + 1;
 				}
+
+				char *new_procname = uwsgi_calloc(procname_len);
 				
 				uwsgi.new_argv = uwsgi_calloc(sizeof(char *) * (uwsgi.new_argc + 1));
 				int counter = 0;
 				uwsgi_foreach(usl, usl_argv) {
 					uwsgi.new_argv[counter] = usl->value;
+					strcat(new_procname, usl->value);
+					strcat(new_procname, " ");
 					counter++;
 				}
+				// fix process name
+				uwsgi_set_processname(new_procname);
+				free(new_procname);
 				// this is the only step required to have a consistent environment
 				uwsgi.fork_socket = NULL;
 				// this avoids the process to re-exec itself
