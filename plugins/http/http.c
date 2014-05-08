@@ -152,7 +152,7 @@ static int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, size_t 
 	}
 
 	else if (!uwsgi_strncmp("CONNECTION", 10, hh, keylen)) {
-		if (!uwsgi_strnicmp(val, vallen, "close", 5)) {
+		if (!uwsgi_strnicmp(val, vallen, "close", 5) || !uwsgi_strnicmp(val, vallen, "upgrade", 7)) {
 			hr->session.can_keepalive = 0;
 		}
 	}
@@ -806,6 +806,13 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				if (uwsgi_buffer_append(new_peer->out, main_peer->in->buf + hr->headers_size + 1, hr->remains)) return -1;
 			}
 
+			if (hr->websockets > 2 && hr->websocket_key_len > 0) {
+				hr->raw_body = 1;
+			}
+
+			// on raw body, ensure keepalive is disabled
+			if (hr->raw_body) hr->session.can_keepalive = 0;
+
 			if (hr->session.can_keepalive && hr->content_length == 0) {
 				main_peer->disabled = 1;
 				// stop reading from the client
@@ -817,9 +824,7 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				break;
         		}
 
-			if (hr->websockets > 2 && hr->websocket_key_len > 0) {
-				hr->raw_body = 1;
-			}
+
 			new_peer->can_retry = 1;
 			// reset main timeout
 			http_set_timeout(main_peer, uhttp.cr.socket_timeout);
