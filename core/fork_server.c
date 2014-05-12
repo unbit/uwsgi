@@ -112,7 +112,7 @@ void uwsgi_fork_server(char *socket) {
 			goto end;
 		}
 		else {
-			// close everything excluded 0,1,2, the passed fds and client_fd
+			// TODO close everything excluded 0,1,2, the passed fds and client_fd
 			// set EMPEROR_FD and FD_CONFIG env vars	
 			char *uef = uwsgi_num2str(fds[0]);
         		if (setenv("UWSGI_EMPEROR_FD", uef, 1)) {
