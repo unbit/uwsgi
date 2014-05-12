@@ -26,17 +26,39 @@ static void uwsgi_opt_plshell(char *opt, char *value, void *foobar) {
         }
 }
 
+EXTERN_C void xs_init (pTHX);
 int uwsgi_perl_init(void);
+
+static void uwsgi_opt_early_perl(char *opt, char *value, void *foobar) {
+	// avoid duplicates
+	if (uperl.early_interpreter) return;
+	uwsgi_perl_init();
+	uperl.early_interpreter = uperl.main[0];
+
+	// HACK the following allocations ensure correct xs initialization
+	uperl.tmp_streaming_stash = uwsgi_calloc(sizeof(HV *) * uwsgi.threads);
+        uperl.tmp_input_stash = uwsgi_calloc(sizeof(HV *) * uwsgi.threads);
+        uperl.tmp_error_stash = uwsgi_calloc(sizeof(HV *) * uwsgi.threads);
+        uperl.tmp_stream_responder = uwsgi_calloc(sizeof(CV *) * uwsgi.threads);
+        uperl.tmp_psgix_logger = uwsgi_calloc(sizeof(CV *) * uwsgi.threads);
+
+	char *perl_e_arg = uwsgi_concat2("#line 0 ", value);
+        char *perl_init_arg[] = { "", "-e", perl_e_arg };
+        perl_parse(uperl.early_interpreter, xs_init, 3, perl_init_arg, NULL);
+	free(perl_e_arg);
+}
+
 static void uwsgi_opt_early_psgi(char *opt, char *value, void *foobar) {
 	uwsgi_perl_init();
 	init_psgi_app(NULL, value, strlen(value), uperl.main);
 	if (!uperl.early_psgi_callable) exit(1);
 }
 
-EXTERN_C void xs_init (pTHX);
 static void uwsgi_opt_early_exec(char *opt, char *value, void *foobar) {
         uwsgi_perl_init();
-        perl_parse(uperl.main[0], xs_init, 3, uperl.embedding, NULL);
+	if (!uperl.early_interpreter) {
+        	perl_parse(uperl.main[0], xs_init, 3, uperl.embedding, NULL);
+	}
         SV *dollar_zero = get_sv("0", GV_ADD);
         sv_setsv(dollar_zero, newSVpv(value, strlen(value)));
         uwsgi_perl_exec(value);
@@ -63,6 +85,7 @@ struct uwsgi_option uwsgi_perl_options[] = {
         {"plshell-oneshot", no_argument, 0, "run a perl interactive shell (one shot)", uwsgi_opt_plshell, NULL, 0},
 
         {"perl-no-plack", no_argument, 0, "force the use of do instead of Plack::Util::load_psgi", uwsgi_opt_true, &uperl.no_plack, 0},
+        {"early-perl", required_argument, 0, "initialize an early perl interpreter shared by all loaders", uwsgi_opt_early_perl, NULL, UWSGI_OPT_IMMEDIATE},
         {"early-psgi", required_argument, 0, "load a psgi app soon after uWSGI initialization", uwsgi_opt_early_psgi, NULL, UWSGI_OPT_IMMEDIATE},
         {"early-perl-exec", required_argument, 0, "load a perl script soon after uWSGI initialization", uwsgi_opt_early_exec, NULL, UWSGI_OPT_IMMEDIATE},
         {0, 0, 0, 0, 0, 0, 0},

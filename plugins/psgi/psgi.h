@@ -70,6 +70,8 @@ struct uwsgi_perl {
 
 	SV **early_psgi_callable;
 	char *early_psgi_app_name;
+
+	PerlInterpreter *early_interpreter;
 };
 
 void init_perl_embedded_module(void);
