@@ -345,6 +345,9 @@ static void gil_gevent_release() {
 
 static void gevent_loop() {
 
+	// ensure SIGPIPE is ignored
+	signal(SIGPIPE, SIG_IGN);
+
 	if (!uwsgi.has_threads && uwsgi.mywid == 1) {
 		uwsgi_log("!!! Running gevent without threads IS NOT recommended, enable them with --enable-threads !!!\n");
 	}
