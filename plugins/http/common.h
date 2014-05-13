@@ -157,7 +157,7 @@ void hr_session_ssl_close(struct corerouter_session *);
 ssize_t hr_ssl_read(struct corerouter_peer *);
 ssize_t hr_ssl_write(struct corerouter_peer *);
 
-int hr_https_add_vars(struct http_session *, struct uwsgi_buffer *);
+int hr_https_add_vars(struct http_session *, struct corerouter_peer *, struct uwsgi_buffer *);
 void hr_setup_ssl(struct http_session *, struct uwsgi_gateway_socket *);
 
 #endif
