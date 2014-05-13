@@ -166,10 +166,17 @@ void uwsgi_opt_http_to_https(char *opt, char *value, void *cr) {
         ucr->has_sockets++;
 }
 
-int hr_https_add_vars(struct http_session *hr, struct uwsgi_buffer *out) {
+int hr_https_add_vars(struct http_session *hr, struct corerouter_peer *peer, struct uwsgi_buffer *out) {
 // HTTPS (adapted from nginx)
         if (hr->session.ugs->mode == UWSGI_HTTP_SSL) {
                 if (uwsgi_buffer_append_keyval(out, "HTTPS", 5, "on", 2)) return -1;
+#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
+			const char *servername = SSL_get_servername(hr->ssl, TLSEXT_NAMETYPE_host_name);
+                        if (servername) {
+                        	peer->key = (char *) servername;
+                                peer->key_len = strlen(servername);
+                        }
+#endif
                 hr->ssl_client_cert = SSL_get_peer_certificate(hr->ssl);
                 if (hr->ssl_client_cert) {
                         X509_NAME *name = X509_get_subject_name(hr->ssl_client_cert);

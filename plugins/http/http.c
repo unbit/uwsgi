@@ -334,7 +334,7 @@ int http_headers_parse(struct corerouter_peer *peer) {
 	}
 
 #ifdef UWSGI_SSL
-	if (hr_https_add_vars(hr, out)) return -1;
+	if (hr_https_add_vars(hr, peer, out)) return -1;
 #endif
 
 	// REMOTE_ADDR
