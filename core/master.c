@@ -964,6 +964,11 @@ next:
 
 		if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_FAILED_APP_CODE) {
 			uwsgi_log("OOPS ! failed loading app in worker %d (pid %d) :( trying again...\n", thewid, (int) diedpid);
+			if (uwsgi.lazy_apps && uwsgi.need_app) {
+				uwsgi_log_verbose("need-app requested, destroying the instance...\n");
+				kill_them_all(0);
+				continue;
+			}
 		}
 		else if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_DE_HIJACKED_CODE) {
 			uwsgi_log("...restoring worker %d (pid: %d)...\n", thewid, (int) diedpid);
