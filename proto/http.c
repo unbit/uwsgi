@@ -79,7 +79,7 @@ static uint16_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, s
 	return 2 + keylen + 2 + hvlen;
 }
 
-static char *proxy1_parse(char *ptr, char *watermark, char **src, uint16_t *src_len, char **dst, uint16_t *dst_len,  char **src_port, uint16_t *src_port_len, char **dst_port, uint16_t *dst_port_len) {
+char *proxy1_parse(char *ptr, char *watermark, char **src, uint16_t *src_len, char **dst, uint16_t *dst_len,  char **src_port, uint16_t *src_port_len, char **dst_port, uint16_t *dst_port_len) {
 	// check for PROXY header
 	if (watermark - ptr > 6) {
 		if (memcmp(ptr, "PROXY ", 6)) return ptr;

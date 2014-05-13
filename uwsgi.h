@@ -4441,6 +4441,7 @@ int uwsgi_exceptions_catch(struct wsgi_request *);
 uint64_t uwsgi_worker_exceptions(int);
 struct uwsgi_exception_handler *uwsgi_register_exception_handler(char *, int (*)(struct uwsgi_exception_handler_instance *, char *, size_t));
 
+char *proxy1_parse(char *ptr, char *watermark, char **src, uint16_t *src_len, char **dst, uint16_t *dst_len,  char **src_port, uint16_t *src_port_len, char **dst_port, uint16_t *dst_port_len);
 void uwsgi_async_queue_is_full(time_t);
 char *uwsgi_get_header(struct wsgi_request *, char *, uint16_t, uint16_t *);
 
