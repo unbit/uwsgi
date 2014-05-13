@@ -33,8 +33,27 @@ void uwsgi_fork_server(char *socket) {
 	// automatically receive credentials (TODO make something useful with them, like checking the pid is from the Emperor)
 	if (uwsgi_socket_passcred(fd)) exit(1);
 
+	// initialize the event queue
+	int eq = event_queue_init();
+	if (uwsgi.has_emperor) {
+		event_queue_add_fd_read(eq, uwsgi.emperor_fd);
+	}
+	event_queue_add_fd_read(eq, fd);
+
 	// now start waiting for connections
 	for(;;) {
+		int interesting_fd = -1;
+		int rlen = event_queue_wait(eq, -1, &interesting_fd);
+		if (rlen <= 0) continue;
+		if (uwsgi.has_emperor && interesting_fd == uwsgi.emperor_fd) {
+			char byte;
+        		ssize_t rlen = read(uwsgi.emperor_fd, &byte, 1);
+        		if (rlen > 0) {
+                		uwsgi_log_verbose("received message %d from emperor\n", byte);
+			}
+			exit(0);
+		}
+		if (interesting_fd != fd) continue;
 		struct sockaddr_un client_src;
         	socklen_t client_src_len = 0;
         	int client_fd = accept(fd, (struct sockaddr *) &client_src, &client_src_len);
@@ -93,7 +112,7 @@ void uwsgi_fork_server(char *socket) {
 			goto end;
 		}
 		else {
-			// close everything excluded 0,1,2, the passed fds and client_fd
+			// TODO close everything excluded 0,1,2, the passed fds and client_fd
 			// set EMPEROR_FD and FD_CONFIG env vars	
 			char *uef = uwsgi_num2str(fds[0]);
         		if (setenv("UWSGI_EMPEROR_FD", uef, 1)) {

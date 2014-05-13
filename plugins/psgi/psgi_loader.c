@@ -337,11 +337,13 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 	if (!interpreters) goto clear2;
 
 	callables = uwsgi_calloc(sizeof(SV *) * uwsgi.threads);
-	uperl.tmp_streaming_stash = uwsgi_calloc(sizeof(HV *) * uwsgi.threads);
-	uperl.tmp_input_stash = uwsgi_calloc(sizeof(HV *) * uwsgi.threads);
-	uperl.tmp_error_stash = uwsgi_calloc(sizeof(HV *) * uwsgi.threads);
-	uperl.tmp_stream_responder = uwsgi_calloc(sizeof(CV *) * uwsgi.threads);
-	uperl.tmp_psgix_logger = uwsgi_calloc(sizeof(CV *) * uwsgi.threads);
+	if (!uperl.early_interpreter) {
+		uperl.tmp_streaming_stash = uwsgi_calloc(sizeof(HV *) * uwsgi.threads);
+		uperl.tmp_input_stash = uwsgi_calloc(sizeof(HV *) * uwsgi.threads);
+		uperl.tmp_error_stash = uwsgi_calloc(sizeof(HV *) * uwsgi.threads);
+		uperl.tmp_stream_responder = uwsgi_calloc(sizeof(CV *) * uwsgi.threads);
+		uperl.tmp_psgix_logger = uwsgi_calloc(sizeof(CV *) * uwsgi.threads);
+	}
 
 	for(i=0;i<uwsgi.threads;i++) {
 
@@ -369,7 +371,7 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 		// our xs_init hook, but we're *not* calling it with
 		// uperl.embedding as an argument so we won't execute
 		// BEGIN blocks in app_name twice.
-		{
+		if (!uperl.early_interpreter) {
 			char *perl_e_arg = uwsgi_concat2("#line 0 ", app_name);
 			char *perl_init_arg[] = { "", "-e", perl_e_arg };
 			if (perl_parse(interpreters[i], xs_init, 3, perl_init_arg, NULL)) {
