@@ -269,6 +269,27 @@ static struct uwsgi_sharedarea *announce_sa(struct uwsgi_sharedarea *sa) {
 	return sa;
 }
 
+
+struct uwsgi_sharedarea *uwsgi_sharedarea_init_fd(int fd, uint64_t len, off_t offset) {
+        int id = uwsgi_sharedarea_new_id();
+        uwsgi.sharedareas[id] = uwsgi_calloc_shared(sizeof(struct uwsgi_sharedarea));
+        uwsgi.sharedareas[id]->area = mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, offset); 
+	if (uwsgi.sharedareas[id]->area == MAP_FAILED) {
+		uwsgi_error("uwsgi_sharedarea_init_fd()/mmap()");
+		exit(1);
+	}
+        uwsgi.sharedareas[id]->id = id;
+        uwsgi.sharedareas[id]->fd = fd;
+        uwsgi.sharedareas[id]->pages = len / uwsgi.page_size;
+        if (len % uwsgi.page_size != 0) uwsgi.sharedareas[id]->pages++;
+        uwsgi.sharedareas[id]->max_pos = len-1;
+        char *id_str = uwsgi_num2str(id);
+        uwsgi.sharedareas[id]->lock = uwsgi_rwlock_init(uwsgi_concat2("sharedarea", id_str));
+        free(id_str);
+        return announce_sa(uwsgi.sharedareas[id]);
+}
+
+
 struct uwsgi_sharedarea *uwsgi_sharedarea_init(int pages) {
 	int id = uwsgi_sharedarea_new_id();
 	uwsgi.sharedareas[id] = uwsgi_calloc_shared(uwsgi.page_size * (pages + 1));
@@ -304,23 +325,40 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_init_keyval(char *arg) {
 	char *s_fd = NULL;
 	char *s_ptr = NULL;
 	char *s_size = NULL;
+	char *s_offset = NULL;
 	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
 		"pages", &s_pages,
 		"file", &s_file,
 		"fd", &s_fd,
 		"ptr", &s_ptr,
 		"size", &s_size,
+		"offset", &s_offset,
 		NULL)) {
 		uwsgi_log("invalid sharedarea keyval syntax\n");
 		exit(1);
 	}
 
 	uint64_t len = 0;
+	off_t offset = 0;
 	int pages = 0;
 	if (s_size) {
-		len = uwsgi_n64(s_size);
+		if (strlen(s_size) > 2 && s_size[0] == '0' && s_size[1] == 'x') {
+			len = strtoul(s_size+2, NULL, 16);
+		}
+		else {
+			len = uwsgi_n64(s_size);
+		}
 		pages = len / uwsgi.page_size;
         	if (len % uwsgi.page_size != 0) pages++;
+	}
+
+	if (s_offset) {
+		if (strlen(s_offset) > 2 && s_offset[0] == '0' && s_offset[1] == 'x') {
+                        offset = strtoul(s_offset+2, NULL, 16);
+                }
+                else {
+                        offset = uwsgi_n64(s_offset);
+                }
 	}
 	
 	if (s_pages) {
@@ -329,20 +367,35 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_init_keyval(char *arg) {
 
 	char *area = NULL;
 	struct uwsgi_sharedarea *sa = NULL;
+
+	int fd = -1;
 	if (s_file) {
+		fd = open(s_file, O_RDWR|O_SYNC);
+		if (fd < 0) {
+			uwsgi_error_open(s_file);
+			exit(1);
+		}	
 	}
 	else if (s_fd) {
+		fd = atoi(s_fd);
 	}
 	else if (s_ptr) {
 	}
 
 	if (pages) {
-		if (!area) {
-			sa = uwsgi_sharedarea_init(pages);	
+		if (fd > -1) {
+			sa = uwsgi_sharedarea_init_fd(fd, len, offset);
+		}
+		else if (area) {
+			sa = uwsgi_sharedarea_init_ptr(area, len);
 		}
 		else {
-			uwsgi_sharedarea_init_ptr(area, len);
+			sa = uwsgi_sharedarea_init(pages);	
 		}
+	}
+	else {
+		uwsgi_log("you need to set a size for a sharedarea !!! [%s]\n", arg);
+		exit(1);
 	}
 
 	if (s_pages) free(s_pages);
@@ -350,6 +403,7 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_init_keyval(char *arg) {
 	if (s_fd) free(s_fd);
 	if (s_ptr) free(s_ptr);
 	if (s_size) free(s_size);
+	if (s_offset) free(s_offset);
 
 	return sa;
 }
