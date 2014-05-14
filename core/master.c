@@ -984,7 +984,7 @@ next:
 			reap_them_all(0);
 			continue;
 		}
-		else if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_GO_CHEAP) {
+		else if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_GO_CHEAP_CODE) {
 			uwsgi_log("worker %d asked for cheap mode (pid: %d)...\n", thewid, (int) diedpid);
 			uwsgi.workers[thewid].cheaped = 1;
 		}

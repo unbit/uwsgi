@@ -897,7 +897,7 @@ struct uwsgi_opt {
 #define UWSGI_EXCEPTION_CODE 5
 #define UWSGI_QUIET_CODE 29
 #define UWSGI_BRUTAL_RELOAD_CODE 31
-#define UWSGI_GO_CHEAP 15
+#define UWSGI_GO_CHEAP_CODE 15
 
 #define MAX_VARS 64
 
