@@ -4075,6 +4075,9 @@ struct uwsgi_instance {
 	time_t cursed_at;
 
 	int adopted;
+
+	// uWSGI 2.1 (vassal's attributes)
+	struct uwsgi_dyn_dict *attrs;
 };
 
 struct uwsgi_instance *emperor_get_by_fd(int);
