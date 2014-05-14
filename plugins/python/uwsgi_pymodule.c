@@ -1648,7 +1648,7 @@ PyObject *py_uwsgi_sharedarea_read64(PyObject * self, PyObject * args) {
                 return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_read64()");
         }
 
-	return PyLong_FromLong(value);
+	return PyLong_FromLongLong(value);
 
 }
 
