@@ -815,6 +815,13 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 	uwsgi_log("%s %p\n", c_ui->config, c_ui->config);
 	if (c_ui->config) free(c_ui->config);
 
+	struct uwsgi_dyn_dict *attr = c_ui->attrs;
+        while(attr) {
+        	struct uwsgi_dyn_dict *tmp = attr;
+                attr = attr->next;
+                free(tmp);
+        }
+
 	free(c_ui);
 }
 
@@ -2398,6 +2405,24 @@ next:
 		}
 	}
 
+}
+
+int uwsgi_emperor_simple_do_with_attrs(struct uwsgi_emperor_scanner *ues, char *name, char *config, time_t ts, uid_t uid, gid_t gid, char *socket_name, struct uwsgi_dyn_dict *attrs) {
+	uwsgi_emperor_simple_do(ues, name, config, ts, uid, gid, socket_name);
+	struct uwsgi_instance *ui_current = emperor_get(name);
+	if (!ui_current) return -1;
+
+	// if the instance has attrs mapped, let's free them
+	if (ui_current->attrs) {
+		struct uwsgi_dyn_dict *attr = ui_current->attrs;
+		while(attr) {
+			struct uwsgi_dyn_dict *tmp = attr;
+			attr = attr->next;
+			free(tmp);
+		}
+	}
+	ui_current->attrs = attrs;
+	return 0;
 }
 
 void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char *config, time_t ts, uid_t uid, gid_t gid, char *socket_name) {

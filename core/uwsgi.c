@@ -230,6 +230,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"vassals-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},
 	{"vassal-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},
 #endif
+	{"emperor-collect-attribute", no_argument, 0, "collect the specified vassal attribute from imperial monitors", uwsgi_opt_add_string_list, &uwsgi.emperor_collect_attributes, 0},
+	{"emperor-collect-attr", no_argument, 0, "collect the specified vassal attribute from imperial monitors", uwsgi_opt_add_string_list, &uwsgi.emperor_collect_attributes, 0},
 	{"imperial-monitor-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"imperial-monitors-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"vassals-inherit", required_argument, 0, "add config templates to vassals config (uses --inherit)", uwsgi_opt_add_string_list, &uwsgi.vassals_templates, 0},

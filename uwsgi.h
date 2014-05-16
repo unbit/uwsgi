@@ -2728,6 +2728,7 @@ struct uwsgi_server {
 	char **new_argv;
 	char *emperor_use_fork_server;
 	struct uwsgi_string_list *vassal_fork_base;
+	struct uwsgi_string_list *emperor_collect_attributes;
 };
 
 struct uwsgi_rpc {
