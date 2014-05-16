@@ -817,7 +817,6 @@ void emperor_del(struct uwsgi_instance *c_ui) {
         while(attr) {
         	struct uwsgi_dyn_dict *tmp = attr;
                 attr = attr->next;
-		if (tmp->key) free(tmp->key);
 		if (tmp->value) free(tmp->value);
                 free(tmp);
         }
@@ -2437,7 +2436,6 @@ void uwsgi_emperor_simple_do_with_attrs(struct uwsgi_emperor_scanner *ues, char 
 		while(attr) {
 			struct uwsgi_dyn_dict *tmp = attr;
 			attr = attr->next;
-			if (tmp->key) free(tmp->key);
 			if (tmp->value) free(tmp->value);
 			free(tmp);
 		}
@@ -2450,7 +2448,6 @@ void uwsgi_emperor_simple_do_with_attrs(struct uwsgi_emperor_scanner *ues, char 
 		while(attr) {
 			struct uwsgi_dyn_dict *tmp = attr;
 			attr = attr->next;
-			if (tmp->key) free(tmp->key);
 			if (tmp->value) free(tmp->value);
 			free(tmp);
 		}

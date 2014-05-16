@@ -77,8 +77,17 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 			if (strlen(socket_name) == 0) socket_name = NULL;
 
 			struct uwsgi_dyn_dict *attrs = NULL;
-			char *attr_key = NULL;
-			char *attr_value = NULL;
+			struct uwsgi_string_list *e_attrs = uwsgi.emperor_collect_attributes;
+			while(e_attrs) {
+				const char *attr_value = p.getStringField(e_attrs->value);
+				if (strlen(attr_value) == 0) attr_value = NULL;
+				if (attr_value) {
+					// the value memory is always reallocated
+					char *value = uwsgi_str((char *)attr_value);
+					uwsgi_dyn_dict_new(&attrs, e_attrs->value, e_attrs->len, value, strlen(value));
+				}	
+				e_attrs = NULL;
+			}
 
 			if (attrs) {
 				// attrs will be freed in case of error
