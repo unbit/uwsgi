@@ -804,7 +804,6 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 		uwsgi.emperor_broodlord_count--;
 	}
 
-	uwsgi_log("%s socket_name\n", c_ui->socket_name);
 	if (c_ui->socket_name) {
 		free(c_ui->socket_name);
 	}
@@ -812,13 +811,14 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 	if (c_ui->on_demand_fd > -1) {
 		close(c_ui->on_demand_fd);
 	}
-	uwsgi_log("%s %p\n", c_ui->config, c_ui->config);
 	if (c_ui->config) free(c_ui->config);
 
 	struct uwsgi_dyn_dict *attr = c_ui->attrs;
         while(attr) {
         	struct uwsgi_dyn_dict *tmp = attr;
                 attr = attr->next;
+		if (tmp->key) free(tmp->key);
+		if (tmp->value) free(tmp->value);
                 free(tmp);
         }
 
@@ -2004,16 +2004,12 @@ recheck:
 			}
 		}
 
-		if (diedpid > 0) {
-			uwsgi_log("DIEDPID = %d\n", diedpid);
-		}
 		ui_current = ui;
 		while (ui_current->ui_next) {
 			ui_current = ui_current->ui_next;
 			time_t now = uwsgi_now();
 			if (diedpid > 0 && ui_current->pid == diedpid) {
 				if (ui_current->status == 0) {
-					uwsgi_log("OOOOPS\n");
 					// respawn an accidentally dead instance if its exit code is not UWSGI_EXILE_CODE
 					if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_EXILE_CODE) {
 						// SAFE
@@ -2209,6 +2205,31 @@ void emperor_send_stats(int fd) {
 
 		if (uwsgi_stats_keyval_comma(us, "monitor", c_ui->scanner->arg))
 			goto end0;
+
+		if (uwsgi_stats_key(us, "attrs"))
+                        goto end0;
+
+		if (uwsgi_stats_list_open(us))
+			goto end0;
+
+		struct uwsgi_dyn_dict *attrs = c_ui->attrs;
+		while(attrs) {
+			if (attrs->next) {
+				if (uwsgi_stats_keyval_comma(us, attrs->key, attrs->value))
+                        		goto end0;
+			}
+			else {
+				if (uwsgi_stats_keyval(us, attrs->key, attrs->value))
+                        		goto end0;
+			}		
+			attrs = attrs->next;
+		}
+
+		if (uwsgi_stats_list_close(us))
+			goto end0;
+
+		if (uwsgi_stats_comma(us))
+                                goto end0;
 
 		if (uwsgi_stats_keylong(us, "respawns", (unsigned long long) c_ui->respawns))
 			goto end0;
@@ -2407,10 +2428,21 @@ next:
 
 }
 
-int uwsgi_emperor_simple_do_with_attrs(struct uwsgi_emperor_scanner *ues, char *name, char *config, time_t ts, uid_t uid, gid_t gid, char *socket_name, struct uwsgi_dyn_dict *attrs) {
+void uwsgi_emperor_simple_do_with_attrs(struct uwsgi_emperor_scanner *ues, char *name, char *config, time_t ts, uid_t uid, gid_t gid, char *socket_name, struct uwsgi_dyn_dict *attrs) {
 	uwsgi_emperor_simple_do(ues, name, config, ts, uid, gid, socket_name);
 	struct uwsgi_instance *ui_current = emperor_get(name);
-	if (!ui_current) return -1;
+	// free attrs ?
+	if (!ui_current) {
+		struct uwsgi_dyn_dict *attr = attrs;
+		while(attr) {
+			struct uwsgi_dyn_dict *tmp = attr;
+			attr = attr->next;
+			if (tmp->key) free(tmp->key);
+			if (tmp->value) free(tmp->value);
+			free(tmp);
+		}
+		return;
+	}
 
 	// if the instance has attrs mapped, let's free them
 	if (ui_current->attrs) {
@@ -2418,11 +2450,12 @@ int uwsgi_emperor_simple_do_with_attrs(struct uwsgi_emperor_scanner *ues, char *
 		while(attr) {
 			struct uwsgi_dyn_dict *tmp = attr;
 			attr = attr->next;
+			if (tmp->key) free(tmp->key);
+			if (tmp->value) free(tmp->value);
 			free(tmp);
 		}
 	}
 	ui_current->attrs = attrs;
-	return 0;
 }
 
 void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char *config, time_t ts, uid_t uid, gid_t gid, char *socket_name) {

@@ -76,7 +76,17 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 			const char *socket_name = p.getStringField("socket");
 			if (strlen(socket_name) == 0) socket_name = NULL;
 
-			uwsgi_emperor_simple_do(ues, (char *) name, (char *) config, vassal_ts/1000, vassal_uid, vassal_gid, (char *) socket_name);
+			struct uwsgi_dyn_dict *attrs = NULL;
+			char *attr_key = NULL;
+			char *attr_value = NULL;
+
+			if (attrs) {
+				// attrs will be freed in case of error
+				uwsgi_emperor_simple_do_with_attrs(ues, (char *) name, (char *) config, vassal_ts/1000, vassal_uid, vassal_gid, (char *) socket_name, attrs);
+			}
+			else {
+				uwsgi_emperor_simple_do(ues, (char *) name, (char *) config, vassal_ts/1000, vassal_uid, vassal_gid, (char *) socket_name);
+			}
 		}
 
 

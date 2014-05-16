@@ -4167,6 +4167,7 @@ void uwsgi_master_cleanup_hooks(void);
 pid_t uwsgi_daemonize2();
 
 void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *, char *, char *, time_t, uid_t, gid_t, char *);
+void uwsgi_emperor_simple_do_with_attrs(struct uwsgi_emperor_scanner *, char *, char *, time_t, uid_t, gid_t, char *, struct uwsgi_dyn_dict *);
 
 #if defined(__linux__)
 #define UWSGI_ELF
