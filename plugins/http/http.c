@@ -195,6 +195,14 @@ int http_headers_parse(struct corerouter_peer *peer) {
 	char *watermark = ptr + hr->headers_size;
 	char *base = ptr;
 	char *query_string = NULL;
+	char *proxy_src = NULL;
+	char *proxy_dst = NULL;
+	char *proxy_src_port = NULL;
+	char *proxy_dst_port = NULL;
+	uint16_t proxy_src_len = 0;
+	uint16_t proxy_dst_len = 0;
+	uint16_t proxy_src_port_len = 0;
+	uint16_t proxy_dst_port_len = 0;
 
 	peer->out = uwsgi_buffer_new(uwsgi.page_size);
 	// force this buffer to be destroyed as soon as possibile
@@ -206,6 +214,11 @@ int http_headers_parse(struct corerouter_peer *peer) {
 
 	struct uwsgi_buffer *out = peer->out;
 	int found = 0;
+
+        if (uwsgi.enable_proxy_protocol) {
+		ptr = proxy1_parse(ptr, watermark, &proxy_src, &proxy_src_len, &proxy_dst, &proxy_dst_len, &proxy_src_port, &proxy_src_port_len, &proxy_dst_port, &proxy_dst_port_len);
+		base = ptr;
+        }
 
 	// REQUEST_METHOD 
 	while (ptr < watermark) {
@@ -338,8 +351,17 @@ int http_headers_parse(struct corerouter_peer *peer) {
 #endif
 
 	// REMOTE_ADDR
-	if (uwsgi_buffer_append_keyval(out, "REMOTE_ADDR", 11, peer->session->client_address, strlen(peer->session->client_address))) return -1;
-	if (uwsgi_buffer_append_keyval(out, "REMOTE_PORT", 11, peer->session->client_port, strlen(peer->session->client_port))) return -1;
+        if (proxy_src) {
+		if (uwsgi_buffer_append_keyval(out, "REMOTE_ADDR", 11, proxy_src, proxy_src_len)) return -1;
+		if (proxy_src_port) {
+			if (uwsgi_buffer_append_keyval(out, "REMOTE_PORT", 11, proxy_src_port, proxy_src_port_len)) return -1;
+		}
+	}
+	else
+	{
+		if (uwsgi_buffer_append_keyval(out, "REMOTE_ADDR", 11, peer->session->client_address, strlen(peer->session->client_address))) return -1;
+		if (uwsgi_buffer_append_keyval(out, "REMOTE_PORT", 11, peer->session->client_port, strlen(peer->session->client_port))) return -1;
+	}
 
 	//HEADERS
 	base = ptr;
