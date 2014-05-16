@@ -128,14 +128,14 @@ static char **vassal_new_argv(struct uwsgi_instance *n_ui, int *slot_to_free) {
 	if (uwsgi.emperor_magic_exec) {
 		if (!access(n_ui->name, R_OK | X_OK)) {
 			vassal_argv[counter] = uwsgi_concat2("exec://", n_ui->name);
-			if (*slot_to_free)
+			if (slot_to_free)
 				*slot_to_free = counter;
 		}
 
 	}
 	else if (n_ui->use_config) {
 		vassal_argv[counter] = uwsgi_concat2("emperor://", n_ui->name);
-		if (*slot_to_free)
+		if (slot_to_free)
 			*slot_to_free = counter;
 	}
 
@@ -1482,6 +1482,7 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 	}
 
 	char **vassal_argv = vassal_new_argv(n_ui, NULL);
+
 
 	// disable stdin OR map it to the "on demand" socket
 	if (n_ui->on_demand_fd > -1) {

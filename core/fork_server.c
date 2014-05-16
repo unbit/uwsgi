@@ -71,7 +71,7 @@ void uwsgi_fork_server(char *socket) {
 		int fds[8];
 		// we only read 4 bytes header
 		ssize_t len = uwsgi_recv_cred_and_fds(client_fd, hbuf, remains, &ppid, &uid, &gid, fds, &fds_count);
-		uwsgi_log("RET = %d %d %d %d fds:%d\n", len, ppid, uid, gid, fds_count);
+		uwsgi_log_verbose("[uwsgi-fork-server] connection from pid: %d uid: %d gid:%d fds:%d\n", ppid, uid, gid, fds_count);
 		if (len <= 0 || fds_count < 1) {
 			uwsgi_error("uwsgi_fork_server()/recvmsg()");
 			goto end;
@@ -95,7 +95,6 @@ void uwsgi_fork_server(char *socket) {
 		pid_t pid = fork();
 		if (pid < 0) {
 			free(body_argv);
-			// close inherited decriptors excluded the passed fds and client_fd
 			int i;
 			for(i=0;i<fds_count;i++) close(fds[i]);
 			// error on fork()
@@ -104,7 +103,7 @@ void uwsgi_fork_server(char *socket) {
 		}
 		else if (pid > 0) {
 			free(body_argv);
-			// close inherited decriptors excluded the passed fds and client_fd
+			// close inherited decriptors 
 			int i;
 			for(i=0;i<fds_count;i++) close(fds[i]);
 			// wait for child death...
@@ -112,7 +111,14 @@ void uwsgi_fork_server(char *socket) {
 			goto end;
 		}
 		else {
-			// TODO close everything excluded 0,1,2, the passed fds and client_fd
+			// close Emperor channels
+			// we do not close others file desctiptor as lot
+			// of funny tricks could be accomplished with them
+			if (uwsgi.has_emperor) {
+				close(uwsgi.emperor_fd);
+				if (uwsgi.emperor_fd_config > -1) close(uwsgi.emperor_fd_config);
+			}
+			
 			// set EMPEROR_FD and FD_CONFIG env vars	
 			char *uef = uwsgi_num2str(fds[0]);
         		if (setenv("UWSGI_EMPEROR_FD", uef, 1)) {
