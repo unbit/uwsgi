@@ -38,6 +38,18 @@ struct uwsgi_emperor_blacklist_item {
 
 struct uwsgi_emperor_blacklist_item *emperor_blacklist;
 
+static char *vassal_attr_get(struct uwsgi_instance *c_ui, char *attr) {
+	if (!attr) return NULL;
+	struct uwsgi_dyn_dict *attrs = c_ui->attrs;
+	while(attrs) {
+		if (!strcmp(attrs->key, attr)) {
+			return attrs->value;
+		}
+		attrs = attrs->next;
+	}
+	return NULL;
+}
+
 // this generates the argv for the new vassal
 static char **vassal_new_argv(struct uwsgi_instance *n_ui, int *slot_to_free) {
 
@@ -52,6 +64,8 @@ static char **vassal_new_argv(struct uwsgi_instance *n_ui, int *slot_to_free) {
 	char **vassal_argv = uwsgi_malloc(sizeof(char *) * counter);
 	// set args
 	vassal_argv[0] = uwsgi.emperor_wrapper ? uwsgi.emperor_wrapper : uwsgi.binary_path;
+	char *wrapper_attr = vassal_attr_get(n_ui, uwsgi.emperor_wrapper_attr);
+	if (wrapper_attr) vassal_argv[0] = wrapper_attr;
 
 	// reset counter
 	counter = 1;
@@ -1193,11 +1207,16 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 
 	// TODO pre-start hook
 
+
+	// check for fork server
+	char *fork_server = uwsgi.emperor_use_fork_server;
+	char *fork_server_attr = vassal_attr_get(n_ui, uwsgi.emperor_fork_server_attr);
+	if (fork_server_attr) fork_server = fork_server_attr;	
 	// a new uWSGI instance will start 
-	if (uwsgi.emperor_use_fork_server && !uwsgi_string_list_has_item(uwsgi.vassal_fork_base, n_ui->name, strlen(n_ui->name))) {
+	if (fork_server && !uwsgi_string_list_has_item(uwsgi.vassal_fork_base, n_ui->name, strlen(n_ui->name))) {
 		// pid can only be > 0 or -1
 		n_ui->adopted = 1;
-		pid = emperor_connect_to_fork_server(uwsgi.emperor_use_fork_server, n_ui);
+		pid = emperor_connect_to_fork_server(fork_server, n_ui);
 	}
 #if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL) && !defined(__ia64__)
 	else if (uwsgi.emperor_clone) {
