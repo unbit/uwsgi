@@ -1093,8 +1093,10 @@ static void vassal_fork_server_parser_hook(char *key, uint16_t key_len, char *va
 */
 static pid_t emperor_connect_to_fork_server(char *socket, struct uwsgi_instance *n_ui) {
 	int fd = uwsgi_connect(socket, uwsgi.socket_timeout, 0);
-	if (fd < 0)
+	if (fd < 0) {
+		uwsgi_error("emperor_connect_to_fork_server()/uwsgi_connect()");
 		return -1;
+	}
 
 	int slot_to_free = -1;
 	char **vassal_argv = vassal_new_argv(n_ui, &slot_to_free);

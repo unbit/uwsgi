@@ -24,7 +24,14 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 	try {
 
 		// requested fields
-        	mongo::BSONObj p = BSON( "name" << 1 << "config" << 1 << "ts" << 1 << "uid" << 1 << "gid" << 1 << "socket" << 1 );
+		mongo::BSONObjBuilder builder;
+        	builder.appendElements(BSON("name" << 1 << "config" << 1 << "ts" << 1 << "uid" << 1 << "gid" << 1 << "socket" << 1 ));
+		struct uwsgi_string_list *e_attrs = uwsgi.emperor_collect_attributes;
+		while(e_attrs) {
+			builder.appendElements(BSON(e_attrs->value << 1));
+			e_attrs = e_attrs->next;
+		}
+		mongo::BSONObj p = builder.obj();
 		mongo::BSONObj q = mongo::fromjson(uems->json);
 		// the connection object (will be automatically destroyed at each cycle)
 		mongo::DBClientConnection c;
@@ -86,7 +93,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 					char *value = uwsgi_str((char *)attr_value);
 					uwsgi_dyn_dict_new(&attrs, e_attrs->value, e_attrs->len, value, strlen(value));
 				}	
-				e_attrs = NULL;
+				e_attrs = e_attrs->next;
 			}
 
 			if (attrs) {
