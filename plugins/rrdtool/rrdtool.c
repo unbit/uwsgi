@@ -150,6 +150,7 @@ static void rrdtool_push(struct uwsgi_stats_pusher_instance *uspi, time_t now, c
 		uwsgi_rlock(uwsgi.metrics_lock);
 		int ret = snprintf(buf, 1024, "N:%lld", (long long) (*um->value));
 		uwsgi_rwunlock(uwsgi.metrics_lock);
+		if (um->reset_after_push){ *um->value = 0;}
 		if (ret < 3 || ret >= 1024) {
 			uwsgi_log("unable to update rrdtool metric for %s\n", um->name);
 			goto next;

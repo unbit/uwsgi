@@ -95,6 +95,7 @@ static void stats_pusher_statsd(struct uwsgi_stats_pusher_instance *uspi, time_t
 			statsd_send_metric(ub, uspi, um->name, um->name_len, *um->value, "|m");
 		}
 		uwsgi_rwunlock(uwsgi.metrics_lock);
+		if (um->reset_after_push){ *um->value = 0;}
 		um = um->next;
 	}
 	uwsgi_buffer_destroy(ub);
