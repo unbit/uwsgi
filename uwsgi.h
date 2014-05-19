@@ -4684,6 +4684,9 @@ struct uwsgi_metric {
 	struct uwsgi_metric_threshold *thresholds;
 
         struct uwsgi_metric *next;
+
+	// allow to reset metrics after each push
+	uint8_t reset_after_push;
 };
 
 struct uwsgi_metric_child {
