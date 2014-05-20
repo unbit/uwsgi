@@ -356,7 +356,6 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	char *collector = NULL;
 	uint32_t freq = 0;
 	int64_t initial_value = 0;
-	uint8_t reset_after_push = 0;
 
 	if (m_type) {
 		if (!strcmp(m_type, "gauge")) {

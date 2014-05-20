@@ -383,7 +383,7 @@ metrics_loop:
 				if (um->reset_after_push){
 					uwsgi_wlock(uwsgi.metrics_lock);
 					*um->value = 0;
-					uwsgi_unlock(uwsgi.metrics_lock);
+					uwsgi_rwunlock(uwsgi.metrics_lock);
 				}
 				if (!wok) goto clear;
 				um = um->next;
