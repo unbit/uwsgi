@@ -94,6 +94,11 @@ static void stats_pusher_zabbix(struct uwsgi_stats_pusher_instance *uspi, time_t
 		if (uwsgi_buffer_append(zn->ub, "\",\"value\":\"", 11)) { error = 1; goto end;} 	
 		if (uwsgi_buffer_num64(zn->ub, *um->value)) { error = 1; goto end;} 	
 		if (uwsgi_buffer_append(zn->ub, "\"}", 2)) { error = 1; goto end;} 	
+		if (um->reset_after_push){
+			uwsgi_wlock(uwsgi.metrics_lock);
+			*um->value = 0;
+			uwsgi_unlock(uwsgi.metrics_lock);
+		}
 		um = um->next;
 		if (um) {
 			if (uwsgi_buffer_append(zn->ub, ",", 1)) { error = 1; goto end;} 

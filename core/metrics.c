@@ -321,6 +321,7 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	char *m_initial_value = NULL;
 	char *m_children = NULL;
 	char *m_alias = NULL;
+	char *m_reset_after_push = NULL;
 
 	if (!strchr(arg, '=')) {
 		m_name = uwsgi_str(arg);
@@ -340,6 +341,7 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 		"arg3n", &m_arg3n,
 		"children", &m_children,
 		"alias", &m_alias,
+		"reset_after_push", &m_reset_after_push,
 		NULL)) {
 		uwsgi_log("invalid metric keyval syntax: %s\n", arg);
 		exit(1);
@@ -354,6 +356,7 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	char *collector = NULL;
 	uint32_t freq = 0;
 	int64_t initial_value = 0;
+	uint8_t reset_after_push = 0;
 
 	if (m_type) {
 		if (!strcmp(m_type, "gauge")) {
@@ -380,6 +383,10 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 
 	struct uwsgi_metric* um =  uwsgi_register_metric(m_name, m_oid, type, collector, NULL, freq, NULL);
 	um->initial_value = initial_value;
+
+	if (m_reset_after_push){
+		um->reset_after_push = 1;
+	}
 
 	if (m_children) {
 		char *p, *ctx = NULL;
@@ -427,6 +434,7 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	if (m_initial_value) free(m_initial_value);
 	if (m_children) free(m_children);
 	if (m_alias) free(m_alias);
+	if (m_reset_after_push) free(m_reset_after_push);
 	return um;
 }
 
