@@ -380,7 +380,11 @@ metrics_loop:
 				uwsgi_rlock(uwsgi.metrics_lock);
 				wok = carbon_write(fd, "%s%s.%s.%.*s %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, um->name_len, um->name, (unsigned long long) *um->value, (unsigned long long) now);
 				uwsgi_rwunlock(uwsgi.metrics_lock);
-				if (um->reset_after_push){ *um->value = 0;}
+				if (um->reset_after_push){
+					uwsgi_wlock(uwsgi.metrics_lock);
+					*um->value = 0;
+					uwsgi_unlock(uwsgi.metrics_lock);
+				}
 				if (!wok) goto clear;
 				um = um->next;
 			}
