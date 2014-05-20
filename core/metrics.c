@@ -704,7 +704,7 @@ int64_t uwsgi_metric_getn(char *name, size_t nlen, char *oid, size_t olen) {
 
 int uwsgi_metric_set_max(char *name, char *oid, int64_t value) {
 	um_op;
-    if (value > uwsgi_metric_get(name, oid))
+    if (value > *um->value)
         *um->value = value;
 	uwsgi_rwunlock(uwsgi.metrics_lock);
 	return 0;
@@ -712,7 +712,7 @@ int uwsgi_metric_set_max(char *name, char *oid, int64_t value) {
 
 int uwsgi_metric_set_min(char *name, char *oid, int64_t value) {
 	um_op;
-    if ((value > um->initial_value || 0) && value < uwsgi_metric_get(name, oid))
+    if ((value > um->initial_value || 0) && value < *um->value)
         *um->value = value;
 	uwsgi_rwunlock(uwsgi.metrics_lock);
 	return 0;
