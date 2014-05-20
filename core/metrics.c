@@ -620,7 +620,7 @@ struct uwsgi_metric *uwsgi_metric_find_by_asn(char *asn, size_t len) {
         }\
         if (!um) return -1;\
 	if (um->collector || um->type == UWSGI_METRIC_ALIAS) return -1;\
-	uwsgi_rlock(uwsgi.metrics_lock)
+	uwsgi_wlock(uwsgi.metrics_lock)
 
 int uwsgi_metric_set(char *name, char *oid, int64_t value) {
 	um_op;
