@@ -59,6 +59,7 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
         uint32_t h_len = 0;
 
 	int has_size = 0;
+	int has_connection = 0;
 
         for(i=next;i<len;i++) {
                 if (key) {
@@ -73,6 +74,7 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
 				if (hr->session.can_keepalive) {
 #endif
 					if (!uwsgi_strnicmp(key, colon-key, "Connection", 10)) {
+						has_connection = 1;
 						if (!uwsgi_strnicmp(colon+2, h_len-((colon-key)+2), "close", 5)) {
 							goto end;
 						}
@@ -168,6 +170,10 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
 					hr->force_chunked = 1;
 					return 0;
 				}
+			}
+			// avoid iOS making mess...
+			if (!has_connection) {
+				if (uwsgi_buffer_insert(ub, len-2, "Connection: close\r\n", 19)) return -1;
 			}
 			hr->session.can_keepalive = 0;
 		}
