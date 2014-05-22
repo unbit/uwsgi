@@ -1805,6 +1805,13 @@ void uwsgi_bind_sockets() {
 
 stdin_done:
 
+	if (uwsgi.chown_socket) {
+		if (!uwsgi.master_as_root) {
+			uwsgi_as_root();
+		}
+	}
+
+
 	// check for auto_port socket
 	uwsgi_sock = uwsgi.sockets;
 	while (uwsgi_sock) {
@@ -1821,13 +1828,6 @@ stdin_done:
 #endif
 		}
 		uwsgi_sock = uwsgi_sock->next;
-	}
-
-
-	if (uwsgi.chown_socket) {
-		if (!uwsgi.master_as_root) {
-			uwsgi_as_root();
-		}
 	}
 
 
