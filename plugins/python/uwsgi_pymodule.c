@@ -3282,6 +3282,40 @@ PyObject *py_uwsgi_metric_get(PyObject * self, PyObject * args) {
         return PyLong_FromLongLong(value);
 }
 
+PyObject *py_uwsgi_metric_set_max(PyObject * self, PyObject * args) {
+        char *key;
+        int64_t value = 1;
+        if (!PyArg_ParseTuple(args, "s|l:metric_set_max", &key, &value)) return NULL;
+
+        UWSGI_RELEASE_GIL
+        if (uwsgi_metric_set_max(key, NULL, value)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+        UWSGI_GET_GIL
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
+PyObject *py_uwsgi_metric_set_min(PyObject * self, PyObject * args) {
+        char *key;
+        int64_t value = 1;
+        if (!PyArg_ParseTuple(args, "s|l:metric_set_min", &key, &value)) return NULL;
+
+        UWSGI_RELEASE_GIL
+        if (uwsgi_metric_set_min(key, NULL, value)) {
+                UWSGI_GET_GIL
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+        UWSGI_GET_GIL
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
 
 static PyMethodDef uwsgi_metrics_methods[] = {
 	{"metric_inc", py_uwsgi_metric_inc, METH_VARARGS, ""},
@@ -3290,6 +3324,8 @@ static PyMethodDef uwsgi_metrics_methods[] = {
 	{"metric_div", py_uwsgi_metric_div, METH_VARARGS, ""},
 	{"metric_get", py_uwsgi_metric_get, METH_VARARGS, ""},
 	{"metric_set", py_uwsgi_metric_set, METH_VARARGS, ""},
+	{"metric_set_max", py_uwsgi_metric_set_max, METH_VARARGS, ""},
+	{"metric_set_min", py_uwsgi_metric_set_min, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 

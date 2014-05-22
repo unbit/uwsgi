@@ -701,6 +701,22 @@ int64_t uwsgi_metric_getn(char *name, size_t nlen, char *oid, size_t olen) {
         return ret;
 }
 
+int uwsgi_metric_set_max(char *name, char *oid, int64_t value) {
+	um_op;
+    if (value > *um->value)
+        *um->value = value;
+	uwsgi_rwunlock(uwsgi.metrics_lock);
+	return 0;
+}
+
+int uwsgi_metric_set_min(char *name, char *oid, int64_t value) {
+	um_op;
+    if ((value > um->initial_value || 0) && value < *um->value)
+        *um->value = value;
+	uwsgi_rwunlock(uwsgi.metrics_lock);
+	return 0;
+}
+
 #define uwsgi_metric_name(f, n) ret = snprintf(buf, 4096, f, n); if (ret <= 1 || ret >= 4096) { uwsgi_log("unable to register metric name %s\n", f); exit(1);}
 #define uwsgi_metric_name2(f, n, n2) ret = snprintf(buf, 4096, f, n, n2); if (ret <= 1 || ret >= 4096) { uwsgi_log("unable to register metric name %s\n", f); exit(1);}
 
