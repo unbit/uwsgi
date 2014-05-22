@@ -1733,13 +1733,6 @@ void uwsgi_bind_sockets() {
 		uwsgi_sock = uwsgi_sock->next;
 	}
 
-
-	if (uwsgi.chown_socket) {
-		if (!uwsgi.master_as_root) {
-			uwsgi_as_root();
-		}
-	}
-
 	int zero_used = 0;
 	uwsgi_sock = uwsgi.sockets;
 	while (uwsgi_sock) {
@@ -1828,6 +1821,13 @@ stdin_done:
 #endif
 		}
 		uwsgi_sock = uwsgi_sock->next;
+	}
+
+
+	if (uwsgi.chown_socket) {
+		if (!uwsgi.master_as_root) {
+			uwsgi_as_root();
+		}
 	}
 
 
