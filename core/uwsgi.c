@@ -2225,7 +2225,7 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 		uwsgi_opt_flock(NULL, uwsgi.flock_wait2, NULL);
 
 	// setup master logging
-	if (uwsgi.log_master && !uwsgi.daemonize2 && !uwsgi.logto2)
+	if (uwsgi.log_master && !uwsgi.daemonize2 && uwsgi.logfile)
 		uwsgi_setup_log_master();
 
 	// setup offload engines
@@ -2507,8 +2507,11 @@ int uwsgi_start(void *v_argv) {
 
 	if (uwsgi.logto2) {
 		if (!uwsgi.is_a_reload || uwsgi.log_reopen) {
+			int setup_log = 0;
+			if (!uwsgi.logfile) setup_log = 1; // logto() will replace uwsgi.logfile and we need to check it later
 			logto(uwsgi.logto2);
-			uwsgi_setup_log_master();
+			if (setup_log)
+				uwsgi_setup_log_master();
 		}
 	}
 
