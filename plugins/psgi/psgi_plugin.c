@@ -992,7 +992,15 @@ static int uwsgi_perl_spooler(char *filename, char *buf, uint16_t len, char *bod
 	return ret;
 }
 
+static int uwsgi_perl_hook_perl(char *arg) {
+	SV *ret = perl_eval_pv(arg, 0);
+	if (!ret) return -1;
+	return 0;
+}
 
+static void uwsgi_perl_register_features() {
+	uwsgi_register_hook("perl", uwsgi_perl_hook_perl);
+}
 
 struct uwsgi_plugin psgi_plugin = {
 
@@ -1023,4 +1031,5 @@ struct uwsgi_plugin psgi_plugin = {
 	.magic = uwsgi_perl_magic,
 
 	.spooler = uwsgi_perl_spooler,
+	.on_load = uwsgi_perl_register_features,
 };
