@@ -233,13 +233,6 @@ def build_uwsgi(uc, print_only=False, gcll=None):
     else:
         gcc_list, cflags, ldflags, libs = gcll
 
-    if 'UWSGI_EMBED_PLUGINS' in os.environ:
-        ep = uc.get('embedded_plugins')
-        if ep:
-            uc.set('embedded_plugins', ep + ',' + os.environ['UWSGI_EMBED_PLUGINS'])
-        else:
-            uc.set('embedded_plugins', os.environ['UWSGI_EMBED_PLUGINS'])
-
     if uc.get('embedded_plugins'):
         ep = uc.get('embedded_plugins').split(',')
         epc = "-DUWSGI_DECLARE_EMBEDDED_PLUGINS=\""
@@ -519,7 +512,11 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                 push_print("*** building plugin: %s ***" % p)
                 build_plugin("plugins/%s" % p, uc, cflags, ldflags, libs)
 
-    bin_name = os.environ.get('UWSGI_BIN_NAME', uc.get('bin_name'))
+    bin_name = uc.get('bin_name')
+    try:
+        os.makedirs(os.path.dirname(bin_name))
+    except OSError:
+        pass
 
     if uc.embed_config:
         gcc_list.append("%s.o" % binarize(uc.embed_config))
@@ -613,9 +610,25 @@ class uConf(object):
         self.gcc_list.append('proto/puwsgi')
         self.include_path = []
 
+        if 'UWSGI_PROFILE_OVERRIDE' in os.environ:
+            for item in os.environ['UWSGI_PROFILE_OVERRIDE'].split(';'):
+                k,v = item.split('=', 2)
+                self.set(k, v)
+
+        if 'UWSGI_EMBED_PLUGINS' in os.environ:
+            ep = self.get('embedded_plugins', '').split(',')
+            ep = ep + os.environ['UWSGI_EMBED_PLUGINS'].split(',')
+            self.set('embedded_plugins', ','.join(p.strip() for p in ep if p))
+
         if 'UWSGI_INCLUDES' in os.environ:
             self.include_path += os.environ['UWSGI_INCLUDES'].split(',')
 
+        if 'UWSGI_AS_LIB' in os.environ:
+            self.set('as_shared_library', 'true')
+            self.set('bin_name', os.environ['UWSGI_AS_LIB'])
+
+        if 'UWSGI_BIN_NAME' in os.environ:
+            self.set('bin_name', os.environ['UWSGI_BIN_NAME'])
 
         self.cflags = ['-O2', '-I.', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split() + self.get('cflags','').split()
 
@@ -752,15 +765,6 @@ class uConf(object):
         global uwsgi_version
 
         kvm_list = ['FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
-
-        if 'UWSGI_PROFILE_OVERRIDE' in os.environ:
-            for item in os.environ['UWSGI_PROFILE_OVERRIDE'].split(';'):
-                k,v = item.split('=', 2)
-                self.set(k, v)
-
-        if 'UWSGI_AS_LIB' in os.environ:
-            self.set('as_shared_library', 'true')
-            self.set('bin_name', os.environ['UWSGI_AS_LIB'])
 
         if self.has_include('ifaddrs.h'):
             self.cflags.append('-DUWSGI_HAS_IFADDRS')
