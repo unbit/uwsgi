@@ -476,17 +476,17 @@ static void lru_remove_item(struct uwsgi_cache *uc, uint64_t index)
 {
 	struct uwsgi_cache_item *prev, *next, *curr = cache_item(index);
 
-	if (curr->next) {
-		next = cache_item(curr->next);
-		next->prev = curr->prev;
+	if (curr->lru_next) {
+		next = cache_item(curr->lru_next);
+		next->lru_prev = curr->lru_prev;
 	} else
-		uc->lru_tail = curr->prev;
+		uc->lru_tail = curr->lru_prev;
 
-	if (curr->prev) {
-		prev = cache_item(curr->prev);
-		prev->next = curr->next;
+	if (curr->lru_prev) {
+		prev = cache_item(curr->lru_prev);
+		prev->lru_next = curr->lru_next;
 	} else
-		uc->lru_head = curr->next;
+		uc->lru_head = curr->lru_next;
 }
 
 static void lru_add_item(struct uwsgi_cache *uc, uint64_t index)
@@ -495,12 +495,12 @@ static void lru_add_item(struct uwsgi_cache *uc, uint64_t index)
 
 	if (uc->lru_tail) {
 		prev = cache_item(uc->lru_tail);
-		prev->next = index;
+		prev->lru_next = index;
 	} else
 		uc->lru_head = index;
 
-	curr->next = 0;
-	curr->prev = uc->lru_tail;
+	curr->lru_next = 0;
+	curr->lru_prev = uc->lru_tail;
 	uc->lru_tail = index;
 }
 

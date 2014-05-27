@@ -5,7 +5,7 @@ import string
 
 class BitmapTest(unittest.TestCase):
 
-    __caches__ = ['items_1', 'items_2', 'items_3', 'items_4', 'items_17', 'items_4_10', 'items_1_100000', 'items_non_bitmap']
+    __caches__ = ['items_1', 'items_2', 'items_3', 'items_4', 'items_17', 'items_4_10', 'items_1_100000', 'items_non_bitmap', 'items_lru']
 
     def setUp(self):
         for cache in self.__caches__:
@@ -103,4 +103,14 @@ class BitmapTest(unittest.TestCase):
         self.assertIsNone(uwsgi.cache_set('KEY', 'X' * 21, 0, 'items_non_bitmap'))
         self.assertTrue(uwsgi.cache_set('KEY', 'X' * 20, 0, 'items_non_bitmap'))
 
+    def test_lru(self):
+        self.assertTrue(uwsgi.cache_set('KEY1', 'X' * 20, 0, 'items_lru'))
+        self.assertTrue(uwsgi.cache_set('KEY2', 'X' * 20, 0, 'items_lru'))
+        self.assertTrue(uwsgi.cache_set('KEY3', 'Y' * 20, 0, 'items_lru'))
+        self.assertIsNone(uwsgi.cache_get('KEY1', 'items_lru'))
+        second_item = uwsgi.cache_get('KEY3', 'items_lru')
+        for i in range(4,100):
+            self.assertTrue(uwsgi.cache_set('KEY%d' % i, 'Y' * 20, 0, 'items_lru'))
+            self.assertIsNone(uwsgi.cache_get('KEY%d' % (i-2), 'items_lru'))
+    
 unittest.main()
