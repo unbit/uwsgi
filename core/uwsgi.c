@@ -1954,7 +1954,7 @@ static char *uwsgi_at_file_read(char *filename) {
 	return buffer;
 }
 
-void uwsgi_setup(int argc, char *argv[], char *envp[]) {
+int uwsgi_setup(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_AS_SHARED_LIBRARY
 #ifdef __APPLE__
 	char ***envPtr = _NSGetEnviron();
@@ -2447,6 +2447,9 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 #if defined(__linux__) && !defined(__ia64__)
 	}
 #endif
+
+    return 0;
+
 }
 
 

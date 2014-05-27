@@ -2723,6 +2723,9 @@ struct uwsgi_server {
 	int stats_no_cores;
 	int stats_no_metrics;
 
+    int new_argc;
+    char **new_argv;
+
 };
 
 struct uwsgi_rpc {
@@ -4766,7 +4769,7 @@ int uwsgi_websocket_send_binary_from_sharedarea(struct wsgi_request *, int, uint
 
 void uwsgi_register_logchunks(void);
 
-void uwsgi_setup(int, char **, char **);
+int uwsgi_setup(int, char **, char **);
 int uwsgi_run(void);
 
 int uwsgi_is_connected(int);
