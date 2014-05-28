@@ -1741,7 +1741,7 @@ static void emperor_cleanup() {
 
 void emperor_loop() {
 
-#ifdef __linux__
+#if defined(__linux__) && defined(PR_SET_CHILD_SUBREAPER)
         if (uwsgi.emperor_use_fork_server || uwsgi.emperor_subreaper) {
                 if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)) {
                         uwsgi_error("uwsgi_fork_server()/fork()");
