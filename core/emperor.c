@@ -1061,6 +1061,9 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 
 		event_queue_add_fd_read(uwsgi.emperor_queue, n_ui->on_demand_fd);
 		uwsgi_log("[uwsgi-emperor] %s -> \"on demand\" instance detected, waiting for connections on socket \"%s\" ...\n", name, socket_name);
+		if (uwsgi_hooks_run_and_return(uwsgi.hook_as_on_demand_vassal, "as-on-demand-vassal", 0)) {
+			emperor_del(n_ui);
+		}
 		return;
 	}
 
@@ -1738,6 +1741,15 @@ static void emperor_cleanup() {
 
 void emperor_loop() {
 
+#ifdef __linux__
+        if (uwsgi.emperor_use_fork_server || uwsgi.emperor_subreaper) {
+                if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)) {
+                        uwsgi_error("uwsgi_fork_server()/fork()");
+                        exit(1);
+                }
+        }
+#endif
+
 	// monitor a directory
 
 	struct uwsgi_instance ui_base;
@@ -2075,6 +2087,10 @@ recheck:
 					ui_current->ready = 0;
 					ui_current->accepting = 0;
 					uwsgi_log("[uwsgi-emperor] %s -> back to \"on demand\" mode, waiting for connections on socket \"%s\" ...\n", ui_current->name, ui_current->socket_name);
+					if (uwsgi_hooks_run_and_return(uwsgi.hook_as_on_demand_vassal, "as-on-demand-vassal", 0)) {
+						emperor_del(ui_current);
+						freq = 1;	
+					}
 					break;
 				}
 			}
@@ -2345,15 +2361,6 @@ end:
 }
 
 void uwsgi_emperor_start() {
-
-#ifdef __linux__
-	if (uwsgi.emperor_use_fork_server) {
-		if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)) {
-			uwsgi_error("uwsgi_fork_server()/fork()");
-			exit(1);
-		}
-	}
-#endif
 
 	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.master_process) {
 		if (uwsgi.emperor_procname) {

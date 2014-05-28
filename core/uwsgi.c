@@ -225,6 +225,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 	{"emperor-use-fork-server", required_argument, 0, "connect to the specified fork server instead of using plain fork() for new vassals", uwsgi_opt_set_str, &uwsgi.emperor_use_fork_server, 0},
 	{"vassal-fork-base", required_argument, 0, "use plain fork() for the specified vassal (instead of a fork-server)", uwsgi_opt_add_string_list, &uwsgi.vassal_fork_base, 0},
+	{"emperor-subreaper", no_argument, 0, "force the Emperor to be a sub-reaper (if supported)", uwsgi_opt_true, &uwsgi.emperor_subreaper, 0},
 #ifdef UWSGI_CAP
 	{"emperor-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},
 	{"vassals-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},
@@ -411,6 +412,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
         {"hook-as-vassal", required_argument, 0, "run the specified hook before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.hook_as_vassal, 0},
         {"hook-as-emperor", required_argument, 0, "run the specified hook in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.hook_as_emperor, 0},
+
+        {"hook-as-on-demand-vassal", required_argument, 0, "run the specified hook whenever a vassal enters on-demand mode", uwsgi_opt_add_string_list, &uwsgi.hook_as_on_demand_vassal, 0},
 
         {"hook-as-mule", required_argument, 0, "run the specified hook in each mule", uwsgi_opt_add_string_list, &uwsgi.hook_as_mule, 0},
 

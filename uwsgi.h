@@ -2731,6 +2731,8 @@ struct uwsgi_server {
 	struct uwsgi_string_list *emperor_collect_attributes;
 	char *emperor_fork_server_attr;
 	char *emperor_wrapper_attr;
+	int emperor_subreaper;
+        struct uwsgi_string_list *hook_as_on_demand_vassal;
 };
 
 struct uwsgi_rpc {
@@ -4579,6 +4581,7 @@ int uwsgi_umount(char *, char *);
 int uwsgi_mount_hook(char *);
 int uwsgi_umount_hook(char *);
 
+int uwsgi_hooks_run_and_return(struct uwsgi_string_list *, char *, int);
 void uwsgi_hooks_run(struct uwsgi_string_list *, char *, int);
 void uwsgi_register_hook(char *, int (*)(char *));
 struct uwsgi_hook *uwsgi_hook_by_name(char *);
