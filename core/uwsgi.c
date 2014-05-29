@@ -1584,21 +1584,25 @@ next:
 	}
 }
 
-void signal_pidfile(int sig, char *filename) {
+int signal_pidfile(int sig, char *filename) {
 
+	int ret = 0;
 	size_t size = 0;
 
 	char *buffer = uwsgi_open_and_read(filename, &size, 1, NULL);
 
 	if (size > 0) {
 		if (kill((pid_t) atoi(buffer), sig)) {
-			uwsgi_error("kill()");
+			uwsgi_error("signal_pidfile()/kill()");
+			ret = -1;
 		}
 	}
 	else {
 		uwsgi_log("error: invalid pidfile\n");
+		ret = -1;
 	}
 	free(buffer);
+	return ret;
 }
 
 /*static*/ void uwsgi_command_signal(char *opt) {
@@ -4233,8 +4237,7 @@ void uwsgi_opt_pidfile_signal(char *opt, char *pidfile, void *sig) {
 
 	long *signum_fake_ptr = (long *) sig;
 	int signum = (long) signum_fake_ptr;
-	signal_pidfile(signum, pidfile);
-	exit(0);
+	exit(signal_pidfile(signum, pidfile));
 }
 
 void uwsgi_opt_load_dl(char *opt, char *value, void *none) {
