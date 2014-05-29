@@ -816,3 +816,19 @@ char *uwsgi_manage_placeholder(char *key) {
 
 	return current_value;
 }
+
+void uwsgi_opt_resolve(char *opt, char *value, void *foo) {
+        char *equal = strchr(value, '=');
+        if (!equal) {
+                uwsgi_log("invalid resolve syntax, must be placeholder=domain\n");
+                exit(1);
+        }
+        char *ip = uwsgi_resolve_ip(equal+1);
+        if (!ip) {
+		uwsgi_log("unable to resolve name %s\n", equal+1);
+                uwsgi_error("uwsgi_resolve_ip()");
+                exit(1);
+        }
+        char *new_opt = uwsgi_concat2n(value, (equal-value)+1, ip, strlen(ip));
+        uwsgi_opt_set_placeholder(opt, new_opt, (void *) 1);
+}
