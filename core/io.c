@@ -90,7 +90,7 @@ char *uwsgi_simple_file_read(char *filename) {
 	}
 
 	if (fstat(fd, &sb)) {
-		uwsgi_error("fstat()");
+		uwsgi_error("uwsgi_simple_file_read()/fstat()");
 		close(fd);
 		goto end;
 	}
@@ -99,7 +99,7 @@ char *uwsgi_simple_file_read(char *filename) {
 
 	len = read(fd, buffer, sb.st_size);
 	if (len != sb.st_size) {
-		uwsgi_error("read()");
+		uwsgi_error("uwsgi_simple_file_read()/read()");
 		free(buffer);
 		close(fd);
 		goto end;
@@ -112,7 +112,7 @@ char *uwsgi_simple_file_read(char *filename) {
 	buffer[sb.st_size] = 0;
 	return buffer;
 end:
-	return (char *) "";
+	return NULL;
 
 }
 

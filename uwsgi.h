@@ -4091,6 +4091,7 @@ void emperor_stop(struct uwsgi_instance *);
 void emperor_curse(struct uwsgi_instance *);
 void emperor_respawn(struct uwsgi_instance *, time_t);
 void emperor_add(struct uwsgi_emperor_scanner *, char *, time_t, char *, uint32_t, uid_t, gid_t, char *);
+void emperor_add_with_attrs(struct uwsgi_emperor_scanner *, char *, time_t, char *, uint32_t, uid_t, gid_t, char *, struct uwsgi_dyn_dict *);
 void emperor_back_to_ondemand(struct uwsgi_instance *);
 
 void uwsgi_exec_command_with_args(char *);
@@ -4796,6 +4797,8 @@ int uwsgi_notify_msg(char *, char *, size_t);
 int uwsgi_send_fds_and_body(int, int *, int, char *, size_t);
 ssize_t uwsgi_recv_cred_and_fds(int, char *, size_t buf_len, pid_t *, uid_t *, gid_t *, int *, int *);
 void uwsgi_fork_server(char *);
+
+void uwsgi_emperor_ini_attrs(char *, char *, struct uwsgi_dyn_dict **);
 
 #ifdef __cplusplus
 }

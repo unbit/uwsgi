@@ -334,7 +334,7 @@ int uwsgi_emperor_is_valid(char *name) {
 	return 0;
 }
 
-static char *emperor_check_on_demand_socket(char *filename) {
+static char *emperor_check_on_demand_socket(char *filename, struct uwsgi_dyn_dict *attrs) {
 	size_t len = 0;
 	if (uwsgi.emperor_on_demand_extension) {
 		char *tmp = uwsgi_concat2(filename, uwsgi.emperor_on_demand_extension);
@@ -471,10 +471,17 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 			}
 		}
 		else {
-			char *socket_name = emperor_check_on_demand_socket(de->d_name);
-			emperor_add(ues, de->d_name, st.st_mtime, NULL, 0, t_uid, t_gid, socket_name);
+			struct uwsgi_dyn_dict *attrs = NULL;
+			if (uwsgi.emperor_collect_attributes) {
+				if (uwsgi_endswith(de->d_name, ".ini")) {
+					uwsgi_emperor_ini_attrs(de->d_name, NULL, &attrs);
+				}
+			}
+			char *socket_name = emperor_check_on_demand_socket(de->d_name, attrs);
+			emperor_add_with_attrs(ues, de->d_name, st.st_mtime, NULL, 0, t_uid, t_gid, socket_name, attrs);
 			if (socket_name)
 				free(socket_name);
+			
 		}
 	}
 	closedir(dir);
@@ -592,10 +599,16 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 			}
 		}
 		else {
-			char *socket_name = emperor_check_on_demand_socket(g.gl_pathv[i]);
-			emperor_add(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, t_uid, t_gid, socket_name);
-			if (socket_name)
-				free(socket_name);
+			struct uwsgi_dyn_dict *attrs = NULL;
+                        if (uwsgi.emperor_collect_attributes) {
+                                if (uwsgi_endswith(g.gl_pathv[i], ".ini")) {
+                                        uwsgi_emperor_ini_attrs(g.gl_pathv[i], NULL, &attrs);
+                                }
+                        }
+                        char *socket_name = emperor_check_on_demand_socket(g.gl_pathv[i], attrs);
+                        emperor_add_with_attrs(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, t_uid, t_gid, socket_name, attrs);
+                        if (socket_name)
+                                free(socket_name);
 		}
 
 	}
@@ -946,6 +959,10 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 }
 
 void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, char *config, uint32_t config_size, uid_t uid, gid_t gid, char *socket_name) {
+	emperor_add_with_attrs(ues, name, born, config, config_size, uid, gid, socket_name, NULL);
+}
+
+void emperor_add_with_attrs(struct uwsgi_emperor_scanner *ues, char *name, time_t born, char *config, uint32_t config_size, uid_t uid, gid_t gid, char *socket_name, struct uwsgi_dyn_dict *attrs) {
 
 	struct uwsgi_instance *c_ui = ui;
 	struct uwsgi_instance *n_ui = NULL;
@@ -1035,6 +1052,8 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 	// start without loyalty
 	n_ui->last_loyal = 0;
 	n_ui->loyal = 0;
+
+	n_ui->attrs = attrs;
 
 	n_ui->first_run = uwsgi_now();
 	n_ui->last_run = n_ui->first_run;
