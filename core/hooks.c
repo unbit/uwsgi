@@ -586,9 +586,15 @@ void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("log", uwsgi_hook_print);
 }
 
-int uwsgi_hooks_run_and_return(struct uwsgi_string_list *l, char *phase, int fatal) {
+int uwsgi_hooks_run_and_return(struct uwsgi_string_list *l, char *phase, char *context, int fatal) {
 	int final_ret = 0;
 	struct uwsgi_string_list *usl = NULL;
+	if (context) {
+		if (setenv("UWSGI_HOOK_CONTEXT", context, 1)) {
+			uwsgi_error("uwsgi_hooks_run_and_return()/setenv()");
+			return -1;
+		}
+	}
         uwsgi_foreach(usl, l) {
                 char *colon = strchr(usl->value, ':');
                 if (!colon) {
@@ -619,16 +625,25 @@ int uwsgi_hooks_run_and_return(struct uwsgi_string_list *l, char *phase, int fat
 
                 int ret = uh->func(colon+1);
 		if (ret != 0) {
-			if (fatal) return ret;
+			if (fatal) {
+				if (context) {
+					unsetenv("UWSGI_HOOK_CONTEXT");
+				}
+				return ret;
+			}
 			final_ret = ret;
 		}
         }
+
+	if (context) {
+		unsetenv("UWSGI_HOOK_CONTEXT");
+	}
 
 	return final_ret;
 }
 
 void uwsgi_hooks_run(struct uwsgi_string_list *l, char *phase, int fatal) {
-	int ret = uwsgi_hooks_run_and_return(l, phase, fatal);
+	int ret = uwsgi_hooks_run_and_return(l, phase, NULL, fatal);
 	if (fatal && ret != 0) {
 		uwsgi_log_verbose("FATAL hook failed, destroying instance\n");
 		if (uwsgi.master_process) {

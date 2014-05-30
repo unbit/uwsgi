@@ -4582,7 +4582,7 @@ int uwsgi_umount(char *, char *);
 int uwsgi_mount_hook(char *);
 int uwsgi_umount_hook(char *);
 
-int uwsgi_hooks_run_and_return(struct uwsgi_string_list *, char *, int);
+int uwsgi_hooks_run_and_return(struct uwsgi_string_list *, char *, char *, int);
 void uwsgi_hooks_run(struct uwsgi_string_list *, char *, int);
 void uwsgi_register_hook(char *, int (*)(char *));
 struct uwsgi_hook *uwsgi_hook_by_name(char *);
