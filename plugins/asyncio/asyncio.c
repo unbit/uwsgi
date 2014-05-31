@@ -353,7 +353,7 @@ static void asyncio_loop() {
 	// call add_handler on each socket
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while(uwsgi_sock) {
-		if (PyObject_CallMethod(uasyncio.loop, "add_reader", "iOi", uwsgi_sock->fd, asyncio_accept, (long) uwsgi_sock) == NULL) {
+		if (PyObject_CallMethod(uasyncio.loop, "add_reader", "iOl", uwsgi_sock->fd, asyncio_accept, (long) uwsgi_sock) == NULL) {
 			uwsgi_pyexit;
 		}
 		uwsgi_sock = uwsgi_sock->next;
