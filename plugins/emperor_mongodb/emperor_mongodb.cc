@@ -24,7 +24,14 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 	try {
 
 		// requested fields
-        	mongo::BSONObj p = BSON( "name" << 1 << "config" << 1 << "ts" << 1 << "uid" << 1 << "gid" << 1 << "socket" << 1 );
+		mongo::BSONObjBuilder builder;
+        	builder.appendElements(BSON("name" << 1 << "config" << 1 << "ts" << 1 << "uid" << 1 << "gid" << 1 << "socket" << 1 ));
+		struct uwsgi_string_list *e_attrs = uwsgi.emperor_collect_attributes;
+		while(e_attrs) {
+			builder.appendElements(BSON(e_attrs->value << 1));
+			e_attrs = e_attrs->next;
+		}
+		mongo::BSONObj p = builder.obj();
 		mongo::BSONObj q = mongo::fromjson(uems->json);
 		// the connection object (will be automatically destroyed at each cycle)
 		mongo::DBClientConnection c;
@@ -76,7 +83,26 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 			const char *socket_name = p.getStringField("socket");
 			if (strlen(socket_name) == 0) socket_name = NULL;
 
-			uwsgi_emperor_simple_do(ues, (char *) name, (char *) config, vassal_ts/1000, vassal_uid, vassal_gid, (char *) socket_name);
+			struct uwsgi_dyn_dict *attrs = NULL;
+			struct uwsgi_string_list *e_attrs = uwsgi.emperor_collect_attributes;
+			while(e_attrs) {
+				const char *attr_value = p.getStringField(e_attrs->value);
+				if (strlen(attr_value) == 0) attr_value = NULL;
+				if (attr_value) {
+					// the value memory is always reallocated
+					char *value = uwsgi_str((char *)attr_value);
+					uwsgi_dyn_dict_new(&attrs, e_attrs->value, e_attrs->len, value, strlen(value));
+				}	
+				e_attrs = e_attrs->next;
+			}
+
+			if (attrs) {
+				// attrs will be freed in case of error
+				uwsgi_emperor_simple_do_with_attrs(ues, (char *) name, (char *) config, vassal_ts/1000, vassal_uid, vassal_gid, (char *) socket_name, attrs);
+			}
+			else {
+				uwsgi_emperor_simple_do(ues, (char *) name, (char *) config, vassal_ts/1000, vassal_uid, vassal_gid, (char *) socket_name);
+			}
 		}
 
 

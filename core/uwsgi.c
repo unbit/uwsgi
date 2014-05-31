@@ -225,11 +225,18 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
 	{"emperor-use-clone", required_argument, 0, "use clone() instead of fork() passing the specified unshare() flags", uwsgi_opt_set_unshare, &uwsgi.emperor_clone, 0},
 #endif
+	{"emperor-use-fork-server", required_argument, 0, "connect to the specified fork server instead of using plain fork() for new vassals", uwsgi_opt_set_str, &uwsgi.emperor_use_fork_server, 0},
+	{"vassal-fork-base", required_argument, 0, "use plain fork() for the specified vassal (instead of a fork-server)", uwsgi_opt_add_string_list, &uwsgi.vassal_fork_base, 0},
+	{"emperor-subreaper", no_argument, 0, "force the Emperor to be a sub-reaper (if supported)", uwsgi_opt_true, &uwsgi.emperor_subreaper, 0},
 #ifdef UWSGI_CAP
 	{"emperor-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},
 	{"vassals-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},
 	{"vassal-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},
 #endif
+	{"emperor-collect-attribute", required_argument, 0, "collect the specified vassal attribute from imperial monitors", uwsgi_opt_add_string_list, &uwsgi.emperor_collect_attributes, 0},
+	{"emperor-collect-attr", required_argument, 0, "collect the specified vassal attribute from imperial monitors", uwsgi_opt_add_string_list, &uwsgi.emperor_collect_attributes, 0},
+	{"emperor-fork-server-attr", required_argument, 0, "set teh vassal's attribute to get when checking for fork-server", uwsgi_opt_set_str, &uwsgi.emperor_fork_server_attr, 0},
+	{"emperor-wrapper-attr", required_argument, 0, "set teh vassal's attribute to get when checking for fork-wrapper", uwsgi_opt_set_str, &uwsgi.emperor_wrapper_attr, 0},
 	{"imperial-monitor-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"imperial-monitors-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"vassals-inherit", required_argument, 0, "add config templates to vassals config (uses --inherit)", uwsgi_opt_add_string_list, &uwsgi.vassals_templates, 0},
@@ -359,6 +366,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"setns-skip", required_argument, 0, "skip the specified entry when sending setns file descriptors", uwsgi_opt_add_string_list, &uwsgi.setns_socket_skip, 0},
 	{"setns", required_argument, 0, "join a namespace created by an external uWSGI instance", uwsgi_opt_set_str, &uwsgi.setns, 0},
 	{"setns-preopen", no_argument, 0, "open /proc/self/ns as soon as possible and cache fds", uwsgi_opt_true, &uwsgi.setns_preopen, 0},
+	{"fork-socket", required_argument, 0, "suspend the execution after early initialization and fork() at every unix socket connection", uwsgi_opt_set_str, &uwsgi.fork_socket, 0},
+	{"fork-server", required_argument, 0, "suspend the execution after early initialization and fork() at every unix socket connection", uwsgi_opt_set_str, &uwsgi.fork_socket, 0},
 #endif
 	{"jailed", no_argument, 0, "mark the instance as jailed (force the execution of post_jail hooks)", uwsgi_opt_true, &uwsgi.jailed, 0},
 #if defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
@@ -405,6 +414,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
         {"hook-as-vassal", required_argument, 0, "run the specified hook before exec()ing the vassal", uwsgi_opt_add_string_list, &uwsgi.hook_as_vassal, 0},
         {"hook-as-emperor", required_argument, 0, "run the specified hook in the emperor after the vassal has been started", uwsgi_opt_add_string_list, &uwsgi.hook_as_emperor, 0},
+
+        {"hook-as-on-demand-vassal", required_argument, 0, "run the specified hook whenever a vassal enters on-demand mode", uwsgi_opt_add_string_list, &uwsgi.hook_as_on_demand_vassal, 0},
 
         {"hook-as-mule", required_argument, 0, "run the specified hook in each mule", uwsgi_opt_add_string_list, &uwsgi.hook_as_mule, 0},
 
@@ -899,6 +910,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"close-on-exec2", no_argument, 0, "set close-on-exec on server sockets (could be required for spawning processes in requests)", uwsgi_opt_true, &uwsgi.close_on_exec2, 0},
 	{"mode", required_argument, 0, "set uWSGI custom mode", uwsgi_opt_set_str, &uwsgi.mode, 0},
 	{"env", required_argument, 0, "set environment variable", uwsgi_opt_set_env, NULL, 0},
+	{"ienv", required_argument, 0, "set environment variable (IMMEDIATE version)", uwsgi_opt_set_env, NULL, UWSGI_OPT_IMMEDIATE},
 	{"envdir", required_argument, 0, "load a daemontools compatible envdir", uwsgi_opt_add_string_list, &uwsgi.envdirs, 0},
 	{"early-envdir", required_argument, 0, "load a daemontools compatible envdir ASAP", uwsgi_opt_envdir, NULL, UWSGI_OPT_IMMEDIATE},
 	{"unenv", required_argument, 0, "unset environment variable", uwsgi_opt_unset_env, NULL, 0},
@@ -1961,6 +1973,7 @@ static char *uwsgi_at_file_read(char *filename) {
 }
 
 void uwsgi_setup(int argc, char *argv[], char *envp[]) {
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 #ifdef __APPLE__
 	char ***envPtr = _NSGetEnviron();
@@ -2141,6 +2154,8 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 	struct group *gr = getgrgid(getgid());
 	uwsgi.magic_table['G'] = gr ? gr->gr_name : uwsgi.magic_table['g'];
 
+configure:
+
 	// you can embed a ini file in the uWSGi binary with default options
 #ifdef UWSGI_EMBED_CONFIG
 	uwsgi_ini_config("", uwsgi.magic_table);
@@ -2164,6 +2179,14 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();
+
+	// stop the execution until a connection arrives on the fork socket
+	if (uwsgi.fork_socket) {
+		uwsgi_log_verbose("waiting for fork-socket connections...\n");
+		uwsgi_fork_server(uwsgi.fork_socket);
+		// if we are here a new process has been spawned
+		goto configure;
+	}
 
 	// fixup cwd
 	if (uwsgi.force_cwd) uwsgi.cwd = uwsgi.force_cwd;

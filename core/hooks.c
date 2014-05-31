@@ -586,55 +586,82 @@ void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("log", uwsgi_hook_print);
 }
 
-void uwsgi_hooks_run(struct uwsgi_string_list *l, char *phase, int fatal) {
+int uwsgi_hooks_run_and_return(struct uwsgi_string_list *l, char *phase, char *context, int fatal) {
+	int final_ret = 0;
 	struct uwsgi_string_list *usl = NULL;
-	uwsgi_foreach(usl, l) {
-		char *colon = strchr(usl->value, ':');
-		if (!colon) {
-			uwsgi_log("invalid hook syntax, must be hook:args\n");
-			exit(1);
-		}
-		*colon = 0;
-		int private = 0;
-		char *action = usl->value;
-		// private hook ?
-		if (action[0] == '!') {
-			action++;
-			private = 1;
-		}
-		struct uwsgi_hook *uh = uwsgi_hook_by_name(action);
-		if (!uh) {
-			uwsgi_log("hook action not found: %s\n", action);
-			exit(1);
-		}
-		*colon = ':';
-
-		if (private) {
-			uwsgi_log("running --- PRIVATE HOOK --- (%s)...\n", phase);
-		}
-		else {
-			uwsgi_log("running \"%s\" (%s)...\n", usl->value, phase);
-		}
-			
-		int ret = uh->func(colon+1);
-		if (fatal && ret != 0) {
-			uwsgi_log_verbose("FATAL hook failed, destroying instance\n");
-			if (uwsgi.master_process) {
-				if (uwsgi.workers) {
-					if (uwsgi.workers[0].pid == getpid()) {
-						kill_them_all(0);
-						return;
-					}
-					else {
-                                        	if (kill(uwsgi.workers[0].pid, SIGINT)) {
-							uwsgi_error("uwsgi_hooks_run()/kill()");
-							exit(1);
-						}
-						return;
-                                	}
-				}
-			}
-			exit(1);
+	if (context) {
+		if (setenv("UWSGI_HOOK_CONTEXT", context, 1)) {
+			uwsgi_error("uwsgi_hooks_run_and_return()/setenv()");
+			return -1;
 		}
 	}
+        uwsgi_foreach(usl, l) {
+                char *colon = strchr(usl->value, ':');
+                if (!colon) {
+                        uwsgi_log("invalid hook syntax, must be hook:args\n");
+                        exit(1);
+                }
+                *colon = 0;
+                int private = 0;
+                char *action = usl->value;
+                // private hook ?
+                if (action[0] == '!') {
+                        action++;
+                        private = 1;
+                }
+                struct uwsgi_hook *uh = uwsgi_hook_by_name(action);
+                if (!uh) {
+                        uwsgi_log("hook action not found: %s\n", action);
+                        exit(1);
+                }
+                *colon = ':';
+
+                if (private) {
+                        uwsgi_log("running --- PRIVATE HOOK --- (%s)...\n", phase);
+                }
+                else {
+                        uwsgi_log("running \"%s\" (%s)...\n", usl->value, phase);
+                }
+
+                int ret = uh->func(colon+1);
+		if (ret != 0) {
+			if (fatal) {
+				if (context) {
+					unsetenv("UWSGI_HOOK_CONTEXT");
+				}
+				return ret;
+			}
+			final_ret = ret;
+		}
+        }
+
+	if (context) {
+		unsetenv("UWSGI_HOOK_CONTEXT");
+	}
+
+	return final_ret;
 }
+
+void uwsgi_hooks_run(struct uwsgi_string_list *l, char *phase, int fatal) {
+	int ret = uwsgi_hooks_run_and_return(l, phase, NULL, fatal);
+	if (fatal && ret != 0) {
+		uwsgi_log_verbose("FATAL hook failed, destroying instance\n");
+		if (uwsgi.master_process) {
+			if (uwsgi.workers) {
+				if (uwsgi.workers[0].pid == getpid()) {
+					kill_them_all(0);
+					return;
+				}
+				else {
+                                       	if (kill(uwsgi.workers[0].pid, SIGINT)) {
+						uwsgi_error("uwsgi_hooks_run()/kill()");
+						exit(1);
+					}
+					return;
+                               	}
+			}
+		}
+		exit(1);
+	}
+}
+

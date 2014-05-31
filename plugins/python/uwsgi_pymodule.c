@@ -1649,7 +1649,6 @@ PyObject *py_uwsgi_sharedarea_read64(PyObject * self, PyObject * args) {
         }
 
 	return PyLong_FromLongLong(value);
-
 }
 
 PyObject *py_uwsgi_sharedarea_read32(PyObject * self, PyObject * args) {

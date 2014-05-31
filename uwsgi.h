@@ -2717,12 +2717,22 @@ struct uwsgi_server {
 
 	int mule_reload_mercy;
 	int alarm_cheap;
-
 	int emperor_no_blacklist;
 	int metrics_no_cores;
 	int stats_no_cores;
 	int stats_no_metrics;
 
+	// uWSGI 2.1
+	char *fork_socket;
+	int new_argc;
+	char **new_argv;
+	char *emperor_use_fork_server;
+	struct uwsgi_string_list *vassal_fork_base;
+	struct uwsgi_string_list *emperor_collect_attributes;
+	char *emperor_fork_server_attr;
+	char *emperor_wrapper_attr;
+	int emperor_subreaper;
+        struct uwsgi_string_list *hook_as_on_demand_vassal;
 };
 
 struct uwsgi_rpc {
@@ -4070,6 +4080,11 @@ struct uwsgi_instance {
 	int on_demand_fd;
 	char *socket_name;
 	time_t cursed_at;
+
+	int adopted;
+
+	// uWSGI 2.1 (vassal's attributes)
+	struct uwsgi_dyn_dict *attrs;
 };
 
 struct uwsgi_instance *emperor_get_by_fd(int);
@@ -4078,6 +4093,7 @@ void emperor_stop(struct uwsgi_instance *);
 void emperor_curse(struct uwsgi_instance *);
 void emperor_respawn(struct uwsgi_instance *, time_t);
 void emperor_add(struct uwsgi_emperor_scanner *, char *, time_t, char *, uint32_t, uid_t, gid_t, char *);
+void emperor_add_with_attrs(struct uwsgi_emperor_scanner *, char *, time_t, char *, uint32_t, uid_t, gid_t, char *, struct uwsgi_dyn_dict *);
 void emperor_back_to_ondemand(struct uwsgi_instance *);
 
 void uwsgi_exec_command_with_args(char *);
@@ -4158,6 +4174,7 @@ void uwsgi_master_cleanup_hooks(void);
 pid_t uwsgi_daemonize2();
 
 void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *, char *, char *, time_t, uid_t, gid_t, char *);
+void uwsgi_emperor_simple_do_with_attrs(struct uwsgi_emperor_scanner *, char *, char *, time_t, uid_t, gid_t, char *, struct uwsgi_dyn_dict *);
 
 #if defined(__linux__)
 #define UWSGI_ELF
@@ -4568,6 +4585,7 @@ int uwsgi_umount(char *, char *);
 int uwsgi_mount_hook(char *);
 int uwsgi_umount_hook(char *);
 
+int uwsgi_hooks_run_and_return(struct uwsgi_string_list *, char *, char *, int);
 void uwsgi_hooks_run(struct uwsgi_string_list *, char *, int);
 void uwsgi_register_hook(char *, int (*)(char *));
 struct uwsgi_hook *uwsgi_hook_by_name(char *);
@@ -4783,6 +4801,12 @@ mode_t uwsgi_mode_t(char *, int *);
 
 int uwsgi_notify_socket_manage(int);
 int uwsgi_notify_msg(char *, char *, size_t);
+
+int uwsgi_send_fds_and_body(int, int *, int, char *, size_t);
+ssize_t uwsgi_recv_cred_and_fds(int, char *, size_t buf_len, pid_t *, uid_t *, gid_t *, int *, int *);
+void uwsgi_fork_server(char *);
+
+void uwsgi_emperor_ini_attrs(char *, char *, struct uwsgi_dyn_dict **);
 
 #ifdef __cplusplus
 }
