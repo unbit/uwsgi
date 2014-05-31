@@ -97,7 +97,7 @@ static void stats_pusher_statsd(struct uwsgi_stats_pusher_instance *uspi, time_t
 		uwsgi_rwunlock(uwsgi.metrics_lock);
 		if (um->reset_after_push){
 			uwsgi_wlock(uwsgi.metrics_lock);
-			*um->value = 0;
+			*um->value = um->initial_value;
 			uwsgi_rwunlock(uwsgi.metrics_lock);
 		}
 		um = um->next;

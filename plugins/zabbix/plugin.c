@@ -97,7 +97,7 @@ static void stats_pusher_zabbix(struct uwsgi_stats_pusher_instance *uspi, time_t
 		if (um->reset_after_push){
 			uwsgi_rwunlock(uwsgi.metrics_lock);
 			uwsgi_wlock(uwsgi.metrics_lock);
-			*um->value = 0;
+			*um->value = um->initial_value;
 			uwsgi_rwunlock(uwsgi.metrics_lock);
 			uwsgi_rlock(uwsgi.metrics_lock);
 		}
