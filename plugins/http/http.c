@@ -63,7 +63,7 @@ struct uwsgi_option http_options[] = {
 	{"http-headers-timeout", required_argument, 0, "set internal http socket timeout for headers", uwsgi_opt_set_int, &uhttp.headers_timeout, 0},
 	{"http-connect-timeout", required_argument, 0, "set internal http socket timeout for backend connections", uwsgi_opt_set_int, &uhttp.connect_timeout, 0},
 
-	{"http-manage-source", optional_argument, 0, "manage the SOURCE HTTP method placing the session in raw mode", uwsgi_opt_true, &uhttp.manage_source, 0},
+	{"http-manage-source", no_argument, 0, "manage the SOURCE HTTP method placing the session in raw mode", uwsgi_opt_true, &uhttp.manage_source, 0},
 	{"http-enable-proxy-protocol", optional_argument, 0, "manage PROXY protocol requests", uwsgi_opt_true, &uhttp.enable_proxy_protocol, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
