@@ -710,13 +710,13 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"alarm-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
 	{"alarms-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
 	{"alarm-msg-size", required_argument, 0, "set the max size of an alarm message (default 8192)", uwsgi_opt_set_64bit, &uwsgi.alarm_msg_size, 0},
-	{"log-master", no_argument, 0, "delegate logging to master process", uwsgi_opt_true, &uwsgi.log_master, UWSGI_OPT_MASTER},
+	{"log-master", no_argument, 0, "delegate logging to master process", uwsgi_opt_true, &uwsgi.log_master, UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
 	{"log-master-bufsize", required_argument, 0, "set the buffer size for the master logger. bigger log messages will be truncated", uwsgi_opt_set_64bit, &uwsgi.log_master_bufsize, 0},
 	{"log-master-stream", no_argument, 0, "create the master logpipe as SOCK_STREAM", uwsgi_opt_true, &uwsgi.log_master_stream, 0},
 	{"log-master-req-stream", no_argument, 0, "create the master requests logpipe as SOCK_STREAM", uwsgi_opt_true, &uwsgi.log_master_req_stream, 0},
 	{"log-reopen", no_argument, 0, "reopen log after reload", uwsgi_opt_true, &uwsgi.log_reopen, 0},
 	{"log-truncate", no_argument, 0, "truncate log on startup", uwsgi_opt_true, &uwsgi.log_truncate, 0},
-	{"log-maxsize", required_argument, 0, "set maximum logfile size", uwsgi_opt_set_64bit, &uwsgi.log_maxsize, UWSGI_OPT_LOG_MASTER},
+	{"log-maxsize", required_argument, 0, "set maximum logfile size", uwsgi_opt_set_64bit, &uwsgi.log_maxsize, UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
 	{"log-backupname", required_argument, 0, "set logfile name after rotation", uwsgi_opt_set_str, &uwsgi.log_backupname, 0},
 
 	{"logdate", optional_argument, 0, "prefix logs with date or a strftime string", uwsgi_opt_log_date, NULL, 0},
@@ -2254,7 +2254,7 @@ configure:
 		uwsgi_opt_flock(NULL, uwsgi.flock_wait2, NULL);
 
 	// setup master logging
-	if (uwsgi.log_master && !uwsgi.daemonize2 && uwsgi.logfile)
+	if (uwsgi.log_master)
 		uwsgi_setup_log_master();
 
 	// setup offload engines
@@ -2536,11 +2536,7 @@ int uwsgi_start(void *v_argv) {
 
 	if (uwsgi.logto2) {
 		if (!uwsgi.is_a_reload || uwsgi.log_reopen) {
-			int setup_log = 0;
-			if (!uwsgi.logfile) setup_log = 1; // logto() will replace uwsgi.logfile and we need to check it later
 			logto(uwsgi.logto2);
-			if (setup_log)
-				uwsgi_setup_log_master();
 		}
 	}
 
