@@ -301,19 +301,27 @@ void logto(char *logfile) {
 	}
 
 
-	/* stdout */
-	if (fd != 1) {
-		if (dup2(fd, 1) < 0) {
+	// if the log-master is already active, just re-set the original_log_fd
+	if (uwsgi.shared->worker_log_pipe[0] == -1) {
+		/* stdout */
+		if (fd != 1) {
+			if (dup2(fd, 1) < 0) {
+				uwsgi_error("dup2()");
+				exit(1);
+			}
+			close(fd);
+		}
+
+		/* stderr */
+		if (dup2(1, 2) < 0) {
 			uwsgi_error("dup2()");
 			exit(1);
 		}
-		close(fd);
-	}
 
-	/* stderr */
-	if (dup2(1, 2) < 0) {
-		uwsgi_error("dup2()");
-		exit(1);
+		 uwsgi.original_log_fd = 2;
+	}
+	else {
+		uwsgi.original_log_fd = fd;
 	}
 }
 
