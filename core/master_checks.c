@@ -41,26 +41,35 @@ int uwsgi_master_check_reload(char **argv) {
 void uwsgi_master_check_chain() {
 	if (!uwsgi.status.chain_reloading) return;
 	int i;
-	int needed_procs = 0;
+	int last_needed_proc = 0;
 	for(i=1;i<=uwsgi.numproc;i++) {
                 if (uwsgi.workers[i].pid > 0 && uwsgi.workers[i].cheaped == 0) {
-			needed_procs++;
+			last_needed_proc = i;
+			break;
                 }
         }
-	if (uwsgi.status.chain_reloading > needed_procs) {
+
+	// we are safe even if last_needed_proc is 0
+	if (uwsgi.status.chain_reloading > last_needed_proc) {
 		uwsgi.status.chain_reloading = 0;
                 uwsgi_log_verbose("chain reloading complete\n");
+		return;
 	}
-	uwsgi_block_signal(SIGHUP);
-	for(i=1;i<=uwsgi.numproc;i++) {
-		// do not curse a worker until the old one is ready
-		if (uwsgi.workers[i].accepting == 0) break;
-		if (uwsgi.workers[i].pid > 0 && uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].cursed_at == 0 && i == uwsgi.status.chain_reloading) {
-			uwsgi_curse(i, SIGHUP);
-			break;
-		}
+
+	struct uwsgi_worker *uw = &uwsgi.workers[last_needed_proc];
+
+	if (uw->accepting == 0 || uw->cheaped || uw->pid <= 0) {
+		// this worker is dead, let's try the next one
+		uwsgi.status.chain_reloading++;
+		return;
 	}
-	uwsgi_unblock_signal(SIGHUP);
+
+	// if the worker is alive (and not cheaped), let's curse it !
+	if (uw->pid > 0 && !uw->cheaped) {
+		uwsgi_block_signal(SIGHUP);
+		uwsgi_curse(last_needed_proc, SIGHUP);
+		uwsgi_unblock_signal(SIGHUP);
+	}
 }
 
 
