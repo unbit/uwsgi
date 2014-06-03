@@ -52,14 +52,14 @@ void uwsgi_master_check_chain() {
 	int i;
 	for(i=uwsgi.status.chain_reloading;i<=uwsgi.numproc;i++) {
 		struct uwsgi_worker *uw = &uwsgi.workers[i];
-		if (uw->accepting == 0 || uw->cheaped || uw->pid <= 0) {
-			uwsgi.status.chain_reloading++;
-		}
-		else if (uw->pid > 0 && !uw->cheaped) {
+		if (uw->pid > 0 && !uw->cheaped) {
 			if (uw->cursed_at == 0) {
 				uwsgi_curse(i, SIGHUP);
 			}
 			break;
+		}
+		else {
+			uwsgi.status.chain_reloading++;
 		}
         }
 	uwsgi_unblock_signal(SIGHUP);
