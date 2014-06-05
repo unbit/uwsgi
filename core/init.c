@@ -74,7 +74,7 @@ void uwsgi_init_default() {
 
 	uwsgi.stats_pusher_default_freq = 3;
 
-	uwsgi.original_log_fd = -1;
+	uwsgi.original_log_fd = 2;
 
 	uwsgi.emperor_fd_config = -1;
 	uwsgi.emperor_fd_proxy = -1;
