@@ -46,6 +46,8 @@ struct uwsgi_http {
 	int connect_timeout;
 	int manage_source;
 	int enable_proxy_protocol;
+
+	int proto_http;
 }; 
 
 struct http_session {
@@ -134,6 +136,7 @@ struct http_session {
 
 	ssize_t (*func_write)(struct corerouter_peer *);
 
+	int proto_http;
 };
 
 
