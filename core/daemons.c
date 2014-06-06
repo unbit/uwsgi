@@ -292,11 +292,18 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 		uwsgi_close_all_sockets();
 		uwsgi_close_all_fds();
 
+		if (ud->chdir) {
+			if (chdir(ud->chdir)) {
+				uwsgi_error("uwsgi_spawn_daemon()/chdir()");
+				exit(1);
+			}
+		}
+
 #if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL) && defined(CLONE_NEWPID)
 		if (ud->ns_pid) {
 			// we need to create a new session
 			if (setsid() < 0) {
-				uwsgi_error("setsid()");
+				uwsgi_error("uwsgi_spawn_daemon()/setsid()");
 				exit(1);
 			}
 			// avoid the need to set stop_signal in attach-daemon2
@@ -497,6 +504,7 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 	char *d_uid = NULL;
 	char *d_gid = NULL;
 	char *d_ns_pid = NULL;
+	char *d_chdir = NULL;
 
 	char *arg = uwsgi_str(value);
 
@@ -518,6 +526,7 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 		"uid", &d_uid,	
 		"gid", &d_gid,	
 		"ns_pid", &d_ns_pid,	
+		"chdir", &d_chdir,	
 	NULL)) {
 		uwsgi_log("invalid --%s keyval syntax\n", opt);
 		exit(1);
@@ -564,6 +573,8 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
         uwsgi_ud->legion = d_legion;
 #endif
         uwsgi_ud->ns_pid = d_ns_pid ? 1 : 0;
+
+	uwsgi_ud->chdir = d_chdir;
 
 	if (d_touch) {
 		size_t i,rlen = 0;
