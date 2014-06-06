@@ -604,6 +604,8 @@ struct uwsgi_daemon {
 
 	int ns_pid;
 	int throttle;
+
+	char *chdir;
 };
 
 struct uwsgi_logger {
