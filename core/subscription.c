@@ -1072,6 +1072,12 @@ end:
 		free(s2_sign);
 	if (s2_check)
 		free(s2_check);
+	if (s2_sni_crt)
+		free(s2_sni_crt);
+	if (s2_sni_key)
+		free(s2_sni_key);
+	if (s2_sni_ca)
+		free(s2_sni_ca);
 }
 
 void uwsgi_subscribe_all(uint8_t cmd, int verbose) {
