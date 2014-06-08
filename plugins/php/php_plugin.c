@@ -26,6 +26,8 @@ struct uwsgi_php {
 
 	struct uwsgi_string_list *exec_before;
 	struct uwsgi_string_list *exec_after;
+
+	char *sapi_name;
 } uphp;
 
 void uwsgi_opt_php_ini(char *opt, char *value, void *foobar) {
@@ -58,6 +60,7 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-exec-begin", required_argument, 0, "run specified php code before the requested script", uwsgi_opt_add_string_list, &uphp.exec_before, 0},
         {"php-exec-after", required_argument, 0, "run specified php code after the requested script", uwsgi_opt_add_string_list, &uphp.exec_after, 0},
         {"php-exec-end", required_argument, 0, "run specified php code after the requested script", uwsgi_opt_add_string_list, &uphp.exec_after, 0},
+        {"php-sapi-name", required_argument, 0, "hack the sapi name (required for enabling zend opcode cache)", uwsgi_opt_set_str, &uphp.sapi_name, 0},
 	UWSGI_END_OF_OPTIONS
 };
 
@@ -578,8 +581,10 @@ int uwsgi_php_init(void) {
 		}
 	}
 
+	if (uphp.sapi_name) {
+		uwsgi_sapi_module.name = uphp.sapi_name;
+	}
 	uwsgi_sapi_module.startup(&uwsgi_sapi_module);
-
 	uwsgi_log("PHP %s initialized\n", PHP_VERSION);
 
 	return 0;
