@@ -39,8 +39,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"socket", required_argument, 's', "bind to the specified UNIX/TCP socket using default protocol", uwsgi_opt_add_socket, NULL, 0},
 	{"uwsgi-socket", required_argument, 's', "bind to the specified UNIX/TCP socket using uwsgi protocol", uwsgi_opt_add_socket, "uwsgi", 0},
 #ifdef UWSGI_SSL
-	{"suwsgi-socket", required_argument, 's', "bind to the specified UNIX/TCP socket using uwsgi protocol over SSL", uwsgi_opt_add_ssl_socket, "suwsgi", 0},
-	{"ssl-socket", required_argument, 's', "bind to the specified UNIX/TCP socket using uwsgi protocol over SSL", uwsgi_opt_add_ssl_socket, "suwsgi", 0},
+	{"suwsgi-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using uwsgi protocol over SSL", uwsgi_opt_add_ssl_socket, "suwsgi", 0},
+	{"ssl-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using uwsgi protocol over SSL", uwsgi_opt_add_ssl_socket, "suwsgi", 0},
 #endif
 
 	{"http-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using HTTP protocol", uwsgi_opt_add_socket, "http", 0},
