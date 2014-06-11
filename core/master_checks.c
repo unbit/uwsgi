@@ -41,6 +41,20 @@ int uwsgi_master_check_reload(char **argv) {
 void uwsgi_master_check_chain() {
 	if (!uwsgi.status.chain_reloading) return;
 
+	// we need to ensure the previous worker (if alive) is accepting new requests
+	// before going on
+	if (uwsgi.status.chain_reloading > 1) {
+		struct uwsgi_worker *previous_worker = &uwsgi.workers[uwsgi.status.chain_reloading-1];
+		// is the previous worker alive ?
+		if (previous_worker->pid > 0 && !previous_worker->cheaped) {
+			// the worker has been respawned but it is still not ready
+			if (previous_worker->accepting == 0) {
+				uwsgi_log_verbose("chain is still waiting for worker %d...\n", uwsgi.status.chain_reloading-1);
+				return;
+			}
+		}
+	}
+
 	// if all the processes are recycled, the chain is over
 	if (uwsgi.status.chain_reloading > uwsgi.numproc) {
 		uwsgi.status.chain_reloading = 0;
@@ -53,7 +67,9 @@ void uwsgi_master_check_chain() {
 	for(i=uwsgi.status.chain_reloading;i<=uwsgi.numproc;i++) {
 		struct uwsgi_worker *uw = &uwsgi.workers[i];
 		if (uw->pid > 0 && !uw->cheaped && uw->accepting) {
+			// the worker could have been already cursed
 			if (uw->cursed_at == 0) {
+				uwsgi_log_verbose("chain next victim is worker %d\n", i);
 				uwsgi_curse(i, SIGHUP);
 			}
 			break;
