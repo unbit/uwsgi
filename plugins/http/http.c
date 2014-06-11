@@ -408,15 +408,19 @@ static int http_headers_parse_dumb(struct corerouter_peer *peer) {
 	}
 	if (uwsgi_buffer_append(out, "\r\n", 2)) return -1;
 
+#ifdef UWSGI_SSL
 	if (hr->stud_prefix_pos > 0 || hr->session.ugs->mode == UWSGI_HTTP_SSL) {
 		if (uwsgi_buffer_append(out, "X-Forwarded-Proto: https\r\n", 26)) return -1;
 	}
+#endif
 
 	if (uwsgi_buffer_append(out, "\r\n", 2)) return -1;
 
+#ifdef UWSGI_SSL
 	if (hr->session.ugs->mode == UWSGI_HTTP_FORCE_SSL) {
                 hr->force_https = 1;
         }
+#endif
 	
 	return 0;
 }
