@@ -52,7 +52,7 @@ void uwsgi_master_check_chain() {
 	int i;
 	for(i=uwsgi.status.chain_reloading;i<=uwsgi.numproc;i++) {
 		struct uwsgi_worker *uw = &uwsgi.workers[i];
-		if (uw->pid > 0 && !uw->cheaped) {
+		if (uw->pid > 0 && !uw->cheaped && uw->accepting) {
 			if (uw->cursed_at == 0) {
 				uwsgi_curse(i, SIGHUP);
 			}
