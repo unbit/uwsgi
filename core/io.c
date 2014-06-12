@@ -392,6 +392,26 @@ static char *uwsgi_scheme_call(char *url, size_t *size, int add_zero) {
         return buffer;
 }
 
+static char *uwsgi_scheme_callint(char *url, size_t *size, int add_zero) {
+        int (*func)(void) = dlsym(RTLD_DEFAULT, url);
+        if (!func) {
+                uwsgi_log("unable to find symbol %s\n", url);
+                exit(1);
+        }
+
+	char *s = uwsgi_num2str(func());
+        *size = strlen(s);
+        if (add_zero) {
+                *size += 1;
+        }
+        char *buffer = uwsgi_malloc(*size);
+        memset(buffer, 0, *size);
+        memcpy(buffer, s, strlen(s));
+	free(s);
+
+        return buffer;
+}
+
 
 static char *uwsgi_scheme_sym(char *url, size_t *size, int add_zero) {
 	void *sym_start_ptr = NULL, *sym_end_ptr = NULL;
@@ -1249,6 +1269,7 @@ void uwsgi_setup_schemes() {
 	uwsgi_register_scheme("fd", uwsgi_scheme_fd);	
 	uwsgi_register_scheme("exec", uwsgi_scheme_exec);	
 	uwsgi_register_scheme("call", uwsgi_scheme_call);	
+	uwsgi_register_scheme("callint", uwsgi_scheme_callint);	
 }
 
 struct uwsgi_string_list *uwsgi_check_scheme(char *file) {
