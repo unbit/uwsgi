@@ -39,45 +39,58 @@ int uwsgi_master_check_reload(char **argv) {
 
 // check for chain reload
 void uwsgi_master_check_chain() {
-	if (!uwsgi.status.chain_reloading) return;
+	int i;
 
-	// we need to ensure the previous worker (if alive) is accepting new requests
-	// before going on
-	if (uwsgi.status.chain_reloading > 1) {
-		struct uwsgi_worker *previous_worker = &uwsgi.workers[uwsgi.status.chain_reloading-1];
-		// is the previous worker alive ?
-		if (previous_worker->pid > 0 && !previous_worker->cheaped) {
-			// the worker has been respawned but it is still not ready
-			if (previous_worker->accepting == 0) {
-				uwsgi_log_verbose("chain is still waiting for worker %d...\n", uwsgi.status.chain_reloading-1);
-				return;
-			}
+	if (!uwsgi.status.chain_reloading)
+		return;
+
+	if (uwsgi.status.chain_reloading_cursed > 0) {
+		struct uwsgi_worker *cursed_worker = &uwsgi.workers[uwsgi.status.chain_reloading_cursed];
+		if (cursed_worker->cursed_at != 0) {
+			// us or someone else has recently cursed the worker; not yet ready
+			return;
 		}
+		else if (cursed_worker->pid > 0 && !cursed_worker->cheaped && cursed_worker->accepting == 0) {
+			// worker restarted, but the application hasn't been loaded yet
+			return;
+		}
+		uwsgi.status.chain_reloading++;
+		uwsgi.status.chain_reloading_cursed = -1;
 	}
 
 	// if all the processes are recycled, the chain is over
 	if (uwsgi.status.chain_reloading > uwsgi.numproc) {
 		uwsgi.status.chain_reloading = 0;
-                uwsgi_log_verbose("chain reloading complete\n");
+		uwsgi.status.chain_reloading_cursed = -1;
+		uwsgi_log_verbose("chain reloading complete\n");
 		return;
 	}
 
+	// find the next process we want to curse
 	uwsgi_block_signal(SIGHUP);
-	int i;
 	for(i=uwsgi.status.chain_reloading;i<=uwsgi.numproc;i++) {
 		struct uwsgi_worker *uw = &uwsgi.workers[i];
-		if (uw->pid > 0 && !uw->cheaped && uw->accepting) {
-			// the worker could have been already cursed
-			if (uw->cursed_at == 0) {
-				uwsgi_log_verbose("chain next victim is worker %d\n", i);
-				uwsgi_curse(i, SIGHUP);
-			}
+		// not active; no need to reload this worker
+		if (uw->pid <= 0 || uw->cheaped)
+			continue;
+
+		// We haven't cursed this worker yet, but it's not yet accepting, so it
+		// was likely reloaded by some other event.  We have to wait until it's
+		// ready and then curse it again to make sure it's running the same
+		// version of the application as all the other workers are.
+		if (uw->accepting == 0)
 			break;
+
+		uwsgi_log_verbose("chain next victim is worker %d\n", i);
+		uwsgi.status.chain_reloading_cursed = i;
+		// someone might have cursed this worker already; in that case we
+		// simply wait for it to reload
+		if (uw->cursed_at == 0) {
+			uwsgi_curse(i, SIGHUP);
 		}
-		else {
-			uwsgi.status.chain_reloading++;
-		}
-        }
+		break;
+	}
+	uwsgi.status.chain_reloading = i;
 	uwsgi_unblock_signal(SIGHUP);
 }
 

@@ -817,6 +817,7 @@ int master_loop(char **argv, char **environ) {
 					if (uwsgi.status.chain_reloading == 0) {
 						uwsgi_log_verbose("*** %s has been touched... chain reload !!! ***\n", touched);
 						uwsgi.status.chain_reloading = 1;
+						uwsgi.status.chain_reloading_cursed = -1;
 					}
 					else {
 						uwsgi_log_verbose("*** %s has been touched... but chain reload is already running ***\n", touched);
@@ -1028,11 +1029,6 @@ next:
 		gettimeofday(&last_respawn, NULL);
 		uwsgi.respawn_delta = last_respawn.tv_sec;
 
-		// are we chain reloading it ?
-		if (uwsgi.status.chain_reloading == thewid) {
-			uwsgi.status.chain_reloading++;
-		}
-
 		// respawn the worker (if needed)
 		if (uwsgi_respawn_worker(thewid))
 			return 0;
@@ -1058,6 +1054,7 @@ void uwsgi_chain_reload() {
 	if (!uwsgi.status.chain_reloading) {
 		uwsgi_log_verbose("chain reload starting...\n");
 		uwsgi.status.chain_reloading = 1;
+		uwsgi.status.chain_reloading_cursed = -1;
 	}
 	else {
 		uwsgi_log_verbose("chain reload already running...\n");

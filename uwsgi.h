@@ -1641,6 +1641,7 @@ struct uwsgi_instance_status {
 	int gracefully_destroying;
 	int brutally_destroying;
 	int chain_reloading;
+	int chain_reloading_cursed;
 	int workers_reloading;
 	int is_cheap;
 	int is_cleaning;
