@@ -271,7 +271,7 @@ struct uwsgi_corerouter {
         char *resubscribe_bind;
 
 	size_t buffer_size;
-
+	int fallback_on_no_key;
 };
 
 // a session is started when a client connect to the router
