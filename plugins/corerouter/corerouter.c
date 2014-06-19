@@ -310,7 +310,6 @@ void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer 
         }
 
 	if (peer->failed) {
-		
 		if (peer->soopt) {
                         if (!ucr->quiet)
                                 uwsgi_log("[uwsgi-%s] unable to connect() to node \"%.*s\" (%d retries): %s\n", ucr->short_name, (int) peer->instance_address_len, peer->instance_address, peer->retries, strerror(peer->soopt));

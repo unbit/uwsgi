@@ -55,6 +55,7 @@ static struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter-resubscribe-bind", required_argument, 0, "bind to the specified address when re-subscribing", uwsgi_opt_set_str, &ufr.cr.resubscribe_bind, 0},
 
 	{"fastrouter-buffer-size", required_argument, 0, "set internal buffer size (default: page size)", uwsgi_opt_set_64bit, &ufr.cr.buffer_size, 0},
+	{"fastrouter-fallback-on-no-key", no_argument, 0, "move to fallback node even if a subscription key is not found", uwsgi_opt_true, &ufr.cr.fallback_on_no_key, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -226,8 +227,15 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 			return -1;
 
 		// check instance
-		if (new_peer->instance_address_len == 0)
+		if (new_peer->instance_address_len == 0) {
+			if (ufr.cr.fallback_on_no_key) {
+				new_peer->failed = 1;
+				new_peer->can_retry = 1;
+				corerouter_close_peer(&ufr.cr, new_peer);
+				return len;
+			}
 			return -1;
+		}
 
 		new_peer->can_retry = 1;
 
