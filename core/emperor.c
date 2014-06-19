@@ -1758,12 +1758,17 @@ static void emperor_cleanup() {
 void emperor_loop() {
 
 #if defined(__linux__) && defined(PR_SET_CHILD_SUBREAPER)
-        if (uwsgi.emperor_use_fork_server || uwsgi.emperor_subreaper) {
+        if (uwsgi.emperor_use_fork_server || uwsgi.emperor_subreaper || uwsgi.emperor_fork_server_attr) {
                 if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)) {
                         uwsgi_error("uwsgi_fork_server()/fork()");
                         exit(1);
                 }
         }
+#else
+	if (uwsgi.emperor_use_fork_server || uwsgi.emperor_subreaper || uwsgi.emperor_fork_server_attr) {
+		uwsgi_log("*** DANGER: your kernel misses PR_SET_CHILD_SUBREAPER feature, required by the fork server ***\n");
+		uwsgi_log("*** your Emperor will not be able to correctly wait() on vassals ***\n");
+	}
 #endif
 
 	// monitor a directory

@@ -4,6 +4,8 @@ extern struct uwsgi_server uwsgi;
 
 static sapi_module_struct uwsgi_sapi_module;
 
+static int uwsgi_php_init(void);
+
 struct uwsgi_php {
 	struct uwsgi_string_list *allowed_docroot;
 	struct uwsgi_string_list *allowed_ext;
@@ -28,11 +30,17 @@ struct uwsgi_php {
 	struct uwsgi_string_list *exec_after;
 
 	char *sapi_name;
+
+	int sapi_initialized;
 } uphp;
 
 void uwsgi_opt_php_ini(char *opt, char *value, void *foobar) {
 	uwsgi_sapi_module.php_ini_path_override = uwsgi_str(value);
         uwsgi_sapi_module.php_ini_ignore = 1;
+}
+
+void uwsgi_opt_early_php(char *opt, char *value, void *foobar) {
+	uwsgi_php_init();
 }
 
 struct uwsgi_option uwsgi_php_options[] = {
@@ -61,6 +69,9 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-exec-after", required_argument, 0, "run specified php code after the requested script", uwsgi_opt_add_string_list, &uphp.exec_after, 0},
         {"php-exec-end", required_argument, 0, "run specified php code after the requested script", uwsgi_opt_add_string_list, &uphp.exec_after, 0},
         {"php-sapi-name", required_argument, 0, "hack the sapi name (required for enabling zend opcode cache)", uwsgi_opt_set_str, &uphp.sapi_name, 0},
+
+        {"early-php", no_argument, 0, "initialize an early perl interpreter shared by all loaders", uwsgi_opt_early_php, NULL, UWSGI_OPT_IMMEDIATE},
+        {"early-php-sapi-name", required_argument, 0, "hack the sapi name (required for enabling zend opcode cache)", uwsgi_opt_set_str, &uphp.sapi_name, UWSGI_OPT_IMMEDIATE},
 	UWSGI_END_OF_OPTIONS
 };
 
@@ -548,12 +559,15 @@ static sapi_module_struct uwsgi_sapi_module = {
 	STANDARD_SAPI_MODULE_PROPERTIES
 };
 
-int uwsgi_php_init(void) {
+static int uwsgi_php_init(void) {
 
 	struct uwsgi_string_list *pset = uphp.set;
 	struct uwsgi_string_list *append_config = uphp.append_config;
 
-	sapi_startup(&uwsgi_sapi_module);
+	if (!uphp.sapi_initialized) {
+		sapi_startup(&uwsgi_sapi_module);
+		uphp.sapi_initialized = 1;
+	}
 
 	// applying custom options
 	while(append_config) {
@@ -584,6 +598,7 @@ int uwsgi_php_init(void) {
 	if (uphp.sapi_name) {
 		uwsgi_sapi_module.name = uphp.sapi_name;
 	}
+
 	uwsgi_sapi_module.startup(&uwsgi_sapi_module);
 	uwsgi_log("PHP %s initialized\n", PHP_VERSION);
 
