@@ -253,6 +253,43 @@ static request_rec *ap_proxy_make_fake_req(conn_rec *c, request_rec *r)
 
     return rp;
 }
+
+static apr_status_t ap_proxy_buckets_lifetime_transform(request_rec *r,
+        apr_bucket_brigade *from, apr_bucket_brigade *to)
+{
+    apr_bucket *e;
+    apr_bucket *new;
+    const char *data;
+    apr_size_t bytes;
+    apr_status_t rv = APR_SUCCESS;
+
+    apr_brigade_cleanup(to);
+    for (e = APR_BRIGADE_FIRST(from);
+         e != APR_BRIGADE_SENTINEL(from);
+         e = APR_BUCKET_NEXT(e)) {
+        if (!APR_BUCKET_IS_METADATA(e)) {
+            apr_bucket_read(e, &data, &bytes, APR_BLOCK_READ);
+            new = apr_bucket_transient_create(data, bytes, r->connection->bucket_alloc);
+            APR_BRIGADE_INSERT_TAIL(to, new);
+        }
+        else if (APR_BUCKET_IS_FLUSH(e)) {
+            new = apr_bucket_flush_create(r->connection->bucket_alloc);
+            APR_BRIGADE_INSERT_TAIL(to, new);
+        }
+        else if (APR_BUCKET_IS_EOS(e)) {
+            new = apr_bucket_eos_create(r->connection->bucket_alloc);
+            APR_BRIGADE_INSERT_TAIL(to, new);
+        }
+        else {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00964)
+                          "Unhandled bucket type of type %s in"
+                          " proxy_buckets_lifetime_transform", e->type->name);
+            apr_bucket_delete(e);
+            rv = APR_EGENERAL;
+        }
+    }
+    return rv;
+}
 #endif
 
 
@@ -263,6 +300,7 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 	const char *buf;
 	char *value, *end;
 	int len;
+	int backend_broke = 1;
 	apr_status_t rc;
 	conn_rec *c = r->connection;
 	apr_off_t readbytes;
@@ -274,6 +312,7 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 	rp->proxyreq = PROXYREQ_RESPONSE;
 
 	apr_bucket_brigade *bb = apr_brigade_create(r->pool, c->bucket_alloc);
+	apr_bucket_brigade *pass_bb = apr_brigade_create(r->pool, c->bucket_alloc);
 
 	len = ap_getline(buffer, sizeof(buffer), rp, 1);
 
@@ -325,8 +364,8 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 		rv = ap_get_brigade(rp->input_filters, bb,
                                         AP_MODE_READBYTES, mode,
                                         conf->io_buffer_size);
-		if (APR_STATUS_IS_EAGAIN(rv)
-                        || (rv == APR_SUCCESS && APR_BRIGADE_EMPTY(bb))) {
+		if (mode == APR_NONBLOCK_READ && (APR_STATUS_IS_EAGAIN(rv)
+                        || (rv == APR_SUCCESS && APR_BRIGADE_EMPTY(bb)))) {
 			e = apr_bucket_flush_create(c->bucket_alloc);
 			APR_BRIGADE_INSERT_TAIL(bb, e);
 			if (ap_pass_brigade(r->output_filters, bb) || c->aborted) {
@@ -342,21 +381,37 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 		else if (rv != APR_SUCCESS) {
 			ap_proxy_backend_broke(r, bb);
 			ap_pass_brigade(r->output_filters, bb);
+			backend_broke = 1;
+			break;
 		}
 
 		mode = APR_NONBLOCK_READ;
 		apr_brigade_length(bb, 0, &readbytes);
 		backend->worker->s->read += readbytes;
-		ap_pass_brigade(r->output_filters, bb);
+
+		if (APR_BRIGADE_EMPTY(bb)) {
+                        apr_brigade_cleanup(bb);
+                        break;
+                }
+
+		ap_proxy_buckets_lifetime_transform(r, bb, pass_bb);
+
+		ap_pass_brigade(r->output_filters, pass_bb);
 		apr_brigade_cleanup(bb);
+		apr_brigade_cleanup(pass_bb);
 	}
+
 	e = apr_bucket_eos_create(c->bucket_alloc);
 	APR_BRIGADE_INSERT_TAIL(bb, e);
         ap_pass_brigade(r->output_filters, bb);
 
 	apr_brigade_cleanup(bb);
 
-    return OK;
+	if (c->aborted || backend_broke) {
+        	return DONE;
+        }
+
+	return OK;
 }
 
 static int uwsgi_handler(request_rec *r, proxy_worker *worker,
