@@ -46,10 +46,10 @@ static PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 	UWSGI_RELEASE_GIL;
 
 	if (wait_for_specific_signal) {
-		received_signal = uwsgi_signal_wait(uwsgi_signal);
+		received_signal = uwsgi_signal_wait(wsgi_req, uwsgi_signal);
 	}
 	else {
-		received_signal = uwsgi_signal_wait(-1);
+		received_signal = uwsgi_signal_wait(wsgi_req, -1);
 	}
 
 	if (received_signal < 0) {

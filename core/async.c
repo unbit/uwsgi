@@ -481,7 +481,12 @@ void async_loop() {
 
 			// signals are executed in the main stack... in the future we could have dedicated stacks for them
 			if (uwsgi.signal_socket > -1 && (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket)) {
-				uwsgi_receive_signal(interesting_fd, "worker", uwsgi.mywid);
+				uwsgi.wsgi_req = find_first_available_wsgi_req();
+                                if (uwsgi.wsgi_req == NULL) {
+                                	uwsgi_async_queue_is_full((time_t)now);
+                                        continue; 
+                                }
+				uwsgi_receive_signal(uwsgi.wsgi_req, interesting_fd, "worker", uwsgi.mywid);
 				continue;
 			}
 

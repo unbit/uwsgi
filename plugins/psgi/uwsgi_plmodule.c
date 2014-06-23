@@ -432,10 +432,10 @@ XS(XS_signal_wait) {
         wsgi_req->signal_received = -1;
 
 	if (items > 0) {
-                received_signal = uwsgi_signal_wait(SvIV(ST(0)));
+                received_signal = uwsgi_signal_wait(wsgi_req, SvIV(ST(0)));
         }
         else {
-                received_signal = uwsgi_signal_wait(-1);
+                received_signal = uwsgi_signal_wait(wsgi_req, -1);
         }
 
         if (received_signal < 0) {

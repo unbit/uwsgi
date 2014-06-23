@@ -342,7 +342,7 @@ static void uwsgi_gccgo_signal_goroutine(void *arg) {
 	for(;;) {
 		runtime_pollWait(pdesc, 'r');
 retry:
-		uwsgi_receive_signal(*fd, "worker", uwsgi.mywid);
+		uwsgi_receive_signal(NULL, *fd, "worker", uwsgi.mywid);
 		if (uwsgi_is_again()) continue;
 		goto retry;
 	}

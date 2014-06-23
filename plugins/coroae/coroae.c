@@ -187,7 +187,7 @@ end:
 
 XS(XS_coroae_sighandler) {
 	int sigfd = (long) XSANY.any_ptr;
-	uwsgi_receive_signal(sigfd, "worker", uwsgi.mywid);
+	uwsgi_receive_signal(NULL, sigfd, "worker", uwsgi.mywid);
 }
 
 XS(XS_coroae_acceptor) {

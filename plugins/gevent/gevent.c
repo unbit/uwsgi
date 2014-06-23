@@ -140,7 +140,7 @@ PyObject *py_uwsgi_gevent_signal_handler(PyObject * self, PyObject * args) {
         	return NULL;
 	}
 
-	uwsgi_receive_signal(signal_socket, "worker", uwsgi.mywid);
+	uwsgi_receive_signal(NULL, signal_socket, "worker", uwsgi.mywid);
 
 	Py_INCREF(Py_None);
 	return Py_None;

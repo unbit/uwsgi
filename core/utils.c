@@ -53,21 +53,12 @@ void inc_harakiri(struct wsgi_request *wsgi_req, int sec) {
 
 // set worker harakiri
 void set_harakiri(struct wsgi_request *wsgi_req, int sec) {
-	if (!wsgi_req) {
-		if (sec == 0) {
-			uwsgi.workers[uwsgi.mywid].harakiri_total = 0;
-		}
-		else {
-			uwsgi.workers[uwsgi.mywid].harakiri_total = uwsgi_now() + sec;
-		}
+	if (!wsgi_req) return;
+	if (sec == 0) {
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri = 0;
 	}
 	else {
-		if (sec == 0) {
-			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri = 0;
-		}
-		else {
-			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri = uwsgi_now() + sec;
-		}
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri = uwsgi_now() + sec;
 	}
 	if (!uwsgi.master_process) {
 		alarm(sec);
@@ -1525,7 +1516,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 		thunder_unlock;
 
-		uwsgi_receive_signal(interesting_fd, "worker", uwsgi.mywid);
+		uwsgi_receive_signal(wsgi_req, interesting_fd, "worker", uwsgi.mywid);
 
 		if (uwsgi.threads > 1)
 			pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);

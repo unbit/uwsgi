@@ -766,10 +766,10 @@ static VALUE uwsgi_ruby_signal_wait(int argc, VALUE *argv, VALUE *class) {
         }
 
         if (wait_for_specific_signal) {
-                received_signal = uwsgi_signal_wait(uwsgi_signal);
+                received_signal = uwsgi_signal_wait(wsgi_req, uwsgi_signal);
         }
         else {
-                received_signal = uwsgi_signal_wait(-1);
+                received_signal = uwsgi_signal_wait(wsgi_req, -1);
         }
 
 	if (received_signal < 0) {

@@ -2908,7 +2908,8 @@ struct uwsgi_worker {
 	uint64_t failed_requests;
 
 	// renamed in 2.1 (was 'harakiri')
-	time_t harakiri_total;
+	time_t harakiri_unused;
+	// renamed in 2.1 (was 'user_harakiri')
 	time_t user_harakiri_unused;
 	uint64_t harakiri_count;
 	int pending_harakiri;
@@ -3238,7 +3239,7 @@ int uwsgi_register_signal(uint8_t, char *, void *, uint8_t);
 int uwsgi_add_file_monitor(uint8_t, char *);
 int uwsgi_add_timer(uint8_t, int);
 int uwsgi_signal_add_rb_timer(uint8_t, int, int);
-int uwsgi_signal_handler(uint8_t);
+int uwsgi_signal_handler(struct wsgi_request *, uint8_t);
 
 void uwsgi_route_signal(uint8_t);
 
@@ -3632,7 +3633,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 
 ssize_t uwsgi_mule_get_msg(int, int, char *, size_t, int);
 
-int uwsgi_signal_wait(int);
+int uwsgi_signal_wait(struct wsgi_request *, int);
 struct uwsgi_app *uwsgi_add_app(int, uint8_t, char *, int, void *, void *);
 int uwsgi_signal_send(int, uint8_t);
 int uwsgi_remote_signal_send(char *, uint8_t);
@@ -3892,7 +3893,7 @@ int uwsgi_is_file2(char *, struct stat *);
 int uwsgi_is_dir(char *);
 int uwsgi_is_link(char *);
 
-void uwsgi_receive_signal(int, char *, int);
+void uwsgi_receive_signal(struct wsgi_request *, int, char *, int);
 void uwsgi_exec_atexit(void);
 
 struct uwsgi_stats {
