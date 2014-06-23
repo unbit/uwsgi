@@ -190,11 +190,11 @@ static void sapi_uwsgi_register_variables(zval *track_vars_array TSRMLS_DC)
 	php_register_variable_safe("DOCUMENT_ROOT", wsgi_req->document_root, wsgi_req->document_root_len, track_vars_array TSRMLS_CC);
 
 	if (wsgi_req->path_info_len) {
-		char *path_translated = ecalloc(1, (wsgi_req->file_len - wsgi_req->script_name_len) + wsgi_req->path_info_len + 1);
+		char *path_translated = ecalloc(1, wsgi_req->file_len + wsgi_req->path_info_len + 1);
 
-		memcpy(path_translated, wsgi_req->file, (wsgi_req->file_len - wsgi_req->script_name_len));
-		memcpy(path_translated + (wsgi_req->file_len - wsgi_req->script_name_len), wsgi_req->path_info, wsgi_req->path_info_len);
-		php_register_variable_safe("PATH_TRANSLATED", path_translated, (wsgi_req->file_len - wsgi_req->script_name_len) + wsgi_req->path_info_len , track_vars_array TSRMLS_CC);
+		memcpy(path_translated, wsgi_req->file, wsgi_req->file_len);
+		memcpy(path_translated + wsgi_req->file_len, wsgi_req->path_info, wsgi_req->path_info_len);
+		php_register_variable_safe("PATH_TRANSLATED", path_translated, wsgi_req->file_len + wsgi_req->path_info_len , track_vars_array TSRMLS_CC);
 	}
 	else {
 		php_register_variable_safe("PATH_TRANSLATED", "", 0, track_vars_array TSRMLS_CC);
@@ -677,6 +677,9 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
+	char *orig_path_info = wsgi_req->path_info;
+	uint16_t orig_path_info_len = wsgi_req->path_info_len;
+
 	if (uphp.docroot) {
 		wsgi_req->document_root = uphp.docroot;
 	}
@@ -752,10 +755,6 @@ oldstyle:
 			return -1;
 		}
 	}
-
-
-	char *orig_path_info = wsgi_req->path_info;
-	uint16_t orig_path_info_len = wsgi_req->path_info_len;
 
 	if (path_info) {
 		wsgi_req->path_info = path_info;
@@ -866,23 +865,18 @@ secure2:
         }
 
 secure3:
-
-	if (wsgi_req->document_root[wsgi_req->document_root_len-1] == '/') {
-		wsgi_req->script_name = real_filename + (wsgi_req->document_root_len-1);
+	wsgi_req->script_name = orig_path_info;
+	if (path_info) {
+		wsgi_req->script_name_len = path_info - orig_path_info;
 	}
 	else {
-		wsgi_req->script_name = real_filename + wsgi_req->document_root_len;
-	}
-
-	wsgi_req->script_name_len = strlen(wsgi_req->script_name);
+		wsgi_req->script_name_len = orig_path_info_len;
+	}	
 
 #ifdef UWSGI_DEBUG
 	uwsgi_log("php filename = %s script_name = %.*s (%d) document_root = %.*s (%d)\n", real_filename, wsgi_req->script_name_len, wsgi_req->script_name, wsgi_req->script_name_len,
 		wsgi_req->document_root_len, wsgi_req->document_root, wsgi_req->document_root_len);
 #endif
-
-
-
 
 	// now check for allowed paths and extensions
 
