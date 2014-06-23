@@ -235,7 +235,7 @@ PyObject *py_uwsgi_tornado_accept(PyObject *self, PyObject *args) {
 
         // enter harakiri mode
         if (uwsgi.harakiri_options.workers > 0) {
-                set_harakiri(uwsgi.harakiri_options.workers);
+                set_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
         }
 
 	uwsgi.async_proto_fd_table[wsgi_req->fd] = wsgi_req;

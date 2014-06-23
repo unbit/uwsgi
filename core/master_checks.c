@@ -157,21 +157,25 @@ void uwsgi_master_check_idle() {
 }
 
 int uwsgi_master_check_workers_deadline() {
-	int i;
+	int i,j;
 	int ret = 0;
 	for (i = 1; i <= uwsgi.numproc; i++) {
-		/* first check for harakiri */
-		if (uwsgi.workers[i].harakiri > 0) {
-			if (uwsgi.workers[i].harakiri < (time_t) uwsgi.current_time) {
-				trigger_harakiri(i);
-				ret = 1;
+		for(j=0;j<uwsgi.cores;j++) {
+			/* first check for harakiri */
+			if (uwsgi.workers[i].cores[j].harakiri > 0) {
+				if (uwsgi.workers[i].cores[j].harakiri < (time_t) uwsgi.current_time) {
+					trigger_harakiri(i);
+					ret = 1;
+					break;
+				}
 			}
-		}
-		/* then user-defined harakiri */
-		if (uwsgi.workers[i].user_harakiri > 0) {
-			if (uwsgi.workers[i].user_harakiri < (time_t) uwsgi.current_time) {
-				trigger_harakiri(i);
-				ret = 1;
+			/* then user-defined harakiri */
+			if (uwsgi.workers[i].cores[j].user_harakiri > 0) {
+				if (uwsgi.workers[i].cores[j].user_harakiri < (time_t) uwsgi.current_time) {
+					trigger_harakiri(i);
+					ret = 1;
+					break;
+				}
 			}
 		}
 		// then for evil memory checkers

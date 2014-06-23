@@ -86,9 +86,11 @@ XS(XS_signal) {
 XS(XS_set_user_harakiri) {
         dXSARGS;
 
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
         psgi_check_args(1);
 
-	set_user_harakiri( SvIV(ST(0)) );
+	set_user_harakiri(wsgi_req, SvIV(ST(0)) );
 
         XSRETURN_UNDEF;
 }

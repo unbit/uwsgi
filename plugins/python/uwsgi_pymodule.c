@@ -888,12 +888,13 @@ PyObject *py_uwsgi_log(PyObject * self, PyObject * args) {
 }
 
 PyObject *py_uwsgi_set_user_harakiri(PyObject * self, PyObject * args) {
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 	int sec = 0;
 	if (!PyArg_ParseTuple(args, "i:set_user_harakiri", &sec)) {
                 return NULL;
         }
 
-	set_user_harakiri(sec);
+	set_user_harakiri(wsgi_req, sec);
 
         Py_INCREF(Py_None);
         return Py_None;

@@ -2863,7 +2863,6 @@ struct uwsgi_shared {
 
 struct uwsgi_core {
 
-	//time_t harakiri;
 
 	uint64_t requests;
 	uint64_t failed_requests;
@@ -2889,6 +2888,10 @@ struct uwsgi_core {
 	char *post_buf;
 
 	struct wsgi_request req;
+
+	// uWSGI 2.1
+	time_t harakiri;
+	time_t user_harakiri;
 };
 
 struct uwsgi_worker {
@@ -2904,8 +2907,9 @@ struct uwsgi_worker {
 	uint64_t delta_requests;
 	uint64_t failed_requests;
 
-	time_t harakiri;
-	time_t user_harakiri;
+	// renamed in 2.1 (was 'harakiri')
+	time_t harakiri_total;
+	time_t user_harakiri_unused;
 	uint64_t harakiri_count;
 	int pending_harakiri;
 
@@ -3042,11 +3046,11 @@ void uwsgi_curse(int, int);
 void uwsgi_curse_mule(int, int);
 void uwsgi_destroy_processes(void);
 
-void set_harakiri(int);
-void set_user_harakiri(int);
+void set_harakiri(struct wsgi_request *, int);
+void set_user_harakiri(struct wsgi_request *, int);
 void set_mule_harakiri(int);
 void set_spooler_harakiri(int);
-void inc_harakiri(int);
+void inc_harakiri(struct wsgi_request *, int);
 
 #ifdef __BIG_ENDIAN__
 uint16_t uwsgi_swap16(uint16_t);

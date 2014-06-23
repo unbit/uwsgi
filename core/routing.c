@@ -702,7 +702,7 @@ static int uwsgi_router_simple_math_divide(struct uwsgi_route *ur, char *arg) {
 // harakiri router
 static int uwsgi_router_harakiri_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
 	if (route->custom > 0) {	
-		set_user_harakiri(route->custom);
+		set_user_harakiri(wsgi_req, route->custom);
 	}
 	return UWSGI_ROUTE_NEXT;
 }

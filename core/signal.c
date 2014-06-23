@@ -46,7 +46,7 @@ int uwsgi_signal_handler(uint8_t sig) {
 		uwsgi.workers[uwsgi.mywid].signum = sig;
 		uwsgi.workers[uwsgi.mywid].signals++;
 		if (uwsgi.harakiri_options.workers > 0) {
-			set_harakiri(uwsgi.harakiri_options.workers);
+			set_harakiri(NULL, uwsgi.harakiri_options.workers);
 		}
 	}
 	else if (uwsgi.muleid > 0) {
@@ -67,8 +67,8 @@ int uwsgi_signal_handler(uint8_t sig) {
 
 	if (uwsgi.mywid > 0) {
 		uwsgi.workers[uwsgi.mywid].sig = 0;
-		if (uwsgi.workers[uwsgi.mywid].harakiri > 0) {
-			set_harakiri(0);
+		if (uwsgi.workers[uwsgi.mywid].harakiri_total > 0) {
+			set_harakiri(NULL, 0);
 		}
 	}
 	else if (uwsgi.muleid > 0) {

@@ -42,9 +42,9 @@ int check_hex(char *str, int len) {
 }
 
 // increase worker harakiri
-void inc_harakiri(int sec) {
+void inc_harakiri(struct wsgi_request *wsgi_req, int sec) {
 	if (uwsgi.master_process) {
-		uwsgi.workers[uwsgi.mywid].harakiri += sec;
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri += sec;
 	}
 	else {
 		alarm(uwsgi.harakiri_options.workers + sec);
@@ -52,12 +52,22 @@ void inc_harakiri(int sec) {
 }
 
 // set worker harakiri
-void set_harakiri(int sec) {
-	if (sec == 0) {
-		uwsgi.workers[uwsgi.mywid].harakiri = 0;
+void set_harakiri(struct wsgi_request *wsgi_req, int sec) {
+	if (!wsgi_req) {
+		if (sec == 0) {
+			uwsgi.workers[uwsgi.mywid].harakiri_total = 0;
+		}
+		else {
+			uwsgi.workers[uwsgi.mywid].harakiri_total = uwsgi_now() + sec;
+		}
 	}
 	else {
-		uwsgi.workers[uwsgi.mywid].harakiri = uwsgi_now() + sec;
+		if (sec == 0) {
+			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri = 0;
+		}
+		else {
+			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri = uwsgi_now() + sec;
+		}
 	}
 	if (!uwsgi.master_process) {
 		alarm(sec);
@@ -65,7 +75,7 @@ void set_harakiri(int sec) {
 }
 
 // set user harakiri
-void set_user_harakiri(int sec) {
+void set_user_harakiri(struct wsgi_request *wsgi_req, int sec) {
 	if (!uwsgi.master_process) {
 		uwsgi_log("!!! unable to set user harakiri without the master process !!!\n");
 		return;
@@ -79,8 +89,8 @@ void set_user_harakiri(int sec) {
 			struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
 			uspool->user_harakiri = 0;
 		}
-		else {
-			uwsgi.workers[uwsgi.mywid].user_harakiri = 0;
+		else if (wsgi_req) {
+			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri = 0;
 		}
 	}
 	else {
@@ -91,8 +101,8 @@ void set_user_harakiri(int sec) {
 			struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
 			uspool->user_harakiri = uwsgi_now() + sec;
 		}
-		else {
-			uwsgi.workers[uwsgi.mywid].user_harakiri = uwsgi_now() + sec;
+		else if (wsgi_req) {
+			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri = uwsgi_now() + sec;
 		}
 	}
 }
@@ -1099,13 +1109,13 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// leave harakiri mode
-	if (uwsgi.workers[uwsgi.mywid].harakiri > 0) {
-		set_harakiri(0);
+	if (uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri > 0) {
+		set_harakiri(wsgi_req, 0);
 	}
 
 	// leave user harakiri mode
-	if (uwsgi.workers[uwsgi.mywid].user_harakiri > 0) {
-		set_user_harakiri(0);
+	if (uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri > 0) {
+		set_user_harakiri(wsgi_req, 0);
 	}
 
 	if (!wsgi_req->do_not_account) {
@@ -1362,7 +1372,7 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 
 	// enter harakiri mode
 	if (uwsgi.harakiri_options.workers > 0) {
-		set_harakiri(uwsgi.harakiri_options.workers);
+		set_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
 	}
 
 	return 0;
@@ -1394,7 +1404,7 @@ int wsgi_req_recv(int queue, struct wsgi_request *wsgi_req) {
 
 	// enter harakiri mode
 	if (uwsgi.harakiri_options.workers > 0) {
-		set_harakiri(uwsgi.harakiri_options.workers);
+		set_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
 	}
 
 #ifdef UWSGI_ROUTING

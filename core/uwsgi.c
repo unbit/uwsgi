@@ -1458,7 +1458,7 @@ void what_i_am_doing() {
 #else
 				ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, ctime_storage);
 #endif
-				if (uwsgi.harakiri_options.workers > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now()) {
+				if (uwsgi.harakiri_options.workers > 0 && uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri < uwsgi_now()) {
 					uwsgi_log("HARAKIRI: --- uWSGI worker %d core %d (pid: %d) WAS managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, i, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime_storage);
 				}
 				else {
@@ -1475,14 +1475,14 @@ void what_i_am_doing() {
 #else
 			ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, ctime_storage);
 #endif
-			if (uwsgi.harakiri_options.workers > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now()) {
+			if (uwsgi.harakiri_options.workers > 0 && uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri < uwsgi_now()) {
 				uwsgi_log("HARAKIRI: --- uWSGI worker %d (pid: %d) WAS managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime_storage);
 			}
 			else {
 				uwsgi_log("SIGUSR2: --- uWSGI worker %d (pid: %d) is managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime_storage);
 			}
 		}
-		else if (uwsgi.harakiri_options.workers > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now() && uwsgi.workers[uwsgi.mywid].sig) {
+		else if (uwsgi.harakiri_options.workers > 0 && uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri < uwsgi_now() && uwsgi.workers[uwsgi.mywid].sig) {
 			uwsgi_log("HARAKIRI: --- uWSGI worker %d (pid: %d) WAS handling signal %d ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, uwsgi.workers[uwsgi.mywid].signum);
 		}
 	}

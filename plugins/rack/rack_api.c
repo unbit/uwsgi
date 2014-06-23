@@ -110,7 +110,8 @@ static VALUE rack_uwsgi_warning(VALUE *class, VALUE rbmessage) {
 
 static VALUE rack_uwsgi_user_harakiri(VALUE *class, VALUE sec) {
         Check_Type(sec, T_FIXNUM);
-	set_user_harakiri(NUM2INT(sec));
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	set_user_harakiri(wsgi_req, NUM2INT(sec));
         return Qnil;
 }
 

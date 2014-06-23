@@ -948,7 +948,9 @@ next:
 		// ok a worker died...
 		uwsgi.workers[thewid].pid = 0;
 		// only to be safe :P
-		uwsgi.workers[thewid].harakiri = 0;
+		for(i=0;i<uwsgi.cores;i++) {
+			uwsgi.workers[thewid].cores[i].harakiri = 0;
+		}
 
 		// ok, if we are reloading or dying, just continue the master loop
 		// as soon as all of the workers have pid == 0, the action (exit, or reload) is triggered

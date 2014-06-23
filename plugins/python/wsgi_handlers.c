@@ -442,8 +442,8 @@ void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
 	if (up.after_req_hook) {
 		if (uwsgi.harakiri_no_arh) {
 			// leave harakiri mode
-        		if (uwsgi.workers[uwsgi.mywid].harakiri > 0)
-                		set_harakiri(0);
+        		if (uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri > 0)
+                		set_harakiri(wsgi_req, 0);
 		}
 		UWSGI_GET_GIL
 		PyObject *arh = python_call(up.after_req_hook, up.after_req_hook_args, 0, NULL);
