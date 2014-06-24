@@ -131,6 +131,7 @@ int uwsgi_master_fifo_manage(int fd) {
 	}
 	// fifo destroyed, recreate it
 	else if (rlen == 0) {
+		event_queue_del_fd(uwsgi.master_queue, uwsgi.master_fifo_fd, event_queue_read());
 		close(fd);
 		uwsgi.master_fifo_fd = uwsgi_master_fifo();
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.master_fifo_fd);
