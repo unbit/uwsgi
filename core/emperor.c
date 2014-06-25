@@ -1598,6 +1598,14 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 		func(n_ui->name, n_ui->uid, n_ui->gid);
 	}
 
+	char *force_chdir = vassal_attr_get(n_ui, uwsgi.emperor_chdir_attr);
+	if (force_chdir) {
+		if (chdir(force_chdir)) {
+			uwsgi_error("--emperor-chdir-attr/chdir()");
+			exit(UWSGI_EXILE_CODE);
+		}
+	}
+
 	// start !!!
 	if (execvp(vassal_argv[0], vassal_argv)) {
 		uwsgi_error("execvp()");

@@ -63,6 +63,29 @@ void uwsgi_opt_pyver(char *opt, char *foo, void *bar) {
 	exit(0);
 }
 
+int uwsgi_python_init(void);
+void uwsgi_python_preinit_apps(void);
+static void uwsgi_early_python(char *opt, char *foo, void *bar) {
+	static int early_initialized = 0;
+	if (early_initialized) return;
+	early_initialized = 1;
+	uwsgi_python_init();
+	uwsgi_python_preinit_apps();
+}
+
+
+static void uwsgi_early_python_import(char *opt, char *module, void *bar) {
+	uwsgi_early_python(opt, NULL, NULL);
+	if (strchr(module, '/') || uwsgi_endswith(module, ".py")) {
+        	uwsgi_pyimport_by_filename(uwsgi_pythonize(module), module);
+        }
+        else {
+        	if (PyImport_ImportModule(module) == NULL) {
+                	PyErr_Print();
+                }
+	}
+}
+
 
 void uwsgi_opt_ini_paste(char *opt, char *value, void *foobar) {
 
@@ -169,6 +192,10 @@ struct uwsgi_option uwsgi_python_options[] = {
 #endif
 
 	{"py-call-osafterfork", no_argument, 0, "enable child processes running cpython to trap OS signals", uwsgi_opt_true, &up.call_osafterfork, 0},
+
+	{"early-python", no_argument, 0, "load the python VM as soon as possible (useful for the fork server)", uwsgi_early_python, NULL, UWSGI_OPT_IMMEDIATE},
+	{"early-pyimport", required_argument, 0, "import a python module in the early phase", uwsgi_early_python_import, NULL, UWSGI_OPT_IMMEDIATE},
+	{"early-python-import", required_argument, 0, "import a python module in the early phase", uwsgi_early_python_import, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{0, 0, 0, 0, 0, 0, 0},
 };
@@ -1037,6 +1064,10 @@ void uwsgi_python_destroy_env_holy(struct wsgi_request *wsgi_req) {
 
 // this hook will be executed by master (or worker1 when master is not requested, so COW is in place)
 void uwsgi_python_preinit_apps() {
+	struct uwsgi_string_list *upli = up.shared_import_list;
+
+	if (up.pre_initialized) goto ready;
+	up.pre_initialized = 1;
 
 	init_pyargv();
 
@@ -1068,8 +1099,9 @@ void uwsgi_python_preinit_apps() {
 
         init_uwsgi_vars();
 
+ready:
+
 	// load shared imports
-	struct uwsgi_string_list *upli = up.shared_import_list;
 	while(upli) {
 		if (strchr(upli->value, '/') || uwsgi_endswith(upli->value, ".py")) {
 			uwsgi_pyimport_by_filename(uwsgi_pythonize(upli->value), upli->value);
