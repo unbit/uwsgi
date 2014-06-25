@@ -196,6 +196,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"early-python", no_argument, 0, "load the python VM as soon as possible (useful for the fork server)", uwsgi_early_python, NULL, UWSGI_OPT_IMMEDIATE},
 	{"early-pyimport", required_argument, 0, "import a python module in the early phase", uwsgi_early_python_import, NULL, UWSGI_OPT_IMMEDIATE},
 	{"early-python-import", required_argument, 0, "import a python module in the early phase", uwsgi_early_python_import, NULL, UWSGI_OPT_IMMEDIATE},
+	{"early-pythonpath", required_argument, 0, "add directory (or glob) to pythonpath (immediate version)", uwsgi_opt_pythonpath, NULL,  UWSGI_OPT_IMMEDIATE},
+	{"early-python-path", required_argument, 0, "add directory (or glob) to pythonpath (immediate version)", uwsgi_opt_pythonpath, NULL,  UWSGI_OPT_IMMEDIATE},
 
 	{0, 0, 0, 0, 0, 0, 0},
 };
