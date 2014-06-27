@@ -53,7 +53,7 @@ static struct uwsgi_option uwsgi_rados_options[] = {
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
-static int uwsgi_rados_read_sync(struct wsgi_request *wsgi_req, rados_ioctx_t *ctx, const char *key, size_t remains) {
+static int uwsgi_rados_read_sync(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, const char *key, size_t remains) {
 	uint64_t off = 0;
 	while(remains > 0) {
 		char buf[8192];
@@ -87,7 +87,7 @@ static void uwsgi_rados_read_async_cb(rados_completion_t comp, void *data) {
 	free(urcb);
 }
 
-static int uwsgi_rados_delete(struct wsgi_request *wsgi_req, rados_ioctx_t *ctx, char *key, int timeout) {
+static int uwsgi_rados_delete(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, char *key, int timeout) {
 	if (uwsgi.async <= 1) {
 		return rados_remove(ctx, key); 
 	}
@@ -137,7 +137,7 @@ end:
       	return ret;
 }
 
-static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t *ctx, char *key, int timeout) {
+static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, char *key, int timeout) {
 	struct uwsgi_rados_io *urio = &urados.urio[wsgi_req->async_id];
 	size_t remains = wsgi_req->post_cl;
 	uint64_t off = 0;
@@ -206,7 +206,7 @@ error:
 }
 
 // async stat
-static int uwsgi_rados_async_stat(struct uwsgi_rados_io *urio, rados_ioctx_t *ctx, const char *key, uint64_t *stat_size, time_t *stat_mtime, int timeout) {
+static int uwsgi_rados_async_stat(struct uwsgi_rados_io *urio, rados_ioctx_t ctx, const char *key, uint64_t *stat_size, time_t *stat_mtime, int timeout) {
 	int ret = -1;
         // increase request counter
         pthread_mutex_lock(&urio->mutex);
@@ -251,7 +251,7 @@ end:
 	return ret;
 }
 
-static int uwsgi_rados_read_async(struct wsgi_request *wsgi_req, rados_ioctx_t *ctx, const char *key, size_t remains, int timeout) {
+static int uwsgi_rados_read_async(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, const char *key, size_t remains, int timeout) {
 	uint64_t off = 0;
 	int ret = -1;
 	char buf[8192];
@@ -369,9 +369,9 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 		exit(1);
 	}
 	
-	rados_ioctx_t ctx;
-	void *ctx_ptr;
 	uwsgi_log("Ceph pool: %s\n", urmp->pool);
+
+	void *ctx_ptr;
 
 	if (uwsgi.threads > 1) {
 		int i;
@@ -386,6 +386,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 		ctx_ptr = ctxes;
 	}
 	else {
+		rados_ioctx_t ctx;
 		if (rados_ioctx_create(cluster, urmp->pool, &ctx) < 0) {
 			uwsgi_error("can't open rados pool")
 			rados_shutdown(cluster);
@@ -406,7 +407,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 	ua->responder1 = urmp;
 	ua->started_at = now;
 	ua->startup_time = uwsgi_now() - now;
-	uwsgi_log("Rados app/mountpoint %d (%s) loaded in %d seconds at %p\n", id, urmp->mountpoint, (int) ua->startup_time, ctx);
+	uwsgi_log("Rados app/mountpoint %d (%s) loaded in %d seconds at %p\n", id, urmp->mountpoint, (int) ua->startup_time, ctx_ptr);
 }
 
 // we translate the string list to an app representation
@@ -572,8 +573,10 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	}
 
 end:
-	close(urio->fds[0]);
-	close(urio->fds[1]);
+	if (uwsgi.async > 1) {
+		close(urio->fds[0]);
+		close(urio->fds[1]);
+	}
 	return UWSGI_OK;
 }
 
