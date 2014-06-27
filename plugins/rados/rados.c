@@ -370,11 +370,28 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 	}
 	
 	rados_ioctx_t ctx;
+	void *ctx_ptr;
 	uwsgi_log("Ceph pool: %s\n", urmp->pool);
-	if (rados_ioctx_create(cluster, urmp->pool, &ctx) < 0) {
-		uwsgi_error("can't open rados pool")
-		rados_shutdown(cluster);
-		exit(1);
+
+	if (uwsgi.threads > 1) {
+		int i;
+		rados_ioctx_t *ctxes = uwsgi_calloc(sizeof(rados_ioctx_t) * uwsgi.threads);
+		for(i=0;i<uwsgi.threads;i++) {
+			if (rados_ioctx_create(cluster, urmp->pool, &ctxes[i]) < 0) {
+                        	uwsgi_error("can't open rados pool")
+                        	rados_shutdown(cluster);
+                        	exit(1);
+			}
+                }
+		ctx_ptr = ctxes;
+	}
+	else {
+		if (rados_ioctx_create(cluster, urmp->pool, &ctx) < 0) {
+			uwsgi_error("can't open rados pool")
+			rados_shutdown(cluster);
+			exit(1);
+		}
+		ctx_ptr = ctx;
 	}
 	
 	int id = uwsgi_apps_cnt;
@@ -385,7 +402,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 		exit(1);
 	}
 
-	ua->responder0 = ctx;
+	ua->responder0 = ctx_ptr;
 	ua->responder1 = urmp;
 	ua->started_at = now;
 	ua->startup_time = uwsgi_now() - now;
@@ -461,19 +478,28 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	filename[wsgi_req->path_info_len] = 0;
 	
 	// in multithread mode the memory is different (as we need a ctx for each thread) !!!
-	rados_ioctx_t ctx = ua->responder0;
+	rados_ioctx_t ctx;
+	if (uwsgi.threads > 1) {
+		rados_ioctx_t *ctxes = (rados_ioctx_t *) ua->responder0;
+		ctx = ctxes[wsgi_req->async_id];
+	}
+	else {
+		ctx = (rados_ioctx_t) ua->responder0;
+	}
 	struct uwsgi_rados_mountpoint *urmp = (struct uwsgi_rados_mountpoint *) ua->responder1;
 	uint64_t stat_size = 0;
 	time_t stat_mtime = 0;
 
 	struct uwsgi_rados_io *urio = &urados.urio[wsgi_req->async_id];
 
+	if (uwsgi.async > 1) {
 	// no need to lock here (the rid protect us)
-        if (pipe(urio->fds)) {
-                uwsgi_error("uwsgi_rados_read_async()/pipe()");
-		uwsgi_500(wsgi_req);
-		return UWSGI_OK;
-        }
+        	if (pipe(urio->fds)) {
+                	uwsgi_error("uwsgi_rados_read_async()/pipe()");
+			uwsgi_500(wsgi_req);
+			return UWSGI_OK;
+        	}
+	}
 	
 	int ret = -1;
 	int timeout = urmp->timeout ? urmp->timeout : urados.timeout;
