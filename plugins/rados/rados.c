@@ -7,8 +7,7 @@ extern struct uwsgi_server uwsgi;
 
 	Author: Javier Guerra
 	Author: Marcin Deranek
-
-	based on the uWSGI GlusterFS plugin by Roberto De Ioris
+	Author: Roberto De Ioris
 
 	--rados-mount mountpoint=/foo,pool=unbit001,config=/etc/ceph.conf,timeout=30,allow_put=1,allow_delete=1
 
