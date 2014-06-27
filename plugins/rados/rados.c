@@ -6,19 +6,42 @@ extern struct uwsgi_server uwsgi;
 /*
 
 	Author: Javier Guerra
+	Author: Marcin Deranek
 
 	based on the uWSGI GlusterFS plugin by Roberto De Ioris
 
-	--rados-mount mountpoint=/foo,pool=unbit001,config=/etc/ceph.conf
+	--rados-mount mountpoint=/foo,pool=unbit001,config=/etc/ceph.conf,timeout=30,allow_put=1,allow_delete=1
 
 */
 
 struct uwsgi_plugin rados_plugin;
 
-struct uwsgi_rados {
+// this structure is preallocated (only the pipe part is per-request)
+struct uwsgi_rados_io {
+        int fds[2];
+        // this is increased at every usage (in locked context)
+        uint64_t rid;
+        pthread_mutex_t mutex;
+};
+
+// this structure is allocated for each async transaction
+struct uwsgi_rados_cb {
+        // this is copied from the current uwsgi_rados_io->rid
+        uint64_t rid;
+        struct uwsgi_rados_io *urio;
+};
+
+static struct uwsgi_rados {
 	int timeout;
 	struct uwsgi_string_list *mountpoints;
+	struct uwsgi_rados_io *urio;
 } urados;
+
+struct uwsgi_rados_mountpoint {
+	int timeout;
+	int allow_put;
+	int allow_delete;
+};
 
 static struct uwsgi_option uwsgi_rados_options[] = {
 	{"rados-mount", required_argument, 0, "virtual mount the specified rados volume in a uri", uwsgi_opt_add_string_list, &urados.mountpoints, UWSGI_OPT_MIME},
@@ -39,56 +62,131 @@ static int uwsgi_rados_read_sync(struct wsgi_request *wsgi_req, rados_ioctx_t *c
 	return 0;
 }
 
-/*
-	async read of a resource
-	the uwsgi_rados_async_io structure is passed between threads
-	the callback simply signal the main core about the availability of data
-*/
-struct uwsgi_rados_async_io {
-	int fd[2];
-	ssize_t rlen;
-};
-
+// callback used to asynchronously signal the completion
 static void uwsgi_rados_read_async_cb(rados_completion_t comp, void *data) {
-	struct uwsgi_rados_async_io *aio = (struct uwsgi_rados_async_io *) data;
-#ifdef UWSGI_DEBUG
-	uwsgi_log("[rados-cb] rlen = %d\n", rlen);
-#endif
-	aio->rlen = rados_aio_get_return_value(comp);
-	// signal the core
-	if (write(aio->fd[1], "\1", 1) <= 0) {
-		uwsgi_error("uwsgi_rados_read_async_cb()/write()");
+	struct uwsgi_rados_cb *urcb = (struct uwsgi_rados_cb *) data;
+	struct uwsgi_rados_io *urio = urcb->urio;
+
+	pthread_mutex_lock(&urio->mutex);
+	if (urcb->rid != urio->rid) {
+		uwsgi_log_verbose("[uwsgi-rados] callback %llu woke up too late\n", (unsigned long long) urcb->rid);
 	}
+	else {
+		// signal the core
+		if (write(urio->fds[1], "\1", 1) <= 0) {
+			uwsgi_error("uwsgi_rados_read_async_cb()/write()");
+		}
+	}
+
+	pthread_mutex_unlock(&urio->mutex);
+
+	free(urcb);
 }
 
+// async stat
+static int uwsgi_rados_async_stat(struct uwsgi_rados_io *urio, rados_ioctx_t *ctx, const char *key, uint64_t *stat_size, time_t *stat_mtime) {
+	int ret = -1;
+        // increase request counter
+        pthread_mutex_lock(&urio->mutex);
+        urio->rid++;
+        pthread_mutex_unlock(&urio->mutex);
+
+	struct uwsgi_rados_cb *urcb = uwsgi_malloc(sizeof(struct uwsgi_rados_cb));
+        // map the current request id to the callback
+        urcb->rid = urio->rid;
+        // map urio to the callback
+        urcb->urio = urio;
+
+	rados_completion_t comp;
+	if (rados_aio_create_completion(urcb, uwsgi_rados_read_async_cb, NULL, &comp) < 0) {
+        	free(urcb);
+		goto end;
+	}
+	if (rados_aio_stat(ctx, key, comp, stat_size, stat_mtime) < 0) {
+		free(urcb);
+                rados_aio_release(comp);
+		goto end;
+	}	
+
+	// wait for the callback to be executed
+        if (uwsgi.wait_read_hook(urio->fds[0], urados.timeout) <= 0) {
+        	rados_aio_release(comp);
+		goto end;
+        }
+        char ack = 1;
+        if (read(urio->fds[0], &ack, 1) != 1) {
+        	rados_aio_release(comp);
+                uwsgi_error("uwsgi_rados_read_async()/read()");
+		goto end;
+        }
+
+	if (rados_aio_is_complete_and_cb(comp)) {
+        	ret = rados_aio_get_return_value(comp);
+        }
+        rados_aio_release(comp);
+
+end:
+	return ret;
+}
 
 static int uwsgi_rados_read_async(struct wsgi_request *wsgi_req, rados_ioctx_t *ctx, const char *key, size_t remains) {
 	uint64_t off = 0;
-	char buf[8192];
-	struct uwsgi_rados_async_io aio;
 	int ret = -1;
-	if (pipe(aio.fd)) {
-		uwsgi_error("uwsgi_rados_read_async()/pipe()");
-		return -1;
-	}
-	aio.rlen = -1;
-	rados_completion_t comp;
-	if (rados_aio_create_completion(&aio, uwsgi_rados_read_async_cb, NULL, &comp) < 0) goto end;
-	
+	char buf[8192];
+
+	struct uwsgi_rados_io *urio = &urados.urio[wsgi_req->async_id];
+	// increase request counter
+	pthread_mutex_lock(&urio->mutex);
+	urio->rid++;
+	pthread_mutex_unlock(&urio->mutex);
+
 	while(remains > 0) {
+		struct uwsgi_rados_cb *urcb = uwsgi_malloc(sizeof(struct uwsgi_rados_cb));
+		// map the current request id to the callback
+		urcb->rid = urio->rid;
+		// map urio to the callback
+		urcb->urio = urio;
+
+
+		rados_completion_t comp;
+		if (rados_aio_create_completion(urcb, uwsgi_rados_read_async_cb, NULL, &comp) < 0) {
+			free(urcb);
+			break;
+		}
 		// trigger an async read
-		if (rados_aio_read(ctx, key, comp, buf, 8192, off) < 0) goto end;
+		if (rados_aio_read(ctx, key, comp, buf, UMIN(remains, 8192), off) < 0) {
+			free(urcb);
+			rados_aio_release(comp);
+			break;
+		}
 		// wait for the callback to be executed
-		if (uwsgi.wait_read_hook(aio.fd[0], urados.timeout) <= 0) goto end;
-		if (aio.rlen <= 0) goto end;	
-		if (uwsgi_response_write_body_do(wsgi_req, buf, aio.rlen)) goto end;
-		remains -= aio.rlen;
+		if (uwsgi.wait_read_hook(urio->fds[0], urados.timeout) <= 0) {
+			rados_aio_release(comp);
+			break;
+		}
+		char ack = 1;
+		if (read(urio->fds[0], &ack, 1) != 1) {
+			rados_aio_release(comp);
+			uwsgi_error("uwsgi_rados_read_async()/read()");
+			break;
+		}
+		int rlen = -1;	
+		if (rados_aio_is_complete_and_cb(comp)) {
+			rlen = rados_aio_get_return_value(comp);
+		}
+		rados_aio_release(comp);
+		if (rlen <= 0) break;
+		if (uwsgi_response_write_body_do(wsgi_req, buf, rlen)) break;
+		remains -= rlen;
+		off += rlen;
 	}
-	ret = 0;
-end:
-	rados_aio_release(&comp);
-	close(aio.fd[0]);
-	close(aio.fd[1]);
+
+	if (remains == 0) ret = 0;
+
+	pthread_mutex_lock(&urio->mutex);
+	// increase the counter again
+	urio->rid++;
+	pthread_mutex_unlock(&urio->mutex);
 	return ret;	
 }
 
@@ -115,26 +213,26 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 	
 	rados_t cluster;
 	if (rados_create(&cluster, NULL) < 0) {
-		uwsgi_error("Can't create Ceph cluster handle");
+		uwsgi_error("can't create Ceph cluster handle");
 		exit(1);
 	}
 	if (rad_config)
-		uwsgi_log("Using Ceph conf:%s\n", rad_config);
+		uwsgi_log("using Ceph conf:%s\n", rad_config);
 	else
-		uwsgi_log("Using default Ceph conf.\n");
+		uwsgi_log("using default Ceph conf.\n");
 	if (rados_conf_read_file(cluster, rad_config) < 0) {
-		uwsgi_error("Can't configure Ceph cluster handle");
+		uwsgi_error("can't configure Ceph cluster handle");
 		exit(1);
 	}
 	if (rados_connect(cluster) < 0) {
-		uwsgi_error("Can't connect with Ceph cluster");
+		uwsgi_error("can't connect with Ceph cluster");
 		exit(1);
 	}
 	
 	rados_ioctx_t ctx;
 	uwsgi_log("Ceph pool: %s\n", rad_poolname);
 	if (rados_ioctx_create(cluster, rad_poolname, &ctx) < 0) {
-		uwsgi_error("Can't open rados pool")
+		uwsgi_error("can't open rados pool")
 		rados_shutdown(cluster);
 		exit(1);
 	}
@@ -166,6 +264,21 @@ static void uwsgi_rados_setup() {
 		uwsgi_rados_add_mountpoint(usl->value, usl->len);
 		usl = usl->next;
 	}
+
+	// now initialize a pthread_mutex for each async core
+	if (uwsgi.async > 1) {
+		int i;
+		urados.urio = uwsgi_calloc(sizeof(struct uwsgi_rados_io) * uwsgi.async);
+		for(i=0;i<uwsgi.async;i++) {
+			urados.urio[i].fds[0] = -1;
+			urados.urio[i].fds[1] = -1;
+			if (pthread_mutex_init(&urados.urio[i].mutex, NULL)) {
+				uwsgi_error("uwsgi_rados_setup()/pthread_mutex_init()");
+				exit(1);
+			}
+		}
+	}
+	
 }
 
 static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
@@ -207,19 +320,33 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	}
 	filename[wsgi_req->path_info_len] = 0;
 	
-	struct {
-		uint64_t size;
-		time_t mtime;
-	} st;
+	// in multithread mode the memory is different (as we need a ctx for each thread) !!!
 	rados_ioctx_t ctx = ua->responder1;
+	uint64_t stat_size = 0;
+	time_t stat_mtime = 0;
+
+	struct uwsgi_rados_io *urio = &urados.urio[wsgi_req->async_id];
+
+	// no need to lock here (the rid protect us)
+        if (pipe(urio->fds)) {
+                uwsgi_error("uwsgi_rados_read_async()/pipe()");
+		uwsgi_500(wsgi_req);
+		return UWSGI_OK;
+        }
 	
-	int r = rados_stat(ctx, filename, &st.size, &st.mtime);
-	if (r < 0) {
-		if (r == -ENOENT)
+	int ret = -1;
+	if (uwsgi.async > 1) {
+		ret = uwsgi_rados_async_stat(urio, ctx, filename, &stat_size, &stat_mtime);	
+	}
+	else {
+		ret = rados_stat(ctx, filename, &stat_size, &stat_mtime);
+	}
+	if (ret < 0) {
+		if (ret == -ENOENT)
 			uwsgi_404(wsgi_req);
 		else
 			uwsgi_403(wsgi_req);
-		return UWSGI_OK;
+		goto end;
 	}
 	
 
@@ -230,12 +357,12 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 		if (uwsgi_response_add_content_type(wsgi_req, mime_type, mime_type_len)) goto end;
 	}
 
-	if (uwsgi_response_add_last_modified(wsgi_req, (uint64_t) st.mtime)) goto end;
-	if (uwsgi_response_add_content_length(wsgi_req, st.size)) goto end;
+	if (uwsgi_response_add_last_modified(wsgi_req, (uint64_t) stat_mtime)) goto end;
+	if (uwsgi_response_add_content_length(wsgi_req, stat_size)) goto end;
 
 	// skip body on HEAD
 	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
-		size_t remains = st.size;
+		size_t remains = stat_size;
 		if (uwsgi.async > 1) {
 			if (uwsgi_rados_read_async(wsgi_req, ctx, filename, remains)) goto end;
 		}
@@ -245,6 +372,8 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	}
 
 end:
+	close(urio->fds[0]);
+	close(urio->fds[1]);
 	return UWSGI_OK;
 }
 
