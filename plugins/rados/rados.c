@@ -634,14 +634,10 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 
 	// empty paths are mapped to propfind
 	if (wsgi_req->path_info_len == 1 && wsgi_req->path_info[0] == '/') {
-		if (!urmp->allow_propfind) {
-                        goto nopropfind;
-                }
-		if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "GET", 3) || !uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "PROPFIND", 8)) {
+		if (urmp->allow_propfind && !uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "PROPFIND", 8)) {
 			uwsgi_rados_propfind(wsgi_req, ctx, NULL, 0, 0, timeout);
 			goto end;
 		}
-nopropfind:
                 uwsgi_405(wsgi_req);
 		goto end;
 	}
