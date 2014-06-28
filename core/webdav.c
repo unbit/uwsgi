@@ -81,10 +81,21 @@ int uwsgi_webdav_propfind_item_add(struct uwsgi_buffer *ub, char *href, uint16_t
 	// displayname
 	if (displayname_len > 0) {
 		if (uwsgi_buffer_append(ub, "<D:displayname>\n", 16)) return -1;
-		if (uwsgi_buffer_append(ub, displayname, displayname_len)) return -1;
+		if (uwsgi_buffer_append_xml(ub, displayname, displayname_len)) return -1;
 		if (uwsgi_buffer_append(ub, "</D:displayname>\n", 17)) return -1;
 	}
 
+	if (ctype_len > 0) {
+		if (uwsgi_buffer_append(ub, "<D:getcontenttype>\n", 19)) return -1;
+		if (uwsgi_buffer_append(ub, ctype, ctype_len)) return -1;
+		if (uwsgi_buffer_append(ub, "</D:displayname>\n", 20)) return -1;
+	}
+
+	if (etag_len > 0) {
+		if (uwsgi_buffer_append(ub, "<D:getetag>\n", 12)) return -1;
+		if (uwsgi_buffer_append_xml(ub, displayname, displayname_len)) return -1;
+		if (uwsgi_buffer_append(ub, "</D:getetag>\n", 13)) return -1;
+	}
 
 	if (uwsgi_webdav_multistatus_prop_close(ub)) return -1;
 	if (uwsgi_webdav_multistatus_propstat_close(ub)) return -1;
