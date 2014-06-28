@@ -128,7 +128,16 @@ int uwsgi_buffer_append_json(struct uwsgi_buffer *ub, char *buf, size_t len) {
 	// need to escape \ and "
 	size_t i;
 	for(i=0;i<len;i++) {
-		if (buf[i] == '"') {
+		if (buf[i] == '\t') {
+			if (uwsgi_buffer_append(ub, "\\t", 2)) return -1;
+		}
+		else if (buf[i] == '\n') {
+			if (uwsgi_buffer_append(ub, "\\n", 2)) return -1;
+		}
+		else if (buf[i] == '\r') {
+			if (uwsgi_buffer_append(ub, "\\r", 2)) return -1;
+		}
+		else if (buf[i] == '"') {
 			if (uwsgi_buffer_append(ub, "\\\"", 2)) return -1;
 		}
 		else if (buf[i] == '\\') {
