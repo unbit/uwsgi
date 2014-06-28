@@ -45,6 +45,14 @@ void uwsgi_403(struct wsgi_request *wsgi_req) {
 	uwsgi_response_write_body_do(wsgi_req, "Forbidden", 9);
 }
 
+void uwsgi_405(struct wsgi_request *wsgi_req) {
+        if (uwsgi_response_prepare_headers(wsgi_req, "405 Method Not Allowed", 22)) return;
+        if (uwsgi_response_add_connection_close(wsgi_req)) return;
+        if (error_page(wsgi_req, uwsgi.error_page_403)) return;
+        if (uwsgi_response_add_content_type(wsgi_req, "text/plain", 10)) return;
+        uwsgi_response_write_body_do(wsgi_req, "Method Not Allowed", 18);
+}
+
 void uwsgi_redirect_to_slash(struct wsgi_request *wsgi_req) {
 
 	char *redirect = NULL;

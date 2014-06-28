@@ -37,6 +37,7 @@ static struct uwsgi_rados {
 } urados;
 
 struct uwsgi_rados_mountpoint {
+	rados_t cluster;
 	char *mountpoint;
 	char *config;
 	char *pool;
@@ -44,6 +45,7 @@ struct uwsgi_rados_mountpoint {
 	int timeout;
 	char *allow_put;
 	char *allow_delete;
+	char *allow_mkcol;
 };
 
 static struct uwsgi_option uwsgi_rados_options[] = {
@@ -321,6 +323,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 			"timeout", &urmp->str_timeout,
 			"allow_put", &urmp->allow_put,
 			"allow_delete", &urmp->allow_delete,
+			"allow_mkcol", &urmp->allow_mkcol,
 			NULL)) {
 				uwsgi_log("unable to parse rados mountpoint definition\n");
 				exit(1);
@@ -343,6 +346,8 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 		uwsgi_error("can't create Ceph cluster handle");
 		exit(1);
 	}
+	urmp->cluster = cluster;
+
 	if (urmp->config)
 		uwsgi_log("using Ceph conf:%s\n", urmp->config);
 	else
@@ -367,8 +372,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 		uwsgi_error("can't connect with Ceph cluster");
 		exit(1);
 	}
-	
-	uwsgi_log("Ceph pool: %s\n", urmp->pool);
+
 
 	void *ctx_ptr;
 
@@ -393,6 +397,10 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 		}
 		ctx_ptr = ctx;
 	}
+
+	char fsid[37];
+	rados_cluster_fsid(cluster, fsid, 37);
+	uwsgi_log("connected to Ceph pool: %s on cluster %.*s\n", urmp->pool, 37, fsid);
 	
 	int id = uwsgi_apps_cnt;
 	struct uwsgi_app *ua = uwsgi_add_app(id, rados_plugin.modifier1, urmp->mountpoint, strlen(urmp->mountpoint), NULL, NULL);
@@ -503,6 +511,27 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	
 	int ret = -1;
 	int timeout = urmp->timeout ? urmp->timeout : urados.timeout;
+
+	// MKCOL does not require stat
+	if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "MKCOL", 5)) {
+                if (!urmp->allow_mkcol) {
+                        uwsgi_405(wsgi_req);
+                        goto end;
+                }
+                ret = rados_pool_create(urmp->cluster, filename);
+		if (ret < 0) {
+			if (ret == -EEXIST) {
+                        	uwsgi_405(wsgi_req);
+			}
+			else {
+                        	uwsgi_500(wsgi_req);
+			}
+                        goto end;
+                }
+                uwsgi_response_prepare_headers(wsgi_req, "201 Created", 11);
+                goto end;
+	}
+
 	if (uwsgi.async > 1) {
 		ret = uwsgi_rados_async_stat(urio, ctx, filename, &stat_size, &stat_mtime, timeout);	
 	}
@@ -510,10 +539,10 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 		ret = rados_stat(ctx, filename, &stat_size, &stat_mtime);
 	}
 
-	// PUT can be used for non-existent objects
+	// PUT AND MKCOL can be used for non-existent objects
 	if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "PUT", 3)) {
 		if (!urmp->allow_put) {
-			uwsgi_403(wsgi_req);
+			uwsgi_405(wsgi_req);
 			goto end;
 		}
 		if (ret == 0) {
@@ -539,7 +568,7 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 
 	if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "DELETE", 6)) {
 		if (!urmp->allow_delete) {
-			uwsgi_403(wsgi_req);
+			uwsgi_405(wsgi_req);
                         goto end;
 		}
 		if (uwsgi_rados_delete(wsgi_req, ctx, filename, timeout)) {
@@ -547,6 +576,11 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
                         goto end;
 		}
 		uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6);
+		goto end;
+	}
+
+	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4) && uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "GET", 3)) {
+		uwsgi_405(wsgi_req);
 		goto end;
 	}
 
