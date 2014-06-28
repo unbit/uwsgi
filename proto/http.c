@@ -423,7 +423,7 @@ static int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 	}
 	// mute on 0 len...
 	if (wsgi_req->proto_parser_pos > 0) {
-		uwsgi_log("uwsgi_proto_http_parser() -> client closed connection");
+		uwsgi_log("uwsgi_proto_http_parser() -> client closed connection\n");
 	}
 	return -1;
 

@@ -512,6 +512,38 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	int ret = -1;
 	int timeout = urmp->timeout ? urmp->timeout : urados.timeout;
 
+	if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "OPTIONS", 7)) {
+		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto end;
+		if (uwsgi_response_add_header(wsgi_req, "Dav", 3, "1", 1)) goto end;	
+		struct uwsgi_buffer *ub_allow = uwsgi_buffer_new(64);
+		if (uwsgi_buffer_append(ub_allow, "OPTIONS, GET, HEAD", 18)) {
+			uwsgi_buffer_destroy(ub_allow);
+			goto end;
+		}
+		if (urmp->allow_put) {
+			if (uwsgi_buffer_append(ub_allow, ", PUT", 5)) {
+				uwsgi_buffer_destroy(ub_allow);
+				goto end;
+			}
+		}
+		if (urmp->allow_delete) {
+			if (uwsgi_buffer_append(ub_allow, ", DELETE", 8)) {
+				uwsgi_buffer_destroy(ub_allow);
+				goto end;
+			}
+		}
+		if (urmp->allow_mkcol) {
+			if (uwsgi_buffer_append(ub_allow, ", MKCOL", 7)) {
+				uwsgi_buffer_destroy(ub_allow);
+				goto end;
+			}
+		}
+
+		uwsgi_response_add_header(wsgi_req, "Allow", 5, ub_allow->buf, ub_allow->pos);
+		uwsgi_buffer_destroy(ub_allow);
+                goto end;
+	}
+
 	// MKCOL does not require stat
 	if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "MKCOL", 5)) {
                 if (!urmp->allow_mkcol) {
