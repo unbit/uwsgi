@@ -17,7 +17,7 @@ struct uwsgi_buffer *uwsgi_webdav_multistatus_new() {
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
 	if (uwsgi_buffer_append(ub, "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n", 40)) goto error;
 	if (uwsgi_buffer_append(ub, "<D:multistatus xmlns:D=\"DAV:\">\n", 31)) goto error;
-
+	return ub;
 error:
 	uwsgi_buffer_destroy(ub);
 	return NULL;
@@ -63,19 +63,25 @@ int uwsgi_webdav_propfind_item_add(struct uwsgi_buffer *ub, char *href, uint16_t
 	if (uwsgi_webdav_multistatus_response_new(ub)) return -1;
 	if (uwsgi_buffer_append(ub, "<D:href>", 8)) return -1;
 	if (uwsgi_buffer_append(ub, href, href_len)) return -1;
+	if (uwsgi_buffer_append(ub, "</D:href>\n", 10)) return -1;
 	if (uwsgi_webdav_multistatus_propstat_new(ub)) return -1;
 	if (uwsgi_webdav_multistatus_prop_new(ub)) return -1;
 
-	// getcontentlength
-	if (uwsgi_buffer_append(ub, "<D:getcontentlength>", 20)) return -1;
-	if (uwsgi_buffer_num64(ub, cl)) return -1;
-	if (uwsgi_buffer_append(ub, "</D:getcontentlength>", 21)) return -1;
+	if (href[href_len-1] == '/') {
+		if (uwsgi_buffer_append(ub, "<D:resourcetype><D:collection/></D:resourcetype>\n", 49)) return -1;
+	}
+	else {
+		// getcontentlength
+		if (uwsgi_buffer_append(ub, "<D:getcontentlength>", 20)) return -1;
+		if (uwsgi_buffer_num64(ub, cl)) return -1;
+		if (uwsgi_buffer_append(ub, "</D:getcontentlength>\n", 22)) return -1;
+	}
 
 	// getlastmodified
 	if (mtime > 0) {
 		if (uwsgi_buffer_append(ub, "<D:getlastmodified>", 19)) return -1;	
 		if (uwsgi_buffer_httpdate(ub, mtime)) return -1;
-		if (uwsgi_buffer_append(ub, "</D:getlastmodified>", 20)) return -1;	
+		if (uwsgi_buffer_append(ub, "</D:getlastmodified>\n", 21)) return -1;	
 	}
 
 	// displayname
@@ -99,7 +105,6 @@ int uwsgi_webdav_propfind_item_add(struct uwsgi_buffer *ub, char *href, uint16_t
 
 	if (uwsgi_webdav_multistatus_prop_close(ub)) return -1;
 	if (uwsgi_webdav_multistatus_propstat_close(ub)) return -1;
-	if (uwsgi_buffer_append(ub, "</D:href>\n", 10)) return -1;
 	if (uwsgi_webdav_multistatus_response_close(ub)) return -1;
 	return 0;
 }

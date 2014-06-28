@@ -4821,6 +4821,15 @@ void uwsgi_emperor_ini_attrs(char *, char *, struct uwsgi_dyn_dict **);
 int uwsgi_buffer_httpdate(struct uwsgi_buffer *, time_t);
 int uwsgi_buffer_append_xml(struct uwsgi_buffer *, char *, size_t);
 
+struct uwsgi_buffer *uwsgi_webdav_multistatus_new();
+int uwsgi_webdav_propfind_item_add(struct uwsgi_buffer *, char *, uint16_t, uint64_t, time_t, char *, uint16_t, char *, uint16_t, char *, uint16_t);
+int uwsgi_webdav_multistatus_close(struct uwsgi_buffer *);
+int uwsgi_webdav_multistatus_response_new(struct uwsgi_buffer *);
+int uwsgi_webdav_multistatus_response_close(struct uwsgi_buffer *);
+int uwsgi_webdav_multistatus_propstat_new(struct uwsgi_buffer *);
+int uwsgi_webdav_multistatus_propstat_close(struct uwsgi_buffer *);
+int uwsgi_webdav_multistatus_prop_new(struct uwsgi_buffer *);
+int uwsgi_webdav_multistatus_prop_close(struct uwsgi_buffer *);
 #ifdef __cplusplus
 }
 #endif
