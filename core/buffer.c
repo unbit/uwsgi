@@ -409,3 +409,10 @@ void uwsgi_buffer_map(struct uwsgi_buffer *ub, char *buf, size_t len) {
 	ub->pos = len;
 	ub->len = len;
 }
+
+int uwsgi_buffer_httpdate(struct uwsgi_buffer *ub, time_t t) {
+	char http_last_modified[49];
+        int size = uwsgi_http_date(t, http_last_modified);
+	if (size <= 0) return -1;
+	return uwsgi_buffer_append(ub, http_last_modified, size);
+}

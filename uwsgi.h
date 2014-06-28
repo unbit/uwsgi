@@ -4818,6 +4818,8 @@ void uwsgi_fork_server(char *);
 
 void uwsgi_emperor_ini_attrs(char *, char *, struct uwsgi_dyn_dict **);
 
+int uwsgi_buffer_httpdate(struct uwsgi_buffer *, time_t);
+
 #ifdef __cplusplus
 }
 #endif
