@@ -92,9 +92,9 @@ int uwsgi_webdav_propfind_item_add(struct uwsgi_buffer *ub, char *href, uint16_t
 	}
 
 	if (ctype_len > 0) {
-		if (uwsgi_buffer_append(ub, "<D:getcontenttype>\n", 19)) return -1;
+		if (uwsgi_buffer_append(ub, "<D:getcontenttype>", 18)) return -1;
 		if (uwsgi_buffer_append(ub, ctype, ctype_len)) return -1;
-		if (uwsgi_buffer_append(ub, "</D:displayname>\n", 20)) return -1;
+		if (uwsgi_buffer_append(ub, "</D:getcontenttype>\n", 20)) return -1;
 	}
 
 	if (etag_len > 0) {

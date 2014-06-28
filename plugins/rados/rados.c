@@ -148,7 +148,7 @@ static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, cha
                 char *body =  uwsgi_request_body_read(wsgi_req, UMIN(remains, 32768) , &body_len);
                 if (!body || body == uwsgi.empty) goto error;
 		if (uwsgi.async <= 1) {
-			if (rados_write(ctx, key, body, body_len, off) <= 0) {
+			if (rados_write(ctx, key, body, body_len, off) < 0) {
 				return -1;
 			}
 		}
@@ -315,6 +315,15 @@ static int uwsgi_rados_read_async(struct wsgi_request *wsgi_req, rados_ioctx_t c
 }
 
 static void uwsgi_rados_propfind(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, char *key, uint64_t size, time_t mtime, int timeout) {
+	// consume the body
+	size_t remains = wsgi_req->post_cl;
+        while(remains > 0) {
+                ssize_t body_len = 0;
+                char *body =  uwsgi_request_body_read(wsgi_req, UMIN(remains, 32768), &body_len);
+                if (!body || body == uwsgi.empty) break;
+		remains -= body_len;
+	}
+
 	if (uwsgi_response_prepare_headers(wsgi_req, "207 Multi-Status", 16)) return;
 	if (uwsgi_response_add_content_type(wsgi_req, "text/xml; charset=\"utf-8\"", 25)) return;
 	struct uwsgi_buffer *ub = uwsgi_webdav_multistatus_new();
@@ -624,7 +633,7 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// empty paths are mapped to propfind
-	if (!wsgi_req->path_info_len == 0) {
+	if (wsgi_req->path_info_len == 1 && wsgi_req->path_info[0] == '/') {
 		if (!urmp->allow_propfind) {
                         goto nopropfind;
                 }
