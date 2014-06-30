@@ -559,13 +559,15 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	struct uwsgi_app *ua = &uwsgi_apps[wsgi_req->app_id];
 
 	if (wsgi_req->path_info_len > ua->mountpoint_len &&
-		memcmp(wsgi_req->path_info, ua->mountpoint, ua->mountpoint_len) == 0) 
-	{
+		memcmp(wsgi_req->path_info, ua->mountpoint, ua->mountpoint_len) == 0) {
+
 		memcpy(filename, wsgi_req->path_info+ua->mountpoint_len, wsgi_req->path_info_len-ua->mountpoint_len);
+		filename[wsgi_req->path_info_len-ua->mountpoint_len] = 0;
+
 	} else {
 		memcpy(filename, wsgi_req->path_info, wsgi_req->path_info_len);
+		filename[wsgi_req->path_info_len] = 0;
 	}
-	filename[wsgi_req->path_info_len] = 0;
 	
 	// in multithread mode the memory is different (as we need a ctx for each thread) !!!
 	rados_ioctx_t ctx;
