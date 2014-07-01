@@ -294,6 +294,26 @@ int uwsgi_logic_opt_if_not_plugin(char *key, char *value) {
         return 0;
 }
 
+int uwsgi_logic_opt_if_hostname(char *key, char *value) {
+
+        if (!strcmp(uwsgi.hostname, uwsgi.logic_opt_data)) {
+                add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+                return 1;
+        }
+
+        return 0;
+}
+
+int uwsgi_logic_opt_if_not_hostname(char *key, char *value) {
+
+        if (strcmp(uwsgi.hostname, uwsgi.logic_opt_data)) {
+                add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+                return 1;
+        }
+
+        return 0;
+}
+
 int uwsgi_count_options(struct uwsgi_option *uopt) {
 
         struct uwsgi_option *aopt;

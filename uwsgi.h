@@ -3810,6 +3810,8 @@ int uwsgi_logic_opt_if_reload(char *, char *);
 int uwsgi_logic_opt_if_not_reload(char *, char *);
 int uwsgi_logic_opt_if_plugin(char *, char *);
 int uwsgi_logic_opt_if_not_plugin(char *, char *);
+int uwsgi_logic_opt_if_hostname(char *, char *);
+int uwsgi_logic_opt_if_not_hostname(char *, char *);
 
 
 void uwsgi_opt_resolve(char *, char *, void *);
