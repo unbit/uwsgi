@@ -254,8 +254,9 @@ PHP_FUNCTION(uwsgi_cache_exists) {
         char *key = NULL;
         int keylen = 0;
         char *cache = NULL;
+        int cachelen = 0;
 
-        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &key, &keylen, &cache) == FAILURE) {
+        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &key, &keylen, &cache, &cachelen) == FAILURE) {
                 RETURN_NULL();
         }
 
@@ -269,8 +270,9 @@ PHP_FUNCTION(uwsgi_cache_exists) {
 PHP_FUNCTION(uwsgi_cache_clear) {
 
         char *cache = NULL;
+        int cachelen = 0;
 
-        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s", &cache) == FAILURE) {
+        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s", &cache, &cachelen) == FAILURE) {
                 RETURN_NULL();
         }
 
@@ -287,8 +289,9 @@ PHP_FUNCTION(uwsgi_cache_del) {
 	char *key = NULL;
         int keylen = 0;
 	char *cache = NULL;
+	int cachelen = 0;
 
-        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &key, &keylen, &cache) == FAILURE) {
+        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &key, &keylen, &cache, &cachelen) == FAILURE) {
                 RETURN_NULL();
         }
 
@@ -304,12 +307,13 @@ PHP_FUNCTION(uwsgi_cache_get) {
 	char *key = NULL;
 	int keylen = 0;
 	char *cache = NULL;
+	int cachelen = 0;
 	uint64_t valsize;
 
 	if (!uwsgi.caches)
 		RETURN_NULL();
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &key, &keylen, &cache) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &key, &keylen, &cache, &cachelen) == FAILURE) {
                 RETURN_NULL();
         }
 
@@ -329,11 +333,12 @@ PHP_FUNCTION(uwsgi_cache_set) {
 	int vallen;
 	uint64_t expires = 0;
 	char *cache = NULL;
+	int cachelen = 0;
 
 	if (!uwsgi.caches)
 		RETURN_NULL();
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|ls", &key, &keylen, &value, &vallen, &expires, &cache) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|ls", &key, &keylen, &value, &vallen, &expires, &cache, &cachelen) == FAILURE) {
                 RETURN_NULL();
         }
 
@@ -351,11 +356,12 @@ PHP_FUNCTION(uwsgi_cache_update) {
         int vallen;
         uint64_t expires = 0;
         char *cache = NULL;
+        int cachelen = 0;
 
         if (!uwsgi.caches)
                 RETURN_NULL();
 
-        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|ls", &key, &keylen, &value, &vallen, &expires, &cache) == FAILURE) {
+        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|ls", &key, &keylen, &value, &vallen, &expires, &cache, &cachelen) == FAILURE) {
                 RETURN_NULL();
         }
 
