@@ -2199,8 +2199,14 @@ void *uwsgi_malloc_shared(size_t size) {
 }
 
 void *uwsgi_calloc_shared(size_t size) {
+
 	void *ptr = uwsgi_malloc_shared(size);
+// those OSs guarantee mmap MAP_ANON memory area to be zero-filled (see man pages)
+// mostly for security reasons. 99% of the OSs probably also offer the garantee, but
+// let's play it secure since we don't know
+#if !defined(__linux__) || !defined(__FreeBSD__) || !defined(__OpenBSD__) || !defined(__DragonFly__)
 	memset(ptr, 0, size);
+#endif
 	return ptr;
 }
 
