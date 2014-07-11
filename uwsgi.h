@@ -4860,6 +4860,7 @@ struct uwsgi_subscribe_node *(*uwsgi_subscription_algo_get(char * , size_t))(str
 
 void uwsgi_subscription_init_algos(void);
 void uwsgi_register_subscription_algo(char *, struct uwsgi_subscribe_node *(*) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *));
+char *uwsgi_subscription_algo_name(void *);
 #ifdef __cplusplus
 }
 #endif

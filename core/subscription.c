@@ -20,6 +20,16 @@
 
 extern struct uwsgi_server uwsgi;
 
+char *uwsgi_subscription_algo_name(void *ptr) {
+	struct uwsgi_string_list *usl = uwsgi.subscription_algos;
+	while(usl) {
+		if (usl->custom_ptr == ptr) {
+			return usl->value;
+		}
+	}
+	return NULL;
+}
+
 #ifdef UWSGI_SSL
 static void uwsgi_subscription_sni_check(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_req *usr) {
 	if (usr->sni_key_len > 0 && usr->sni_crt_len > 0) {
@@ -464,7 +474,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 			slot[hash_key] = current_slot;
 		}
 
-		uwsgi_log("[uwsgi-subscription for pid %d] new pool: %.*s (hash key: %d)\n", (int) uwsgi.mypid, usr->keylen, usr->key, current_slot->hash);
+		uwsgi_log("[uwsgi-subscription for pid %d] new pool: %.*s (hash key: %d, algo: %s)\n", (int) uwsgi.mypid, usr->keylen, usr->key, current_slot->hash, uwsgi_subscription_algo_name(current_slot->algo));
 		uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new node: %.*s\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address);
 
 		if (current_slot->nodes->notify[0]) {

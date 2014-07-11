@@ -292,6 +292,7 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
                 usr->notify_len = vallen;
 	}
 	else if (!uwsgi_strncmp("algo", 4, key, keylen)) {
+		uwsgi_log("SEARCHING FOR ALGO %.*s\n", vallen, val);
                 usr->algo = uwsgi_subscription_algo_get(val, vallen);
         }
 	else if (!uwsgi_strncmp("backup", 6, key, keylen)) {
@@ -1061,6 +1062,7 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 #ifdef UWSGI_SSL
 				if (uwsgi_stats_keylong_comma(us, "sni_enabled", (unsigned long long) s_slot->sni_enabled)) goto end0;
 #endif
+				if (uwsgi_stats_keyval_comma(us, "algo", uwsgi_subscription_algo_name(s_slot->algo))) goto end0;
 
 				if (uwsgi_stats_key(us , "nodes")) goto end0;
 				if (uwsgi_stats_list_open(us)) goto end0;
@@ -1084,6 +1086,7 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 					if (uwsgi_stats_keylong_comma(us, "cores", (unsigned long long) s_node->cores)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "load", (unsigned long long) s_node->load)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "weight", (unsigned long long) s_node->weight)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "backup", (unsigned long long) s_node->backup_level)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "wrr", (unsigned long long) s_node->wrr)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "ref", (unsigned long long) s_node->reference)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "failcnt", (unsigned long long) s_node->failcnt)) goto end0;
