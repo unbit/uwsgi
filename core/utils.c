@@ -1768,8 +1768,13 @@ void *uwsgi_malloc(size_t size) {
 
 void *uwsgi_calloc(size_t size) {
 
-	char *ptr = uwsgi_malloc(size);
-	memset(ptr, 0, size);
+	char *ptr = calloc(1, size);
+	if (ptr == NULL) {
+		uwsgi_error("calloc()");
+		uwsgi_log("!!! tried memory allocation of %llu bytes !!!\n", (unsigned long long) size);
+		uwsgi_backtrace(uwsgi.backtrace_depth);
+		exit(1);
+	}
 	return ptr;
 }
 
