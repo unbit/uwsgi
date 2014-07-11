@@ -1767,7 +1767,8 @@ void *uwsgi_malloc(size_t size) {
 }
 
 void *uwsgi_calloc(size_t size) {
-
+	// thanks Mathieu Dupuy for pointing out that calloc is faster
+	// than malloc + memset
 	char *ptr = calloc(1, size);
 	if (ptr == NULL) {
 		uwsgi_error("calloc()");
@@ -2215,6 +2216,12 @@ void *uwsgi_malloc_shared(size_t size) {
 
 void *uwsgi_calloc_shared(size_t size) {
 	void *ptr = uwsgi_malloc_shared(size);
+	// NOTE by Mathieu Dupuy:
+	// OSes guarantee mmap MAP_ANON memory area to be zero-filled (see man pages)
+
+	// we should trust it, but history has taught us it is better to be paranoid.
+	// Lucky enough this function is called ony in startup phases, so performance
+	// tips/tricks are irrelevant (So, le'ts call memset...)
 	memset(ptr, 0, size);
 	return ptr;
 }
