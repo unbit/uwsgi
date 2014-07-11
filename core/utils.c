@@ -1767,8 +1767,14 @@ void *uwsgi_malloc(size_t size) {
 
 void *uwsgi_calloc(size_t size) {
 
-	char *ptr = uwsgi_malloc(size);
-	memset(ptr, 0, size);
+	char *ptr = calloc(1, size);
+	if (ptr == NULL) {
+		uwsgi_error("realloc()");
+		uwsgi_log("!!! tried memory allocation of %llu bytes !!!\n", (unsigned long long) size);
+		uwsgi_backtrace(uwsgi.backtrace_depth);
+		exit(1);
+	}
+
 	return ptr;
 }
 
@@ -1841,20 +1847,11 @@ void init_magic_table(char *magic_table[]) {
 }
 
 char *uwsgi_get_last_char(char *what, char c) {
-	size_t len = strlen(what);
-	while (len--) {
-		if (what[len] == c)
-			return what + len;
-	}
-	return NULL;
+	return strrchr(what, c);
 }
 
 char *uwsgi_get_last_charn(char *what, size_t len, char c) {
-	while (len--) {
-		if (what[len] == c)
-			return what + len;
-	}
-	return NULL;
+	return memrchr(what, c, len);
 }
 
 
@@ -1889,13 +1886,7 @@ int uwsgi_long2str2n(unsigned long long num, char *ptr, int size) {
 }
 
 int is_unix(char *socket_name, int len) {
-	int i;
-	for (i = 0; i < len; i++) {
-		if (socket_name[i] == ':')
-			return 0;
-	}
-
-	return 1;
+	return !memchr(socket_name, ':', len);
 }
 
 int is_a_number(char *what) {
@@ -2208,8 +2199,14 @@ void *uwsgi_malloc_shared(size_t size) {
 }
 
 void *uwsgi_calloc_shared(size_t size) {
+
 	void *ptr = uwsgi_malloc_shared(size);
+// those OSs guarantee mmap MAP_ANON memory area to be zero-filled (see man pages)
+// mostly for security reasons. 99% of the OSs probably also offer the garantee, but
+// let's play it secure since we don't know
+#if !defined(__linux__) || !defined(__FreeBSD__) || !defined(__OpenBSD__) || !defined(__DragonFly__)
 	memset(ptr, 0, size);
+#endif
 	return ptr;
 }
 

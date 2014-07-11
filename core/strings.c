@@ -67,14 +67,7 @@ char *uwsgi_lower(char *str, size_t size) {
 
 // check if a string is contained in another one
 char *uwsgi_str_contains(char *str, int slen, char what) {
-
-        int i;
-        for (i = 0; i < slen; i++) {
-                if (str[i] == what) {
-                        return str + i;
-                }
-        }
-        return NULL;
+        return memchr(str, what, slen);
 }
 
 int uwsgi_contains_n(char *s1, size_t s1_len, char *s2, size_t s2_len) {
@@ -126,15 +119,7 @@ int uwsgi_starts_with(char *src, int slen, char *dst, int dlen) {
 
 // unsized check
 int uwsgi_startswith(char *src, char *what, int wlen) {
-
-        int i;
-
-        for (i = 0; i < wlen; i++) {
-                if (src[i] != what[i])
-                        return -1;
-        }
-
-        return 0;
+        return memcmp(what, src, wlen);
 }
 
 // concatenate strings
