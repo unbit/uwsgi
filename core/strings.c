@@ -468,3 +468,22 @@ char ** uwsgi_split_quoted(char *what, size_t what_len, char *sep, size_t *rlen)
 
 	return ret;
 }
+
+char *uwsgi_get_last_char(char *what, char c) {
+	return strrchr(what, c);
+}
+
+// Note by Mathieu Dupuy: memrchr here is better, unfortunately it is not supported
+// everywhere. The only safe option looks checking for Linux :(
+char *uwsgi_get_last_charn(char *what, size_t len, char c) {
+#if defined(__linux__)
+	return memrchr(what, c, len);
+#else
+        while (len--) {
+                if (what[len] == c)
+                        return what + len;
+        }
+        return NULL;
+#endif
+}
+

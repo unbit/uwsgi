@@ -1847,24 +1847,6 @@ void init_magic_table(char *magic_table[]) {
 	magic_table['('] = "%(";
 }
 
-char *uwsgi_get_last_char(char *what, char c) {
-	size_t len = strlen(what);
-	while (len--) {
-		if (what[len] == c)
-			return what + len;
-	}
-	return NULL;
-}
-
-char *uwsgi_get_last_charn(char *what, size_t len, char c) {
-	while (len--) {
-		if (what[len] == c)
-			return what + len;
-	}
-	return NULL;
-}
-
-
 char *uwsgi_num2str(int num) {
 
 	char *str = uwsgi_malloc(11);
@@ -1896,13 +1878,7 @@ int uwsgi_long2str2n(unsigned long long num, char *ptr, int size) {
 }
 
 int is_unix(char *socket_name, int len) {
-	int i;
-	for (i = 0; i < len; i++) {
-		if (socket_name[i] == ':')
-			return 0;
-	}
-
-	return 1;
+	return !memchr(socket_name, ':', len);
 }
 
 int is_a_number(char *what) {
