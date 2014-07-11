@@ -128,133 +128,7 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
 	return NULL;
 }
 
-// least reference count
-static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node) {
-	// if node is NULL we are in the second step (in lrc mode we do not use the first step)
-	if (node)
-		return NULL;
-
-	struct uwsgi_subscribe_node *choosen_node = NULL;
-	node = current_slot->nodes;
-	uint64_t min_rc = 0;
-	while (node) {
-		if (!node->death_mark) {
-			if (min_rc == 0 || node->reference < min_rc) {
-				min_rc = node->reference;
-				choosen_node = node;
-				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->last_requests <= node->last_requests))
-					break;
-			}
-		}
-		node = node->next;
-	}
-
-	if (choosen_node) {
-		choosen_node->reference++;
-	}
-
-	return choosen_node;
-}
-
-// weighted least reference count
-static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wlrc(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node) {
-	// if node is NULL we are in the second step (in wlrc mode we do not use the first step)
-	if (node)
-		return NULL;
-
-	struct uwsgi_subscribe_node *choosen_node = NULL;
-	node = current_slot->nodes;
-	double min_rc = 0;
-	while (node) {
-		if (!node->death_mark) {
-			// node->weight is always >= 1, we can safely use it as divider
-			double ref = (double) node->reference / (double) node->weight;
-			double next_node_ref = 0;
-			if (node->next)
-				next_node_ref = (double) node->next->reference / (double) node->next->weight;
-
-			if (min_rc == 0 || ref < min_rc) {
-				min_rc = ref;
-				choosen_node = node;
-				if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->last_requests <= node->last_requests))
-					break;
-			}
-		}
-		node = node->next;
-	}
-
-	if (choosen_node) {
-		choosen_node->reference++;
-	}
-
-	return choosen_node;
-}
-
-// weighted round robin algo
-static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wrr(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node) {
-	// if node is NULL we are in the second step
-	if (node) {
-		if (node->death_mark == 0 && node->wrr > 0) {
-			node->wrr--;
-			node->reference++;
-			return node;
-		}
-		return NULL;
-	}
-
-	// no wrr > 0 node found, reset them
-	node = current_slot->nodes;
-	uint64_t min_weight = 0;
-	while (node) {
-		if (!node->death_mark) {
-			if (min_weight == 0 || node->weight < min_weight)
-				min_weight = node->weight;
-		}
-		node = node->next;
-	}
-
-	// now set wrr
-	node = current_slot->nodes;
-	struct uwsgi_subscribe_node *choosen_node = NULL;
-	while (node) {
-		if (!node->death_mark) {
-			node->wrr = node->weight / min_weight;
-			choosen_node = node;
-		}
-		node = node->next;
-	}
-	if (choosen_node) {
-		choosen_node->wrr--;
-		choosen_node->reference++;
-	}
-	return choosen_node;
-}
-
-void uwsgi_subscription_set_algo(char *algo) {
-
-	if (!algo)
-		goto wrr;
-
-	if (!strcmp(algo, "wrr")) {
-		uwsgi.subscription_algo = uwsgi_subscription_algo_wrr;
-		return;
-	}
-
-	if (!strcmp(algo, "lrc")) {
-		uwsgi.subscription_algo = uwsgi_subscription_algo_lrc;
-		return;
-	}
-
-	if (!strcmp(algo, "wlrc")) {
-		uwsgi.subscription_algo = uwsgi_subscription_algo_wlrc;
-		return;
-	}
-
-wrr:
-	uwsgi.subscription_algo = uwsgi_subscription_algo_wrr;
-}
-
-struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen) {
+struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen, struct uwsgi_subscription_client *client) {
 
 	if (keylen > 0xff)
 		return NULL;
@@ -287,14 +161,14 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 			continue;
 		}
 
-		struct uwsgi_subscribe_node *choosen_node = uwsgi.subscription_algo(current_slot, node);
+		struct uwsgi_subscribe_node *choosen_node = current_slot->algo(current_slot, node, client);
 		if (choosen_node)
 			return choosen_node;
 
 		node = node->next;
 	}
 
-	return uwsgi.subscription_algo(current_slot, node);
+	return current_slot->algo(current_slot, node, client);
 }
 
 struct uwsgi_subscribe_node *uwsgi_get_subscribe_node_by_name(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen, char *val, uint16_t vallen) {
@@ -436,6 +310,10 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 				node->cores = usr->cores;
 				node->load = usr->load;
 				node->weight = usr->weight;
+				node->backup_level = usr->backup_level;
+				if (usr->proto_len > 0) {
+					node->proto = usr->proto[0];
+				}	
 				if (!node->weight)
 					node->weight = 1;
 				node->last_requests = 0;
@@ -468,6 +346,10 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node->cores = usr->cores;
 		node->load = usr->load;
 		node->weight = usr->weight;
+		node->backup_level = usr->backup_level;
+		if (usr->proto_len > 0) {
+			node->proto = usr->proto[0];
+		}
 		node->unix_check = usr->unix_check;
 		if (!node->weight)
 			node->weight = 1;
@@ -539,6 +421,10 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes->cores = usr->cores;
 		current_slot->nodes->load = usr->load;
 		current_slot->nodes->weight = usr->weight;
+		current_slot->nodes->backup_level = usr->backup_level;
+		if (usr->proto_len > 0) {
+			current_slot->nodes->proto = usr->proto[0];
+		}
 		current_slot->nodes->unix_check = usr->unix_check;
 		if (!current_slot->nodes->weight)
 			current_slot->nodes->weight = 1;
@@ -569,6 +455,9 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 
 		current_slot->prev = old_slot;
 		current_slot->next = NULL;
+
+		current_slot->algo = usr->algo;
+		if (!current_slot->algo) current_slot->algo = uwsgi.subscription_algo;
 
 
 		if (!slot[hash_key] || current_slot->prev == NULL) {
@@ -861,13 +750,6 @@ int uwsgi_no_subscriptions(struct uwsgi_subscribe_slot **slot) {
 	return 1;
 }
 
-struct uwsgi_subscribe_slot **uwsgi_subscription_init_ht() {
-	if (!uwsgi.subscription_algo) {
-		uwsgi_subscription_set_algo(NULL);
-	}
-	return uwsgi_calloc(sizeof(struct uwsgi_subscription_slot *) * UMAX16);
-}
-
 void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 
 	size_t subfile_size;
@@ -1104,4 +986,152 @@ void uwsgi_subscribe_all(uint8_t cmd, int verbose) {
 		subscriptions = subscriptions->next;
 	}
 
+}
+
+
+// least reference count
+static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node, struct uwsgi_subscription_client *client) {
+        // if node is NULL we are in the second step (in lrc mode we do not use the first step)
+        if (node)
+                return NULL;
+
+        struct uwsgi_subscribe_node *choosen_node = NULL;
+        node = current_slot->nodes;
+        uint64_t min_rc = 0;
+        while (node) {
+                if (!node->death_mark) {
+                        if (min_rc == 0 || node->reference < min_rc) {
+                                min_rc = node->reference;
+                                choosen_node = node;
+                                if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->last_requests <= node->last_requests))
+                                        break;
+                        }
+                }
+                node = node->next;
+        }
+
+        if (choosen_node) {
+                choosen_node->reference++;
+        }
+
+        return choosen_node;
+}
+
+// weighted least reference count
+static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wlrc(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node, struct uwsgi_subscription_client *client) {
+        // if node is NULL we are in the second step (in wlrc mode we do not use the first step)
+        if (node)
+                return NULL;
+
+        struct uwsgi_subscribe_node *choosen_node = NULL;
+        node = current_slot->nodes;
+        double min_rc = 0;
+        while (node) {
+                if (!node->death_mark) {
+                        // node->weight is always >= 1, we can safely use it as divider
+                        double ref = (double) node->reference / (double) node->weight;
+                        double next_node_ref = 0;
+                        if (node->next)
+                                next_node_ref = (double) node->next->reference / (double) node->next->weight;
+
+                        if (min_rc == 0 || ref < min_rc) {
+                                min_rc = ref;
+                                choosen_node = node;
+                                if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->last_requests <= node->last_requests))
+                                        break;
+                        }
+                }
+                node = node->next;
+        }
+
+        if (choosen_node) {
+                choosen_node->reference++;
+        }
+
+        return choosen_node;
+}
+
+// weighted round robin algo
+static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wrr(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node, struct uwsgi_subscription_client *client) {
+        // if node is NULL we are in the second step
+        if (node) {
+                if (node->death_mark == 0 && node->wrr > 0) {
+                        node->wrr--;
+                        node->reference++;
+                        return node;
+                }
+                return NULL;
+        }
+
+        // no wrr > 0 node found, reset them
+        node = current_slot->nodes;
+        uint64_t min_weight = 0;
+        while (node) {
+                if (!node->death_mark) {
+                        if (min_weight == 0 || node->weight < min_weight)
+                                min_weight = node->weight;
+                }
+                node = node->next;
+        }
+
+        // now set wrr
+        node = current_slot->nodes;
+        struct uwsgi_subscribe_node *choosen_node = NULL;
+        while (node) {
+                if (!node->death_mark) {
+                        node->wrr = node->weight / min_weight;
+                        choosen_node = node;
+                }
+                node = node->next;
+        }
+        if (choosen_node) {
+                choosen_node->wrr--;
+                choosen_node->reference++;
+        }
+        return choosen_node;
+}
+
+void uwsgi_subscription_init_algos() {
+
+	uwsgi_register_subscription_algo("wrr", uwsgi_subscription_algo_wrr);
+	uwsgi_register_subscription_algo("lrc", uwsgi_subscription_algo_lrc);
+	uwsgi_register_subscription_algo("wlrc", uwsgi_subscription_algo_wlrc);
+}
+
+void uwsgi_subscription_set_algo(char *algo) {
+	if (!uwsgi.subscription_algos) {
+		uwsgi_register_subscription_algo("wrr", uwsgi_subscription_algo_wrr);
+        	uwsgi_register_subscription_algo("lrc", uwsgi_subscription_algo_lrc);
+        	uwsgi_register_subscription_algo("wlrc", uwsgi_subscription_algo_wlrc);
+	}
+	if (!algo)
+                goto wrr;
+	uwsgi.subscription_algo = uwsgi_subscription_algo_get(algo, strlen(algo));
+	if (uwsgi.subscription_algo) return ;
+
+wrr:
+        uwsgi.subscription_algo = uwsgi_subscription_algo_wrr;
+}
+
+// we are lazy for subscription algos, we initialize them only if needed
+struct uwsgi_subscribe_slot **uwsgi_subscription_init_ht() {
+        if (!uwsgi.subscription_algo) {
+                uwsgi_subscription_set_algo(NULL);
+        }
+        return uwsgi_calloc(sizeof(struct uwsgi_subscription_slot *) * UMAX16);
+}
+
+struct uwsgi_subscribe_node *(*uwsgi_subscription_algo_get(char *name , size_t len))(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *) {
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, uwsgi.subscription_algos) {
+		if (!uwsgi_strncmp(usl->value, usl->len, name, len)) {
+			return (struct uwsgi_subscribe_node *(*)(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *)) usl->custom_ptr;
+		}
+	}
+	return NULL;
+}
+
+void uwsgi_register_subscription_algo(char *name, struct uwsgi_subscribe_node *(*func)(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *)) {
+	struct uwsgi_string_list *usl = uwsgi_string_new_list(&uwsgi.subscription_algos, name);	
+	usl->custom_ptr = func;
 }

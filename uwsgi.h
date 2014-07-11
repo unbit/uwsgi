@@ -1689,6 +1689,8 @@ struct uwsgi_fsmon {
 	struct uwsgi_fsmon *next;
 };
 
+struct uwsgi_subscription_client;
+
 struct uwsgi_server {
 
 	// store the machine hostname
@@ -2638,7 +2640,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *subscriptions;
 	struct uwsgi_string_list *subscriptions2;
 
-	struct uwsgi_subscribe_node *(*subscription_algo) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *);
+	struct uwsgi_subscribe_node *(*subscription_algo) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *);
 	int subscription_dotsplit;
 
 	int never_swap;
@@ -2737,6 +2739,7 @@ struct uwsgi_server {
         struct uwsgi_string_list *hook_as_on_demand_vassal;
 	uint64_t max_requests_delta;
 	char *emperor_chdir_attr;
+	struct uwsgi_string_list *subscription_algos;
 };
 
 struct uwsgi_rpc {
@@ -3336,8 +3339,7 @@ struct uwsgi_subscribe_req {
 	char *proto;
 	uint16_t proto_len;
 
-	char *algo;
-	uint16_t algo_len;
+	struct uwsgi_subscribe_node *(*algo) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *);
 };
 
 void uwsgi_nuclear_blast();
@@ -3567,6 +3569,11 @@ struct uwsgi_mule_farm *uwsgi_mule_farm_new(struct uwsgi_mule_farm **, struct uw
 int uwsgi_farm_has_mule(struct uwsgi_farm *, int);
 struct uwsgi_farm *get_farm_by_name(char *);
 
+struct uwsgi_subscription_client {
+	int fd;
+	union uwsgi_sockaddr sockaddr;
+	char *cookie;
+};
 
 struct uwsgi_subscribe_node {
 
@@ -3606,6 +3613,11 @@ struct uwsgi_subscribe_node {
 	struct uwsgi_subscribe_slot *slot;
 
 	struct uwsgi_subscribe_node *next;
+
+	// uWSGI 2.1
+	uint64_t backup_level;
+	//here the solution is a bit hacky, we take the first letter of the proto ('u','\0' -> uwsgi, 'h' -> http, 'f' -> fastcgi, 's' -> scgi)
+	char proto;
 };
 
 struct uwsgi_subscribe_slot {
@@ -3628,6 +3640,9 @@ struct uwsgi_subscribe_slot {
 	uint8_t sni_enabled;
 #endif
 
+	// uWSGI 2.1 (algo is required)
+        struct uwsgi_subscribe_node *(*algo) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *);
+
 };
 
 void mule_send_msg(int, char *, size_t);
@@ -3637,7 +3652,7 @@ void create_signal_pipe(int *);
 void create_msg_pipe(int *, int);
 struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **, char *, uint16_t);
 struct uwsgi_subscribe_node *uwsgi_get_subscribe_node_by_name(struct uwsgi_subscribe_slot **, char *, uint16_t, char *, uint16_t);
-struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slot **, char *, uint16_t);
+struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slot **, char *, uint16_t, struct uwsgi_subscription_client *);
 int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **, struct uwsgi_subscribe_node *);
 struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slot **, struct uwsgi_subscribe_req *);
 
@@ -4840,6 +4855,11 @@ int uwsgi_webdav_multistatus_propstat_new(struct uwsgi_buffer *);
 int uwsgi_webdav_multistatus_propstat_close(struct uwsgi_buffer *);
 int uwsgi_webdav_multistatus_prop_new(struct uwsgi_buffer *);
 int uwsgi_webdav_multistatus_prop_close(struct uwsgi_buffer *);
+
+struct uwsgi_subscribe_node *(*uwsgi_subscription_algo_get(char * , size_t))(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *);
+
+void uwsgi_subscription_init_algos(void);
+void uwsgi_register_subscription_algo(char *, struct uwsgi_subscribe_node *(*) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *));
 #ifdef __cplusplus
 }
 #endif

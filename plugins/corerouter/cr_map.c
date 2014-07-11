@@ -48,7 +48,7 @@ int uwsgi_cr_map_use_pattern(struct uwsgi_corerouter *ucr, struct corerouter_pee
 
 int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
 
-	peer->un = uwsgi_get_subscribe_node(ucr->subscriptions, peer->key, peer->key_len);
+	peer->un = uwsgi_get_subscribe_node(ucr->subscriptions, peer->key, peer->key_len, NULL);
 	if (peer->un && peer->un->len) {
 		peer->instance_address = peer->un->name;
 		peer->instance_address_len = peer->un->len;
@@ -73,7 +73,7 @@ split:
 #ifdef UWSGI_DEBUG
 	uwsgi_log("trying with %.*s\n", name_len, name);
 #endif
-        peer->un = uwsgi_get_subscribe_node(ucr->subscriptions, name, name_len);
+        peer->un = uwsgi_get_subscribe_node(ucr->subscriptions, name, name_len, NULL);
 	if (!peer->un) {
 		char *next = memchr(name+1, '.', name_len-1);
 		if (next) {

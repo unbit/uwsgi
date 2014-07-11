@@ -292,8 +292,7 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
                 usr->notify_len = vallen;
 	}
 	else if (!uwsgi_strncmp("algo", 4, key, keylen)) {
-                usr->algo = val;
-                usr->algo_len = vallen;
+                usr->algo = uwsgi_subscription_algo_get(val, vallen);
         }
 	else if (!uwsgi_strncmp("backup", 6, key, keylen)) {
 		usr->backup_level = uwsgi_str_num(val, vallen);
