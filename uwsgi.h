@@ -3330,6 +3330,14 @@ struct uwsgi_subscribe_req {
 
 	char *notify;
 	uint16_t notify_len;
+
+	uint64_t backup_level;
+
+	char *proto;
+	uint16_t proto_len;
+
+	char *algo;
+	uint16_t algo_len;
 };
 
 void uwsgi_nuclear_blast();
