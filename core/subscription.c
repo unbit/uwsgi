@@ -381,7 +381,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		}
 		node->next = NULL;
 
-		uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new node: %.*s\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address);
+		uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new node: %.*s (weight: %d, backup: %d)\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, usr->weight, usr->backup_level);
 		if (node->notify[0]) {
 			char buf[1024];
 			int ret = snprintf(buf, 1024, "[subscription ack] %.*s => new node: %.*s", usr->keylen, usr->key, usr->address_len, usr->address);
@@ -476,7 +476,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		}
 
 		uwsgi_log("[uwsgi-subscription for pid %d] new pool: %.*s (hash key: %d, algo: %s)\n", (int) uwsgi.mypid, usr->keylen, usr->key, current_slot->hash, uwsgi_subscription_algo_name(current_slot->algo));
-		uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new node: %.*s\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address);
+		uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new node: %.*s (weight: %d, backup: %d)\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, usr->weight, usr->backup_level);
 
 		if (current_slot->nodes->notify[0]) {
 			char buf[1024];
@@ -1166,8 +1166,10 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wlrc(struct uwsgi_su
         return choosen_node;
 }
 
-// weighted round robin algo
+// weighted round robin algo (with backup support)
 static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wrr(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node, struct uwsgi_subscription_client *client) {
+	uint64_t backup_level = 0;
+	uint64_t has_backup = 0;
         // if node is NULL we are in the second step
         if (node) {
                 if (node->death_mark == 0 && node->wrr > 0) {
@@ -1190,19 +1192,28 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wrr(struct uwsgi_sub
         }
 
         // now set wrr
+retry:
         node = current_slot->nodes;
+	has_backup = 0;
         struct uwsgi_subscribe_node *choosen_node = NULL;
         while (node) {
-                if (!node->death_mark) {
+                if (!node->death_mark && node->backup_level == backup_level) {
                         node->wrr = node->weight / min_weight;
                         choosen_node = node;
                 }
+		else if (node->backup_level > backup_level) {
+			has_backup = node->backup_level;
+		}
                 node = node->next;
         }
         if (choosen_node) {
                 choosen_node->wrr--;
                 choosen_node->reference++;
         }
+	else if (has_backup) {
+		backup_level = has_backup;
+		goto retry;
+	}
         return choosen_node;
 }
 
