@@ -71,8 +71,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol, 0},
 	{"socket-protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol, 0},
-	{"shared-socket", required_argument, 0, "create a shared sacket for advanced jailing or ipc", uwsgi_opt_add_shared_socket, NULL, 0},
-	{"undeferred-shared-socket", required_argument, 0, "create a shared sacket for advanced jailing or ipc (undeferred mode)", uwsgi_opt_add_shared_socket, NULL, 0},
+	{"shared-socket", required_argument, 0, "create a shared socket for advanced jailing or ipc", uwsgi_opt_add_shared_socket, NULL, 0},
+	{"undeferred-shared-socket", required_argument, 0, "create a shared socket for advanced jailing or ipc (undeferred mode)", uwsgi_opt_add_shared_socket, NULL, 0},
 	{"processes", required_argument, 'p', "spawn the specified number of workers/processes", uwsgi_opt_set_int, &uwsgi.numproc, 0},
 	{"workers", required_argument, 'p', "spawn the specified number of workers/processes", uwsgi_opt_set_int, &uwsgi.numproc, 0},
 	{"thunder-lock", no_argument, 0, "serialize accept() usage (if possible)", uwsgi_opt_true, &uwsgi.use_thunder_lock, 0},
