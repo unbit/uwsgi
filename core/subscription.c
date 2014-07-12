@@ -1106,20 +1106,29 @@ void uwsgi_subscribe_all(uint8_t cmd, int verbose) {
 
 // least reference count
 static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node, struct uwsgi_subscription_client *client) {
+	uint64_t backup_level = 0;
+        uint64_t has_backup = 0;
+
         // if node is NULL we are in the second step (in lrc mode we do not use the first step)
         if (node)
                 return NULL;
 
         struct uwsgi_subscribe_node *choosen_node = NULL;
+retry:
         node = current_slot->nodes;
         uint64_t min_rc = 0;
         while (node) {
                 if (!node->death_mark) {
-                        if (min_rc == 0 || node->reference < min_rc) {
-                                min_rc = node->reference;
-                                choosen_node = node;
-                                if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->last_requests <= node->last_requests))
-                                        break;
+			if (node->backup_level == backup_level) {
+                        	if (min_rc == 0 || node->reference < min_rc) {
+                                	min_rc = node->reference;
+                                	choosen_node = node;
+                                	if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->last_requests <= node->last_requests))
+                                        	break;
+                        	}
+			}
+			else if (node->backup_level > backup_level && (!has_backup || has_backup > node->backup_level)) {
+                                has_backup = node->backup_level;
                         }
                 }
                 node = node->next;
@@ -1127,6 +1136,10 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_sub
 
         if (choosen_node) {
                 choosen_node->reference++;
+        }
+	else if (has_backup) {
+                backup_level = has_backup;
+                goto retry;
         }
 
         return choosen_node;
@@ -1134,26 +1147,36 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_sub
 
 // weighted least reference count
 static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wlrc(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node, struct uwsgi_subscription_client *client) {
+	uint64_t backup_level = 0;
+        uint64_t has_backup = 0;
+
         // if node is NULL we are in the second step (in wlrc mode we do not use the first step)
         if (node)
                 return NULL;
 
         struct uwsgi_subscribe_node *choosen_node = NULL;
+retry:
         node = current_slot->nodes;
+	has_backup = 0;
         double min_rc = 0;
         while (node) {
                 if (!node->death_mark) {
-                        // node->weight is always >= 1, we can safely use it as divider
-                        double ref = (double) node->reference / (double) node->weight;
-                        double next_node_ref = 0;
-                        if (node->next)
-                                next_node_ref = (double) node->next->reference / (double) node->next->weight;
+			if (node->backup_level == backup_level) {
+                        	// node->weight is always >= 1, we can safely use it as divider
+                        	double ref = (double) node->reference / (double) node->weight;
+                        	double next_node_ref = 0;
+                        	if (node->next)
+                                	next_node_ref = (double) node->next->reference / (double) node->next->weight;
 
-                        if (min_rc == 0 || ref < min_rc) {
-                                min_rc = ref;
-                                choosen_node = node;
-                                if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->last_requests <= node->last_requests))
-                                        break;
+                        	if (min_rc == 0 || ref < min_rc) {
+                                	min_rc = ref;
+                                	choosen_node = node;
+                                	if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->last_requests <= node->last_requests))
+                                	        break;
+                        	}
+			}
+			else if (node->backup_level > backup_level && (!has_backup || has_backup > node->backup_level)) {
+                                has_backup = node->backup_level;
                         }
                 }
                 node = node->next;
@@ -1161,6 +1184,10 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wlrc(struct uwsgi_su
 
         if (choosen_node) {
                 choosen_node->reference++;
+        }
+	else if (has_backup) {
+                backup_level = has_backup;
+                goto retry;
         }
 
         return choosen_node;
@@ -1197,12 +1224,14 @@ retry:
 	has_backup = 0;
         struct uwsgi_subscribe_node *choosen_node = NULL;
         while (node) {
-                if (!node->death_mark && node->backup_level == backup_level) {
-                        node->wrr = node->weight / min_weight;
-                        choosen_node = node;
-                }
-		else if (node->backup_level > backup_level) {
-			has_backup = node->backup_level;
+                if (!node->death_mark) {
+			if (node->backup_level == backup_level) {
+                        	node->wrr = node->weight / min_weight;
+                        	choosen_node = node;
+                	}
+			else if (node->backup_level > backup_level && (!has_backup || has_backup > node->backup_level)) {
+				has_backup = node->backup_level;
+			}
 		}
                 node = node->next;
         }
