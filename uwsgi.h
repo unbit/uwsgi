@@ -3571,7 +3571,7 @@ struct uwsgi_farm *get_farm_by_name(char *);
 
 struct uwsgi_subscription_client {
 	int fd;
-	union uwsgi_sockaddr sockaddr;
+	union uwsgi_sockaddr *sockaddr;
 	char *cookie;
 };
 

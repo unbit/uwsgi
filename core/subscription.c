@@ -1103,6 +1103,57 @@ void uwsgi_subscribe_all(uint8_t cmd, int verbose) {
 
 }
 
+// iphash
+static struct uwsgi_subscribe_node *uwsgi_subscription_algo_iphash(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node, struct uwsgi_subscription_client *client) {
+        // if node is NULL we are in the second step (in lrc mode we do not use the first step)
+        if (node)
+                return NULL;
+
+	// iphash does not support requests without client data
+	if (!client) return NULL;
+	if (!client->sockaddr) return NULL;
+	uint64_t count = 0;
+	// first step is counting the number of nodes
+	node = current_slot->nodes;
+	while(node) {
+		if (!node->death_mark) count++;
+		node = node->next;
+	}
+	if (count == 0) return NULL;
+
+	uint64_t hash = 0;
+
+	//hash the ip
+	if (client->sockaddr->sa.sa_family == AF_INET) {
+		hash = client->sockaddr->sa_in.sin_addr.s_addr % count;
+	}
+#ifdef AF_INET6
+	else if (client->sockaddr->sa.sa_family == AF_INET6) {
+		hash = djb33x_hash((char *)client->sockaddr->sa_in6.sin6_addr.s6_addr, 16) % count;
+	}
+#endif
+		
+	// now re-iterate until count matches;
+	count = 0;
+        struct uwsgi_subscribe_node *choosen_node = NULL;
+        node = current_slot->nodes;
+        while (node) {
+                if (!node->death_mark) {
+			if (count == hash) {
+				choosen_node = node;
+				break;
+			}
+			count++;
+                }
+                node = node->next;
+        }
+
+        if (choosen_node) {
+                choosen_node->reference++;
+        }
+
+        return choosen_node;
+}
 
 // least reference count
 static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node, struct uwsgi_subscription_client *client) {
@@ -1251,13 +1302,12 @@ void uwsgi_subscription_init_algos() {
 	uwsgi_register_subscription_algo("wrr", uwsgi_subscription_algo_wrr);
 	uwsgi_register_subscription_algo("lrc", uwsgi_subscription_algo_lrc);
 	uwsgi_register_subscription_algo("wlrc", uwsgi_subscription_algo_wlrc);
+	uwsgi_register_subscription_algo("iphash", uwsgi_subscription_algo_iphash);
 }
 
 void uwsgi_subscription_set_algo(char *algo) {
 	if (!uwsgi.subscription_algos) {
-		uwsgi_register_subscription_algo("wrr", uwsgi_subscription_algo_wrr);
-        	uwsgi_register_subscription_algo("lrc", uwsgi_subscription_algo_lrc);
-        	uwsgi_register_subscription_algo("wlrc", uwsgi_subscription_algo_wlrc);
+		uwsgi_subscription_init_algos();
 	}
 	if (!algo)
                 goto wrr;
