@@ -83,6 +83,8 @@ int uwsgi_subscription_credentials_check(struct uwsgi_subscribe_slot *slot, stru
 }
 
 struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen) {
+	int retried = 0;
+retry:
 
 	if (keylen > 0xff)
 		return NULL;
@@ -134,6 +136,16 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
 		// check for loopy optimization
 		if (current_slot == slot[hash_key])
 			break;
+	}
+
+	// if we are here and in mountpoints mode, try the domain only variant
+	if (uwsgi.subscription_mountpoints && !retried) {
+		char *slash = memchr(key, '/', keylen);
+		if (slash) {
+			keylen = slash - key;
+			retried = 1;
+			goto retry;
+		}
 	}
 
 	return NULL;

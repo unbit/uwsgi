@@ -494,6 +494,13 @@ clear:
 }
 
 char *uwsgi_sanitize_cert_filename(char *base, char *key, uint16_t keylen) {
+	// stop at the first slash if mountpoints are involved
+	if (uwsgi.subscription_mountpoints) {
+		char *slash = memchr(key, '/', keylen);
+		if (slash) {
+			keylen = slash - key;
+		}
+	}
         uint16_t i;
         char *filename = uwsgi_concat4n(base, strlen(base), "/", 1, key, keylen, ".pem\0", 5);
 
