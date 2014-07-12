@@ -125,12 +125,8 @@ static int http_header_dumb_check(struct http_session *hr, struct corerouter_pee
                 }
         }
 
-	if (!uwsgi_strnicmp("HOST", 4, hh, keylen)) {
-                peer->key = val;
-                peer->key_len = vallen;
-        }
 
-        else if (!uwsgi_strnicmp("CONTENT-LENGTH", 14, hh, keylen)) {
+        if (!uwsgi_strnicmp("CONTENT-LENGTH", 14, hh, keylen)) {
                 hr->content_length = uwsgi_str_num(val, vallen);
         }
 
@@ -224,8 +220,6 @@ static int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, size_t 
 	}	
 
 	if (!uwsgi_strncmp("HOST", 4, hh, keylen)) {
-		peer->key = val;
-		peer->key_len = vallen;
 		if (uhttp.server_name_as_http_host && uwsgi_buffer_append_keyval(out, "SERVER_NAME", 11, peer->key, peer->key_len)) return -1;
 	}
 
@@ -273,19 +267,121 @@ done:
 	return 0;
 }
 
-static int http_headers_parse_dumb(struct corerouter_peer *peer) {
-	struct http_session *hr = (struct http_session *) peer->session;
+static int http_headers_parse_first_round(struct corerouter_peer *peer) {
+        struct http_session *hr = (struct http_session *) peer->session;
 	char *ptr = peer->session->main_peer->in->buf;
         char *watermark = ptr + hr->headers_size;
         char *base = ptr;
-        char *proxy_src = NULL;
         char *proxy_dst = NULL;
-        char *proxy_src_port = NULL;
         char *proxy_dst_port = NULL;
-        uint16_t proxy_src_len = 0;
         uint16_t proxy_dst_len = 0;
-        uint16_t proxy_src_port_len = 0;
         uint16_t proxy_dst_port_len = 0;
+
+	int skip = 0;
+
+	//struct uwsgi_buffer *out = peer->out;
+        int found = 0;
+
+        if (uwsgi.enable_proxy_protocol || uhttp.enable_proxy_protocol) {
+                ptr = proxy1_parse(ptr, watermark, &hr->proxy_src, &hr->proxy_src_len, &proxy_dst, &proxy_dst_len, &hr->proxy_src_port, &hr->proxy_src_port_len, &proxy_dst_port, &proxy_dst_port_len);
+		// how many bytes to skip ?
+		skip = ptr - base;
+                base = ptr;
+        }
+
+	// the following code is only a check for http compliance
+
+        // METHOD
+        while (ptr < watermark) {
+                if (*ptr == ' ') {
+                        ptr++;
+                        found = 1;
+                        break;
+                }
+                else if (*ptr == '\r' || *ptr == '\n') break;
+                ptr++;
+        }
+
+        // ensure we have a method
+        if (!found) return -1;
+
+	// REQUEST_URI / PATH_INFO / QUERY_STRING
+        base = ptr;
+        found = 0;
+        while (ptr < watermark) {
+                if (*ptr == ' ') {
+			// if we want to allow sub-keys, we need to parse the first part of the REQUEST_URI
+                        //hr->request_uri = base;
+                        //hr->request_uri_len = ptr - base;
+                        ptr++;
+                        found = 1;
+                        break;
+                }
+                ptr++;
+        }
+
+        // ensure we have a URI
+        if (!found) return -1;
+
+        // SERVER_PROTOCOL
+        base = ptr;
+        found = 0;
+        while (ptr < watermark) {
+                if (*ptr == '\r') {
+                        if (ptr + 1 >= watermark)
+                                return 0;
+                        if (*(ptr + 1) != '\n')
+                                return 0;
+                        ptr += 2;
+                        found = 1;
+                        break;
+                }
+                ptr++;
+        }
+
+        // ensure we have a protocol
+        if (!found) return -1;
+
+        peer->key = uwsgi.hostname;
+        peer->key_len = uwsgi.hostname_len;
+
+        //HEADERS
+        base = ptr;
+        while (ptr < watermark) {
+                if (*ptr == '\r') {
+                        if (ptr + 1 >= watermark)
+                                break;
+                        if (*(ptr + 1) != '\n')
+                                break;
+                        // multiline header ?
+                        if (ptr + 2 < watermark) {
+                                if (*(ptr + 2) == ' ' || *(ptr + 2) == '\t') {
+                                        ptr += 2;
+                                        continue;
+                                }
+                        }
+
+                        if (!uwsgi_strnicmp("HOST: ", 6, base, ptr - base)) {
+				peer->key = base + 6;
+				peer->key_len = (ptr - base) - 6;
+                        }
+
+                        // last line, do not waste time
+                        if (ptr - base == 0) break;
+                        ptr++;
+                        base = ptr + 1;
+                }
+                ptr++;
+        }
+
+	return skip;
+}
+
+static int http_headers_parse_dumb(struct corerouter_peer *peer, int skip) {
+	struct http_session *hr = (struct http_session *) peer->session;
+	char *ptr = peer->session->main_peer->in->buf;
+        char *watermark = ptr + hr->headers_size;
+        char *base = ptr + skip;
 
 	// leave space for X-Forwarded-For and X-Forwarded-Proto: https
 	peer->out = uwsgi_buffer_new(hr->headers_size + 256);
@@ -296,11 +392,6 @@ static int http_headers_parse_dumb(struct corerouter_peer *peer) {
 
         //struct uwsgi_buffer *out = peer->out;
         int found = 0;
-
-        if (uwsgi.enable_proxy_protocol || uhttp.enable_proxy_protocol) {
-                ptr = proxy1_parse(ptr, watermark, &proxy_src, &proxy_src_len, &proxy_dst, &proxy_dst_len, &proxy_src_port, &proxy_src_port_len, &proxy_dst_port, &proxy_dst_port_len);
-                base = ptr;
-        }
 
 	// the following code is only a check for http compliance
 
@@ -361,9 +452,6 @@ static int http_headers_parse_dumb(struct corerouter_peer *peer) {
         // ensure we have a protocol
         if (!found) return -1;
 
-	peer->key = uwsgi.hostname;
-        peer->key_len = uwsgi.hostname_len; 
-
 	//HEADERS
         base = ptr;
         while (ptr < watermark) {
@@ -400,8 +488,8 @@ static int http_headers_parse_dumb(struct corerouter_peer *peer) {
 
 	// X-Forwarded-For
         if (uwsgi_buffer_append(out, "X-Forwarded-For: ", 17)) return -1;
-        if (proxy_src) {
-		if (uwsgi_buffer_append(out, proxy_src, proxy_src_len)) return -1;
+        if (hr->proxy_src) {
+		if (uwsgi_buffer_append(out, hr->proxy_src, hr->proxy_src_len)) return -1;
         }
         else {
                 if (uwsgi_buffer_append(out, peer->session->client_address, strlen(peer->session->client_address))) return -1;
@@ -425,22 +513,14 @@ static int http_headers_parse_dumb(struct corerouter_peer *peer) {
 	return 0;
 }
 
-int http_headers_parse(struct corerouter_peer *peer) {
+int http_headers_parse(struct corerouter_peer *peer, int skip) {
 
 	struct http_session *hr = (struct http_session *) peer->session;
 
 	char *ptr = peer->session->main_peer->in->buf;
 	char *watermark = ptr + hr->headers_size;
-	char *base = ptr;
+	char *base = ptr + skip;
 	char *query_string = NULL;
-	char *proxy_src = NULL;
-	char *proxy_dst = NULL;
-	char *proxy_src_port = NULL;
-	char *proxy_dst_port = NULL;
-	uint16_t proxy_src_len = 0;
-	uint16_t proxy_dst_len = 0;
-	uint16_t proxy_src_port_len = 0;
-	uint16_t proxy_dst_port_len = 0;
 
 	peer->out = uwsgi_buffer_new(uwsgi.page_size);
 	// force this buffer to be destroyed as soon as possibile
@@ -452,11 +532,6 @@ int http_headers_parse(struct corerouter_peer *peer) {
 
 	struct uwsgi_buffer *out = peer->out;
 	int found = 0;
-
-        if (uwsgi.enable_proxy_protocol || uhttp.enable_proxy_protocol) {
-		ptr = proxy1_parse(ptr, watermark, &proxy_src, &proxy_src_len, &proxy_dst, &proxy_dst_len, &proxy_src_port, &proxy_src_port_len, &proxy_dst_port, &proxy_dst_port_len);
-		base = ptr;
-        }
 
 	// REQUEST_METHOD 
 	while (ptr < watermark) {
@@ -570,8 +645,6 @@ int http_headers_parse(struct corerouter_peer *peer) {
 
 	// SERVER_NAME
 	if (!uhttp.server_name_as_http_host && uwsgi_buffer_append_keyval(out, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len)) return -1;
-	peer->key = uwsgi.hostname;
-	peer->key_len = uwsgi.hostname_len;
 
 	// SERVER_PORT
 	if (uwsgi_buffer_append_keyval(out, "SERVER_PORT", 11, hr->port, hr->port_len)) return -1;
@@ -589,10 +662,10 @@ int http_headers_parse(struct corerouter_peer *peer) {
 #endif
 
 	// REMOTE_ADDR
-        if (proxy_src) {
-		if (uwsgi_buffer_append_keyval(out, "REMOTE_ADDR", 11, proxy_src, proxy_src_len)) return -1;
-		if (proxy_src_port) {
-			if (uwsgi_buffer_append_keyval(out, "REMOTE_PORT", 11, proxy_src_port, proxy_src_port_len)) return -1;
+        if (hr->proxy_src) {
+		if (uwsgi_buffer_append_keyval(out, "REMOTE_ADDR", 11, hr->proxy_src, hr->proxy_src_len)) return -1;
+		if (hr->proxy_src_port) {
+			if (uwsgi_buffer_append_keyval(out, "REMOTE_PORT", 11, hr->proxy_src_port, hr->proxy_src_port_len)) return -1;
 		}
 	}
 	else
@@ -1025,13 +1098,8 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 			// default hook
 			new_peer->last_hook_read = hr_instance_read;
 		
-			// parse HTTP request
-			if (!hr->proto_http) {
-				if (http_headers_parse(new_peer)) return -1;
-			}
-			else {
-				if (http_headers_parse_dumb(new_peer)) return -1;
-			}
+			int skip = http_headers_parse_first_round(new_peer);
+			if (skip < 0) return -1;
 
 			// check for a valid hostname
 			if (new_peer->key_len == 0) return -1;
@@ -1050,7 +1118,9 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
                 	if (new_peer->instance_address_len == 0)
                         	return -1;
 
-			if (!hr->proto_http) {
+			// parse HTTP request
+			if (new_peer->proto != 'h' && !uhttp.proto_http) {
+				if (http_headers_parse(new_peer, skip)) return -1;
 				uint16_t pktsize = new_peer->out->pos-4;
         			// fix modifiers
         			new_peer->out->buf[0] = new_peer->session->main_peer->modifier1;
@@ -1058,6 +1128,9 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
         			// fix pktsize
         			new_peer->out->buf[1] = (uint8_t) (pktsize & 0xff);
         			new_peer->out->buf[2] = (uint8_t) ((pktsize >> 8) & 0xff);
+			}
+			else {
+				if (http_headers_parse_dumb(new_peer, skip)) return -1;
 			}
 
 			if (hr->remains > 0) {
@@ -1214,9 +1287,6 @@ int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket
 		hr->websockets = 1;	
 	}
 
-	if (uhttp.proto_http) {
-		hr->proto_http = 1;
-	}
 	hr->func_write = hr_write;
 
 	// be sure buffer does not grow over 64k

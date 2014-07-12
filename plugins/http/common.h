@@ -136,7 +136,10 @@ struct http_session {
 
 	ssize_t (*func_write)(struct corerouter_peer *);
 
-	int proto_http;
+	char *proxy_src;
+        char *proxy_src_port;
+        uint16_t proxy_src_len;
+        uint16_t proxy_src_port_len;
 };
 
 
