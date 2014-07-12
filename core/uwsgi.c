@@ -71,8 +71,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol, 0},
 	{"socket-protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol, 0},
-	{"shared-socket", required_argument, 0, "create a shared sacket for advanced jailing or ipc", uwsgi_opt_add_shared_socket, NULL, 0},
-	{"undeferred-shared-socket", required_argument, 0, "create a shared sacket for advanced jailing or ipc (undeferred mode)", uwsgi_opt_add_shared_socket, NULL, 0},
+	{"shared-socket", required_argument, 0, "create a shared socket for advanced jailing or ipc", uwsgi_opt_add_shared_socket, NULL, 0},
+	{"undeferred-shared-socket", required_argument, 0, "create a shared socket for advanced jailing or ipc (undeferred mode)", uwsgi_opt_add_shared_socket, NULL, 0},
 	{"processes", required_argument, 'p', "spawn the specified number of workers/processes", uwsgi_opt_set_int, &uwsgi.numproc, 0},
 	{"workers", required_argument, 'p', "spawn the specified number of workers/processes", uwsgi_opt_set_int, &uwsgi.numproc, 0},
 	{"thunder-lock", no_argument, 0, "serialize accept() usage (if possible)", uwsgi_opt_true, &uwsgi.use_thunder_lock, 0},
@@ -601,6 +601,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"notify-socket", required_argument, 0, "enable the notification socket", uwsgi_opt_set_str, &uwsgi.notify_socket, UWSGI_OPT_MASTER},
 	{"subscription-notify-socket", required_argument, 0, "set the notification socket for subscriptions", uwsgi_opt_set_str, &uwsgi.subscription_notify_socket, UWSGI_OPT_MASTER},
+	{"subscription-mountpoints", no_argument, 0, "enable mountpoints support for subscription system", uwsgi_opt_true, &uwsgi.subscription_mountpoints, UWSGI_OPT_MASTER},
+	{"subscription-mountpoint", no_argument, 0, "enable mountpoints support for subscription system", uwsgi_opt_true, &uwsgi.subscription_mountpoints, UWSGI_OPT_MASTER},
 
 #ifdef UWSGI_SSL
 	{"legion", required_argument, 0, "became a member of a legion", uwsgi_opt_legion, NULL, UWSGI_OPT_MASTER},

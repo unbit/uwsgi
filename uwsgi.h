@@ -2740,6 +2740,7 @@ struct uwsgi_server {
 	uint64_t max_requests_delta;
 	char *emperor_chdir_attr;
 	struct uwsgi_string_list *subscription_algos;
+	int subscription_mountpoints;
 };
 
 struct uwsgi_rpc {

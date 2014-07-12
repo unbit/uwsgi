@@ -193,6 +193,8 @@ struct corerouter_peer {
 
 	// maps 1:1 with subscription proto
 	char proto;
+
+	int free_key;
 };
 
 struct uwsgi_corerouter {

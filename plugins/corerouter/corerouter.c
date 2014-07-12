@@ -110,6 +110,10 @@ void uwsgi_cr_peer_del(struct corerouter_peer *peer) {
 	if (peer->out && peer->out_need_free) {
 		uwsgi_buffer_destroy(peer->out);
 	}
+
+	if (peer->free_key) {
+		free(peer->key);
+	}
 	free(peer);
 }
 

@@ -70,6 +70,35 @@ struct uwsgi_option http_options[] = {
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
+static int rebuild_key_for_mountpoint(struct http_session *hr, struct corerouter_peer *peer) {
+	if (hr->request_uri_len == 0) return -1;
+	if (hr->request_uri[0] != '/') return -1;
+	uint16_t uri_len = hr->request_uri_len -1;
+	// find QUERY_STRING (if any)
+	char *qs = memchr(hr->request_uri+1, '?', uri_len);
+	if (qs) {
+		uri_len = (qs - hr->request_uri) - 1;
+	}
+	// is it / ?
+	if (uri_len == 0) return 0;
+	// now find the second slash occurrence (if any)
+	char *second_slash = memchr(hr->request_uri+1, '/', uri_len);
+	char *new_key = NULL;
+	uint16_t new_key_len = 0;
+	if (second_slash) {
+		new_key = uwsgi_concat2n(peer->key, peer->key_len, hr->request_uri, second_slash - hr->request_uri);	
+		new_key_len = peer->key_len + (second_slash - hr->request_uri);
+	}
+	else {
+		new_key = uwsgi_concat2n(peer->key, peer->key_len, hr->request_uri, uri_len + 1);
+		new_key_len = peer->key_len + uri_len + 1;
+	}
+	peer->key = new_key;
+	peer->key_len = new_key_len;
+	peer->free_key = 1;
+	return 0;
+}
+
 static void http_set_timeout(struct corerouter_peer *peer, int timeout) {
 	if (peer->current_timeout == timeout) return;
 	peer->current_timeout = timeout;
@@ -311,8 +340,8 @@ static int http_headers_parse_first_round(struct corerouter_peer *peer) {
         while (ptr < watermark) {
                 if (*ptr == ' ') {
 			// if we want to allow sub-keys, we need to parse the first part of the REQUEST_URI
-                        //hr->request_uri = base;
-                        //hr->request_uri_len = ptr - base;
+                        hr->request_uri = base;
+                        hr->request_uri_len = ptr - base;
                         ptr++;
                         found = 1;
                         break;
@@ -418,8 +447,6 @@ static int http_headers_parse_dumb(struct corerouter_peer *peer, int skip) {
         found = 0;
         while (ptr < watermark) {
                 if (*ptr == ' ') {
-                        hr->request_uri = base;
-                        hr->request_uri_len = ptr - base;
                         ptr++;
                         found = 1;
                         break;
@@ -578,8 +605,6 @@ int http_headers_parse(struct corerouter_peer *peer, int skip) {
 			query_string = ptr + 1;
 		}
 		else if (*ptr == ' ') {
-			hr->request_uri = base;
-			hr->request_uri_len = ptr - base;
 			if (uwsgi_buffer_append_keyval(out, "REQUEST_URI", 11, base, ptr - base)) return -1;
 			if (!query_string) {
 				// PATH_INFO must be url-decoded !!!
@@ -1110,6 +1135,9 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				break;
 			}
 #endif
+			if (uwsgi.subscription_mountpoints) {
+				if (rebuild_key_for_mountpoint(hr, new_peer)) return -1;
+			}
 			// find an instance using the key
                 	if (ucr->mapper(ucr, new_peer))
                         	return -1;
