@@ -90,6 +90,8 @@ split:
                 peer->instance_address = peer->un->name;
                 peer->instance_address_len = peer->un->len;
                 peer->modifier1 = peer->un->modifier1;
+		peer->modifier2 = peer->un->modifier2;
+		peer->proto = peer->un->proto;
         }
         else if (ucr->cheap && !ucr->i_am_cheap && uwsgi_no_subscriptions(ucr->subscriptions)) {
                 uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);

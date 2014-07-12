@@ -26,6 +26,7 @@ char *uwsgi_subscription_algo_name(void *ptr) {
 		if (usl->custom_ptr == ptr) {
 			return usl->value;
 		}
+		usl = usl->next;
 	}
 	return NULL;
 }
@@ -568,6 +569,30 @@ static void send_subscription(int sfd, char *host, char *message, uint16_t messa
 		close(fd);
 }
 
+static int uwsgi_subscription_ub_fix(struct uwsgi_buffer *ub, uint8_t modifier1, uint8_t modifier2, uint8_t cmd, char *sign) {
+	#ifdef UWSGI_SSL
+        if (sign) {
+                if (uwsgi_buffer_append_keynum(ub, "unix", 4, (uwsgi_now() + (time_t) cmd)))
+                        return -1;
+
+                unsigned int signature_len = 0;
+                char *signature = uwsgi_rsa_sign(sign, ub->buf + 4, ub->pos - 4, &signature_len);
+                if (signature && signature_len > 0) {
+                        if (uwsgi_buffer_append_keyval(ub, "sign", 4, signature, signature_len)) {
+                                free(signature);
+				return -1;
+                        }
+                        free(signature);
+                }
+        }
+#endif
+
+        // add uwsgi header
+        if (uwsgi_buffer_set_uh(ub, 224, cmd)) return -1;
+
+	return 0;
+}
+
 static struct uwsgi_buffer *uwsgi_subscription_ub(char *key, size_t keysize, uint8_t modifier1, uint8_t modifier2, uint8_t cmd, char *socket_name, char *sign, char *sni_key, char *sni_crt, char *sni_ca) {
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(4096);
 
@@ -619,26 +644,7 @@ static struct uwsgi_buffer *uwsgi_subscription_ub(char *key, size_t keysize, uin
 			goto end;
 	}
 
-#ifdef UWSGI_SSL
-	if (sign) {
-		if (uwsgi_buffer_append_keynum(ub, "unix", 4, (uwsgi_now() + (time_t) cmd)))
-			goto end;
-
-		unsigned int signature_len = 0;
-		char *signature = uwsgi_rsa_sign(sign, ub->buf + 4, ub->pos - 4, &signature_len);
-		if (signature && signature_len > 0) {
-			if (uwsgi_buffer_append_keyval(ub, "sign", 4, signature, signature_len)) {
-				free(signature);
-				goto end;
-			}
-			free(signature);
-		}
-	}
-#endif
-
-	// add uwsgi header
-	if (uwsgi_buffer_set_uh(ub, 224, cmd))
-		goto end;
+	if (uwsgi_subscription_ub_fix(ub, modifier1, modifier2, cmd, sign)) goto end;
 
 	return ub;
 
@@ -906,8 +912,27 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 	char *s2_sni_key = NULL;
 	char *s2_sni_crt = NULL;
 	char *s2_sni_ca = NULL;
+	char *s2_proto = NULL;
+	char *s2_algo = NULL;
+	char *s2_backup = NULL;
 
-	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=', "server", &s2_server, "key", &s2_key, "socket", &s2_socket, "addr", &s2_addr, "weight", &s2_weight, "modifier1", &s2_modifier1, "modifier2", &s2_modifier2, "sign", &s2_sign, "check", &s2_check, "sni_key", &s2_sni_key, "sni_crt", &s2_sni_crt, "sni_ca", &s2_sni_ca, NULL)) {
+	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
+		"server", &s2_server,
+		"key", &s2_key,
+		"socket", &s2_socket,
+		"addr", &s2_addr,
+		"weight", &s2_weight,
+		"modifier1", &s2_modifier1,
+		"modifier2", &s2_modifier2,
+		"sign", &s2_sign,
+		"check", &s2_check,
+		"sni_key", &s2_sni_key,
+		"sni_crt", &s2_sni_crt,
+		"sni_ca", &s2_sni_ca,
+		"proto", &s2_proto,
+		"algo", &s2_algo,
+		"backup", &s2_backup,
+		NULL)) {
 		return;
 	}
 
@@ -919,8 +944,15 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 			goto end;
 	}
 
+	int weight = 1;
+	int backup = 0;
+	if (uwsgi.auto_weight) weight = uwsgi.numproc * uwsgi.cores;
 	if (s2_weight) {
-		uwsgi.weight = atoi(s2_weight);
+		weight = atoi(s2_weight);
+	}
+
+	if (s2_backup) {
+		backup = atoi(s2_backup);
 	}
 
 	if (s2_socket) {
@@ -944,7 +976,74 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 		modifier2 = atoi(s2_modifier2);
 	}
 
-	uwsgi_send_subscription(s2_server, s2_key, strlen(s2_key), modifier1, modifier2, cmd, s2_addr, s2_sign, s2_sni_key, s2_sni_crt, s2_sni_ca);
+	if (s2_addr == NULL) {
+		// no socket... no subscription
+		if (!uwsgi.sockets) goto end;
+		s2_addr = uwsgi_str(uwsgi.sockets->name);
+	}
+
+        struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+        if (!ub) goto end;
+	// leave space for the header
+	ub->pos = 4;
+
+	if (uwsgi_buffer_append_keyval(ub, "key", 3, s2_key, strlen(s2_key)))
+                goto end;
+        if (uwsgi_buffer_append_keyval(ub, "address", 7, s2_addr, strlen(s2_addr)))
+                goto end;
+        if (uwsgi_buffer_append_keynum(ub, "modifier1", 9, modifier1))
+                goto end;
+        if (uwsgi_buffer_append_keynum(ub, "modifier2", 9, modifier2))
+                goto end;
+        if (uwsgi_buffer_append_keynum(ub, "cores", 5, uwsgi.numproc * uwsgi.cores))
+                goto end;
+        if (uwsgi_buffer_append_keynum(ub, "load", 4, uwsgi.shared->load))
+                goto end;
+        if (uwsgi_buffer_append_keynum(ub, "weight", 6, weight))
+        	goto end;
+        if (uwsgi_buffer_append_keynum(ub, "backup", 6, backup))
+        	goto end;
+
+        if (s2_sni_key) {
+                if (uwsgi_buffer_append_keyval(ub, "sni_key", 7, s2_sni_key, strlen(s2_sni_key)))
+                        goto end;
+        }
+
+        if (s2_sni_crt) {
+                if (uwsgi_buffer_append_keyval(ub, "sni_crt", 7, s2_sni_crt, strlen(s2_sni_crt)))
+                        goto end;
+        }
+
+        if (s2_sni_ca) {
+                if (uwsgi_buffer_append_keyval(ub, "sni_ca", 6, s2_sni_ca, strlen(s2_sni_ca)))
+                        goto end;
+        }
+
+	if (s2_proto) {
+                if (uwsgi_buffer_append_keyval(ub, "proto", 5, s2_proto, strlen(s2_proto)))
+                        goto end;
+	}
+
+	if (s2_algo) {
+                if (uwsgi_buffer_append_keyval(ub, "algo", 4, s2_algo, strlen(s2_algo)))
+                        goto end;
+	}
+
+        if (uwsgi.subscription_notify_socket) {
+                if (uwsgi_buffer_append_keyval(ub, "notify", 6, uwsgi.subscription_notify_socket, strlen(uwsgi.subscription_notify_socket)))
+                        goto end;
+        }
+        else if (uwsgi.notify_socket_fd > -1 && uwsgi.notify_socket) {
+                if (uwsgi_buffer_append_keyval(ub, "notify", 6, uwsgi.notify_socket, strlen(uwsgi.notify_socket)))
+                        goto end;
+        }
+
+        if (uwsgi_subscription_ub_fix(ub, modifier1, modifier2, cmd, s2_sign)) goto end;
+
+        send_subscription(-1, s2_server, ub->buf, ub->pos);
+
+        uwsgi_buffer_destroy(ub);
+
 end:
 	if (s2_server)
 		free(s2_server);
@@ -970,6 +1069,12 @@ end:
 		free(s2_sni_key);
 	if (s2_sni_ca)
 		free(s2_sni_ca);
+	if (s2_proto)
+		free(s2_proto);
+	if (s2_algo)
+		free(s2_algo);
+	if (s2_backup)
+		free(s2_backup);
 }
 
 void uwsgi_subscribe_all(uint8_t cmd, int verbose) {

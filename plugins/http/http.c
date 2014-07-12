@@ -361,7 +361,7 @@ static int http_headers_parse_first_round(struct corerouter_peer *peer) {
                                 }
                         }
 
-                        if (!uwsgi_strnicmp("HOST: ", 6, base, ptr - base)) {
+                        if ((ptr - base) > 6 && !uwsgi_strnicmp("HOST: ", 6, base, 6)) {
 				peer->key = base + 6;
 				peer->key_len = (ptr - base) - 6;
                         }
