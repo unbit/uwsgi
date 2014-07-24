@@ -3813,7 +3813,8 @@ void uwsgi_opt_false(char *opt, char *value, void *key) {
 }
 
 void uwsgi_opt_set_immediate_gid(char *opt, char *value, void *none) {
-        gid_t gid = atoi(value);
+        gid_t gid = 0;
+	if (is_a_number(value)) gid = atoi(value);
 	if (gid == 0) {
 		struct group *ugroup = getgrnam(value);
                 if (ugroup)
@@ -3842,7 +3843,8 @@ void uwsgi_opt_set_immediate_gid(char *opt, char *value, void *none) {
 
 
 void uwsgi_opt_set_immediate_uid(char *opt, char *value, void *none) {
-	uid_t uid = atoi(value);
+	uid_t uid = 0;
+	if (is_a_number(value)) uid = atoi(value);
 	if (uid == 0) {
 		struct passwd *upasswd = getpwnam(value);
                 if (upasswd)
@@ -3889,7 +3891,8 @@ void uwsgi_opt_set_int(char *opt, char *value, void *key) {
 }
 
 void uwsgi_opt_uid(char *opt, char *value, void *key) {
-	uid_t uid = atoi(value);
+	uid_t uid = 0;
+	if (is_a_number(value)) uid = atoi(value);
 	if (!uid) {
 		struct passwd *p = getpwnam(value);
 		if (p) {
@@ -3907,7 +3910,8 @@ void uwsgi_opt_uid(char *opt, char *value, void *key) {
 }
 
 void uwsgi_opt_gid(char *opt, char *value, void *key) {
-        gid_t gid = atoi(value);
+        gid_t gid = 0;
+	if (is_a_number(value)) gid = atoi(value);
         if (!gid) {
                 struct group *g = getgrnam(value);
                 if (g) {
@@ -4208,15 +4212,13 @@ void uwsgi_opt_print(char *opt, char *value, void *str) {
 }
 
 void uwsgi_opt_set_uid(char *opt, char *value, void *none) {
-
-	uwsgi.uid = atoi(value);
+	if (is_a_number(value)) uwsgi.uid = atoi(value);
 	if (!uwsgi.uid)
 		uwsgi.uidname = value;
 }
 
 void uwsgi_opt_set_gid(char *opt, char *value, void *none) {
-
-	uwsgi.gid = atoi(value);
+	if (is_a_number(value)) uwsgi.gid = atoi(value);
 	if (!uwsgi.gid)
 		uwsgi.gidname = value;
 }
