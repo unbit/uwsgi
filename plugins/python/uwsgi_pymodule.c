@@ -2240,7 +2240,8 @@ PyObject *py_uwsgi_stop(PyObject * self, PyObject * args) {
 }
 
 PyObject *py_uwsgi_request_id(PyObject * self, PyObject * args) {
-	return PyLong_FromUnsignedLongLong(uwsgi.workers[uwsgi.mywid].requests);
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
+	return PyLong_FromUnsignedLongLong(uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests);
 }
 
 PyObject *py_uwsgi_worker_id(PyObject * self, PyObject * args) {
