@@ -246,20 +246,20 @@ xs_init(pTHX)
 
 	if (!uperl.tmp_input_stash) goto nonworker;
 
-        newXS("uwsgi::input::new", XS_input, "uwsgi::input");
-        newXS("uwsgi::input::read", XS_input_read, "uwsgi::input");
-        newXS("uwsgi::input::seek", XS_input_seek, "uwsgi::input");
+        CvNODEBUG_on( newXS("uwsgi::input::new", XS_input, "uwsgi::input") );
+        CvNODEBUG_on( newXS("uwsgi::input::read", XS_input_read, "uwsgi::input") );
+        CvNODEBUG_on( newXS("uwsgi::input::seek", XS_input_seek, "uwsgi::input") );
 
         uperl.tmp_input_stash[uperl.tmp_current_i] = gv_stashpv("uwsgi::input", 0);
 
-        newXS("uwsgi::error::new", XS_error, "uwsgi::error");
-        newXS("uwsgi::error::print", XS_error_print, "uwsgi::print");
+        CvNODEBUG_on( newXS("uwsgi::error::new", XS_error, "uwsgi::error") );
+        CvNODEBUG_on( newXS("uwsgi::error::print", XS_error_print, "uwsgi::print") );
         uperl.tmp_error_stash[uperl.tmp_current_i] = gv_stashpv("uwsgi::error", 0);
 	uperl.tmp_psgix_logger[uperl.tmp_current_i] = newXS("uwsgi::psgix_logger", XS_psgix_logger, "uwsgi");
         uperl.tmp_stream_responder[uperl.tmp_current_i] = newXS("uwsgi::stream", XS_stream, "uwsgi");
 
-        newXS("uwsgi::streaming::write", XS_streaming_write, "uwsgi::streaming");
-        newXS("uwsgi::streaming::close", XS_streaming_close, "uwsgi::streaming");
+        CvNODEBUG_on( newXS("uwsgi::streaming::write", XS_streaming_write, "uwsgi::streaming") );
+        CvNODEBUG_on( newXS("uwsgi::streaming::close", XS_streaming_close, "uwsgi::streaming") );
 
         uperl.tmp_streaming_stash[uperl.tmp_current_i] = gv_stashpv("uwsgi::streaming", 0);
 
