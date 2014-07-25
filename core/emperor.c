@@ -930,6 +930,9 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 		// reset accepting
 		c_ui->accepting = 0;
 		uwsgi_log_verbose("[emperor] updated configuration for \"on demand\" instance %s\n", c_ui->name);
+		if (uwsgi_hooks_run_and_return(uwsgi.hook_as_on_config_vassal, "as-on-config-vassal", c_ui->name, 0)) {
+			emperor_curse(c_ui);
+		}
 		return;
 	}
 

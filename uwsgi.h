@@ -2737,6 +2737,7 @@ struct uwsgi_server {
 	char *emperor_wrapper_attr;
 	int emperor_subreaper;
         struct uwsgi_string_list *hook_as_on_demand_vassal;
+        struct uwsgi_string_list *hook_as_on_config_vassal;
 	uint64_t max_requests_delta;
 	char *emperor_chdir_attr;
 	struct uwsgi_string_list *subscription_algos;
