@@ -123,7 +123,7 @@ static int consume_body_for_readline(struct wsgi_request *wsgi_req) {
 
 	// allocate more memory if needed
 	if (wsgi_req->post_readline_size - wsgi_req->post_readline_watermark == 0) {
-		memcpy(wsgi_req->post_readline_buf, wsgi_req->post_readline_buf + wsgi_req->post_readline_pos, wsgi_req->post_readline_watermark - wsgi_req->post_readline_pos);
+		memmove(wsgi_req->post_readline_buf, wsgi_req->post_readline_buf + wsgi_req->post_readline_pos, wsgi_req->post_readline_watermark - wsgi_req->post_readline_pos);
 		wsgi_req->post_readline_watermark -= wsgi_req->post_readline_pos;
 		wsgi_req->post_readline_pos = 0;
 		// still something to use ?
