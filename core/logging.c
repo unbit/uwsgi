@@ -519,31 +519,30 @@ void uwsgi_check_logrotate(void) {
 	}
 }
 
-void uwsgi_log_rotate() {
-	if (!uwsgi.logfile)
-		return;
-	char *rot_name = uwsgi.log_backupname;
+void uwsgi_log_do_rotate(char *logfile, char *rotatedfile, off_t logsize, int log_fd) {
 	int need_free = 0;
+	char *rot_name = rotatedfile;
+
 	if (rot_name == NULL) {
 		char *ts_str = uwsgi_num2str((int) uwsgi_now());
-		rot_name = uwsgi_concat3(uwsgi.logfile, ".", ts_str);
+		rot_name = uwsgi_concat3(logfile, ".", ts_str);
 		free(ts_str);
 		need_free = 1;
 	}
 	// this will be rawly written to the logfile
-	uwsgi_logfile_write("logsize: %llu, triggering rotation to %s...\n", (unsigned long long) uwsgi.shared->logsize, rot_name);
-	if (rename(uwsgi.logfile, rot_name) == 0) {
+	uwsgi_logfile_write("logsize: %llu, triggering rotation to %s...\n", (unsigned long long) logsize, rot_name);
+	if (rename(logfile, rot_name) == 0) {
 		// reopen logfile and dup'it, on dup2 error, exit(1)
-		int fd = open(uwsgi.logfile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP);
+		int fd = open(logfile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP);
 		if (fd < 0) {
 			// this will be written to the original file
-			uwsgi_error_open(uwsgi.logfile);
+			uwsgi_error_open(logfile);
 			exit(1);
 		}
 		else {
-			if (dup2(fd, uwsgi.original_log_fd) < 0) {
+			if (dup2(fd, log_fd) < 0) {
 				// this could be lost :(
-				uwsgi_error("uwsgi_log_rotate()/dup2()");
+				uwsgi_error("uwsgi_log_do_rotate()/dup2()");
 				exit(1);
 			}
 			close(fd);
@@ -554,6 +553,12 @@ void uwsgi_log_rotate() {
 	}
 	if (need_free)
 		free(rot_name);
+}
+
+void uwsgi_log_rotate() {
+	if (!uwsgi.logfile)
+		return;
+	uwsgi_log_do_rotate(uwsgi.logfile, uwsgi.log_backupname, uwsgi.shared->logsize, uwsgi.original_log_fd);
 }
 
 void uwsgi_log_reopen() {
