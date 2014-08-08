@@ -9,6 +9,7 @@
 
 static struct uwsgi_fastrouter {
 	struct uwsgi_corerouter cr;
+	char *force_key;
 } ufr;
 
 extern struct uwsgi_server uwsgi;
@@ -56,6 +57,8 @@ static struct uwsgi_option fastrouter_options[] = {
 
 	{"fastrouter-buffer-size", required_argument, 0, "set internal buffer size (default: page size)", uwsgi_opt_set_64bit, &ufr.cr.buffer_size, 0},
 	{"fastrouter-fallback-on-no-key", no_argument, 0, "move to fallback node even if a subscription key is not found", uwsgi_opt_true, &ufr.cr.fallback_on_no_key, 0},
+
+	{"fastrouter-force-key", required_argument, 0, "skip uwsgi parsing and directly set a key", uwsgi_opt_set_str, &ufr.force_key, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -213,9 +216,15 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 		struct corerouter_peer *new_peer = uwsgi_cr_peer_add(main_peer->session);
 		new_peer->last_hook_read = fr_instance_read;
 
-		// find the hostname
-		if (uwsgi_hooked_parse(main_peer->in->buf+4, pktsize, fr_get_hostname, (void *) new_peer)) {
-			return -1;
+		if (!ufr.force_key) {
+			// find the hostname
+			if (uwsgi_hooked_parse(main_peer->in->buf+4, pktsize, fr_get_hostname, (void *) new_peer)) {
+				return -1;
+			}
+		}
+		else {
+			new_peer->key = ufr.force_key;
+			new_peer->key_len = strlen(ufr.force_key);
 		}
 
 		// check the hostname;
