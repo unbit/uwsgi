@@ -1721,6 +1721,7 @@ void uwsgi_setns_preopen() {
         }
         while ((de = readdir(ns)) != NULL) {
                 if (strlen(de->d_name) > 0 && de->d_name[0] == '.') continue;
+		if (!strcmp(de->d_name, "user")) continue;
                 struct uwsgi_string_list *usl = NULL;
                 int found = 0;
                 uwsgi_foreach(usl, uwsgi.setns_socket_skip) {
@@ -1779,6 +1780,7 @@ void uwsgi_master_manage_setns(int fd) {
 	}
 	while ((de = readdir(ns)) != NULL) {
 		if (strlen(de->d_name) > 0 && de->d_name[0] == '.') continue;
+		if (!strcmp(de->d_name, "user")) continue;
 		struct uwsgi_string_list *usl = NULL;
 		int found = 0;
 		uwsgi_foreach(usl, uwsgi.setns_socket_skip) {
