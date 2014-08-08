@@ -382,6 +382,11 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 	if (PyString_Check(py_node)) {
 		node = PyString_AsString(py_node);
 	}
+#ifdef PYTHREE
+        else if (PyUnicode_Check(py_node)) {
+                node = PyBytes_AsString(PyUnicode_AsLatin1String(py_node));
+	}
+#endif
 
 	py_func = PyTuple_GetItem(args, 1);
 
