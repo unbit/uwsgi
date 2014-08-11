@@ -748,8 +748,22 @@ void uwsgi_hooks_setns_run(struct uwsgi_string_list *l, pid_t pid, uid_t uid, gi
 			}
 
 			// now run the action and then exit
-			exit(0);
+			action++;
+			char *colon = strchr(action, ':');
+			if (!colon) {
+				uwsgi_log("invalid hook syntax must be action:arg\n");
+				exit(1);
+			}
+			*colon = 0;
+			struct uwsgi_hook *uh = uwsgi_hook_by_name(action);
+                	if (!uh) {
+                        	uwsgi_log("hook action not found: %s\n", action);
+                        	exit(1);
+                	}
+                	*colon = ':';
 
+                        uwsgi_log("running \"%s\" (setns)...\n", usl->value);
+                	exit(uh->func(colon+1));
 		}
 		else {
 			uwsgi_error("uwsgi_hooks_setns_run()/fork()");
