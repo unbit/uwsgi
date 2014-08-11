@@ -700,6 +700,18 @@ void uwsgi_as_root() {
 		}
 	}
 
+	uwsgi_foreach(usl, uwsgi.wait_for_fs) {
+		if (uwsgi_wait_for_fs(usl->value, 0)) exit(1);
+	}
+
+	uwsgi_foreach(usl, uwsgi.wait_for_file) {
+		if (uwsgi_wait_for_fs(usl->value, 1)) exit(1);
+	}
+
+	uwsgi_foreach(usl, uwsgi.wait_for_dir) {
+		if (uwsgi_wait_for_fs(usl->value, 2)) exit(1);
+	}
+
 	uwsgi_hooks_run(uwsgi.hook_as_root, "as root", 1);
 
 	uwsgi_foreach(usl, uwsgi.mount_as_root) {
@@ -4448,3 +4460,26 @@ mode_t uwsgi_mode_t(char *value, int *error) {
 	return mode;
 }
 
+// type -> 1 file, 2 dir, 0 both
+int uwsgi_wait_for_fs(char *filename, int type) {
+	if (!uwsgi.wait_for_fs_timeout) {
+        	uwsgi.wait_for_fs_timeout = 60;
+        }
+        uwsgi_log("waiting for %s (max %d seconds) ...\n", filename, uwsgi.wait_for_fs_timeout);
+        int counter = 0;
+        for (;;) {
+        	if (counter > uwsgi.wait_for_fs_timeout) {
+                	uwsgi_log("%s unavailable after %d seconds\n", filename, counter);
+			return -1;
+                }
+		struct stat st;
+		if (stat(filename, &st)) goto retry;
+		if (type == 1 && !S_ISREG(st.st_mode)) goto retry;
+		if (type == 2 && !S_ISDIR(st.st_mode)) goto retry;
+                uwsgi_log_verbose("%s found\n", filename);
+		return 0;
+retry:
+                sleep(1);
+                counter++;
+	}
+}

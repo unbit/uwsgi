@@ -475,6 +475,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"wait-iface", required_argument, 0, "wait for the specified network interface to come up before running root hooks", uwsgi_opt_add_string_list, &uwsgi.wait_for_interface, 0},
 	{"wait-iface-timeout", required_argument, 0, "set the timeout for wait-for-interface", uwsgi_opt_set_int, &uwsgi.wait_for_interface_timeout, 0},
 
+	{"wait-for-fs", required_argument, 0, "wait for the specified filesystem item to appear before running root hooks", uwsgi_opt_add_string_list, &uwsgi.wait_for_fs, 0},
+	{"wait-for-file", required_argument, 0, "wait for the specified file to appear before running root hooks", uwsgi_opt_add_string_list, &uwsgi.wait_for_fs, 0},
+	{"wait-for-dir", required_argument, 0, "wait for the specified directory to appear before running root hooks", uwsgi_opt_add_string_list, &uwsgi.wait_for_fs, 0},
+	{"wait-for-fs-timeout", required_argument, 0, "set the timeout for wait-for-fs/file/dir", uwsgi_opt_set_int, &uwsgi.wait_for_fs_timeout, 0},
+
 	{"call-asap", required_argument, 0, "call the specified function as soon as possible", uwsgi_opt_add_string_list, &uwsgi.call_asap, 0},
 	{"call-pre-jail", required_argument, 0, "call the specified function before jailing", uwsgi_opt_add_string_list, &uwsgi.call_pre_jail, 0},
 	{"call-post-jail", required_argument, 0, "call the specified function after jailing", uwsgi_opt_add_string_list, &uwsgi.call_post_jail, 0},

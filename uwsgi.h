@@ -2743,6 +2743,10 @@ struct uwsgi_server {
 	int subscription_mountpoints;
 	struct uwsgi_string_list *hook_as_emperor_before_vassal;
 	struct uwsgi_string_list *hook_as_vassal_before_drop;
+	struct uwsgi_string_list *wait_for_fs;
+	struct uwsgi_string_list *wait_for_dir;
+	struct uwsgi_string_list *wait_for_file;
+	int wait_for_fs_timeout;
 };
 
 struct uwsgi_rpc {
@@ -4864,6 +4868,8 @@ struct uwsgi_subscribe_node *(*uwsgi_subscription_algo_get(char * , size_t))(str
 void uwsgi_subscription_init_algos(void);
 void uwsgi_register_subscription_algo(char *, struct uwsgi_subscribe_node *(*) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *));
 char *uwsgi_subscription_algo_name(void *);
+
+int uwsgi_wait_for_fs(char *, int);
 #ifdef __cplusplus
 }
 #endif
