@@ -1226,8 +1226,10 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		uwsgi.emperor_broodlord_num++;
 	}
 
-	// TODO pre-start hook
 
+	if (uwsgi_hooks_run_and_return(uwsgi.hook_as_emperor_before_vassal, "as-emperor-before-vassal", NULL, 0)) {
+        	emperor_del(n_ui);
+        }
 
 	// check for fork server
 	char *fork_server = uwsgi.emperor_use_fork_server;
@@ -1370,6 +1372,8 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 		}
 	}
 #endif
+
+	uwsgi_hooks_run(uwsgi.hook_as_vassal_before_drop, "as-vassal-before-drop", 1);
 
 #ifdef UWSGI_CAP
 #if defined(CAP_LAST_CAP) && defined(PR_CAPBSET_READ) && defined(PR_CAPBSET_DROP)

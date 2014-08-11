@@ -2741,6 +2741,8 @@ struct uwsgi_server {
 	char *emperor_chdir_attr;
 	struct uwsgi_string_list *subscription_algos;
 	int subscription_mountpoints;
+	struct uwsgi_string_list *hook_as_emperor_before_vassal;
+	struct uwsgi_string_list *hook_as_vassal_before_drop;
 };
 
 struct uwsgi_rpc {

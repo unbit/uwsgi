@@ -422,6 +422,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
         {"hook-as-on-demand-vassal", required_argument, 0, "run the specified hook whenever a vassal enters on-demand mode", uwsgi_opt_add_string_list, &uwsgi.hook_as_on_demand_vassal, 0},
 
+        {"hook-as-emperor-before-vassal", required_argument, 0, "run the specified hook before the new vassal is spawned", uwsgi_opt_add_string_list, &uwsgi.hook_as_emperor_before_vassal, 0},
+        {"hook-as-vassal-before-drop", required_argument, 0, "run the specified hook into vassal, before dropping its privileges", uwsgi_opt_add_string_list, &uwsgi.hook_as_vassal_before_drop, 0},
+
         {"hook-as-mule", required_argument, 0, "run the specified hook in each mule", uwsgi_opt_add_string_list, &uwsgi.hook_as_mule, 0},
 
         {"hook-as-gateway", required_argument, 0, "run the specified hook in each gateway", uwsgi_opt_add_string_list, &uwsgi.hook_as_gateway, 0},
