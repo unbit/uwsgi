@@ -1280,14 +1280,14 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 		uwsgi_foreach(usl, uwsgi.mount_as_emperor) {
 			uwsgi_log("mounting \"%s\" (as-emperor for vassal \"%s\" pid: %d uid: %d gid: %d)...\n", usl->value, n_ui->name, n_ui->pid, n_ui->uid, n_ui->gid);
 			if (uwsgi_mount_hook(usl->value)) {
-				exit(1);
+				uwsgi_log("unable to mount %s\n", usl->value);
 			}
 		}
 
 		uwsgi_foreach(usl, uwsgi.umount_as_emperor) {
 			uwsgi_log("un-mounting \"%s\" (as-emperor for vassal \"%s\" pid: %d uid: %d gid: %d)...\n", usl->value, n_ui->name, n_ui->pid, n_ui->uid, n_ui->gid);
 			if (uwsgi_umount_hook(usl->value)) {
-				exit(1);
+				uwsgi_log("unable to umount %s\n", usl->value);
 			}
 		}
 		uwsgi_foreach(usl, uwsgi.exec_as_emperor) {
@@ -1349,6 +1349,10 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 				func(n_ui->name, n_ui->pid, n_ui->uid, n_ui->gid);
 			}
 		}
+
+#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
+		uwsgi_hooks_setns_run(uwsgi.hook_as_emperor_setns, n_ui->pid, n_ui->uid, n_ui->gid);
+#endif
 		return 0;
 	}
 	else {

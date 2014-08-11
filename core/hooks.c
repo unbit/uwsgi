@@ -681,3 +681,79 @@ void uwsgi_hooks_run(struct uwsgi_string_list *l, char *phase, int fatal) {
 	}
 }
 
+#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
+/*
+this is a special hook, allowing the Emperor to enter a vassal
+namespace and call hooks in its namespace context.
+*/
+void uwsgi_hooks_setns_run(struct uwsgi_string_list *l, pid_t pid, uid_t uid, gid_t gid) {
+	int (*u_setns) (int, int) = (int (*)(int, int)) dlsym(RTLD_DEFAULT, "setns");
+        if (!u_setns) {
+                uwsgi_log("your system misses setns() syscall !!!\n");
+		return;
+        }
+
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, l) {
+		// fist of all fork() the current process
+		pid_t new_pid = fork();
+		if (new_pid > 0) {
+			// wait for its death
+			int status;
+			if (waitpid(new_pid, &status, 0) < 0) {
+				uwsgi_error("uwsgi_hooks_setns_run()/waitpid()");
+			}
+		}
+		else if (new_pid == 0) {
+			// from now on, freeing memory is useless
+			// now split args to know which namespaces to join
+			char *action = strchr(usl->value, ' ');
+			if (!action) {
+				uwsgi_log("invalid setns hook syntax, must be \"namespaces_list action:...\"\n");
+				exit(1);
+			}
+			char *pidstr = uwsgi_num2str(pid);
+			char *uidstr = uwsgi_num2str(uid);
+			char *gidstr = uwsgi_num2str(gid);
+
+			char *namespaces = uwsgi_concat2n(usl->value, action-usl->value, "", 0);
+        		char *p, *ctx = NULL;
+        		uwsgi_foreach_token(namespaces, ",", p, ctx) {
+				char *procfile = uwsgi_concat4("/proc/", pidstr, "/ns/", p);
+				int fd = open(procfile, O_RDONLY);
+				if (fd < 0) {
+					uwsgi_error_open(procfile);
+					exit(1);
+				}
+				if (u_setns(fd, 0) < 0){
+					uwsgi_error("uwsgi_hooks_setns_run()/setns()");
+					exit(1);
+				}
+
+                	}
+
+			if (setenv("UWSGI_VASSAL_PID", pidstr, 1)) {
+				uwsgi_error("uwsgi_hooks_setns_run()/setenv()");
+				exit(1);
+			}
+
+			if (setenv("UWSGI_VASSAL_UID", uidstr, 1)) {
+				uwsgi_error("uwsgi_hooks_setns_run()/setenv()");
+				exit(1);
+			}
+
+			if (setenv("UWSGI_VASSAL_GID", gidstr, 1)) {
+				uwsgi_error("uwsgi_hooks_setns_run()/setenv()");
+				exit(1);
+			}
+
+			// now run the action and then exit
+			exit(0);
+
+		}
+		else {
+			uwsgi_error("uwsgi_hooks_setns_run()/fork()");
+		}
+	}
+}
+#endif

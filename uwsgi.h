@@ -2747,6 +2747,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *wait_for_dir;
 	struct uwsgi_string_list *wait_for_file;
 	int wait_for_fs_timeout;
+	struct uwsgi_string_list *hook_as_emperor_setns;
 };
 
 struct uwsgi_rpc {
@@ -4870,6 +4871,7 @@ void uwsgi_register_subscription_algo(char *, struct uwsgi_subscribe_node *(*) (
 char *uwsgi_subscription_algo_name(void *);
 
 int uwsgi_wait_for_fs(char *, int);
+void uwsgi_hooks_setns_run(struct uwsgi_string_list *, pid_t, uid_t, gid_t);
 #ifdef __cplusplus
 }
 #endif
