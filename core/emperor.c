@@ -1433,6 +1433,7 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 	if (execvp(vassal_argv[0], vassal_argv)) {
 		uwsgi_error("execvp()");
 	}
+	uwsgi_log("[emperor] binary path: %s\n", vassal_argv[0]);
 	uwsgi_log("[emperor] is the uwsgi binary in your system PATH ?\n");
 	// never here
 	exit(UWSGI_EXILE_CODE);
