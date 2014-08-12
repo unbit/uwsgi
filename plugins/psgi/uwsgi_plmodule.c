@@ -946,7 +946,7 @@ XS(XS_spool) {
 		}
         }
 
-	char *filename = uwsgi_spool_request(current_wsgi_req(), ub->buf, ub->pos, body, body_len);
+	char *filename = uwsgi_spool_request(NULL, ub->buf, ub->pos, body, body_len);
 	uwsgi_buffer_destroy(ub);
 	if (filename) {
 		ST(0) = newSVpv(filename, strlen(filename));

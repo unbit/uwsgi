@@ -1961,7 +1961,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	UWSGI_RELEASE_GIL
 
 	// current_wsgi_req can be NULL, in such a case a non-thread-safe counter will be used
-	char *filename = uwsgi_spool_request(current_wsgi_req(), ub->buf, ub->pos, body, body_len);
+	char *filename = uwsgi_spool_request(NULL, ub->buf, ub->pos, body, body_len);
 	uwsgi_buffer_destroy(ub);
 
 	UWSGI_GET_GIL

@@ -969,7 +969,6 @@ static int rack_uwsgi_build_spool(VALUE rbkey, VALUE rbval, VALUE argv) {
 
 static VALUE rack_uwsgi_send_spool(VALUE *class, VALUE args) {
 
-        struct wsgi_request *wsgi_req = current_wsgi_req();
         char *body = NULL;
         size_t body_len= 0;
 
@@ -991,7 +990,7 @@ static VALUE rack_uwsgi_send_spool(VALUE *class, VALUE args) {
 
 	rb_hash_foreach(args, rack_uwsgi_build_spool, (VALUE) ub); 
 
-        char *filename = uwsgi_spool_request(wsgi_req, ub->buf, ub->pos, body, body_len);
+        char *filename = uwsgi_spool_request(NULL, ub->buf, ub->pos, body, body_len);
 
 	uwsgi_buffer_destroy(ub);
 
