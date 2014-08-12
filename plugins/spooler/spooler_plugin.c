@@ -23,7 +23,7 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
-        char *filename = uwsgi_spool_request(wsgi_req, wsgi_req->buffer, wsgi_req->uh->pktsize, NULL, 0);
+        char *filename = uwsgi_spool_request(NULL, wsgi_req->buffer, wsgi_req->uh->pktsize, NULL, 0);
         uh.modifier1 = 255;
         uh.pktsize = 0;
         if (filename) {
