@@ -6,6 +6,9 @@ LDFLAGS = []
 LIBS = os.popen('pkg-config --libs mono-2').read().rstrip().split() 
 GCC_LIST = ['mono_plugin']
 
+if os.uname()[0] == 'Darwin':
+	LIBS.append('-framework Foundation')
+
 def post_build(config):
     if os.system("sn -k plugins/mono/uwsgi.key") != 0:
         os._exit(1)
