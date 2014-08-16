@@ -193,12 +193,13 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 	close(fd);
 	*len = rlen;
 	if (*len == 0) {
-		goto error;
+		goto error2;
 	}
 	return buffer;
 
 error:
 	close(fd);
+error2:
 	free(buffer);
 	return NULL;
 
