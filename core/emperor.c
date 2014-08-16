@@ -1739,6 +1739,8 @@ void emperor_loop() {
 			if (ui_current) {
 				char byte;
 				ssize_t rlen = read(interesting_fd, &byte, 1);
+				// retry if needed
+				if (rlen < 0 && uwsgi_is_again()) continue;
 				if (rlen <= 0) {
 					// SAFE
 					event_queue_del_fd(uwsgi.emperor_queue, interesting_fd, event_queue_read());
