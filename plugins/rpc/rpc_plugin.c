@@ -387,6 +387,7 @@ end:
 }
 
 static int uwsgi_routing_func_rpc_raw(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	char *response = NULL;
         int ret = -1;
         // this is the list of args
         char *argv[UMAX8];
@@ -418,7 +419,7 @@ static int uwsgi_routing_func_rpc_raw(struct wsgi_request *wsgi_req, struct uwsg
                 remote = at+1;
         }
         uint64_t size;
-        char *response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
+        response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
         free(func);
         if (!response) goto end;
 
@@ -426,12 +427,13 @@ static int uwsgi_routing_func_rpc_raw(struct wsgi_request *wsgi_req, struct uwsg
 	if (size == 0) goto end;
 
 	ret = uwsgi_blob_to_response(wsgi_req, response, size);
-        free(response);
 	if (ret == 0) {
 		ret = UWSGI_ROUTE_BREAK;
 	}
 
 end:
+	free(response);
+
         for(i=0;i<ur->custom;i++) {
                 if (ubs[i] != NULL) {
                         uwsgi_buffer_destroy(ubs[i]);
@@ -441,6 +443,7 @@ end:
 }
 
 static int uwsgi_routing_func_rpc_var(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char *response = NULL;
         int ret = -1;
         // this is the list of args
         char *argv[UMAX8];
@@ -472,7 +475,7 @@ static int uwsgi_routing_func_rpc_var(struct wsgi_request *wsgi_req, struct uwsg
                 remote = at+1;
         }
         uint64_t size;
-        char *response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
+        response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
         free(func);
         if (!response) goto end;
 
@@ -483,9 +486,9 @@ static int uwsgi_routing_func_rpc_var(struct wsgi_request *wsgi_req, struct uwsg
 		free(response);
 		goto end;
 	}
-	free(response);
 	ret = UWSGI_ROUTE_NEXT;
 end:
+	free(response);
         for(i=0;i<ur->custom;i++) {
                 if (ubs[i] != NULL) {
                         uwsgi_buffer_destroy(ubs[i]);
