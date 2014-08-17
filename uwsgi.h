@@ -2407,6 +2407,7 @@ struct uwsgi_server {
 	int async_running;
 	int async_queue;
 	int async_nevents;
+	int async_warn_if_queue_full;
 
 	time_t async_queue_is_full;
 
