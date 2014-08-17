@@ -4592,6 +4592,7 @@ void uwsgi_master_fifo_prepare();
 int uwsgi_master_fifo();
 int uwsgi_master_fifo_manage(int);
 
+void uwsgi_log_do_rotate(char *, char *, off_t, int);
 void uwsgi_log_rotate();
 void uwsgi_log_reopen();
 void uwsgi_reload_workers();
