@@ -1228,7 +1228,7 @@ void gracefully_kill(int signum) {
 	}
 
 	// still not found a way to gracefully reload in async mode
-	if (uwsgi.async > 1) {
+	if (uwsgi.async > 0) {
 		exit(UWSGI_RELOAD_CODE);
 	}
 
@@ -2669,7 +2669,7 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 
-	if (uwsgi.async > 1) {
+	if (uwsgi.async > 0) {
 		if ((unsigned long) uwsgi.max_fd < (unsigned long) uwsgi.async) {
 			uwsgi_log_initial("- your current max open files limit is %lu, this is lower than requested async cores !!! -\n", (unsigned long) uwsgi.max_fd);
 			uwsgi.rl.rlim_cur = uwsgi.async;
@@ -2977,7 +2977,7 @@ unsafe:
 			uwsgi_log("*** Operational MODE: threaded ***\n");
 		}
 	}
-	else if (uwsgi.async > 1) {
+	else if (uwsgi.async > 0) {
 		if (uwsgi.numproc > 1) {
 			uwsgi_log("*** Operational MODE: preforking+async ***\n");
 		}
@@ -3345,7 +3345,7 @@ void uwsgi_worker_run() {
 	// some apps could be mounted only on specific workers
 	uwsgi_init_worker_mount_apps();
 
-	if (uwsgi.async > 1) {
+	if (uwsgi.async > 0) {
 		// a stack of unused cores
         	uwsgi.async_queue_unused = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.async);
 
@@ -3485,7 +3485,7 @@ void uwsgi_ignition() {
 		uwsgi_log("your loop engine died. R.I.P.\n");
 	}
 	else {
-		if (uwsgi.async < 2) {
+		if (uwsgi.async < 1) {
 			simple_loop();
 		}
 		else {

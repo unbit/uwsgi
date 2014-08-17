@@ -71,7 +71,7 @@ int uwsgi_request_python_raw(struct wsgi_request *wsgi_req) {
 			int ret = manage_raw_response(wsgi_req);
 			if (ret == UWSGI_AGAIN) {
 				wsgi_req->async_force_again = 1;
-				if (uwsgi.async > 1) {
+				if (uwsgi.async > 0) {
 					UWSGI_RELEASE_GIL return UWSGI_AGAIN;
 				}
 				continue;

@@ -356,7 +356,7 @@ static void coroae_wait_condvar(SV *cv) {
 
 static void coroae_loop() {
 
-	if (uwsgi.async < 2) {
+	if (uwsgi.async < 1) {
 		if (uwsgi.mywid == 1) {
 			uwsgi_log("the Coro::AnyEvent loop engine requires async mode (--async <n>)\n");
 		}

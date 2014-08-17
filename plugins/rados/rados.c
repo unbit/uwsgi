@@ -90,7 +90,7 @@ static void uwsgi_rados_read_async_cb(rados_completion_t comp, void *data) {
 }
 
 static int uwsgi_rados_delete(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, char *key, int timeout) {
-	if (uwsgi.async <= 1) {
+	if (uwsgi.async < 1) {
 		return rados_remove(ctx, key); 
 	}
 	struct uwsgi_rados_io *urio = &urados.urio[wsgi_req->async_id];
@@ -147,7 +147,7 @@ static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, cha
                 ssize_t body_len = 0;
                 char *body =  uwsgi_request_body_read(wsgi_req, UMIN(remains, 32768) , &body_len);
                 if (!body || body == uwsgi.empty) goto error;
-		if (uwsgi.async <= 1) {
+		if (uwsgi.async < 1) {
 			if (rados_write(ctx, key, body, body_len, off) < 0) {
 				return -1;
 			}
@@ -368,7 +368,7 @@ static void uwsgi_rados_propfind(struct wsgi_request *wsgi_req, rados_ioctx_t ct
 	while(rados_objects_list_next(ctx_list, (const char **)&entry, NULL) == 0) {
 		uint64_t stat_size = 0;
 		time_t stat_mtime = 0;
-		if (uwsgi.async > 1) {
+		if (uwsgi.async > 0) {
         		if (uwsgi_rados_async_stat(urio, ctx, entry, &stat_size, &stat_mtime, timeout) < 0) goto end;
         	}
         	else {
@@ -513,7 +513,7 @@ static void uwsgi_rados_setup() {
 	}
 
 	// now initialize a pthread_mutex for each async core
-	if (uwsgi.async > 1) {
+	if (uwsgi.async > 0) {
 		int i;
 		urados.urio = uwsgi_calloc(sizeof(struct uwsgi_rados_io) * uwsgi.async);
 		for(i=0;i<uwsgi.async;i++) {
@@ -584,7 +584,7 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 
 	struct uwsgi_rados_io *urio = &urados.urio[wsgi_req->async_id];
 
-	if (uwsgi.async > 1) {
+	if (uwsgi.async > 0) {
 	// no need to lock here (the rid protect us)
         	if (pipe(urio->fds)) {
                 	uwsgi_error("uwsgi_rados_read_async()/pipe()");
@@ -664,7 +664,7 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
                 goto end;
 	}
 
-	if (uwsgi.async > 1) {
+	if (uwsgi.async > 0) {
 		ret = uwsgi_rados_async_stat(urio, ctx, filename, &stat_size, &stat_mtime, timeout);	
 	}
 	else {
@@ -738,7 +738,7 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	// skip body on HEAD
 	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
 		size_t remains = stat_size;
-		if (uwsgi.async > 1) {
+		if (uwsgi.async > 0) {
 			if (uwsgi_rados_read_async(wsgi_req, ctx, filename, remains, timeout)) goto end;
 		}
 		else {
@@ -747,7 +747,7 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	}
 
 end:
-	if (uwsgi.async > 1) {
+	if (uwsgi.async > 0) {
 		close(urio->fds[0]);
 		close(urio->fds[1]);
 	}

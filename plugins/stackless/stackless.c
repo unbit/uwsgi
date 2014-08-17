@@ -84,7 +84,7 @@ static void stackless_init_apps(void) {
 
 	if (!usl.enabled) return;
 
-	if (uwsgi.async <= 1) {
+	if (uwsgi.async < 1) {
                 uwsgi_log("the stackless suspend engine requires async mode\n");
                 exit(1);
         }
