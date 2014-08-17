@@ -1025,7 +1025,7 @@ static void uwsgi_cgi_register_router() {
 }
 #endif
 
-struct uwsgi_plugin cgi_plugin = {
+const struct uwsgi_plugin cgi_plugin = {
 
 	.name = "cgi",
 	.modifier1 = 9,

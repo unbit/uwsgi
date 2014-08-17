@@ -269,7 +269,7 @@ static void uwsgi_alarm_curl_load(void) {
 	uwsgi_register_alarm("curl", uwsgi_alarm_curl_init, uwsgi_alarm_curl_func);
 }
 
-struct uwsgi_plugin alarm_curl_plugin = {
+const struct uwsgi_plugin alarm_curl_plugin = {
 	.name = "alarm_curl",
 	.on_load = uwsgi_alarm_curl_load,
 };

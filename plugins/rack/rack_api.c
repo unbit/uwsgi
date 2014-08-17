@@ -869,7 +869,7 @@ static VALUE uwsgi_ruby_register_rpc(int argc, VALUE *argv, VALUE *class) {
         void *func = (void *) argv[1];
 
 
-        if (uwsgi_register_rpc(name, &rack_plugin, rb_argc, func)) {
+        if (uwsgi_register_rpc(name, (struct uwsgi_plugin *)&rack_plugin, rb_argc, func)) {
 clear:
                 rb_raise(rb_eRuntimeError, "unable to register rpc function");
                 return Qnil;

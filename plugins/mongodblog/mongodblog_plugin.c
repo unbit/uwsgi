@@ -155,7 +155,7 @@ static void uwsgi_mongodblog_register() {
 	uwsgi_register_logger("mongodblog", uwsgi_mongodb_logger);
 }
 
-struct uwsgi_plugin mongodblog_plugin = {
+const struct uwsgi_plugin mongodblog_plugin = {
 
         .name = "mongodblog",
         .on_load = uwsgi_mongodblog_register,

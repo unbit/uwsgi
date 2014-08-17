@@ -106,7 +106,7 @@ void uwsgi_syslog_register() {
 	uwsgi_register_logger("syslog", uwsgi_syslog_logger);
 }
 
-struct uwsgi_plugin syslog_plugin = {
+const struct uwsgi_plugin syslog_plugin = {
 
         .name = "syslog",
         .on_load = uwsgi_syslog_register,

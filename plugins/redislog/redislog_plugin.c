@@ -160,7 +160,7 @@ void uwsgi_redislog_register() {
 	uwsgi_register_logger("redislog", uwsgi_redis_logger);
 }
 
-struct uwsgi_plugin redislog_plugin = {
+const struct uwsgi_plugin redislog_plugin = {
 
         .name = "redislog",
         .on_load = uwsgi_redislog_register,

@@ -45,7 +45,7 @@
 */
 
 extern struct uwsgi_server uwsgi;
-struct uwsgi_plugin gccgo_plugin;
+const struct uwsgi_plugin gccgo_plugin;
 
 struct uwsgi_gccgo{
 	// 1 if a main is loaded
@@ -440,7 +440,7 @@ static void uwsgi_gccgo_on_load() {
 	uwsgi_register_loop( (char *) "goroutines", uwsgi_gccgo_loop);
 }
 
-struct uwsgi_plugin gccgo_plugin = {
+const struct uwsgi_plugin gccgo_plugin = {
         .name = "gccgo",
         .modifier1 = 11,
 	.options = uwsgi_gccgo_options,

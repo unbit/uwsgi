@@ -287,7 +287,7 @@ static void uwsgi_airbrake_load(void) {
 	uwsgi_register_alarm("airbrake", uwsgi_airbrake_init, uwsgi_airbrake_func);
 }
 
-struct uwsgi_plugin airbrake_plugin = {
+const struct uwsgi_plugin airbrake_plugin = {
 	.name = "airbrake",
 	.on_load = uwsgi_airbrake_load,
 };

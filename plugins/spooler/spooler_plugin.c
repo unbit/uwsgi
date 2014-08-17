@@ -50,7 +50,7 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
 }
 
 
-struct uwsgi_plugin spooler_plugin = {
+const struct uwsgi_plugin spooler_plugin = {
 
 	.name = "spooler",
 	.modifier1 = 17,

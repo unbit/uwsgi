@@ -628,7 +628,7 @@ static void router_rpc_register() {
 }
 #endif
 
-struct uwsgi_plugin rpc_plugin = {
+const struct uwsgi_plugin rpc_plugin = {
 
 	.name = "rpc",
 	.modifier1 = 173,

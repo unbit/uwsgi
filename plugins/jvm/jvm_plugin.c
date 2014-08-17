@@ -12,7 +12,7 @@ some function (for performance reason) use static vars. They are thread safe in 
 */
 
 extern struct uwsgi_server uwsgi;
-struct uwsgi_plugin jvm_plugin;
+const struct uwsgi_plugin jvm_plugin;
 struct uwsgi_jvm ujvm;
 
 
@@ -41,7 +41,7 @@ JNIEXPORT void JNICALL uwsgi_jvm_api_register_signal(JNIEnv *env, jclass c, jint
 JNIEXPORT void JNICALL uwsgi_jvm_api_register_rpc(JNIEnv *env, jclass c, jstring name, jobject func) {
 	// no need to release it
 	char *n = uwsgi_jvm_str2c(name);
-	if (uwsgi_register_rpc(n, &jvm_plugin, 0, uwsgi_jvm_ref(func))) {
+	if (uwsgi_register_rpc(n, (struct uwsgi_plugin *)&jvm_plugin, 0, uwsgi_jvm_ref(func))) {
 		uwsgi_jvm_throw("unable to register rpc function");
 	}
 }
@@ -1316,7 +1316,7 @@ static void uwsgi_jvm_after_request(struct wsgi_request *wsgi_req) {
 	log_request(wsgi_req);
 }
 
-struct uwsgi_plugin jvm_plugin = {
+const struct uwsgi_plugin jvm_plugin = {
 	.name = "jvm",
 	.modifier1 = 8,
 

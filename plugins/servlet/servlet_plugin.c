@@ -83,7 +83,7 @@ static int uwsgi_servlet_init() {
 	return 0;
 }
 
-struct uwsgi_plugin servlet_plugin = {
+const struct uwsgi_plugin servlet_plugin = {
 	.name = "servlet",
 	.options = uwsgi_servlet_options,
 	.init = uwsgi_servlet_init,

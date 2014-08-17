@@ -1908,7 +1908,7 @@ static void uwsgi_python_on_load() {
 	uwsgi_register_logger("python", uwsgi_python_logger);
 }
 
-struct uwsgi_plugin python_plugin = {
+const struct uwsgi_plugin python_plugin = {
 	.name = "python",
 	.alias = "python",
 	.modifier1 = 0,

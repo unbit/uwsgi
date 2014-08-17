@@ -85,7 +85,7 @@ static v8::Handle<v8::Value> uwsgi_v8_api_register_rpc(const v8::Arguments& args
 		uvrt->func[core_id] = func;
 
 		// we can safely call register_rpc here as it will check for already registered funcs
-		if (uwsgi_register_rpc(*name, &v8_plugin, j_argc, uvrt)) {
+		if (uwsgi_register_rpc(*name, (struct uwsgi_plugin *)&v8_plugin, j_argc, uvrt)) {
 			uwsgi_log("[uwsgi-v8] unable to register RPC function \"%s\"\n", *name);
 			return v8::Undefined();
 		}

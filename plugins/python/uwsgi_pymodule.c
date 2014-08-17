@@ -434,7 +434,7 @@ PyObject *py_uwsgi_register_rpc(PyObject * self, PyObject * args) {
 
 	Py_INCREF(func);
 
-	if (uwsgi_register_rpc(name, &python_plugin, argc, func)) {
+	if (uwsgi_register_rpc(name, (struct uwsgi_plugin *)&python_plugin, argc, func)) {
 		return PyErr_Format(PyExc_ValueError, "unable to register rpc function");
 	}
 

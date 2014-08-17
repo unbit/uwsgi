@@ -21,7 +21,7 @@ struct uwsgi_lua {
 	int gc_freq;
 } ulua;
 
-struct uwsgi_plugin lua_plugin;
+const struct uwsgi_plugin lua_plugin;
 
 #define lca(L, n)		ulua_check_args(L, __FUNCTION__, n)
 
@@ -99,7 +99,7 @@ static int uwsgi_api_register_rpc(lua_State *L) {
 	uwsgi_log("registered function %d in Lua global table\n", func);
 	lfunc = func;
 
-        if (uwsgi_register_rpc((char *)name, &lua_plugin, 0, (void *) lfunc)) {
+        if (uwsgi_register_rpc((char *)name, (struct uwsgi_plugin *)&lua_plugin, 0, (void *) lfunc)) {
 		lua_pushnil(L);
         }
 	else {
@@ -1103,7 +1103,7 @@ static void uwsgi_lua_hijack(void) {
 }
 
 
-struct uwsgi_plugin lua_plugin = {
+const struct uwsgi_plugin lua_plugin = {
 
 	.name = "lua",
 	.modifier1 = 6,

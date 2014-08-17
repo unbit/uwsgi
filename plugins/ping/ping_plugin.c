@@ -92,7 +92,7 @@ int uwsgi_request_ping(struct wsgi_request *wsgi_req) {
 	return UWSGI_OK;
 }
 
-struct uwsgi_plugin ping_plugin = {
+const struct uwsgi_plugin ping_plugin = {
 
 	.name = "ping",
 	.modifier1 = 100,

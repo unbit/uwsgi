@@ -22,7 +22,7 @@ static void uwsgi_example_after_request(struct wsgi_request *wsgi_req) {
 }
 
 
-struct uwsgi_plugin example_plugin = {
+const struct uwsgi_plugin example_plugin = {
 
         .name = "example",
         .modifier1 = 250,

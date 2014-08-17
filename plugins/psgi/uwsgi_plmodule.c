@@ -261,7 +261,7 @@ XS(XS_register_rpc) {
 
         char *name = SvPV_nolen(ST(0));
 
-	if (uwsgi_register_rpc(name, &psgi_plugin, 0, (void *) newRV_inc(ST(1)))) {
+	if (uwsgi_register_rpc(name, (struct uwsgi_plugin *)&psgi_plugin, 0, (void *) newRV_inc(ST(1)))) {
                 XSRETURN_NO;
         }
 

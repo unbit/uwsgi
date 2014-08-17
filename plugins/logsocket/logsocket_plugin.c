@@ -64,7 +64,7 @@ void uwsgi_logsocket_register() {
 	uwsgi_register_logger("socket", uwsgi_socket_logger);
 }
 
-struct uwsgi_plugin logsocket_plugin = {
+const struct uwsgi_plugin logsocket_plugin = {
 
         .name = "logsocket",
         .on_load = uwsgi_logsocket_register,

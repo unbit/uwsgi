@@ -19,7 +19,7 @@ static void uwsgi_alarm_xmpp_load(void) {
 	uwsgi_register_alarm("xmpp", uwsgi_alarm_xmpp_init, uwsgi_alarm_xmpp_func);
 }
 
-struct uwsgi_plugin alarm_xmpp_plugin = {
+const struct uwsgi_plugin alarm_xmpp_plugin = {
 	.name = "alarm_xmpp",
 	.on_load = uwsgi_alarm_xmpp_load,
 };

@@ -489,7 +489,7 @@ static int uwsgi_ring_init() {
 	return 0;
 }
 
-struct uwsgi_plugin ring_plugin = {
+const struct uwsgi_plugin ring_plugin = {
 	.name = "ring",
 	.options = uwsgi_ring_options,
 	.init = uwsgi_ring_init,

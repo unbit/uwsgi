@@ -44,7 +44,7 @@ void (*uwsgi_pypy_hook_request)(void *, int);
 void (*uwsgi_pypy_post_fork_hook)(void);
 
 extern struct uwsgi_server uwsgi;
-struct uwsgi_plugin pypy_plugin;
+const struct uwsgi_plugin pypy_plugin;
 
 static int uwsgi_pypy_init() {
 
@@ -346,7 +346,7 @@ static int uwsgi_pypy_mule(char *opt) {
 }
 
 
-struct uwsgi_plugin pypy_plugin = {
+const struct uwsgi_plugin pypy_plugin = {
 	.name = "pypy",
 	.modifier1 = 0,
 	.on_load = uwsgi_pypy_onload,

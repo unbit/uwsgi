@@ -971,7 +971,7 @@ int uwsgi_corerouter_init(struct uwsgi_corerouter *ucr) {
 }
 
 
-struct uwsgi_plugin corerouter_plugin = {
+const struct uwsgi_plugin corerouter_plugin = {
 
 	.name = "corerouter",
 };

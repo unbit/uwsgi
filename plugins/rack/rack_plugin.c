@@ -3,7 +3,7 @@
 extern struct uwsgi_server uwsgi;
 
 struct uwsgi_rack ur;
-struct uwsgi_plugin rack_plugin;
+const struct uwsgi_plugin rack_plugin;
 
 static void uwsgi_opt_rbshell(char *opt, char *value, void *foobar) {
 
@@ -1300,7 +1300,7 @@ static void uwsgi_ruby_cleanup() {
 	}
 }
 
-struct uwsgi_plugin rack_plugin = {
+const struct uwsgi_plugin rack_plugin = {
 
 	.name = "rack",
 	.modifier1 = 7,

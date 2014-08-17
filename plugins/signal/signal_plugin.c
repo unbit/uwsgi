@@ -24,7 +24,7 @@ int uwsgi_request_signal(struct wsgi_request *wsgi_req) {
 }
 
 
-struct uwsgi_plugin signal_plugin = {
+const struct uwsgi_plugin signal_plugin = {
 
         .name = "signal",
         .modifier1 = 110,

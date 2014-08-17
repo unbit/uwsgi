@@ -11,7 +11,7 @@ struct uwsgi_symcall {
 	void *dlsym_handle;
 } usym;
 
-struct uwsgi_plugin symcall_plugin;
+const struct uwsgi_plugin symcall_plugin;
 
 static struct uwsgi_option uwsgi_symcall_options[] = {
         {"symcall", required_argument, 0, "load the specified C symbol as the symcall request handler (supports <mountpoint=func> too)", uwsgi_opt_add_string_list, &usym.symcall_function_name, 0},
@@ -67,7 +67,7 @@ static void uwsgi_symcall_init(){
 			uwsgi_log("unable to find symbol \"%s\" in process address space\n", space+1);
 			exit(1);
 		}
-		if (uwsgi_register_rpc(usl->value, &symcall_plugin, 0, func)) {
+		if (uwsgi_register_rpc(usl->value, (struct uwsgi_plugin *)&symcall_plugin, 0, func)) {
                 	uwsgi_log("unable to register rpc function");
 			exit(1);
         	}
@@ -181,7 +181,7 @@ static void uwsgi_symcall_register() {
 #endif
 }
 
-struct uwsgi_plugin symcall_plugin = {
+const struct uwsgi_plugin symcall_plugin = {
 
         .name = "symcall",
         .modifier1 = 18,

@@ -193,7 +193,7 @@ static int uwsgi_jwsgi_init() {
 }
 
 
-struct uwsgi_plugin jwsgi_plugin = {
+const struct uwsgi_plugin jwsgi_plugin = {
         .name = "jwsgi",
         .options = uwsgi_jwsgi_options,
         .init = uwsgi_jwsgi_init,

@@ -9,7 +9,7 @@ extern struct uwsgi_perl uperl;
 struct uwsgi_perl uperl;
 #endif
 
-struct uwsgi_plugin psgi_plugin;
+const struct uwsgi_plugin psgi_plugin;
 
 static void uwsgi_opt_plshell(char *opt, char *value, void *foobar) {
 
@@ -1002,7 +1002,7 @@ static void uwsgi_perl_register_features() {
 	uwsgi_register_hook("perl", uwsgi_perl_hook_perl);
 }
 
-struct uwsgi_plugin psgi_plugin = {
+const struct uwsgi_plugin psgi_plugin = {
 
 	.name = "psgi",
 	.modifier1 = 5,

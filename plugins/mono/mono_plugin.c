@@ -39,7 +39,7 @@
 */
 
 extern struct uwsgi_server uwsgi;
-struct uwsgi_plugin mono_plugin;
+const struct uwsgi_plugin mono_plugin;
 
 struct uwsgi_mono {
 
@@ -670,7 +670,7 @@ static int uwsgi_mono_signal_handler(uint8_t sig, void *handler) {
 	return 0;
 }
 
-struct uwsgi_plugin mono_plugin = {
+const struct uwsgi_plugin mono_plugin = {
 
 	.name = "mono",
 	.modifier1 = 15,
