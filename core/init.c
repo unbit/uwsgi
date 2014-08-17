@@ -107,6 +107,7 @@ void uwsgi_init_default() {
 	uwsgi.forkbomb_delay = 2;
 
 	uwsgi.async = 0;
+	uwsgi.async_warn_if_queue_full = 1;
 	uwsgi.listen_queue = 100;
 
 	uwsgi.cheaper_overload = 3;

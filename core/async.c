@@ -21,7 +21,7 @@ extern struct uwsgi_server uwsgi;
 
 // this is called whenever a new connection is ready, but there are no cores to handle it
 void uwsgi_async_queue_is_full(time_t now) {
-	if (now > uwsgi.async_queue_is_full) {
+	if (now > uwsgi.async_queue_is_full && uwsgi.async_warn_if_queue_full) {
 		uwsgi_log_verbose("[DANGER] async queue is full !!!\n");
 		uwsgi.async_queue_is_full = now;
 	}
