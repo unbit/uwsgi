@@ -331,6 +331,14 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 		int cache_fd;
 		struct stat cst;
 
+        if (uc->store_delete && !stat(uc->store, &cst) && ((size_t) cst.st_size != uc->filesize || !S_ISREG(cst.st_mode))) {
+            uwsgi_log("Removing invalid cache store file: %s\n", uc->store);
+            if (unlink(uc->store) != 0) {
+                uwsgi_log("Cannot remove invalid cache store file: %s\n", uc->store);
+                exit(1);
+            }
+        }
+
 		if (stat(uc->store, &cst)) {
 			uwsgi_log("creating a new cache store file: %s\n", uc->store);
 			cache_fd = open(uc->store, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
@@ -1212,6 +1220,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		char *c_keysize = NULL;
 		char *c_store = NULL;
 		char *c_store_sync = NULL;
+		char *c_store_delete = NULL;
 		char *c_nodes = NULL;
 		char *c_sync = NULL;
 		char *c_udp_servers = NULL;
@@ -1236,6 +1245,8 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                         "store", &c_store,
                         "store_sync", &c_store_sync,
                         "storesync", &c_store_sync,
+                        "store_delete", &c_store_delete,
+                        "storedelete", &c_store_delete,
                         "node", &c_nodes,
                         "nodes", &c_nodes,
                         "sync", &c_sync,
@@ -1298,6 +1309,8 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		}
 		if (c_use_last_modified) uc->use_last_modified = 1;
 		if (c_ignore_full) uc->ignore_full = 1;
+
+		if (c_store_delete) uc->store_delete = 1;
 
 		if (c_math_initial) uc->math_initial = strtol(c_math_initial, NULL, 10);
 
