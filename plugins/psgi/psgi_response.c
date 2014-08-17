@@ -148,7 +148,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
                         chitem = SvPV( chunk, hlen);
                         if (hlen <= 0) {
 				SvREFCNT_dec(chunk);
-				if (uwsgi.async > 1 && wsgi_req->async_force_again) {
+				if (uwsgi.async > 0 && wsgi_req->async_force_again) {
 					wsgi_req->async_placeholder = (SV *) *hitem;
 					return UWSGI_AGAIN;
 				}
@@ -161,7 +161,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
                                 break;
 			}
 			SvREFCNT_dec(chunk);
-			if (uwsgi.async > 1) {
+			if (uwsgi.async > 0) {
 				wsgi_req->async_placeholder = (SV *) *hitem;
 				wsgi_req->async_force_again = 1;
 				return UWSGI_AGAIN;

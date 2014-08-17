@@ -255,7 +255,7 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 				goto clear;
 			}
 
-			if (uwsgi.async > 1) {
+			if (uwsgi.async > 0) {
 				return UWSGI_AGAIN;
 			}
 

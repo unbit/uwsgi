@@ -368,7 +368,7 @@ static void gevent_loop() {
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
-	if (uwsgi.async < 2) {
+	if (uwsgi.async < 1) {
 		uwsgi_log("the gevent loop engine requires async mode (--async <n>)\n");
 		exit(1);
 	}

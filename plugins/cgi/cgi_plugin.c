@@ -731,7 +731,7 @@ clear2:
 
 		// now wait for process exit/death
 		// in async mode we need a trick...
-		if (uwsgi.async > 1) {
+		if (uwsgi.async > 0) {
 			pid_t diedpid = waitpid(cgi_pid, &waitpid_status, WNOHANG);
 			if (diedpid < 0) {
                                	uwsgi_error("waitpid()");

@@ -314,7 +314,7 @@ static void asyncio_loop() {
 
 	uwsgi.schedule_fix = uwsgi_asyncio_schedule_fix;
 
-	if (uwsgi.async < 2) {
+	if (uwsgi.async < 1) {
 		uwsgi_log("the asyncio loop engine requires async mode (--async <n>)\n");
 		exit(1);
 	}

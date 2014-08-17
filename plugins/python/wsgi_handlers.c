@@ -405,7 +405,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 		while (wi->response_subhandler(wsgi_req) != UWSGI_OK) {
-			if (uwsgi.async > 1) {
+			if (uwsgi.async > 0) {
 				UWSGI_RELEASE_GIL
 				wsgi_req->async_force_again = 1;
 				return UWSGI_AGAIN;
