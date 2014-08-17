@@ -62,10 +62,7 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, struct uwsgi_
 	struct uwsgi_buffer *ub = NULL;
 
 	if (ur->data_len) {
-		char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        	uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        	ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        	ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
 		if (!ub) goto end;
         	service.value = ub->buf;
         	service.length = ub->pos;

@@ -465,10 +465,7 @@ static int uwsgi_routing_func_ssi(struct wsgi_request *wsgi_req, struct uwsgi_ro
 
 	struct uwsgi_buffer *ub = NULL;
 
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *) (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub_filename = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub_filename = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub_filename) goto end;
 
 	struct uwsgi_buffer *ub_ssi = uwsgi_buffer_from_file(ub_filename->buf);

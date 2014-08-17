@@ -24,10 +24,7 @@ struct uwsgi_router_file_conf {
 
 int uwsgi_routing_func_static(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
-	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+	struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
 
 	uwsgi_file_serve(wsgi_req, ub->buf, ub->pos, NULL, 0, 1);

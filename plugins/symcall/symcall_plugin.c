@@ -143,10 +143,7 @@ static int uwsgi_symcall_mule(char *opt) {
 
 #ifdef UWSGI_ROUTING
 static int symcall_route(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
 
 	int (*func)(struct wsgi_request *) = (int (*)(struct wsgi_request *)) dlsym(usym.dlsym_handle, ub->buf);

@@ -10,10 +10,7 @@ static int uwsgi_routing_func_redirect(struct wsgi_request *wsgi_req, struct uws
 
 	if (uwsgi_response_prepare_headers(wsgi_req, "302 Found", 9)) goto end;
 	
-	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-	ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+	ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
 
 	if (uwsgi_response_add_header(wsgi_req, "Location", 8, ub->buf, ub->pos)) goto end;
@@ -31,10 +28,7 @@ static int uwsgi_routing_func_redirect_permanent(struct wsgi_request *wsgi_req, 
 
         if (uwsgi_response_prepare_headers(wsgi_req, "301 Moved Permanently", 21)) goto end;
 
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-	ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+	ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
 
         if (uwsgi_response_add_header(wsgi_req, "Location", 8, ub->buf, ub->pos)) goto end;

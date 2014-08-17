@@ -3869,6 +3869,7 @@ int uwsgi_apply_routes_do(struct uwsgi_route *, struct wsgi_request *, char *, u
 void uwsgi_register_embedded_routers(void);
 void uwsgi_routing_dump();
 struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *, struct uwsgi_route *, char *, uint16_t, char *, size_t);
+struct uwsgi_buffer *uwsgi_routing_translate_ur_data(struct wsgi_request *, struct uwsgi_route *);
 int uwsgi_route_api_func(struct wsgi_request *, char *, char *);
 struct uwsgi_route_condition *uwsgi_register_route_condition(char *, int (*) (struct wsgi_request *, struct uwsgi_route *));
 void uwsgi_fixup_routes(struct uwsgi_route *);

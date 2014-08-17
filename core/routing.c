@@ -150,6 +150,12 @@ error:
 	return NULL;
 }
 
+struct uwsgi_buffer *uwsgi_routing_translate_ur_data(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+        return uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+}
+
 static void uwsgi_routing_reset_memory(struct wsgi_request *wsgi_req, struct uwsgi_route *routes) {
 	// free dynamic memory structures
 	if (routes->if_func) {
@@ -759,10 +765,7 @@ static int uwsgi_router_fixcl(struct uwsgi_route *ur, char *arg) {
 // log route
 static int uwsgi_router_log_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
-	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+	struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
 	if (!ub) return UWSGI_ROUTE_BREAK;
 
 	uwsgi_log("%.*s\n", ub->pos, ub->buf);
@@ -820,10 +823,7 @@ static int uwsgi_router_logvar(struct uwsgi_route *ur, char *arg) {
 
 static int uwsgi_router_goto_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 	// build the label (if needed)
-	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+	struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
 	uint32_t *r_goto = &wsgi_req->route_goto;
 	uint32_t *r_pc = &wsgi_req->route_pc;
@@ -911,10 +911,7 @@ static int uwsgi_router_addvar(struct uwsgi_route *ur, char *arg) {
 // addheader route
 static int uwsgi_router_addheader_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+	struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
 	uwsgi_additional_header_add(wsgi_req, ub->buf, ub->pos);
 	uwsgi_buffer_destroy(ub);
@@ -932,10 +929,7 @@ static int uwsgi_router_addheader(struct uwsgi_route *ur, char *arg) {
 // remheader route
 static int uwsgi_router_remheader_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+	struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
         uwsgi_remove_header(wsgi_req, ub->buf, ub->pos);
 	uwsgi_buffer_destroy(ub);
@@ -953,10 +947,7 @@ static int uwsgi_router_remheader(struct uwsgi_route *ur, char *arg) {
 // clearheaders route
 static int uwsgi_router_clearheaders_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
 
 	if (uwsgi_response_prepare_headers(wsgi_req, ub->buf, ub->pos)) {
@@ -1004,10 +995,7 @@ static int uwsgi_router_signal(struct uwsgi_route *ur, char *arg) {
 
 // chdir route
 static int uwsgi_router_chdir_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
 	if (!ub) return UWSGI_ROUTE_BREAK;
 	if (chdir(ub->buf)) {
 		uwsgi_req_error("uwsgi_router_chdir_func()/chdir()");
@@ -1026,10 +1014,7 @@ static int uwsgi_router_chdir(struct uwsgi_route *ur, char *arg) {
 
 // setapp route
 static int uwsgi_router_setapp_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
 	char *ptr = uwsgi_req_append(wsgi_req, "UWSGI_APPID", 11, ub->buf, ub->pos);
 	if (!ptr) {
@@ -1050,10 +1035,7 @@ static int uwsgi_router_setapp(struct uwsgi_route *ur, char *arg) {
 
 // setscriptname route
 static int uwsgi_router_setscriptname_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
         char *ptr = uwsgi_req_append(wsgi_req, "SCRIPT_NAME", 11, ub->buf, ub->pos);
         if (!ptr) {
@@ -1074,10 +1056,7 @@ static int uwsgi_router_setscriptname(struct uwsgi_route *ur, char *arg) {
 
 // setmethod route
 static int uwsgi_router_setmethod_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
         char *ptr = uwsgi_req_append(wsgi_req, "REQUEST_METHOD", 14, ub->buf, ub->pos);
         if (!ptr) {
@@ -1098,10 +1077,7 @@ static int uwsgi_router_setmethod(struct uwsgi_route *ur, char *arg) {
 
 // seturi route
 static int uwsgi_router_seturi_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
         char *ptr = uwsgi_req_append(wsgi_req, "REQUEST_URI", 11, ub->buf, ub->pos);
         if (!ptr) {
@@ -1122,10 +1098,7 @@ static int uwsgi_router_seturi(struct uwsgi_route *ur, char *arg) {
 
 // setremoteaddr route
 static int uwsgi_router_setremoteaddr_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
         char *ptr = uwsgi_req_append(wsgi_req, "REMOTE_ADDR", 11, ub->buf, ub->pos);
         if (!ptr) {
@@ -1147,10 +1120,7 @@ static int uwsgi_router_setremoteaddr(struct uwsgi_route *ur, char *arg) {
 
 // setdocroot route
 static int uwsgi_router_setdocroot_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
         char *ptr = uwsgi_req_append(wsgi_req, "DOCUMENT_ROOT", 13, ub->buf, ub->pos);
         if (!ptr) {
@@ -1172,10 +1142,7 @@ static int uwsgi_router_setdocroot(struct uwsgi_route *ur, char *arg) {
 
 // setpathinfo route
 static int uwsgi_router_setpathinfo_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
         char *ptr = uwsgi_req_append(wsgi_req, "PATH_INFO", 9, ub->buf, ub->pos);
         if (!ptr) {
@@ -1196,10 +1163,7 @@ static int uwsgi_router_setpathinfo(struct uwsgi_route *ur, char *arg) {
 
 // setscheme route
 static int uwsgi_router_setscheme_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
         char *ptr = uwsgi_req_append(wsgi_req, "UWSGI_SCHEME", 12, ub->buf, ub->pos);
         if (!ptr) {
@@ -1241,10 +1205,7 @@ static int uwsgi_router_setmodifier2(struct uwsgi_route *ur, char *arg) {
 
 // setuser route
 static int uwsgi_router_setuser_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
 	uint16_t user_len = ub->pos;
 	// stop at the first colon (useful for various tricks)
@@ -1272,10 +1233,7 @@ static int uwsgi_router_setuser(struct uwsgi_route *ur, char *arg) {
 
 // sethome route
 static int uwsgi_router_sethome_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
         char *ptr = uwsgi_req_append(wsgi_req, "UWSGI_HOME", 10, ub->buf, ub->pos);
         if (!ptr) {
@@ -1296,10 +1254,7 @@ static int uwsgi_router_sethome(struct uwsgi_route *ur, char *arg) {
 
 // setfile route
 static int uwsgi_router_setfile_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
         char *ptr = uwsgi_req_append(wsgi_req, "UWSGI_HOME", 10, ub->buf, ub->pos);
         if (!ptr) {
@@ -1322,10 +1277,7 @@ static int uwsgi_router_setfile(struct uwsgi_route *ur, char *arg) {
 
 // setprocname route
 static int uwsgi_router_setprocname_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-
-        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, ur);
         if (!ub) return UWSGI_ROUTE_BREAK;
 	uwsgi_set_processname(ub->buf);
         uwsgi_buffer_destroy(ub);
@@ -1374,10 +1326,7 @@ static int uwsgi_router_alarm(struct uwsgi_route *ur, char *arg) {
 
 // send route
 static int uwsgi_router_send_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
-	char **subject = (char **) (((char *)(wsgi_req))+route->subject);
-        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+route->subject_len);
-
-	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, route, *subject, *subject_len, route->data, route->data_len);
+	struct uwsgi_buffer *ub = uwsgi_routing_translate_ur_data(wsgi_req, route);
         if (!ub) {
                 return UWSGI_ROUTE_BREAK;
         }
