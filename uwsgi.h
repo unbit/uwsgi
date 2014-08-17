@@ -832,6 +832,8 @@ struct uwsgi_cache {
 	int purge_lru;
 	uint64_t lru_head;
 	uint64_t lru_tail;
+
+	int store_delete;
 };
 
 struct uwsgi_option {
