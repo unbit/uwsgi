@@ -1609,6 +1609,17 @@ static void vacuum(void) {
 next:
 				uwsgi_sock = uwsgi_sock->next;
 			}
+			if (uwsgi.stats) {
+				// is a unix socket ?
+				if (!strchr(uwsgi.stats, ":") && uwsgi.stats[0] != '@') {
+					if (unlink(uwsgi.stats)) {
+                                                uwsgi_error("unlink()");
+                                        }
+                                        else {
+                                                uwsgi_log("VACUUM: unix socket %s (stats) removed.\n", uwsgi.stats);
+                                        }
+				}
+			}
 		}
 	}
 }
