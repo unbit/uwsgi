@@ -325,11 +325,18 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	if (uwsgi.threads > 1 && id) {
 		// if we have multiple threads we need to initialize a PyThreadState for each one
 		for(i=0;i<uwsgi.threads;i++) {
-			//uwsgi_log("%p\n", uwsgi.core[i]->ts[id]);
 			uwsgi.workers[uwsgi.mywid].cores[i].ts[id] = PyThreadState_New( ((PyThreadState *)wi->interpreter)->interp);
+			//uwsgi_log("%p\n", uwsgi.workers[uwsgi.mywid].cores[i].ts[id]);
 			if (!uwsgi.workers[uwsgi.mywid].cores[i].ts[id]) {
 				uwsgi_log("unable to allocate new PyThreadState structure for app %s", wi->mountpoint);
 				goto doh;
+			}
+			// cow ?
+			if (uwsgi.mywid == 0) {
+				int j;
+				for(j=1;j<=uwsgi.numproc;j++) {
+					uwsgi.workers[j].cores[i].ts[id] = uwsgi.workers[0].cores[i].ts[id];
+				}
 			}
 		}
 		PyThreadState_Swap((PyThreadState *) pthread_getspecific(up.upt_save_key) );
