@@ -414,11 +414,11 @@ int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
 	}
 
 	if (ret < 0) {
-		if (errno != ETIME) {
-			uwsgi_error("port_getn()");
-			return -1;
-		}
-		return 0;
+		if (errno == ETIME) return 0;
+                if (errno != EINTR) {
+                        uwsgi_error("port_getn()");
+                }
+                return -1;
 	}
 
 	uint_t i;
@@ -452,6 +452,7 @@ int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 	else {
 		ret = port_get(eq, &pe, NULL);
 	}
+
 	if (ret < 0) {
 		if (errno == ETIME) return 0;
 		if (errno != EINTR) {

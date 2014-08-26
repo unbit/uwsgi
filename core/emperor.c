@@ -2325,7 +2325,17 @@ void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char
 
 void uwsgi_master_manage_emperor() {
 	char byte;
+#ifdef UWSGI_EVENT_USE_PORT
+	// special cose for port event system
+	// place the socket in non-blocking mode
+        uwsgi_socket_nb(uwsgi.emperor_fd);
+#endif
 	ssize_t rlen = read(uwsgi.emperor_fd, &byte, 1);
+#ifdef UWSGI_EVENT_USE_PORT
+	// special cose for port event system
+	// and place back in blocking mode
+        uwsgi_socket_b(uwsgi.emperor_fd);
+#endif
 	if (rlen > 0) {
 		uwsgi_log_verbose("received message %d from emperor\n", byte);
 		// remove me
@@ -2345,6 +2355,12 @@ void uwsgi_master_manage_emperor() {
 			uwsgi_unblock_signal(SIGHUP);
 		}
 	}
+#ifdef UWSGI_EVENT_USE_PORT
+        // special cose for port event system
+	else if (rlen < 0 && uwsgi_is_again()) {
+		return;
+	}
+#endif
 	else {
 		uwsgi_error("uwsgi_master_manage_emperor()/read()");
 		uwsgi_log("lost connection with my emperor !!!\n");
