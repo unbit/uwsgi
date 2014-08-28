@@ -4878,6 +4878,7 @@ char *uwsgi_subscription_algo_name(void *);
 
 int uwsgi_wait_for_fs(char *, int);
 void uwsgi_hooks_setns_run(struct uwsgi_string_list *, pid_t, uid_t, gid_t);
+char *vassal_attr_get(struct uwsgi_instance *, char *);
 #ifdef __cplusplus
 }
 #endif

@@ -36,7 +36,7 @@ struct uwsgi_emperor_blacklist_item {
 
 struct uwsgi_emperor_blacklist_item *emperor_blacklist;
 
-static char *vassal_attr_get(struct uwsgi_instance *c_ui, char *attr) {
+char *vassal_attr_get(struct uwsgi_instance *c_ui, char *attr) {
 	if (!attr) return NULL;
 	struct uwsgi_dyn_dict *attrs = c_ui->attrs;
 	while(attrs) {
