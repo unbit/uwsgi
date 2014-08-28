@@ -6,6 +6,8 @@
 extern "C" {
 #endif
 
+#define UWSGI_PLUGIN_API	2
+
 #define UMAX16	65536
 #define UMAX8	256
 
@@ -998,6 +1000,7 @@ struct uwsgi_protocol {
 };
 
 struct uwsgi_server;
+struct uwsgi_instance;
 
 struct uwsgi_plugin {
 
@@ -1056,6 +1059,9 @@ struct uwsgi_plugin {
         struct uwsgi_buffer* (*exception_msg)(struct wsgi_request *);
         struct uwsgi_buffer* (*exception_repr)(struct wsgi_request *);
         void (*exception_log)(struct wsgi_request *);
+
+	void (*vassal)(struct uwsgi_instance *);
+	void (*vassal_before_exec)(struct uwsgi_instance *);
 };
 
 #ifdef UWSGI_PCRE
