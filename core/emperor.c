@@ -1634,7 +1634,7 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
         }
 
         for (i = 0; i < uwsgi.gp_cnt; i++) {
-                if (uwsgi.gp[i]->vassal) {
+                if (uwsgi.gp[i]->vassal_before_exec) {
                         uwsgi.gp[i]->vassal_before_exec(n_ui);
                 }
         }
