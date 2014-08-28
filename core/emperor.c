@@ -1093,7 +1093,20 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 }
 
 static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
+	int i;
 
+	// run plugin hooks for the vassal
+	for (i = 0; i < 256; i++) {
+                if (uwsgi.p[i]->vassal) {
+                        uwsgi.p[i]->vassal(n_ui);
+                }
+        }
+
+        for (i = 0; i < uwsgi.gp_cnt; i++) {
+                if (uwsgi.gp[i]->vassal) {
+                        uwsgi.gp[i]->vassal(n_ui);
+                }
+        }
 
 #ifdef __linux__
 	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
@@ -1350,7 +1363,6 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 	}
 
 	// close all of the unneded fd
-	int i;
 	for (i = 3; i < (int) uwsgi.max_fd; i++) {
 		if (uwsgi_fd_is_safe(i))
 			continue;
@@ -1428,6 +1440,19 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 		}
 		func(n_ui->name, n_ui->uid, n_ui->gid);
 	}
+
+	// ->vassal_before_exec
+	for (i = 0; i < 256; i++) {
+                if (uwsgi.p[i]->vassal_before_exec) {
+                        uwsgi.p[i]->vassal_before_exec(n_ui);
+                }
+        }
+
+        for (i = 0; i < uwsgi.gp_cnt; i++) {
+                if (uwsgi.gp[i]->vassal) {
+                        uwsgi.gp[i]->vassal_before_exec(n_ui);
+                }
+        }
 
 	// start !!!
 	if (execvp(vassal_argv[0], vassal_argv)) {
