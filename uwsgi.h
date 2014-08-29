@@ -2732,6 +2732,9 @@ struct uwsgi_server {
 	int stats_no_cores;
 	int stats_no_metrics;
 
+	// uWSGI 2.0.7
+	int vassal_sos;
+
 	// uWSGI 2.1
 	char *fork_socket;
 	int new_argc;
@@ -4850,6 +4853,7 @@ mode_t uwsgi_mode_t(char *, int *);
 
 int uwsgi_notify_socket_manage(int);
 int uwsgi_notify_msg(char *, char *, size_t);
+void vassal_sos();
 
 int uwsgi_send_fds_and_body(int, int *, int, char *, size_t);
 ssize_t uwsgi_recv_cred_and_fds(int, char *, size_t buf_len, pid_t *, uid_t *, gid_t *, int *, int *);

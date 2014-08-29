@@ -7,6 +7,7 @@ void uwsgi_update_load_counters() {
 	int i;
 	uint64_t busy_workers = 0;
 	uint64_t idle_workers = 0;
+	static time_t last_sos = 0;
 
         for (i = 1; i <= uwsgi.numproc; i++) {
                 if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
@@ -21,6 +22,15 @@ void uwsgi_update_load_counters() {
 
 	if (busy_workers >= (uint64_t) uwsgi.numproc) {
 		ushared->overloaded++;
+	
+		if (uwsgi.vassal_sos) {
+			if (uwsgi.current_time - last_sos > uwsgi.vassal_sos) {
+                        	uwsgi_log_verbose("asking Emperor for reinforcements (overload: %llu)...\n", (unsigned long long) ushared->overloaded);
+				vassal_sos();
+				last_sos = uwsgi.current_time;
+			}
+		}
+
 	}
 
 	ushared->busy_workers = busy_workers;
@@ -273,15 +283,21 @@ static void master_check_listen_queue() {
         if (uwsgi.vassal_sos_backlog > 0 && uwsgi.has_emperor) {
         	if (uwsgi.shared->backlog >= (uint64_t) uwsgi.vassal_sos_backlog) {
                 	// ask emperor for help
-                        char byte = 30;
-                        if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
-                        	uwsgi_error("write()");
-                        }
-                        else {
-                        	uwsgi_log_verbose("asking Emperor for reinforcements (backlog: %llu)...\n", (unsigned long long) uwsgi.shared->backlog);
-                        }
+                        uwsgi_log_verbose("asking Emperor for reinforcements (backlog: %llu)...\n", (unsigned long long) uwsgi.shared->backlog);
+			vassal_sos();
                 }
 	}
+}
+
+void vassal_sos() {
+	if (!uwsgi.has_emperor) {
+		uwsgi_log("[broodlord] instance not governed by an Emperor !!!\n");
+		return;	
+	}
+	char byte = 30;
+        if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
+        	uwsgi_error("vassal_sos()/write()");
+        }
 }
 
 int master_loop(char **argv, char **environ) {
