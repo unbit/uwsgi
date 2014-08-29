@@ -2733,6 +2733,9 @@ struct uwsgi_server {
 	int stats_no_cores;
 	int stats_no_metrics;
 
+	// uWSGI 2.0.7
+	int vassal_sos;
+
 };
 
 struct uwsgi_rpc {
@@ -4797,6 +4800,7 @@ mode_t uwsgi_mode_t(char *, int *);
 
 int uwsgi_notify_socket_manage(int);
 int uwsgi_notify_msg(char *, char *, size_t);
+void vassal_sos();
 
 #ifdef __cplusplus
 }
