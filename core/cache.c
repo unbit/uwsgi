@@ -733,16 +733,22 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		else {
 			uci->first_block = uwsgi_cache_find_free_blocks(uc, vallen);
 			if (uci->first_block == 0xffffffffffffffffLLU) {
-				if (!uc->ignore_full)
-					uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
+				if (!uc->ignore_full) {
+					if (uc->purge_lru)
+                                        	uwsgi_log("LRU item will be purged from cache \"%s\"\n", uc->name);
+					else
+						uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
+				}
                                 uc->full++;
 				uc->unused_blocks_stack_ptr++;
+				if (uc->purge_lru && uc->lru_head)
+                                	uwsgi_cache_del2(uc, NULL, 0, uc->lru_head, UWSGI_CACHE_FLAG_LOCAL);
                                 goto end;
 			}
 			// mark used blocks;
 			uint64_t needed_blocks = cache_mark_blocks(uc, uci->first_block, vallen);
 			// optimize the scan
-			if (uc->blocks_bitmap_pos + needed_blocks > uc->blocks) {
+			if (uci->first_block + needed_blocks >= uc->blocks) {
                         	uc->blocks_bitmap_pos = 0;
                         }
                         else {
@@ -837,16 +843,22 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 			uint64_t old_first_block = uci->first_block;
 			uci->first_block = uwsgi_cache_find_free_blocks(uc, vallen);
                         if (uci->first_block == 0xffffffffffffffffLLU) {
-				if (!uc->ignore_full)
-					uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
+				if (!uc->ignore_full) {
+                                        if (uc->purge_lru)
+                                                uwsgi_log("LRU item will be purged from cache \"%s\"\n", uc->name);
+                                        else
+                                                uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
+                                }
                                 uc->full++;
 				uci->first_block = old_first_block;
+				if (uc->purge_lru && uc->lru_head)
+                                        uwsgi_cache_del2(uc, NULL, 0, uc->lru_head, UWSGI_CACHE_FLAG_LOCAL);
                                 goto end;
                         }
                         // mark used blocks;
                         uint64_t needed_blocks = cache_mark_blocks(uc, uci->first_block, vallen);
                         // optimize the scan
-                        if (uc->blocks_bitmap_pos + needed_blocks > uc->blocks) {
+                        if (uci->first_block + needed_blocks >= uc->blocks) {
                                 uc->blocks_bitmap_pos = 0;
                         }
                         else {
