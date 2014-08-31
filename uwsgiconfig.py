@@ -53,6 +53,11 @@ if CPUCOUNT < 1:
         except:
             CPUCOUNT = 1
 
+
+# force single cpu in cygwin mode
+if uwsgi_os.startswith('CYGWIN'):
+    CPUCOUNT=1
+
 binary_list = []
 
 started_at = time.time()
