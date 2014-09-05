@@ -527,6 +527,11 @@ static int uwsgi_proto_check_22(struct wsgi_request *wsgi_req, char *key, char *
 		return 0;
 	}
 
+	if (!uwsgi_proto_key("HTTP_X_FORWARDED_PROTO", 22)) {
+                wsgi_req->scheme = buf;
+                wsgi_req->scheme_len = len;
+        }
+
 	return 0;
 }
 
