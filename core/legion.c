@@ -1213,7 +1213,7 @@ next:
 	}
 
 	// this must be called only by the master !!!
-	if (uwsgi.mywid > 0) return;
+	if (uwsgi.mywid > 0 || uwsgi.muleid > 0) return;
 	uwsgi_legion_announce_death();
 }
 
