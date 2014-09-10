@@ -2570,6 +2570,7 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	if (uwsgi.chdir) {
+		uwsgi_log("chdir() to %s\n", uwsgi.chdir);
 		if (chdir(uwsgi.chdir)) {
 			uwsgi_error("chdir()");
 			exit(1);
@@ -3394,6 +3395,7 @@ void uwsgi_worker_run() {
 	}
 
 	if (uwsgi.chdir2) {
+		uwsgi_log("chdir() to %s\n", uwsgi.chdir2);
 		if (chdir(uwsgi.chdir2)) {
 			uwsgi_error("chdir()");
 			exit(1);
