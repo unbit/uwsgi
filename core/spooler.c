@@ -1,11 +1,13 @@
 #include "uwsgi.h"
 
+#if defined(__sun)  && defined(__SVR4)
+#include "strings.h"
+#endif
+
 extern struct uwsgi_server uwsgi;
 
 static void spooler_readdir(struct uwsgi_spooler *, char *dir);
-#ifdef __linux__
 static void spooler_scandir(struct uwsgi_spooler *, char *dir);
-#endif
 static void spooler_manage_task(struct uwsgi_spooler *, char *, char *);
 
 // increment it whenever a signal is raised
@@ -181,7 +183,7 @@ static void spooler_req_parser_hook(char *key, uint16_t key_len, char *value, ui
 		sr->spooler = value;
 		sr->spooler_len = value_len;
 		return;
-	} 
+	}
 
 	if (!uwsgi_strncmp(key, key_len, "priority", 8)) {
                 sr->priority = value;
@@ -218,7 +220,7 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 	// parse the request buffer
 	memset(&sr, 0, sizeof(struct spooler_req));
 	uwsgi_hooked_parse(buf, len, spooler_req_parser_hook, &sr);
-	
+
 	struct uwsgi_spooler *uspool = uwsgi.spoolers;
 	if (!uspool) {
 		uwsgi_log("[uwsgi-spooler] no spooler available\n");
@@ -246,7 +248,7 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 	size_t filename_len = 0;
 
 	if (sr.priority && sr.priority_len) {
-		filename_len = strlen(uspool->dir) + sr.priority_len + strlen(uwsgi.hostname) + 256;	
+		filename_len = strlen(uspool->dir) + sr.priority_len + strlen(uwsgi.hostname) + 256;
 		filename = uwsgi_malloc(filename_len);
 		int ret = snprintf(filename, filename_len, "%s/%.*s", uspool->dir, (int) sr.priority_len, sr.priority);
 		if (ret <= 0 || ret >= (int) filename_len) {
@@ -325,13 +327,13 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 
 	if (sr.at > 0) {
 #ifdef __UCLIBC__
-		struct timespec ts[2]; 
-		ts[0].tv_sec = sr.at; 
+		struct timespec ts[2];
+		ts[0].tv_sec = sr.at;
 		ts[0].tv_nsec = 0;
 		ts[1].tv_sec = sr.at;
-		ts[1].tv_nsec = 0; 
+		ts[1].tv_nsec = 0;
 		if (futimens(fd, ts)) {
-			uwsgi_error("uwsgi_spooler_request()/futimens()");	
+			uwsgi_error("uwsgi_spooler_request()/futimens()");
 		}
 #else
 		struct timeval tv[2];
@@ -358,7 +360,7 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 	// and here waiting threads can continue
 	uwsgi_unlock(uspool->lock);
 
-/*	wake up the spoolers attached to the specified dir ... (HACKY) 
+/*	wake up the spoolers attached to the specified dir ... (HACKY)
 	no need to fear races, as USR1 is harmless an all of the uWSGI processes...
 	it could be a problem if a new process takes the old pid, but modern systems should avoid that
 */
@@ -438,11 +440,7 @@ void spooler(struct uwsgi_spooler *uspool) {
 		}
 
 		if (uwsgi.spooler_ordered) {
-#ifdef __linux__
 			spooler_scandir(uspool, NULL);
-#else
-			spooler_readdir(uspool, NULL);
-#endif
 		}
 		else {
 			spooler_readdir(uspool, NULL);
@@ -471,7 +469,6 @@ void spooler(struct uwsgi_spooler *uspool) {
 	}
 }
 
-#ifdef __linux__
 static void spooler_scandir(struct uwsgi_spooler *uspool, char *dir) {
 
 	struct dirent **tasklist;
@@ -480,7 +477,8 @@ static void spooler_scandir(struct uwsgi_spooler *uspool, char *dir) {
 	if (!dir)
 		dir = uspool->dir;
 
-	n = scandir(dir, &tasklist, 0, versionsort);
+	n = scandir(dir, &tasklist, 0, uwsgi_versionsort);
+
 	if (n < 0) {
 		uwsgi_error("scandir()");
 		return;
@@ -493,7 +491,6 @@ static void spooler_scandir(struct uwsgi_spooler *uspool, char *dir) {
 
 	free(tasklist);
 }
-#endif
 
 
 static void spooler_readdir(struct uwsgi_spooler *uspool, char *dir) {
@@ -541,7 +538,6 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			return;
 		}
 
-#ifdef __linux__
 		if (S_ISDIR(sf_lstat.st_mode) && uwsgi.spooler_ordered) {
 			if (chdir(task)) {
 				uwsgi_error("chdir()");
@@ -555,7 +551,6 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			}
 			return;
 		}
-#endif
 		if (!S_ISREG(sf_lstat.st_mode)) {
 			return;
 		}
