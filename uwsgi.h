@@ -4882,7 +4882,6 @@ struct uwsgi_subscribe_node *(*uwsgi_subscription_algo_get(char * , size_t))(str
 void uwsgi_subscription_init_algos(void);
 void uwsgi_register_subscription_algo(char *, struct uwsgi_subscribe_node *(*) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *));
 char *uwsgi_subscription_algo_name(void *);
->>>>>>> uwsgi-2.1
 
 int uwsgi_wait_for_fs(char *, int);
 void uwsgi_hooks_setns_run(struct uwsgi_string_list *, pid_t, uid_t, gid_t);
