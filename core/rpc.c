@@ -7,6 +7,11 @@ int uwsgi_register_rpc(char *name, struct uwsgi_plugin *plugin, uint8_t args, vo
 	struct uwsgi_rpc *urpc;
 	int ret = -1;
 
+	if (!uwsgi.workers || !uwsgi.shared || !uwsgi.rpc_table_lock) {
+		uwsgi_log("RPC subsystem still not initialized\n");
+		return -1;
+	}
+
 	if (uwsgi.mywid == 0 && uwsgi.workers[0].pid != uwsgi.mypid) {
 		uwsgi_log("only the master and the workers can register RPC functions\n");
 		return -1;

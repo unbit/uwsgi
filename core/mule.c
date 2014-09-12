@@ -198,7 +198,7 @@ void uwsgi_mule_handler() {
 #ifdef UWSGI_DEBUG
 			uwsgi_log_verbose("master sent signal %d to mule %d\n", uwsgi_signal, uwsgi.muleid);
 #endif
-			if (uwsgi_signal_handler(uwsgi_signal)) {
+			if (uwsgi_signal_handler(NULL, uwsgi_signal)) {
 				uwsgi_log_verbose("error managing signal %d on mule %d\n", uwsgi_signal, uwsgi.muleid);
 			}
 		}
@@ -362,7 +362,7 @@ retry:
 #ifdef UWSGI_DEBUG
 					uwsgi_log_verbose("master sent signal %d to mule %d\n", uwsgi_signal, uwsgi.muleid);
 #endif
-					if (uwsgi_signal_handler(uwsgi_signal)) {
+					if (uwsgi_signal_handler(NULL, uwsgi_signal)) {
 						uwsgi_log_verbose("error managing signal %d on mule %d\n", uwsgi_signal, uwsgi.muleid);
 					}
 					// set the error condition

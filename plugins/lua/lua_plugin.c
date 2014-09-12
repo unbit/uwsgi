@@ -843,7 +843,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 		}
 		lua_pop(L, 1);
 		lua_pushvalue(L, -1);
-		if (uwsgi.async > 1) {
+		if (uwsgi.async > 0) {
 			return UWSGI_AGAIN;
 		}
 	}

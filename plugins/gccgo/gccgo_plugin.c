@@ -342,7 +342,7 @@ static void uwsgi_gccgo_signal_goroutine(void *arg) {
 	for(;;) {
 		runtime_pollWait(pdesc, 'r');
 retry:
-		uwsgi_receive_signal(*fd, "worker", uwsgi.mywid);
+		uwsgi_receive_signal(NULL, *fd, "worker", uwsgi.mywid);
 		if (uwsgi_is_again()) continue;
 		goto retry;
 	}
@@ -389,7 +389,7 @@ retry:
 
 		// enter harakiri mode
 		if (uwsgi.harakiri_options.workers > 0) {
-                	set_harakiri(uwsgi.harakiri_options.workers);
+                	set_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
         	}
 
 		// spawn the new goroutine

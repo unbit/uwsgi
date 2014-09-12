@@ -46,6 +46,7 @@ struct uwsgi_rados_mountpoint {
 	char *allow_put;
 	char *allow_delete;
 	char *allow_mkcol;
+	char *allow_propfind;
 };
 
 static struct uwsgi_option uwsgi_rados_options[] = {
@@ -89,7 +90,7 @@ static void uwsgi_rados_read_async_cb(rados_completion_t comp, void *data) {
 }
 
 static int uwsgi_rados_delete(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, char *key, int timeout) {
-	if (uwsgi.async <= 1) {
+	if (uwsgi.async < 1) {
 		return rados_remove(ctx, key); 
 	}
 	struct uwsgi_rados_io *urio = &urados.urio[wsgi_req->async_id];
@@ -133,7 +134,6 @@ static int uwsgi_rados_delete(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, 
                 ret = rados_aio_get_return_value(comp);
         }
         rados_aio_release(comp);
-
 end:
       	return ret;
 }
@@ -146,7 +146,7 @@ static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, cha
                 ssize_t body_len = 0;
                 char *body =  uwsgi_request_body_read(wsgi_req, UMIN(remains, 32768) , &body_len);
                 if (!body || body == uwsgi.empty) goto error;
-		if (uwsgi.async <= 1) {
+		if (uwsgi.async < 1) {
 			if (rados_write(ctx, key, body, body_len, off) < 0) {
 				return -1;
 			}
@@ -313,6 +313,86 @@ static int uwsgi_rados_read_async(struct wsgi_request *wsgi_req, rados_ioctx_t c
 	return ret;	
 }
 
+static void uwsgi_rados_propfind(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, char *key, uint64_t size, time_t mtime, int timeout) {
+	// consume the body
+	size_t remains = wsgi_req->post_cl;
+        while(remains > 0) {
+                ssize_t body_len = 0;
+                char *body =  uwsgi_request_body_read(wsgi_req, UMIN(remains, 32768), &body_len);
+                if (!body || body == uwsgi.empty) break;
+		remains -= body_len;
+	}
+
+	if (uwsgi_response_prepare_headers(wsgi_req, "207 Multi-Status", 16)) return;
+	if (uwsgi_response_add_content_type(wsgi_req, "text/xml; charset=\"utf-8\"", 25)) return;
+	struct uwsgi_buffer *ub = uwsgi_webdav_multistatus_new();
+	if (!ub) return;
+	if (key) {
+		size_t mime_type_len = 0;
+        	char *mime_type = uwsgi_get_mime_type(key, strlen(key), &mime_type_len);
+		char *slashed = uwsgi_concat2("/", key);
+		if (uwsgi_webdav_propfind_item_add(ub, slashed, strlen(key)+1, size, mtime, mime_type, mime_type_len, NULL, 0, NULL, 0)) {
+			free(slashed);
+			goto end;
+		}
+		free(slashed);
+		if (uwsgi_webdav_multistatus_close(ub)) goto end;
+		uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+		goto end;
+	}
+	// request for /
+	size_t depth = 0;
+	uint16_t http_depth_len = 0;
+        char *http_depth = uwsgi_get_var(wsgi_req, "HTTP_DEPTH", 10, &http_depth_len);
+        if (http_depth) {
+                depth = uwsgi_str_num(http_depth, http_depth_len);
+        }
+
+	if (depth == 0) {
+		if (uwsgi_webdav_propfind_item_add(ub, "/", 1, 0, 0, NULL, 0, NULL, 0, NULL, 0)) {
+                        goto end;
+                }
+                if (uwsgi_webdav_multistatus_close(ub)) goto end;
+                uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+		goto end;
+	}
+
+	struct uwsgi_rados_io *urio = &urados.urio[wsgi_req->async_id];
+	rados_list_ctx_t ctx_list;
+	if (rados_objects_list_open(ctx, &ctx_list) < 0) {
+		goto end;
+	}
+
+	char *entry = NULL;
+	while(rados_objects_list_next(ctx_list, (const char **)&entry, NULL) == 0) {
+		uint64_t stat_size = 0;
+		time_t stat_mtime = 0;
+		if (uwsgi.async > 0) {
+        		if (uwsgi_rados_async_stat(urio, ctx, entry, &stat_size, &stat_mtime, timeout) < 0) goto end;
+        	}
+        	else {
+                	if (rados_stat(ctx, entry, &stat_size, &stat_mtime) < 0) goto end;
+        	}
+
+		size_t mime_type_len = 0;
+                char *mime_type = uwsgi_get_mime_type(entry, strlen(entry), &mime_type_len);
+                char *slashed = uwsgi_concat2("/", entry);
+                if (uwsgi_webdav_propfind_item_add(ub, slashed, strlen(entry)+1, stat_size, stat_mtime, mime_type, mime_type_len, NULL, 0, NULL, 0)) {
+                        free(slashed);
+                        goto end;
+                }
+                free(slashed);
+                if (uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos)) goto end;
+		// reset buffer;
+		ub->pos = 0;
+	}
+	rados_objects_list_close(ctx_list);
+        if (uwsgi_webdav_multistatus_close(ub)) goto end;
+        uwsgi_response_write_body_do(wsgi_req, ub->buf, ub->pos);
+
+end:
+	uwsgi_buffer_destroy(ub);
+}
 
 static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 	struct uwsgi_rados_mountpoint *urmp = uwsgi_calloc(sizeof(struct uwsgi_rados_mountpoint));
@@ -324,6 +404,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 			"allow_put", &urmp->allow_put,
 			"allow_delete", &urmp->allow_delete,
 			"allow_mkcol", &urmp->allow_mkcol,
+			"allow_propfind", &urmp->allow_propfind,
 			NULL)) {
 				uwsgi_log("unable to parse rados mountpoint definition\n");
 				exit(1);
@@ -431,7 +512,7 @@ static void uwsgi_rados_setup() {
 	}
 
 	// now initialize a pthread_mutex for each async core
-	if (uwsgi.async > 1) {
+	if (uwsgi.async > 0) {
 		int i;
 		urados.urio = uwsgi_calloc(sizeof(struct uwsgi_rados_io) * uwsgi.async);
 		for(i=0;i<uwsgi.async;i++) {
@@ -502,7 +583,7 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 
 	struct uwsgi_rados_io *urio = &urados.urio[wsgi_req->async_id];
 
-	if (uwsgi.async > 1) {
+	if (uwsgi.async > 0) {
 	// no need to lock here (the rid protect us)
         	if (pipe(urio->fds)) {
                 	uwsgi_error("uwsgi_rados_read_async()/pipe()");
@@ -540,10 +621,26 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 				goto end;
 			}
 		}
+		if (urmp->allow_propfind) {
+			if (uwsgi_buffer_append(ub_allow, ", PROPFIND", 10)) {
+				uwsgi_buffer_destroy(ub_allow);
+				goto end;
+			}
+		}
 
 		uwsgi_response_add_header(wsgi_req, "Allow", 5, ub_allow->buf, ub_allow->pos);
 		uwsgi_buffer_destroy(ub_allow);
                 goto end;
+	}
+
+	// empty paths are mapped to propfind
+	if (wsgi_req->path_info_len == 1 && wsgi_req->path_info[0] == '/') {
+		if (urmp->allow_propfind && !uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "PROPFIND", 8)) {
+			uwsgi_rados_propfind(wsgi_req, ctx, NULL, 0, 0, timeout);
+			goto end;
+		}
+                uwsgi_405(wsgi_req);
+		goto end;
 	}
 
 	// MKCOL does not require stat
@@ -566,7 +663,7 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
                 goto end;
 	}
 
-	if (uwsgi.async > 1) {
+	if (uwsgi.async > 0) {
 		ret = uwsgi_rados_async_stat(urio, ctx, filename, &stat_size, &stat_mtime, timeout);	
 	}
 	else {
@@ -613,6 +710,15 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 		goto end;
 	}
 
+	if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "PROPFIND", 8)) {
+		if (!urmp->allow_propfind) {
+			uwsgi_405(wsgi_req);
+                        goto end;
+		}
+		uwsgi_rados_propfind(wsgi_req, ctx, filename, stat_size, stat_mtime, timeout);
+		goto end;
+	}
+
 	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4) && uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "GET", 3)) {
 		uwsgi_405(wsgi_req);
 		goto end;
@@ -631,7 +737,7 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	// skip body on HEAD
 	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
 		size_t remains = stat_size;
-		if (uwsgi.async > 1) {
+		if (uwsgi.async > 0) {
 			if (uwsgi_rados_read_async(wsgi_req, ctx, filename, remains, timeout)) goto end;
 		}
 		else {
@@ -640,7 +746,7 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	}
 
 end:
-	if (uwsgi.async > 1) {
+	if (uwsgi.async > 0) {
 		close(urio->fds[0]);
 		close(urio->fds[1]);
 	}

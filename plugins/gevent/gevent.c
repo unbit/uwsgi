@@ -140,7 +140,7 @@ PyObject *py_uwsgi_gevent_signal_handler(PyObject * self, PyObject * args) {
         	return NULL;
 	}
 
-	uwsgi_receive_signal(signal_socket, "worker", uwsgi.mywid);
+	uwsgi_receive_signal(NULL, signal_socket, "worker", uwsgi.mywid);
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -211,7 +211,7 @@ edge:
 
 	// enter harakiri mode
         if (uwsgi.harakiri_options.workers > 0) {
-                set_harakiri(uwsgi.harakiri_options.workers);
+                set_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
         }
 
 	// hack to easily pass wsgi_req pointer to the greenlet
@@ -368,7 +368,7 @@ static void gevent_loop() {
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
-	if (uwsgi.async < 2) {
+	if (uwsgi.async < 1) {
 		uwsgi_log("the gevent loop engine requires async mode (--async <n>)\n");
 		exit(1);
 	}

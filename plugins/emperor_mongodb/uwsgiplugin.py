@@ -5,7 +5,7 @@ NAME='emperor_mongodb'
 CFLAGS = ['-I/usr/include/mongo','-I/usr/local/include/mongo']
 LDFLAGS = []
 
-LIBS = []
+LIBS = ['-lstdc++']
 if not 'UWSGI_MONGODB_NOLIB' in os.environ:
     LIBS.append('-lmongoclient')
     LIBS.append('-lboost_thread')

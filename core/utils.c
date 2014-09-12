@@ -42,9 +42,9 @@ int check_hex(char *str, int len) {
 }
 
 // increase worker harakiri
-void inc_harakiri(int sec) {
+void inc_harakiri(struct wsgi_request *wsgi_req, int sec) {
 	if (uwsgi.master_process) {
-		uwsgi.workers[uwsgi.mywid].harakiri += sec;
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri += sec;
 	}
 	else {
 		alarm(uwsgi.harakiri_options.workers + sec);
@@ -52,12 +52,13 @@ void inc_harakiri(int sec) {
 }
 
 // set worker harakiri
-void set_harakiri(int sec) {
+void set_harakiri(struct wsgi_request *wsgi_req, int sec) {
+	if (!wsgi_req) return;
 	if (sec == 0) {
-		uwsgi.workers[uwsgi.mywid].harakiri = 0;
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri = 0;
 	}
 	else {
-		uwsgi.workers[uwsgi.mywid].harakiri = uwsgi_now() + sec;
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri = uwsgi_now() + sec;
 	}
 	if (!uwsgi.master_process) {
 		alarm(sec);
@@ -65,7 +66,7 @@ void set_harakiri(int sec) {
 }
 
 // set user harakiri
-void set_user_harakiri(int sec) {
+void set_user_harakiri(struct wsgi_request *wsgi_req, int sec) {
 	if (!uwsgi.master_process) {
 		uwsgi_log("!!! unable to set user harakiri without the master process !!!\n");
 		return;
@@ -79,8 +80,8 @@ void set_user_harakiri(int sec) {
 			struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
 			uspool->user_harakiri = 0;
 		}
-		else {
-			uwsgi.workers[uwsgi.mywid].user_harakiri = 0;
+		else if (wsgi_req) {
+			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri = 0;
 		}
 	}
 	else {
@@ -91,8 +92,8 @@ void set_user_harakiri(int sec) {
 			struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
 			uspool->user_harakiri = uwsgi_now() + sec;
 		}
-		else {
-			uwsgi.workers[uwsgi.mywid].user_harakiri = uwsgi_now() + sec;
+		else if (wsgi_req) {
+			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri = uwsgi_now() + sec;
 		}
 	}
 }
@@ -699,6 +700,18 @@ void uwsgi_as_root() {
 		}
 	}
 
+	uwsgi_foreach(usl, uwsgi.wait_for_fs) {
+		if (uwsgi_wait_for_fs(usl->value, 0)) exit(1);
+	}
+
+	uwsgi_foreach(usl, uwsgi.wait_for_file) {
+		if (uwsgi_wait_for_fs(usl->value, 1)) exit(1);
+	}
+
+	uwsgi_foreach(usl, uwsgi.wait_for_dir) {
+		if (uwsgi_wait_for_fs(usl->value, 2)) exit(1);
+	}
+
 	uwsgi_hooks_run(uwsgi.hook_as_root, "as root", 1);
 
 	uwsgi_foreach(usl, uwsgi.mount_as_root) {
@@ -1105,13 +1118,13 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// leave harakiri mode
-	if (uwsgi.workers[uwsgi.mywid].harakiri > 0) {
-		set_harakiri(0);
+	if (uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].harakiri > 0) {
+		set_harakiri(wsgi_req, 0);
 	}
 
 	// leave user harakiri mode
-	if (uwsgi.workers[uwsgi.mywid].user_harakiri > 0) {
-		set_user_harakiri(0);
+	if (uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri > 0) {
+		set_user_harakiri(wsgi_req, 0);
 	}
 
 	if (!wsgi_req->do_not_account) {
@@ -1177,7 +1190,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	// yes, this is pretty useless but we cannot ensure all of the plugin have the same behaviour
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
 
-	if (uwsgi.max_requests > 0 && uwsgi.workers[uwsgi.mywid].delta_requests >= uwsgi.max_requests
+	if (uwsgi.max_requests > 0 && uwsgi.workers[uwsgi.mywid].delta_requests >= (uwsgi.max_requests + ((uwsgi.mywid-1) * uwsgi.max_requests_delta))
 	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
 		goodbye_cruel_world();
 	}
@@ -1368,7 +1381,7 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 
 	// enter harakiri mode
 	if (uwsgi.harakiri_options.workers > 0) {
-		set_harakiri(uwsgi.harakiri_options.workers);
+		set_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
 	}
 
 	return 0;
@@ -1400,7 +1413,7 @@ int wsgi_req_recv(int queue, struct wsgi_request *wsgi_req) {
 
 	// enter harakiri mode
 	if (uwsgi.harakiri_options.workers > 0) {
-		set_harakiri(uwsgi.harakiri_options.workers);
+		set_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
 	}
 
 #ifdef UWSGI_ROUTING
@@ -1521,7 +1534,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 		thunder_unlock;
 
-		uwsgi_receive_signal(interesting_fd, "worker", uwsgi.mywid);
+		uwsgi_receive_signal(wsgi_req, interesting_fd, "worker", uwsgi.mywid);
 
 		if (uwsgi.threads > 1)
 			pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
@@ -1772,9 +1785,15 @@ void *uwsgi_malloc(size_t size) {
 }
 
 void *uwsgi_calloc(size_t size) {
-
-	char *ptr = uwsgi_malloc(size);
-	memset(ptr, 0, size);
+	// thanks Mathieu Dupuy for pointing out that calloc is faster
+	// than malloc + memset
+	char *ptr = calloc(1, size);
+	if (ptr == NULL) {
+		uwsgi_error("calloc()");
+		uwsgi_log("!!! tried memory allocation of %llu bytes !!!\n", (unsigned long long) size);
+		uwsgi_backtrace(uwsgi.backtrace_depth);
+		exit(1);
+	}
 	return ptr;
 }
 
@@ -1846,24 +1865,6 @@ void init_magic_table(char *magic_table[]) {
 	magic_table['('] = "%(";
 }
 
-char *uwsgi_get_last_char(char *what, char c) {
-	size_t len = strlen(what);
-	while (len--) {
-		if (what[len] == c)
-			return what + len;
-	}
-	return NULL;
-}
-
-char *uwsgi_get_last_charn(char *what, size_t len, char c) {
-	while (len--) {
-		if (what[len] == c)
-			return what + len;
-	}
-	return NULL;
-}
-
-
 char *uwsgi_num2str(int num) {
 
 	char *str = uwsgi_malloc(11);
@@ -1895,13 +1896,7 @@ int uwsgi_long2str2n(unsigned long long num, char *ptr, int size) {
 }
 
 int is_unix(char *socket_name, int len) {
-	int i;
-	for (i = 0; i < len; i++) {
-		if (socket_name[i] == ':')
-			return 0;
-	}
-
-	return 1;
+	return !memchr(socket_name, ':', len);
 }
 
 int is_a_number(char *what) {
@@ -2215,6 +2210,12 @@ void *uwsgi_malloc_shared(size_t size) {
 
 void *uwsgi_calloc_shared(size_t size) {
 	void *ptr = uwsgi_malloc_shared(size);
+	// NOTE by Mathieu Dupuy:
+	// OSes guarantee mmap MAP_ANON memory area to be zero-filled (see man pages)
+
+	// we should trust it, but history has taught us it is better to be paranoid.
+	// Lucky enough this function is called ony in startup phases, so performance
+	// tips/tricks are irrelevant (So, le'ts call memset...)
 	memset(ptr, 0, size);
 	return ptr;
 }
@@ -3108,6 +3109,8 @@ pid_t uwsgi_fork(char *name) {
 #if defined(__linux__) || defined(__sun__)
 		int i;
 		for (i = 0; i < uwsgi.argc; i++) {
+			// stop fixing original argv if the new one is bigger
+			if (!uwsgi.orig_argv[i]) break;
 			strcpy(uwsgi.orig_argv[i], uwsgi.argv[i]);
 		}
 #endif
@@ -4463,3 +4466,26 @@ mode_t uwsgi_mode_t(char *value, int *error) {
 	return mode;
 }
 
+// type -> 1 file, 2 dir, 0 both
+int uwsgi_wait_for_fs(char *filename, int type) {
+	if (!uwsgi.wait_for_fs_timeout) {
+        	uwsgi.wait_for_fs_timeout = 60;
+        }
+        uwsgi_log("waiting for %s (max %d seconds) ...\n", filename, uwsgi.wait_for_fs_timeout);
+        int counter = 0;
+        for (;;) {
+        	if (counter > uwsgi.wait_for_fs_timeout) {
+                	uwsgi_log("%s unavailable after %d seconds\n", filename, counter);
+			return -1;
+                }
+		struct stat st;
+		if (stat(filename, &st)) goto retry;
+		if (type == 1 && !S_ISREG(st.st_mode)) goto retry;
+		if (type == 2 && !S_ISDIR(st.st_mode)) goto retry;
+                uwsgi_log_verbose("%s found\n", filename);
+		return 0;
+retry:
+                sleep(1);
+                counter++;
+	}
+}

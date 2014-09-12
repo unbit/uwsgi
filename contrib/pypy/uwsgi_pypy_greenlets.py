@@ -54,7 +54,7 @@ def uwsgi_pypy_greenlet_switch(wsgi_req):
     # update current running greenlet
     lib.uwsgi.wsgi_req = wsgi_req
 
-if lib.uwsgi.async <= 1:
+if lib.uwsgi.async < 1:
     raise Exception("pypy greenlets require async mode !!!")
 lib.uwsgi.schedule_to_main = uwsgi_pypy_greenlet_switch
 lib.uwsgi.schedule_to_req = uwsgi_pypy_greenlet_schedule

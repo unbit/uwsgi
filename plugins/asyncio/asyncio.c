@@ -205,7 +205,7 @@ static PyObject *py_uwsgi_asyncio_accept(PyObject *self, PyObject *args) {
 
         // enter harakiri mode
         if (uwsgi.harakiri_options.workers > 0) {
-                set_harakiri(uwsgi.harakiri_options.workers);
+                set_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
         }
 
 	uwsgi.async_proto_fd_table[wsgi_req->fd] = wsgi_req;
@@ -314,7 +314,7 @@ static void asyncio_loop() {
 
 	uwsgi.schedule_fix = uwsgi_asyncio_schedule_fix;
 
-	if (uwsgi.async < 2) {
+	if (uwsgi.async < 1) {
 		uwsgi_log("the asyncio loop engine requires async mode (--async <n>)\n");
 		exit(1);
 	}

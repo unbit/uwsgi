@@ -456,7 +456,7 @@ void spooler(struct uwsgi_spooler *uspool) {
 		if (event_queue_wait(spooler_event_queue, timeout, &interesting_fd) > 0) {
 			if (uwsgi.master_process) {
 				if (interesting_fd == uwsgi.shared->spooler_signal_pipe[1]) {
-					uwsgi_receive_signal(interesting_fd, "spooler", (int) getpid());
+					uwsgi_receive_signal(NULL, interesting_fd, "spooler", (int) getpid());
 				}
 			}
 		}

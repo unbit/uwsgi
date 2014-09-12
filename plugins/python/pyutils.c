@@ -289,7 +289,7 @@ int uwsgi_python_call(struct wsgi_request *wsgi_req, PyObject *callable, PyObjec
 
 	if (wsgi_req->async_result) {
 		while ( manage_python_response(wsgi_req) != UWSGI_OK) {
-			if (uwsgi.async > 1) {
+			if (uwsgi.async > 0) {
 				return UWSGI_AGAIN;
 			}
 		}

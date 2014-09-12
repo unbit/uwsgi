@@ -270,7 +270,7 @@ static int uwsgi_glusterfs_request(struct wsgi_request *wsgi_req) {
 	// skip body on HEAD
 	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
 		size_t remains = st.st_size;
-		if (uwsgi.async > 1) {
+		if (uwsgi.async > 0) {
 			if (uwsgi_glusterfs_read_async(wsgi_req, fd, remains)) goto end;
 		}
 		else {

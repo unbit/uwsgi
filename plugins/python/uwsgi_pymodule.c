@@ -46,10 +46,10 @@ static PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 	UWSGI_RELEASE_GIL;
 
 	if (wait_for_specific_signal) {
-		received_signal = uwsgi_signal_wait(uwsgi_signal);
+		received_signal = uwsgi_signal_wait(wsgi_req, uwsgi_signal);
 	}
 	else {
-		received_signal = uwsgi_signal_wait(-1);
+		received_signal = uwsgi_signal_wait(wsgi_req, -1);
 	}
 
 	if (received_signal < 0) {
@@ -893,12 +893,13 @@ PyObject *py_uwsgi_log(PyObject * self, PyObject * args) {
 }
 
 PyObject *py_uwsgi_set_user_harakiri(PyObject * self, PyObject * args) {
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 	int sec = 0;
 	if (!PyArg_ParseTuple(args, "i:set_user_harakiri", &sec)) {
                 return NULL;
         }
 
-	set_user_harakiri(sec);
+	set_user_harakiri(wsgi_req, sec);
 
         Py_INCREF(Py_None);
         return Py_None;
@@ -1654,7 +1655,6 @@ PyObject *py_uwsgi_sharedarea_read64(PyObject * self, PyObject * args) {
         }
 
 	return PyLong_FromLongLong(value);
-
 }
 
 PyObject *py_uwsgi_sharedarea_read32(PyObject * self, PyObject * args) {

@@ -388,6 +388,8 @@ void uwsgi_reload(char **argv) {
 	int i;
 	int waitpid_status;
 
+	if (uwsgi.new_argv) argv = uwsgi.new_argv;
+
 	if (!uwsgi.master_is_reforked) {
 
 		// call a series of waitpid to ensure all processes (gateways, mules and daemons) are dead
@@ -630,7 +632,7 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 }
 
 int uwsgi_respawn_worker(int wid) {
-
+	int i;
 	int respawns = uwsgi.workers[wid].respawn_count;
 	// the workers is not accepting (obviously)
 	uwsgi.workers[wid].accepting = 0;
@@ -639,8 +641,10 @@ int uwsgi_respawn_worker(int wid) {
 	// ... same for update time
 	uwsgi.workers[wid].last_spawn = uwsgi.current_time;
 	// ... and memory/harakiri
-	uwsgi.workers[wid].harakiri = 0;
-	uwsgi.workers[wid].user_harakiri = 0;
+	for(i=0;i<uwsgi.cores;i++) {
+		uwsgi.workers[wid].cores[i].harakiri = 0;
+		uwsgi.workers[wid].cores[i].user_harakiri = 0;
+	}
 	uwsgi.workers[wid].pending_harakiri = 0;
 	uwsgi.workers[wid].rss_size = 0;
 	uwsgi.workers[wid].vsz_size = 0;
@@ -657,8 +661,6 @@ int uwsgi_respawn_worker(int wid) {
 
 	// this is required for various checks
 	uwsgi.workers[wid].delta_requests = 0;
-
-	int i;
 
 	if (uwsgi.threaded_logger) {
 		pthread_mutex_lock(&uwsgi.threaded_logger_lock);

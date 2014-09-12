@@ -116,7 +116,7 @@ static void greenlet_init_apps(void) {
 
 	if (!ugl.enabled) return;
 
-	if (uwsgi.async <= 1) {
+	if (uwsgi.async < 1) {
                 uwsgi_log("the greenlet suspend engine requires async mode\n");
                 exit(1);
         }

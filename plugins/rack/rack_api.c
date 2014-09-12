@@ -110,7 +110,8 @@ static VALUE rack_uwsgi_warning(VALUE *class, VALUE rbmessage) {
 
 static VALUE rack_uwsgi_user_harakiri(VALUE *class, VALUE sec) {
         Check_Type(sec, T_FIXNUM);
-	set_user_harakiri(NUM2INT(sec));
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	set_user_harakiri(wsgi_req, NUM2INT(sec));
         return Qnil;
 }
 
@@ -765,10 +766,10 @@ static VALUE uwsgi_ruby_signal_wait(int argc, VALUE *argv, VALUE *class) {
         }
 
         if (wait_for_specific_signal) {
-                received_signal = uwsgi_signal_wait(uwsgi_signal);
+                received_signal = uwsgi_signal_wait(wsgi_req, uwsgi_signal);
         }
         else {
-                received_signal = uwsgi_signal_wait(-1);
+                received_signal = uwsgi_signal_wait(wsgi_req, -1);
         }
 
 	if (received_signal < 0) {

@@ -235,7 +235,7 @@ PyObject *py_uwsgi_tornado_accept(PyObject *self, PyObject *args) {
 
         // enter harakiri mode
         if (uwsgi.harakiri_options.workers > 0) {
-                set_harakiri(uwsgi.harakiri_options.workers);
+                set_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
         }
 
 	uwsgi.async_proto_fd_table[wsgi_req->fd] = wsgi_req;
@@ -342,7 +342,7 @@ static void tornado_loop() {
 
 	uwsgi.schedule_fix = uwsgi_tornado_schedule_fix;
 
-	if (uwsgi.async < 2) {
+	if (uwsgi.async < 1) {
 		uwsgi_log("the tornado loop engine requires async mode (--async <n>)\n");
 		exit(1);
 	}

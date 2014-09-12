@@ -164,7 +164,7 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 			if (!wsgi_req->async_placeholder) {
 				goto clear;
 			}
-			if (uwsgi.async > 1) {
+			if (uwsgi.async > 0) {
 				return UWSGI_AGAIN;
 			}
 		}

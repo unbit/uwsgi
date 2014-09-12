@@ -170,7 +170,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.file_wrapper", wi->sendfile);
 
-	if (uwsgi.async > 1) {
+	if (uwsgi.async > 0) {
 		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.readable", wi->eventfd_read);
 		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.writable", wi->eventfd_write);
 		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_None);
@@ -269,7 +269,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 		if (!wsgi_req->async_placeholder) {
 			goto exception;
 		}
-		if (uwsgi.async > 1) {
+		if (uwsgi.async > 0) {
 			return UWSGI_AGAIN;
 		}
 	}

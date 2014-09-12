@@ -199,6 +199,7 @@ struct uwsgi_python {
 	struct uwsgi_string_list *sharedarea;
 
 	int call_osafterfork;
+	int pre_initialized;
 };
 
 

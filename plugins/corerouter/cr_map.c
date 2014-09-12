@@ -48,11 +48,18 @@ int uwsgi_cr_map_use_pattern(struct uwsgi_corerouter *ucr, struct corerouter_pee
 
 int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
 
-	peer->un = uwsgi_get_subscribe_node(ucr->subscriptions, peer->key, peer->key_len);
+	struct uwsgi_subscription_client usc;
+	usc.fd = peer->session->main_peer->fd;
+	usc.sockaddr = &peer->session->client_sockaddr;
+	usc.cookie = NULL;
+
+	peer->un = uwsgi_get_subscribe_node(ucr->subscriptions, peer->key, peer->key_len, &usc);
 	if (peer->un && peer->un->len) {
 		peer->instance_address = peer->un->name;
 		peer->instance_address_len = peer->un->len;
 		peer->modifier1 = peer->un->modifier1;
+		peer->modifier2 = peer->un->modifier2;
+		peer->proto = peer->un->proto;
 	}
 	else if (ucr->cheap && !ucr->i_am_cheap && uwsgi_no_subscriptions(ucr->subscriptions)) {
 		uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);
@@ -68,12 +75,17 @@ int uwsgi_cr_map_use_subscription_dotsplit(struct uwsgi_corerouter *ucr, struct 
 	// max 5 split, reduce DOS attempts
 	int count = 5;
 
+	struct uwsgi_subscription_client usc;
+	usc.fd = peer->session->main_peer->fd;
+	usc.sockaddr = &peer->session->client_sockaddr;
+	usc.cookie = NULL;
+
 split:
 	if (!count) return 0;
 #ifdef UWSGI_DEBUG
 	uwsgi_log("trying with %.*s\n", name_len, name);
 #endif
-        peer->un = uwsgi_get_subscribe_node(ucr->subscriptions, name, name_len);
+        peer->un = uwsgi_get_subscribe_node(ucr->subscriptions, name, name_len, &usc);
 	if (!peer->un) {
 		char *next = memchr(name+1, '.', name_len-1);
 		if (next) {
@@ -88,6 +100,8 @@ split:
                 peer->instance_address = peer->un->name;
                 peer->instance_address_len = peer->un->len;
                 peer->modifier1 = peer->un->modifier1;
+		peer->modifier2 = peer->un->modifier2;
+		peer->proto = peer->un->proto;
         }
         else if (ucr->cheap && !ucr->i_am_cheap && uwsgi_no_subscriptions(ucr->subscriptions)) {
                 uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);

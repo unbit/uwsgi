@@ -187,7 +187,7 @@ end:
 
 XS(XS_coroae_sighandler) {
 	int sigfd = (long) XSANY.any_ptr;
-	uwsgi_receive_signal(sigfd, "worker", uwsgi.mywid);
+	uwsgi_receive_signal(NULL, sigfd, "worker", uwsgi.mywid);
 }
 
 XS(XS_coroae_acceptor) {
@@ -227,7 +227,7 @@ edge:
 
         // enter harakiri mode
         if (uwsgi.harakiri_options.workers > 0) {
-                set_harakiri(uwsgi.harakiri_options.workers);
+                set_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
         }
 
 
@@ -356,7 +356,7 @@ static void coroae_wait_condvar(SV *cv) {
 
 static void coroae_loop() {
 
-	if (uwsgi.async < 2) {
+	if (uwsgi.async < 1) {
 		if (uwsgi.mywid == 1) {
 			uwsgi_log("the Coro::AnyEvent loop engine requires async mode (--async <n>)\n");
 		}
