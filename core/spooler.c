@@ -1,4 +1,5 @@
 #include "uwsgi.h"
+#include "strings.h"
 
 extern struct uwsgi_server uwsgi;
 
@@ -519,13 +520,13 @@ static int _custom_scandir(
 	}
 
 	while ((dp = readdir(sdir)) != NULL) {
-		// Deep copy of the dirent struct
+		// MINIMAL Deep copy of dirent struct (commented fields aren't portable)
 		struct dirent *copy = uwsgi_malloc(sizeof(struct dirent));
 		copy->d_ino = dp->d_ino;
-		copy->d_reclen = dp->d_reclen;
-		copy->d_type = dp->d_type;
-		copy->d_namlen = dp->d_namlen;
-		bcopy(dp->d_name, copy->d_name, copy->d_namlen + 1);
+		// copy->d_reclen = dp->d_reclen;
+		// copy->d_type = dp->d_type;
+		// copy->d_namlen = dp->d_namlen;
+		bcopy(dp->d_name, copy->d_name, strlen(dp->d_name) + 1);
 
 		count++;
 		if ((*namelist = realloc(*namelist, sizeof(struct dirent *) * count)) == NULL) {
