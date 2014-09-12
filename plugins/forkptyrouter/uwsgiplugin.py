@@ -1,7 +1,13 @@
+import os
+uwsgi_os = os.uname()[0]
+
 NAME='forkptyrouter'
 CFLAGS = []
 LDFLAGS = []
-LIBS = []
+if uwsgi_os in ('Linux', 'FreeBSD', 'GNU', 'NetBSD', 'DragonFly'):
+    LIBS = ['-lutil']
+else:
+    LIBS = []
 
 REQUIRES = ['corerouter']
 
