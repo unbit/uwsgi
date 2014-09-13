@@ -1063,7 +1063,7 @@ struct uwsgi_plugin {
         void (*exception_log)(struct wsgi_request *);
 
 	void (*vassal)(struct uwsgi_instance *);
-	void (*vassal_before_exec)(struct uwsgi_instance *);
+	void (*vassal_before_exec)(struct uwsgi_instance *, char **);
 };
 
 #ifdef UWSGI_PCRE
@@ -2759,6 +2759,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *wait_for_file;
 	int wait_for_fs_timeout;
 	struct uwsgi_string_list *hook_as_emperor_setns;
+	int emperor_force_config_pipe;
 };
 
 struct uwsgi_rpc {
@@ -4673,7 +4674,7 @@ void uwsgi_go_cheap();
 
 char **uwsgi_split_quoted(char *, size_t, char *, size_t *);
 
-void uwsgi_master_manage_emperor_proxy();
+void uwsgi_master_manage_emperor_proxy(int, int, int);
 struct uwsgi_string_list *uwsgi_register_scheme(char *, char * (*)(char *, size_t *, int));
 void uwsgi_setup_schemes(void);
 

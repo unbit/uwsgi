@@ -1743,7 +1743,7 @@ void uwsgi_bind_sockets() {
 		uwsgi_sock = uwsgi_sock->next;
 	}
 
-	if (!zero_used) {
+	if (!zero_used && !(uwsgi.has_emperor == 1 && uwsgi.emperor_fd == 0)) {
 		socket_type_len = sizeof(struct sockaddr_un);
 		gsa.sa = (struct sockaddr *) &usa;
 		if (!uwsgi.skip_zero && !getsockname(0, gsa.sa, &socket_type_len)) {

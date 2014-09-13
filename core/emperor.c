@@ -374,7 +374,7 @@ static char *emperor_check_on_demand_socket(char *filename, struct uwsgi_dyn_dic
 	else if (uwsgi.emperor_on_demand_exec) {
 		int cpipe[2];
 		if (pipe(cpipe)) {
-			uwsgi_error("emperor_check_on_demand_socket()pipe()");
+			uwsgi_error("emperor_check_on_demand_socket()/pipe()");
 			return NULL;
 		}
 		char *cmd = uwsgi_concat4(uwsgi.emperor_on_demand_exec, " \"", filename, "\"");
@@ -465,6 +465,18 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 			}
 			// check if mtime is changed and the uWSGI instance must be reloaded
 			if (st.st_mtime > ui_current->last_mod) {
+				if (uwsgi.emperor_force_config_pipe) {
+					char *config = uwsgi_simple_file_read(de->d_name);
+					if (!config) {
+						uwsgi_log_verbose("[emperor] unable to read %s\n", de->d_name);
+						emperor_stop(ui_current);
+                                        	continue;
+					}
+					if (ui_current->config)
+                                        	free(ui_current->config);
+                                	ui_current->config = config;
+                                	ui_current->config_len = strlen(ui_current->config);
+				}
 				emperor_respawn(ui_current, st.st_mtime);
 			}
 		}
@@ -476,7 +488,18 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 				}
 			}
 			char *socket_name = emperor_check_on_demand_socket(de->d_name, attrs);
-			emperor_add_with_attrs(ues, de->d_name, st.st_mtime, NULL, 0, t_uid, t_gid, socket_name, attrs);
+			if (uwsgi.emperor_force_config_pipe) {
+				char *config = uwsgi_simple_file_read(de->d_name);
+				if (config) {
+					emperor_add_with_attrs(ues, de->d_name, st.st_mtime, config, strlen(config), t_uid, t_gid, socket_name, attrs);
+				}
+				else {
+					uwsgi_log_verbose("[emperor] unable to read %s\n", de->d_name);
+				}
+			}
+			else {
+				emperor_add_with_attrs(ues, de->d_name, st.st_mtime, NULL, 0, t_uid, t_gid, socket_name, attrs);
+			}
 			if (socket_name)
 				free(socket_name);
 		}
@@ -942,7 +965,8 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 	}
 
 	// push the config to the config pipe (if needed)
-	emperor_push_config(c_ui);
+	// changed in 2.1, the vassal asks for config blob
+	//emperor_push_config(c_ui);
 
 	c_ui->respawns++;
 	c_ui->last_mod = mod;
@@ -1629,13 +1653,13 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 	// ->vassal_before_exec
 	for (i = 0; i < 256; i++) {
                 if (uwsgi.p[i]->vassal_before_exec) {
-                        uwsgi.p[i]->vassal_before_exec(n_ui);
+                        uwsgi.p[i]->vassal_before_exec(n_ui, vassal_argv);
                 }
         }
 
         for (i = 0; i < uwsgi.gp_cnt; i++) {
                 if (uwsgi.gp[i]->vassal_before_exec) {
-                        uwsgi.gp[i]->vassal_before_exec(n_ui);
+                        uwsgi.gp[i]->vassal_before_exec(n_ui, vassal_argv);
                 }
         }
 
@@ -2014,6 +2038,7 @@ void emperor_loop() {
 						uwsgi_log_verbose("[emperor] vassal %s has been spawned\n", ui_current->name);
 					}
 					else if (byte == 2) {
+						uwsgi_log("ASKING for config\n");
 						emperor_push_config(ui_current);
 					}
 				}
@@ -2659,19 +2684,19 @@ void uwsgi_master_manage_emperor() {
 
 }
 
-void uwsgi_master_manage_emperor_proxy() {
+void uwsgi_master_manage_emperor_proxy(int server_fd, int emperor_fd, int emperor_fd_config) {
 
 	struct sockaddr_un epsun;
 	socklen_t epsun_len = sizeof(struct sockaddr_un);
 
-	int ep_client = accept(uwsgi.emperor_fd_proxy, (struct sockaddr *) &epsun, &epsun_len);
+	int ep_client = accept(server_fd, (struct sockaddr *) &epsun, &epsun_len);
 	if (ep_client < 0) {
 		uwsgi_error("uwsgi_master_manage_emperor_proxy()/accept()");
 		return;
 	}
 
 	int num_fds = 1;
-	if (uwsgi.emperor_fd_config > -1)
+	if (emperor_fd_config > -1)
 		num_fds++;
 
 	struct msghdr ep_msg;
@@ -2701,9 +2726,9 @@ void uwsgi_master_manage_emperor_proxy() {
 
 	unsigned char *ep_fd_ptr = CMSG_DATA(cmsg);
 
-	memcpy(ep_fd_ptr, &uwsgi.emperor_fd, sizeof(int));
+	memcpy(ep_fd_ptr, &emperor_fd, sizeof(int));
 	if (num_fds > 1) {
-		memcpy(ep_fd_ptr + sizeof(int), &uwsgi.emperor_fd_config, sizeof(int));
+		memcpy(ep_fd_ptr + sizeof(int), &emperor_fd_config, sizeof(int));
 	}
 
 	if (sendmsg(ep_client, &ep_msg, 0) < 0) {
