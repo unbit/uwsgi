@@ -48,6 +48,20 @@ char *vassal_attr_get(struct uwsgi_instance *c_ui, char *attr) {
 	return NULL;
 }
 
+int vassal_attr_get_multi(struct uwsgi_instance *c_ui, char *attr, int (*func)(struct uwsgi_instance *, char *, void *), void *data) {
+	if (!attr) return -1;
+        struct uwsgi_dyn_dict *attrs = c_ui->attrs;
+        while(attrs) {
+                if (!strcmp(attrs->key, attr)) {
+			if (func(c_ui, attrs->value, data)) {
+				return -1;
+			}
+                }
+                attrs = attrs->next;
+        }
+        return 0;
+}
+
 // this generates the argv for the new vassal
 static char **vassal_new_argv(struct uwsgi_instance *n_ui, int *slot_to_free) {
 
