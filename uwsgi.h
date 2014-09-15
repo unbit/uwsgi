@@ -3041,6 +3041,8 @@ pid_t spooler_start(struct uwsgi_spooler *);
 
 #ifdef _GNU_SOURCE
 #define uwsgi_versionsort versionsort
+#else
+int uwsgi_versionsort(const struct dirent **da, const struct dirent **db);
 #endif
 
 void uwsgi_curse(int, int);
