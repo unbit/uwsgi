@@ -68,7 +68,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 
 
         hitem = av_fetch(response, 1, 0);
-	if (!hitem || SvTYPE(*hitem) != SVt_PVAV) { uwsgi_log("invalid PSGI headers\n"); return UWSGI_OK;}
+	if (!hitem || !SvRV(*hitem) || SvTYPE(SvRV(*hitem)) != SVt_PVAV) { uwsgi_log("invalid PSGI headers\n"); return UWSGI_OK;}
 
         headers = (AV *) SvRV(*hitem);
 	if (!headers) { uwsgi_log("invalid PSGI headers\n"); return UWSGI_OK;}
