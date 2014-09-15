@@ -2510,7 +2510,7 @@ void uwsgi_check_emperor() {
 				sleep(1);
 				continue;
 			}
-			int count = 2;
+			int count = 3;
 			int *fds = uwsgi_attach_fd(proxy_fd, &count, "uwsgi-emperor", 13);
 			if (fds && count > 0) {
 				char *env_emperor_fd = uwsgi_num2str(fds[0]);
@@ -2526,7 +2526,6 @@ void uwsgi_check_emperor() {
 				int i;
 				for(i=1;i<count;i++) {
 					char *socket_name = uwsgi_getsockname(fds[i]);
-					uwsgi_log("SOCKET_NAME = %s\n", socket_name);
 					if (!socket_name) {
 						int j;
                                                 for (j = 0; j < count; j++)
