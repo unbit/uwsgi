@@ -2523,14 +2523,16 @@ void uwsgi_check_emperor() {
 					goto next;
 				}
 				free(env_emperor_fd);
-				if (count > 1) {
-					char *env_emperor_fd_config = uwsgi_num2str(fds[1]);
+				int i;
+				for(i=1;i<count;i++) {
+					uwsgi_log("SOCKET NAME = %s\n", uwsgi_getsockname(fds[i]));
+					char *env_emperor_fd_config = uwsgi_num2str(fds[i]);
 					if (setenv("UWSGI_EMPEROR_FD_CONFIG", env_emperor_fd_config, 1)) {
 						uwsgi_error("uwsgi_check_emperor()/setenv(UWSGI_EMPEROR_FD_CONFIG)");
 						free(env_emperor_fd_config);
-						int i;
-						for (i = 0; i < count; i++)
-							close(fds[i]);
+						int j;
+						for (j = 0; j < count; j++)
+							close(fds[j]);
 						goto next;
 					}
 					free(env_emperor_fd_config);
