@@ -2526,6 +2526,7 @@ void uwsgi_check_emperor() {
 				int i;
 				for(i=1;i<count;i++) {
 					char *socket_name = uwsgi_getsockname(fds[i]);
+					uwsgi_log("SOCKET_NAME = %s\n", socket_name);
 					if (!socket_name) {
 						int j;
                                                 for (j = 0; j < count; j++)
