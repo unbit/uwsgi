@@ -133,7 +133,7 @@ extern "C" {
 	uwsgi.gp_cnt++;\
 	}\
 
-#define uwsgi_foreach(x, y) for(x=y;x;x = x->next) 
+#define uwsgi_foreach(x, y) for(x=y;x;x = x->next)
 
 #define uwsgi_foreach_token(x, y, z, w) for(z=strtok_r(x, y, &w);z;z = strtok_r(NULL, y, &w))
 
@@ -1158,7 +1158,7 @@ struct uwsgi_route {
 	pcre_extra *pattern_extra;
 
 	char *orig_route;
-	
+
 	// one for each core
 	int *ovn;
 	int **ovector;
@@ -1537,7 +1537,7 @@ struct wsgi_request {
 	uint16_t http_origin_len;
 	char *http_sec_websocket_protocol;
 	uint16_t http_sec_websocket_protocol_len;
-	
+
 
 	struct uwsgi_buffer *chunked_input_buf;
 	uint8_t chunked_input_parser_status;
@@ -2105,7 +2105,7 @@ struct uwsgi_server {
         struct uwsgi_string_list *hook_as_emperor;
         struct uwsgi_string_list *hook_as_mule;
         struct uwsgi_string_list *hook_as_gateway;
-	
+
 
 	struct uwsgi_string_list *exec_asap;
 	struct uwsgi_string_list *exec_pre_jail;
@@ -2636,7 +2636,7 @@ struct uwsgi_server {
 
 	// rpc
 	uint64_t rpc_max;
-	struct uwsgi_rpc *rpc_table;	
+	struct uwsgi_rpc *rpc_table;
 
 	// subscription client
 	int subscriptions_blocked;
@@ -3038,6 +3038,10 @@ void uwsgi_master_manage_snmp(int);
 char *uwsgi_spool_request(struct wsgi_request *, char *, size_t, char *, size_t);
 void spooler(struct uwsgi_spooler *);
 pid_t spooler_start(struct uwsgi_spooler *);
+
+#ifdef _GNU_SOURCE
+#define uwsgi_versionsort versionsort
+#endif
 
 void uwsgi_curse(int, int);
 void uwsgi_curse_mule(int, int);
@@ -3917,7 +3921,7 @@ struct uwsgi_stats_pusher_instance {
 	struct uwsgi_stats_pusher *pusher;
 	char *arg;
 	void *data;
-	int raw;	
+	int raw;
 	int configured;
 	int freq;
 	time_t last_run;
@@ -4250,7 +4254,7 @@ struct uwsgi_offload_engine {
 	char *name;
 	int (*prepare_func)(struct wsgi_request *, struct uwsgi_offload_request *);
 	int (*event_func) (struct uwsgi_thread *, struct uwsgi_offload_request *, int);
-	struct uwsgi_offload_engine *next;	
+	struct uwsgi_offload_engine *next;
 };
 
 struct uwsgi_offload_engine *uwsgi_offload_engine_by_name(char *);
@@ -4682,7 +4686,7 @@ struct uwsgi_metric {
         time_t last_update;
 
         // run this function to collect the value
-	struct uwsgi_metric_collector *collector;	
+	struct uwsgi_metric_collector *collector;
         // take the value from this pointer to a 64bit value
         int64_t *ptr;
         // get the initial value from this file, and store each update in it

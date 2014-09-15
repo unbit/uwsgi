@@ -466,8 +466,8 @@ void spooler(struct uwsgi_spooler *uspool) {
 	}
 }
 
-#ifndef __linux__
-static int _custom_sort(const struct dirent **da, const struct dirent **db) {
+#ifndef _GNU_SOURCE
+int uwsgi_versionsort(const struct dirent **da, const struct dirent **db) {
 
         const char *a = (*da)->d_name;
         const char *b = (*db)->d_name;
@@ -496,59 +496,6 @@ static int _custom_sort(const struct dirent **da, const struct dirent **db) {
             return strcmp((*da)->d_name, (*db)->d_name);
         }
 }
-
-// Replace glibc scandir
-static int _custom_scandir(
-			const char *dirp,
-			struct dirent ***namelist,
-			int (*compar)(const void *, const void *)
-        ) {
-
-	DIR *sdir;
-	struct dirent *dp;
-	size_t count = 0;
-
-	if (!dirp || !namelist) {
-		return -1;
-	}
-
-	*namelist = NULL;
-
-	if (!(sdir = opendir(dirp))) {
-		uwsgi_error("opendir()");
-		return -1;
-	}
-
-	while ((dp = readdir(sdir)) != NULL) {
-		// MINIMAL Deep copy of dirent struct (commented fields aren't portable)
-		struct dirent *copy = uwsgi_malloc(sizeof(struct dirent));
-		copy->d_ino = dp->d_ino;
-		// copy->d_reclen = dp->d_reclen;
-		// copy->d_type = dp->d_type;
-		// copy->d_namlen = dp->d_namlen;
-		bcopy(dp->d_name, copy->d_name, strlen(dp->d_name) + 1);
-
-		count++;
-		if ((*namelist = realloc(*namelist, sizeof(struct dirent *) * count)) == NULL) {
-			uwsgi_error("realloc()");
-			closedir(sdir);
-			exit(1);
-		};
-		(*namelist)[count - 1] = copy;
-	}
-
-	if (compar) {
-		qsort(
-			*namelist,
-			count,
-			sizeof(struct dirent *),
-			compar
-		);
-	}
-
-	closedir(sdir);
-	return count;
-}
 #endif
 
 static void spooler_scandir(struct uwsgi_spooler *uspool, char *dir) {
@@ -559,11 +506,7 @@ static void spooler_scandir(struct uwsgi_spooler *uspool, char *dir) {
 	if (!dir)
 		dir = uspool->dir;
 
-#ifdef __linux__
-	n = scandir(dir, &tasklist, 0, versionsort);
-#else
-	n = _custom_scandir(dir, &tasklist, (int(*)(const void *, const void *))_custom_sort);
-#endif
+	n = scandir(dir, &tasklist, 0, uwsgi_versionsort);
 
 	if (n < 0) {
 		uwsgi_error("scandir()");
