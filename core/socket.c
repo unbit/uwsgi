@@ -51,6 +51,8 @@ char *uwsgi_getsockname(int fd) {
 
 	if (!getsockname(fd, gsa.sa, &socket_type_len)) {
 		if (gsa.sa->sa_family == AF_UNIX) {
+			// unnamed socket ?
+			if (socket_type_len == sizeof(sa_family_t)) return "";
 			if (usa.sa_un.sun_path[0] == 0) {
 				return uwsgi_concat2("@", usa.sa_un.sun_path + 1);
 			}

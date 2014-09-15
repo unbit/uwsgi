@@ -45,7 +45,7 @@ int uwsgi_master_manage_events(int interesting_fd) {
 	// emperor event ?
 	if (uwsgi.has_emperor) {
 		if (uwsgi.emperor_fd_proxy > -1 && interesting_fd == uwsgi.emperor_fd_proxy) {
-			uwsgi_master_manage_emperor_proxy(uwsgi.emperor_fd_proxy, uwsgi.emperor_fd, uwsgi.emperor_fd_config);	
+			uwsgi_master_manage_emperor_proxy(uwsgi.emperor_fd_proxy, uwsgi.emperor_fd, uwsgi.emperor_fd_config, -1);	
 			return 0;
 		}
 

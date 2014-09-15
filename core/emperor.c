@@ -2525,17 +2525,38 @@ void uwsgi_check_emperor() {
 				free(env_emperor_fd);
 				int i;
 				for(i=1;i<count;i++) {
-					uwsgi_log("SOCKET NAME = %s\n", uwsgi_getsockname(fds[i]));
-					char *env_emperor_fd_config = uwsgi_num2str(fds[i]);
-					if (setenv("UWSGI_EMPEROR_FD_CONFIG", env_emperor_fd_config, 1)) {
-						uwsgi_error("uwsgi_check_emperor()/setenv(UWSGI_EMPEROR_FD_CONFIG)");
-						free(env_emperor_fd_config);
+					char *socket_name = uwsgi_num2str(fds[i]);
+					if (!socket_name) {
 						int j;
-						for (j = 0; j < count; j++)
-							close(fds[j]);
-						goto next;
+                                                for (j = 0; j < count; j++)
+                                                        close(fds[j]);
+                                                goto next;
 					}
-					free(env_emperor_fd_config);
+					if (socket_name[0] != 0) {
+						// map the socket to fd0
+						if (fds[i] != 0) {
+							if (dup2(fds[i], 0) < 0) {
+								uwsgi_error("uwsgi_check_emperor()/dup2()");
+								int j;
+                                                		for (j = 0; j < count; j++)
+                                                        		close(fds[j]);
+                                                		goto next;
+							}
+							close(fds[i]);
+						}
+					}
+					else {
+						char *env_emperor_fd_config = uwsgi_num2str(fds[i]);
+						if (setenv("UWSGI_EMPEROR_FD_CONFIG", env_emperor_fd_config, 1)) {
+							uwsgi_error("uwsgi_check_emperor()/setenv(UWSGI_EMPEROR_FD_CONFIG)");
+							free(env_emperor_fd_config);
+							int j;
+							for (j = 0; j < count; j++)
+								close(fds[j]);
+							goto next;
+						}
+						free(env_emperor_fd_config);
+					}
 				}
 				break;
 			}
@@ -2700,7 +2721,7 @@ void uwsgi_master_manage_emperor() {
 
 }
 
-void uwsgi_master_manage_emperor_proxy(int server_fd, int emperor_fd, int emperor_fd_config) {
+void uwsgi_master_manage_emperor_proxy(int server_fd, int emperor_fd, int emperor_fd_config, int socket_fd) {
 
 	struct sockaddr_un epsun;
 	socklen_t epsun_len = sizeof(struct sockaddr_un);
@@ -2713,6 +2734,8 @@ void uwsgi_master_manage_emperor_proxy(int server_fd, int emperor_fd, int empero
 
 	int num_fds = 1;
 	if (emperor_fd_config > -1)
+		num_fds++;
+	if (socket_fd > -1)
 		num_fds++;
 
 	struct msghdr ep_msg;
@@ -2743,8 +2766,14 @@ void uwsgi_master_manage_emperor_proxy(int server_fd, int emperor_fd, int empero
 	unsigned char *ep_fd_ptr = CMSG_DATA(cmsg);
 
 	memcpy(ep_fd_ptr, &emperor_fd, sizeof(int));
-	if (num_fds > 1) {
-		memcpy(ep_fd_ptr + sizeof(int), &emperor_fd_config, sizeof(int));
+	if (emperor_fd_config > -1) {
+		ep_fd_ptr += sizeof(int);
+		memcpy(ep_fd_ptr, &emperor_fd_config, sizeof(int));
+	}
+
+	if (socket_fd > -1) {
+		ep_fd_ptr += sizeof(int);
+		memcpy(ep_fd_ptr, &socket_fd, sizeof(int));
 	}
 
 	if (sendmsg(ep_client, &ep_msg, 0) < 0) {

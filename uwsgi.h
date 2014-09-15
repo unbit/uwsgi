@@ -4674,7 +4674,7 @@ void uwsgi_go_cheap();
 
 char **uwsgi_split_quoted(char *, size_t, char *, size_t *);
 
-void uwsgi_master_manage_emperor_proxy(int, int, int);
+void uwsgi_master_manage_emperor_proxy(int, int, int, int);
 struct uwsgi_string_list *uwsgi_register_scheme(char *, char * (*)(char *, size_t *, int));
 void uwsgi_setup_schemes(void);
 
