@@ -4489,3 +4489,35 @@ retry:
                 counter++;
 	}
 }
+
+#ifndef _GNU_SOURCE
+int uwsgi_versionsort(const struct dirent **da, const struct dirent **db) {
+
+        const char *a = (*da)->d_name;
+        const char *b = (*db)->d_name;
+
+        long la, lb;
+        char *endptr;
+
+        // Check if a and b are valid numbers.
+        la = strtol(a, &endptr, 10);
+        if (strcmp(endptr, "\0") || endptr == a) {
+            a = NULL;
+        }
+
+        lb = strtol(b, &endptr, 10);
+        if (strcmp(endptr, "\0") || endptr == b) {
+            b = NULL;
+        }
+
+        if (a && b) {
+            return (la < lb ? -1 : la > lb);
+        } else if (a) {
+            return -1;
+        } else if (b) {
+            return 1;
+        } else {
+            return strcmp((*da)->d_name, (*db)->d_name);
+        }
+}
+#endif
