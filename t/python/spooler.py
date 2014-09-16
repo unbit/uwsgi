@@ -8,6 +8,7 @@ import fcntl
 from shutil import rmtree
 import time
 import constants
+from signal import *
 
 
 def spoolersTaskList():
@@ -48,7 +49,7 @@ def taskParameters(filepath):
 
 
 def cleanTasks():
-	# Clean the spooler (debug)
+	# Clean any remaining task
 	for s in uwsgi.spoolers:
 		for f in os.listdir(s):
 			path = os.path.join(s, f)
@@ -61,6 +62,7 @@ def cleanTasks():
 class BitmapTest(unittest.TestCase):
 
 	def setUp(self):
+		self.addCleanup(cleanTasks)
 		for priority, name in constants.tasks:
 			task = {'name': name, 'at': int(time.time() + 10)}
 			if priority is not None:
@@ -76,5 +78,6 @@ class BitmapTest(unittest.TestCase):
 			loglines = [line.rstrip() for line in log]
 			self.assertEqual(loglines, constants.ordered_tasks)
 
-
+signal(SIGINT, cleanTasks)
 unittest.main()
+
