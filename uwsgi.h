@@ -2760,6 +2760,7 @@ struct uwsgi_server {
 	int wait_for_fs_timeout;
 	struct uwsgi_string_list *hook_as_emperor_setns;
 	int emperor_force_config_pipe;
+	struct uwsgi_string_list *hook_as_on_config_vassal;
 };
 
 struct uwsgi_rpc {
