@@ -948,7 +948,7 @@ int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 	struct timespec ts;
 	struct kevent ev;
 
-	if (timeout <= 0) {
+	if (timeout < 0) {
 		ret = kevent(eq, NULL, 0, &ev, 1, NULL);
 	}
 	else {
