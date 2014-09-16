@@ -15,6 +15,11 @@ it exports values exposed by the metric subsystem
 */
 
 extern struct uwsgi_server uwsgi;
+int no_workers;
+
+static struct uwsgi_option statsd_options[] = {
+	{"statsd-no-workers", no_argument, 0, "disable generation of single worker metrics", uwsgi_opt_true, &no_workers, 0}
+};
 
 // configuration of a statsd node
 struct statsd_node {
@@ -87,6 +92,16 @@ static void stats_pusher_statsd(struct uwsgi_stats_pusher_instance *uspi, time_t
 	struct uwsgi_metric *um = uwsgi.metrics;
 	while(um) {
 		uwsgi_rlock(uwsgi.metrics_lock);
+
+		// statsd-no-workers parameter, doesn't affect worker 0
+		if (no_workers) {
+			if (strstr(um->name, "worker.") == um->name && !strstr(um->name, "worker.0")) {
+				uwsgi_rwunlock(uwsgi.metrics_lock);
+				um = um->next;
+				continue;
+			}
+		}
+
 		// ignore return value
 		if (um->type == UWSGI_METRIC_GAUGE) {
 			statsd_send_metric(ub, uspi, um->name, um->name_len, *um->value, "|g");
@@ -114,6 +129,7 @@ static void stats_pusher_statsd_init(void) {
 struct uwsgi_plugin stats_pusher_statsd_plugin = {
 
         .name = "stats_pusher_statsd",
+        .options = statsd_options,
         .on_load = stats_pusher_statsd_init,
 };
 
