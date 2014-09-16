@@ -1,6 +1,6 @@
 #include "uwsgi.h"
 
-#if defined(__sun)  && defined(__SVR4)
+#ifdef __sun__
 #include "strings.h"
 #endif
 
