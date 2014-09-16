@@ -30,4 +30,5 @@ uwsgi.spooler = spoolerHandler
 try:
 	remove(LOGFILE)
 except OSError, e:  # log does not exist
-	print(e)
+	pass
+	# print(e)
