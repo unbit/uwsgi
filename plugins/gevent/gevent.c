@@ -329,8 +329,8 @@ end:
         } else {
                 // If we stopped any watcher due to being out of async workers, restart it.
                 int i = 0;
-                for (struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-                     uwsgi_sock; uwsgi_sock = uwsgi_sock->next, ++i) {
+                struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+                for (; uwsgi_sock; uwsgi_sock = uwsgi_sock->next, ++i) {
                         PyObject *py_watcher_active = PyObject_GetAttrString(ugevent.watchers[i], "active");
                         if (py_watcher_active && PyBool_Check(py_watcher_active) &&
                             !PyInt_AsLong(py_watcher_active)) {
