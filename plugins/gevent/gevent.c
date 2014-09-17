@@ -218,9 +218,6 @@ edge:
 
 	// hack to easily pass wsgi_req pointer to the greenlet
 	PyTuple_SetItem(ugevent.greenlet_args, 1, PyLong_FromLong((long)wsgi_req));
-	PyTuple_SetItem(ugevent.greenlet_args, 2, PyInt_FromLong(watcher_index));
-	PyTuple_SetItem(ugevent.greenlet_args, 3, py_uwsgi_sock);
-	Py_INCREF(py_uwsgi_sock);
 
 	// spawn the request greenlet
 	PyObject *new_gl = python_call(ugevent.spawn, ugevent.greenlet_args, 0, NULL);
@@ -247,8 +244,6 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 
 	PyObject *py_wsgi_req = PyTuple_GetItem(args, 0);
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) PyLong_AsLong(py_wsgi_req);
-	long watcher_index = PyInt_AsLong(PyTuple_GetItem(args, 1));
-        struct uwsgi_socket *uwsgi_sock = (struct uwsgi_socket *) PyLong_AsLong(PyTuple_GetItem(args, 2));
 
 	PyObject *greenlet_switch = NULL;
 
@@ -332,12 +327,17 @@ end:
                         }
                 }
         } else {
-                // If we stopped the watcher due to being out of async workers, restart it.
-                PyObject *py_watcher_active = PyObject_GetAttrString(ugevent.watchers[watcher_index], "active");
-                if (py_watcher_active && PyBool_Check(py_watcher_active) && !PyInt_AsLong(py_watcher_active)) {
-                        start_watcher(watcher_index, uwsgi_sock);
+                // If we stopped any watcher due to being out of async workers, restart it.
+                int i = 0;
+                for (struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+                     uwsgi_sock; uwsgi_sock = uwsgi_sock->next, ++i) {
+                        PyObject *py_watcher_active = PyObject_GetAttrString(ugevent.watchers[i], "active");
+                        if (py_watcher_active && PyBool_Check(py_watcher_active) &&
+                            !PyInt_AsLong(py_watcher_active)) {
+                            start_watcher(i, uwsgi_sock);
+                        }
+                        Py_DECREF(py_watcher_active);
                 }
-                Py_DECREF(py_watcher_active);
         }
 
 	Py_INCREF(Py_None);
@@ -450,7 +450,7 @@ static void gevent_loop() {
 	Py_INCREF(uwsgi_request_greenlet);
 
 	// pre-fill the greenlet args
-	ugevent.greenlet_args = PyTuple_New(4);
+	ugevent.greenlet_args = PyTuple_New(2);
 	PyTuple_SetItem(ugevent.greenlet_args, 0, uwsgi_request_greenlet);
 		
 	if (uwsgi.signal_socket > -1) {
