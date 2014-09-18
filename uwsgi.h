@@ -2415,7 +2415,6 @@ struct uwsgi_server {
 	int async_running;
 	int async_queue;
 	int async_nevents;
-	int async_warn_if_queue_full;
 
 	time_t async_queue_is_full;
 
@@ -2762,6 +2761,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *hook_as_emperor_setns;
 	int emperor_force_config_pipe;
 	struct uwsgi_string_list *hook_as_on_config_vassal;
+	int async_warn_if_queue_full;
 };
 
 struct uwsgi_rpc {
