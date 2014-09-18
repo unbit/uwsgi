@@ -629,6 +629,18 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 			}
 			// check if mtime is changed and the uWSGI instance must be reloaded
 			if (st.st_mtime > ui_current->last_mod) {
+				if (uwsgi.emperor_force_config_pipe) {
+                                        char *config = uwsgi_simple_file_read(g.gl_pathv[i]);
+                                        if (!config) {
+                                                uwsgi_log_verbose("[emperor] unable to read %s\n", g.gl_pathv[i]);
+                                                emperor_stop(ui_current);
+                                                continue;
+                                        }
+                                        if (ui_current->config)
+                                                free(ui_current->config);
+                                        ui_current->config = config;
+                                        ui_current->config_len = strlen(ui_current->config);
+                                }
 				emperor_respawn(ui_current, st.st_mtime);
 			}
 		}
@@ -640,7 +652,18 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
                                 }
                         }
                         char *socket_name = emperor_check_on_demand_socket(g.gl_pathv[i], attrs);
-                        emperor_add_with_attrs(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, t_uid, t_gid, socket_name, attrs);
+			if (uwsgi.emperor_force_config_pipe) {
+                                char *config = uwsgi_simple_file_read(g.gl_pathv[i]);
+                                if (config) {
+                                        emperor_add_with_attrs(ues, g.gl_pathv[i], st.st_mtime, config, strlen(config), t_uid, t_gid, socket_name, attrs);
+                                }
+                                else {
+                                        uwsgi_log_verbose("[emperor] unable to read %s\n", g.gl_pathv[i]);
+                                }
+                        }
+                        else {
+                                emperor_add_with_attrs(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, t_uid, t_gid, socket_name, attrs);
+                        }	
                         if (socket_name)
                                 free(socket_name);
 		}
