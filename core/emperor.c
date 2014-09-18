@@ -251,7 +251,7 @@ struct uwsgi_emperor_blacklist_item *uwsgi_emperor_blacklist_check(char *id) {
 
 void uwsgi_emperor_blacklist_add(char *id) {
 
-	// check if the item is already in the blacklist        
+	// check if the item is already in the blacklist
 	struct uwsgi_emperor_blacklist_item *uebi = uwsgi_emperor_blacklist_check(id);
 	if (uebi) {
 		gettimeofday(&uebi->last_attempt, NULL);
@@ -1275,8 +1275,8 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 	// check for fork server
 	char *fork_server = uwsgi.emperor_use_fork_server;
 	char *fork_server_attr = vassal_attr_get(n_ui, uwsgi.emperor_fork_server_attr);
-	if (fork_server_attr) fork_server = fork_server_attr;	
-	// a new uWSGI instance will start 
+	if (fork_server_attr) fork_server = fork_server_attr;
+	// a new uWSGI instance will start
 	if (fork_server && !uwsgi_string_list_has_item(uwsgi.vassal_fork_base, n_ui->name, strlen(n_ui->name))) {
 		// pid can only be > 0 or -1
 		n_ui->adopted = 1;
@@ -2029,7 +2029,7 @@ void emperor_loop() {
 						ui_current->last_heartbeat = uwsgi_now();
 					}
 					else if (byte == 22) {
-						// command 22 changes meaning when in "on_demand" mode  
+						// command 22 changes meaning when in "on_demand" mode
 						if (ui_current->on_demand_fd != -1) {
 							emperor_back_to_ondemand(ui_current);
 						}
@@ -2196,7 +2196,7 @@ recheck:
 					uwsgi_log("[uwsgi-emperor] %s -> back to \"on demand\" mode, waiting for connections on socket \"%s\" ...\n", ui_current->name, ui_current->socket_name);
 					if (uwsgi_hooks_run_and_return(uwsgi.hook_as_on_demand_vassal, "as-on-demand-vassal", ui_current->name, 0)) {
 						emperor_del(ui_current);
-						freq = 1;	
+						freq = 1;
 					}
 					break;
 				}
@@ -2365,7 +2365,7 @@ void emperor_send_stats(int fd) {
 			else {
 				if (uwsgi_stats_keyval(us, attrs->key, attrs->value))
                         		goto end0;
-			}		
+			}
 			attrs = attrs->next;
 		}
 
@@ -2528,6 +2528,8 @@ void uwsgi_check_emperor() {
 				free(env_emperor_fd);
 				int i;
 				for(i=1;i<count;i++) {
+					if (fds[i] < 0) continue;
+
 					char *socket_name = uwsgi_getsockname(fds[i]);
 					if (!socket_name) {
 						int j;
