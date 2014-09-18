@@ -676,6 +676,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"privileged-binary-patch-arg", required_argument, 0, "patch the uwsgi binary with a new command and arguments (before privileges drop)", uwsgi_opt_set_str, &uwsgi.privileged_binary_patch_arg, 0},
 	{"unprivileged-binary-patch-arg", required_argument, 0, "patch the uwsgi binary with a new command and arguments (after privileges drop)", uwsgi_opt_set_str, &uwsgi.unprivileged_binary_patch_arg, 0},
 	{"async", required_argument, 0, "enable async mode with specified cores", uwsgi_opt_set_int, &uwsgi.async, 0},
+	{"disable-async-warn-on-queue-full", no_argument, 0, "Disable printing 'async queue is full' warning messages.", uwsgi_opt_false, &uwsgi.async_warn_if_queue_full, 0},
 	{"max-fd", required_argument, 0, "set maximum number of file descriptors (requires root privileges)", uwsgi_opt_set_int, &uwsgi.requested_max_fd, 0},
 	{"logto", required_argument, 0, "set logfile/udp address", uwsgi_opt_set_str, &uwsgi.logfile, 0},
 	{"logto2", required_argument, 0, "log to specified file or udp address after privileges drop", uwsgi_opt_set_str, &uwsgi.logto2, 0},
