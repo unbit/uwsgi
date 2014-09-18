@@ -2078,7 +2078,6 @@ void emperor_loop() {
 						uwsgi_log_verbose("[emperor] vassal %s has been spawned\n", ui_current->name);
 					}
 					else if (byte == 2) {
-						uwsgi_log("ASKING for config\n");
 						emperor_push_config(ui_current);
 					}
 				}
