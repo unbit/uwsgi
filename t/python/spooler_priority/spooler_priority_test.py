@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python
 # coding = utf-8
 
 import uwsgi
@@ -7,7 +7,7 @@ import os
 import fcntl
 from shutil import rmtree
 import time
-import constants
+import spooler_priority_constants
 
 
 def spoolersTaskList():
@@ -61,7 +61,7 @@ def cleanTasks():
 class BitmapTest(unittest.TestCase):
 
 	def setUp(self):
-		for priority, name in constants.tasks:
+		for priority, name in spooler_priority_constants.tasks:
 			task = {'name': name, 'at': int(time.time() + 10)}
 			if priority is not None:
 				task['priority'] = str(priority)
@@ -71,10 +71,10 @@ class BitmapTest(unittest.TestCase):
 		uwsgi.signal_wait(17)
 		print("Signal received.")
 
-		with open(constants.LOGFILE, "r") as log:
+		with open(spooler_priority_constants.LOGFILE, "r") as log:
 			# Check logging ordering.
 			loglines = [line.rstrip() for line in log]
-			self.assertEqual(loglines, constants.ordered_tasks)
+			self.assertEqual(loglines, spooler_priority_constants.ordered_tasks)
 
 
 unittest.main()
