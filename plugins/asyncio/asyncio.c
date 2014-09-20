@@ -312,8 +312,6 @@ static void asyncio_loop() {
 	uwsgi.wait_write_hook = uwsgi_asyncio_wait_write_hook;
 	uwsgi.wait_read_hook = uwsgi_asyncio_wait_read_hook;
 
-	uwsgi.schedule_fix = uwsgi_asyncio_schedule_fix;
-
 	if (uwsgi.async < 1) {
 		uwsgi_log("the asyncio loop engine requires async mode (--async <n>)\n");
 		exit(1);
@@ -322,6 +320,13 @@ static void asyncio_loop() {
 	if (!uwsgi.schedule_to_main) {
                 uwsgi_log("*** DANGER *** asyncio mode without coroutine/greenthread engine loaded !!!\n");
         }
+
+	if (!uwsgi.schedule_to_req) {
+		uwsgi.schedule_to_req = async_schedule_to_req_green;
+	}
+	else {
+		uwsgi.schedule_fix = uwsgi_asyncio_schedule_fix;
+	}
 
 	PyObject *asyncio = PyImport_ImportModule("asyncio");
 	if (!asyncio) uwsgi_pyexit;

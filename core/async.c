@@ -369,7 +369,8 @@ void async_schedule_to_req_green(void) {
 			uwsgi.schedule_fix(wsgi_req);
 		}
                 // switch after each yield
-                uwsgi.schedule_to_main(wsgi_req);
+		if (uwsgi.schedule_to_main)
+                	uwsgi.schedule_to_main(wsgi_req);
         }
 
 #ifdef UWSGI_ROUTING
@@ -384,7 +385,6 @@ end:
         wsgi_req->async_status = UWSGI_OK;
 	uwsgi.async_queue_unused_ptr++;
         uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req;
-	
 }
 
 static int uwsgi_async_wait_milliseconds_hook(int timeout) {
