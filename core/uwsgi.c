@@ -256,6 +256,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"heartbeat", required_argument, 0, "announce healthiness to the emperor", uwsgi_opt_set_int, &uwsgi.heartbeat, 0},
 
+	{"zeus", required_argument, 0, "enable Zeus mode", uwsgi_opt_set_str, &uwsgi.zeus, 0},
+
 	{"reload-mercy", required_argument, 0, "set the maximum time (in seconds) we wait for workers and other processes to die during reload/shutdown", uwsgi_opt_set_int, &uwsgi.reload_mercy, 0},
 	{"worker-reload-mercy", required_argument, 0, "set the maximum time (in seconds) a worker can take to reload/shutdown (default is 60)", uwsgi_opt_set_int, &uwsgi.worker_reload_mercy, 0},
 	{"mule-reload-mercy", required_argument, 0, "set the maximum time (in seconds) a mule can take to reload/shutdown (default is 60)", uwsgi_opt_set_int, &uwsgi.mule_reload_mercy, 0},

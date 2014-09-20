@@ -2762,6 +2762,7 @@ struct uwsgi_server {
 	int emperor_force_config_pipe;
 	struct uwsgi_string_list *hook_as_on_config_vassal;
 	int async_warn_if_queue_full;
+	char *zeus;
 };
 
 struct uwsgi_rpc {
@@ -4896,6 +4897,8 @@ int uwsgi_wait_for_fs(char *, int);
 void uwsgi_hooks_setns_run(struct uwsgi_string_list *, pid_t, uid_t, gid_t);
 char *vassal_attr_get(struct uwsgi_instance *, char *);
 int vassal_attr_get_multi(struct uwsgi_instance *, char *, int (*)(struct uwsgi_instance *, char *, void *), void *);
+
+int uwsgi_zeus_spawn_instance(struct uwsgi_instance *);
 #ifdef __cplusplus
 }
 #endif

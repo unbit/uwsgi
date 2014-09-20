@@ -931,6 +931,12 @@ void emperor_stop(struct uwsgi_instance *c_ui) {
 		return;
 	// remove uWSGI instance
 
+	// in Zeus mode we need to send
+	// the DESTROY message to all of the nodes
+	if (uwsgi.zeus) {
+		return;
+	}
+
 	if (c_ui->pid != -1) {
 		if (write(c_ui->pipe[0], "\0", 1) != 1) {
 			uwsgi_error("emperor_stop()/write()");
@@ -981,6 +987,12 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 	// if the vassal is being destroyed, do not honour respawns
 	if (c_ui->status > 0)
 		return;
+
+	// if in Zeus mode, we need to send
+	// the reload message to all of the nodes
+	if (uwsgi.zeus) {
+		return;
+	}
 
 	// check if we are in on_demand mode (the respawn will be ignored)
 	if (c_ui->pid == -1 && c_ui->on_demand_fd > -1) {
@@ -1294,6 +1306,11 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 	if (uwsgi_hooks_run_and_return(uwsgi.hook_as_emperor_before_vassal, "as-emperor-before-vassal", NULL, 0)) {
         	emperor_del(n_ui);
         }
+
+	if (uwsgi.zeus) {
+		uwsgi_log("[zeus] ready to spawn instance \"%s\" ...\n", n_ui->name);
+		return uwsgi_zeus_spawn_instance(n_ui);
+	}
 
 	// check for fork server
 	char *fork_server = uwsgi.emperor_use_fork_server;
