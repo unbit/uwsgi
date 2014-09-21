@@ -2942,7 +2942,22 @@ unsafe:
 		uwsgi_log("your server socket listen backlog is limited to %d connections\n", uwsgi.listen_queue);
 #endif
 
+
 	uwsgi_log("your mercy for graceful operations on workers is %d seconds\n", uwsgi.worker_reload_mercy);
+
+	uwsgi_log("your request buffer size is %llu bytes\n", (unsigned long long) uwsgi.buffer_size);
+	if (!uwsgi.__buffer_size) {
+		if (uwsgi.buffer_size > 0xffff) {
+			uwsgi_log("your request buffer size for old plugins has been limited to 64k\n");
+			uwsgi.__buffer_size = 0xffff;
+		}
+		else {
+			uwsgi.__buffer_size = uwsgi.buffer_size;
+		}
+	}
+	else {
+		uwsgi_log("your request buffer size for old plugins is %u bytes\n", uwsgi.__buffer_size);
+	}
 
 	if (uwsgi.crons) {
 		struct uwsgi_cron *ucron = uwsgi.crons;
