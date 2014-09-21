@@ -529,7 +529,7 @@ static void uwsgi_rados_setup() {
 
 static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	char filename[PATH_MAX+1];
-	if (!wsgi_req->uh->pktsize) {
+	if (!wsgi_req->len) {
 		uwsgi_log( "Empty request. skip.\n");
 		return -1;
 	}

@@ -11,18 +11,19 @@ static int uwsgi_proto_uwsgi_parser(struct wsgi_request *wsgi_req) {
 		wsgi_req->proto_parser_pos += len;
 		if (wsgi_req->proto_parser_pos >= 4) {
 #ifdef __BIG_ENDIAN__
-			wsgi_req->uh->pktsize = uwsgi_swap16(wsgi_req->uh->pktsize);
+			wsgi_req->uh->_pktsize = uwsgi_swap16(wsgi_req->uh->_pktsize);
 #endif
-			if ((wsgi_req->proto_parser_pos - 4) == wsgi_req->uh->pktsize) {
+			wsgi_req->len = wsgi_req->uh->_pktsize;
+			if ((wsgi_req->proto_parser_pos - 4) == wsgi_req->uh->_pktsize) {
 				return UWSGI_OK;
 			}
-			if ((wsgi_req->proto_parser_pos - 4) > wsgi_req->uh->pktsize) {
-				wsgi_req->proto_parser_remains = wsgi_req->proto_parser_pos - (4 + wsgi_req->uh->pktsize);
-				wsgi_req->proto_parser_remains_buf = wsgi_req->buffer + wsgi_req->uh->pktsize;
+			if ((wsgi_req->proto_parser_pos - 4) > wsgi_req->uh->_pktsize) {
+				wsgi_req->proto_parser_remains = wsgi_req->proto_parser_pos - (4 + wsgi_req->uh->_pktsize);
+				wsgi_req->proto_parser_remains_buf = wsgi_req->buffer + wsgi_req->uh->_pktsize;
 				return UWSGI_OK;
 			}
-			if (wsgi_req->uh->pktsize > uwsgi.buffer_size) {
-				uwsgi_log("invalid request block size: %u (max %u)...skip\n", wsgi_req->uh->pktsize, uwsgi.buffer_size);
+			if (wsgi_req->uh->_pktsize > uwsgi.buffer_size) {
+				uwsgi_log("invalid request block size: %u (max %u)...skip\n", wsgi_req->uh->_pktsize, uwsgi.buffer_size);
 				return -1;
 			}
 		}
@@ -52,18 +53,18 @@ retry:
                 wsgi_req->proto_parser_pos += len;
                 if (wsgi_req->proto_parser_pos >= 4) {
 #ifdef __BIG_ENDIAN__
-                        wsgi_req->uh->pktsize = uwsgi_swap16(wsgi_req->uh->pktsize);
+                        wsgi_req->uh->_pktsize = uwsgi_swap16(wsgi_req->uh->_pktsize);
 #endif
-                        if ((wsgi_req->proto_parser_pos - 4) == wsgi_req->uh->pktsize) {
+                        if ((wsgi_req->proto_parser_pos - 4) == wsgi_req->uh->_pktsize) {
                                 return UWSGI_OK;
                         }
-                        if ((wsgi_req->proto_parser_pos - 4) > wsgi_req->uh->pktsize) {
-                                wsgi_req->proto_parser_remains = wsgi_req->proto_parser_pos - (4 + wsgi_req->uh->pktsize);
-                                wsgi_req->proto_parser_remains_buf = wsgi_req->buffer + wsgi_req->uh->pktsize;
+                        if ((wsgi_req->proto_parser_pos - 4) > wsgi_req->uh->_pktsize) {
+                                wsgi_req->proto_parser_remains = wsgi_req->proto_parser_pos - (4 + wsgi_req->uh->_pktsize);
+                                wsgi_req->proto_parser_remains_buf = wsgi_req->buffer + wsgi_req->uh->_pktsize;
                                 return UWSGI_OK;
                         }
-                        if (wsgi_req->uh->pktsize > uwsgi.buffer_size) {
-                                uwsgi_log("invalid request block size: %u (max %u)...skip\n", wsgi_req->uh->pktsize, uwsgi.buffer_size);
+                        if (wsgi_req->uh->_pktsize > uwsgi.buffer_size) {
+                                uwsgi_log("invalid request block size: %u (max %u)...skip\n", wsgi_req->uh->_pktsize, uwsgi.buffer_size);
                                 return -1;
                         }
                 }
@@ -144,18 +145,18 @@ int uwsgi_proto_uwsgi_parser_unix(struct wsgi_request *wsgi_req) {
 			wsgi_req->proto_parser_status = PROTO_STATUS_RECV_VARS;
 			wsgi_req->proto_parser_pos = 0;
 #ifdef __BIG_ENDIAN__
-			wsgi_req->uh->pktsize = uwsgi_swap16(wsgi_req->uh->pktsize);
+			wsgi_req->uh->_pktsize = uwsgi_swap16(wsgi_req->uh->_pktsize);
 #endif
 
 #ifdef UWSGI_DEBUG
-			uwsgi_debug("uwsgi payload size: %d (0x%X) modifier1: %d modifier2: %d\n", wsgi_req->uh.pktsize, wsgi_req->uh.pktsize, wsgi_req->uh.modifier1, wsgi_req->uh.modifier2);
+			uwsgi_debug("uwsgi payload size: %d (0x%X) modifier1: %d modifier2: %d\n", wsgi_req->uh._pktsize, wsgi_req->uh._pktsize, wsgi_req->uh.modifier1, wsgi_req->uh.modifier2);
 #endif
 
-			if (wsgi_req->uh->pktsize > uwsgi.buffer_size) {
+			if (wsgi_req->uh->_pktsize > uwsgi.buffer_size) {
 				return -1;
 			}
 
-			if (!wsgi_req->uh->pktsize)
+			if (!wsgi_req->uh->_pktsize)
 				return UWSGI_OK;
 
 		}
@@ -163,7 +164,7 @@ int uwsgi_proto_uwsgi_parser_unix(struct wsgi_request *wsgi_req) {
 	}
 
 	else if (wsgi_req->proto_parser_status == PROTO_STATUS_RECV_VARS) {
-		len = read(wsgi_req->fd, wsgi_req->buffer + wsgi_req->proto_parser_pos, wsgi_req->uh->pktsize - wsgi_req->proto_parser_pos);
+		len = read(wsgi_req->fd, wsgi_req->buffer + wsgi_req->proto_parser_pos, wsgi_req->uh->_pktsize - wsgi_req->proto_parser_pos);
 		if (len <= 0) {
 			uwsgi_error("read()");
 			return -1;
@@ -171,7 +172,7 @@ int uwsgi_proto_uwsgi_parser_unix(struct wsgi_request *wsgi_req) {
 		wsgi_req->proto_parser_pos += len;
 
 		// body ready ?
-		if (wsgi_req->proto_parser_pos >= wsgi_req->uh->pktsize) {
+		if (wsgi_req->proto_parser_pos >= wsgi_req->uh->_pktsize) {
 
 			// older OSX versions make mess with CMSG_FIRSTHDR
 #ifdef __APPLE__

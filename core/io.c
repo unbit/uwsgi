@@ -277,7 +277,7 @@ static char *uwsgi_scheme_emperor(char *url, size_t *size, int add_zero) {
 		remains-=rlen;
 	}
 
-	remains = uh.pktsize;
+	remains = uh._pktsize;
 	if (!remains) {
 		uwsgi_log("[uwsgi-vassal] invalid config from %s\n", url);
 		exit(1);
@@ -300,7 +300,7 @@ static char *uwsgi_scheme_emperor(char *url, size_t *size, int add_zero) {
                 remains-=rlen;
 	}
 
-	*size = uh.pktsize + add_zero;
+	*size = uh._pktsize + add_zero;
 	return buffer;
 }
 
@@ -1063,7 +1063,7 @@ readok:
         }
 
 	struct uwsgi_header *uh = (struct uwsgi_header *) buf;
-	uint16_t pktsize = uh->pktsize;
+	uint16_t pktsize = uh->_pktsize;
 	if (modifier1)
 		*modifier1 = uh->modifier1;
 	if (modifier2)

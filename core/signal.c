@@ -266,7 +266,7 @@ int uwsgi_remote_signal_send(char *addr, uint8_t sig) {
 	struct uwsgi_header uh;
 
 	uh.modifier1 = 110;
-	uh.pktsize = 0;
+	uh._pktsize = 0;
 	uh.modifier2 = sig;
 
         int fd = uwsgi_connect(addr, 0, 1);

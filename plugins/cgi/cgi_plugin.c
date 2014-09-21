@@ -480,7 +480,7 @@ static int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	char *script_name = NULL;
 
 	/* Standard CGI request */
-	if (!wsgi_req->uh->pktsize) {
+	if (!wsgi_req->len) {
 		uwsgi_log("Empty CGI request. skip.\n");
 		return -1;
 	}

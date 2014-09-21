@@ -9,11 +9,11 @@ int uwsgi_proto_raw_parser(struct wsgi_request *wsgi_req) {
 	return UWSGI_OK;
 }
 
-uint16_t proto_base_add_uwsgi_header(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
+uint64_t proto_base_add_uwsgi_header(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
 
 
 	int i;
-	char *buffer = wsgi_req->buffer + wsgi_req->uh->pktsize;
+	char *buffer = wsgi_req->buffer + wsgi_req->len;
 	char *watermark = wsgi_req->buffer + uwsgi.buffer_size;
 	char *ptr = buffer;
 
@@ -64,10 +64,10 @@ uint16_t proto_base_add_uwsgi_header(struct wsgi_request *wsgi_req, char *key, u
 
 
 
-uint16_t proto_base_add_uwsgi_var(struct wsgi_request * wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
+uint64_t proto_base_add_uwsgi_var(struct wsgi_request * wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
 
 
-	char *buffer = wsgi_req->buffer + wsgi_req->uh->pktsize;
+	char *buffer = wsgi_req->buffer + wsgi_req->len;
 	char *watermark = wsgi_req->buffer + uwsgi.buffer_size;
 	char *ptr = buffer;
 

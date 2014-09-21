@@ -46,10 +46,10 @@ int uwsgi_read_response(int fd, struct uwsgi_header *uh, int timeout, char **buf
 		break;
 	}
 
-	if (buf && uh->pktsize > 0) {
+	if (buf && uh->_pktsize > 0) {
 		if (*buf == NULL)
-			*buf = uwsgi_malloc(uh->pktsize);
-		remains = uh->pktsize;
+			*buf = uwsgi_malloc(uh->_pktsize);
+		remains = uh->_pktsize;
 		ptr = *buf;
 		ret = -1;
 		while (remains > 0) {
@@ -578,7 +578,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 	struct uwsgi_dyn_dict *udd;
 
 	ptrbuf = buffer;
-	bufferend = ptrbuf + wsgi_req->uh->pktsize;
+	bufferend = ptrbuf + wsgi_req->len;
 	int i;
 
 	/* set an HTTP 500 status as default */
@@ -1035,7 +1035,7 @@ char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen
 		}
 	}
 
-	if ((wsgi_req->uh->pktsize + (2 + keylen + 2 + vallen)) > uwsgi.buffer_size) {
+	if ((wsgi_req->len + (2 + keylen + 2 + vallen)) > uwsgi.buffer_size) {
 		uwsgi_log("not enough buffer space to add %.*s variable, consider increasing it with the --buffer-size option\n", keylen, key);
 		return NULL;
 	}
@@ -1045,7 +1045,7 @@ char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen
 		return NULL;
 	}
 
-	char *ptr = wsgi_req->buffer + wsgi_req->uh->pktsize;
+	char *ptr = wsgi_req->buffer + wsgi_req->len;
 
 	*ptr++ = (uint8_t) (keylen & 0xff);
 	*ptr++ = (uint8_t) ((keylen >> 8) & 0xff);
@@ -1066,7 +1066,7 @@ char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen
         wsgi_req->hvec[wsgi_req->var_cnt].iov_len = vallen;
 	wsgi_req->var_cnt++;
 
-	wsgi_req->uh->pktsize += (2 + keylen + 2 + vallen);
+	wsgi_req->len += (2 + keylen + 2 + vallen);
 
 	return ptr;
 }
@@ -1091,7 +1091,7 @@ int uwsgi_req_append_path_info_with_index(struct wsgi_request *wsgi_req, char *i
 	wsgi_req->path_info_len += need_slash + index_len;
 
 	// 2 + 9 + 2
-	if ((wsgi_req->uh->pktsize + (13 + wsgi_req->path_info_len)) > uwsgi.buffer_size) {
+	if ((wsgi_req->len + (13 + wsgi_req->path_info_len)) > uwsgi.buffer_size) {
                 uwsgi_log("not enough buffer space to transform the PATH_INFO variable, consider increasing it with the --buffer-size option\n");
                 return -1;
         }
@@ -1102,7 +1102,7 @@ int uwsgi_req_append_path_info_with_index(struct wsgi_request *wsgi_req, char *i
         }
 
 	uint16_t keylen = 9;
-	char *ptr = wsgi_req->buffer + wsgi_req->uh->pktsize;
+	char *ptr = wsgi_req->buffer + wsgi_req->len;
 	*ptr++ = (uint8_t) (keylen & 0xff);
         *ptr++ = (uint8_t) ((keylen >> 8) & 0xff);
 
@@ -1128,7 +1128,7 @@ int uwsgi_req_append_path_info_with_index(struct wsgi_request *wsgi_req, char *i
         wsgi_req->hvec[wsgi_req->var_cnt].iov_len = wsgi_req->path_info_len;
         wsgi_req->var_cnt++;
 
-	wsgi_req->uh->pktsize += 13 + wsgi_req->path_info_len;
+	wsgi_req->len += 13 + wsgi_req->path_info_len;
 	wsgi_req->path_info = new_path_info;
 	
 	return 0;

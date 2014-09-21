@@ -541,7 +541,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	}
 
 	/* Standard PSGI request */
-	if (!wsgi_req->uh->pktsize) {
+	if (!wsgi_req->len) {
 		uwsgi_log("Empty PSGI request. skip.\n");
 		return -1;
 	}

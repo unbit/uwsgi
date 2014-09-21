@@ -326,7 +326,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 	/* Standard WSGI request */
-	if (!wsgi_req->uh->pktsize) {
+	if (!wsgi_req->len) {
 		uwsgi_log( "Empty python request. skip.\n");
 		return -1;
 	}

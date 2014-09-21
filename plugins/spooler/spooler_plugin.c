@@ -17,15 +17,15 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
         if (uwsgi.spoolers == NULL) {
                 uwsgi_log("the spooler is inactive !!!...skip\n");
 		uh.modifier1 = 255;
-		uh.pktsize = 0;
+		uh._pktsize = 0;
 		uh.modifier2 = 0;
 		uwsgi_response_write_body_do(wsgi_req, (char *) &uh, 4);
                 return -1;
         }
 
-        char *filename = uwsgi_spool_request(NULL, wsgi_req->buffer, wsgi_req->uh->pktsize, NULL, 0);
+        char *filename = uwsgi_spool_request(NULL, wsgi_req->buffer, wsgi_req->uh->_pktsize, NULL, 0);
         uh.modifier1 = 255;
-        uh.pktsize = 0;
+        uh._pktsize = 0;
         if (filename) {
                 uh.modifier2 = 1;
 		if (uwsgi_response_write_body_do(wsgi_req, (char *) &uh, 4)) {

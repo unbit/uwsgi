@@ -746,7 +746,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	}
 
 	/* Standard WSAPI request */
-	if (!wsgi_req->uh->pktsize) {
+	if (!wsgi_req->len) {
 		uwsgi_log( "Empty lua request. skip.\n");
 		return -1;
 	}

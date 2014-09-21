@@ -46,7 +46,7 @@ extern struct uwsgi_server uwsgi;
 
 struct uwsgi_buffer *uwsgi_exception_handler_object(struct wsgi_request *wsgi_req) {
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(4096);
-	if (uwsgi_buffer_append_keyval(ub, "vars", 4, wsgi_req->buffer,wsgi_req->uh->pktsize)) goto error;
+	if (uwsgi_buffer_append_keyval(ub, "vars", 4, wsgi_req->buffer, wsgi_req->len)) goto error;
 	if (uwsgi.p[wsgi_req->uh->modifier1]->backtrace) {
                 struct uwsgi_buffer *bt = uwsgi.p[wsgi_req->uh->modifier1]->backtrace(wsgi_req);
 		if (bt) {
@@ -280,7 +280,7 @@ notavail4:
 
         if (uwsgi_buffer_append(ub, "\n\n", 2)) goto error;
 
-	if (uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh->pktsize, append_vars_to_ubuf, ub)) {
+	if (uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->len, append_vars_to_ubuf, ub)) {
 		goto error;
 	}
 

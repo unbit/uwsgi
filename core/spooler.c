@@ -303,9 +303,9 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 	struct uwsgi_header uh;
 	uh.modifier1 = 17;
 	uh.modifier2 = 0;
-	uh.pktsize = (uint16_t) len;
+	uh._pktsize = (uint16_t) len;
 #ifdef __BIG_ENDIAN__
-	uh.pktsize = uwsgi_swap16(uh.pktsize);
+	uh._pktsize = uwsgi_swap16(uh._pktsize);
 #endif
 
 	if (write(fd, &uh, 4) != 4) {
@@ -587,10 +587,10 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			}
 
 #ifdef __BIG_ENDIAN__
-			uh.pktsize = uwsgi_swap16(uh.pktsize);
+			uh._pktsize = uwsgi_swap16(uh._pktsize);
 #endif
 
-			if (uwsgi_protected_read(spool_fd, spool_buf, uh.pktsize) != uh.pktsize) {
+			if (uwsgi_protected_read(spool_fd, spool_buf, uh._pktsize) != uh._pktsize) {
 				uwsgi_error("read()");
 				destroy_spool(dir, task);
 				uwsgi_protected_close(spool_fd);
@@ -598,8 +598,8 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			}
 
 			// body available ?
-			if (sf_lstat.st_size > (uh.pktsize + 4)) {
-				body_len = sf_lstat.st_size - (uh.pktsize + 4);
+			if (sf_lstat.st_size > (uh._pktsize + 4)) {
+				body_len = sf_lstat.st_size - (uh._pktsize + 4);
 				body = uwsgi_malloc(body_len);
 				if ((size_t) uwsgi_protected_read(spool_fd, body, body_len) != body_len) {
 					uwsgi_error("read()");
@@ -631,7 +631,7 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 					if (uwsgi.harakiri_options.spoolers > 0) {
 						set_spooler_harakiri(uwsgi.harakiri_options.spoolers);
 					}
-					ret = uwsgi.p[i]->spooler(task, spool_buf, uh.pktsize, body, body_len);
+					ret = uwsgi.p[i]->spooler(task, spool_buf, uh._pktsize, body, body_len);
 					if (uwsgi.harakiri_options.spoolers > 0) {
 						set_spooler_harakiri(0);
 					}

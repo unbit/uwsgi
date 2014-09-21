@@ -39,6 +39,11 @@ static int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct
 	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
 
+	// only 64k can be serialized in a uwsgi packet
+	if (wsgi_req->len > 0xffff) {
+		return UWSGI_ROUTE_BREAK;
+	}
+
         struct uwsgi_buffer *ub_addr = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, addr, strlen(addr));
         if (!ub_addr) return UWSGI_ROUTE_BREAK;
 
@@ -52,10 +57,11 @@ static int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct
 
 	size_t remains = wsgi_req->post_cl - wsgi_req->proto_parser_remains;
 
-	struct uwsgi_buffer *ub = uwsgi_buffer_new(4 + wsgi_req->uh->pktsize + wsgi_req->proto_parser_remains);
-	uh->pktsize = wsgi_req->uh->pktsize;
+
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(4 + wsgi_req->len + wsgi_req->proto_parser_remains);
+	uh->_pktsize = wsgi_req->len;
 	if (uwsgi_buffer_append(ub, (char *) uh, 4)) goto end;
-	if (uwsgi_buffer_append(ub, wsgi_req->buffer, wsgi_req->uh->pktsize)) goto end;
+	if (uwsgi_buffer_append(ub, wsgi_req->buffer, wsgi_req->len)) goto end;
 	if (wsgi_req->proto_parser_remains > 0) {
                 if (uwsgi_buffer_append(ub, wsgi_req->proto_parser_remains_buf, wsgi_req->proto_parser_remains)) {
 			goto end;

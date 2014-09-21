@@ -222,7 +222,7 @@ static int uwsgi_gccgo_request(struct wsgi_request *wsgi_req) {
 		goto end;
 	}
 	/* Standard GO request */
-        if (!wsgi_req->uh->pktsize) {
+        if (!wsgi_req->len) {
                 uwsgi_log("Empty GO request. skip.\n");
                 return -1;
         }

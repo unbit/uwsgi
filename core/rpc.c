@@ -145,7 +145,7 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 	// set the uwsgi header
 	uh = (struct uwsgi_header *) buffer;
 	uh->modifier1 = 173;
-	uh->pktsize = buffer_size;
+	uh->_pktsize = buffer_size;
 	uh->modifier2 = 0;
 
 	// add func to the array

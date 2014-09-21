@@ -1034,7 +1034,7 @@ void uwsgi_destroy_request(struct wsgi_request *wsgi_req) {
 
 	// reset for avoiding following requests to fail on non-uwsgi protocols
 	// thanks Marko Tiikkaja for catching it
-	wsgi_req->uh->pktsize = 0;
+	wsgi_req->uh->_pktsize = 0;
 
 	// some plugins expected async_id to be defined before setup
         int tmp_id = wsgi_req->async_id;
@@ -1182,7 +1182,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 
 	// reset request
-	wsgi_req->uh->pktsize = 0;
+	wsgi_req->uh->_pktsize = 0;
 	tmp_id = wsgi_req->async_id;
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));
 	// some plugins expected async_id to be defined before setup

@@ -569,14 +569,13 @@ static void stats_dump_var(char *k, uint16_t kl, char *v, uint16_t vl, void *dat
 
 int uwsgi_stats_dump_vars(struct uwsgi_stats *us, struct uwsgi_core *uc) {
 	if (!uc->in_request) return 0;
-	struct uwsgi_header *uh = (struct uwsgi_header *) uc->buffer;
-	uint16_t pktsize = uh->pktsize;
+	uint64_t pktsize = uc->req.len;
 	if (!pktsize) return 0;
 	char *dst = uwsgi.workers[0].cores[0].buffer;
 	memcpy(dst, uc->buffer+4, uwsgi.buffer_size);
 	// ok now check if something changed...
 	if (!uc->in_request) return 0;
-	if (uh->pktsize != pktsize) return 0;
+	if (uc->req.len != pktsize) return 0;
 	if (memcmp(dst, uc->buffer+4, uwsgi.buffer_size)) return 0;
 	// nothing changed let's dump vars
 	int ret = uwsgi_hooked_parse(dst, pktsize, stats_dump_var, us);

@@ -516,7 +516,7 @@ static void uwsgi_mono_init_apps() {
 static int uwsgi_mono_request(struct wsgi_request *wsgi_req) {
 
 	/* Standard ASP.NET request */
-        if (!wsgi_req->uh->pktsize) {
+        if (!wsgi_req->len) {
                 uwsgi_log("Empty Mono/ASP.NET request. skip.\n");
                 return -1;
         }

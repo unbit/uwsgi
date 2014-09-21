@@ -193,7 +193,7 @@ extern "C" int uwsgi_gridfs_request(struct wsgi_request *wsgi_req) {
         char *itemname = NULL;
 
         /* Standard GridFS request */
-        if (!wsgi_req->uh->pktsize) {
+        if (!wsgi_req->len) {
                 uwsgi_log( "Empty GridFS request. skip.\n");
                 return -1;
         }

@@ -208,10 +208,10 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
         switch(wsgi_req->uh->modifier2) {
                 case 0:
                         // get
-                        if (wsgi_req->uh->pktsize > 0) {
-                                value = uwsgi_cache_magic_get(wsgi_req->buffer, wsgi_req->uh->pktsize, &vallen, NULL, NULL);
+                        if (wsgi_req->uh->_pktsize > 0) {
+                                value = uwsgi_cache_magic_get(wsgi_req->buffer, wsgi_req->uh->_pktsize, &vallen, NULL, NULL);
                                 if (value) {
-                                        wsgi_req->uh->pktsize = vallen;
+                                        wsgi_req->uh->_pktsize = vallen;
 					if (uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4)) { free(value) ; return -1;}
 					uwsgi_response_write_body_do(wsgi_req, value, vallen);
 					free(value);
@@ -220,10 +220,10 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                         break;
                 case 1:
                         // set
-                        if (wsgi_req->uh->pktsize > 0) {
+                        if (wsgi_req->uh->_pktsize > 0) {
 				// max 3 items
                                 argc = 3;
-                                if (!uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh->pktsize, argv, argvs, &argc)) {
+                                if (!uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh->_pktsize, argv, argvs, &argc)) {
                                         if (argc > 1) {
 						uwsgi_cache_magic_set(argv[0], argvs[0], argv[1], argvs[1], 0, 0, NULL);
                                         }
@@ -232,30 +232,30 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                         break;
                 case 2:
                         // del
-                        if (wsgi_req->uh->pktsize > 0) {
-                                uwsgi_cache_magic_del(wsgi_req->buffer, wsgi_req->uh->pktsize, NULL);
+                        if (wsgi_req->uh->_pktsize > 0) {
+                                uwsgi_cache_magic_del(wsgi_req->buffer, wsgi_req->uh->_pktsize, NULL);
                         }
                         break;
                 case 3:
                 case 4:
                         // dict
-                        if (wsgi_req->uh->pktsize > 0) {
-                                uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh->pktsize, cache_simple_command, (void *) wsgi_req);
+                        if (wsgi_req->uh->_pktsize > 0) {
+                                uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh->_pktsize, cache_simple_command, (void *) wsgi_req);
                         }
                         break;
                 case 5:
                         // get (uwsgi + stream)
-                        if (wsgi_req->uh->pktsize > 0) {
-                                value = uwsgi_cache_magic_get(wsgi_req->buffer, wsgi_req->uh->pktsize, &vallen, NULL, NULL);
+                        if (wsgi_req->uh->_pktsize > 0) {
+                                value = uwsgi_cache_magic_get(wsgi_req->buffer, wsgi_req->uh->_pktsize, &vallen, NULL, NULL);
                                 if (value) {
-                                        wsgi_req->uh->pktsize = 0;
+                                        wsgi_req->uh->_pktsize = 0;
                                         wsgi_req->uh->modifier2 = 1;
 					if (uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4)) { free(value) ;return -1;}
 					uwsgi_response_write_body_do(wsgi_req, value, vallen);
 					free(value);
                                 }
                                 else {
-                                        wsgi_req->uh->pktsize = 0;
+                                        wsgi_req->uh->_pktsize = 0;
                                         wsgi_req->uh->modifier2 = 0;
 					uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4);
 					free(value);
@@ -265,8 +265,8 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 		case 6:
 			// dump
 			uc = uwsgi.caches;
-			if (wsgi_req->uh->pktsize > 0) {
-				uc = uwsgi_cache_by_namelen(wsgi_req->buffer, wsgi_req->uh->pktsize);
+			if (wsgi_req->uh->_pktsize > 0) {
+				uc = uwsgi_cache_by_namelen(wsgi_req->buffer, wsgi_req->uh->_pktsize);
 			}
 
 			if (!uc) break;
@@ -299,9 +299,9 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 			uwsgi_buffer_destroy(cache_dump);
 			break;
 		case 17:
-			if (wsgi_req->uh->pktsize == 0) break;
+			if (wsgi_req->uh->_pktsize == 0) break;
 			memset(&ucmc, 0, sizeof(struct uwsgi_cache_magic_context));
-			if (uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh->pktsize, uwsgi_cache_magic_context_hook, &ucmc)) {
+			if (uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh->_pktsize, uwsgi_cache_magic_context_hook, &ucmc)) {
 				break;
 			}
 			manage_magic_context(wsgi_req, &ucmc);

@@ -29,7 +29,7 @@ static void ping() {
 	}
 
 	uh.modifier1 = UWSGI_MODIFIER_PING;
-	uh.pktsize = 0;
+	uh._pktsize = 0;
 	uh.modifier2 = 0;
 
 	if (write(fd, &uh, 4) != 4) {
@@ -42,8 +42,8 @@ static void ping() {
 		exit(1);
 	}
 	else {
-		if (uh.pktsize > 0) {
-			uwsgi_log("[WARNING] node %s message: %.*s\n", uping.ping, uh.pktsize, buf);
+		if (uh._pktsize > 0) {
+			uwsgi_log("[WARNING] node %s message: %.*s\n", uping.ping, uh._pktsize, buf);
 			exit(2);
 		}
 		else {
@@ -70,13 +70,13 @@ int uwsgi_request_ping(struct wsgi_request *wsgi_req) {
 
 	uwsgi_log( "PING\n");
 	wsgi_req->uh->modifier2 = 1;
-	wsgi_req->uh->pktsize = 0;
+	wsgi_req->uh->_pktsize = 0;
 	wsgi_req->do_not_account = 1;
 
 	len = strlen(uwsgi.shared->warning_message);
 	if (len > 0) {
 		// TODO: check endianess ?
-		wsgi_req->uh->pktsize = len;
+		wsgi_req->uh->_pktsize = len;
 	}
 
 	if (uwsgi_response_write_body_do(wsgi_req, (char *) wsgi_req->uh, 4)) {

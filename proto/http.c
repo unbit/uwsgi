@@ -38,9 +38,9 @@ static char * http_header_to_cgi(char *hh, size_t hhlen, size_t *keylen, size_t 
 	return val;
 }
 
-static uint16_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, size_t hhlen, char *hv, size_t hvlen, int has_prefix) {
+static uint64_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, size_t hhlen, char *hv, size_t hvlen, int has_prefix) {
 
-	char *buffer = wsgi_req->buffer + wsgi_req->uh->pktsize;
+	char *buffer = wsgi_req->buffer + wsgi_req->len;
 	char *watermark = wsgi_req->buffer + uwsgi.buffer_size;
 	char *ptr = buffer;
 	size_t keylen = hhlen;
@@ -48,11 +48,16 @@ static uint16_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, s
 	if (has_prefix) keylen += 5;
 
 	if (buffer + keylen + hvlen + 2 + 2 >= watermark) {
-		if (has_prefix) {
-			uwsgi_log("[WARNING] unable to add HTTP_%.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen, hh, hvlen, hv);
+		if (keylen <= 0xff && hvlen <= 0xff) {
+			if (has_prefix) {
+				uwsgi_log("[WARNING] unable to add HTTP_%.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen, hh, hvlen, hv);
+			}
+			else {
+				uwsgi_log("[WARNING] unable to add %.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen, hh, hvlen, hv);
+			}
 		}
 		else {
-			uwsgi_log("[WARNING] unable to add %.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen, hh, hvlen, hv);
+			uwsgi_log("[WARNING] unable to build uwsgi packet from http request, consider increasing buffer size\n");
 		}
 		return 0;
 	}
@@ -194,7 +199,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	// REQUEST_METHOD 
 	while (ptr < watermark) {
 		if (*ptr == ' ') {
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_METHOD", 14, base, ptr - base);
+			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_METHOD", 14, base, ptr - base);
 			ptr++;
 			break;
 		}
@@ -206,10 +211,11 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	while (ptr < watermark) {
 		if (*ptr == '?' && !query_string) {
 			if (watermark + (ptr - base) < (char *)(wsgi_req->proto_parser_buf + uwsgi.buffer_size)) {
+				if (ptr - base > 0xffff) return -1;
 				uint16_t path_info_len = ptr - base;
 				char *path_info = uwsgi_malloc(path_info_len);
 				http_url_decode(base, &path_info_len, path_info);
-				wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
+				wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
 				free(path_info);
 			}
 			else {
@@ -219,24 +225,25 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 			query_string = ptr + 1;
 		}
 		else if (*ptr == ' ') {
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, base, ptr - base);
+			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, base, ptr - base);
 			
 			if (!query_string) {
 				if (watermark + (ptr - base) < (char *)(wsgi_req->proto_parser_buf + uwsgi.buffer_size)) {
+					if (ptr - base > 0xffff) return -1;
                                 	uint16_t path_info_len = ptr - base;
 					char *path_info = uwsgi_malloc(path_info_len);
                                 	http_url_decode(base, &path_info_len, path_info);
-                                	wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
+                                	wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
 					free(path_info);
                         	}
 				else {
 					uwsgi_log("not enough space in wsgi_req http proto_parser_buf to decode PATH_INFO, consider tuning it with --buffer-size\n");
 					return -1;
 				}
-				wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, "", 0);
+				wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, "", 0);
 			}
 			else {
-				wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, query_string, ptr - query_string);
+				wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, query_string, ptr - query_string);
 			}
 			ptr++;
 			break;
@@ -252,7 +259,8 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 				return -1 ;
 			if (*(ptr + 1) != '\n')
 				return -1;
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PROTOCOL", 15, base, ptr - base);
+			if (ptr - base > 0xffff) return -1;
+			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PROTOCOL", 15, base, ptr - base);
 			ptr += 2;
 			break;
 		}
@@ -261,42 +269,42 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 
 	// SCRIPT_NAME
 	if (!uwsgi.manage_script_name) {
-		wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SCRIPT_NAME", 11, "", 0);
+		wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SCRIPT_NAME", 11, "", 0);
 	}
 	
 
 	// SERVER_NAME
-	wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len);
+	wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len);
 
 	// SERVER_PORT / SERVER_ADDR
 	if (proxy_dst) {
-		wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_ADDR", 11, proxy_dst, proxy_dst_len);
+		wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_ADDR", 11, proxy_dst, proxy_dst_len);
                 if (proxy_dst_port) {
-                        wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, proxy_dst_port, proxy_dst_port_len);
+                        wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, proxy_dst_port, proxy_dst_port_len);
                 }
 	}
 	else {
 		char *server_port = strchr(wsgi_req->socket->name, ':');
 		if (server_port) {
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, server_port+1, strlen(server_port+1));
+			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, server_port+1, strlen(server_port+1));
 		}
 		else {
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "80", 2);
+			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "80", 2);
 		}
 	}
 
 	// REMOTE_ADDR
 	if (proxy_src) {
-		wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, proxy_src, proxy_src_len);
+		wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, proxy_src, proxy_src_len);
 		if (proxy_src_port) {
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_PORT", 11, proxy_src_port, proxy_src_port_len);
+			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_PORT", 11, proxy_src_port, proxy_src_port_len);
 		}
 	}
 	else {
 		// TODO add ipv6 support
 		memset(ip, 0, INET_ADDRSTRLEN+1);
 		if (inet_ntop(AF_INET, (void *) &http_sin->sin_addr.s_addr, ip, INET_ADDRSTRLEN)) {
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
 		}
 		else {
 			uwsgi_error("inet_ntop()");
@@ -305,7 +313,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	}
 
 	if (wsgi_req->https_len > 0) {
-		wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "HTTPS", 5, wsgi_req->https, wsgi_req->https_len);
+		wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "HTTPS", 5, wsgi_req->https, wsgi_req->https_len);
 	}
 
 	//HEADERS
@@ -330,6 +338,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 			int has_prefix = 0;
 			// last line, do not waste time
 			if (ptr - base == 0) break;
+			if (ptr - base > 0xffff) return -1;
 			char *value = http_header_to_cgi(base, ptr - base, &key_len, &value_len, &has_prefix);
 			if (!value) {
 				uwsgi_log_verbose("invalid HTTP request\n");
@@ -363,10 +372,10 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	int broken = 0;
 	while(usl) {
 		if (!broken) {
-			uint16_t old_pktsize = wsgi_req->uh->pktsize;
-			wsgi_req->uh->pktsize += http_add_uwsgi_header(wsgi_req, usl->value, usl->len, usl->custom_ptr, (size_t) usl->custom, usl->custom2 & 0x02);
+			uint64_t old_len = wsgi_req->len;
+			wsgi_req->len += http_add_uwsgi_header(wsgi_req, usl->value, usl->len, usl->custom_ptr, (size_t) usl->custom, usl->custom2 & 0x02);
 			// if the packet remains unchanged, the buffer is full, mark the request as broken
-			if (old_pktsize == wsgi_req->uh->pktsize) {
+			if (old_len == wsgi_req->len) {
 				broken = 1;
 			}
 		}

@@ -969,7 +969,7 @@ static void emperor_push_config(struct uwsgi_instance *c_ui) {
 
 	if (c_ui->use_config) {
 		uh.modifier1 = 115;
-		uh.pktsize = c_ui->config_len;
+		uh._pktsize = c_ui->config_len;
 		uh.modifier2 = 0;
 		if (write(c_ui->pipe_config[0], &uh, 4) != 4) {
 			uwsgi_error("[uwsgi-emperor] write() header config");
