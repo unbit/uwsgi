@@ -28,7 +28,7 @@ extern "C" int uwsgi_cplusplus_request(struct wsgi_request *wsgi_req) {
 	FakeClass *fc;
 
 	// empty request ?
-	if (!wsgi_req->uh->pktsize) {
+	if (!wsgi_req->len) {
                 uwsgi_log( "Invalid request. skip.\n");
 		goto clear;
         }

@@ -134,7 +134,7 @@ static ssize_t fpty_parse_uwsgi(struct corerouter_peer *peer) {
 	for(;;) {
 	if (peer->in->pos < 4) return 0;
 	struct uwsgi_header *uh = (struct uwsgi_header *) peer->in->buf;
-	uint16_t pktsize = uh->pktsize;
+	uint16_t pktsize = uh->_pktsize;
 	switch(uh->modifier2) {
 		case 0:
 			// stdin

@@ -6,7 +6,7 @@ static char *uwsgi_route_var_math(struct wsgi_request *wsgi_req, char *key, uint
         // avoid crash
         if (!wsgi_req->var_cnt) return NULL;
         // we make a bit of fun here, we do a copy of the vars buffer (+1 byte for final zero) and zeor-pad all of the strings
-        char *vars_buf = uwsgi_malloc(wsgi_req->uh->pktsize + keylen + 1);
+        char *vars_buf = uwsgi_malloc(wsgi_req->len + keylen + 1);
         char **names = uwsgi_malloc(sizeof(char *) * (wsgi_req->var_cnt/2));
         double *values = uwsgi_calloc(sizeof(double) * (wsgi_req->var_cnt/2));
         int i,j = 0;
