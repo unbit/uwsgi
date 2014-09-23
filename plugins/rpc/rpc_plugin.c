@@ -142,7 +142,7 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 	size_t content_len = 0;
 
 	/* Standard RPC request */
-        if (!wsgi_req->uh->pktsize) {
+        if (!wsgi_req->len) {
                 uwsgi_log("Empty RPC request. skip.\n");
                 return -1;
         }
@@ -226,7 +226,7 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 	}
 #endif
 
-	if (uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh->pktsize, argv, argvs, &argc)) {
+	if (uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh->_pktsize, argv, argvs, &argc)) {
                 uwsgi_log("Invalid RPC request. skip.\n");
                 return -1;
 	}
@@ -247,7 +247,7 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 				return -1;	
 			}
 			// fix uwsgi header
-			wsgi_req->uh->pktsize = ub->pos;
+			wsgi_req->uh->_pktsize = ub->pos;
 			if (uwsgi_response_write_body_do(wsgi_req, (char *) wsgi_req->uh, 4)) {
 				uwsgi_buffer_destroy(ub);
 				free(response_buf);	
@@ -261,7 +261,7 @@ static int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 			uwsgi_buffer_destroy(ub);
 		}
 		else {
-			wsgi_req->uh->pktsize = content_len;
+			wsgi_req->uh->_pktsize = content_len;
 			if (uwsgi_response_write_body_do(wsgi_req, (char *) wsgi_req->uh, 4)) {
 				free(response_buf);	
 				return -1;

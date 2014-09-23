@@ -60,7 +60,7 @@ int fastcgi_to_uwsgi(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 		uint16_t pktsize = proto_base_add_uwsgi_var(wsgi_req, buf + j, keylen, buf + j + keylen, vallen);
 		if (pktsize == 0)
 			return -1;
-		wsgi_req->uh->pktsize += pktsize;
+		wsgi_req->len += pktsize;
 		// -1 here as the for() will increment j again
 		j += (keylen + vallen) - 1;
 	}

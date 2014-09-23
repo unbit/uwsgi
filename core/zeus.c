@@ -1,3 +1,5 @@
+#include <uwsgi.h>
+
 /*
 
 	*** WORK IN PROGRESS ***
@@ -16,11 +18,11 @@
 
 
 	# unencrypted mode
-	uwsgi --zeus "192.168.173.17:4040 /etc/uwsgi/vassals"
+	uwsgi --zeus 192.168.173.17:4040 --emperor /etc/uwsgi/vassals
 	# crypted mode
-	uwsgi --zeus "192.168.173.17:4040,foobar.crt,foobar.key /etc/uwsgi/vassals"
+	uwsgi --zeus 192.168.173.17:4040,foobar.crt,foobar.key --emperor /etc/uwsgi/vassals
 	# crypted + authentication mode
-	uwsgi --zeus "192.168.173.17:4040,foobar.crt,foobar.key,clients.pem /etc/uwsgi/vassals"
+	uwsgi --zeus 192.168.173.17:4040,foobar.crt,foobar.key,clients.pem --emperor /etc/uwsgi/vassals
 
 
 	to connect an Emperor to Zeus
@@ -64,3 +66,23 @@
 	11 -> VASSAL_DESTROYED {name: 'foobar.ini'} [the choosen emperor -> zeus]
 
 */
+
+/*
+	check how many nodes the instace needs (default 1)
+*/
+
+int uwsgi_zeus_spawn_instance(struct uwsgi_instance *ui) {
+	int i, nodes = 1;
+	char *how_many_nodes = vassal_attr_get(ui, "zeus-nodes");
+	if (how_many_nodes) {	
+		nodes = atoi(how_many_nodes);
+	}
+	for(i=0;i<nodes;i++) {
+		// now start analyzing nodes, the one with most
+		// free slots will be used
+
+		// send NEW_VASSAL request to the node,
+		// if it answers with ACCEPTED_VASSAL 
+	}
+	return 0;
+}

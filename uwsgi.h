@@ -1281,7 +1281,7 @@ struct uwsgi_alarm_log {
 
 struct __attribute__ ((packed)) uwsgi_header {
 	uint8_t modifier1;
-	uint16_t pktsize;
+	uint16_t _pktsize;
 	uint8_t modifier2;
 };
 
@@ -1582,6 +1582,9 @@ struct wsgi_request {
 	int do_not_account_avg_rt;
 	// used for protocol parsers requiring EOF signaling
 	int proto_parser_eof;
+
+	// uWSGI 2.1
+	uint64_t len;
 };
 
 
@@ -2371,7 +2374,8 @@ struct uwsgi_server {
 
 	int udp_fd;
 
-	uint16_t buffer_size;
+	// removed in 2.1, here for ABI compatibility
+	uint16_t __buffer_size;
 	int signal_bufsize;
 
 	// post buffering
@@ -2761,6 +2765,9 @@ struct uwsgi_server {
 	struct uwsgi_string_list *hook_as_emperor_setns;
 	int emperor_force_config_pipe;
 	struct uwsgi_string_list *hook_as_on_config_vassal;
+	int async_warn_if_queue_full;
+	char *zeus;
+	uint64_t buffer_size;
 };
 
 struct uwsgi_rpc {
@@ -3107,6 +3114,7 @@ struct wsgi_request *find_first_accepting_wsgi_req(void);
 struct wsgi_request *find_wsgi_req_by_fd(int);
 struct wsgi_request *find_wsgi_req_by_id(int);
 void async_schedule_to_req_green(void);
+void async_schedule_to_req(void);
 
 int async_add_fd_write(struct wsgi_request *, int, int);
 int async_add_fd_read(struct wsgi_request *, int, int);
@@ -3448,8 +3456,8 @@ void uwsgi_proto_base_close(struct wsgi_request *);
 int uwsgi_proto_ssl_accept(struct wsgi_request *, int);
 void uwsgi_proto_ssl_close(struct wsgi_request *);
 #endif
-uint16_t proto_base_add_uwsgi_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
-uint16_t proto_base_add_uwsgi_var(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+uint64_t proto_base_add_uwsgi_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+uint64_t proto_base_add_uwsgi_var(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
 // protocols
 void uwsgi_proto_uwsgi_setup(struct uwsgi_socket *);
@@ -4895,6 +4903,8 @@ int uwsgi_wait_for_fs(char *, int);
 void uwsgi_hooks_setns_run(struct uwsgi_string_list *, pid_t, uid_t, gid_t);
 char *vassal_attr_get(struct uwsgi_instance *, char *);
 int vassal_attr_get_multi(struct uwsgi_instance *, char *, int (*)(struct uwsgi_instance *, char *, void *), void *);
+
+int uwsgi_zeus_spawn_instance(struct uwsgi_instance *);
 #ifdef __cplusplus
 }
 #endif

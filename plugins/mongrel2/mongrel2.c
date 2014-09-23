@@ -64,7 +64,7 @@ static int uwsgi_mongrel2_json_parse(json_t * root, struct wsgi_request *wsgi_re
 		if (!strcmp(json_val, "JSON")) {
 			return -1;
 		}
-		wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_METHOD", 14, json_val, strlen(json_val));
+		wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_METHOD", 14, json_val, strlen(json_val));
 	}
 
 	// pretty easy, we get the file and we map it to wsgi_req->post_file, uWSGI read api will automatically use this
@@ -80,49 +80,49 @@ static int uwsgi_mongrel2_json_parse(json_t * root, struct wsgi_request *wsgi_re
 	}
 
 
-	wsgi_req->uh->pktsize += uwsgi_mongrel2_json_add(wsgi_req, root, "VERSION", "SERVER_PROTOCOL", 15, NULL, NULL);
-	wsgi_req->uh->pktsize += uwsgi_mongrel2_json_add(wsgi_req, root, "QUERY", "QUERY_STRING", 12, &query_string, &query_string_len);
+	wsgi_req->len += uwsgi_mongrel2_json_add(wsgi_req, root, "VERSION", "SERVER_PROTOCOL", 15, NULL, NULL);
+	wsgi_req->len += uwsgi_mongrel2_json_add(wsgi_req, root, "QUERY", "QUERY_STRING", 12, &query_string, &query_string_len);
 	if (query_string == NULL) {
 		// always set QUERY_STRING
-		wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, "", 0);
+		wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, "", 0);
 	}
 
 	// set SCRIPT_NAME to an empty value
-	wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SCRIPT_NAME", 11, "", 0);
+	wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SCRIPT_NAME", 11, "", 0);
 
 	if ((json_val = uwsgi_mongrel2_json_get_string(root, "PATH"))) {
-		wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, json_val + script_name_len, strlen(json_val + script_name_len));
+		wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, json_val + script_name_len, strlen(json_val + script_name_len));
 		if (query_string_len) {
 			char *request_uri = uwsgi_concat3n(json_val, strlen(json_val), "?", 1, query_string, query_string_len);
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, request_uri, strlen(json_val) + 1 + query_string_len);
+			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, request_uri, strlen(json_val) + 1 + query_string_len);
 			free(request_uri);
 		}
 		else {
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, json_val, strlen(json_val));
+			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, json_val, strlen(json_val));
 		}
 	}
 
 	if ((json_val = uwsgi_mongrel2_json_get_string(root, "URL_SCHEME"))) {
-                wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "UWSGI_SCHEME", 12, json_val, strlen(json_val));
+                wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "UWSGI_SCHEME", 12, json_val, strlen(json_val));
         }
 
 	if ((json_val = uwsgi_mongrel2_json_get_string(root, "host"))) {
 		char *colon = strchr(json_val, ':');
 		if (colon) {
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, colon + 1, strlen(colon + 1));
+			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, colon + 1, strlen(colon + 1));
 		}
 		else {
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "80", 2);
+			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "80", 2);
 		}
 	}
 
 	if ((json_val = uwsgi_mongrel2_json_get_string(root, "x-forwarded-for"))) {
 		char *colon = strchr(json_val, ',');
 		if (colon) {
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, colon + 1, (colon + 1) - json_val);
+			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, colon + 1, (colon + 1) - json_val);
 		}
 		else {
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, json_val, strlen(json_val));
+			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, json_val, strlen(json_val));
 		}
 	}
 
@@ -131,7 +131,7 @@ static int uwsgi_mongrel2_json_parse(json_t * root, struct wsgi_request *wsgi_re
 		wsgi_req->post_cl = atoi(json_val);
 	}
 
-	wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len);
+	wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len);
 
 	json_iter = json_object_iter(root);
 
@@ -142,7 +142,7 @@ static int uwsgi_mongrel2_json_parse(json_t * root, struct wsgi_request *wsgi_re
 			json_value = json_object_iter_value(json_iter);
 			if (json_is_string(json_value)) {
 				json_val = (char *) json_string_value(json_value);
-				wsgi_req->uh->pktsize += proto_base_add_uwsgi_header(wsgi_req, json_key, strlen(json_key), json_val, strlen(json_val));
+				wsgi_req->len += proto_base_add_uwsgi_header(wsgi_req, json_key, strlen(json_key), json_val, strlen(json_val));
 			}
 		}
 		json_iter = json_object_iter_next(root, json_iter);
@@ -169,7 +169,7 @@ static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *
 	int async_upload = 0;
 
 	// set an empty SCRIPT_NAME
-	wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SCRIPT_NAME", 11, "", 0);
+	wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SCRIPT_NAME", 11, "", 0);
 
 	while (ptr < watermark) {
 
@@ -193,29 +193,29 @@ static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *
 				if (!uwsgi_strncmp("JSON", 4, val, vallen)) {
 					return -1;
 				}
-				wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_METHOD", 14, val, vallen);
+				wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_METHOD", 14, val, vallen);
 			}
 			else if (!uwsgi_strncmp("VERSION", 7, key, keylen)) {
-				wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PROTOCOL", 15, val, vallen);
+				wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PROTOCOL", 15, val, vallen);
 			}
 			else if (!uwsgi_strncmp("QUERY", 5, key, keylen)) {
-				wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, val, vallen);
+				wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, val, vallen);
 				query_string = val;
 				query_string_len = vallen;
 			}
 			else if (!uwsgi_strncmp("PATH", 4, key, keylen)) {
-				wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, val + script_name_len, vallen - script_name_len);
+				wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, val + script_name_len, vallen - script_name_len);
 				if (query_string_len) {
 					char *request_uri = uwsgi_concat3n(val, vallen, "?", 1, query_string, query_string_len);
-					wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, request_uri, vallen + 1 + query_string_len);
+					wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, request_uri, vallen + 1 + query_string_len);
 					free(request_uri);
 				}
 				else {
-					wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, val, vallen);
+					wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, val, vallen);
 				}
 			}
 			else if (!uwsgi_strncmp("URL_SCHEME", 10, key, keylen)) {	
-				wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "UWSGI_SCHEME", 12, val, vallen);
+				wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "UWSGI_SCHEME", 12, val, vallen);
 			}
 		}
 		else {
@@ -223,10 +223,10 @@ static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *
 			if (!uwsgi_strncmp("host", 4, key, keylen)) {
 				char *colon = memchr(val, ':', vallen);
 				if (colon) {
-					wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, colon + 1, vallen - ((colon + 1) - val));
+					wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, colon + 1, vallen - ((colon + 1) - val));
 				}
 				else {
-					wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "80", 2);
+					wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "80", 2);
 				}
 			}
 			else if (!uwsgi_strncmp("content-length", 14, key, keylen)) {
@@ -245,24 +245,24 @@ static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *
 			else if (!uwsgi_strncmp("x-forwarded-for", 15, key, keylen)) {
 				char *colon = memchr(val, ',', vallen);
 				if (colon) {
-					wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, colon + 1, (colon + 1) - val);
+					wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, colon + 1, (colon + 1) - val);
 				}
 				else {
-					wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, val, vallen);
+					wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, val, vallen);
 				}
 			}
 			else if (!uwsgi_strncmp("x-mongrel2-upload-start", 23, key, keylen)) {
 				async_upload += 1;
 			}
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_header(wsgi_req, key, keylen, val, vallen);
+			wsgi_req->len += proto_base_add_uwsgi_header(wsgi_req, key, keylen, val, vallen);
 		}
 	}
 
-	wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len);
+	wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len);
 
 	if (query_string == NULL) {
 		// always set QUERY_STRING
-		wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, "", 0);
+		wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, "", 0);
 	}
 
 	// reject uncomplete upload

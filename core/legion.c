@@ -572,7 +572,7 @@ static void *legion_loop(void *foobar) {
 
 			d_len += d2_len;
 
-			if (d_len != uh->pktsize) {
+			if (d_len != uh->_pktsize) {
 				uwsgi_log("[uwsgi-legion] invalid packet size\n");
 				continue;
 			}

@@ -207,7 +207,7 @@ static void uwsgi_pypy_preinit_apps() {
 
 static int uwsgi_pypy_request(struct wsgi_request *wsgi_req) {
 	/* Standard WSGI request */
-        if (!wsgi_req->uh->pktsize) {
+        if (!wsgi_req->len) {
                 uwsgi_log( "Empty pypy request. skip.\n");
                 return -1;
         }

@@ -21,7 +21,7 @@ extern struct uwsgi_server uwsgi;
 
 // this is called whenever a new connection is ready, but there are no cores to handle it
 void uwsgi_async_queue_is_full(time_t now) {
-	if (now > uwsgi.async_queue_is_full) {
+	if (now > uwsgi.async_queue_is_full && uwsgi.async_warn_if_queue_full) {
 		uwsgi_log_verbose("[DANGER] async queue is full !!!\n");
 		uwsgi.async_queue_is_full = now;
 	}
@@ -369,7 +369,8 @@ void async_schedule_to_req_green(void) {
 			uwsgi.schedule_fix(wsgi_req);
 		}
                 // switch after each yield
-                uwsgi.schedule_to_main(wsgi_req);
+		if (uwsgi.schedule_to_main)
+                	uwsgi.schedule_to_main(wsgi_req);
         }
 
 #ifdef UWSGI_ROUTING
@@ -384,7 +385,6 @@ end:
         wsgi_req->async_status = UWSGI_OK;
 	uwsgi.async_queue_unused_ptr++;
         uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req;
-	
 }
 
 static int uwsgi_async_wait_milliseconds_hook(int timeout) {

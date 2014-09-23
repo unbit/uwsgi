@@ -1257,7 +1257,7 @@ static int uwsgi_jvm_request(struct wsgi_request *wsgi_req) {
 	}
 
 	/* Standard JVM request */
-        if (!wsgi_req->uh->pktsize) {
+        if (!wsgi_req->len) {
                 uwsgi_log("Empty JVM request. skip.\n");
                 return -1;
         }

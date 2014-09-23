@@ -202,7 +202,7 @@ static ssize_t fr_instance_connected(struct corerouter_peer *peer) {
 static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 	struct uwsgi_header *uh = (struct uwsgi_header *) main_peer->in->buf;
 	// better to store it as the original buf address could change
-	uint16_t pktsize = uh->pktsize;
+	uint16_t pktsize = uh->_pktsize;
 	// increase buffer if needed
 	if (uwsgi_buffer_fix(main_peer->in, pktsize+4))
 		return -1;

@@ -814,7 +814,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	}
 
 	/* Standard RACK request */
-        if (!wsgi_req->uh->pktsize) {
+        if (!wsgi_req->len) {
                 uwsgi_log("Empty RACK request. skip.\n");
                 return -1;
         }

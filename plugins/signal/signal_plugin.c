@@ -13,7 +13,7 @@ int uwsgi_request_signal(struct wsgi_request *wsgi_req) {
 	}
 
         uh.modifier1 = 255;
-       	uh.pktsize = 0;
+       	uh._pktsize = 0;
        	uh.modifier2 = ret_status;
 	
 	if (uwsgi_response_write_body_do(wsgi_req, (char *) &uh, 4)) {

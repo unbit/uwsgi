@@ -85,8 +85,8 @@ void uwsgi_fork_server(char *socket) {
 
 		struct uwsgi_header *uh = (struct uwsgi_header *) hbuf;
 		// this memory area must be freed in the right place !!!
-		char *body_argv = uwsgi_malloc(uh->pktsize);
-		if (uwsgi_read_nb(client_fd, body_argv, uh->pktsize, uwsgi.socket_timeout)) {
+		char *body_argv = uwsgi_malloc(uh->_pktsize);
+		if (uwsgi_read_nb(client_fd, body_argv, uh->_pktsize, uwsgi.socket_timeout)) {
 			free(body_argv);
                         uwsgi_error("uwsgi_fork_server()/uwsgi_read_nb()");
                         goto end;
@@ -184,7 +184,7 @@ void uwsgi_fork_server(char *socket) {
 
 				// now parse the uwsgi packet array and build the argv
 				struct uwsgi_string_list *usl = NULL, *usl_argv = NULL;
-				uwsgi_hooked_parse_array(body_argv, uh->pktsize, parse_argv_hook, &usl_argv);
+				uwsgi_hooked_parse_array(body_argv, uh->_pktsize, parse_argv_hook, &usl_argv);
 				free(body_argv);
 
 				// build new argc/argv

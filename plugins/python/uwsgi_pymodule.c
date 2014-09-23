@@ -2339,14 +2339,14 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 		goto clear2;
 	}
 
-	buffer = malloc(uh.pktsize);
+	buffer = malloc(uh._pktsize);
 	if (!buffer) {
 		uwsgi_error("malloc()");
 		UWSGI_GET_GIL
 		goto clear2;
 	}
-	len = read(fd, buffer, uh.pktsize);
-	if (len != uh.pktsize) {
+	len = read(fd, buffer, uh._pktsize);
+	if (len != uh._pktsize) {
 		uwsgi_error("read()");
 		free(buffer);
 		UWSGI_GET_GIL
@@ -2356,7 +2356,7 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 	UWSGI_GET_GIL
 
 	ptrbuf = buffer;
-	bufferend = ptrbuf + uh.pktsize;
+	bufferend = ptrbuf + uh._pktsize;
 
 	if (!uh.modifier1 || uh.modifier1 == UWSGI_MODIFIER_SPOOL_REQUEST) {
 		zero = PyDict_New();

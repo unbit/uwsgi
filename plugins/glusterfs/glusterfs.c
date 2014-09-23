@@ -213,7 +213,7 @@ static void uwsgi_glusterfs_setup() {
 static int uwsgi_glusterfs_request(struct wsgi_request *wsgi_req) {
 	char filename[PATH_MAX+1];
 	/* Standard GlusterFS request */
-        if (!wsgi_req->uh->pktsize) {
+        if (!wsgi_req->len) {
                 uwsgi_log( "Empty GlusterFS request. skip.\n");
                 return -1;
         }

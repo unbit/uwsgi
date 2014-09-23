@@ -36,7 +36,7 @@ int nagios() {
 	}
 
 	uh.modifier1 = UWSGI_MODIFIER_PING;
-	uh.pktsize = 0;
+	uh._pktsize = 0;
 	uh.modifier2 = 0;
 	if (write(fd, &uh, 4) != 4) {
 		uwsgi_error("write()");
@@ -56,8 +56,8 @@ int nagios() {
 		exit(2);
 	}
 	else {
-		if (uh.pktsize > 0 && buf) {
-			fprintf(stdout, "UWSGI WARNING: %.*s\n", uh.pktsize, buf);
+		if (uh._pktsize > 0 && buf) {
+			fprintf(stdout, "UWSGI WARNING: %.*s\n", uh._pktsize, buf);
 			exit(1);
 		}
 		else {

@@ -948,7 +948,7 @@ static void cache_send_udp_command(struct uwsgi_cache *uc, char *key, uint16_t k
 		iov[2].iov_base = key;
 		iov[2].iov_len = keylen;
 
-		uh.pktsize = 2 + keylen;
+		uh._pktsize = 2 + keylen;
 
 		if (cmd == 10) {
 			u_v[0] = (uint8_t) (vallen16 & 0xff);
@@ -972,7 +972,7 @@ static void cache_send_udp_command(struct uwsgi_cache *uc, char *key, uint16_t k
                 	iov[6].iov_base = es;
                 	iov[6].iov_len = es_size;
 
-			uh.pktsize += 2 + vallen16 + 2 + es_size;
+			uh._pktsize += 2 + vallen16 + 2 + es_size;
 		}
 
 		uh.modifier1 = 111;

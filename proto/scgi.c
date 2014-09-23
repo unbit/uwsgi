@@ -43,7 +43,7 @@ keyval:
 				vallen = (buf+i) - value;
 				uint16_t pktsize = proto_base_add_uwsgi_var(wsgi_req, key, keylen, value, vallen);
                 		if (pktsize == 0) return -1;
-                		wsgi_req->uh->pktsize += pktsize;
+                		wsgi_req->len += pktsize;
 				key = NULL;
 				value = NULL;
 				keylen = 0;

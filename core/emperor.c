@@ -251,7 +251,7 @@ struct uwsgi_emperor_blacklist_item *uwsgi_emperor_blacklist_check(char *id) {
 
 void uwsgi_emperor_blacklist_add(char *id) {
 
-	// check if the item is already in the blacklist        
+	// check if the item is already in the blacklist
 	struct uwsgi_emperor_blacklist_item *uebi = uwsgi_emperor_blacklist_check(id);
 	if (uebi) {
 		gettimeofday(&uebi->last_attempt, NULL);
@@ -629,6 +629,18 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 			}
 			// check if mtime is changed and the uWSGI instance must be reloaded
 			if (st.st_mtime > ui_current->last_mod) {
+				if (uwsgi.emperor_force_config_pipe) {
+                                        char *config = uwsgi_simple_file_read(g.gl_pathv[i]);
+                                        if (!config) {
+                                                uwsgi_log_verbose("[emperor] unable to read %s\n", g.gl_pathv[i]);
+                                                emperor_stop(ui_current);
+                                                continue;
+                                        }
+                                        if (ui_current->config)
+                                                free(ui_current->config);
+                                        ui_current->config = config;
+                                        ui_current->config_len = strlen(ui_current->config);
+                                }
 				emperor_respawn(ui_current, st.st_mtime);
 			}
 		}
@@ -640,7 +652,18 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
                                 }
                         }
                         char *socket_name = emperor_check_on_demand_socket(g.gl_pathv[i], attrs);
-                        emperor_add_with_attrs(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, t_uid, t_gid, socket_name, attrs);
+			if (uwsgi.emperor_force_config_pipe) {
+                                char *config = uwsgi_simple_file_read(g.gl_pathv[i]);
+                                if (config) {
+                                        emperor_add_with_attrs(ues, g.gl_pathv[i], st.st_mtime, config, strlen(config), t_uid, t_gid, socket_name, attrs);
+                                }
+                                else {
+                                        uwsgi_log_verbose("[emperor] unable to read %s\n", g.gl_pathv[i]);
+                                }
+                        }
+                        else {
+                                emperor_add_with_attrs(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, t_uid, t_gid, socket_name, attrs);
+                        }	
                         if (socket_name)
                                 free(socket_name);
 		}
@@ -908,6 +931,12 @@ void emperor_stop(struct uwsgi_instance *c_ui) {
 		return;
 	// remove uWSGI instance
 
+	// in Zeus mode we need to send
+	// the DESTROY message to all of the nodes
+	if (uwsgi.zeus) {
+		return;
+	}
+
 	if (c_ui->pid != -1) {
 		if (write(c_ui->pipe[0], "\0", 1) != 1) {
 			uwsgi_error("emperor_stop()/write()");
@@ -940,7 +969,7 @@ static void emperor_push_config(struct uwsgi_instance *c_ui) {
 
 	if (c_ui->use_config) {
 		uh.modifier1 = 115;
-		uh.pktsize = c_ui->config_len;
+		uh._pktsize = c_ui->config_len;
 		uh.modifier2 = 0;
 		if (write(c_ui->pipe_config[0], &uh, 4) != 4) {
 			uwsgi_error("[uwsgi-emperor] write() header config");
@@ -958,6 +987,12 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 	// if the vassal is being destroyed, do not honour respawns
 	if (c_ui->status > 0)
 		return;
+
+	// if in Zeus mode, we need to send
+	// the reload message to all of the nodes
+	if (uwsgi.zeus) {
+		return;
+	}
 
 	// check if we are in on_demand mode (the respawn will be ignored)
 	if (c_ui->pid == -1 && c_ui->on_demand_fd > -1) {
@@ -1272,11 +1307,16 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
         	emperor_del(n_ui);
         }
 
+	if (uwsgi.zeus) {
+		uwsgi_log("[zeus] ready to spawn instance \"%s\" ...\n", n_ui->name);
+		return uwsgi_zeus_spawn_instance(n_ui);
+	}
+
 	// check for fork server
 	char *fork_server = uwsgi.emperor_use_fork_server;
 	char *fork_server_attr = vassal_attr_get(n_ui, uwsgi.emperor_fork_server_attr);
-	if (fork_server_attr) fork_server = fork_server_attr;	
-	// a new uWSGI instance will start 
+	if (fork_server_attr) fork_server = fork_server_attr;
+	// a new uWSGI instance will start
 	if (fork_server && !uwsgi_string_list_has_item(uwsgi.vassal_fork_base, n_ui->name, strlen(n_ui->name))) {
 		// pid can only be > 0 or -1
 		n_ui->adopted = 1;
@@ -2029,7 +2069,7 @@ void emperor_loop() {
 						ui_current->last_heartbeat = uwsgi_now();
 					}
 					else if (byte == 22) {
-						// command 22 changes meaning when in "on_demand" mode  
+						// command 22 changes meaning when in "on_demand" mode
 						if (ui_current->on_demand_fd != -1) {
 							emperor_back_to_ondemand(ui_current);
 						}
@@ -2055,7 +2095,6 @@ void emperor_loop() {
 						uwsgi_log_verbose("[emperor] vassal %s has been spawned\n", ui_current->name);
 					}
 					else if (byte == 2) {
-						uwsgi_log("ASKING for config\n");
 						emperor_push_config(ui_current);
 					}
 				}
@@ -2196,7 +2235,7 @@ recheck:
 					uwsgi_log("[uwsgi-emperor] %s -> back to \"on demand\" mode, waiting for connections on socket \"%s\" ...\n", ui_current->name, ui_current->socket_name);
 					if (uwsgi_hooks_run_and_return(uwsgi.hook_as_on_demand_vassal, "as-on-demand-vassal", ui_current->name, 0)) {
 						emperor_del(ui_current);
-						freq = 1;	
+						freq = 1;
 					}
 					break;
 				}
@@ -2365,7 +2404,7 @@ void emperor_send_stats(int fd) {
 			else {
 				if (uwsgi_stats_keyval(us, attrs->key, attrs->value))
                         		goto end0;
-			}		
+			}
 			attrs = attrs->next;
 		}
 
@@ -2528,6 +2567,8 @@ void uwsgi_check_emperor() {
 				free(env_emperor_fd);
 				int i;
 				for(i=1;i<count;i++) {
+					if (fds[i] < 0) continue;
+
 					char *socket_name = uwsgi_getsockname(fds[i]);
 					if (!socket_name) {
 						int j;

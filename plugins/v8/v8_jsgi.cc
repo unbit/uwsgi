@@ -62,7 +62,7 @@ extern "C" int uwsgi_v8_request(struct wsgi_request *wsgi_req) {
 	v8::Handle<v8::Function> forEach;
 
 	/* Standard JSGI 3.0 request */
-        if (!wsgi_req->uh->pktsize) {
+        if (!wsgi_req->len) {
                 uwsgi_log( "Empty JSGI request. skip.\n");
                 return -1;
         }

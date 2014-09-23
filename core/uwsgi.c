@@ -172,7 +172,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"listen", required_argument, 'l', "set the socket listen queue size", uwsgi_opt_set_int, &uwsgi.listen_queue, 0},
 	{"max-vars", required_argument, 'v', "set the amount of internal iovec/vars structures", uwsgi_opt_max_vars, NULL, 0},
 	{"max-apps", required_argument, 0, "set the maximum number of per-worker applications", uwsgi_opt_set_int, &uwsgi.max_apps, 0},
-	{"buffer-size", required_argument, 'b', "set internal buffer size", uwsgi_opt_set_16bit, &uwsgi.buffer_size, 0},
+	{"buffer-size", required_argument, 'b', "set internal buffer size", uwsgi_opt_set_64bit, &uwsgi.buffer_size, 0},
 	{"memory-report", no_argument, 'm', "enable memory report", uwsgi_opt_true, &uwsgi.logging_options.memory_report, 0},
 	{"profiler", required_argument, 0, "enable the specified profiler", uwsgi_opt_set_str, &uwsgi.profiler, 0},
 	{"cgi-mode", no_argument, 'c', "force CGI-mode for plugins supporting it", uwsgi_opt_true, &uwsgi.cgi_mode, 0},
@@ -255,6 +255,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"vassal-set", required_argument, 0, "automatically set the specified option (via --set) for every vassal", uwsgi_opt_add_string_list, &uwsgi.vassals_set, 0},
 
 	{"heartbeat", required_argument, 0, "announce healthiness to the emperor", uwsgi_opt_set_int, &uwsgi.heartbeat, 0},
+
+	{"zeus", required_argument, 0, "enable Zeus mode", uwsgi_opt_set_str, &uwsgi.zeus, 0},
 
 	{"reload-mercy", required_argument, 0, "set the maximum time (in seconds) we wait for workers and other processes to die during reload/shutdown", uwsgi_opt_set_int, &uwsgi.reload_mercy, 0},
 	{"worker-reload-mercy", required_argument, 0, "set the maximum time (in seconds) a worker can take to reload/shutdown (default is 60)", uwsgi_opt_set_int, &uwsgi.worker_reload_mercy, 0},
@@ -676,6 +678,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"privileged-binary-patch-arg", required_argument, 0, "patch the uwsgi binary with a new command and arguments (before privileges drop)", uwsgi_opt_set_str, &uwsgi.privileged_binary_patch_arg, 0},
 	{"unprivileged-binary-patch-arg", required_argument, 0, "patch the uwsgi binary with a new command and arguments (after privileges drop)", uwsgi_opt_set_str, &uwsgi.unprivileged_binary_patch_arg, 0},
 	{"async", required_argument, 0, "enable async mode with specified cores", uwsgi_opt_set_int, &uwsgi.async, 0},
+	{"disable-async-warn-on-queue-full", no_argument, 0, "Disable printing 'async queue is full' warning messages.", uwsgi_opt_false, &uwsgi.async_warn_if_queue_full, 0},
 	{"max-fd", required_argument, 0, "set maximum number of file descriptors (requires root privileges)", uwsgi_opt_set_int, &uwsgi.requested_max_fd, 0},
 	{"logto", required_argument, 0, "set logfile/udp address", uwsgi_opt_set_str, &uwsgi.logfile, 0},
 	{"logto2", required_argument, 0, "log to specified file or udp address after privileges drop", uwsgi_opt_set_str, &uwsgi.logto2, 0},
@@ -2939,7 +2942,22 @@ unsafe:
 		uwsgi_log("your server socket listen backlog is limited to %d connections\n", uwsgi.listen_queue);
 #endif
 
+
 	uwsgi_log("your mercy for graceful operations on workers is %d seconds\n", uwsgi.worker_reload_mercy);
+
+	uwsgi_log("your request buffer size is %llu bytes\n", (unsigned long long) uwsgi.buffer_size);
+	if (!uwsgi.__buffer_size) {
+		if (uwsgi.buffer_size > 0xffff) {
+			uwsgi_log("your request buffer size for old plugins has been limited to 64k\n");
+			uwsgi.__buffer_size = 0xffff;
+		}
+		else {
+			uwsgi.__buffer_size = uwsgi.buffer_size;
+		}
+	}
+	else {
+		uwsgi_log("your request buffer size for old plugins is %u bytes\n", uwsgi.__buffer_size);
+	}
 
 	if (uwsgi.crons) {
 		struct uwsgi_cron *ucron = uwsgi.crons;

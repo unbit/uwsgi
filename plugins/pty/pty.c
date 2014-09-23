@@ -331,7 +331,7 @@ static int uwsgi_pty_client() {
 			if (upty.uremote) {
 				struct uwsgi_header uh;
 				uh.modifier1 = 0;
-				uh.pktsize = rlen;
+				uh._pktsize = rlen;
 				uh.modifier2 = 0;
 				if (write(upty.server_fd, &uh, 4) != 4) break;
 			}
