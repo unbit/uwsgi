@@ -18,6 +18,29 @@ mule_functions = {}
 postfork_chain = []
 
 
+# Python3 compatibility
+def _encode1(val):
+    if sys.version_info >= (3, 0) and isinstance(val, str):
+        return val.encode('utf-8')
+    else:
+        return val
+
+
+def _decode1(val):
+    if sys.version_info >= (3, 0) and isinstance(val, bytes):
+        return val.decode('utf-8')
+    else:
+        return val
+
+
+def _encode_to_spooler(vars):
+    return dict((_encode1(K), _encode1(V)) for (K, V) in vars.items())
+
+
+def _decode_from_spooler(vars):
+    return dict((_decode1(K), _decode1(V)) for (K, V) in vars.items())
+
+
 def get_free_signal():
     for signum in range(0, 256):
         if not uwsgi.signal_registered(signum):
@@ -27,6 +50,7 @@ def get_free_signal():
 
 
 def manage_spool_request(vars):
+    vars = _decode_from_spooler(vars)
     f = spooler_functions[vars['ud_spool_func']]
     if 'args' in vars:
         args = pickle.loads(vars.pop('args'))
@@ -79,8 +103,9 @@ class _spoolraw(object):
                 if key in kwargs:
                     spooler_args.update({key: kwargs.pop(key)})
             arguments.update(spooler_args)
-            arguments.update({'args': pickle.dumps(args), 'kwargs': pickle.dumps(kwargs)})
-        return uwsgi.spool(arguments)
+            arguments.update(
+                {'args': pickle.dumps(args), 'kwargs': pickle.dumps(kwargs)})
+        return uwsgi.spool(_encode_to_spooler(arguments))
 
     # For backward compatibility (uWSGI < 1.9.13)
     def spool(self, *args, **kwargs):

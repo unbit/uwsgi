@@ -369,7 +369,8 @@ void async_schedule_to_req_green(void) {
 			uwsgi.schedule_fix(wsgi_req);
 		}
                 // switch after each yield
-                uwsgi.schedule_to_main(wsgi_req);
+		if (uwsgi.schedule_to_main)
+			uwsgi.schedule_to_main(wsgi_req);
         }
 
 #ifdef UWSGI_ROUTING
