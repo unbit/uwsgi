@@ -48,6 +48,7 @@ uwsgi.post_fork_hook = postfork_chain_hook
 
 
 class postfork(object):
+
     def __init__(self, f):
         if callable(f):
             self.wid = 0
@@ -56,6 +57,7 @@ class postfork(object):
             self.f = None
             self.wid = f
         postfork_chain.append(self)
+
     def __call__(self, *args, **kwargs):
         if self.f:
             if self.wid > 0 and self.wid != uwsgi.worker_id():
@@ -79,7 +81,8 @@ class _spoolraw(object):
                 if key in kwargs:
                     spooler_args.update({key: kwargs.pop(key)})
             arguments.update(spooler_args)
-            arguments.update({'args': pickle.dumps(args), 'kwargs': pickle.dumps(kwargs)})
+            arguments.update(
+                {'args': pickle.dumps(args), 'kwargs': pickle.dumps(kwargs)})
         return uwsgi.spool(arguments)
 
     # For backward compatibility (uWSGI < 1.9.13)
@@ -234,6 +237,7 @@ class mule_brainloop(mule_brain):
 
 
 class mule(object):
+
     def __init__(self, num):
         self.num = num
 
@@ -242,6 +246,7 @@ class mule(object):
 
 
 class muleloop(mule):
+
     def __call__(self, f):
         postfork_chain.append(mule_brainloop(f, self.num))
 
@@ -261,6 +266,7 @@ class mulemsg_loop(object):
 
 
 class mulemsg(object):
+
     def __init__(self, num):
         self.num = num
 
@@ -306,7 +312,7 @@ class cron(object):
     def __call__(self, f):
         uwsgi.register_signal(self.num, self.target, f)
         uwsgi.add_cron(self.num, self.minute, self.hour,
-            self.day, self.month, self.dayweek)
+                       self.day, self.month, self.dayweek)
         return f
 
 
@@ -347,6 +353,7 @@ class erlang(object):
 
 
 class lock(object):
+
     def __init__(self, f):
         self.f = f
 
