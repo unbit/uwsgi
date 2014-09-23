@@ -7,6 +7,7 @@ import os
 import fcntl
 from shutil import rmtree
 import time
+from signal import *
 import spooler_priority_constants
 
 

@@ -2,7 +2,7 @@
 # coding = utf-8
 
 from __future__ import print_function
-from constants import tasks, LOGFILE
+from spooler_priority_constants import tasks, LOGFILE
 from os import remove
 import uwsgi
 
