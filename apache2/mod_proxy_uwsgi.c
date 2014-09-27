@@ -94,6 +94,8 @@ static int uwsgi_canon(request_rec *r, char *url)
     r->filename = apr_pstrcat(r->pool, "proxy:" UWSGI_SCHEME "://", host, sport, "/",
                               path, NULL);
 
+    r->path_info = apr_pstrcat(r->pool, "/", path, NULL);
+
     return OK;
 }
 
@@ -436,25 +438,16 @@ static int uwsgi_handler(request_rec *r, proxy_worker *worker,
     }
 
     // ADD PATH_INFO
-#if AP_MODULE_MAGIC_AT_LEAST(20111130,0)
-    size_t w_len = strlen(worker->s->name);
-#else
-    size_t w_len = strlen(worker->name);
-#endif
-    char *u_path_info = r->filename + 6 + w_len;
-    int delta = 0;
-    if (u_path_info[0] != '/') {
-        delta = 1;
+    if (r->path_info) {
+        int decode_status = ap_unescape_url(r->path_info);
+        if (decode_status) {
+           ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                          "unable to decode uri: %s",
+                          r->path_info);
+            return HTTP_INTERNAL_SERVER_ERROR;
+        }
+        apr_table_add(r->subprocess_env, "PATH_INFO", r->path_info);
     }
-    int decode_status = ap_unescape_url(url+w_len-delta);
-    if (decode_status) {
-       ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                      "unable to decode uri: %s",
-                      url+w_len-delta);
-        return HTTP_INTERNAL_SERVER_ERROR;
-    }
-    apr_table_add(r->subprocess_env, "PATH_INFO", url+w_len-delta);
-
 
     /* Create space for state information */
     status = ap_proxy_acquire_connection(UWSGI_SCHEME, &backend, worker,
