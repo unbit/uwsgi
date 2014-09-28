@@ -1070,12 +1070,6 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	uint64_t end_of_request = uwsgi_micros();
 	wsgi_req->end_of_request = end_of_request;
 
-	if (!wsgi_req->do_not_account_avg_rt) {
-		tmp_rt = wsgi_req->end_of_request - wsgi_req->start_of_request;
-		uwsgi.workers[uwsgi.mywid].running_time += tmp_rt;
-		uwsgi.workers[uwsgi.mywid].avg_response_time = (uwsgi.workers[uwsgi.mywid].avg_response_time + tmp_rt) / 2;
-	}
-
 	// get memory usage
 	if (uwsgi.logging_options.memory_report == 1 || uwsgi.force_get_memusage) {
 		get_memusage(&rss, &vsz);
@@ -1091,6 +1085,12 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].read_errors += wsgi_req->read_errors;
 		// this is used for MAX_REQUESTS
 		uwsgi.workers[uwsgi.mywid].delta_requests++;
+	}
+
+	if (!wsgi_req->do_not_account_avg_rt) {
+		tmp_rt = wsgi_req->end_of_request - wsgi_req->start_of_request;
+		uwsgi.workers[uwsgi.mywid].running_time += tmp_rt;
+		uwsgi.workers[uwsgi.mywid].avg_response_time = uwsgi.workers[uwsgi.mywid].running_time / uwsgi.workers[uwsgi.mywid].requests;
 	}
 
 #ifdef UWSGI_ROUTING
