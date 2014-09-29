@@ -17,7 +17,7 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
         // protocol
         for(i=0;i<len;i++) {
                 if (buf[i] == ' ') {
-			if (hr->session.can_keepalive && uwsgi_strncmp("HTTP/1.1", 8, buf, i)) {
+			if (!hr->is_rtsp && hr->session.can_keepalive && uwsgi_strncmp("HTTP/1.1", 8, buf, i)) {
 				goto end;
 			}
                         if (i+1 >= len) return -1;;
@@ -34,6 +34,15 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
         for(i=next;i<len;i++) {
                 if (buf[i] == '\r' || buf[i] == '\n') {
 			// status ready
+			// if we are in RTSP mode we need to ensure a 200 is returned
+			if (hr->is_rtsp) {
+				if (next + 3 >= len) return -1;
+				char *code = buf + next;
+				if (code[0] != '2' || code[1] != '0' || code[2] != '0') {
+					hr->is_rtsp = 0;
+					hr->session.can_keepalive = 0;
+				}
+			}
                         if (i+1 >= len) return -1;
                         next = i + 1;
                         found = 1;
@@ -116,7 +125,7 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
                 }
         }
 
-	if (!has_size) {
+	if (!has_size && !hr->is_rtsp) {
 #ifdef UWSGI_ZLIB
 		if (hr->has_gzip) {
 			hr->force_gzip = 1;
