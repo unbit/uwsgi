@@ -162,6 +162,12 @@ static int u_offload_sendfile_prepare(struct wsgi_request *wsgi_req, struct uwsg
 }
 
 static void uwsgi_offload_close(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor) {
+
+	// call the free function asap
+	if (uor->free) {
+		uor->free(uor);
+	}
+
 	// close the socket and the file descriptor
 	if (uor->takeover && uor->s > -1) {
 		close(uor->s);
