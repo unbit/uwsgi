@@ -67,6 +67,8 @@ struct uwsgi_option http_options[] = {
 	{"http-enable-proxy-protocol", optional_argument, 0, "manage PROXY protocol requests", uwsgi_opt_true, &uhttp.enable_proxy_protocol, 0},
 
 	{"http-backend-http", no_argument, 0, "use plain http protocol instead of uwsgi for backend nodes", uwsgi_opt_true, &uhttp.proto_http, 0},
+
+	{"http-manage-rtsp", no_argument, 0, "manage RTSP sessions", uwsgi_opt_true, &uhttp.manage_rtsp, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -469,6 +471,10 @@ static int http_headers_parse_dumb(struct corerouter_peer *peer, int skip) {
                         if (uhttp.keepalive && !uwsgi_strncmp("HTTP/1.1", 8, base, ptr-base)) {
                                 hr->session.can_keepalive = 1;
                         }
+			if (uhttp.manage_rtsp && !uwsgi_strncmp("RTSP/1.0", 8, base, ptr-base)) {
+                                hr->session.can_keepalive = 1;
+				hr->is_rtsp = 1;
+			}
                         ptr += 2;
                         found = 1;
                         break;
@@ -652,6 +658,10 @@ int http_headers_parse(struct corerouter_peer *peer, int skip) {
 			if (uwsgi_buffer_append_keyval(out, "SERVER_PROTOCOL", 15, base, ptr - base)) return -1;
 			if (uhttp.keepalive && !uwsgi_strncmp("HTTP/1.1", 8, base, ptr-base)) {
 				hr->session.can_keepalive = 1;
+			}
+			if (uhttp.manage_rtsp && !uwsgi_strncmp("RTSP/1.0", 8, base, ptr-base)) {
+				hr->session.can_keepalive = 1;
+				hr->is_rtsp = 1;
 			}
 			ptr += 2;
 			found = 1;

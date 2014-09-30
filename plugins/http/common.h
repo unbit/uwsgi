@@ -48,6 +48,8 @@ struct uwsgi_http {
 	int enable_proxy_protocol;
 
 	int proto_http;
+
+	int manage_rtsp;
 }; 
 
 struct http_session {
@@ -140,6 +142,8 @@ struct http_session {
         char *proxy_src_port;
         uint16_t proxy_src_len;
         uint16_t proxy_src_port_len;
+
+	int is_rtsp;
 };
 
 
