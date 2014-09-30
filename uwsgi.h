@@ -4924,6 +4924,8 @@ char *vassal_attr_get(struct uwsgi_instance *, char *);
 int vassal_attr_get_multi(struct uwsgi_instance *, char *, int (*)(struct uwsgi_instance *, char *, void *), void *);
 
 int uwsgi_zeus_spawn_instance(struct uwsgi_instance *);
+
+time_t uwsgi_parse_http_date(char *, uint16_t);
 #ifdef __cplusplus
 }
 #endif
