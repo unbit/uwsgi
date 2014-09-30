@@ -4334,6 +4334,9 @@ struct uwsgi_offload_request {
 	int64_t custom6;
 	int64_t custom7;
 	int64_t custom8;
+
+	void *data;
+	void (*free)(struct uwsgi_offload_request *);
 };
 
 struct uwsgi_offload_engine {
