@@ -4245,6 +4245,25 @@ struct uwsgi_offload_request {
 
 	struct uwsgi_offload_request *prev;
 	struct uwsgi_offload_request *next;
+
+	// added in 2.1
+	struct uwsgi_buffer *ubuf1;
+	struct uwsgi_buffer *ubuf2;
+	struct uwsgi_buffer *ubuf3;
+	struct uwsgi_buffer *ubuf4;
+	struct uwsgi_buffer *ubuf5;
+	struct uwsgi_buffer *ubuf6;
+	struct uwsgi_buffer *ubuf7;
+	struct uwsgi_buffer *ubuf8;
+
+	int64_t custom1;
+	int64_t custom2;
+	int64_t custom3;
+	int64_t custom4;
+	int64_t custom5;
+	int64_t custom6;
+	int64_t custom7;
+	int64_t custom8;
 };
 
 struct uwsgi_offload_engine {

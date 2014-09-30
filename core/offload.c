@@ -200,6 +200,31 @@ static void uwsgi_offload_close(struct uwsgi_thread *ut, struct uwsgi_offload_re
 		uwsgi_buffer_destroy(uor->ubuf);
 	}
 
+	if (uor->ubuf1) {
+		uwsgi_buffer_destroy(uor->ubuf1);
+	}
+	if (uor->ubuf2) {
+		uwsgi_buffer_destroy(uor->ubuf2);
+	}
+	if (uor->ubuf3) {
+		uwsgi_buffer_destroy(uor->ubuf3);
+	}
+	if (uor->ubuf4) {
+		uwsgi_buffer_destroy(uor->ubuf4);
+	}
+	if (uor->ubuf5) {
+		uwsgi_buffer_destroy(uor->ubuf5);
+	}
+	if (uor->ubuf6) {
+		uwsgi_buffer_destroy(uor->ubuf6);
+	}
+	if (uor->ubuf7) {
+		uwsgi_buffer_destroy(uor->ubuf7);
+	}
+	if (uor->ubuf8) {
+		uwsgi_buffer_destroy(uor->ubuf8);
+	}
+
 	if (uor->pipe[0] != -1) {
 		close(uor->pipe[1]);
 		close(uor->pipe[0]);
