@@ -27,7 +27,18 @@ char *uwsgi_python_get_thread_name(PyObject *thread_id) {
 		if (PyInt_AsLong(thread_ident) == PyInt_AsLong(thread_id)) {
 			PyObject *thread_name = PyObject_GetAttrString(threads_list_next, "name");
 			if (!thread_name) goto clear2;
+#ifdef PYTHREE
+			PyObject *thread_name_utf8 = PyUnicode_AsUTF8String(thread_name);
+			if (!thread_name_utf8) goto clear2;
+			char *name = NULL;
+			char *tmp_name = PyString_AsString(thread_name_utf8);
+			if (tmp_name) {
+				name = uwsgi_str(tmp_name);	
+				Py_DECREF(thread_name_utf8);
+			}
+#else
 			char *name = PyString_AsString(thread_name);
+#endif
 			Py_DECREF(threads_list_next);
 			Py_DECREF(threads_list_iter);
 			Py_DECREF(threads_list);
@@ -133,6 +144,9 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 			PyObject *st_items = PyIter_Next(stacktrace_iter);
 			// we have the first traceback item
 			while(st_items) {
+#ifdef PYTHREE
+				int thread_name_need_free = 0;
+#endif
 				PyObject *st_filename = PyTuple_GetItem(st_items, 0);
 				if (!st_filename) { Py_DECREF(st_items); goto next; }
 				PyObject *st_lineno = PyTuple_GetItem(st_items, 1);
@@ -149,12 +163,26 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 				if (!iov[1].iov_base) {
 					iov[1].iov_base = "<UnnamedPythonThread>";
 				}
+#ifdef PYTHREE
+				else {
+					thread_name_need_free = 1;
+				}
+#endif
 				iov[1].iov_len = strlen(iov[1].iov_base);
 
 				iov[2].iov_base = " filename = ";
 				iov[2].iov_len = 12;
 
+#ifdef PYTHREE
+				PyObject *st_filename_utf8 = PyUnicode_AsUTF8String(st_filename);
+				if (!st_filename_utf8) {
+					if (thread_name_need_free) free(iov[1].iov_base);
+					goto next;
+				}
+				iov[3].iov_base = PyString_AsString(st_filename_utf8);
+#else
 				iov[3].iov_base = PyString_AsString(st_filename);
+#endif
 				iov[3].iov_len = strlen(iov[3].iov_base);
 
 				iov[4].iov_base = " lineno = ";
@@ -166,7 +194,17 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 				iov[6].iov_base = " function = ";
 				iov[6].iov_len = 12 ;
 
+#ifdef PYTHREE
+                                PyObject *st_name_utf8 = PyUnicode_AsUTF8String(st_name);
+                                if (!st_name_utf8) {
+					if (thread_name_need_free) free(iov[1].iov_base);
+					Py_DECREF(st_filename_utf8);
+					goto next;
+				}
+				iov[7].iov_base = PyString_AsString(st_name_utf8);
+#else
 				iov[7].iov_base = PyString_AsString(st_name);
+#endif
                                 iov[7].iov_len = strlen(iov[7].iov_base);
 
 				iov[8].iov_base = "";
@@ -178,10 +216,24 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 				iov[10].iov_base = "\n";
 				iov[10].iov_len = 1;
 
+#ifdef PYTHREE
+				PyObject *st_line_utf8 = NULL;
+#endif
 				if (st_line) {
 					iov[8].iov_base = " line = ";
 					iov[8].iov_len = 8;
+#ifdef PYTHREE
+                                	PyObject *st_line_utf8 = PyUnicode_AsUTF8String(st_line);
+                                	if (!st_line_utf8) {
+						if (thread_name_need_free) free(iov[1].iov_base);
+                                        	Py_DECREF(st_filename_utf8);
+                                        	Py_DECREF(st_name_utf8);
+                                        	goto next;
+                                	}
+					iov[9].iov_base = PyString_AsString(st_line_utf8);
+#else
 					iov[9].iov_base = PyString_AsString(st_line);
+#endif
 					iov[9].iov_len = strlen(iov[9].iov_base);
 				}
 
@@ -192,6 +244,15 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 				// free the line_no
 				free(iov[5].iov_base);
 				Py_DECREF(st_items);
+#ifdef PYTHREE
+				Py_DECREF(st_filename_utf8);
+				Py_DECREF(st_name_utf8);
+				if (st_line_utf8) {
+					Py_DECREF(st_line_utf8);
+				}
+				if (thread_name_need_free)
+					free(iov[1].iov_base);
+#endif
 				st_items = PyIter_Next(stacktrace_iter);
 			}
 			if (write(client_fd, "\n", 1) < 0) {
