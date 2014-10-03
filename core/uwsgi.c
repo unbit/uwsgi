@@ -3434,6 +3434,7 @@ void uwsgi_ignition() {
                 if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
                         uwsgi_error("emperor-i-am-ready-to-accept/write()");
 			uwsgi_log_verbose("lost communication with the Emperor, goodbye...\n");
+			gracefully_kill_them_all(0);
 			exit(1);
                 }
         }
