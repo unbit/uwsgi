@@ -299,6 +299,8 @@ int uwsgi_python_send_body(struct wsgi_request *, PyObject *);
 
 int uwsgi_request_python_raw(struct wsgi_request *);
 
+void uwsgi_python_set_thread_name(int);
+
 #define py_current_wsgi_req() current_wsgi_req();\
 			if (!wsgi_req) {\
 				return PyErr_Format(PyExc_SystemError, "you can call uwsgi api function only from the main callable");\

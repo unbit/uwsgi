@@ -55,6 +55,9 @@ static int uwsgi_offload_enqueue(struct wsgi_request *wsgi_req, struct uwsgi_off
 		}
 		return -1;
 	}
+#ifdef UWSGI_DEBUG
+        uwsgi_log("[offload] created session %p\n", uor);
+#endif
 	return 0;
 }
 
@@ -203,6 +206,10 @@ static void uwsgi_offload_close(struct uwsgi_thread *ut, struct uwsgi_offload_re
 	}
 
 	free(uor);
+
+#ifdef UWSGI_DEBUG
+	uwsgi_log("[offload] destroyed session %p\n", uor);
+#endif
 }
 
 static void uwsgi_offload_append(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor) {
