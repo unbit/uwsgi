@@ -49,7 +49,7 @@ static uint16_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, s
 
 	if (buffer + keylen + hvlen + 2 + 2 >= watermark) {
 		if (has_prefix) {
-			uwsgi_log("[WARNING] unable to add HTTP_%.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen, hh, hvlen, hv);
+			uwsgi_log("[WARNING] unable to add HTTP_%.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen-5, hh, hvlen, hv);
 		}
 		else {
 			uwsgi_log("[WARNING] unable to add %.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen, hh, hvlen, hv);
