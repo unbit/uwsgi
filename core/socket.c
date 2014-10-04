@@ -1948,6 +1948,7 @@ void uwsgi_protocols_register() {
 	uwsgi_register_protocol("puwsgi", uwsgi_proto_puwsgi_setup);
 
 	uwsgi_register_protocol("http", uwsgi_proto_http_setup);
+	uwsgi_register_protocol("http11", uwsgi_proto_http11_setup);
 
 #ifdef UWSGI_SSL
 	uwsgi_register_protocol("suwsgi", uwsgi_proto_suwsgi_setup);
