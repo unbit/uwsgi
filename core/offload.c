@@ -613,6 +613,9 @@ int uwsgi_offload_run(struct wsgi_request *wsgi_req, struct uwsgi_offload_reques
 
         if (uor->takeover) {
                 wsgi_req->fd_closed = 1;
+		// avoid edge-triggered mode
+		if (wsgi_req->socket->retry)
+			wsgi_req->socket->retry[wsgi_req->async_id] = 0;
         }
 
 	if (uwsgi_offload_enqueue(wsgi_req, uor)) {
