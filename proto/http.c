@@ -670,6 +670,8 @@ void uwsgi_proto_http11_close(struct wsgi_request *wsgi_req) {
 int uwsgi_proto_http11_accept(struct wsgi_request *wsgi_req, int fd) {
         if (wsgi_req->socket->retry[wsgi_req->async_id]) {
                 wsgi_req->fd = wsgi_req->socket->fd_threads[wsgi_req->async_id];
+		wsgi_req->c_len = sizeof(struct sockaddr_un);
+		getsockname(wsgi_req->fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
                 int ret = uwsgi_wait_read_req(wsgi_req);
                 if (ret <= 0) {
                         close(wsgi_req->fd);
