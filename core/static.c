@@ -167,6 +167,9 @@ static time_t parse_http_date(char *date, uint16_t len) {
 
 }
 
+time_t uwsgi_parse_http_date(char *buf, uint16_t len) {
+	return parse_http_date(buf, len);
+}
 
 
 int uwsgi_add_expires_type(struct wsgi_request *wsgi_req, char *mime_type, int mime_type_len, struct stat *st) {

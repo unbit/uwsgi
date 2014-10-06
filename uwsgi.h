@@ -3464,6 +3464,7 @@ void uwsgi_proto_uwsgi_setup(struct uwsgi_socket *);
 void uwsgi_proto_puwsgi_setup(struct uwsgi_socket *);
 void uwsgi_proto_raw_setup(struct uwsgi_socket *);
 void uwsgi_proto_http_setup(struct uwsgi_socket *);
+void uwsgi_proto_http11_setup(struct uwsgi_socket *);
 #ifdef UWSGI_SSL
 void uwsgi_proto_https_setup(struct uwsgi_socket *);
 void uwsgi_proto_suwsgi_setup(struct uwsgi_socket *);
@@ -4315,6 +4316,28 @@ struct uwsgi_offload_request {
 
 	struct uwsgi_offload_request *prev;
 	struct uwsgi_offload_request *next;
+
+	// added in 2.1
+	struct uwsgi_buffer *ubuf1;
+	struct uwsgi_buffer *ubuf2;
+	struct uwsgi_buffer *ubuf3;
+	struct uwsgi_buffer *ubuf4;
+	struct uwsgi_buffer *ubuf5;
+	struct uwsgi_buffer *ubuf6;
+	struct uwsgi_buffer *ubuf7;
+	struct uwsgi_buffer *ubuf8;
+
+	int64_t custom1;
+	int64_t custom2;
+	int64_t custom3;
+	int64_t custom4;
+	int64_t custom5;
+	int64_t custom6;
+	int64_t custom7;
+	int64_t custom8;
+
+	void *data;
+	void (*free)(struct uwsgi_offload_request *);
 };
 
 struct uwsgi_offload_engine {
@@ -4905,6 +4928,8 @@ char *vassal_attr_get(struct uwsgi_instance *, char *);
 int vassal_attr_get_multi(struct uwsgi_instance *, char *, int (*)(struct uwsgi_instance *, char *, void *), void *);
 
 int uwsgi_zeus_spawn_instance(struct uwsgi_instance *);
+
+time_t uwsgi_parse_http_date(char *, uint16_t);
 #ifdef __cplusplus
 }
 #endif

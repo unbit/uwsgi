@@ -648,6 +648,62 @@ void uwsgi_proto_http_setup(struct uwsgi_socket *uwsgi_sock) {
 
 }
 
+/*
+close the connection on errors, incomplete parsing, HTTP/1.0,  pipelined or offloaded requests
+NOTE: Connection: close is not honoured
+*/
+void uwsgi_proto_http11_close(struct wsgi_request *wsgi_req) {
+        // check for errors or incomplete packets
+        if (wsgi_req->write_errors || wsgi_req->proto_parser_status != 3 || wsgi_req->proto_parser_remains > 0
+		|| wsgi_req->post_pos < wsgi_req->post_cl || wsgi_req->via == UWSGI_VIA_OFFLOAD
+		|| !uwsgi_strncmp("HTTP/1.0", 8, wsgi_req->protocol, wsgi_req->protocol_len)) {
+                close(wsgi_req->fd);
+                wsgi_req->socket->retry[wsgi_req->async_id] = 0;
+                wsgi_req->socket->fd_threads[wsgi_req->async_id] = -1;
+        }
+        else {
+                wsgi_req->socket->retry[wsgi_req->async_id] = 1;
+                wsgi_req->socket->fd_threads[wsgi_req->async_id] = wsgi_req->fd;
+        }
+}
+
+int uwsgi_proto_http11_accept(struct wsgi_request *wsgi_req, int fd) {
+        if (wsgi_req->socket->retry[wsgi_req->async_id]) {
+                wsgi_req->fd = wsgi_req->socket->fd_threads[wsgi_req->async_id];
+		wsgi_req->c_len = sizeof(struct sockaddr_un);
+		getsockname(wsgi_req->fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
+                int ret = uwsgi_wait_read_req(wsgi_req);
+                if (ret <= 0) {
+                        close(wsgi_req->fd);
+                        wsgi_req->socket->retry[wsgi_req->async_id] = 0;
+                        wsgi_req->socket->fd_threads[wsgi_req->async_id] = -1;
+                        return -1;
+                }
+                return wsgi_req->socket->fd_threads[wsgi_req->async_id];
+        }
+        return uwsgi_proto_base_accept(wsgi_req, fd);
+}
+
+void uwsgi_proto_http11_setup(struct uwsgi_socket *uwsgi_sock) {
+        uwsgi_sock->proto = uwsgi_proto_http_parser;
+        uwsgi_sock->proto_accept = uwsgi_proto_http11_accept;
+        uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
+        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
+        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
+        uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
+        uwsgi_sock->proto_write = uwsgi_proto_base_write;
+        uwsgi_sock->proto_writev = uwsgi_proto_base_writev;
+        uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
+        uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
+        uwsgi_sock->proto_close = uwsgi_proto_http11_close;
+        if (uwsgi.offload_threads > 0)
+        	uwsgi_sock->can_offload = 1;
+	uwsgi_sock->fd_threads = uwsgi_malloc(sizeof(int) * uwsgi.cores);
+        memset(uwsgi_sock->fd_threads, -1, sizeof(int) * uwsgi.cores);
+        uwsgi_sock->retry = uwsgi_calloc(sizeof(int) * uwsgi.cores);
+        uwsgi.is_et = 1;
+}
+
 #ifdef UWSGI_SSL
 static int uwsgi_proto_https_parser(struct wsgi_request *wsgi_req) {
 

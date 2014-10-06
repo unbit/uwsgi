@@ -55,6 +55,9 @@ static int uwsgi_offload_enqueue(struct wsgi_request *wsgi_req, struct uwsgi_off
 		}
 		return -1;
 	}
+#ifdef UWSGI_DEBUG
+        uwsgi_log("[offload] created session %p\n", uor);
+#endif
 	return 0;
 }
 
@@ -159,6 +162,12 @@ static int u_offload_sendfile_prepare(struct wsgi_request *wsgi_req, struct uwsg
 }
 
 static void uwsgi_offload_close(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor) {
+
+	// call the free function asap
+	if (uor->free) {
+		uor->free(uor);
+	}
+
 	// close the socket and the file descriptor
 	if (uor->takeover && uor->s > -1) {
 		close(uor->s);
@@ -197,12 +206,41 @@ static void uwsgi_offload_close(struct uwsgi_thread *ut, struct uwsgi_offload_re
 		uwsgi_buffer_destroy(uor->ubuf);
 	}
 
+	if (uor->ubuf1) {
+		uwsgi_buffer_destroy(uor->ubuf1);
+	}
+	if (uor->ubuf2) {
+		uwsgi_buffer_destroy(uor->ubuf2);
+	}
+	if (uor->ubuf3) {
+		uwsgi_buffer_destroy(uor->ubuf3);
+	}
+	if (uor->ubuf4) {
+		uwsgi_buffer_destroy(uor->ubuf4);
+	}
+	if (uor->ubuf5) {
+		uwsgi_buffer_destroy(uor->ubuf5);
+	}
+	if (uor->ubuf6) {
+		uwsgi_buffer_destroy(uor->ubuf6);
+	}
+	if (uor->ubuf7) {
+		uwsgi_buffer_destroy(uor->ubuf7);
+	}
+	if (uor->ubuf8) {
+		uwsgi_buffer_destroy(uor->ubuf8);
+	}
+
 	if (uor->pipe[0] != -1) {
 		close(uor->pipe[1]);
 		close(uor->pipe[0]);
 	}
 
 	free(uor);
+
+#ifdef UWSGI_DEBUG
+	uwsgi_log("[offload] destroyed session %p\n", uor);
+#endif
 }
 
 static void uwsgi_offload_append(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor) {
@@ -575,6 +613,9 @@ int uwsgi_offload_run(struct wsgi_request *wsgi_req, struct uwsgi_offload_reques
 
         if (uor->takeover) {
                 wsgi_req->fd_closed = 1;
+		// avoid edge-triggered mode
+		if (wsgi_req->socket->retry)
+			wsgi_req->socket->retry[wsgi_req->async_id] = 0;
         }
 
 	if (uwsgi_offload_enqueue(wsgi_req, uor)) {

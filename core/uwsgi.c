@@ -47,6 +47,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"http-socket-modifier1", required_argument, 0, "force the specified modifier1 when using HTTP protocol", uwsgi_opt_set_64bit, &uwsgi.http_modifier1, 0},
 	{"http-socket-modifier2", required_argument, 0, "force the specified modifier2 when using HTTP protocol", uwsgi_opt_set_64bit, &uwsgi.http_modifier2, 0},
 
+	{"http11-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using HTTP 1.1 (Keep-Alive) protocol", uwsgi_opt_add_socket, "http11", 0},
+
 #ifdef UWSGI_SSL
 	{"https-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using HTTPS protocol", uwsgi_opt_add_ssl_socket, "https", 0},
 	{"https-socket-modifier1", required_argument, 0, "force the specified modifier1 when using HTTPS protocol", uwsgi_opt_set_64bit, &uwsgi.https_modifier1, 0},
@@ -3490,7 +3492,10 @@ void uwsgi_ignition() {
         if (uwsgi.has_emperor && uwsgi.mywid == 1) {
                 char byte = 5;
                 if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
-                        uwsgi_error("write()");
+                        uwsgi_error("emperor-i-am-ready-to-accept/write()");
+			uwsgi_log_verbose("lost communication with the Emperor, goodbye...\n");
+			gracefully_kill_them_all(0);
+			exit(1);
                 }
         }
 
