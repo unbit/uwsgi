@@ -403,17 +403,25 @@ def build_uwsgi(uc, print_only=False, gcll=None):
 
                 path = path.rstrip('/')
 
-                if not os.path.isdir(path):
+                up = {}
+
+               	if os.path.isfile(path):
+                    bname = os.path.basename(path)
+                    # override path
+                    path = os.path.dirname(path)
+                    up['GCC_LIST'] = [bname]
+                    up['NAME'] = bname.split('.')[0]
+                    if not path: path = '.' 
+                elif os.path.isdir(path):
+                    try:
+                        execfile('%s/uwsgiplugin.py' % path, up)
+                    except:
+                        f = open('%s/uwsgiplugin.py' % path)
+                        exec(f.read(), up)
+                        f.close() 
+                else:
                     print("Error: plugin '%s' not found" % p)
                     sys.exit(1)
-
-                up = {}
-                try:
-                    execfile('%s/uwsgiplugin.py' % path, up)
-                except:
-                    f = open('%s/uwsgiplugin.py' % path)
-                    exec(f.read(), up)
-                    f.close()
 
                 p_cflags = cflags[:]
                 try:
