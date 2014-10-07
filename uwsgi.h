@@ -2738,6 +2738,13 @@ struct uwsgi_server {
 	// uWSGI 2.0.7
 	int vassal_sos;
 
+	// uWSGI 2.0.8
+	struct uwsgi_string_list *wait_for_fs;
+	struct uwsgi_string_list *wait_for_dir;
+	struct uwsgi_string_list *wait_for_file;
+	int wait_for_fs_timeout;
+	struct uwsgi_string_list *wait_for_mountpoint;
+
 };
 
 struct uwsgi_rpc {
@@ -4826,6 +4833,9 @@ mode_t uwsgi_mode_t(char *, int *);
 int uwsgi_notify_socket_manage(int);
 int uwsgi_notify_msg(char *, char *, size_t);
 void vassal_sos();
+
+int uwsgi_wait_for_fs(char *, int);
+int uwsgi_wait_for_mountpoint(char *);
 
 #ifdef __cplusplus
 }

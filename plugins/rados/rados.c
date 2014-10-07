@@ -147,7 +147,7 @@ static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, cha
                 char *body =  uwsgi_request_body_read(wsgi_req, UMIN(remains, 32768) , &body_len);
                 if (!body || body == uwsgi.empty) goto error;
 		if (uwsgi.async <= 1) {
-			if (rados_write(ctx, key, body, body_len, off) < 0) {
+			if (rados_write_full(ctx, key, body, body_len) < 0) {
 				return -1;
 			}
 		}
@@ -169,7 +169,7 @@ static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, cha
                 		free(urcb);
                 		goto error;
         		}
-        		if (rados_aio_write(ctx, key, comp, body, body_len, off) < 0) {
+        		if (rados_aio_write_full(ctx, key, comp, body, body_len) < 0) {
                 		free(urcb);
                 		rados_aio_release(comp);
                 		goto error;
