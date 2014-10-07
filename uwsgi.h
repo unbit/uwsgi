@@ -2741,6 +2741,13 @@ struct uwsgi_server {
 	// uWSGI 2.0.7
 	int vassal_sos;
 
+	// uWSGI 2.0.8
+	struct uwsgi_string_list *wait_for_fs;
+	struct uwsgi_string_list *wait_for_dir;
+	struct uwsgi_string_list *wait_for_file;
+	int wait_for_fs_timeout;
+	struct uwsgi_string_list *wait_for_mountpoint;
+
 	// uWSGI 2.1
 	char *fork_socket;
 	int new_argc;
@@ -2758,10 +2765,6 @@ struct uwsgi_server {
 	int subscription_mountpoints;
 	struct uwsgi_string_list *hook_as_emperor_before_vassal;
 	struct uwsgi_string_list *hook_as_vassal_before_drop;
-	struct uwsgi_string_list *wait_for_fs;
-	struct uwsgi_string_list *wait_for_dir;
-	struct uwsgi_string_list *wait_for_file;
-	int wait_for_fs_timeout;
 	struct uwsgi_string_list *hook_as_emperor_setns;
 	int emperor_force_config_pipe;
 	struct uwsgi_string_list *hook_as_on_config_vassal;
@@ -4923,6 +4926,7 @@ void uwsgi_register_subscription_algo(char *, struct uwsgi_subscribe_node *(*) (
 char *uwsgi_subscription_algo_name(void *);
 
 int uwsgi_wait_for_fs(char *, int);
+int uwsgi_wait_for_mountpoint(char *);
 void uwsgi_hooks_setns_run(struct uwsgi_string_list *, pid_t, uid_t, gid_t);
 char *vassal_attr_get(struct uwsgi_instance *, char *);
 int vassal_attr_get_multi(struct uwsgi_instance *, char *, int (*)(struct uwsgi_instance *, char *, void *), void *);
