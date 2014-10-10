@@ -1534,8 +1534,10 @@ static void vacuum(void) {
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
 	if (uwsgi.restore_tc) {
-		if (tcsetattr(0, TCSANOW, &uwsgi.termios)) {
-			uwsgi_error("vacuum()/tcsetattr()");
+		if (getpid() == masterpid) {
+			if (tcsetattr(0, TCSANOW, &uwsgi.termios)) {
+				uwsgi_error("vacuum()/tcsetattr()");
+			}
 		}
 	}
 
