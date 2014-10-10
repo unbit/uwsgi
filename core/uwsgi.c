@@ -1535,7 +1535,7 @@ static void vacuum(void) {
 
 	if (uwsgi.restore_tc) {
 		if (tcsetattr(0, TCSANOW, &uwsgi.termios)) {
-			uwsgi_error("tcsetattr()");
+			uwsgi_error("vacuum()/tcsetattr()");
 		}
 	}
 
