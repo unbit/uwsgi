@@ -67,7 +67,7 @@ class postfork(object):
 class _spoolraw(object):
 
     def __call__(self, *args, **kwargs):
-        arguments = self.base_dict
+        arguments = self.base_dict.copy()
         if not self.pass_arguments:
             if len(args) > 0:
                 arguments.update(args[0])
