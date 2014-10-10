@@ -8,6 +8,8 @@ extern "C" {
 
 #define UWSGI_PLUGIN_API	2
 
+#define UWSGI_HAS_OFFLOAD_UBUFS 1
+
 #define UMAX16	65536
 #define UMAX8	256
 
