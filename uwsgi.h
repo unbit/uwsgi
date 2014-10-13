@@ -838,6 +838,7 @@ struct uwsgi_cache {
 	uint64_t lru_tail;
 
 	int store_delete;
+	int lazy_expire;
 };
 
 struct uwsgi_option {

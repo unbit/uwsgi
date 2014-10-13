@@ -420,6 +420,17 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 
 }
 
+static uint64_t check_lazy(struct uwsgi_cache *uc, struct uwsgi_cache_item *uci, uint64_t slot) {
+	if (!uci->expires || !uc->lazy_expire) return slot;
+	uint64_t now = (uint64_t) uwsgi_now();
+	// expired ?
+	if (uci->expires <= now) {
+		uwsgi_cache_del2(uc, NULL, 0, slot, UWSGI_CACHE_FLAG_LOCAL);
+		return 0;
+	}
+	return slot;
+}
+
 static uint64_t uwsgi_cache_get_index(struct uwsgi_cache *uc, char *key, uint16_t keylen) {
 
 	uint32_t hash = uc->hash->func(key, keylen);
@@ -445,7 +456,7 @@ static uint64_t uwsgi_cache_get_index(struct uwsgi_cache *uc, char *key, uint16_
 	if (memcmp(uci->key, key, keylen))
 		goto cycle;
 
-	return slot;
+	return check_lazy(uc, uci, slot);
 
 cycle:
 	while (uci->next) {
@@ -468,8 +479,9 @@ cycle:
 			continue;
 		if (uci->keysize != keylen)
 			continue;
-		if (!memcmp(uci->key, key, keylen))
-			return slot;
+		if (!memcmp(uci->key, key, keylen)) {
+			return check_lazy(uc, uci, slot);
+		}
 	}
 
 	return 0;
@@ -1241,6 +1253,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		char *c_math_initial = NULL;
 		char *c_ignore_full = NULL;
 		char *c_purge_lru = NULL;
+		char *c_lazy_expire = NULL;
 
 		if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
                         "name", &c_name,
@@ -1273,6 +1286,8 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                         "ignore_full", &c_ignore_full,
 			"purge_lru", &c_purge_lru,
 			"lru", &c_purge_lru,
+			"lazy_expire", &c_lazy_expire,
+			"lazy", &c_lazy_expire,
                 	NULL)) {
 			uwsgi_log("unable to parse cache definition\n");
 			exit(1);
@@ -1325,6 +1340,8 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		if (c_store_delete) uc->store_delete = 1;
 
 		if (c_math_initial) uc->math_initial = strtol(c_math_initial, NULL, 10);
+
+		if (c_lazy_expire) uc->lazy_expire = 1;
 
 		uc->store_sync = uwsgi.cache_store_sync;
 		if (c_store_sync) { uc->store_sync = uwsgi_n64(c_store_sync); }
