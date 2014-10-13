@@ -1084,7 +1084,7 @@ static uint64_t cache_sweeper_free_items(struct uwsgi_cache *uc) {
 	uint64_t i;
 	uint64_t freed_items = 0;
 
-	if (uc->no_expire || uc->purge_lru)
+	if (uc->no_expire || uc->purge_lru || uc->lazy_expire)
 		return 0;
 
 	uwsgi_rlock(uc->lock);
