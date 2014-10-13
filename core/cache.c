@@ -1163,20 +1163,24 @@ void uwsgi_cache_start_sweepers() {
 	if (uwsgi.cache_no_expire)
 		return;
 
+	int need_to_run = 0;
 	while(uc) {
-		pthread_t cache_sweeper;
-		if (!uc->no_expire && !uc->purge_lru) {
-                	if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, uwsgi.caches)) {
-                        	uwsgi_error("pthread_create()");
-                        	uwsgi_log("unable to run the sweeper!!!\n");
-			}
-                	else {
-                        	uwsgi_log("sweeper thread enabled\n");
-                	}
+		if (!uc->no_expire && !uc->purge_lru && !uc->lazy_expire) {
+			need_to_run = 1;
 			break;
 		}
 		uc = uc->next;
         }
+
+	if (!need_to_run) return;
+
+	pthread_t cache_sweeper;
+        if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, uwsgi.caches)) {
+        	uwsgi_error("uwsgi_cache_start_sweepers()/pthread_create()");
+                uwsgi_log("unable to run the cache sweeper!!!\n");
+		return;
+	}
+        uwsgi_log("cache sweeper thread enabled\n");
 }
 
 void uwsgi_cache_start_sync_servers() {
