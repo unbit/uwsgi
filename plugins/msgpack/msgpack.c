@@ -121,7 +121,7 @@ int uwsgi_buffer_msgpack_int(struct uwsgi_buffer *ub, int64_t num) {
 	if (num > 0 && num <= 127) {
 		return uwsgi_buffer_byte(ub, (uint8_t) num);
 	}
-	else if (num < 0 && num >= 31) {
+	else if (num < 0 && num >= -31) {
 		return uwsgi_buffer_byte(ub, 224 | (int8_t) num);
 	}
 	else if (num <= 127 && num >= -127) {
