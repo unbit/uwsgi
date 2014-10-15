@@ -2744,6 +2744,10 @@ struct uwsgi_server {
 	struct uwsgi_string_list *wait_for_file;
 	int wait_for_fs_timeout;
 	struct uwsgi_string_list *wait_for_mountpoint;
+#ifdef UWSGI_SSL
+	int sslv3;
+	struct uwsgi_string_list *ssl_options;
+#endif
 
 };
 
