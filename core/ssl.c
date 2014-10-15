@@ -210,6 +210,10 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
         ssloptions |= SSL_OP_NO_COMPRESSION;
 #endif
 
+	if (!uwsgi.sslv3) {
+		ssloptions |= SSL_OP_NO_SSLv3;
+	}
+
 // release/reuse buffers as soon as possibile
 #ifdef SSL_MODE_RELEASE_BUFFERS
         SSL_CTX_set_mode(ctx, SSL_MODE_RELEASE_BUFFERS);
@@ -395,6 +399,11 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
         }
 
         SSL_CTX_set_timeout(ctx, uwsgi.ssl_sessions_timeout);
+
+	struct uwsgi_string_list *usl = NULL;
+	uwsgi_foreach(usl, uwsgi.ssl_options) {
+		ssloptions |= atoi(usl->value);
+	}
 
         SSL_CTX_set_options(ctx, ssloptions);
 
