@@ -3406,7 +3406,7 @@ struct uwsgi_app *uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int
 	}
 
 	if (!uwsgi.no_default_app) {
-		if ((mountpoint_len == 0 || (mountpoint_len = -1 && mountpoint[0] == '/')) && uwsgi.default_app == -1) {
+		if ((mountpoint_len == 0 || (mountpoint_len == 1 && mountpoint[0] == '/')) && uwsgi.default_app == -1) {
 			uwsgi.default_app = id;
 		}
 	}
