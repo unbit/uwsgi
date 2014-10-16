@@ -563,6 +563,7 @@ char *generate_socket_name(char *socket_name) {
 		ifa = ifap;
 		while (ifa) {
 			memset(new_addr, 0, 16);
+			if (!ifa->ifa_addr) goto next;
 			sin = (struct sockaddr_in *) ifa->ifa_addr;
 			if (inet_ntop(AF_INET, (void *) &sin->sin_addr.s_addr, new_addr, 16)) {
 				if (!strncmp(socket_name, new_addr, strlen(socket_name))) {
@@ -575,6 +576,7 @@ char *generate_socket_name(char *socket_name) {
 
 			}
 
+next:
 			ifaf = ifa;
 			ifa = ifaf->ifa_next;
 
