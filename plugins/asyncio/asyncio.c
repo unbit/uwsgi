@@ -328,9 +328,13 @@ static void asyncio_loop() {
 		uwsgi.schedule_fix = uwsgi_asyncio_schedule_fix;
 	}
 
+#ifndef UWSGI_PYTHREE
+	PyObject *asyncio = PyImport_ImportModule("trollius");
+#else
 	PyObject *asyncio = PyImport_ImportModule("asyncio");
+#endif
 	if (!asyncio) uwsgi_pyexit;
-	
+
 	uasyncio.mod = asyncio;
 
 	uasyncio.loop = PyObject_CallMethod(asyncio, "get_event_loop", NULL);
