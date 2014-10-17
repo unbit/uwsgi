@@ -1861,6 +1861,7 @@ struct uwsgi_server {
 	int emperor_nofollow;
 	int emperor_tyrant;
 	int emperor_tyrant_nofollow;
+	int emperor_tyrant_initgroups;
 	int emperor_fd_config;
 	int early_emperor;
 	int emperor_throttle;
