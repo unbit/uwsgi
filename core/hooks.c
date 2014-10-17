@@ -233,17 +233,26 @@ static int uwsgi_hook_writen(char *arg) {
 
 static int uwsgi_hook_appendn(char *arg) {
         char *space = strchr(arg, ' ');
-        if (!space) {
-                uwsgi_log("invalid hook appendn syntax, must be: <file> <string>\n");
-                return -1;
-        }
-        *space = 0;
+	if (space)
+        	*space = 0;
         int fd = open(arg, O_WRONLY|O_CREAT|O_APPEND, 0666);
         if (fd < 0) {
                 uwsgi_error_open(arg);
-                *space = ' ';
+		if (space)
+                	*space = ' ';
                 return -1;
         }
+	if (!space) {
+		// simple newline
+		if (write(fd, "\n", 1) != 1) {
+                	uwsgi_error("uwsgi_hook_appendn()/write()");
+			close(fd);
+			return -1;
+		}
+		close(fd);
+		return 0;
+	}
+
         *space = ' ';
         size_t l = strlen(space+1);
         char *buf = uwsgi_malloc(l + 1);
