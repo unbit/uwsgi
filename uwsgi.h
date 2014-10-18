@@ -1861,7 +1861,6 @@ struct uwsgi_server {
 	int emperor_nofollow;
 	int emperor_tyrant;
 	int emperor_tyrant_nofollow;
-	int emperor_tyrant_initgroups;
 	int emperor_fd_config;
 	int early_emperor;
 	int emperor_throttle;
@@ -2778,6 +2777,7 @@ struct uwsgi_server {
 	int async_warn_if_queue_full;
 	char *zeus;
 	uint64_t buffer_size;
+	int emperor_tyrant_initgroups;
 };
 
 struct uwsgi_rpc {
