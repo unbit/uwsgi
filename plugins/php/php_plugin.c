@@ -659,6 +659,7 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 	size_t real_filename_len = 0;
 	struct stat php_stat;
 	char *filename = NULL;
+	int force_empty_script_name = 0;
 
 	zend_file_handle file_handle;
 
@@ -727,6 +728,7 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 appready:
 		wsgi_req->path_info = "";
 		wsgi_req->path_info_len = 0;
+		force_empty_script_name = 1;
 		goto secure2;
 	}
 
@@ -856,13 +858,19 @@ secure2:
         }
 
 secure3:
-	wsgi_req->script_name = orig_path_info;
-	if (path_info) {
-		wsgi_req->script_name_len = path_info - orig_path_info;
+	if (force_empty_script_name) {
+		wsgi_req->script_name = "";
+		wsgi_req->script_name_len = 0;
 	}
 	else {
-		wsgi_req->script_name_len = orig_path_info_len;
-	}	
+		wsgi_req->script_name = orig_path_info;
+		if (path_info) {
+			wsgi_req->script_name_len = path_info - orig_path_info;
+		}
+		else {
+			wsgi_req->script_name_len = orig_path_info_len;
+		}
+	}
 
 #ifdef UWSGI_DEBUG
 	uwsgi_log("php filename = %s script_name = %.*s (%d) document_root = %.*s (%d)\n", real_filename, wsgi_req->script_name_len, wsgi_req->script_name, wsgi_req->script_name_len,
