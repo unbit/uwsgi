@@ -24,6 +24,42 @@ extern struct uwsgi_server uwsgi;
 
 */
 
+static void cache_full(struct uwsgi_cache *uc) {
+	uint64_t i;
+
+	if (!uc->ignore_full) {
+        	if (uc->purge_lru)
+                	uwsgi_log("LRU item will be purged from cache \"%s\"\n", uc->name);
+                else
+                	uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
+	}
+
+        uc->full++;
+
+        if (uc->purge_lru && uc->lru_head)
+        	uwsgi_cache_del2(uc, NULL, 0, uc->lru_head, UWSGI_CACHE_FLAG_LOCAL);
+
+	// we do not need locking here !
+	if (uc->sweep_on_full) {
+		uint64_t now = (uint64_t) uwsgi_now();
+		if (uc->next_scan <= now) {
+			uc->next_scan = now + uc->sweep_on_full;
+                	for (i = 1; i < uc->max_items; i++) {
+				struct uwsgi_cache_item *uci = cache_item(i);
+				if (uci->expires > 0 && uci->expires <= now) {
+                			uwsgi_cache_del2(uc, NULL, 0, i, 0);
+				}
+			}
+                }
+	}
+
+	if (uc->clear_on_full) {
+                for (i = 1; i < uc->max_items; i++) {
+                	uwsgi_cache_del2(uc, NULL, 0, i, 0);
+                }
+	}
+}
+
 static uint64_t uwsgi_cache_find_free_blocks(struct uwsgi_cache *uc, uint64_t need) {
 	// how many blocks we need ?
 	uint64_t needed_blocks = need/uc->blocksize;
@@ -420,6 +456,17 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 
 }
 
+static uint64_t check_lazy(struct uwsgi_cache *uc, struct uwsgi_cache_item *uci, uint64_t slot) {
+	if (!uci->expires || !uc->lazy_expire) return slot;
+	uint64_t now = (uint64_t) uwsgi_now();
+	// expired ?
+	if (uci->expires <= now) {
+		uwsgi_cache_del2(uc, NULL, 0, slot, UWSGI_CACHE_FLAG_LOCAL);
+		return 0;
+	}
+	return slot;
+}
+
 static uint64_t uwsgi_cache_get_index(struct uwsgi_cache *uc, char *key, uint16_t keylen) {
 
 	uint32_t hash = uc->hash->func(key, keylen);
@@ -445,7 +492,7 @@ static uint64_t uwsgi_cache_get_index(struct uwsgi_cache *uc, char *key, uint16_
 	if (memcmp(uci->key, key, keylen))
 		goto cycle;
 
-	return slot;
+	return check_lazy(uc, uci, slot);
 
 cycle:
 	while (uci->next) {
@@ -468,8 +515,9 @@ cycle:
 			continue;
 		if (uci->keysize != keylen)
 			continue;
-		if (!memcmp(uci->key, key, keylen))
-			return slot;
+		if (!memcmp(uci->key, key, keylen)) {
+			return check_lazy(uc, uci, slot);
+		}
 	}
 
 	return 0;
@@ -718,15 +766,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 	index = uwsgi_cache_get_index(uc, key, keylen);
 	if (!index) {
 		if (!uc->unused_blocks_stack_ptr) {
-			if (!uc->ignore_full) {
-				if (uc->purge_lru)
-					uwsgi_log("LRU item will be purged from cache \"%s\"\n", uc->name);
-				else
-					uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
-			}
-			uc->full++;
-			if (uc->purge_lru && uc->lru_head)
-				uwsgi_cache_del2(uc, NULL, 0, uc->lru_head, UWSGI_CACHE_FLAG_LOCAL);
+			cache_full(uc);
 			if (!uc->unused_blocks_stack_ptr)
 				goto end;
 		}
@@ -741,16 +781,8 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		else {
 			uci->first_block = uwsgi_cache_find_free_blocks(uc, vallen);
 			if (uci->first_block == 0xffffffffffffffffLLU) {
-				if (!uc->ignore_full) {
-					if (uc->purge_lru)
-                                        	uwsgi_log("LRU item will be purged from cache \"%s\"\n", uc->name);
-					else
-						uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
-				}
-                                uc->full++;
 				uc->unused_blocks_stack_ptr++;
-				if (uc->purge_lru && uc->lru_head)
-                                	uwsgi_cache_del2(uc, NULL, 0, uc->lru_head, UWSGI_CACHE_FLAG_LOCAL);
+				cache_full(uc);
                                 goto end;
 			}
 			// mark used blocks;
@@ -851,16 +883,8 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 			uint64_t old_first_block = uci->first_block;
 			uci->first_block = uwsgi_cache_find_free_blocks(uc, vallen);
                         if (uci->first_block == 0xffffffffffffffffLLU) {
-				if (!uc->ignore_full) {
-                                        if (uc->purge_lru)
-                                                uwsgi_log("LRU item will be purged from cache \"%s\"\n", uc->name);
-                                        else
-                                                uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
-                                }
-                                uc->full++;
 				uci->first_block = old_first_block;
-				if (uc->purge_lru && uc->lru_head)
-                                        uwsgi_cache_del2(uc, NULL, 0, uc->lru_head, UWSGI_CACHE_FLAG_LOCAL);
+				cache_full(uc);
                                 goto end;
                         }
                         // mark used blocks;
@@ -1072,7 +1096,7 @@ static uint64_t cache_sweeper_free_items(struct uwsgi_cache *uc) {
 	uint64_t i;
 	uint64_t freed_items = 0;
 
-	if (uc->no_expire || uc->purge_lru)
+	if (uc->no_expire || uc->purge_lru || uc->lazy_expire)
 		return 0;
 
 	uwsgi_rlock(uc->lock);
@@ -1151,20 +1175,24 @@ void uwsgi_cache_start_sweepers() {
 	if (uwsgi.cache_no_expire)
 		return;
 
+	int need_to_run = 0;
 	while(uc) {
-		pthread_t cache_sweeper;
-		if (!uc->no_expire && !uc->purge_lru) {
-                	if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, uwsgi.caches)) {
-                        	uwsgi_error("pthread_create()");
-                        	uwsgi_log("unable to run the sweeper!!!\n");
-			}
-                	else {
-                        	uwsgi_log("sweeper thread enabled\n");
-                	}
+		if (!uc->no_expire && !uc->purge_lru && !uc->lazy_expire) {
+			need_to_run = 1;
 			break;
 		}
 		uc = uc->next;
         }
+
+	if (!need_to_run) return;
+
+	pthread_t cache_sweeper;
+        if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, uwsgi.caches)) {
+        	uwsgi_error("uwsgi_cache_start_sweepers()/pthread_create()");
+                uwsgi_log("unable to run the cache sweeper!!!\n");
+		return;
+	}
+        uwsgi_log("cache sweeper thread enabled\n");
 }
 
 void uwsgi_cache_start_sync_servers() {
@@ -1241,6 +1269,10 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		char *c_math_initial = NULL;
 		char *c_ignore_full = NULL;
 		char *c_purge_lru = NULL;
+		char *c_lazy_expire = NULL;
+		char *c_sweep_on_full = NULL;
+		char *c_clear_on_full = NULL;
+		char *c_no_expire = NULL;
 
 		if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
                         "name", &c_name,
@@ -1273,6 +1305,11 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                         "ignore_full", &c_ignore_full,
 			"purge_lru", &c_purge_lru,
 			"lru", &c_purge_lru,
+			"lazy_expire", &c_lazy_expire,
+			"lazy", &c_lazy_expire,
+			"sweep_on_full", &c_sweep_on_full,
+			"clear_on_full", &c_clear_on_full,
+			"no_expire", &c_no_expire,
                 	NULL)) {
 			uwsgi_log("unable to parse cache definition\n");
 			exit(1);
@@ -1325,6 +1362,13 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		if (c_store_delete) uc->store_delete = 1;
 
 		if (c_math_initial) uc->math_initial = strtol(c_math_initial, NULL, 10);
+
+		if (c_lazy_expire) uc->lazy_expire = 1;
+		if (c_sweep_on_full) {
+			uc->sweep_on_full = uwsgi_n64(c_sweep_on_full);
+		}
+		if (c_clear_on_full) uc->clear_on_full = 1;
+		if (c_no_expire) uc->no_expire = 1;
 
 		uc->store_sync = uwsgi.cache_store_sync;
 		if (c_store_sync) { uc->store_sync = uwsgi_n64(c_store_sync); }
