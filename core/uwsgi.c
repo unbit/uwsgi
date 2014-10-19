@@ -212,6 +212,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-pidfile", required_argument, 0, "write the Emperor pid in the specified file", uwsgi_opt_set_str, &uwsgi.emperor_pidfile, 0},
 	{"emperor-tyrant", no_argument, 0, "put the Emperor in Tyrant mode", uwsgi_opt_true, &uwsgi.emperor_tyrant, 0},
 	{"emperor-tyrant-nofollow", no_argument, 0, "do not follow symlinks when checking for uid/gid in Tyrant mode", uwsgi_opt_true, &uwsgi.emperor_tyrant_nofollow, 0},
+	{"emperor-tyrant-initgroups", no_argument, 0, "add additional groups set via initgroups() in Tyrant mode", uwsgi_opt_true, &uwsgi.emperor_tyrant_initgroups, 0},
 	{"emperor-stats", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
 	{"emperor-stats-server", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
 	{"early-emperor", no_argument, 0, "spawn the emperor as soon as possibile", uwsgi_opt_true, &uwsgi.early_emperor, 0},

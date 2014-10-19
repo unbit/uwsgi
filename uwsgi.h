@@ -2780,6 +2780,7 @@ struct uwsgi_server {
 	int async_warn_if_queue_full;
 	char *zeus;
 	uint64_t buffer_size;
+	int emperor_tyrant_initgroups;
 };
 
 struct uwsgi_rpc {

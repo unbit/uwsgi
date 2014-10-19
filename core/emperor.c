@@ -1524,9 +1524,30 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 			uwsgi_error("setgid()");
 			exit(1);
 		}
-		if (setgroups(0, NULL)) {
-			uwsgi_error("setgroups()");
-			exit(1);
+
+		if (uwsgi.emperor_tyrant_initgroups) {
+			char *uidname = NULL;
+			gid_t gid = NULL;
+			struct passwd *pw = getpwuid(n_ui->uid);
+
+			if (pw) {
+				uidname = pw->pw_name;
+				gid = pw->pw_gid;
+			}
+
+			if (!uidname) {
+				uidname = uwsgi_num2str(n_ui->uid);
+			}
+
+			if (initgroups(uidname, gid)) {
+				uwsgi_error("initgroups()");
+				exit(1);
+			}
+		} else {
+			if (setgroups(0, NULL)) {
+				uwsgi_error("setgroups()");
+				exit(1);
+			}
 		}
 
 		if (setuid(n_ui->uid)) {
