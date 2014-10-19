@@ -1527,7 +1527,7 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 
 		if (uwsgi.emperor_tyrant_initgroups) {
 			char *uidname = NULL;
-			gid_t gid = NULL;
+			gid_t gid = n_ui->gid;
 			struct passwd *pw = getpwuid(n_ui->uid);
 
 			if (pw) {

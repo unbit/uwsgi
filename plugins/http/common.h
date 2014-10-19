@@ -50,6 +50,7 @@ struct uwsgi_http {
 	int proto_http;
 
 	int manage_rtsp;
+	int chunked_input;
 }; 
 
 struct http_session {
