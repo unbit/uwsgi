@@ -483,7 +483,7 @@ static int http_headers_parse_dumb(struct corerouter_peer *peer, int skip) {
                                 hr->session.can_keepalive = 1;
                         }
 			if (uhttp.manage_rtsp && !uwsgi_strncmp("RTSP/1.0", 8, base, ptr-base)) {
-                                hr->session.can_keepalive = 1;
+				hr->raw_body = 1;
 				hr->is_rtsp = 1;
 			}
                         ptr += 2;
@@ -671,7 +671,7 @@ int http_headers_parse(struct corerouter_peer *peer, int skip) {
 				hr->session.can_keepalive = 1;
 			}
 			if (uhttp.manage_rtsp && !uwsgi_strncmp("RTSP/1.0", 8, base, ptr-base)) {
-				hr->session.can_keepalive = 1;
+				hr->raw_body = 1;
 				hr->is_rtsp = 1;
 			}
 			ptr += 2;
@@ -799,6 +799,17 @@ int http_headers_parse(struct corerouter_peer *peer, int skip) {
 			if (uwsgi_buffer_append_keyval(out, hv->value, equal - hv->value, equal + 1, strlen(equal + 1))) return -1;
 		}
 		hv = hv->next;
+	}
+
+	if (hr->is_rtsp) {
+		if (uwsgi_starts_with("rtsp://", 7, hr->path_info, hr->path_info_len)) {
+			char *slash = memchr(hr->path_info + 7, '/', hr->path_info_len - 7);
+			if (!slash) return -1;
+			peer->key = hr->path_info + 7;
+			peer->key_len = slash - (hr->path_info + 7);	
+			// override PATH_INFO
+			if (uwsgi_buffer_append_keyval(out, "PATH_INFO", 9, slash, hr->path_info_len - (7 + peer->key_len))) return -1;
+		}
 	}
 
 	return 0;
