@@ -21,6 +21,8 @@ struct uwsgi_gridfs_mountpoint {
 	uint16_t prefix_len;
 	char *username;
 	char *password;
+	char *bucket;
+	uint16_t bucket_len;
 };
 
 struct uwsgi_gridfs {
@@ -51,7 +53,7 @@ static void uwsgi_gridfs_do(struct wsgi_request *wsgi_req, struct uwsgi_gridfs_m
 					return;
 				}
 			}
-			mongo::GridFS gridfs((*conn).conn(), ugm->db);
+			mongo::GridFS gridfs((*conn).conn(), ugm->db, ugm->bucket);
 			mongo::GridFile gfile = gridfs.findFile(itemname);
 			if (need_free) {
 				free(itemname);
@@ -139,6 +141,7 @@ static struct uwsgi_gridfs_mountpoint *uwsgi_gridfs_add_mountpoint(char *arg, si
                         "server", &ugm->server,
                         "db", &ugm->db,
                         "prefix", &ugm->prefix,
+                        "bucket", &ugm->bucket,
                         "no_mime", &ugm->no_mime,
                         "timeout", &ugm->timeout_str,
                         "orig_filename", &ugm->orig_filename,
@@ -179,6 +182,14 @@ static struct uwsgi_gridfs_mountpoint *uwsgi_gridfs_add_mountpoint(char *arg, si
 
 	if (ugm->prefix) {
 		ugm->prefix_len = strlen(ugm->prefix);
+	}
+
+	if (!ugm->bucket) {
+		ugm->bucket = (char *)"fs";
+	}
+
+	if (ugm->bucket) {
+		ugm->bucket_len = strlen(ugm->bucket);
 	}
 
 	if (ugm->itemname) {
