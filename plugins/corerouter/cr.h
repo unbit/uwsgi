@@ -191,13 +191,14 @@ struct corerouter_peer {
 
 	int current_timeout;
 
+	ssize_t (*flush)(struct corerouter_peer *);
+        int is_flushing;
+
 	// maps 1:1 with subscription proto
 	char proto;
 
 	int free_key;
 
-	ssize_t (*flush)(struct corerouter_peer *);
-        int is_flushing;
 };
 
 struct uwsgi_corerouter {
