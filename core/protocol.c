@@ -744,28 +744,31 @@ next:
 					mountpoint_len -= 1;
 				}
 
-				//uwsgi_log("app mountpoint = %.*s\n", uwsgi_apps[i].mountpoint_len, uwsgi_apps[i].mountpoint);
-				if (orig_path_info_len >= mountpoint_len) {
-					if (!uwsgi_startswith(orig_path_info, mountpoint, mountpoint_len)
-						&& mountpoint_len > best_found) {
-						if (!(orig_path_info_len > mountpoint_len && orig_path_info[mountpoint_len] != '/' )) {
-							best_found = mountpoint_len;
-							wsgi_req->script_name = uwsgi_apps[i].mountpoint;
-							wsgi_req->script_name_len = uwsgi_apps[i].mountpoint_len;
-							wsgi_req->path_info = orig_path_info + wsgi_req->script_name_len;
-							wsgi_req->path_info_len = orig_path_info_len - wsgi_req->script_name_len;
-
-							wsgi_req->hvec[wsgi_req->script_name_pos].iov_base = wsgi_req->script_name;
-							wsgi_req->hvec[wsgi_req->script_name_pos].iov_len = wsgi_req->script_name_len;
-
-							wsgi_req->hvec[wsgi_req->path_info_pos].iov_base = wsgi_req->path_info;
-							wsgi_req->hvec[wsgi_req->path_info_pos].iov_len = wsgi_req->path_info_len;
-#ifdef UWSGI_DEBUG
-							uwsgi_log("managed SCRIPT_NAME = %.*s PATH_INFO = %.*s\n", wsgi_req->script_name_len, wsgi_req->script_name, wsgi_req->path_info_len, wsgi_req->path_info);
-#endif
-						}
-					}
+				// Check if mountpoint could be a possible candidate
+				if (orig_path_info_len < mountpoint_len  // it should be shorter than or equal to path_info
+					|| mountpoint_len <= best_found  // it should be better than the previous found
+					// should have the same prefix of path_info
+					|| uwsgi_startswith(orig_path_info, mountpoint, mountpoint_len)
+					// and should not be "misleading"
+					|| (orig_path_info_len > mountpoint_len && orig_path_info[mountpoint_len] != '/' )) {
+					continue;
 				}
+
+				//uwsgi_log("app mountpoint = %.*s\n", uwsgi_apps[i].mountpoint_len, uwsgi_apps[i].mountpoint);
+				best_found = mountpoint_len;
+				wsgi_req->script_name = uwsgi_apps[i].mountpoint;
+				wsgi_req->script_name_len = uwsgi_apps[i].mountpoint_len;
+				wsgi_req->path_info = orig_path_info + wsgi_req->script_name_len;
+				wsgi_req->path_info_len = orig_path_info_len - wsgi_req->script_name_len;
+
+				wsgi_req->hvec[wsgi_req->script_name_pos].iov_base = wsgi_req->script_name;
+				wsgi_req->hvec[wsgi_req->script_name_pos].iov_len = wsgi_req->script_name_len;
+
+				wsgi_req->hvec[wsgi_req->path_info_pos].iov_base = wsgi_req->path_info;
+				wsgi_req->hvec[wsgi_req->path_info_pos].iov_len = wsgi_req->path_info_len;
+#ifdef UWSGI_DEBUG
+				uwsgi_log("managed SCRIPT_NAME = %.*s PATH_INFO = %.*s\n", wsgi_req->script_name_len, wsgi_req->script_name, wsgi_req->path_info_len, wsgi_req->path_info);
+#endif
 			}
 		}
 	}
