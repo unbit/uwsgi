@@ -66,6 +66,7 @@ struct uwsgi_option http_options[] = {
 	{"http-connect-timeout", required_argument, 0, "set internal http socket timeout for backend connections", uwsgi_opt_set_int, &uhttp.connect_timeout, 0},
 
 	{"http-manage-source", no_argument, 0, "manage the SOURCE HTTP method placing the session in raw mode", uwsgi_opt_true, &uhttp.manage_source, 0},
+	{"http-manage-rtsp", no_argument, 0, "manage RTSP sessions", uwsgi_opt_true, &uhttp.manage_rtsp, 0},
 	{"http-enable-proxy-protocol", optional_argument, 0, "manage PROXY protocol requests", uwsgi_opt_true, &uhttp.enable_proxy_protocol, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
@@ -323,6 +324,10 @@ int http_headers_parse(struct corerouter_peer *peer) {
 			if (uhttp.keepalive && !uwsgi_strncmp("HTTP/1.1", 8, base, ptr-base)) {
 				hr->session.can_keepalive = 1;
 			}
+			if (uhttp.manage_rtsp && !uwsgi_strncmp("RTSP/1.0", 8, base, ptr-base)) {
+				hr->raw_body = 1;
+				hr->is_rtsp = 1;
+			}
 			ptr += 2;
 			found = 1;
 			break;
@@ -450,6 +455,17 @@ int http_headers_parse(struct corerouter_peer *peer) {
 			if (uwsgi_buffer_append_keyval(out, hv->value, equal - hv->value, equal + 1, strlen(equal + 1))) return -1;
 		}
 		hv = hv->next;
+	}
+
+	if (hr->is_rtsp) {
+		if (uwsgi_starts_with("rtsp://", 7, hr->path_info, hr->path_info_len)) {
+			char *slash = memchr(hr->path_info + 7, '/', hr->path_info_len - 7);
+			if (!slash) return -1;
+			peer->key = hr->path_info + 7;
+			peer->key_len = slash - (hr->path_info + 7);
+			// override PATH_INFO
+			if (uwsgi_buffer_append_keyval(out, "PATH_INFO", 9, slash, hr->path_info_len - (7 + peer->key_len))) return -1;
+		}
 	}
 
 	return 0;
