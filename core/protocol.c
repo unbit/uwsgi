@@ -744,17 +744,18 @@ next:
 					mountpoint_len -= 1;
 				}
 
+				//uwsgi_log("app mountpoint = %.*s\n", uwsgi_apps[i].mountpoint_len, uwsgi_apps[i].mountpoint);
+
 				// Check if mountpoint could be a possible candidate
-				if (orig_path_info_len < mountpoint_len  // it should be shorter than or equal to path_info
-					|| mountpoint_len <= best_found  // it should be better than the previous found
+				if (orig_path_info_len < mountpoint_len || // it should be shorter than or equal to path_info
+					mountpoint_len <= best_found || // it should be better than the previous found
 					// should have the same prefix of path_info
-					|| uwsgi_startswith(orig_path_info, mountpoint, mountpoint_len)
+					uwsgi_startswith(orig_path_info, mountpoint, mountpoint_len) ||
 					// and should not be "misleading"
-					|| (orig_path_info_len > mountpoint_len && orig_path_info[mountpoint_len] != '/' )) {
+					(orig_path_info_len > mountpoint_len && orig_path_info[mountpoint_len] != '/' )) {
 					continue;
 				}
 
-				//uwsgi_log("app mountpoint = %.*s\n", uwsgi_apps[i].mountpoint_len, uwsgi_apps[i].mountpoint);
 				best_found = mountpoint_len;
 				wsgi_req->script_name = uwsgi_apps[i].mountpoint;
 				wsgi_req->script_name_len = uwsgi_apps[i].mountpoint_len;
