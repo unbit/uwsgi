@@ -740,7 +740,7 @@ next:
 				int mountpoint_len = uwsgi_apps[i].mountpoint_len;
 
 				// Ignore trailing mountpoint slashes
-				if (mountpoint[mountpoint_len - 1] == '/') {
+				if (mountpoint_len > 0 && mountpoint[mountpoint_len - 1] == '/') {
 					mountpoint_len -= 1;
 				}
 
