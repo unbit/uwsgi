@@ -393,6 +393,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
         {"hook-as-user-atexit", required_argument, 0, "run the specified hook before app exit and reload", uwsgi_opt_add_string_list, &uwsgi.hook_as_user_atexit, 0},
         {"hook-pre-app", required_argument, 0, "run the specified hook before app loading", uwsgi_opt_add_string_list, &uwsgi.hook_pre_app, 0},
         {"hook-post-app", required_argument, 0, "run the specified hook after app loading", uwsgi_opt_add_string_list, &uwsgi.hook_post_app, 0},
+	{"hook-post-fork", required_argument, 0, "run the specified hook after each fork", uwsgi_opt_add_string_list, &uwsgi.hook_post_fork, 0},
         {"hook-accepting", required_argument, 0, "run the specified hook after each worker enter the accepting phase", uwsgi_opt_add_string_list, &uwsgi.hook_accepting, 0},
         {"hook-accepting1", required_argument, 0, "run the specified hook after the first worker enters the accepting phase", uwsgi_opt_add_string_list, &uwsgi.hook_accepting1, 0},
         {"hook-accepting-once", required_argument, 0, "run the specified hook after each worker enter the accepting phase (once per-instance)", uwsgi_opt_add_string_list, &uwsgi.hook_accepting_once, 0},
@@ -3291,6 +3292,8 @@ int uwsgi_run() {
                         uwsgi.gp[i]->post_fork();
                 }
         }
+
+	uwsgi_hooks_run(uwsgi.hook_post_fork, "post-fork", 1);
 
 	if (uwsgi.worker_exec2) {
                 char *w_argv[2];

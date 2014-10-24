@@ -2751,6 +2751,7 @@ struct uwsgi_server {
 	int sslv3;
 	struct uwsgi_string_list *ssl_options;
 #endif
+	struct uwsgi_string_list *hook_post_fork;
 
 };
 
