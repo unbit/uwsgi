@@ -84,7 +84,13 @@ void uwsgi_cr_peer_reset(struct corerouter_peer *peer) {
 }
 
 // destroy a peer
-void uwsgi_cr_peer_del(struct corerouter_peer *peer) {
+int uwsgi_cr_peer_del(struct corerouter_peer *peer) {
+	// first of all check if we need to run a flush procedure
+	if (peer->flush && !peer->is_flushing) {
+		peer->is_flushing = 1;
+		// on success, suspend the execution
+		if (peer->flush(peer) >= 0) return -1;
+	}
 	struct corerouter_peer *prev = peer->prev;
 	struct corerouter_peer *next = peer->next;
 
@@ -111,6 +117,7 @@ void uwsgi_cr_peer_del(struct corerouter_peer *peer) {
 		uwsgi_buffer_destroy(peer->out);
 	}
 	free(peer);
+	return 0;
 }
 
 void uwsgi_opt_corerouter(char *opt, char *value, void *cr) {
@@ -383,7 +390,7 @@ void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer 
 	}
 
 end:
-	uwsgi_cr_peer_del(peer);
+	if (uwsgi_cr_peer_del(peer) < 0) return;
 
 	if (peer == cs->main_peer) {
 		cs->main_peer = NULL;
@@ -401,7 +408,7 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
 
 	struct corerouter_peer *main_peer = cr_session->main_peer;
 	if (main_peer) {
-		uwsgi_cr_peer_del(main_peer);
+		if (uwsgi_cr_peer_del(main_peer) < 0) return;
 	}
 
 	// free peers
@@ -413,7 +420,7 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
 		if (ucr->subscriptions && tmp_peer->un && tmp_peer->un->len) {
 			tmp_peer->un->reference--;
 		}
-		uwsgi_cr_peer_del(tmp_peer);
+		if (uwsgi_cr_peer_del(tmp_peer) < 0) return;
 	}
 
 	// could be used to free additional resources

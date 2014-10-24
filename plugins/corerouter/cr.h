@@ -190,6 +190,9 @@ struct corerouter_peer {
 	struct corerouter_peer *next;
 
 	int current_timeout;
+
+	ssize_t (*flush)(struct corerouter_peer *);
+	int is_flushing;
 };
 
 struct uwsgi_corerouter {

@@ -374,6 +374,47 @@ ssize_t hr_ssl_read(struct corerouter_peer *main_peer) {
         return -1;
 }
 
+ssize_t hr_ssl_shutdown(struct corerouter_peer *peer) {
+	// ensure no hooks are set
+	if (uwsgi_cr_set_hooks(peer, NULL, NULL)) return -1;
+
+	struct corerouter_session *cs = peer->session;
+        struct http_session *hr = (struct http_session *) cs;	
+
+	int ret = SSL_shutdown(hr->ssl);
+	if (ret < 0) return -1;
+	if (ret == 1) return 0;
+
+	int err = 0;
+
+	if (ERR_peek_error()) {
+		err = SSL_get_error(hr->ssl, ret);
+	}
+
+	// no error, close the connection
+	if (err == 0 || err == SSL_ERROR_ZERO_RETURN) return -1;
+
+	if (err == SSL_ERROR_WANT_READ) {
+		if (uwsgi_cr_set_hooks(peer, hr_ssl_shutdown, NULL)) return -1;
+                return 1;
+        }
+
+        else if (err == SSL_ERROR_WANT_WRITE) {
+		if (uwsgi_cr_set_hooks(peer, NULL, hr_ssl_shutdown)) return -1;
+                return 1;
+        }
+
+        else if (err == SSL_ERROR_SYSCALL) {
+                uwsgi_cr_error(peer, "hr_ssl_shutdown()");
+        }
+
+        else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {
+                ERR_print_errors_fp(stderr);
+        }
+
+        return -1;
+}
+
 void hr_setup_ssl(struct http_session *hr, struct uwsgi_gateway_socket *ugs) {
  	hr->ssl = SSL_new(ugs->ctx);
         SSL_set_fd(hr->ssl, hr->session.main_peer->fd);
@@ -382,6 +423,7 @@ void hr_setup_ssl(struct http_session *hr, struct uwsgi_gateway_socket *ugs) {
         SSL_set_ex_data(hr->ssl, uhttp.spdy_index, hr);
 #endif
         uwsgi_cr_set_hooks(hr->session.main_peer, hr_ssl_read, NULL);
+	hr->session.main_peer->flush = hr_ssl_shutdown;
         hr->session.close = hr_session_ssl_close;
 	hr->func_write = hr_ssl_write;
 }
