@@ -195,6 +195,9 @@ struct corerouter_peer {
 	char proto;
 
 	int free_key;
+
+	ssize_t (*flush)(struct corerouter_peer *);
+        int is_flushing;
 };
 
 struct uwsgi_corerouter {
