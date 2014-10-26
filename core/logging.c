@@ -3,6 +3,7 @@
 #endif
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__OpenBSD__)
 #include <sys/user.h>
+#include <sys/sysctl.h>
 #include <kvm.h>
 #elif defined(__sun__)
 /* Terrible Hack !!! */
