@@ -3,6 +3,7 @@
 #endif
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__OpenBSD__)
 #include <sys/user.h>
+#include <sys/sysctl.h>
 #include <kvm.h>
 #elif defined(__sun__)
 /* Terrible Hack !!! */
@@ -11,10 +12,6 @@
 #endif
 #include <procfs.h>
 #define _FILE_OFFSET_BITS 64
-#endif
-
-#if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
-#include <sys/sysctl.h>
 #endif
 
 #ifdef __DragonFly__
