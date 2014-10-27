@@ -379,15 +379,8 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                 if len(kv) > 1:
                     p = kv[1]
                     p = p.strip()
-                    if p.startswith('http://') or p.startswith('https://') or p.startswith('git://') or p.startswith('ssh://'):
-                        git_dir = p.split('/').pop()
-                        if not os.path.isdir(git_dir):
-                            if os.system('git clone %s' % p) != 0:
-                                sys.exit(1)
-                        else:
-                            if os.system('cd %s ; git pull' % git_dir) != 0:
-                                sys.exit(1)
-                        p = git_dir
+                    if plugin_is_remote(p):
+                        p = get_remote_plugin(p)
                     path = os.path.abspath(p)
                 else:
                     p = kv[0]
@@ -402,32 +395,10 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                         continue
 
                 path = path.rstrip('/')
-
-                up = {}
-
-               	if os.path.isfile(path):
-                    bname = os.path.basename(path)
-                    # override path
-                    path = os.path.dirname(path)
-                    up['GCC_LIST'] = [bname]
-                    up['NAME'] = bname.split('.')[0]
-                    if not path: path = '.' 
-                elif os.path.isdir(path):
-                    try:
-                        execfile('%s/uwsgiplugin.py' % path, up)
-                    except:
-                        f = open('%s/uwsgiplugin.py' % path)
-                        exec(f.read(), up)
-                        f.close() 
-                else:
-                    print("Error: plugin '%s' not found" % p)
-                    sys.exit(1)
+                path, up = get_plugin_up(path)
 
                 p_cflags = cflags[:]
-                try:
-                    p_cflags += up['CFLAGS']
-                except:
-                    pass
+                p_cflags += up['CFLAGS']
 
                 if uwsgi_os.startswith('CYGWIN'):
                     try:
@@ -490,13 +461,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                     except:
                         pass
 
-                try:
-                    libs += up['LIBS']
-                except:
-                    pass
-
-                if not 'LDFLAGS' in up:
-                    up['LDFLAGS'] = []
+                libs += up['LIBS']
 
                 if uwsgi_os == 'Darwin':
                     found_arch = False
@@ -1282,30 +1247,31 @@ class uConf(object):
 
         return self.gcc_list, self.cflags, self.ldflags, self.libs
 
-def build_plugin(path, uc, cflags, ldflags, libs, name = None):
-    path = path.rstrip('/')
+def is_remote_plugin(path):
+    return path.startswith('http://') or path.startswith('https://') or path.startswith('git://') or path.startswith('ssh://')
 
-    plugin_started_at = time.time()
+def get_remote_plugin(path):
+    git_dir = path.split('/').pop()
+    if git_dir.endswith('.git'):
+        git_dir = git_dir[:-4]
+    if not os.path.isdir(git_dir):
+        if os.system('git clone %s' % path) != 0:
+            sys.exit(1)
+    else:
+        if os.system('cd %s ; git pull' % git_dir) != 0:
+            sys.exit(1)
+    return git_dir
 
+def get_plugin_up(path):
     up = {}
-
-    if path.startswith('http://') or path.startswith('https://') or path.startswith('git://') or path.startswith('ssh://'):
-        git_dir = path.split('/').pop()
-        if not os.path.isdir(git_dir):
-            if os.system('git clone %s' % path) != 0:
-                sys.exit(1)
-        else:
-            if os.system('cd %s ; git pull' % git_dir) != 0:
-                sys.exit(1)
-        path = os.path.abspath(git_dir)
-
     if os.path.isfile(path):
         bname = os.path.basename(path)
         # override path
         path = os.path.dirname(path)
         up['GCC_LIST'] = [bname]
         up['NAME'] = bname.split('.')[0]
-        if not path: path = '.'
+        if not path:
+            path = '.'
     elif os.path.isdir(path):
         try:
             execfile('%s/uwsgiplugin.py' % path, up)
@@ -1317,33 +1283,42 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         print("Error: unable to find directory '%s'" % path)
         sys.exit(1)
 
-    requires = []
+    if 'CFLAGS' not in up:
+        up['CFLAGS'] = []
+
+    if 'LDFLAGS' not in up:
+        up['LDFLAGS'] = []
+
+    if 'LIBS' not in up:
+        up['LIBS'] = []
+
+    if 'REQUIRES' not in up:
+        up['REQUIRES'] = []
+
+    return (path, up)
+
+def build_plugin(path, uc, cflags, ldflags, libs, name = None):
+    path = path.rstrip('/')
+
+    plugin_started_at = time.time()
+
+    if is_remote_plugin(path):
+        git_dir = get_remote_plugin(path)
+        path = os.path.abspath(git_dir)
+
+    path, up = get_plugin_up(path)
 
     p_cflags = cflags[:]
+    p_cflags += up['CFLAGS']
+
     p_ldflags = ldflags[:]
+    p_ldflags += up['LDFLAGS']
 
-    try:
-        p_cflags += up['CFLAGS']
-    except:
-        pass
+    p_libs = up['LIBS']
 
-    try:
-        p_ldflags += up['LDFLAGS']
-    except:
-        pass
-
-    try:
-        p_libs = up['LIBS']
-    except:
-        p_libs = []
+    requires = up['REQUIRES']
 
     post_build = None
-
-    try:
-        requires = up['REQUIRES']
-    except:
-        pass
-
     try:
         post_build = up['post_build']
     except:
