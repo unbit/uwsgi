@@ -442,25 +442,17 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                     except:
                         pass
 
-                try:
-                    p_cflags.remove('-Wdeclaration-after-statement')
-                except:
-                    pass
-
-                try:
-                    p_cflags.remove('-Werror=declaration-after-statement')
-                except:
-                    pass
-
-                try:
-                    p_cflags.remove('-Wwrite-strings')
-                except:
-                    pass
-
-                try:
-                    p_cflags.remove('-Werror=write-strings')
-                except:
-                    pass
+                p_cflags_blacklist = (
+                    '-Wdeclaration-after-statement',
+                    '-Werror=declaration-after-statement',
+                    '-Wwrite-strings',
+                    '-Werror=write-strings',
+                )
+                for cflag in p_cflags_blacklist:
+                    try:
+                        p_cflags.remove(cflag)
+                    except:
+                        pass
 
                 try:
                     if up['post_build']:
