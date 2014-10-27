@@ -685,9 +685,9 @@ class uConf(object):
             gcc_minor = int(gcc_version.split('.')[1])
         except:
             raise Exception("you need a C compiler to build uWSGI")
+        # add -fno-strict-aliasing only on python2 and gcc < 4.3
         if (sys.version_info[0] == 2) or (gcc_major < 4) or (gcc_major == 4 and gcc_minor < 3):
             self.cflags = self.cflags + ['-fno-strict-aliasing']
-        # add -fno-strict-aliasing only on python2 and gcc < 4.3
         if gcc_major >= 4:
             self.cflags = self.cflags + [ '-Wextra', '-Wno-unused-parameter', '-Wno-missing-field-initializers' ]
         if (gcc_major == 4 and gcc_minor >= 8) or gcc_major > 4:
