@@ -1398,40 +1398,28 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         except:
             pass
 
-    try:
-        p_ldflags.remove('-Wl,--no-undefined')
-    except:
-        pass
+    p_ldflags_blacklist = (
+        '-Wl,--no-undefined',
+    )
+    for ldflag in p_ldflags_blacklist:
+         try:
+             p_ldflags.remove(ldflag)
+         except:
+             pass
 
-    try:
-        p_cflags.remove('-Wwrite-strings')
-    except:
-        pass
-
-    try:
-        p_cflags.remove('-Werror=write-strings')
-    except:
-        pass
-
-    try:
-        p_cflags.remove('-Wdeclaration-after-statement')
-    except:
-        pass
-
-    try:
-        p_cflags.remove('-Werror=declaration-after-statement')
-    except:
-        pass
-
-    try:
-        p_cflags.remove('-Winline')
-    except:
-        pass
-
-    try:
-        p_cflags.remove('-pie')
-    except:
-        pass
+    p_cflags_blacklist = (
+        '-Wdeclaration-after-statement',
+        '-Werror=declaration-after-statement',
+        '-Wwrite-strings',
+        '-Werror=write-strings',
+        '-Winline',
+        '-pie',
+    )
+    for cflag in p_cflags_blacklist:
+         try:
+             p_cflags.remove(cflag)
+         except:
+             pass
 
     if GCC in ('clang',):
         try:
