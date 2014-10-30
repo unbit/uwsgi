@@ -20,8 +20,10 @@ class BitmapTest(unittest.TestCase):
         spooler_handlers.controlled_task.spool(arg='barbis')
         spooler_handlers.controlled_raw_task.spool(arg='alive', ghost='world')
         spooler_handlers.controlled_raw_task.spool(arg='barbis')
+        spooler_handlers.controlled_arguments_task.spool(
+            {'key': 'value'}, 2, key1='value1')
 
-        for i in range(4):
+        for i in range(5):
             uwsgi.signal_wait(20)
         print("Signal received!")
 
