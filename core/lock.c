@@ -94,11 +94,11 @@ retry:
 #ifndef PTHREAD_MUTEX_ROBUST
 #define PTHREAD_MUTEX_ROBUST PTHREAD_MUTEX_ROBUST_NP
 #endif
-	if (pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT)) {
-		uwsgi_log("unable to set PTHREAD_PRIO_INHERIT\n");
-		exit(1);
-	}
 	if (uwsgi_pthread_robust_mutexes_enabled) {
+		if (pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT)) {
+			uwsgi_log("unable to set PTHREAD_PRIO_INHERIT\n");
+			exit(1);
+		}
 		if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST)) {
 			uwsgi_log("unable to make the mutex 'robust'\n");
 			exit(1);
