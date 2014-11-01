@@ -156,7 +156,7 @@ SV *uwsgi_perl_obj_new(char *class, size_t class_len) {
 
 	SPAGAIN;
 
-	newobj = POPs;	
+	newobj = SvREFCNT_inc(POPs);
 	PUTBACK;
 	FREETMPS;
 	LEAVE;
