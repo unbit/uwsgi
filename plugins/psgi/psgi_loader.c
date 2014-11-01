@@ -30,6 +30,7 @@ XS(XS_error) {
 	else {
         	ST(0) = sv_bless(newRV_noinc(newSV(0)), ((HV **)wi->error)[0]);
 	}
+        sv_2mortal(ST(0));
         XSRETURN(1);
 }
 
@@ -46,6 +47,7 @@ XS(XS_input) {
 	else {
         	ST(0) = sv_bless(newRV_noinc(newSV(0)), ((HV **)wi->input)[0]);
 	}
+        sv_2mortal(ST(0));
         XSRETURN(1);
 }
 
@@ -85,6 +87,7 @@ XS(XS_stream)
 		else {
                 	ST(0) = sv_bless(newRV_noinc(newSV(0)), ((HV **)wi->stream)[0]);
 		}
+                sv_2mortal(ST(0));
                 XSRETURN(1);
 	}
 	else {
