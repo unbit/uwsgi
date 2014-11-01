@@ -25,10 +25,10 @@ XS(XS_error) {
         psgi_check_args(0);
 
 	if (uwsgi.threads > 1) {
-        	ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->error)[wsgi_req->async_id]);
+        	ST(0) = sv_bless(newRV_noinc(newSV(0)), ((HV **)wi->error)[wsgi_req->async_id]);
 	}
 	else {
-        	ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->error)[0]);
+        	ST(0) = sv_bless(newRV_noinc(newSV(0)), ((HV **)wi->error)[0]);
 	}
         XSRETURN(1);
 }
@@ -41,10 +41,10 @@ XS(XS_input) {
         psgi_check_args(0);
 
 	if (uwsgi.threads > 1) {
-        	ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->input)[wsgi_req->async_id]);
+        	ST(0) = sv_bless(newRV_noinc(newSV(0)), ((HV **)wi->input)[wsgi_req->async_id]);
 	}
 	else {
-        	ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->input)[0]);
+        	ST(0) = sv_bless(newRV_noinc(newSV(0)), ((HV **)wi->input)[0]);
 	}
         XSRETURN(1);
 }
@@ -80,10 +80,10 @@ XS(XS_stream)
 
 		SvREFCNT_dec(response);
 		if (uwsgi.threads > 1) {
-                	ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->stream)[wsgi_req->async_id]);
+                	ST(0) = sv_bless(newRV_noinc(newSV(0)), ((HV **)wi->stream)[wsgi_req->async_id]);
 		}
 		else {
-                	ST(0) = sv_bless(newRV(sv_newmortal()), ((HV **)wi->stream)[0]);
+                	ST(0) = sv_bless(newRV_noinc(newSV(0)), ((HV **)wi->stream)[0]);
 		}
                 XSRETURN(1);
 	}
