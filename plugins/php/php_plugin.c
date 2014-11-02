@@ -77,7 +77,7 @@ static int sapi_uwsgi_ub_write(const char *str, uint str_length TSRMLS_DC)
 	return str_length;
 }
 
-static int sapi_uwsgi_send_headers(sapi_headers_struct *sapi_headers)
+static int sapi_uwsgi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 {
 	sapi_header_struct *h;
 	zend_llist_position pos;
@@ -135,7 +135,7 @@ static int sapi_uwsgi_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 }
 
 
-static char *sapi_uwsgi_read_cookies(void)
+static char *sapi_uwsgi_read_cookies(TSRMLS_D)
 {
 	uint16_t len = 0;
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
@@ -518,7 +518,7 @@ static int php_uwsgi_startup(sapi_module_struct *sapi_module)
 	}
 }
 
-static void sapi_uwsgi_log_message(char *message) {
+static void sapi_uwsgi_log_message(char *message TSRMLS_DC) {
 
 	uwsgi_log("%s\n", message);
 }
@@ -558,6 +558,10 @@ int uwsgi_php_init(void) {
 
 	struct uwsgi_string_list *pset = uphp.set;
 	struct uwsgi_string_list *append_config = uphp.append_config;
+
+#ifdef ZTS
+        tsrm_startup(1, 1, 0, NULL);
+#endif
 
 	sapi_startup(&uwsgi_sapi_module);
 
@@ -662,6 +666,10 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 	int force_empty_script_name = 0;
 
 	zend_file_handle file_handle;
+
+#ifdef ZTS
+	TSRMLS_FETCH();
+#endif
 
 	SG(server_context) = (void *) wsgi_req;
 
