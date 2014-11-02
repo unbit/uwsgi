@@ -2,13 +2,6 @@
 
 #define AMQP_CONNECTION_HEADER "AMQP\0\0\x09\x01"
 
-#ifdef __BIG_ENDIAN__
-#define ntohll(x) x
-#else
-#define ntohll(x) ( ( (uint64_t)(ntohl( (uint32_t)((x << 32) >> 32) )) << 32) | ntohl( ((uint32_t)(x >> 32)) ) )     
-#endif
-#define htonll(x) ntohll(x)
-
 #define amqp_send(a, b, c) if (send(a, b, c, 0) < 0) { uwsgi_error("send()"); return -1; }
 
 struct amqp_frame_header {
@@ -69,13 +62,8 @@ static char *amqp_get_long(char *ptr, char *watermark, uint32_t *lv) {
 
 static char *amqp_get_longlong(char *ptr, char *watermark, uint64_t *llv) {
 
-        uint64_t tmp_longlong;
-
 	if (ptr+8 > watermark) return NULL;
-
-        memcpy(&tmp_longlong, ptr, 8);
-
-        *llv = ntohll(tmp_longlong);
+        *llv = uwsgi_be64(ptr);
         return ptr+8;
 }
 
