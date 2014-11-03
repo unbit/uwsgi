@@ -50,17 +50,22 @@ def get_free_signal():
 
 
 def manage_spool_request(vars):
+    # To check whether 'args' is in vals or not - decode the keys first,
+    # because in python3 all keys in 'vals' are have 'byte' types
+    vars = dict((_decode1(K), V) for (K, V) in vars.items())
+    if 'args' in vars:
+        for k in ('args', 'kwargs'):
+            vars[k] = pickle.loads(vars.pop(k))
+
     vars = _decode_from_spooler(vars)
     f = spooler_functions[vars['ud_spool_func']]
+
     if 'args' in vars:
-        args = pickle.loads(vars.pop('args'))
-        kwargs = pickle.loads(vars.pop('kwargs'))
-        ret = f(*args, **kwargs)
+        ret = f(*vars['args'], **vars['kwargs'])
     else:
         ret = f(vars)
-    if not 'ud_spool_ret' in vars:
-        return ret
-    return int(vars['ud_spool_ret'])
+
+    return int(vars.get('ud_spool_ret', ret))
 
 
 def postfork_chain_hook():

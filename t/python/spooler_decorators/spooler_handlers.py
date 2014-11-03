@@ -6,6 +6,14 @@ import uwsgi
 ghostpath = "/tmp/ghost"
 
 
+@spool(pass_arguments=True)
+def controlled_arguments_task(*args, **kwargs):
+    if args != ({'key': 'value'}, 2) or kwargs != {'key1': 'value1'}:
+        print("We have a problem!")
+        open(ghostpath, 'w').close()
+    uwsgi.signal(20)
+
+
 @spool
 def controlled_task(arguments):
     if arguments['arg'] != 'alive' and 'ghost' in arguments:
