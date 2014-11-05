@@ -26,6 +26,7 @@ extern struct uwsgi_server uwsgi;
 
 static void cache_full(struct uwsgi_cache *uc) {
 	uint64_t i;
+	int force_clear = 0;
 
 	if (!uc->ignore_full) {
         	if (uc->purge_lru)
@@ -41,19 +42,25 @@ static void cache_full(struct uwsgi_cache *uc) {
 
 	// we do not need locking here !
 	if (uc->sweep_on_full) {
+		uint64_t removed = 0;
 		uint64_t now = (uint64_t) uwsgi_now();
 		if (uc->next_scan <= now) {
 			uc->next_scan = now + uc->sweep_on_full;
                 	for (i = 1; i < uc->max_items; i++) {
 				struct uwsgi_cache_item *uci = cache_item(i);
 				if (uci->expires > 0 && uci->expires <= now) {
-                			uwsgi_cache_del2(uc, NULL, 0, i, 0);
+                			if (!uwsgi_cache_del2(uc, NULL, 0, i, 0)) {
+						removed++;
+					}
 				}
+			}
+			if (removed == 0) {
+				force_clear = 1;
 			}
                 }
 	}
 
-	if (uc->clear_on_full) {
+	if (uc->clear_on_full || force_clear) {
                 for (i = 1; i < uc->max_items; i++) {
                 	uwsgi_cache_del2(uc, NULL, 0, i, 0);
                 }
