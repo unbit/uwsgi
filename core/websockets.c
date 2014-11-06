@@ -273,6 +273,7 @@ static struct uwsgi_buffer *uwsgi_websocket_recv_do(struct wsgi_request *wsgi_re
 					}
 					else {
 						wsgi_req->websocket_need += wsgi_req->websocket_size;
+						wsgi_req->websocket_pktsize += wsgi_req->websocket_size;
 						wsgi_req->websocket_phase = 4;
 					}
 					break;
