@@ -10,7 +10,7 @@ ssize_t uwsgi_systemd_logger(struct uwsgi_logger *ul, char *message, size_t len)
 	for(i=0;i<len;i++) {
 		if (message[i] == '\n') {
 			message[i] = 0;
-			sd_journal_print(LOG_INFO, base);
+			sd_journal_print(LOG_INFO, "%s", base);
 			base = message+i+1;
 		}
 	}
