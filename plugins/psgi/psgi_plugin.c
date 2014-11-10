@@ -710,7 +710,24 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 
 	// async plagued could be defined in other areas...
 	if (wsgi_req->async_plagued) {
+		int i;
+
 		uwsgi_log("*** psgix.harakiri.commit requested ***\n");
+
+		// clear the env, make sure any DESTROY attached to it will
+		// run.
+		SvREFCNT_dec(wsgi_req->async_environ);
+
+		// We must free our perl context(s) so any DESTROY hooks
+		// etc. will run.
+		for(i=0;i<uwsgi.threads;i++) {
+			perl_destruct(uperl.main[i]);
+			perl_free(uperl.main[i]);
+		}
+		free(uperl.main);
+
+		// This will call simple_goodbye_cruel_world() which'll
+		// exit(0). So we won't run anything below.
 		goodbye_cruel_world();
 	}
 
