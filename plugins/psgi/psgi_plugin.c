@@ -710,24 +710,10 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 
 	// async plagued could be defined in other areas...
 	if (wsgi_req->async_plagued) {
-		int i;
-
 		uwsgi_log("*** psgix.harakiri.commit requested ***\n");
-
-		// clear the env, make sure any DESTROY attached to it will
-		// run.
-		SvREFCNT_dec(wsgi_req->async_environ);
-
-		// We must free our perl context(s) so any DESTROY hooks
-		// etc. will run.
-		for(i=0;i<uwsgi.threads;i++) {
-			perl_destruct(uperl.main[i]);
-			perl_free(uperl.main[i]);
-		}
-		free(uperl.main);
-
-		// This will call simple_goodbye_cruel_world() which'll
-		// exit(0). So we won't run anything below.
+		// Before we call exit(0) we'll run the
+		// uwsgi_perl_atexit() hook which'll properly tear
+		// down the interpreter.
 		goodbye_cruel_world();
 	}
 
@@ -867,24 +853,43 @@ void uwsgi_perl_run_hook(SV *hook) {
 }
 
 static void uwsgi_perl_atexit() {
+	int i;
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
 	if (uwsgi.mywid == 0) goto realstuff;
 
-        // if hijacked do not run atexit hooks
+        // if hijacked do not run atexit hooks -- TODO: explain why
+        // not.
         if (uwsgi.workers[uwsgi.mywid].hijacked)
-                return;
+                goto destroyperl;
 
-        // if busy do not run atexit hooks
-        if (uwsgi_worker_is_busy(uwsgi.mywid))
-                return;
-
-        // managing atexit in async mode is a real pain...skip it for now
+        // managing atexit in async mode is a real pain...skip it for
+        // now -- TODO: explain why we skip it.
         if (uwsgi.async > 0)
-                return;
+                goto destroyperl;
 realstuff:
 
 	if (uperl.atexit) {
 		uwsgi_perl_run_hook(uperl.atexit);
 	}
+
+destroyperl:
+
+        // We must free our perl context(s) so any DESTROY hooks
+        // etc. will run.
+        for(i=0;i<uwsgi.threads;i++) {
+            PERL_SET_CONTEXT(uperl.main[i]);
+
+            // clear the env, make sure any DESTROY attached to it will
+            // run.
+            SvREFCNT_dec(wsgi_req->async_environ);
+
+            // Destroy the PerlInterpreter, see "perldoc perlembed"
+            perl_destruct(uperl.main[i]);
+            perl_free(uperl.main[i]);
+        }
+        PERL_SYS_TERM();
+        free(uperl.main);
 }
 
 static uint64_t uwsgi_perl_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char **buffer) {
