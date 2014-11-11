@@ -863,10 +863,6 @@ static void uwsgi_perl_atexit() {
         if (uwsgi.workers[uwsgi.mywid].hijacked)
                 goto destroyperl;
 
-        // managing atexit in async mode is a real pain...skip it for
-        // now -- TODO: explain why we skip it.
-        if (uwsgi.async > 0)
-                goto destroyperl;
 realstuff:
 
 	if (uperl.atexit) {
