@@ -708,6 +708,9 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 		if (SvTRUE(*harakiri)) wsgi_req->async_plagued = 1;
 	}
 
+	// Free the $env hash
+	SvREFCNT_dec(wsgi_req->async_environ);
+
 	// async plagued could be defined in other areas...
 	if (wsgi_req->async_plagued) {
 		uwsgi_log("*** psgix.harakiri.commit requested ***\n");
@@ -716,9 +719,6 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 		// down the interpreter.
 		goodbye_cruel_world();
 	}
-
-	// clear the env
-	SvREFCNT_dec(wsgi_req->async_environ);
 
 	// now we can check for changed files
         if (uperl.auto_reload) {
@@ -854,7 +854,6 @@ void uwsgi_perl_run_hook(SV *hook) {
 
 static void uwsgi_perl_atexit() {
 	int i;
-	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	if (uwsgi.mywid == 0) goto realstuff;
 
@@ -875,10 +874,6 @@ destroyperl:
         // etc. will run.
         for(i=0;i<uwsgi.threads;i++) {
             PERL_SET_CONTEXT(uperl.main[i]);
-
-            // clear the env, make sure any DESTROY attached to it will
-            // run.
-            SvREFCNT_dec(wsgi_req->async_environ);
 
             // Destroy the PerlInterpreter, see "perldoc perlembed"
             perl_destruct(uperl.main[i]);
