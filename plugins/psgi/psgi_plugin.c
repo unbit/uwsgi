@@ -708,14 +708,17 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 		if (SvTRUE(*harakiri)) wsgi_req->async_plagued = 1;
 	}
 
+	// Free the $env hash
+	SvREFCNT_dec(wsgi_req->async_environ);
+
 	// async plagued could be defined in other areas...
 	if (wsgi_req->async_plagued) {
 		uwsgi_log("*** psgix.harakiri.commit requested ***\n");
+		// Before we call exit(0) we'll run the
+		// uwsgi_perl_atexit() hook which'll properly tear
+		// down the interpreter.
 		goodbye_cruel_world();
 	}
-
-	// clear the env
-	SvREFCNT_dec(wsgi_req->async_environ);
 
 	// now we can check for changed files
         if (uperl.auto_reload) {
@@ -850,24 +853,34 @@ void uwsgi_perl_run_hook(SV *hook) {
 }
 
 static void uwsgi_perl_atexit() {
+	int i;
+
 	if (uwsgi.mywid == 0) goto realstuff;
 
-        // if hijacked do not run atexit hooks
+        // if hijacked do not run atexit hooks -- TODO: explain why
+        // not.
         if (uwsgi.workers[uwsgi.mywid].hijacked)
-                return;
+                goto destroyperl;
 
-        // if busy do not run atexit hooks
-        if (uwsgi_worker_is_busy(uwsgi.mywid))
-                return;
-
-        // managing atexit in async mode is a real pain...skip it for now
-        if (uwsgi.async > 0)
-                return;
 realstuff:
 
 	if (uperl.atexit) {
 		uwsgi_perl_run_hook(uperl.atexit);
 	}
+
+destroyperl:
+
+        // We must free our perl context(s) so any DESTROY hooks
+        // etc. will run.
+        for(i=0;i<uwsgi.threads;i++) {
+            PERL_SET_CONTEXT(uperl.main[i]);
+
+            // Destroy the PerlInterpreter, see "perldoc perlembed"
+            perl_destruct(uperl.main[i]);
+            perl_free(uperl.main[i]);
+        }
+        PERL_SYS_TERM();
+        free(uperl.main);
 }
 
 static uint64_t uwsgi_perl_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char **buffer) {
