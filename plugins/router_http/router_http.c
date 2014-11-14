@@ -30,6 +30,9 @@ static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_r
 	if (ur->custom & 0x02) {
 		ub = uwsgi_buffer_new(uwsgi.page_size);
 	}
+	else if (ur->custom & 0x04) {
+		ub = uwsgi_to_http_dumb(wsgi_req, ur->data2, ur->data2_len, ub_url ? ub_url->buf : NULL, ub_url ? ub_url->pos : 0);
+	}
 	else {
 		ub = uwsgi_to_http(wsgi_req, ur->data2, ur->data2_len, ub_url ? ub_url->buf : NULL, ub_url ? ub_url->pos : 0);	
 	}
@@ -133,10 +136,16 @@ static int uwsgi_router_http_connect(struct uwsgi_route *ur, char *args) {
         return uwsgi_router_http(ur, args);
 }
 
+static int uwsgi_router_httpdumb(struct uwsgi_route *ur, char *args) {
+        ur->custom = 0x04;
+        return uwsgi_router_http(ur, args);
+}
+
 
 static void router_http_register(void) {
 
 	uwsgi_register_router("http", uwsgi_router_http);
+	uwsgi_register_router("httpdumb", uwsgi_router_httpdumb);
 	uwsgi_register_router("proxyhttp", uwsgi_router_proxyhttp);
 	uwsgi_register_router("httpconnect", uwsgi_router_http_connect);
 	uwsgi_register_router("proxyhttpconnect", uwsgi_router_proxyhttp_connect);

@@ -2758,6 +2758,9 @@ struct uwsgi_server {
 #endif
 	struct uwsgi_string_list *hook_post_fork;
 
+	// uWSGI 2.0.9
+	char *subscribe_with_modifier1;
+
 	// uWSGI 2.1
 	char *fork_socket;
 	int new_argc;
@@ -4249,6 +4252,7 @@ struct uwsgi_buffer *uwsgi_buffer_from_file(char *);
 ssize_t uwsgi_buffer_write_simple(struct wsgi_request *, struct uwsgi_buffer *);
 
 struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+struct uwsgi_buffer *uwsgi_to_http_dumb(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
 ssize_t uwsgi_pipe(int, int, int);
 ssize_t uwsgi_pipe_sized(int, int, size_t, int);

@@ -1206,6 +1206,12 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				if (uwsgi_buffer_append(new_peer->out, main_peer->in->buf + hr->headers_size + 1, hr->remains)) return -1;
 			}
 
+			if (new_peer->session->main_peer->modifier1 == 123) {
+				// reset modifier1 to 0
+				new_peer->out->buf[0] = 0;
+				hr->raw_body = 1;
+			}
+
 			if (hr->websockets > 2 && hr->websocket_key_len > 0) {
 				hr->raw_body = 1;
 			}
