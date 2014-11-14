@@ -679,6 +679,10 @@ static struct uwsgi_buffer *uwsgi_subscription_ub(char *key, size_t keysize, uin
 		goto end;
 	if (uwsgi_buffer_append_keyval(ub, "address", 7, socket_name, strlen(socket_name)))
 		goto end;
+
+	if (uwsgi.subscribe_with_modifier1) {
+		modifier1 = atoi(uwsgi.subscribe_with_modifier1);
+	}
 	if (uwsgi_buffer_append_keynum(ub, "modifier1", 9, modifier1))
 		goto end;
 	if (uwsgi_buffer_append_keynum(ub, "modifier2", 9, modifier2))
