@@ -1181,13 +1181,18 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 			// parse HTTP request
 			if (new_peer->proto != 'h' && !uhttp.proto_http) {
 				if (http_headers_parse(new_peer, skip)) return -1;
-				uint16_t pktsize = new_peer->out->pos-4;
-        			// fix modifiers
-        			new_peer->out->buf[0] = new_peer->session->main_peer->modifier1;
-        			new_peer->out->buf[3] = new_peer->session->main_peer->modifier2;
-        			// fix pktsize
-        			new_peer->out->buf[1] = (uint8_t) (pktsize & 0xff);
-        			new_peer->out->buf[2] = (uint8_t) ((pktsize >> 8) & 0xff);
+				// fix modifiers
+                        	if (uhttp.modifier1)
+                                	new_peer->modifier1 = uhttp.modifier1;
+                        	if (uhttp.modifier2)
+                                	new_peer->modifier2 = uhttp.modifier2;
+				 uint16_t pktsize = new_peer->out->pos-4;
+                        	// fix modifiers
+                        	new_peer->out->buf[0] = new_peer->modifier1;
+                        	new_peer->out->buf[3] = new_peer->modifier2;
+                        	// fix pktsize
+                        	new_peer->out->buf[1] = (uint8_t) (pktsize & 0xff);
+                        	new_peer->out->buf[2] = (uint8_t) ((pktsize >> 8) & 0xff);
 			}
 			else {
 				if (http_headers_parse_dumb(new_peer, skip)) return -1;
@@ -1206,7 +1211,7 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				if (uwsgi_buffer_append(new_peer->out, main_peer->in->buf + hr->headers_size + 1, hr->remains)) return -1;
 			}
 
-			if (new_peer->session->main_peer->modifier1 == 123) {
+			if (new_peer->modifier1 == 123) {
 				// reset modifier1 to 0
 				new_peer->out->buf[0] = 0;
 				hr->raw_body = 1;
@@ -1336,9 +1341,6 @@ int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket
 	// set the retry hook
         cs->retry = hr_retry;
 	struct http_session *hr = (struct http_session *) cs;
-	// set the modifier1
-	cs->main_peer->modifier1 = uhttp.modifier1;
-	cs->main_peer->modifier2 = uhttp.modifier2;
 	// default hook
 	cs->main_peer->last_hook_read = hr_read;
 

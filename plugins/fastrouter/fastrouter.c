@@ -187,8 +187,8 @@ static ssize_t fr_instance_connected(struct corerouter_peer *peer) {
 	peer->can_retry = 0;
 
 	// fix modifiers
-	peer->in->buf[0] = peer->session->main_peer->modifier1;
-	peer->in->buf[3] = peer->session->main_peer->modifier2;
+	peer->in->buf[0] = peer->modifier1;
+	peer->in->buf[3] = peer->modifier2;
 
 	// prepare to write the uwsgi packet
 	peer->out = peer->session->main_peer->in;
