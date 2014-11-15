@@ -1425,7 +1425,15 @@ void *uwsgi_python_autoreloader_thread(void *foobar) {
 			int found = 0;
 			struct uwsgi_string_list *usl = up.auto_reload_ignore;
 			while(usl) {
+#ifdef PYTHREE
+				PyObject *zero = PyUnicode_AsUTF8String(mod_name);
+				char *str_mod_name = PyString_AsString(zero);
+				int ret_cmp = strcmp(usl->value, str_mod_name);
+				Py_DECREF(zero);
+				if (!ret_cmp) {
+#else
 				if (!strcmp(usl->value, PyString_AsString(mod_name))) {
+#endif
 					found = 1;
 					break;
 				}
