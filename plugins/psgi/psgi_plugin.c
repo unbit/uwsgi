@@ -862,6 +862,11 @@ static void uwsgi_perl_atexit() {
         if (uwsgi.workers[uwsgi.mywid].hijacked)
                 goto destroyperl;
 
+	// if busy do not run atexit hooks (as this part could be called in a signal handler
+	// while a subroutine is running)
+        if (uwsgi_worker_is_busy(uwsgi.mywid))
+                return;
+
 realstuff:
 
 	if (uperl.atexit) {
