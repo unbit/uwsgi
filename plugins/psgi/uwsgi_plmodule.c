@@ -318,6 +318,13 @@ XS(XS_alarm) {
         XSRETURN_UNDEF;
 }
 
+XS(XS_worker_id) {
+	dXSARGS;
+        psgi_check_args(0);
+	ST(0) = newSViv(uwsgi.mywid);	
+	XSRETURN(1);
+}
+
 XS(XS_async_connect) {
 
 	dXSARGS;
@@ -1042,5 +1049,6 @@ void init_perl_embedded_module() {
 	psgi_xs(spool);
 
 	psgi_xs(add_var);
+	psgi_xs(worker_id);
 	
 }

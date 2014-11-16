@@ -331,6 +331,16 @@ void uwsgi_route_signal(uint8_t sig) {
 			}
 		}
 	}
+	// send to al lactive workers
+	else if (!strcmp(use->receiver, "active-workers")) {
+                for (i = 1; i <= uwsgi.numproc; i++) {
+			if (uwsgi.workers[i].pid > 0 && !uwsgi.workers[i].cheaped && !uwsgi.workers[i].suspended) {
+                        	if (uwsgi_signal_send(uwsgi.workers[i].signal_pipe[0], sig)) {
+                                	uwsgi_log("could not deliver signal %d to worker %d\n", sig, i);
+                        	}
+			}
+                }
+        }
 	// route to specific worker
 	else if (!strncmp(use->receiver, "worker", 6)) {
 		i = atoi(use->receiver + 6);
