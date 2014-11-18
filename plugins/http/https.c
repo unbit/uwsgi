@@ -294,10 +294,8 @@ ssize_t hr_ssl_write(struct corerouter_peer *main_peer) {
                 }
                 return ret;
         }
-	int err = 0;
-	if (ERR_peek_error()) {
-        	err = SSL_get_error(hr->ssl, ret);
-	}
+
+        int err = SSL_get_error(hr->ssl, ret);
 
 	if (err == SSL_ERROR_ZERO_RETURN || err == 0) return 0;
 
@@ -354,11 +352,8 @@ ssize_t hr_ssl_read(struct corerouter_peer *main_peer) {
 #endif
                 return http_parse(main_peer);
         }
-        int err = 0;
 
-	if (ERR_peek_error()) {
-		err = SSL_get_error(hr->ssl, ret);
-	}
+        int err = SSL_get_error(hr->ssl, ret);
 
 	if (err == SSL_ERROR_ZERO_RETURN || err == 0) return 0;
 
@@ -391,16 +386,14 @@ ssize_t hr_ssl_shutdown(struct corerouter_peer *peer) {
         struct http_session *hr = (struct http_session *) cs;	
 
 	int ret = SSL_shutdown(hr->ssl);
-	if (ret == 1) return 0;
-
 	int err = 0;
 
-	if (ERR_peek_error()) {
+	if (ret != 1 && ERR_peek_error()) {
 		err = SSL_get_error(hr->ssl, ret);
 	}
 
 	// no error, close the connection
-	if (err == 0 || err == SSL_ERROR_ZERO_RETURN) return 0;
+	if (ret == 1 || err == 0 || err == SSL_ERROR_ZERO_RETURN) return 0;
 
 	if (err == SSL_ERROR_WANT_READ) {
 		if (uwsgi_cr_set_hooks(peer, hr_ssl_shutdown, NULL)) return -1;
