@@ -12,7 +12,9 @@ extern struct uwsgi_http uhttp;
 
 // taken from nginx
 static void hr_ssl_clear_errors() {
-	while (ERR_peek_error()) {}
+	while (ERR_peek_error()) {
+		(void) ERR_get_error();
+	}
 	ERR_clear_error();
 }
 
