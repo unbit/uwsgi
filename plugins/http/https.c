@@ -10,6 +10,12 @@
 
 extern struct uwsgi_http uhttp;
 
+// taken from nginx
+static void hr_ssl_clear_errors() {
+	while (ERR_peek_error()) {}
+	ERR_clear_error();
+}
+
 void uwsgi_opt_https(char *opt, char *value, void *cr) {
         struct uwsgi_corerouter *ucr = (struct uwsgi_corerouter *) cr;
         char *client_ca = NULL;
@@ -234,7 +240,7 @@ void hr_session_ssl_close(struct corerouter_session *cs) {
 #endif
 
 	// clear the errors (otherwise they could be propagated)
-	ERR_clear_error();
+	hr_ssl_clear_errors();
         SSL_free(hr->ssl);
 }
 
@@ -269,6 +275,8 @@ int hr_force_https(struct corerouter_peer *peer) {
 ssize_t hr_ssl_write(struct corerouter_peer *main_peer) {
         struct corerouter_session *cs = main_peer->session;
         struct http_session *hr = (struct http_session *) cs;
+
+	hr_ssl_clear_errors();
 
         int ret = SSL_write(hr->ssl, main_peer->out->buf + main_peer->out_pos, main_peer->out->pos - main_peer->out_pos);
         if (ret > 0) {
@@ -323,6 +331,8 @@ ssize_t hr_ssl_write(struct corerouter_peer *main_peer) {
 ssize_t hr_ssl_read(struct corerouter_peer *main_peer) {
         struct corerouter_session *cs = main_peer->session;
         struct http_session *hr = (struct http_session *) cs;
+
+	hr_ssl_clear_errors();
 
         // try to always leave 4k available
         if (uwsgi_buffer_ensure(main_peer->in, uwsgi.page_size)) return -1;
@@ -384,6 +394,8 @@ ssize_t hr_ssl_shutdown(struct corerouter_peer *peer) {
 
 	struct corerouter_session *cs = peer->session;
         struct http_session *hr = (struct http_session *) cs;	
+
+	hr_ssl_clear_errors();
 
 	int ret = SSL_shutdown(hr->ssl);
 	int err = 0;
