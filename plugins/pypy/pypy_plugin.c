@@ -66,17 +66,34 @@ static int uwsgi_pypy_init() {
 	}
 	else {
 		if (upypy.home) {
+			// first try with /bin way:
 #ifdef __CYGWIN__
-                        char *libpath = uwsgi_concat2(upypy.home, "/libpypy-c.dll");
+                        char *libpath = uwsgi_concat2(upypy.home, "/bin/libpypy-c.dll");
 #elif defined(__APPLE__)
-                        char *libpath = uwsgi_concat2(upypy.home, "/libpypy-c.dylib");
+                        char *libpath = uwsgi_concat2(upypy.home, "/bin/libpypy-c.dylib");
 #else
-                        char *libpath = uwsgi_concat2(upypy.home, "/libpypy-c.so");
+                        char *libpath = uwsgi_concat2(upypy.home, "/bin/libpypy-c.so");
 #endif
 			if (uwsgi_file_exists(libpath)) {
-				upypy.handler = dlopen(libpath, RTLD_NOW | RTLD_GLOBAL);
+                                upypy.handler = dlopen(libpath, RTLD_NOW | RTLD_GLOBAL);
+                        }
+                        free(libpath);
+
+			// fallback to old-style way
+			if (!upypy.handler) {
+			
+#ifdef __CYGWIN__
+                        	char *libpath = uwsgi_concat2(upypy.home, "/libpypy-c.dll");
+#elif defined(__APPLE__)
+                        	char *libpath = uwsgi_concat2(upypy.home, "/libpypy-c.dylib");
+#else
+                        	char *libpath = uwsgi_concat2(upypy.home, "/libpypy-c.so");
+#endif
+				if (uwsgi_file_exists(libpath)) {
+					upypy.handler = dlopen(libpath, RTLD_NOW | RTLD_GLOBAL);
+				}
+				free(libpath);
 			}
-			free(libpath);
 		}
 		// fallback to standard library search path
 		if (!upypy.handler) {
