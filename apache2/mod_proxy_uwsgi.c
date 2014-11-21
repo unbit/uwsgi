@@ -369,8 +369,8 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 		rv = ap_get_brigade(rp->input_filters, bb,
                                         AP_MODE_READBYTES, mode,
                                         conf->io_buffer_size);
-		if (mode == APR_NONBLOCK_READ && (APR_STATUS_IS_EAGAIN(rv)
-                        || (rv == APR_SUCCESS && APR_BRIGADE_EMPTY(bb)))) {
+		if (APR_STATUS_IS_EAGAIN(rv)
+                        || (rv == APR_SUCCESS && APR_BRIGADE_EMPTY(bb)) ) {
 			e = apr_bucket_flush_create(c->bucket_alloc);
 			APR_BRIGADE_INSERT_TAIL(bb, e);
 			if (ap_pass_brigade(r->output_filters, bb) || c->aborted) {
