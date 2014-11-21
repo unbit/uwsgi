@@ -717,6 +717,9 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 		// Before we call exit(0) we'll run the
 		// uwsgi_perl_atexit() hook which'll properly tear
 		// down the interpreter.
+
+		// mark the request as ended (otherwise the atexit hook will be skipped)
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
 		goodbye_cruel_world();
 	}
 
