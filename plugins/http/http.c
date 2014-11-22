@@ -707,6 +707,8 @@ int http_headers_parse(struct corerouter_peer *peer, int skip) {
 
 	// SERVER_NAME
 	if (!uhttp.server_name_as_http_host && uwsgi_buffer_append_keyval(out, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len)) return -1;
+	memcpy(peer->key, uwsgi.hostname, uwsgi.hostname_len);
+        peer->key_len = uwsgi.hostname_len;
 
 	// SERVER_PORT
 	if (uwsgi_buffer_append_keyval(out, "SERVER_PORT", 11, hr->port, hr->port_len)) return -1;
