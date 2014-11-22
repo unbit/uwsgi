@@ -96,9 +96,12 @@ static int rebuild_key_for_mountpoint(struct http_session *hr, struct corerouter
 		new_key = uwsgi_concat2n(peer->key, peer->key_len, hr->request_uri, uri_len + 1);
 		new_key_len = peer->key_len + uri_len + 1;
 	}
-	peer->key = new_key;
-	peer->key_len = new_key_len;
-	peer->free_key = 1;
+
+	if (new_key_len <= 0xff) {
+		memcpy(peer->key, new_key, new_key_len);
+		peer->key_len = new_key_len;
+	}
+	free(new_key);
 	return 0;
 }
 
@@ -178,8 +181,10 @@ static int http_header_dumb_check(struct http_session *hr, struct corerouter_pee
                 }
         }
         else if (peer->key == uwsgi.hostname && hr->raw_body && !uwsgi_strnicmp("ICE-URL", 7, hh, keylen)) {
-                peer->key = val;
-                peer->key_len = vallen;
+		if (vallen <= 0xff) {
+                	memcpy(peer->key, val, vallen);
+                	peer->key_len = vallen;
+		}
         }
 
 #ifdef UWSGI_ZLIB
@@ -393,7 +398,7 @@ static int http_headers_parse_first_round(struct corerouter_peer *peer) {
         // ensure we have a protocol
         if (!found) return -1;
 
-        peer->key = uwsgi.hostname;
+        memcpy(peer->key, uwsgi.hostname, uwsgi.hostname_len);
         peer->key_len = uwsgi.hostname_len;
 
         //HEADERS
@@ -413,8 +418,10 @@ static int http_headers_parse_first_round(struct corerouter_peer *peer) {
                         }
 
                         if ((ptr - base) > 6 && !uwsgi_strnicmp("HOST: ", 6, base, 6)) {
-				peer->key = base + 6;
-				peer->key_len = (ptr - base) - 6;
+				if ((ptr - base) - 6 <= 0xff) {
+					peer->key_len = (ptr - base) - 6;
+					memcpy(peer->key, base + 6, peer->key_len);
+				}
                         }
 
                         // last line, do not waste time

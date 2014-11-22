@@ -229,8 +229,8 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 			}
 		}
 		else {
-			new_peer->key = ufr.force_key;
 			new_peer->key_len = strlen(ufr.force_key);
+			memcpy(new_peer->key, ufr.force_key, new_peer->key_len);
 		}
 
 		// check the hostname;
