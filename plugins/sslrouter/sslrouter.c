@@ -288,15 +288,15 @@ static ssize_t sr_read(struct corerouter_peer *main_peer) {
         		// set default peer hook
         		peer->last_hook_read = sr_instance_read;
         		// use the address as hostname
-        		peer->key = cs->ugs->name;
+        		memcpy(peer->key, cs->ugs->name, cs->ugs->name_len);
         		peer->key_len = cs->ugs->name_len;
 
 #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
 			if (usr.sni) {
 				const char *servername = SSL_get_servername(sr->ssl, TLSEXT_NAMETYPE_host_name);
-				if (servername) {
-        				peer->key = (char *) servername;
+				if (servername && strlen(servername) <= 0xff) {
         				peer->key_len = strlen(servername);
+        				memcpy(peer->key, servername, peer->key_len);
 				}
 			}
 #endif
