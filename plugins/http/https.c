@@ -172,9 +172,9 @@ int hr_https_add_vars(struct http_session *hr, struct corerouter_peer *peer, str
                 if (uwsgi_buffer_append_keyval(out, "HTTPS", 5, "on", 2)) return -1;
 #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
 			const char *servername = SSL_get_servername(hr->ssl, TLSEXT_NAMETYPE_host_name);
-                        if (servername) {
-                        	peer->key = (char *) servername;
-                                peer->key_len = strlen(servername);
+                        if (servername && strlen(servername) <= 0xff) {
+				peer->key_len = strlen(servername);
+                        	memcpy(peer->key, servername, peer->key_len) ;
                         }
 #endif
                 hr->ssl_client_cert = SSL_get_peer_certificate(hr->ssl);
