@@ -245,7 +245,7 @@ static int rawrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_ga
 	peer->last_hook_read = rr_instance_read;
 
 	// use the address as hostname
-        peer->key = cs->ugs->name;
+        memcpy(peer->key, cs->ugs->name, cs->ugs->name_len);
         peer->key_len = cs->ugs->name_len;
 
         // the mapper hook

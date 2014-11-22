@@ -69,21 +69,27 @@ static void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vall
 
 	//uwsgi_log("%.*s = %.*s\n", keylen, key, vallen, val);
 	if (!uwsgi_strncmp("SERVER_NAME", 11, key, keylen) && !peer->key_len) {
-		peer->key = val;
-		peer->key_len = vallen;
+		if (vallen <= 0xff) {
+			memcpy(peer->key, val, vallen);
+			peer->key_len = vallen;
+		}
 		return;
 	}
 
 	if (!uwsgi_strncmp("HTTP_HOST", 9, key, keylen) && !fr->has_key) {
-		peer->key = val;
-		peer->key_len = vallen;
+		if (vallen <= 0xff) {
+                        memcpy(peer->key, val, vallen);
+                        peer->key_len = vallen;
+                }
 		return;
 	}
 
 	if (!uwsgi_strncmp("UWSGI_FASTROUTER_KEY", 20, key, keylen)) {
-		fr->has_key = 1;
-		peer->key = val;
-		peer->key_len = vallen;
+		if (vallen <= 0xff) {
+			fr->has_key = 1;
+                        memcpy(peer->key, val, vallen);
+                        peer->key_len = vallen;
+		}
 		return;
 	}
 
