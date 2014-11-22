@@ -141,9 +141,14 @@ static int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, size_t 
 	}	
 
 	if (!uwsgi_strncmp("HOST", 4, hh, keylen)) {
-		peer->key = val;
-		peer->key_len = vallen;
-		if (uhttp.server_name_as_http_host && uwsgi_buffer_append_keyval(out, "SERVER_NAME", 11, peer->key, peer->key_len)) return -1;
+		if (vallen <= 0xff) {
+			memcpy(peer->key, val, vallen);
+			peer->key_len = vallen;
+			if (uhttp.server_name_as_http_host && uwsgi_buffer_append_keyval(out, "SERVER_NAME", 11, peer->key, peer->key_len)) return -1;
+		}
+		else {
+			return -1;
+		}
 	}
 
 	else if (!uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
@@ -166,8 +171,10 @@ static int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, size_t 
 		}
 	}
 	else if (peer->key == uwsgi.hostname && hr->raw_body && !uwsgi_strncmp("ICE_URL", 7, hh, keylen)) {
-		peer->key = val;
-		peer->key_len = vallen;
+		if (vallen <= 0xff) {
+                        memcpy(peer->key, val, vallen);
+                        peer->key_len = vallen;
+		}
 	}
 
 #ifdef UWSGI_ZLIB
@@ -345,7 +352,7 @@ int http_headers_parse(struct corerouter_peer *peer) {
 
 	// SERVER_NAME
 	if (!uhttp.server_name_as_http_host && uwsgi_buffer_append_keyval(out, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len)) return -1;
-	peer->key = uwsgi.hostname;
+	memcpy(peer->key, uwsgi.hostname, uwsgi.hostname_len);
 	peer->key_len = uwsgi.hostname_len;
 
 	// SERVER_PORT
@@ -461,10 +468,12 @@ int http_headers_parse(struct corerouter_peer *peer) {
 		if (uwsgi_starts_with("rtsp://", 7, hr->path_info, hr->path_info_len)) {
 			char *slash = memchr(hr->path_info + 7, '/', hr->path_info_len - 7);
 			if (!slash) return -1;
-			peer->key = hr->path_info + 7;
-			peer->key_len = slash - (hr->path_info + 7);
-			// override PATH_INFO
-			if (uwsgi_buffer_append_keyval(out, "PATH_INFO", 9, slash, hr->path_info_len - (7 + peer->key_len))) return -1;
+			if (slash - (hr->path_info + 7) <= 0xff) {
+				peer->key_len = slash - (hr->path_info + 7);
+				memcpy(peer->key, hr->path_info + 7, peer->key_len);
+				// override PATH_INFO
+				if (uwsgi_buffer_append_keyval(out, "PATH_INFO", 9, slash, hr->path_info_len - (7 + peer->key_len))) return -1;
+			}
 		}
 	}
 
