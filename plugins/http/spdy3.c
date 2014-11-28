@@ -556,8 +556,10 @@ static ssize_t spdy_inflate_http_headers(struct http_session *hr) {
 		}
 
 		if (!uwsgi_strncmp(cgi_name, nk_len, "HTTP_HOST", 9)) {
-			new_peer->key = new_peer->out->buf + (new_peer->out->pos - v_len);
-			new_peer->key_len = v_len;
+			if (v_len <= 0xff) {
+				memcpy(new_peer->key, new_peer->out->buf + (new_peer->out->pos - v_len), v_len);
+				new_peer->key_len = v_len;
+			}
 		}
 		else if (!uwsgi_strncmp(cgi_name, nk_len, "REQUEST_URI", 11)) {
 			char *path_info = new_peer->out->buf + (new_peer->out->pos - v_len);
