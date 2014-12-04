@@ -61,16 +61,9 @@ static void fsmon_reload(struct uwsgi_fsmon *fs) {
 }
 
 static void fsmon_brutal_reload(struct uwsgi_fsmon *fs) {
-	if (uwsgi.die_on_term) {
-		uwsgi_block_signal(SIGQUIT);
-		reap_them_all(0);
-		uwsgi_unblock_signal(SIGQUIT);
-	}
-	else {
-		uwsgi_block_signal(SIGTERM);
-		reap_them_all(0);
-		uwsgi_unblock_signal(SIGTERM);
-	}
+	uwsgi_block_signal(SIGQUIT);
+	reap_them_all(0);
+	uwsgi_unblock_signal(SIGQUIT);
 }
 
 static void fsmon_signal(struct uwsgi_fsmon *fs) {
