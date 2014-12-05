@@ -13,6 +13,7 @@ void emperor_send_stats(int);
 
 time_t emperor_throttle;
 int emperor_throttle_level;
+int emperor_warming_up = 1;
 
 struct uwsgi_instance *ui;
 
@@ -867,7 +868,16 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 #ifdef UWSGI_DEBUG
 	uwsgi_log("emperor throttle = %d\n", emperor_throttle_level);
 #endif
-	usleep(emperor_throttle_level);
+	if (emperor_warming_up) {
+		if (emperor_throttle_level > 0) {
+			// wait 10 milliseconds in case of fork-bombing
+			// pretty random value, but should avoid the load average to increase
+			usleep(10);
+		}
+	}
+	else {
+		usleep(emperor_throttle_level);
+	}
 
 	if (uwsgi.emperor_tyrant) {
 		if (uid == 0 || gid == 0) {
@@ -1554,6 +1564,7 @@ void uwsgi_emperor_run_scanners(void) {
 		ues->monitor->func(ues);
 		ues = ues->next;
 	}
+	emperor_warming_up = 0;
 }
 
 void emperor_build_scanners() {
