@@ -71,7 +71,9 @@ static void carbon_post_init() {
 		u_server->errors = 0;
 
 		char *p, *ctx = NULL;
-		uwsgi_foreach_token(usl->value, ":", p, ctx) {
+		// make a copy to not clobber argv
+		char *tmp = uwsgi_str(usl->value);
+		uwsgi_foreach_token(tmp, ":", p, ctx) {
 			if (!u_server->hostname) {
 				u_server->hostname = uwsgi_str(p);
 			}
@@ -81,6 +83,7 @@ static void carbon_post_init() {
 			else
 				break;
 		}
+		free(tmp);
 		if (!u_server->hostname || !u_server->port) {
 			uwsgi_log("[carbon] invalid carbon server address (%s)\n", usl->value);
 			usl = usl->next;
