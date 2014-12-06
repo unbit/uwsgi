@@ -59,7 +59,7 @@ void uwsgi_init_cache() {
 		}
 		uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, uwsgi.cache_filesize, PROT_READ | PROT_WRITE, MAP_SHARED, cache_fd, 0);
 		if (uwsgi.cache_items == MAP_FAILED) {
-			uwsgi_log("Unable to mmap %llu bytes.\n", uwsgi.cache_store);
+			uwsgi_log("Unable to mmap %llu bytes.\n", uwsgi.cache_filesize);
 			uwsgi_error("mmap()");
 			exit(1);
 		}
