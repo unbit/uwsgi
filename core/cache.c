@@ -58,19 +58,27 @@ void uwsgi_init_cache() {
 			exit(1);
 		}
 		uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, uwsgi.cache_filesize, PROT_READ | PROT_WRITE, MAP_SHARED, cache_fd, 0);
+		if (uwsgi.cache_items == MAP_FAILED) {
+			uwsgi_log("Unable to mmap %llu bytes.\n", uwsgi.cache_filesize);
+			uwsgi_error("mmap()");
+			exit(1);
+		}
+
 		uwsgi_cache_fix();
 
 	}
 	else {
-		uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		ssize_t cache_size = (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items);
+		uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, cache_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		if (uwsgi.cache_items == MAP_FAILED) {
+			uwsgi_log("Unable to mmap %llu bytes.\n", cache_size);
+			uwsgi_error("mmap()");
+			exit(1);
+		}
 		int i;
 		for (i = 0; i < (int) uwsgi.cache_max_items; i++) {
 			memset(&uwsgi.cache_items[i], 0, sizeof(struct uwsgi_cache_item));
 		}
-	}
-	if (!uwsgi.cache_items) {
-		uwsgi_error("mmap()");
-		exit(1);
 	}
 
 	/*
