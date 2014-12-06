@@ -100,6 +100,31 @@ retry:
 	return Py_None;
 }
 
+PyObject *py_uwsgi_gevent_int(PyObject *self, PyObject *args) {
+
+        uwsgi_log("Brutally killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+        uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
+
+        uwsgi_log_verbose("stopping gevent signals watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+        PyObject_CallMethod(ugevent.my_signal_watcher, "stop", NULL);
+        PyObject_CallMethod(ugevent.signal_watcher, "stop", NULL);
+
+        uwsgi_log_verbose("stopping gevent sockets watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+        int i,count = uwsgi_count_sockets(uwsgi.sockets);
+        for(i=0;i<count;i++) {
+                PyObject_CallMethod(ugevent.watchers[i], "stop", NULL);
+        }
+        uwsgi_log_verbose("main gevent watchers stopped for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+
+        if (!ugevent.wait_for_hub) {
+                PyObject_CallMethod(ugevent.ctrl_gl, "kill", NULL);
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+
 static void uwsgi_gevent_gbcw() {
 
 	// already running
@@ -333,6 +358,7 @@ PyMethodDef uwsgi_gevent_signal_def[] = { {"uwsgi_gevent_signal", py_uwsgi_geven
 PyMethodDef uwsgi_gevent_my_signal_def[] = { {"uwsgi_gevent_my_signal", py_uwsgi_gevent_my_signal, METH_VARARGS, ""} };
 PyMethodDef uwsgi_gevent_signal_handler_def[] = { {"uwsgi_gevent_signal_handler", py_uwsgi_gevent_signal_handler, METH_VARARGS, ""} };
 PyMethodDef uwsgi_gevent_unix_signal_handler_def[] = { {"uwsgi_gevent_unix_signal_handler", py_uwsgi_gevent_graceful, METH_VARARGS, ""} };
+PyMethodDef uwsgi_gevent_unix_signal_int_handler_def[] = { {"uwsgi_gevent_unix_signal_int_handler", py_uwsgi_gevent_int, METH_VARARGS, ""} };
 PyMethodDef uwsgi_gevent_ctrl_gl_def[] = { {"uwsgi_gevent_ctrl_gl_handler", py_uwsgi_gevent_ctrl_gl, METH_VARARGS, ""} };
 
 static void gil_gevent_get() {
@@ -487,6 +513,22 @@ static void gevent_loop() {
 	PyTuple_SetItem(ge_signal_tuple, 1, uwsgi_gevent_unix_signal_handler);
 
 	python_call(ugevent.signal, ge_signal_tuple, 0, NULL);
+
+	// map SIGINT/SIGTERM with gevent.signal
+	ge_signal_tuple = PyTuple_New(2);
+	PyTuple_SetItem(ge_signal_tuple, 0, PyInt_FromLong(SIGINT));
+	PyObject *uwsgi_gevent_unix_signal_int_handler = PyCFunction_New(uwsgi_gevent_unix_signal_int_handler_def, NULL);
+        Py_INCREF(uwsgi_gevent_unix_signal_int_handler);
+	PyTuple_SetItem(ge_signal_tuple, 1, uwsgi_gevent_unix_signal_int_handler);
+	python_call(ugevent.signal, ge_signal_tuple, 0, NULL);
+
+	ge_signal_tuple = PyTuple_New(2);
+	PyTuple_SetItem(ge_signal_tuple, 0, PyInt_FromLong(SIGTERM));
+	PyTuple_SetItem(ge_signal_tuple, 1, uwsgi_gevent_unix_signal_int_handler);
+	python_call(ugevent.signal, ge_signal_tuple, 0, NULL);
+
+
+
 
 	PyObject *wait_for_me = ugevent.hub;
 
