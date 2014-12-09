@@ -162,6 +162,7 @@ int uwsgi_calc_cheaper(void) {
 			ignore_algo = 1;
 		}
 		uwsgi.cheaper_fifo_delta = 0;
+		goto safe;
 	}
 
 	// if cheaper limits wants to change worker count, then skip cheaper algo
@@ -172,6 +173,7 @@ int uwsgi_calc_cheaper(void) {
 		needed_workers = 0;
 	}
 
+safe:
 	if (needed_workers > 0) {
 		for (i = 1; i <= uwsgi.numproc; i++) {
 			if (uwsgi.workers[i].cheaped == 1 && uwsgi.workers[i].pid == 0) {
