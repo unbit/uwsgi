@@ -3093,7 +3093,7 @@ char *uwsgi_spool_request(struct wsgi_request *, char *, size_t, char *, size_t)
 void spooler(struct uwsgi_spooler *);
 pid_t spooler_start(struct uwsgi_spooler *);
 
-#ifdef _GNU_SOURCE
+#if defined(_GNU_SOURCE) || defined(__UCLIBC__)
 #define uwsgi_versionsort versionsort
 #else
 int uwsgi_versionsort(const struct dirent **da, const struct dirent **db);
