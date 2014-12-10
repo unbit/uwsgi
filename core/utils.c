@@ -4526,7 +4526,7 @@ retry:
 	}
 }
 
-#ifndef _GNU_SOURCE
+#if !defined(_GNU_SOURCE) && !defined(__UCLIBC__)
 int uwsgi_versionsort(const struct dirent **da, const struct dirent **db) {
 
         const char *a = (*da)->d_name;

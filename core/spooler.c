@@ -543,7 +543,12 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 				uwsgi_error("chdir()");
 				return;
 			}
+#ifdef __UCLIBC__ 
+			char *prio_path = uwsgi_malloc(PATH_MAX);
+			realpath(".", prio_path);		
+#else 
 			char *prio_path = realpath(".", NULL);
+#endif
 			spooler_scandir(uspool, prio_path);
 			free(prio_path);
 			if (chdir(dir)) {
