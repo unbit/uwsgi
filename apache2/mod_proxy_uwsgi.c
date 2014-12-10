@@ -405,7 +405,10 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 		// found the last brigade?
 		if (APR_BUCKET_IS_EOS(APR_BRIGADE_LAST(bb))) finish = 1;
 
-		if (ap_pass_brigade(r->output_filters, pass_bb) != APR_SUCCESS || c->aborted) {
+		// do not pass chunk if it is zero_sized
+		apr_brigade_length(pass_bb, 0, &readbytes);
+
+		if ((readbytes > 0 && ap_pass_brigade(r->output_filters, pass_bb) != APR_SUCCESS) || c->aborted) {
 			finish = 1;
 		}
 
