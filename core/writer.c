@@ -124,8 +124,17 @@ error:
 static int uwsgi_response_add_header_do(struct wsgi_request *wsgi_req, char *key, uint16_t key_len, char *value, uint16_t value_len) {
 
 
-	// collect the header ?
+	// pull/collect the header ?
 	struct uwsgi_string_list *usl = NULL;
+
+	uwsgi_foreach(usl, uwsgi.pull_headers) {
+                if (!uwsgi_strnicmp(key, key_len, usl->value, usl->custom)) {
+                        if (!uwsgi_req_append(wsgi_req, usl->custom_ptr, usl->custom2, value, value_len)) {
+                                wsgi_req->write_errors++ ; return -1;
+                        }
+			return 0;
+                }
+        }
 
 	uwsgi_foreach(usl, uwsgi.collect_headers) {
 		if (!uwsgi_strnicmp(key, key_len, usl->value, usl->custom)) {

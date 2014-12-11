@@ -2760,6 +2760,7 @@ struct uwsgi_server {
 
 	// uWSGI 2.0.9
 	char *subscribe_with_modifier1;
+	struct uwsgi_string_list *pull_headers;
 
 	// uWSGI 2.1
 	char *fork_socket;

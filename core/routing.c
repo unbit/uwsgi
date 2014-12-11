@@ -2045,5 +2045,19 @@ next4:
 		usl->custom2 = strlen(space+1);
 		uwsgi_log("collecting header %.*s to var %s\n", usl->custom, usl->value, usl->custom_ptr);
 	}
+
+	uwsgi_foreach(usl, uwsgi.pull_headers) {
+                char *space = strchr(usl->value, ' ');
+                if (!space) {
+                        uwsgi_log("invalid pull header syntax, must be <header> <var>\n");
+                        exit(1);
+                }
+                *space = 0;
+                usl->custom = strlen(usl->value);
+                *space = ' ';
+                usl->custom_ptr = space+1;
+                usl->custom2 = strlen(space+1);
+                uwsgi_log("pulling header %.*s to var %s\n", usl->custom, usl->value, usl->custom_ptr);
+        }
 }
 #endif
