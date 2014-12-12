@@ -274,6 +274,51 @@ nonworker:
 	newCONSTSUB(stash, "SPOOL_RETRY", newSViv(-1));
 	newCONSTSUB(stash, "SPOOL_IGNORE", newSViv(0));
 
+	HV *_opts = newHV();
+
+	int i;
+	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+		if (hv_exists(_opts, uwsgi.exported_opts[i]->key, strlen(uwsgi.exported_opts[i]->key))) {
+			SV **value = hv_fetch(_opts, uwsgi.exported_opts[i]->key, strlen(uwsgi.exported_opts[i]->key), 0);
+			// last resort !!!
+			if (!value) {
+				uwsgi_log("[perl] WARNING !!! unable to build uwsgi::opt hash !!!\n");
+				goto end;
+			}
+			if (SvTYPE(SvRV(*value)) == SVt_PVAV) {
+				if (uwsgi.exported_opts[i]->value == NULL) {
+                                        av_push((AV *)SvRV(*value), newSViv(1));
+                                }
+                                else {
+                                        av_push((AV *)SvRV(*value), newSVpv(uwsgi.exported_opts[i]->value, 0));
+                                }
+			}
+			else {
+				AV *_opt_a = newAV();
+				av_push(_opt_a, SvREFCNT_inc(*value));
+				if (uwsgi.exported_opts[i]->value == NULL) {
+					av_push(_opt_a, newSViv(1));
+				}
+				else {
+					av_push(_opt_a, newSVpv(uwsgi.exported_opts[i]->value, 0));
+				}
+				hv_store(_opts, uwsgi.exported_opts[i]->key, strlen(uwsgi.exported_opts[i]->key), newRV_inc((SV *) _opt_a), 0);
+			}
+		}
+		else {
+			if (uwsgi.exported_opts[i]->value == NULL) {
+				hv_store(_opts, uwsgi.exported_opts[i]->key, strlen(uwsgi.exported_opts[i]->key), newSViv(1), 0);
+			}
+			else {
+				hv_store(_opts, uwsgi.exported_opts[i]->key, strlen(uwsgi.exported_opts[i]->key), newSVpv(uwsgi.exported_opts[i]->value, 0), 0);
+			}
+		}
+	}
+
+	newCONSTSUB(stash, "opt", newRV_inc((SV *) _opts));
+
+end:
+
         init_perl_embedded_module();
 
 }
