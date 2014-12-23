@@ -2420,10 +2420,6 @@ configure:
 		uwsgi_log("*** running under screen session %s ***\n", uwsgi.screen_session);
 	}
 
-	if (uwsgi.pidfile && !uwsgi.is_a_reload) {
-		uwsgi_write_pidfile(uwsgi.pidfile);
-	}
-
 	uwsgi_log_initial("detected binary path: %s\n", uwsgi.binary_path);
 
 	if (uwsgi.is_a_reload) {
@@ -2523,6 +2519,10 @@ configure:
 #if defined(__linux__) && !defined(__ia64__)
 	}
 #endif
+
+	if (uwsgi.pidfile && !uwsgi.is_a_reload) {
+		uwsgi_write_pidfile_explicit(uwsgi.pidfile, masterpid);
+	}
 }
 
 
@@ -2593,10 +2593,6 @@ int uwsgi_start(void *v_argv) {
 			uwsgi_error("chdir()");
 			exit(1);
 		}
-	}
-
-	if (uwsgi.pidfile2 && !uwsgi.is_a_reload) {
-		uwsgi_write_pidfile(uwsgi.pidfile2);
 	}
 
 	if (!uwsgi.master_process && !uwsgi.command_mode) {
@@ -3258,6 +3254,9 @@ next2:
 		}
 	}
 
+	if (uwsgi.pidfile2 && !uwsgi.is_a_reload) {
+		uwsgi_write_pidfile_explicit(uwsgi.pidfile2, masterpid);
+	}
 
 	// END OF INITIALIZATION
 	return 0;
