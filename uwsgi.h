@@ -2408,9 +2408,6 @@ struct uwsgi_server {
 	char *pidfile;
 	char *pidfile2;
 
-	char *safe_pidfile;
-	char *safe_pidfile2;
-
 	char *flock2;
 	char *flock_wait2;
 
@@ -2789,6 +2786,8 @@ struct uwsgi_server {
 	char *zeus;
 	uint64_t buffer_size;
 	int emperor_tyrant_initgroups;
+	char *safe_pidfile;
+	char *safe_pidfile2;
 };
 
 struct uwsgi_rpc {
