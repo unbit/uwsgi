@@ -12,7 +12,7 @@ class uWSGIClientResource(resource.LeafResource):
         resource.LeafResource.__init__(self)
         self.host = host
         self.port = port
-	self.app = app
+        self.app = app
     
     def renderHTTP(self, request):
         return uWSGI(request, self.app, self.host, self.port)
@@ -33,52 +33,52 @@ class uWSGIClientProtocol(basic.LineReceiver):
         self.deferred = deferred
         self.stream = stream.ProducerStream()
         self.response = http.Response(stream=self.stream)
-	self.status_parsed = None
+        self.status_parsed = None
 
     def build_uwsgi_var(self,key,value):
-	return struct.pack('<H',len(key)) + key + struct.pack('<H',len(value)) + value
+        return struct.pack('<H',len(key)) + key + struct.pack('<H',len(value)) + value
 
     def connectionMade(self):
-	print self.request.__dict__
-	# reset response parser
-	self.status_parsed = None
-	# build header and vars
-	vars = ''
+        print self.request.__dict__
+        # reset response parser
+        self.status_parsed = None
+        # build header and vars
+        vars = ''
 
-	if self.request.stream.length:
-        	vars += self.build_uwsgi_var('CONTENT_LENGTH',str(self.request.stream.length))
+        if self.request.stream.length:
+                vars += self.build_uwsgi_var('CONTENT_LENGTH',str(self.request.stream.length))
 
-	for hkey, hval in self.request.headers.getAllRawHeaders():
-		# use a list, probably it will be extended
-		if hkey.lower() not in ('content-type'):
-			vars += self.build_uwsgi_var('HTTP_'+hkey.upper().replace('-','_'),','.join(hval))
-		else:
-			vars += self.build_uwsgi_var(hkey.upper().replace('-','_'),','.join(hval))
-		
+        for hkey, hval in self.request.headers.getAllRawHeaders():
+                # use a list, probably it will be extended
+                if hkey.lower() not in ('content-type'):
+                        vars += self.build_uwsgi_var('HTTP_'+hkey.upper().replace('-','_'),','.join(hval))
+                else:
+                        vars += self.build_uwsgi_var(hkey.upper().replace('-','_'),','.join(hval))
+                
 
-	vars += self.build_uwsgi_var('REQUEST_METHOD', self.request.method)
-	vars += self.build_uwsgi_var('SCRIPT_NAME', self.request.uwsgi_app)
-	vars += self.build_uwsgi_var('PATH_INFO', self.request.path[len(self.request.uwsgi_app):])
-	vars += self.build_uwsgi_var('QUERY_STRING', self.request.querystring)
-	vars += self.build_uwsgi_var('SERVER_NAME', self.request.host)
-	vars += self.build_uwsgi_var('SERVER_PORT', str(self.request.port))
-	vars += self.build_uwsgi_var('SERVER_PROTOCOL', self.request.scheme.upper()+'/'+str(self.request.clientproto[0]) +'.'+str(self.request.clientproto[1]))
+        vars += self.build_uwsgi_var('REQUEST_METHOD', self.request.method)
+        vars += self.build_uwsgi_var('SCRIPT_NAME', self.request.uwsgi_app)
+        vars += self.build_uwsgi_var('PATH_INFO', self.request.path[len(self.request.uwsgi_app):])
+        vars += self.build_uwsgi_var('QUERY_STRING', self.request.querystring)
+        vars += self.build_uwsgi_var('SERVER_NAME', self.request.host)
+        vars += self.build_uwsgi_var('SERVER_PORT', str(self.request.port))
+        vars += self.build_uwsgi_var('SERVER_PROTOCOL', self.request.scheme.upper()+'/'+str(self.request.clientproto[0]) +'.'+str(self.request.clientproto[1]))
 
-	vars += self.build_uwsgi_var('REQUEST_URI', self.request.uri)
-	vars += self.build_uwsgi_var('REMOTE_ADDR', self.request.remoteAddr.host)
+        vars += self.build_uwsgi_var('REQUEST_URI', self.request.uri)
+        vars += self.build_uwsgi_var('REMOTE_ADDR', self.request.remoteAddr.host)
 
 
-	self.transport.write(struct.pack('<BHB',0, len(vars),0))
-	self.transport.write(vars)
+        self.transport.write(struct.pack('<BHB',0, len(vars),0))
+        self.transport.write(vars)
 
-	# send request data
+        # send request data
         stream.StreamProducer(self.request.stream).beginProducing(self.transport)
         
     def lineReceived(self, line):
-	if self.status_parsed is None:
-		self.response.code = line.split(' ',2)[1]	
-		self.status_parsed = True
-		return
+        if self.status_parsed is None:
+                self.response.code = line.split(' ',2)[1]       
+                self.status_parsed = True
+                return
 
         # end of headers
         if line == '':
