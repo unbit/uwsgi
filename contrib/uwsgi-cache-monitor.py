@@ -98,7 +98,7 @@ class Cache:
 def main(options):
     cache = Cache(options.cache_store, options.cache_slots, options.block_size,
         options.sleep_time)
-    print "Recording..."
+    print("Recording...")
     while True:
         try:
             data = cache.read()
