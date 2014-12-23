@@ -39,7 +39,7 @@ class uWSGIClientProtocol(basic.LineReceiver):
         return struct.pack('<H',len(key)) + key + struct.pack('<H',len(value)) + value
 
     def connectionMade(self):
-        print self.request.__dict__
+        print(self.request.__dict__)
         # reset response parser
         self.status_parsed = None
         # build header and vars
