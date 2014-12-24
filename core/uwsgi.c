@@ -354,6 +354,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"pidfile", required_argument, 0, "create pidfile (before privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile, 0},
 	{"pidfile2", required_argument, 0, "create pidfile (after privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile2, 0},
+	{"safe-pidfile", required_argument, 0, "create safe pidfile (before privileges drop)", uwsgi_opt_set_str, &uwsgi.safe_pidfile, 0},
+	{"safe-pidfile2", required_argument, 0, "create safe pidfile (after privileges drop)", uwsgi_opt_set_str, &uwsgi.safe_pidfile2, 0},
 	{"chroot", required_argument, 0, "chroot() to the specified directory", uwsgi_opt_set_str, &uwsgi.chroot, 0},
 #ifdef __linux__
 	{"pivot-root", required_argument, 0, "pivot_root() to the specified directories (new_root and put_old must be separated with a space)", uwsgi_opt_set_str, &uwsgi.pivot_root, 0},
@@ -1604,6 +1606,22 @@ static void vacuum(void) {
 					uwsgi_log("VACUUM: pidfile2 removed.\n");
 				}
 			}
+			if (uwsgi.safe_pidfile && !uwsgi.uid) {
+				if (unlink(uwsgi.safe_pidfile)) {
+					uwsgi_error("unlink()");
+				}
+				else {
+					uwsgi_log("VACUUM: safe pidfile removed.\n");
+				}
+			}
+			if (uwsgi.safe_pidfile2) {
+				if (unlink(uwsgi.safe_pidfile2)) {
+					uwsgi_error("unlink()");
+				}
+				else {
+					uwsgi_log("VACUUM: safe pidfile2 removed.\n");
+				}
+			}
 			if (uwsgi.chdir) {
 				if (chdir(uwsgi.chdir)) {
 					uwsgi_error("chdir()");
@@ -2523,6 +2541,10 @@ configure:
 #if defined(__linux__) && !defined(__ia64__)
 	}
 #endif
+
+	if (uwsgi.safe_pidfile && !uwsgi.is_a_reload) {
+		uwsgi_write_pidfile_explicit(uwsgi.safe_pidfile, masterpid);
+	}
 }
 
 
@@ -3258,6 +3280,9 @@ next2:
 		}
 	}
 
+	if (uwsgi.safe_pidfile2 && !uwsgi.is_a_reload) {
+		uwsgi_write_pidfile_explicit(uwsgi.safe_pidfile2, masterpid);
+	}
 
 	// END OF INITIALIZATION
 	return 0;
@@ -4892,6 +4917,12 @@ void uwsgi_update_pidfiles() {
 	}
 	if (uwsgi.pidfile2) {
 		uwsgi_write_pidfile(uwsgi.pidfile2);
+	}
+	if (uwsgi.safe_pidfile) {
+		uwsgi_write_pidfile(uwsgi.safe_pidfile);
+	}
+	if (uwsgi.safe_pidfile2) {
+		uwsgi_write_pidfile(uwsgi.safe_pidfile2);
 	}
 }
 
