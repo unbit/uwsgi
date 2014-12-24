@@ -197,6 +197,8 @@ struct corerouter_peer {
 	// maps 1:1 with subscription proto
 	char proto;
 
+	int is_buffering;
+	int buffering_fd;
 };
 
 struct uwsgi_corerouter {

@@ -17,6 +17,8 @@ extern struct uwsgi_server uwsgi;
 struct fastrouter_session {
 	struct corerouter_session session;
 	int has_key;
+	uint64_t content_length;
+	uint64_t buffered;
 };
 
 static struct uwsgi_option fastrouter_options[] = {
@@ -106,6 +108,12 @@ static void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vall
 		}
                 return;
         }
+
+	if (ufr.cr.post_buffering > 0) {
+		if (!uwsgi_strncmp("CONTENT_LENGTH", 14, key, keylen)) {
+			fr->content_length = uwsgi_str_num(val, vallen);
+		}
+	}
 }
 
 // writing client body to the instance
@@ -166,6 +174,23 @@ static ssize_t fr_instance_read(struct corerouter_peer *peer) {
         return len;
 }
 
+static ssize_t fr_instance_sendfile(struct corerouter_peer *peer) {
+	struct fastrouter_session *fr = (struct fastrouter_session *) peer->session;
+	ssize_t len = uwsgi_sendfile_do(peer->fd, peer->session->main_peer->buffering_fd, fr->buffered, fr->content_length - fr->buffered);
+	if (len < 0) {
+		cr_try_again;
+		uwsgi_cr_error(peer, "fr_instance_sendfile()/sendfile()");
+		return -1;
+	}
+	if (len == 0) return 0;
+	fr->buffered += len;
+	if (peer != peer->session->main_peer && peer->un) peer->un->rx+=len;
+	if (fr->buffered >= fr->content_length) {
+		cr_reset_hooks(peer);	
+	}
+	return len;
+}
+
 // send the uwsgi request header and vars
 static ssize_t fr_instance_send_request(struct corerouter_peer *peer) {
 	ssize_t len = cr_write(peer, "fr_instance_send_request()");
@@ -176,9 +201,16 @@ static ssize_t fr_instance_send_request(struct corerouter_peer *peer) {
         if (cr_write_complete(peer)) {
                 // reset the original read buffer
                 peer->out->pos = 0;
-		// start waiting for body
-		peer->session->main_peer->last_hook_read = fr_read_body;
-                cr_reset_hooks(peer);
+		if (!peer->session->main_peer->is_buffering) {
+			// start waiting for body
+			peer->session->main_peer->last_hook_read = fr_read_body;
+                	cr_reset_hooks(peer);
+		}
+		else {
+			peer->hook_write = fr_instance_sendfile;
+			// stop reading from the client
+			peer->session->main_peer->last_hook_read = NULL;
+		}
         }
 
 	return len;
@@ -206,6 +238,41 @@ static ssize_t fr_instance_connected(struct corerouter_peer *peer) {
 
 // called after receaving the uwsgi header (read vars)
 static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
+	struct fastrouter_session *fr = (struct fastrouter_session *) main_peer->session;
+
+	struct corerouter_peer *new_peer = NULL;
+
+	// are we buffering ?
+	if (main_peer->is_buffering) {
+		// first round ?
+		if (main_peer->buffering_fd == -1) {
+			main_peer->buffering_fd = uwsgi_tmpfd();
+			if (main_peer->buffering_fd < 0) return -1;
+		}
+		char buf[32768];
+		size_t remains = fr->content_length - fr->buffered;
+		ssize_t rlen = read(main_peer->fd, buf, UMIN(32768, remains));
+		if (rlen < 0) {
+			cr_try_again;
+			uwsgi_cr_error(main_peer, "fr_recv_uwsgi_vars()/read()");
+			return -1;
+		}
+		if (rlen == 0) return 0;
+		fr->buffered += rlen;
+		if (write(main_peer->buffering_fd, buf, rlen) != rlen) {
+			uwsgi_cr_error(main_peer, "fr_recv_uwsgi_vars()/write()");
+                        return -1;
+		}
+
+		// have we done ?
+		if (fr->buffered >= fr->content_length) {
+			fr->buffered = 0;
+			goto done;
+		}
+
+		return rlen;
+	}
+
 	struct uwsgi_header *uh = (struct uwsgi_header *) main_peer->in->buf;
 	// better to store it as the original buf address could change
 	uint16_t pktsize = uh->_pktsize;
@@ -217,9 +284,10 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 
 	// headers received, ready to choose the instance
 	if (main_peer->in->pos == (size_t)(pktsize+4)) {
+
 		struct uwsgi_corerouter *ucr = main_peer->session->corerouter;
 
-		struct corerouter_peer *new_peer = uwsgi_cr_peer_add(main_peer->session);
+		new_peer = uwsgi_cr_peer_add(main_peer->session);
 		new_peer->last_hook_read = fr_instance_read;
 
 		if (!ufr.force_key) {
@@ -250,6 +318,18 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 				return len;
 			}
 			return -1;
+		}
+
+		// buffering ?
+		if (ufr.cr.post_buffering > 0 && fr->content_length > 0) {
+			main_peer->is_buffering = 1;
+			main_peer->buffering_fd = -1;
+			return len;
+		}
+
+done:
+		if (!new_peer) {
+			new_peer = main_peer->session->peers;
 		}
 
 		new_peer->can_retry = 1;
