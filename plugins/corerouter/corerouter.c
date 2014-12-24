@@ -75,6 +75,12 @@ void uwsgi_cr_peer_reset(struct corerouter_peer *peer) {
 		peer->hook_write = NULL;
 	}
 
+	if (peer->is_buffering) {
+		if (peer->buffering_fd != -1) {
+			close(peer->buffering_fd);
+		}
+	}
+
 	peer->failed = 0;
 	peer->soopt = 0;
 	peer->timed_out = 0;

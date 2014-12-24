@@ -192,7 +192,10 @@ struct corerouter_peer {
 	int current_timeout;
 
 	ssize_t (*flush)(struct corerouter_peer *);
+
 	int is_flushing;
+	int is_buffering;
+        int buffering_fd;
 };
 
 struct uwsgi_corerouter {
