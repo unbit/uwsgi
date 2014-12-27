@@ -238,6 +238,7 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 	struct fastrouter_session *fr = (struct fastrouter_session *) main_peer->session;
 
 	struct corerouter_peer *new_peer = NULL;
+	ssize_t len = 0;
 
 	// are we buffering ?
 	if (main_peer->is_buffering) {
@@ -264,6 +265,7 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 		// have we done ?
 		if (fr->buffered >= fr->content_length) {
 			fr->buffered = 0;
+			len = rlen;
 			goto done;
 		}
 
@@ -276,7 +278,7 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 	// increase buffer if needed
 	if (uwsgi_buffer_fix(main_peer->in, pktsize+4))
 		return -1;
-	ssize_t len = cr_read_exact(main_peer, pktsize+4, "fr_recv_uwsgi_vars()");
+	len = cr_read_exact(main_peer, pktsize+4, "fr_recv_uwsgi_vars()");
 	if (!len) return 0;
 
 	// headers received, ready to choose the instance
