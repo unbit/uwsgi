@@ -45,7 +45,7 @@ static struct uwsgi_option fastrouter_options[] = {
 
 	{"fastrouter-timeout", required_argument, 0, "set fastrouter timeout", uwsgi_opt_set_int, &ufr.cr.socket_timeout, 0},
 	{"fastrouter-post-buffering", required_argument, 0, "enable fastrouter post buffering", uwsgi_opt_set_64bit, &ufr.cr.post_buffering, 0},
-	{"fastrouter-post-buffering-dir", required_argument, 0, "put fastrouter buffered files to the specified directory", uwsgi_opt_set_str, &ufr.cr.pb_base_dir, 0},
+	{"fastrouter-post-buffering-dir", required_argument, 0, "put fastrouter buffered files to the specified directory (noop, use TMPDIR env)", uwsgi_opt_set_str, &ufr.cr.pb_base_dir, 0},
 
 	{"fastrouter-stats", required_argument, 0, "run the fastrouter stats server", uwsgi_opt_set_str, &ufr.cr.stats_server, 0},
 	{"fastrouter-stats-server", required_argument, 0, "run the fastrouter stats server", uwsgi_opt_set_str, &ufr.cr.stats_server, 0},
@@ -243,8 +243,26 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 	struct corerouter_peer *new_peer = NULL;
 	ssize_t len = 0;
 
+	struct uwsgi_header *uh = (struct uwsgi_header *) main_peer->in->buf;
+	// better to store it as the original buf address could change
+	uint16_t pktsize = uh->_pktsize;
+
 	// are we buffering ?
 	if (main_peer->is_buffering) {
+		// memory or disk ?
+		if (fr->content_length <= ufr.cr.post_buffering) {
+			// increase buffer if needed
+        		if (uwsgi_buffer_fix(main_peer->in, pktsize+4+fr->content_length))
+                		return -1;
+        		len = cr_read_exact(main_peer, pktsize+4+fr->content_length, "fr_recv_uwsgi_vars()");
+        		if (!len) return 0;
+			// whole body read ?
+			if (main_peer->in->pos == (size_t)(pktsize+4+fr->content_length)) {
+				main_peer->is_buffering = 0;
+				goto done;
+			}
+			return len;
+		}
 		// first round ?
 		if (main_peer->buffering_fd == -1) {
 			main_peer->buffering_fd = uwsgi_tmpfd();
@@ -275,9 +293,6 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 		return rlen;
 	}
 
-	struct uwsgi_header *uh = (struct uwsgi_header *) main_peer->in->buf;
-	// better to store it as the original buf address could change
-	uint16_t pktsize = uh->_pktsize;
 	// increase buffer if needed
 	if (uwsgi_buffer_fix(main_peer->in, pktsize+4))
 		return -1;
