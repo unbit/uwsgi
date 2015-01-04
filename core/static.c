@@ -467,9 +467,9 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 
 	size_t fsize = st->st_size;
         if (wsgi_req->range_to) {
-        	fsize = wsgi_req->range_to - wsgi_req->range_from;
-                if (fsize > (size_t)st->st_size) {
-                	fsize = st->st_size;
+        	fsize = (wsgi_req->range_to - wsgi_req->range_from)+1;
+                if (fsize + wsgi_req->range_from > (size_t) (st->st_size)) {
+                	fsize = st->st_size - wsgi_req->range_from;
                 }
         }
 	else {
