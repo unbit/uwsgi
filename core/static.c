@@ -463,22 +463,21 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	wsgi_req->do_not_account_avg_rt = 1;
 
 	size_t fsize = st->st_size;
+	// security check
+        if (wsgi_req->range_from > fsize) {
+                wsgi_req->range_from = 0;
+                wsgi_req->range_to = 0;
+        }
+	else {
+		fsize -= wsgi_req->range_from;
+	}
+
         if (wsgi_req->range_to) {
         	fsize = (wsgi_req->range_to - wsgi_req->range_from)+1;
                 if (fsize + wsgi_req->range_from > (size_t) (st->st_size)) {
                 	fsize = st->st_size - wsgi_req->range_from;
                 }
         }
-	else {
-        	// reset in case of inconsistent size
-        	if (wsgi_req->range_from > fsize) {
-        		wsgi_req->range_from = 0;
-        		fsize = 0;
-        	}
-		else {
-			fsize -= wsgi_req->range_from;
-		}
-	}
 
 	// HTTP status
 	if (fsize > 0 && (wsgi_req->range_from || wsgi_req->range_to)) {
