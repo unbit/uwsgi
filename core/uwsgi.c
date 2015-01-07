@@ -1264,25 +1264,31 @@ void end_me(int signum) {
 	exit(UWSGI_END_CODE);
 }
 
-void simple_goodbye_cruel_world() {
+static void simple_goodbye_cruel_world(const char *reason) {
 
 	if (uwsgi.threads > 1 && !uwsgi_instance_is_dying) {
 		wait_for_threads();
 	}
 
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
-	uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
+	uwsgi_log("...The work of process %d is done (%s). Seeya!\n", getpid(), (reason != NULL ? reason : "no reason given"));
 	exit(0);
 }
 
-void goodbye_cruel_world() {
+void goodbye_cruel_world(const char *reason_fmt, ...) {
+	char reason[64];
+	va_list args;
+	va_start(args, reason_fmt);
+	vsnprintf(reason, 64, reason_fmt, args);
+	va_end(args);
+
 	uwsgi_curse(uwsgi.mywid, 0);
 
 	if (!uwsgi.gbcw_hook) {
-		simple_goodbye_cruel_world();
+		simple_goodbye_cruel_world(reason);
 	}
 	else {
-		uwsgi.gbcw_hook();
+		uwsgi.gbcw_hook(reason);
 	}
 }
 
