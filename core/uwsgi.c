@@ -1276,10 +1276,10 @@ static void simple_goodbye_cruel_world(const char *reason) {
 }
 
 void goodbye_cruel_world(const char *reason_fmt, ...) {
-	char reason[64];
+	char reason[1024];
 	va_list args;
 	va_start(args, reason_fmt);
-	vsnprintf(reason, 64, reason_fmt, args);
+	vsnprintf(reason, 1024, reason_fmt, args);
 	va_end(args);
 
 	uwsgi_curse(uwsgi.mywid, 0);
