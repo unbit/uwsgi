@@ -4059,6 +4059,11 @@ void uwsgi_opt_set_16bit(char *opt, char *value, void *key) {
 
 void uwsgi_opt_set_megabytes(char *opt, char *value, void *key) {
 	uint64_t *ptr = (uint64_t *) key;
+	if(strchr(value, '.') != NULL) {
+		double megabytes = atof(value);
+		*ptr = (uint64_t)(megabytes * 1024 * 1024);
+		return;
+	}
 	*ptr = (uint64_t)strtoul(value, NULL, 10) * 1024 * 1024;
 }
 
