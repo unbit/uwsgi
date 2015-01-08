@@ -126,12 +126,12 @@ PyObject *py_uwsgi_gevent_int(PyObject *self, PyObject *args) {
 }
 
 
-static void uwsgi_gevent_gbcw() {
+static void uwsgi_gevent_gbcw(const char *reason) {
 
 	// already running
 	if (ugevent.destroy) return;
 
-	uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
+	uwsgi_log("...The work of process %d is done (reason: %s). Seeya!\n", getpid(), (reason != NULL ? reason : "no reason given"));
 
 	uwsgi_time_bomb(uwsgi.worker_reload_mercy, 0);
 	

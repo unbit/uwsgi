@@ -1196,15 +1196,24 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi.max_requests > 0 && uwsgi.workers[uwsgi.mywid].delta_requests >= (uwsgi.max_requests + ((uwsgi.mywid-1) * uwsgi.max_requests_delta))
 	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
-		goodbye_cruel_world();
+		goodbye_cruel_world("max requests reached (%llu >= %llu)",
+			(unsigned long long) uwsgi.workers[uwsgi.mywid].delta_requests,
+			(unsigned long long) (uwsgi.max_requests + ((uwsgi.mywid-1) * uwsgi.max_requests_delta))
+		);
 	}
 
 	if (uwsgi.reload_on_as && (rlim_t) vsz >= uwsgi.reload_on_as && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
-		goodbye_cruel_world();
+		goodbye_cruel_world("reload-on-as limit reached (%llu >= %llu)",
+			(unsigned long long) (rlim_t) vsz,
+			(unsigned long long) uwsgi.reload_on_as
+		);
 	}
 
 	if (uwsgi.reload_on_rss && (rlim_t) rss >= uwsgi.reload_on_rss && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
-		goodbye_cruel_world();
+		goodbye_cruel_world("reload-on-rss limit reached (%llu >= %llu)",
+			(unsigned long long) (rlim_t) rss,
+			(unsigned long long) uwsgi.reload_on_rss
+		);
 	}
 
 

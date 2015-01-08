@@ -720,7 +720,7 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 
 		// mark the request as ended (otherwise the atexit hook will be skipped)
 		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
-		goodbye_cruel_world();
+		goodbye_cruel_world("async plagued");
 	}
 
 	// now we can check for changed files

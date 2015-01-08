@@ -2572,7 +2572,7 @@ struct uwsgi_server {
 	void (*schedule_to_req) (void);
 	void (*schedule_fix) (struct wsgi_request *);
 
-	void (*gbcw_hook) (void);
+	void (*gbcw_hook) (const char *);
 
 	int close_on_exec;
 	int close_on_exec2;
@@ -3053,7 +3053,7 @@ char *uwsgi_get_cwd(void);
 
 void warn_pipe(void);
 void what_i_am_doing(void);
-void goodbye_cruel_world(void);
+void goodbye_cruel_world(const char *, ...);
 void gracefully_kill(int);
 void reap_them_all(int);
 void kill_them_all(int);
