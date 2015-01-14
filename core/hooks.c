@@ -738,7 +738,8 @@ void uwsgi_hooks_setns_run(struct uwsgi_string_list *l, pid_t pid, uid_t uid, gi
 					uwsgi_error("uwsgi_hooks_setns_run()/setns()");
 					exit(1);
 				}
-
+				close(fd);
+				free(procfile);
                 	}
 
 			if (setenv("UWSGI_VASSAL_PID", pidstr, 1)) {
