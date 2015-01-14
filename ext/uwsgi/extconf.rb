@@ -1,6 +1,6 @@
 require 'net/http'
 
-Net::HTTP.start("uwsgi.it") do |http|
+Net::HTTP.start("uwsgi.it", :use_ssl=>true) do |http|
   resp = http.get("/install")
   open("install.sh", "wb") do |file|
       file.write(resp.body)
