@@ -345,6 +345,7 @@ static int uwsgi_router_redis_store(struct uwsgi_route *ur, char *args) {
 
 		if (!urrc->key || !urrc->addr) {
                         uwsgi_log("invalid redisstore route syntax: you need to specify an address and a key\n");
+			free(urrc);
 			return -1;
                 }
 
