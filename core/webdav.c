@@ -99,7 +99,7 @@ int uwsgi_webdav_propfind_item_add(struct uwsgi_buffer *ub, char *href, uint16_t
 
 	if (etag_len > 0) {
 		if (uwsgi_buffer_append(ub, "<D:getetag>\n", 12)) return -1;
-		if (uwsgi_buffer_append_xml(ub, displayname, displayname_len)) return -1;
+		if (uwsgi_buffer_append_xml(ub, etag, etag_len)) return -1;
 		if (uwsgi_buffer_append(ub, "</D:getetag>\n", 13)) return -1;
 	}
 

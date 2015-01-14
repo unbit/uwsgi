@@ -24,7 +24,6 @@ int uwsgi_proto_puwsgi_parser(struct wsgi_request *wsgi_req) {
 #ifdef __BIG_ENDIAN__
                         	wsgi_req->len = uwsgi_swap16(wsgi_req->len);
 #endif
-				wsgi_req->len = wsgi_req->len;
 				if (wsgi_req->len > uwsgi.buffer_size) {
                                 	uwsgi_log("invalid request block size: %u (max %u)...skip\n", wsgi_req->len, uwsgi.buffer_size);
 					wsgi_req->write_errors++;		
