@@ -180,6 +180,7 @@ void uwsgi_fork_server(char *socket) {
 				if (uwsgi_write_nb(client_fd, ub->buf, ub->pos, uwsgi.socket_timeout)) exit(1);
 				close(client_fd);
 				uwsgi_log("double fork() and reparenting successfull (new pid: %d)\n", getpid());
+				uwsgi_buffer_destroy(ub);
 
 
 				// now parse the uwsgi packet array and build the argv
