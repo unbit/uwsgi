@@ -931,6 +931,7 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 	char *s2_proto = NULL;
 	char *s2_algo = NULL;
 	char *s2_backup = NULL;
+	struct uwsgi_buffer *ub = NULL;
 
 	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
 		"server", &s2_server,
@@ -998,7 +999,7 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 		s2_addr = uwsgi_str(uwsgi.sockets->name);
 	}
 
-        struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+        ub = uwsgi_buffer_new(uwsgi.page_size);
         if (!ub) goto end;
 	// leave space for the header
 	ub->pos = 4;
@@ -1058,9 +1059,10 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 
         send_subscription(-1, s2_server, ub->buf, ub->pos);
 
-        uwsgi_buffer_destroy(ub);
-
 end:
+	if (ub)
+		uwsgi_buffer_destroy(ub);
+
 	if (s2_server)
 		free(s2_server);
 	if (s2_key)

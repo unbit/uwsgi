@@ -455,7 +455,6 @@ static int uwsgi_routing_func_rpc_var(struct wsgi_request *wsgi_req, struct uwsg
         if (size == 0) goto end;
 
 	if (!uwsgi_req_append(wsgi_req, ur->data4, ur->data4_len, response, size)) {
-		free(response);
 		goto end;
 	}
 	ret = UWSGI_ROUTE_NEXT;
