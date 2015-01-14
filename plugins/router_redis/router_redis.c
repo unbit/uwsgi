@@ -310,6 +310,7 @@ static int uwsgi_router_redis(struct uwsgi_route *ur, char *args) {
 
 	if (!urrc->key || !urrc->addr) {
 		uwsgi_log("invalid route syntax: you need to specify a redis address and key pattern\n");
+		free(urrc);
 		return -1;
 	}
 
