@@ -312,6 +312,7 @@ static int uwsgi_router_memcached(struct uwsgi_route *ur, char *args) {
 
 	if (!urmc->key || !urmc->addr) {
 		uwsgi_log("invalid route syntax: you need to specify a memcached address and key pattern\n");
+		free(urmc);
 		return -1;
 	}
 
@@ -346,6 +347,7 @@ static int uwsgi_router_memcached_store(struct uwsgi_route *ur, char *args) {
 
 		if (!urmc->key || !urmc->addr) {
                         uwsgi_log("invalid memcachedstore route syntax: you need to specify an address and a key\n");
+			free(urmc);
 			return -1;
                 }
 
