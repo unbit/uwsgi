@@ -171,6 +171,7 @@ static int uwsgi_alarm_log_add(char *alarms, char *regexp, int negate) {
 
 	ual = uwsgi_calloc(sizeof(struct uwsgi_alarm_log));
 	if (uwsgi_regexp_build(regexp, &ual->pattern, &ual->pattern_extra)) {
+		free(ual);
 		return -1;
 	}
 	ual->negate = negate;
