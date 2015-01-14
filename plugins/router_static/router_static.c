@@ -67,7 +67,10 @@ int uwsgi_routing_func_file(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 	// static file - don't update avg_rt after request
 	wsgi_req->do_not_account_avg_rt = 1;
 
-	if (urfc->no_headers) goto send;
+	if (urfc->no_headers) {
+		uwsgi_buffer_destroy(ub_s);
+		goto send;
+	}
 
 	if (uwsgi_response_prepare_headers(wsgi_req, ub_s->buf, ub_s->pos)) {
 		uwsgi_buffer_destroy(ub_s);
