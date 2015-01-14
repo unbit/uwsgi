@@ -2057,7 +2057,7 @@ void uwsgi_cache_sync_from_nodes(struct uwsgi_cache *uc) {
 
 		struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size + uc->filesize);
 		ub->pos = 4;
-		if (uwsgi_buffer_append(ub, uc->name, uc->name_len)) {
+		if (uc->name && uwsgi_buffer_append(ub, uc->name, uc->name_len)) {
 			uwsgi_buffer_destroy(ub);
 			close(fd);
 			goto next;
