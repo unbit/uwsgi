@@ -17,8 +17,8 @@ static int transform_chunked(struct wsgi_request *wsgi_req, struct uwsgi_transfo
 	}
 
 	if (ut->round == 1) {
-		// do not check for errors !!!
-        	uwsgi_response_add_header(wsgi_req, "Transfer-Encoding", 17, "chunked", 7);
+		// do not care about errors !!!
+        	if (uwsgi_response_add_header(wsgi_req, "Transfer-Encoding", 17, "chunked", 7)) {};
 	}
 
 	if (ub->pos > 0) {

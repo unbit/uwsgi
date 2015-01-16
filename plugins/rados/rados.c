@@ -628,7 +628,8 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 			}
 		}
 
-		uwsgi_response_add_header(wsgi_req, "Allow", 5, ub_allow->buf, ub_allow->pos);
+		// do not care about errors
+		if (uwsgi_response_add_header(wsgi_req, "Allow", 5, ub_allow->buf, ub_allow->pos)) {};
 		uwsgi_buffer_destroy(ub_allow);
                 goto end;
 	}
@@ -659,7 +660,8 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 			}
                         goto end;
                 }
-                uwsgi_response_prepare_headers(wsgi_req, "201 Created", 11);
+		// do not care about errors
+                if (uwsgi_response_prepare_headers(wsgi_req, "201 Created", 11)) {};
                 goto end;
 	}
 
@@ -686,7 +688,8 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 			uwsgi_500(wsgi_req);
 			goto end;
 		}
-		uwsgi_response_prepare_headers(wsgi_req, "201 Created", 11);	
+		// do not care about errors
+		if (uwsgi_response_prepare_headers(wsgi_req, "201 Created", 11)) {};
 		goto end;
 	}
 	else if (ret < 0) {
@@ -706,7 +709,8 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 			uwsgi_403(wsgi_req);
                         goto end;
 		}
-		uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6);
+		// do not care about errors
+		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) {};
 		goto end;
 	}
 

@@ -169,13 +169,15 @@ static void uwsgi_mono_method_SendStatus(MonoObject *this, int code, MonoString 
 	char status_code[4];
 	uwsgi_num2str2n(code, status_code, 4);
 	char *status_line = uwsgi_concat3n(status_code, 3, " ", 1, mono_string_to_utf8(msg), mono_string_length(msg));
-	uwsgi_response_prepare_headers(wsgi_req, status_line, 4 + mono_string_length(msg));
+	// do not care about errors
+	if (uwsgi_response_prepare_headers(wsgi_req, status_line, 4 + mono_string_length(msg))) {};
 	free(status_line);
 }
 
 static void uwsgi_mono_method_SendUnknownResponseHeader(MonoObject *this, MonoString *key, MonoString *value) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	uwsgi_response_add_header(wsgi_req, mono_string_to_utf8(key), mono_string_length(key), mono_string_to_utf8(value), mono_string_length(value));
+	// do not care about errors
+	if (uwsgi_response_add_header(wsgi_req, mono_string_to_utf8(key), mono_string_length(key), mono_string_to_utf8(value), mono_string_length(value))) {};
 }
 
 static void uwsgi_mono_method_SendResponseFromMemory(MonoObject *this, MonoArray *byteArray, int len) {

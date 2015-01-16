@@ -329,9 +329,9 @@ static int transform_toxslt(struct wsgi_request *wsgi_req, struct uwsgi_transfor
         char *output = uwsgi_xslt_apply( doc, utxc->stylesheet->buf, utxc->params ? utxc->params->buf : NULL, &rlen);
 	if (!output) goto end;
 
-	// do not check for errors !!!
+	// do not care about errors !!!
 	if (ut->round == 1) {
-        	uwsgi_response_add_content_type(wsgi_req, utxc->content_type->buf, utxc->content_type->pos);
+        	if (uwsgi_response_add_content_type(wsgi_req, utxc->content_type->buf, utxc->content_type->pos)) {};
 	}
 
 	uwsgi_buffer_map(ub, output, rlen);

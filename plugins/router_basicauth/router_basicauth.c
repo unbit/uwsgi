@@ -149,8 +149,8 @@ static int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uw
 forbidden:
 	if (uwsgi_response_prepare_headers(wsgi_req, "401 Authorization Required", 26)) goto end;
 	char *realm = uwsgi_concat3n("Basic realm=\"", 13, ur->data, ur->data_len, "\"", 1);
-	// no need to check for errors
-	uwsgi_response_add_header(wsgi_req, "WWW-Authenticate", 16, realm, 13 + ur->data_len + 1);
+	// do not care about errors
+	if (uwsgi_response_add_header(wsgi_req, "WWW-Authenticate", 16, realm, 13 + ur->data_len + 1)) {};
 	free(realm);
 	uwsgi_response_write_body_do(wsgi_req, "Unauthorized", 12);
 end:

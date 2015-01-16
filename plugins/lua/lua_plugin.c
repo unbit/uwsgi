@@ -188,7 +188,8 @@ static int uwsgi_api_register_signal(lua_State *L) {
 		lua_pushvalue(L, 3);
 		lhandler = luaL_ref(L, LUA_REGISTRYINDEX);
 
-		uwsgi_register_signal(sig, (char *)who, (void *) lhandler, 6);
+		if (uwsgi_register_signal(sig, (char *)who, (void *) lhandler, 6))
+			uwsgi_log("[uwsgi-lua] unable to register signal %d\n", sig);
 	}
 
 	lua_pushnil(L);
@@ -822,13 +823,15 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 				}
 
 				http2 = lua_tolstring(L, -1, &slen2);
-				uwsgi_response_add_header(wsgi_req, (char *) http, slen, (char *) http2, slen2);
+				// do not care about errors
+				if (uwsgi_response_add_header(wsgi_req, (char *) http, slen, (char *) http2, slen2)) {};
 				lua_pop(L, 1);
 			}
 		}
 		else {
 			http2 = lua_tolstring(L, -1, &slen2);
-			uwsgi_response_add_header(wsgi_req, (char *) http, slen, (char *) http2, slen2);
+			// do not care about errors
+			if (uwsgi_response_add_header(wsgi_req, (char *) http, slen, (char *) http2, slen2)) {};
 		}
 		lua_pop(L, 1);
 	}

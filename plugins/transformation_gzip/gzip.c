@@ -38,8 +38,8 @@ static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_transforma
 	utgz->len += ub->pos;
 	uwsgi_buffer_map(ub, gzipped, dlen);
 	if (!utgz->header) {
-		// do not check for errors !!!
-        	uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4);
+		// do not care about errors !!!
+        	if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4)) {};
 		utgz->header = 1;
 		if (uwsgi_buffer_insert(ub, 0, gzheader, 10)) {
 			return -1;
