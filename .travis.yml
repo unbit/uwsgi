@@ -13,15 +13,15 @@ script:
   - echo -e "\n\n>>> Building python27 plugin"
   - /usr/bin/python2.7 -V
   - /usr/bin/python2.7 uwsgiconfig.py --plugin plugins/python base python27
-  - echo -e "\n\n>>> Building python31 plugin"
-  - /usr/bin/python3.1 -V
-  - /usr/bin/python3.1 uwsgiconfig.py --plugin plugins/python base python31
   - echo -e "\n\n>>> Building python32 plugin"
   - /usr/bin/python3.2 -V
   - /usr/bin/python3.2 uwsgiconfig.py --plugin plugins/python base python32
   - echo -e "\n\n>>> Building python33 plugin"
   - /usr/bin/python3.3 -V
   - /usr/bin/python3.3 uwsgiconfig.py --plugin plugins/python base python33
+  - echo -e "\n\n>>> Building python34 plugin"
+  - /usr/bin/python3.4 -V
+  - /usr/bin/python3.4 uwsgiconfig.py --plugin plugins/python base python34
   - echo -e "\n\n>>> Building rack 1.8.7 plugin"
   - /usr/bin/ruby1.8 -v
   - UWSGICONFIG_RUBYPATH=/usr/bin/ruby1.8 /usr/bin/python uwsgiconfig.py --plugin plugins/rack base rack187
@@ -36,9 +36,8 @@ script:
   - ./tests/travis.sh
 
 before_install:
-  - sudo add-apt-repository -y ppa:fkrull/deadsnakes
   - sudo apt-get update -qq
-  - sudo apt-get install -qqyf python2.6-dev python2.7-dev python3.1-dev python3.2-dev python3.3-dev rubygems1.8 ruby1.8-dev ruby1.9.1-dev
+  - sudo apt-get install -qqyf rubygems1.8 ruby1.8-dev ruby1.9.1-dev
   - sudo apt-get install -qqyf libxml2-dev libpcre3-dev libcap2-dev
   - sudo apt-get install -qqyf curl
 
