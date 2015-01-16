@@ -1819,17 +1819,17 @@ void uwsgi_backtrace(int depth) {
 	bt_strings = backtrace_symbols(btrace, bt_size);
 
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
-	uwsgi_buffer_append(ub, "*** backtrace of ",17);
-	uwsgi_buffer_num64(ub, (int64_t) getpid());
-	uwsgi_buffer_append(ub, " ***\n", 5);
+	if (uwsgi_buffer_append(ub, "*** backtrace of ",17)) goto error;
+	if (uwsgi_buffer_num64(ub, (int64_t) getpid())) goto error;
+	if (uwsgi_buffer_append(ub, " ***\n", 5)) goto error;
 	for (i = 0; i < bt_size; i++) {
-		uwsgi_buffer_append(ub, bt_strings[i], strlen(bt_strings[i]));
-		uwsgi_buffer_append(ub, "\n", 1);
+		if (uwsgi_buffer_append(ub, bt_strings[i], strlen(bt_strings[i]))) goto error;
+		if (uwsgi_buffer_append(ub, "\n", 1)) goto error;
 	}
 
 	free(btrace);
 
-	uwsgi_buffer_append(ub, "*** end of backtrace ***\n", 25);
+	if (uwsgi_buffer_append(ub, "*** end of backtrace ***\n", 25)) goto error;
 
 	uwsgi_log("%.*s", ub->pos, ub->buf);
 
@@ -1840,6 +1840,11 @@ void uwsgi_backtrace(int depth) {
 	}	
 
 	uwsgi_buffer_destroy(ub);
+	return;
+
+error:
+	uwsgi_log("Can't allocate memory for backtrace, exiting!!!");
+	exit(1);
 #endif
 
 }
@@ -4812,8 +4817,8 @@ char *uwsgi_get_dot_h() {
 		free(base);
 		return "";
 	}
-	// add final null byte
-	uwsgi_buffer_append(ub, "\0", 1);
+	// add final null byte, do not care about errors
+	if (uwsgi_buffer_append(ub, "\0", 1)) {};
 	free(base);
 	// base is the final blob
 	base = ub->buf;
@@ -4845,8 +4850,8 @@ char *uwsgi_get_config_py() {
                 free(base);
                 return "";
         }
-        // add final null byte
-        uwsgi_buffer_append(ub, "\0", 1);
+        // add final null byte, do not care about errors
+        if (uwsgi_buffer_append(ub, "\0", 1)) {};
         free(base);
         // base is the final blob
         base = ub->buf;
