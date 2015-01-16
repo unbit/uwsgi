@@ -139,7 +139,7 @@ extern "C" {
 
 #define uwsgi_foreach_token(x, y, z, w) for(z=strtok_r(x, y, &w);z;z = strtok_r(NULL, y, &w))
 
-#ifdef UWSGI_WARN_UNUSED_RESULT
+#if defined(UWSGI_WARN_UNUSED_RESULT) && defined(__GNUC__)
 #define WARN_UNUSED_RESULT  __attribute__ ((warn_unused_result))
 #else
 #define WARN_UNUSED_RESULT
