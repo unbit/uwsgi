@@ -342,6 +342,10 @@ static char *uwsgi_scheme_data(char *url, size_t *size, int add_zero) {
 			uwsgi_log("0 size binary data !!!\n");
 			exit(1);
 		}
+		if (datasize > SIZE_MAX) {
+			uwsgi_log("size binary data bigger than SIZE_MAX !!!\n");
+			exit(1);
+		}
 		fo = lseek(fd, -(datasize + 8), SEEK_CUR);
 		if (fo < 0) {
 			uwsgi_error("lseek()");

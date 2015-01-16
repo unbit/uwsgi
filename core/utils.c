@@ -893,6 +893,7 @@ void uwsgi_as_root() {
 					}
 				}
 			}
+			free(gids);
 		}
 	}
 	if (uwsgi.uid) {

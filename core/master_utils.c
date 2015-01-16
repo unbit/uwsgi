@@ -722,6 +722,10 @@ int uwsgi_respawn_worker(int wid) {
 			}
 		}
 
+		if (uwsgi.threaded_logger) {
+			pthread_mutex_unlock(&uwsgi.threaded_logger_lock);
+		}
+
 		return 1;
 	}
 	else if (pid < 1) {
