@@ -112,19 +112,20 @@ static int uwsgi_rpc_xmlrpc(struct wsgi_request *wsgi_req, xmlDoc *doc, char **a
 	xmlChar *xmlbuf;
         int xlen = 0;
         xmlDocDumpFormatMemory(rdoc, &xmlbuf, &xlen, 1);
-	if (uwsgi_response_prepare_headers(wsgi_req,"200 OK", 6)) {
-		xmlFreeDoc(rdoc);
-		xmlFree(xmlbuf);
-		return -1;
-	}
-        uwsgi_response_add_content_length(wsgi_req, xlen);
-        uwsgi_response_add_content_type(wsgi_req, "application/xml", 15);
+        if (uwsgi_response_prepare_headers(wsgi_req,"200 OK", 6)) goto error;
+        if (uwsgi_response_add_content_length(wsgi_req, xlen)) goto error;
+        if (uwsgi_response_add_content_type(wsgi_req, "application/xml", 15)) goto error;
         uwsgi_response_write_body_do(wsgi_req, (char *) xmlbuf, xlen);
 
 	xmlFreeDoc(rdoc);
 	xmlFree(xmlbuf);
 
 	return 0;
+
+error:
+	xmlFreeDoc(rdoc);
+	xmlFree(xmlbuf);
+	return -1;
 }
 #endif
 
