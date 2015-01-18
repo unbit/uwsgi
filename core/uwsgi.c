@@ -2262,7 +2262,7 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 		uwsgi_opt_flock(NULL, uwsgi.flock_wait2, NULL);
 
 	// setup master logging
-	if (uwsgi.log_master)
+	if (uwsgi.log_master && !uwsgi.daemonize2)
 		uwsgi_setup_log_master();
 
 	// setup offload engines
