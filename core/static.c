@@ -459,7 +459,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 		}
 	}
 #ifdef UWSGI_DEBUG
-	uwsgi_log("[uwsgi-fileserve] file %s found\n", real_filename);
+	uwsgi_log("[uwsgi-fileserve] file %s found, mimetype %s\n", real_filename, mime_type);
 #endif
 
 	// static file - don't update avg_rt after request
