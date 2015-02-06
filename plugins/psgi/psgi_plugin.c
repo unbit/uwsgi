@@ -709,6 +709,7 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// Free the $env hash
+	wsgi_req->async_environ = NULL; 
 	SvREFCNT_dec(wsgi_req->async_environ);
 
 	// async plagued could be defined in other areas...
