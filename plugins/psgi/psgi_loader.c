@@ -302,15 +302,15 @@ nonworker:
 				else {
 					av_push(_opt_a, newSVpv(uwsgi.exported_opts[i]->value, 0));
 				}
-				hv_store(_opts, uwsgi.exported_opts[i]->key, strlen(uwsgi.exported_opts[i]->key), newRV_inc((SV *) _opt_a), 0);
+				(void ) hv_store(_opts, uwsgi.exported_opts[i]->key, strlen(uwsgi.exported_opts[i]->key), newRV_inc((SV *) _opt_a), 0);
 			}
 		}
 		else {
 			if (uwsgi.exported_opts[i]->value == NULL) {
-				hv_store(_opts, uwsgi.exported_opts[i]->key, strlen(uwsgi.exported_opts[i]->key), newSViv(1), 0);
+				(void )hv_store(_opts, uwsgi.exported_opts[i]->key, strlen(uwsgi.exported_opts[i]->key), newSViv(1), 0);
 			}
 			else {
-				hv_store(_opts, uwsgi.exported_opts[i]->key, strlen(uwsgi.exported_opts[i]->key), newSVpv(uwsgi.exported_opts[i]->value, 0), 0);
+				(void)hv_store(_opts, uwsgi.exported_opts[i]->key, strlen(uwsgi.exported_opts[i]->key), newSVpv(uwsgi.exported_opts[i]->value, 0), 0);
 			}
 		}
 	}
