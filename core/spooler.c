@@ -480,7 +480,7 @@ static void spooler_scandir(struct uwsgi_spooler *uspool, char *dir) {
 	if (!dir)
 		dir = uspool->dir;
 
-	n = scandir(dir, &tasklist, 0, versionsort);
+	n = scandir(dir, &tasklist, NULL, versionsort);
 	if (n < 0) {
 		uwsgi_error("scandir()");
 		return;
