@@ -1752,12 +1752,15 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
         }
 
 	
-
-	uwsgi_foreach(usl, uwsgi.emperor_wrapper_override) {
-		vassal_argv[0] = usl->value;
-		uwsgi_log("[emperor] trying to use %s as binary wrapper ...\n", usl->value);
-		execvp(vassal_argv[0], vassal_argv);
-		// not here if the binary is found
+	if (uwsgi.emperor_wrapper_override) {
+		char *orig_wrapper = vassal_argv[0];	
+		uwsgi_foreach(usl, uwsgi.emperor_wrapper_override) {
+			vassal_argv[0] = usl->value;
+			uwsgi_log("[emperor] trying to use %s as binary wrapper ...\n", usl->value);
+			execvp(vassal_argv[0], vassal_argv);
+			// not here if the binary is found
+		}
+		vassal_argv[0] = orig_wrapper;
 	}
 
 	// start !!!
