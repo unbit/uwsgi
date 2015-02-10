@@ -1751,12 +1751,29 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
                 }
         }
 
+	
+
+	uwsgi_foreach(usl, uwsgi.emperor_wrapper_override) {
+		vassal_argv[0] = usl->value;
+		uwsgi_log("[emperor] trying to use %s as binary wrapper ...\n");
+		execvp(vassal_argv[0], vassal_argv);
+		// not here if the binary is found
+	}
+
 	// start !!!
 	if (execvp(vassal_argv[0], vassal_argv)) {
 		uwsgi_error("execvp()");
 	}
 	uwsgi_log("[emperor] binary path: %s\n", vassal_argv[0]);
 	uwsgi_log("[emperor] is the uwsgi binary in your system PATH ?\n");
+
+	// trying fallback
+	uwsgi_foreach(usl, uwsgi.emperor_wrapper_fallback) {
+		uwsgi_log("[emperor] trying to use %s as binary fallback ...\n");
+                vassal_argv[0] = usl->value;
+                execvp(vassal_argv[0], vassal_argv);
+                // not here if the binary is found
+        }
 	// never here
 	exit(UWSGI_EXILE_CODE);
 }

@@ -204,6 +204,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor", required_argument, 0, "run the Emperor", uwsgi_opt_add_string_list, &uwsgi.emperor, 0},
 	{"emperor-proxy-socket", required_argument, 0, "force the vassal to became an Emperor proxy", uwsgi_opt_set_str, &uwsgi.emperor_proxy, 0},
 	{"emperor-wrapper", required_argument, 0, "set a binary wrapper for vassals", uwsgi_opt_set_str, &uwsgi.emperor_wrapper, 0},
+	{"emperor-wrapper-override", required_argument, 0, "set a binary wrapper for vassals to try before the default one", uwsgi_opt_add_string_list, &uwsgi.emperor_wrapper_override, 0},
+	{"emperor-wrapper-fallback", required_argument, 0, "set a binary wrapper for vassals to try as a last resort", uwsgi_opt_add_string_list, &uwsgi.emperor_wrapper_fallback, 0},
 	{"emperor-nofollow", no_argument, 0, "do not follow symlinks when checking for mtime", uwsgi_opt_true, &uwsgi.emperor_nofollow, 0},
 	{"emperor-procname", required_argument, 0, "set the Emperor process name", uwsgi_opt_set_str, &uwsgi.emperor_procname, 0},
 	{"emperor-freq", required_argument, 0, "set the Emperor scan frequency (default 3 seconds)", uwsgi_opt_set_int, &uwsgi.emperor_freq, 0},
