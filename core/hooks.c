@@ -91,6 +91,14 @@ static int uwsgi_hook_exec(char *arg) {
 	return ret;
 }
 
+static int uwsgi_hook_safeexec(char *arg) {
+        int ret = uwsgi_run_command_and_wait(NULL, arg);
+        if (ret != 0) {
+                uwsgi_log("command \"%s\" exited with non-zero code: %d\n", arg, ret);
+        }
+        return 0;
+}
+
 static int uwsgi_hook_exit(char *arg) {
 	int exit_code = 0;
 	if (strlen(arg) > 1) {
@@ -574,6 +582,7 @@ void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("sticky", uwsgi_hook_sticky);
 
 	uwsgi_register_hook("exec", uwsgi_hook_exec);
+	uwsgi_register_hook("safeexec", uwsgi_hook_safeexec);
 
 	uwsgi_register_hook("create", uwsgi_hook_creat);
 	uwsgi_register_hook("creat", uwsgi_hook_creat);
