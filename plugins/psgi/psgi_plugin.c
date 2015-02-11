@@ -684,6 +684,19 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 	// before the environ is set up.
 	if (!wsgi_req->async_environ) return;
 
+	// we need to restore the context in case of multiple interpreters
+	struct uwsgi_app *wi = &uwsgi_apps[wsgi_req->app_id];
+	if (uwsgi.threads < 2) {
+                if (((PerlInterpreter **)wi->interpreter)[0] != uperl.main[0]) {
+                        PERL_SET_CONTEXT(((PerlInterpreter **)wi->interpreter)[0]);
+                }
+        }
+        else {
+                if (((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id] != uperl.main[wsgi_req->async_id]) {
+                        PERL_SET_CONTEXT(((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id]);
+                }
+        }
+
 	// dereference %env
 	SV *env = SvRV((SV *) wsgi_req->async_environ);
 
@@ -730,6 +743,19 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
                         uwsgi_perl_check_auto_reload();
                 }
         }
+
+	// restore main interpreter if needed
+        if (uwsgi.threads > 1) {
+                if (((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id] != uperl.main[wsgi_req->async_id]) {
+                        PERL_SET_CONTEXT(uperl.main[wsgi_req->async_id]);
+                }
+        }
+        else {
+                if (((PerlInterpreter **)wi->interpreter)[0] != uperl.main[0]) {
+                        PERL_SET_CONTEXT(uperl.main[0]);
+                }
+        }
+
 
 }
 
