@@ -12,7 +12,7 @@ XS(XS_input_seek) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
         psgi_check_args(1);
-	uwsgi_request_body_seek(wsgi_req, SvIV(ST(0)));
+	uwsgi_request_body_seek(wsgi_req, SvIV(ST(1)));
 
         XSRETURN(0);
 }
