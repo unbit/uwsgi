@@ -1819,6 +1819,32 @@ static char *uwsgi_route_var_hex(struct wsgi_request *wsgi_req, char *key, uint1
         return ret;
 }
 
+static char *uwsgi_route_var_upper(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
+    char *ret = NULL;
+    char *var_value = uwsgi_get_var(wsgi_req, key, keylen, vallen);
+    if (var_value) {
+        ret = uwsgi_malloc((size_t) *vallen);
+        size_t i;
+        for (i = 0; i < *vallen; i++) {
+            ret[i] = toupper((int) var_value[i]);
+        }
+    }
+    return ret;
+}
+
+static char *uwsgi_route_var_lower(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
+    char *ret = NULL;
+    char *var_value = uwsgi_get_var(wsgi_req, key, keylen, vallen);
+    if (var_value) {
+        ret = uwsgi_malloc((size_t) *vallen);
+        size_t i;
+        for (i = 0; i < *vallen; i++) {
+            ret[i] = tolower((int) var_value[i]);
+        }
+    }
+    return ret;
+}
+
 // register embedded routers
 void uwsgi_register_embedded_routers() {
 	uwsgi_register_router("continue", uwsgi_router_continue);
@@ -1911,6 +1937,10 @@ void uwsgi_register_embedded_routers() {
 
         urv = uwsgi_register_route_var("hex", uwsgi_route_var_hex);
 	urv->need_free = 1;
+    urv = uwsgi_register_route_var("upper", uwsgi_route_var_upper);
+    urv->need_free = 1;
+    urv = uwsgi_register_route_var("lower", uwsgi_route_var_lower);
+    urv->need_free = 1;
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {
