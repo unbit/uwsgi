@@ -756,6 +756,27 @@ static int uwsgi_router_fixcl(struct uwsgi_route *ur, char *arg) {
         return 0;
 }
 
+// force content length
+static int transform_forcecl(struct wsgi_request *wsgi_req, struct uwsgi_transformation *ut) {
+        char buf[sizeof(UMAX64_STR)+1];
+        int ret = snprintf(buf, sizeof(UMAX64_STR)+1, "%llu", (unsigned long long) ut->chunk->pos);
+        if (ret <= 0 || ret >= (int) (sizeof(UMAX64_STR)+1)) {
+                wsgi_req->write_errors++;
+                return -1;
+        }
+        // do not check for errors !!!
+        uwsgi_response_add_header_force(wsgi_req, "Content-Length", 14, buf, ret);
+        return 0;
+}
+static int uwsgi_router_forcecl_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
+        uwsgi_add_transformation(wsgi_req, transform_forcecl, NULL);
+        return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_forcecl(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_forcecl_func;
+        return 0;
+}
+
 // log route
 static int uwsgi_router_log_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
@@ -1865,6 +1886,7 @@ void uwsgi_register_embedded_routers() {
 
         uwsgi_register_router("flush", uwsgi_router_flush);
         uwsgi_register_router("fixcl", uwsgi_router_fixcl);
+        uwsgi_register_router("forcecl", uwsgi_router_forcecl);
 
         uwsgi_register_router("harakiri", uwsgi_router_harakiri);
 
