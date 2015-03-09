@@ -94,9 +94,9 @@ ssize_t uwsgi_syslog_logger(struct uwsgi_logger *ul, char *message, size_t len) 
 	}
 
 #ifdef __APPLE__
-	syslog(LOG_NOTICE|facility, "%.*s", (int) len, message);
+	syslog(LOG_NOTICE, "%.*s", (int) len, message);
 #else
-	syslog(LOG_INFO|facility, "%.*s", (int) len, message);
+	syslog(LOG_INFO, "%.*s", (int) len, message);
 #endif
 	return 0;
 
