@@ -31,7 +31,12 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 			exit(1);
 		}
 
-                ul->fd = socket(AF_INET, SOCK_DGRAM, 0);
+		if (ul->arg[0] == '/') {
+                	ul->fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+		}
+		else {
+                	ul->fd = socket(AF_INET, SOCK_DGRAM, 0);
+		}
                 if (ul->fd < 0) {
 			uwsgi_error_safe("socket()");
 			exit(1);
@@ -62,7 +67,12 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 			*port = 0;
 		}
 
-		ul->addr_len = socket_to_in_addr(ul->arg, NULL, portn, &ul->addr.sa_in);
+		if (ul->arg[0] == '/') {
+			ul->addr_len = socket_to_un_addr(ul->arg, &ul->addr.sa_un);
+		}
+		else {
+			ul->addr_len = socket_to_in_addr(ul->arg, NULL, portn, &ul->addr.sa_in);
+		}
 
 		if (port) *port = ':';
 		if (comma) *comma = ',';
