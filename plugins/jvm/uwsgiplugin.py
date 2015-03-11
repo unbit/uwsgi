@@ -48,12 +48,12 @@ else:
             break
 
 try:
-    JVM_INCPATH = ['-I"' + os.environ['UWSGICONFIG_JVM_INCPATH'] + '"']
+    JVM_INCPATH = ['-I' + os.environ['UWSGICONFIG_JVM_INCPATH']]
 except KeyError:
     pass
 
 try:
-    JVM_LIBPATH = ['-L"' + os.environ['UWSGICONFIG_JVM_LIBPATH'] + '"']
+    JVM_LIBPATH = ['-L' + os.environ['UWSGICONFIG_JVM_LIBPATH']]
 except KeyError:
     pass
 
