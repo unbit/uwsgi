@@ -493,7 +493,7 @@ void uwsgi_receive_signal(struct wsgi_request *wsgi_req, int fd, char *name, int
 
 destroy:
 	// better to kill the whole worker...
-	uwsgi_log_verbose("uWSGI %s %d screams: UAAAAAAH my master disconnected: i will kill myself !!!\n", name, id);
+	uwsgi_log_verbose("uWSGI %s %d screams: UAAAAAAH my master disconnected: I will kill myself!!!\n", name, id);
 	end_me(0);
 
 }
