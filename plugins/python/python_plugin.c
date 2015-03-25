@@ -88,7 +88,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"module", required_argument,'w', "load a WSGI module", uwsgi_opt_set_str, &up.wsgi_config, 0},
 	{"wsgi", required_argument, 'w', "load a WSGI module", uwsgi_opt_set_str, &up.wsgi_config, 0},
 	{"callable", required_argument, 0, "set default WSGI callable name", uwsgi_opt_set_str, &up.callable, 0},
-	{"test", required_argument, 'J', "test a mdule import", uwsgi_opt_set_str, &up.test_module, 0},
+	{"test", required_argument, 'J', "test a module import", uwsgi_opt_set_str, &up.test_module, 0},
 	{"home", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
 	{"virtualenv", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
 	{"venv", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
