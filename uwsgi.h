@@ -3975,6 +3975,8 @@ int uwsgi_socket_is_already_bound(char *name);
 char *uwsgi_expand_path(char *, int, char *);
 int uwsgi_try_autoload(char *);
 
+void log_modifier1_hint(int modifier1);
+
 uint64_t uwsgi_micros(void);
 int uwsgi_is_file(char *);
 int uwsgi_is_file2(char *, struct stat *);
