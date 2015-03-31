@@ -70,7 +70,11 @@ def manage_spool_request(vars):
 
 def postfork_chain_hook():
     for f in postfork_chain:
-        f()
+        try:
+            f()
+        except Exception as e:
+            print e
+
 
 uwsgi.spooler = manage_spool_request
 uwsgi.post_fork_hook = postfork_chain_hook
