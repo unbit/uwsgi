@@ -222,7 +222,7 @@ static int on_demand_bind(char *socket_name) {
 	}
 
 	if (!is_tcp) {
-		if (chmod(socket_name, 0666)) {
+		if (fchmod(fd, 0666)) {
 			goto error;
 		}
 	}
