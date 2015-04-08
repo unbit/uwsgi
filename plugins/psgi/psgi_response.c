@@ -99,30 +99,28 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 		return UWSGI_OK;
 	}
 
-	if (!SvRV(*hitem)) { uwsgi_log("invalid PSGI response body\n") ; return UWSGI_OK; }
+        SV *rv = SvRV(*hitem);
 
-	if (!SvROK(*hitem)) goto unsupported;
-	
-        if (SvTYPE(SvRV(*hitem)) == SVt_PVGV || SvTYPE(SvRV(*hitem)) == SVt_PVHV || SvTYPE(SvRV(*hitem)) == SVt_PVMG) {
+        if (!rv)
+                goto invalid_body;
 
-		// check for fileno() method, IO class or GvIO
-		if (uwsgi_perl_obj_can(*hitem, "fileno", 6) || uwsgi_perl_obj_isa(*hitem, "IO") || (uwsgi_perl_obj_isa(*hitem, "GLOB") && GvIO(SvRV(*hitem)))  ) {
-			SV *fn = uwsgi_perl_obj_call(*hitem, "fileno");
-			if (fn) {
-				if (SvTYPE(fn) == SVt_IV && SvIV(fn) >= 0) {
-					wsgi_req->sendfile_fd = SvIV(fn);
-					SvREFCNT_dec(fn);	
-					uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
-					// no need to close here as perl GC will do the close()
-					uwsgi_pl_check_write_errors {
-						// noop
-					}
-					return UWSGI_OK;
-				}
-				SvREFCNT_dec(fn);	
-			}
-		}
-			
+        IO *io = GvIO(rv);
+
+        if (io) {
+                const int fd = PerlIO_fileno(IoIFP(io));
+
+                if (fd >= 0) {
+                        wsgi_req->sendfile_fd = fd;
+                        uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
+                        // no need to close here as perl GC will do the close()
+                        uwsgi_pl_check_write_errors {
+                                // noop
+                        }
+                        return UWSGI_OK;
+                }
+        }
+
+        if (SvOBJECT(rv)) {
 		// check for path method
 		if (uwsgi_perl_obj_can(*hitem, "path", 4)) {
 			SV *p = uwsgi_perl_obj_call(*hitem, "path");
@@ -135,7 +133,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 			}
 			return UWSGI_OK;
 		}
-
+                else if (uwsgi_perl_obj_can(*hitem, STR_WITH_LEN("getline"))) {
                 for(;;) {
 
 			wsgi_req->switches++;
@@ -173,11 +171,11 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 		if (closed) {
 			SvREFCNT_dec(closed);
 		}
-
+                }
         }
-        else if (SvTYPE(SvRV(*hitem)) == SVt_PVAV)  {
+        else if (SvTYPE(rv) == SVt_PVAV)  {
 
-                body = (AV *) SvRV(*hitem);
+                body = (AV *) rv;
 
                 for(i=0; i<=av_len(body); i++) {
                         hitem = av_fetch(body,i,0);
@@ -187,13 +185,11 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 				break;
 			}
                 }
-
         }
         else {
-unsupported:
-                uwsgi_log("unsupported response body type: %d\n", SvTYPE(SvRV(*hitem)));
+invalid_body:
+                uwsgi_log("invalid PSGI response body\n");
         }
 	
 	return UWSGI_OK;
-
 }
