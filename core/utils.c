@@ -3514,7 +3514,7 @@ int uwsgi_tmpfd() {
 		tmpdir = "/tmp";
 	}
 #ifdef O_TMPFILE
-	fd = open(tmpdir, O_TMPFILE | O_RDWR);
+	fd = open(tmpdir, O_TMPFILE | O_RDWR, S_IRUSR | S_IWUSR);
 	if (fd >= 0) {
 		return fd;
 	}
