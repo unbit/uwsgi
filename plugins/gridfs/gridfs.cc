@@ -222,6 +222,10 @@ static struct uwsgi_gridfs_mountpoint *uwsgi_gridfs_add_mountpoint(char *arg, si
 			ugm->servers.push_back(mongo::HostAndPort(buffer.substr(0, pos)));
 			buffer.erase(0, pos + 1);
 		}
+
+		if (!ugm->servers.size()) {
+			ugm->servers.push_back(mongo::HostAndPort(ugm->server));
+		}
 	}
 
 	return ugm;
