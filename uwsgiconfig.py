@@ -570,7 +570,7 @@ class uConf(object):
             'core/notify', 'core/mule', 'core/subscription', 'core/stats', 'core/sendfile', 'core/async', 'core/master_checks', 'core/fifo',
             'core/offload', 'core/io', 'core/static', 'core/websockets', 'core/spooler', 'core/snmp', 'core/exceptions', 'core/config',
             'core/setup_utils', 'core/clock', 'core/init', 'core/buffer', 'core/reader', 'core/writer', 'core/alarm', 'core/cron', 'core/hooks',
-            'core/plugins', 'core/lock', 'core/cache', 'core/daemons', 'core/errors', 'core/hash', 'core/master_events', 'core/chunked',
+            'core/known_plugins', 'core/plugins', 'core/lock', 'core/cache', 'core/daemons', 'core/errors', 'core/hash', 'core/master_events', 'core/chunked',
             'core/queue', 'core/event', 'core/signal', 'core/strings', 'core/progress', 'core/timebomb', 'core/ini', 'core/fsmon', 'core/mount',
             'core/metrics', 'core/plugins_builder', 'core/sharedarea', 'core/fork_server', 'core/webdav', 'core/zeus',
             'core/rpc', 'core/gateway', 'core/loop', 'core/cookie', 'core/querystring', 'core/rb_timers', 'core/transformations', 'core/uwsgi']

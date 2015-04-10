@@ -1543,7 +1543,7 @@ int unconfigured_hook(struct wsgi_request *wsgi_req) {
 			}
 		}
 	}
-	uwsgi_log("-- unavailable modifier requested: %d --\n", wsgi_req->uh->modifier1);
+	log_modifier1_hint(wsgi_req->uh->modifier1);
 	return -1;
 }
 
