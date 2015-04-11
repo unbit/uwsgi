@@ -1,4 +1,4 @@
-NAME='mongodblog'
+NAME = 'mongodblog'
 
 CFLAGS = []
 LDFLAGS = []

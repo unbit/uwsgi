@@ -1,5 +1,6 @@
 import os
-NAME='v8'
+
+NAME = 'v8'
 
 CFLAGS = ['-Wno-deprecated-declarations']
 LDFLAGS = []

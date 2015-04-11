@@ -1,6 +1,6 @@
 import os
 
-NAME='alarm_speech'
+NAME = 'alarm_speech'
 
 uwsgi_os = os.uname()[0]
 

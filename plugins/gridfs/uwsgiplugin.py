@@ -1,12 +1,15 @@
 import os
 
-NAME='gridfs'
+NAME = 'gridfs'
 
-CFLAGS = ['-I/usr/include/mongo','-I/usr/local/include/mongo']
+CFLAGS = [
+    '-I/usr/include/mongo',
+    '-I/usr/local/include/mongo'
+]
 LDFLAGS = []
 
 LIBS = []
-if not 'UWSGI_MONGODB_NOLIB' in os.environ:
+if 'UWSGI_MONGODB_NOLIB' not in os.environ:
     LIBS.append('-lmongoclient')
     LIBS.append('-lstdc++')
     LIBS.append('-lboost_thread')

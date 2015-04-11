@@ -1,4 +1,4 @@
-NAME='clock_monotonic'
+NAME = 'clock_monotonic'
 
 CFLAGS = []
 LDFLAGS = []

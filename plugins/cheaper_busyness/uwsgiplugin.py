@@ -1,4 +1,4 @@
-NAME='cheaper_busyness'
+NAME = 'cheaper_busyness'
 
 CFLAGS = []
 LDFLAGS = []

@@ -1,4 +1,4 @@
-NAME='transformation_offload'
+NAME = 'transformation_offload'
 
 CFLAGS = []
 LDFLAGS = []

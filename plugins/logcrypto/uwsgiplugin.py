@@ -1,4 +1,4 @@
-NAME='logcrypto'
+NAME = 'logcrypto'
 
 CFLAGS = []
 LDFLAGS = []

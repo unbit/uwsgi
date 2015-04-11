@@ -1,7 +1,8 @@
 import os
 uwsgi_os = os.uname()[0]
 
-NAME='forkptyrouter'
+NAME = 'forkptyrouter'
+
 CFLAGS = []
 LDFLAGS = []
 if uwsgi_os in ('Linux', 'FreeBSD', 'GNU', 'NetBSD', 'DragonFly'):

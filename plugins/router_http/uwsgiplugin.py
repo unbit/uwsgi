@@ -1,4 +1,4 @@
-NAME='router_http'
+NAME = 'router_http'
 
 CFLAGS = []
 LDFLAGS = []

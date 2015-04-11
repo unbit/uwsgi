@@ -1,4 +1,4 @@
-NAME='curl_cron'
+NAME = 'curl_cron'
 
 CFLAGS = []
 LDFLAGS = []

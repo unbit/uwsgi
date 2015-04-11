@@ -2,7 +2,8 @@ import uwsgi
 import os
 import gc
 import sys
-from uwsgidecorators import *
+from uwsgidecorators import rpc, signal, postfork
+
 print(sys.version)
 print(sys.version_info)
 if 'set_debug' in gc.__dict__:
@@ -26,6 +27,7 @@ def after_request_hook():
 
 uwsgi.after_req_hook = after_request_hook
 
+
 @rpc('hello')
 def hello_rpc(one, two, three):
     arg0 = one[::-1]
@@ -33,19 +35,23 @@ def hello_rpc(one, two, three):
     arg2 = three[::-1]
     return "!%s-%s-%s!" % (arg1, arg2, arg0)
 
+
 @signal(17)
 def ciao_mondo(signum):
     print("Hello World")
 
+
 def xsendfile(e, sr):
     sr('200 OK', [('Content-Type', 'image/png'), ('X-Sendfile', os.path.abspath('logo_uWSGI.png'))])
     return ''
+
 
 def serve_logo(e, sr):
     # use raw facilities (status will not be set...)
     uwsgi.send("%s 200 OK\r\nContent-Type: image/png\r\n\r\n" % e['SERVER_PROTOCOL'])
     uwsgi.sendfile('logo_uWSGI.png')
     return ''
+
 
 def serve_config(e, sr):
     sr('200 OK', [('Content-Type', 'text/html')])
@@ -57,10 +63,12 @@ routes['/xsendfile'] = xsendfile
 routes['/logo'] = serve_logo
 routes['/config'] = serve_config
 
+
 @postfork
 def setprocname():
     if uwsgi.worker_id() > 0:
         uwsgi.setprocname("i am the worker %d" % uwsgi.worker_id())
+
 
 def application(env, start_response):
     try:
@@ -82,7 +90,6 @@ def application(env, start_response):
     if env['PATH_INFO'] in routes:
         return routes[env['PATH_INFO']](env, start_response)
 
-
     if DEBUG:
         print(env['wsgi.input'].fileno())
 
@@ -98,7 +105,7 @@ def application(env, start_response):
     for w in uwsgi.workers():
         apps = '<table border="1"><tr><th>id</th><th>mountpoint</th><th>startup time</th><th>requests</th></tr>'
         for app in w['apps']:
-            apps += '<tr><td>%d</td><td>%s</td><td>%d</td><td>%d</td></tr>' % (app['id'], app['mountpoint'], app['startup_time'], app['requests']) 
+            apps += '<tr><td>%d</td><td>%s</td><td>%d</td><td>%d</td></tr>' % (app['id'], app['mountpoint'], app['startup_time'], app['requests'])
         apps += '</table>'
         workers += """
 <tr>
@@ -122,14 +129,9 @@ Workers and applications<br/>
 %s
 </table>
 
-    """ % (uwsgi.version, uwsgi.hostname, env.get('REMOTE_USER','None'), workers)
+    """ % (uwsgi.version, uwsgi.hostname, env.get('REMOTE_USER', 'None'), workers)
 
-    start_response('200 OK', [('Content-Type', 'text/html'), ('Content-Length', str(len(output)) )])
+    start_response('200 OK', [('Content-Type', 'text/html'), ('Content-Length', str(len(output)))])
 
-    #return bytes(output.encode('latin1'))
+    # return bytes(output.encode('latin1'))
     return output
-
-
-
-
-

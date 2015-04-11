@@ -1,4 +1,5 @@
-NAME='cgi'
+NAME = 'cgi'
+
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

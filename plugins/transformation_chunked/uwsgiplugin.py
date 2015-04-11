@@ -1,4 +1,4 @@
-NAME='transformation_chunked'
+NAME = 'transformation_chunked'
 
 CFLAGS = []
 LDFLAGS = []

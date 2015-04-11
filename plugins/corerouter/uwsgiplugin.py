@@ -1,5 +1,5 @@
+NAME = 'corerouter'
 
-NAME='corerouter'
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

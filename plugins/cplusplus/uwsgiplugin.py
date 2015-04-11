@@ -1,4 +1,4 @@
-NAME='cplusplus'
+NAME = 'cplusplus'
 
 CFLAGS = []
 LDFLAGS = []

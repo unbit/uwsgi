@@ -1,4 +1,4 @@
-NAME='zabbix'
+NAME = 'zabbix'
 
 CFLAGS = []
 LDFLAGS = []

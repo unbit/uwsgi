@@ -1,6 +1,6 @@
 import os
 
-NAME='php'
+NAME = 'php'
 
 ld_run_path = None
 PHPPATH = 'php-config'

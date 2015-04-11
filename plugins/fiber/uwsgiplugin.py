@@ -1,6 +1,6 @@
 import os
 
-NAME='fiber'
+NAME = 'fiber'
 
 try:
     RUBYPATH = os.environ['UWSGICONFIG_RUBYPATH']

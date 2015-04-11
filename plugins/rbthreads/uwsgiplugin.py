@@ -1,6 +1,6 @@
 import os
 
-NAME='rbthreads'
+NAME = 'rbthreads'
 
 try:
     RUBYPATH = os.environ['UWSGICONFIG_RUBYPATH']

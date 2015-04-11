@@ -1,4 +1,4 @@
-NAME='router_expires'
+NAME = 'router_expires'
 
 CFLAGS = []
 LDFLAGS = []

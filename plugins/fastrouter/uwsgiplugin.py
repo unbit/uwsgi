@@ -1,5 +1,5 @@
+NAME = 'fastrouter'
 
-NAME='fastrouter'
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

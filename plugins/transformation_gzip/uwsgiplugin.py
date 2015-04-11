@@ -1,4 +1,4 @@
-NAME='transformation_gzip'
+NAME = 'transformation_gzip'
 
 CFLAGS = []
 LDFLAGS = []

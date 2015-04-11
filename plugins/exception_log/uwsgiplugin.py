@@ -1,4 +1,4 @@
-NAME='exception_log'
+NAME = 'exception_log'
 
 CFLAGS = []
 LDFLAGS = []

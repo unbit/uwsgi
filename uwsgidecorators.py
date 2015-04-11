@@ -119,7 +119,7 @@ class _spoolraw(object):
         return self.__class__.__call__(self, *args, **kwargs)
 
     def __init__(self, f, pass_arguments):
-        if not 'spooler' in uwsgi.opt:
+        if 'spooler' not in uwsgi.opt:
             raise Exception(
                 "you have to enable the uWSGI spooler to use @%s decorator" % self.__class__.__name__)
         self.f = f

@@ -4,6 +4,7 @@ from django.conf import settings
 import os
 import sys
 
+
 class Command(BaseCommand):
     help = "Runs this project as a uWSGI application. Requires the uwsgi binary in system path."
 
@@ -12,10 +13,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         for arg in args:
-            k,v = arg.split('=')
+            k, v = arg.split('=')
             if k == 'http':
                 if self.http_port:
-                   self.http_port = v
+                    self.http_port = v
             elif k == 'socket':
                 self.http_port = None
                 self.socket_addr = v

@@ -1,4 +1,4 @@
-NAME='symcall'
+NAME = 'symcall'
 
 CFLAGS = []
 LDFLAGS = []

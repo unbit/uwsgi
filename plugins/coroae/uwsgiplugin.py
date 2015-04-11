@@ -1,6 +1,8 @@
 import os
 import sys
 
+NAME = 'coroae'
+
 coroapi = None
 
 search_paths = os.popen('perl -MConfig -e \'print $Config{sitearch}.",".join(",", @INC);\'').read().rstrip().split(',')
@@ -12,7 +14,6 @@ if not coroapi:
     print "unable to find the Coro perl module !!!"
     sys.exit(1)
 
-NAME='coroae'
 CFLAGS = os.popen('perl -MExtUtils::Embed -e ccopts').read().rstrip().split()
 CFLAGS += ['-Wno-int-to-pointer-cast', '-Wno-error=format', '-Wno-error=int-to-pointer-cast', '-I%s/Coro' % coroapi]
 LDFLAGS = []

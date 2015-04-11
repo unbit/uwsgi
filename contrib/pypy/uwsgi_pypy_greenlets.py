@@ -12,13 +12,15 @@ import greenlet
 
 uwsgi_pypy_greenlets = {}
 
+
 def uwsgi_pypy_greenlet_wrapper():
     lib.async_schedule_to_req_green()
+
 
 @ffi.callback("void()")
 def uwsgi_pypy_greenlet_schedule():
     id = lib.uwsgi.wsgi_req.async_id
-    modifier1 = lib.uwsgi.wsgi_req.uh.modifier1;
+    modifier1 = lib.uwsgi.wsgi_req.uh.modifier1
 
     # generate a new greenlet
     if not lib.uwsgi.wsgi_req.suspended:
@@ -36,10 +38,11 @@ def uwsgi_pypy_greenlet_schedule():
     if lib.uwsgi.p[modifier1].resume:
         lib.uwsgi.p[modifier1].resume(ffi.NULL)
 
+
 @ffi.callback("void(struct wsgi_request *)")
 def uwsgi_pypy_greenlet_switch(wsgi_req):
-    id = wsgi_req.async_id
-    modifier1 = wsgi_req.uh.modifier1;
+    wsgi_req.async_id
+    modifier1 = wsgi_req.uh.modifier1
 
     # this is called in the current greenlet
     if lib.uwsgi.p[modifier1].suspend:

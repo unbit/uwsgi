@@ -1,5 +1,5 @@
+NAME = 'signal'
 
-NAME='signal'
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

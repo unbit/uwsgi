@@ -1,8 +1,7 @@
-NAME='geoip'
+NAME = 'geoip'
 
 CFLAGS = []
 LDFLAGS = []
 LIBS = ['-lGeoIP']
 
 GCC_LIST = ['geoip']
-

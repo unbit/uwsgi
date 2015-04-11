@@ -1,6 +1,7 @@
-NAME='pty'
-
 import os
+
+NAME = 'pty'
+
 uwsgi_os = os.uname()[0]
 
 CFLAGS = []

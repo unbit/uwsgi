@@ -10,13 +10,9 @@ import os
 import sys
 import errno
 import shlex
-import shutil
 import uwsgiconfig
 
 from setuptools import setup
-from setuptools.dist import Distribution
-from setuptools.command.install import install
-from setuptools.command.install_lib import install_lib
 from setuptools.command.build_ext import build_ext
 from distutils.core import Extension
 
@@ -28,42 +24,33 @@ class uWSGIBuildExt(build_ext):
 
     def build_extensions(self):
         self.uwsgi_setup()
-        #XXX: needs uwsgiconfig fix
+        # XXX: needs uwsgiconfig fix
         self.uwsgi_build()
         if 'UWSGI_USE_DISTUTILS' not in os.environ:
-            #XXX: needs uwsgiconfig fix
-            #uwsgiconfig.build_uwsgi(self.uwsgi_config)
+            # XXX: needs uwsgiconfig fix
+            # uwsgiconfig.build_uwsgi(self.uwsgi_config)
             return
 
         else:
-            #XXX: needs uwsgiconfig fix
+            # XXX: needs uwsgiconfig fix
             os.unlink(self.uwsgi_config.get('bin_name'))
 
-        #FIXME: else build fails :(
-        for baddie in set(self.compiler.compiler_so) & set((
-            '-Wstrict-prototypes',
-            )):
+        # FIXME: else build fails :(
+        for baddie in set(self.compiler.compiler_so) & set(('-Wstrict-prototypes',)):
             self.compiler.compiler_so.remove(baddie)
 
         build_ext.build_extensions(self)
 
     def uwsgi_setup(self):
-        default = (
-            '__pypy__' in sys.builtin_module_names
-                and 'pypy'
-                or 'default'
-                )
-        profile = (
-            os.environ.get('UWSGI_PROFILE')
-                or 'buildconf/%s.ini' % default
-                )
+        default = 'pypy' if '__pypy__' in sys.builtin_module_names else 'default'
+        profile = os.environ.get('UWSGI_PROFILE') or 'buildconf/%s.ini' % default
 
         if not profile.endswith('.ini'):
             profile = profile + '.ini'
-        if not '/' in profile:
+        if '/' not in profile:
             profile = 'buildconf/' + profile
 
-        #FIXME: update uwsgiconfig to properly set _EVERYTHING_!
+        # FIXME: update uwsgiconfig to properly set _EVERYTHING_!
         config = uwsgiconfig.uConf(profile)
         # insert in the beginning so UWSGI_PYTHON_NOLIB is exported
         # before the python plugin compiles
@@ -86,7 +73,7 @@ class uWSGIBuildExt(build_ext):
     def uwsgi_build(self):
         uwsgiconfig.build_uwsgi(self.uwsgi_config)
 
-        #XXX: merge uwsgi_setup (see other comments)
+        # XXX: merge uwsgi_setup (see other comments)
         for ext in self.extensions:
             if ext.name == self.UWSGI_NAME:
                 ext.sources = [s + '.c' for s in self.uwsgi_config.gcc_list]
@@ -96,7 +83,7 @@ class uWSGIBuildExt(build_ext):
 
                 for x in uwsgiconfig.uniq_warnings(
                     self.uwsgi_config.ldflags + self.uwsgi_config.libs,
-                    ):
+                ):
                     for y in shlex.split(x):
                         if y.startswith('-l'):
                             ext.libraries.append(y[2:])

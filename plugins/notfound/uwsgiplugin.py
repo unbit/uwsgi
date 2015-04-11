@@ -1,4 +1,4 @@
-NAME='notfound'
+NAME = 'notfound'
 
 CFLAGS = []
 LDFLAGS = []

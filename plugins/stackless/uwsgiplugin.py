@@ -1,7 +1,11 @@
 from distutils import sysconfig
 
-NAME='stackless'
-CFLAGS = ['-I' + sysconfig.get_python_inc(), '-I' + sysconfig.get_python_inc(plat_specific=True)]
+NAME = 'stackless'
+
+CFLAGS = [
+    '-I' + sysconfig.get_python_inc(),
+    '-I' + sysconfig.get_python_inc(plat_specific=True),
+]
 LDFLAGS = []
 LIBS = []
 

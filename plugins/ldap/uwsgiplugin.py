@@ -1,5 +1,5 @@
+NAME = 'ldap'
 
-NAME='ldap'
 CFLAGS = []
 LDFLAGS = []
 LIBS = ['-lldap']

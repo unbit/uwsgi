@@ -1,5 +1,5 @@
+NAME = 'emperor_zeromq'
 
-NAME='emperor_zeromq'
 CFLAGS = []
 LDFLAGS = []
 LIBS = ['-lzmq']

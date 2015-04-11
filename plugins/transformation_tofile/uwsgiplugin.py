@@ -1,4 +1,4 @@
-NAME='transformation_tofile'
+NAME = 'transformation_tofile'
 
 CFLAGS = []
 LDFLAGS = []

@@ -1,4 +1,4 @@
-NAME='router_metrics'
+NAME = 'router_metrics'
 
 CFLAGS = []
 LDFLAGS = []

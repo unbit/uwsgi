@@ -1,4 +1,4 @@
-NAME='router_redirect'
+NAME = 'router_redirect'
 
 CFLAGS = []
 LDFLAGS = []

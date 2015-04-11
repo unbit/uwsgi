@@ -1,4 +1,4 @@
-NAME='rpc'
+NAME = 'rpc'
 
 CFLAGS = []
 LDFLAGS = []

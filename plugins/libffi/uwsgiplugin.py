@@ -1,5 +1,6 @@
-NAME='libffi'
-CFLAGS=[]
-LDFLAGS=[]
-LIBS=['-lffi']
-GCC_LIST=['libffi']
+NAME = 'libffi'
+
+CFLAGS = []
+LDFLAGS = []
+LIBS = ['-lffi']
+GCC_LIST = ['libffi']

@@ -1,5 +1,5 @@
+NAME = 'ugreen'
 
-NAME='ugreen'
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

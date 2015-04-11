@@ -1,4 +1,4 @@
-NAME='spooler'
+NAME = 'spooler'
 
 CFLAGS = []
 LDFLAGS = []

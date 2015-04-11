@@ -1,4 +1,4 @@
-NAME='router_static'
+NAME = 'router_static'
 
 CFLAGS = []
 LDFLAGS = []

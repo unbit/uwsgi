@@ -1,4 +1,4 @@
-NAME='router_radius'
+NAME = 'router_radius'
 
 CFLAGS = []
 LDFLAGS = []

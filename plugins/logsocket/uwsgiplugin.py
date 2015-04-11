@@ -1,4 +1,4 @@
-NAME='logsocket'
+NAME = 'logsocket'
 
 CFLAGS = []
 LDFLAGS = []

@@ -1,4 +1,4 @@
-NAME='logpipe'
+NAME = 'logpipe'
 
 CFLAGS = []
 LDFLAGS = []

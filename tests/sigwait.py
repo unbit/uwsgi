@@ -1,13 +1,16 @@
 import uwsgi
 from uwsgidecorators import *
 
+
 @signal(17, target='workers')
 def hello(signum):
     print("I AM THE WORKER %d" % uwsgi.worker_id())
 
+
 @signal(30, target='worker2')
 def hello2(signum):
     print("I AM THE WORKER 2")
+
 
 @postfork
 def wait_for_signal():
@@ -25,4 +28,3 @@ def application(e, s):
     else:
         uwsgi.signal(17)
     return "Signal raised"
-   

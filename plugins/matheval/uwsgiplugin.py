@@ -1,4 +1,4 @@
-NAME='matheval'
+NAME = 'matheval'
 
 CFLAGS = []
 LDFLAGS = []
