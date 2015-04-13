@@ -382,7 +382,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                 if len(kv) > 1:
                     p = kv[1]
                     p = p.strip()
-                    if plugin_is_remote(p):
+                    if is_remote_plugin(p):
                         p = get_remote_plugin(p)
                     path = os.path.abspath(p)
                 else:
