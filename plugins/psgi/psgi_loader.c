@@ -442,7 +442,6 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 		perl_eval_pv("use IO::Handle;", 1);
 		perl_eval_pv("use IO::File;", 1);
 		perl_eval_pv("use IO::Socket;", 1);
-		perl_eval_pv("use Scalar::Util;", 1);
 
 		if (uperl.argv_items || uperl.argv_item) {
 			AV *uperl_argv = GvAV(PL_argvgv);
