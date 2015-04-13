@@ -1,6 +1,6 @@
-import os,sys
+import os
 
-NAME='psgi'
+NAME = 'psgi'
 CFLAGS = os.popen('perl -MExtUtils::Embed -e ccopts').read().rstrip().split()
 LDFLAGS = os.popen('perl -MExtUtils::Embed -e ldopts').read().rstrip().split()
 LIBS = []

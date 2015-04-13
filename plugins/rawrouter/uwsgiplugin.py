@@ -1,5 +1,5 @@
+NAME = 'rawrouter'
 
-NAME='rawrouter'
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

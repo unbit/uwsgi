@@ -1,7 +1,7 @@
 import os
 import shutil
 
-NAME='jvm'
+NAME = 'jvm'
 
 JVM_INCPATH = None
 JVM_LIBPATH = None
@@ -33,15 +33,15 @@ elif operating_system.startswith('cygwin'):
 else:
     known_jvms = ('/usr/lib/jvm/java-7-openjdk', '/usr/local/openjdk7', '/usr/lib/jvm/java-6-openjdk', '/usr/local/openjdk', '/usr/java', '/usr/lib/jvm/java/')
     for jvm in known_jvms:
-       if os.path.exists(jvm + '/include'):
-           JVM_INCPATH = ["-I%s/include/" % jvm, "-I%s/include/%s" % (jvm, operating_system)]
-           JVM_LIBPATH = ["-L%s/jre/lib/%s/server" % (jvm, arch)]
-           break
-       if os.path.exists("%s-%s/include" % (jvm, arch)):
-           jvm = "%s-%s" % (jvm, arch)
-           JVM_INCPATH = ["-I%s/include/" % jvm, "-I%s/include/%s" % (jvm, operating_system)]
-           JVM_LIBPATH = ["-L%s/jre/lib/%s/server" % (jvm, arch)]
-           break
+        if os.path.exists(jvm + '/include'):
+            JVM_INCPATH = ["-I%s/include/" % jvm, "-I%s/include/%s" % (jvm, operating_system)]
+            JVM_LIBPATH = ["-L%s/jre/lib/%s/server" % (jvm, arch)]
+            break
+        if os.path.exists("%s-%s/include" % (jvm, arch)):
+            jvm = "%s-%s" % (jvm, arch)
+            JVM_INCPATH = ["-I%s/include/" % jvm, "-I%s/include/%s" % (jvm, operating_system)]
+            JVM_LIBPATH = ["-L%s/jre/lib/%s/server" % (jvm, arch)]
+            break
 
 try:
     JVM_INCPATH = ['-I"' + os.environ['UWSGICONFIG_JVM_INCPATH'] + '"']
@@ -70,6 +70,7 @@ if 'LD_RUN_PATH' in os.environ:
 else:
     os.environ['LD_RUN_PATH'] = JVM_LIBPATH[0][2:]
 
+
 def post_build(config):
     if os.system("javac %s/plugins/jvm/uwsgi.java" % os.getcwd()) != 0:
         os._exit(1)
@@ -89,4 +90,3 @@ def post_build(config):
             tgt = "%s/bin/jvm_plugin.so" % env
             shutil.copyfile(plugin, tgt)
             print("*** jvm_plugin.so had been copied to %s" % tgt)
-

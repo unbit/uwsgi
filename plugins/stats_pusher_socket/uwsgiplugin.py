@@ -1,4 +1,4 @@
-NAME='stats_pusher_socket'
+NAME = 'stats_pusher_socket'
 
 CFLAGS = []
 LDFLAGS = []

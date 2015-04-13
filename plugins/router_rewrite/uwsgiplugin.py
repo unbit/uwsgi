@@ -1,4 +1,4 @@
-NAME='router_rewrite'
+NAME = 'router_rewrite'
 
 CFLAGS = []
 LDFLAGS = []

@@ -1,4 +1,4 @@
-NAME='graylog2'
+NAME = 'graylog2'
 
 CFLAGS = []
 LDFLAGS = []

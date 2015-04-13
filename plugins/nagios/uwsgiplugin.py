@@ -1,5 +1,5 @@
+NAME = 'nagios'
 
-NAME='nagios'
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

@@ -1,5 +1,5 @@
+NAME = 'sqlite3'
 
-NAME='sqlite3'
 CFLAGS = []
 LDFLAGS = []
 LIBS = ['-lsqlite3']

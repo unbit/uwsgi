@@ -1,4 +1,4 @@
-NAME='transformation_toupper'
+NAME = 'transformation_toupper'
 
 CFLAGS = []
 LDFLAGS = []

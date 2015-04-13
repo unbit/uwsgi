@@ -1,5 +1,5 @@
+NAME = 'logzmq'
 
-NAME='logzmq'
 CFLAGS = []
 LDFLAGS = []
 LIBS = ['-lzmq']

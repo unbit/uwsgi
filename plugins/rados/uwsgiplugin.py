@@ -1,5 +1,4 @@
-import os
-NAME='rados'
+NAME = 'rados'
 
 CFLAGS = []
 LDFLAGS = []

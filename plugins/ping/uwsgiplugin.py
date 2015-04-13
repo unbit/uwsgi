@@ -1,4 +1,5 @@
-NAME='ping'
+NAME = 'ping'
+
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

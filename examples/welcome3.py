@@ -1,13 +1,16 @@
 import uwsgi
 import os
 
+
 def xsendfile(e, sr):
     sr('200 OK', [('Content-Type', 'image/png'), ('X-Sendfile', os.path.abspath('logo_uWSGI.png'))])
     return b''
 
+
 def serve_logo(e, sr):
     sr('200 OK', [('Content-Type', 'image/png')])
     return uwsgi.sendfile('logo_uWSGI.png')
+
 
 def serve_config(e, sr):
     sr('200 OK', [('Content-Type', 'text/html')])
@@ -19,6 +22,7 @@ routes = {}
 routes['/xsendfile'] = xsendfile
 routes['/logo'] = serve_logo
 routes['/config'] = serve_config
+
 
 def application(env, start_response):
 
@@ -39,9 +43,3 @@ Configuration<br/>
     """.format(version=uwsgi.version.decode('ascii'))
 
     return bytes(body.encode('ascii'))
-
-
-
-
-
-

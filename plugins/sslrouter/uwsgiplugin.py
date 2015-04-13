@@ -1,5 +1,5 @@
+NAME = 'sslrouter'
 
-NAME='sslrouter'
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

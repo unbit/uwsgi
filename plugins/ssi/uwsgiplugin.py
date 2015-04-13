@@ -1,4 +1,4 @@
-NAME='ssi'
+NAME = 'ssi'
 
 CFLAGS = []
 LDFLAGS = []

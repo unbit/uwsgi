@@ -1,4 +1,4 @@
-NAME='router_hash'
+NAME = 'router_hash'
 
 CFLAGS = []
 LDFLAGS = []

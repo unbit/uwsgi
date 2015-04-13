@@ -1,4 +1,4 @@
-NAME='stats_pusher_statsd'
+NAME = 'stats_pusher_statsd'
 
 CFLAGS = []
 LDFLAGS = []

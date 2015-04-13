@@ -1,4 +1,4 @@
-NAME='echo'
+NAME = 'echo'
 
 CFLAGS = []
 LDFLAGS = []

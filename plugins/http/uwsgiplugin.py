@@ -1,5 +1,5 @@
+NAME = 'http'
 
-NAME='http'
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

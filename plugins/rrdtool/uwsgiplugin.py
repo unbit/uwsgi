@@ -1,5 +1,5 @@
+NAME = 'rrdtool'
 
-NAME='rrdtool'
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

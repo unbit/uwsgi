@@ -5,6 +5,7 @@ import asyncio_redis
 import time
 import greenlet
 
+
 class GreenFuture(asyncio.Future):
     def __init__(self):
         super().__init__()
@@ -16,25 +17,28 @@ class GreenFuture(asyncio.Future):
             if self.done():
                 return super().result()
             self.greenlet.parent.switch()
-         
-  
+
+
 @asyncio.coroutine
 def redis_open(f):
     connection = yield from asyncio_redis.Connection.create(host='localhost', port=6379)
     f.set_result(connection)
     f.greenlet.switch()
 
+
 @asyncio.coroutine
 def redis_subscribe(f):
-    connection = yield from asyncio_redis.Connection.create(host='localhost', port=6379) 
+    connection = yield from asyncio_redis.Connection.create(host='localhost', port=6379)
     subscriber = yield from connection.start_subscribe()
-    yield from subscriber.subscribe([ 'foobar' ])
+    yield from subscriber.subscribe(['foobar'])
     f.set_result(subscriber)
     f.greenlet.switch()
+
 
 def ws_recv_msg(g):
     g.has_ws_msg = True
     g.switch()
+
 
 @asyncio.coroutine
 def redis_wait(subscriber, f):
@@ -42,9 +46,11 @@ def redis_wait(subscriber, f):
     f.set_result(reply.value)
     f.greenlet.switch()
 
+
 @asyncio.coroutine
 def redis_publish(connection, msg):
     yield from connection.publish('foobar', msg.decode('utf-8'))
+
 
 def application(env, sr):
 
@@ -53,7 +59,7 @@ def application(env, sr):
         ws_scheme = 'wss'
 
     if env['PATH_INFO'] == '/':
-        sr('200 OK', [('Content-Type','text/html')])
+        sr('200 OK', [('Content-Type', 'text/html')])
         return ("""
     <html>
       <head>
@@ -64,18 +70,18 @@ def application(env, sr):
               s.send("ciao");
             };
             s.onmessage = function(e) {
-		var bb = document.getElementById('blackboard')
-		var html = bb.innerHTML;
-		bb.innerHTML = html + '<br/>' + e.data;
+                var bb = document.getElementById('blackboard')
+                var html = bb.innerHTML;
+                bb.innerHTML = html + '<br/>' + e.data;
             };
 
-	    s.onerror = function(e) {
-			alert(e);
-		}
+            s.onerror = function(e) {
+                        alert(e);
+                }
 
-	s.onclose = function(e) {
-		alert("connection closed");
-	}
+        s.onclose = function(e) {
+                alert("connection closed");
+        }
 
             function invia() {
               var value = document.getElementById('testo').value;
@@ -87,8 +93,8 @@ def application(env, sr):
         <h1>WebSocket</h1>
         <input type="text" id="testo"/>
         <input type="button" value="invia" onClick="invia();"/>
-	<div id="blackboard" style="width:640px;height:480px;background-color:black;color:white;border: solid 2px red;overflow:auto">
-	</div>
+        <div id="blackboard" style="width:640px;height:480px;background-color:black;color:white;border: solid 2px red;overflow:auto">
+        </div>
     </body>
     </html>
         """ % (ws_scheme, env['HTTP_HOST'])).encode()
@@ -97,11 +103,11 @@ def application(env, sr):
     elif env['PATH_INFO'] == '/foobar/':
         uwsgi.websocket_handshake()
         print("websockets...")
-        # a future for waiting for redis connection 
+        # a future for waiting for redis connection
         f = GreenFuture()
         asyncio.Task(redis_subscribe(f))
         # the result() method will switch greenlets if needed
-        subscriber = f.result() 
+        subscriber = f.result()
 
         # open another redis connection for publishing messages
         f0 = GreenFuture()
@@ -135,6 +141,6 @@ def application(env, sr):
                 myself.has_ws_msg = False
                 msg = uwsgi.websocket_recv_nb()
                 if msg:
-                    asyncio.Task(redis_publish(connection, msg)) 
+                    asyncio.Task(redis_publish(connection, msg))
             # switch again
             f.greenlet.parent.switch()

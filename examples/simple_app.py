@@ -3,8 +3,10 @@ import os
 
 print("!!! uWSGI version:", uwsgi.version)
 
+
 def ciao():
     print("modifica su /tmp")
+
 
 def ciao2():
     print("nuovo uwsgi_server")
@@ -23,17 +25,15 @@ counter = 0
 
 uwsgi.post_fork_hook = ciao2
 
-def application(env, start_response):
 
+def application(env, start_response):
     global counter
 
-
-    #print(env)
     start_response('200 Ok', [('Content-type', 'text/plain')])
     yield "hello world"
     yield "hello world2"
 
-    for i in range(1,1000):
+    for i in range(1, 1000):
         yield str(i)
 
     yield "\n"

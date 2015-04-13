@@ -1,7 +1,6 @@
 import os
 import sys
 import uwsgiconfig as uc
-import shutil
 
 from setuptools import setup
 from setuptools.dist import Distribution
@@ -21,7 +20,7 @@ uwsgi_compiled = False
 def get_profile():
     is_pypy = False
     try:
-        import __pypy__
+        import __pypy__  # NOQA
         is_pypy = True
     except ImportError:
         pass
@@ -31,7 +30,7 @@ def get_profile():
         profile = os.environ.get('UWSGI_PROFILE', 'buildconf/default.ini')
     if not profile.endswith('.ini'):
         profile = "%s.ini" % profile
-    if not '/' in profile:
+    if '/' not in profile:
         profile = "buildconf/%s" % profile
 
     return profile
@@ -99,12 +98,13 @@ class uWSGIDistribution(Distribution):
         return False
 
 
-setup(name='uWSGI',
-      version=uc.uwsgi_version,
-      description='The uWSGI server',
-      author='Unbit',
-      author_email='info@unbit.it',
-      license='GPL2',
-      py_modules=['uwsgidecorators'],
-      distclass=uWSGIDistribution,
-     )
+setup(
+    name='uWSGI',
+    version=uc.uwsgi_version,
+    description='The uWSGI server',
+    author='Unbit',
+    author_email='info@unbit.it',
+    license='GPL2',
+    py_modules=['uwsgidecorators'],
+    distclass=uWSGIDistribution,
+)

@@ -1,4 +1,4 @@
-NAME='pam'
+NAME = 'pam'
 
 CFLAGS = []
 LDFLAGS = []

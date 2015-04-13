@@ -1,5 +1,5 @@
-NAME='msgpack'
-CFLAGS=[]
-LDFLAGS=[]
-LIBS=[]
+NAME = 'msgpack'
+CFLAGS = []
+LDFLAGS = []
+LIBS = []
 GCC_LIST = ['msgpack']

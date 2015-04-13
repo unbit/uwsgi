@@ -1,5 +1,5 @@
+NAME = 'mongrel2'
 
-NAME='mongrel2'
 CFLAGS = []
 LDFLAGS = []
 LIBS = ['-lzmq']

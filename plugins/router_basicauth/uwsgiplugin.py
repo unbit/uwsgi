@@ -1,5 +1,6 @@
 import os
-NAME='router_basicauth'
+
+NAME = 'router_basicauth'
 
 CFLAGS = []
 LDFLAGS = []

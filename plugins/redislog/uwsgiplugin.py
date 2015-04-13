@@ -1,4 +1,4 @@
-NAME='redislog'
+NAME = 'redislog'
 
 CFLAGS = []
 LDFLAGS = []

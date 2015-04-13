@@ -1,5 +1,5 @@
+NAME = 'cache'
 
-NAME='cache'
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

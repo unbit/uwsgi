@@ -1,4 +1,4 @@
-NAME='rsyslog'
+NAME = 'rsyslog'
 
 CFLAGS = []
 LDFLAGS = []

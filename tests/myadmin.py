@@ -4,14 +4,13 @@ import sys
 
 print sys.argv
 if len(sys.argv) == 3:
-	chunks = uwsgi.send_message(sys.argv[1], 10, int(sys.argv[2]), '')
+    chunks = uwsgi.send_message(sys.argv[1], 10, int(sys.argv[2]), '')
 
-	pkt = ''
+    pkt = ''
 
-	for chunk in chunks:
-    		pkt += chunk
+    for chunk in chunks:
+        pkt += chunk
 
-	print "%d = %d" % (int(sys.argv[2]), struct.unpack("I", pkt)[0])
+    print "%d = %d" % (int(sys.argv[2]), struct.unpack("I", pkt)[0])
 elif len(sys.argv) == 4:
-	uwsgi.send_message(sys.argv[1], 10, int(sys.argv[2]), struct.pack("I", int(sys.argv[3])))
-
+    uwsgi.send_message(sys.argv[1], 10, int(sys.argv[2]), struct.pack("I", int(sys.argv[3])))

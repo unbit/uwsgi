@@ -1,5 +1,4 @@
-import os
-import shutil
+NAME = 'servlet'
 
 jvm_path = 'plugins/jvm'
 
@@ -11,7 +10,6 @@ except:
     exec(f.read(), up)
     f.close()
 
-NAME='servlet'
 CFLAGS = up['CFLAGS']
 CFLAGS.append('-I%s' % jvm_path)
 LDFLAGS = []

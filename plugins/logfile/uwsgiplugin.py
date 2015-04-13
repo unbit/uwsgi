@@ -1,4 +1,4 @@
-NAME='logfile'
+NAME = 'logfile'
 
 CFLAGS = []
 LDFLAGS = []

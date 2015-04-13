@@ -2,12 +2,13 @@ import gevent
 import gevent.socket
 import sys
 import uwsgi
-from uwsgidecorators import *
+from uwsgidecorators import timer, signal, filemon
 
 if 'gettotalrefcount' in sys.__dict__:
     REFCNT = True
 else:
     REFCNT = False
+
 
 @signal(17)
 def hello(signum):
@@ -15,11 +16,13 @@ def hello(signum):
     if REFCNT:
         print sys.gettotalrefcount()
 
+
 @timer(10)
 def ten_seconds(signum):
     print "10 seconds elapsed, signal %d raised" % signum
     if REFCNT:
         print sys.gettotalrefcount()
+
 
 @filemon('/tmp')
 def tmp_modified(signum):
@@ -27,22 +30,25 @@ def tmp_modified(signum):
     if REFCNT:
         print sys.gettotalrefcount()
 
+
 def bg_task():
-    for i in range(1,10):
+    for i in range(1, 10):
         print "background task", i
         gevent.sleep(1)
 
     # task ended raise a signal !!!
     uwsgi.signal(17)
 
+
 def long_task():
-    for i in range(1,10):
+    for i in range(1, 10):
         print i
         gevent.sleep()
 
+
 def application(e, sr):
 
-    sr('200 OK', [('Content-Type','text/html')])
+    sr('200 OK', [('Content-Type', 'text/html')])
 
     t = gevent.spawn(long_task)
 

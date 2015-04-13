@@ -3,23 +3,24 @@ import uwsgi
 
 current_node = 0
 
-def application(e,s):
 
-	global current_node
+def application(e, s):
 
-	nodes = uwsgi.cluster_nodes()
-	print nodes
+    global current_node
 
-	if len(nodes) == 0:
-		print "no cluster node available"
-		raise StopIteration
+    nodes = uwsgi.cluster_nodes()
+    print nodes
 
-	if current_node >= len(nodes):
-		current_node = 0
+    if len(nodes) == 0:
+        print "no cluster node available"
+        raise StopIteration
 
-	node = nodes[current_node]
+    if current_node >= len(nodes):
+        current_node = 0
 
-	for part in uwsgi.send_message(node, 0, 0, e, 0, e['wsgi.input'].fileno(), uwsgi.cl()):
-		yield part 
+    node = nodes[current_node]
 
-	current_node+=1
+    for part in uwsgi.send_message(node, 0, 0, e, 0, e['wsgi.input'].fileno(), uwsgi.cl()):
+        yield part
+
+    current_node += 1

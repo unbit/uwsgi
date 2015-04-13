@@ -1,9 +1,9 @@
 import uwsgi
 
 # send a raw signal to register with file_monitor subsystem
-#uwsgi.signal(10, "/tmp/topolino")
+# uwsgi.signal(10, "/tmp/topolino")
 uwsgi.signal(10, "/tmp")
-#uwsgi.signal(10, "/root")
+# uwsgi.signal(10, "/root")
 
 # send a raw signal to register with timer subsystem
 uwsgi.signal(11, "3")

@@ -1,3 +1,5 @@
+NAME = 'jwsgi'
+
 jvm_path = 'plugins/jvm'
 
 up = {}
@@ -8,7 +10,6 @@ except:
     exec(f.read(), up)
     f.close()
 
-NAME='jwsgi'
 CFLAGS = up['CFLAGS']
 CFLAGS.append('-I%s' % jvm_path)
 LDFLAGS = []

@@ -1,5 +1,5 @@
+NAME = 'zergpool'
 
-NAME='zergpool'
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

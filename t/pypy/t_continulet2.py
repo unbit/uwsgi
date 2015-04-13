@@ -7,11 +7,13 @@ uwsgi --pypy-wsgi-file t/pypy/t_continulet2.py --http-socket :9090 --pypy-home /
 
 """
 import uwsgi
+
+
 def application(e, sr):
-    sr('200 OK', [('Content-Type','text/plain')])
+    sr('200 OK', [('Content-Type', 'text/plain')])
 
     # suspend 10 times and yield a value
-    for i in range(1,10):
+    for i in range(1, 10):
         print i
         uwsgi.suspend()
         yield str(i)
@@ -21,7 +23,7 @@ def application(e, sr):
     try:
         command = "get /foobar\r\n"
         remains = len(command)
-        while remains > 0: 
+        while remains > 0:
             # start waiting for socket availability (4 seconds max)
             uwsgi.wait_fd_write(fd, 4)
             # suspend execution 'til event

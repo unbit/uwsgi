@@ -1,4 +1,4 @@
-NAME='alarm_xmpp'
+NAME = 'alarm_xmpp'
 
 CFLAGS = []
 LDFLAGS = []

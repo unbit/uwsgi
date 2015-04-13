@@ -1,10 +1,12 @@
 import os
-NAME='gccgo'
+
+NAME = 'gccgo'
 
 CFLAGS = ['-g']
 LDFLAGS = []
 LIBS = ['-lgo']
 GCC_LIST = ['gccgo_plugin', 'uwsgi.go']
+
 
 def post_build(config):
     if os.path.exists('plugins/gccgo/uwsgi.go.o'):

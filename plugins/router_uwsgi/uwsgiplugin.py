@@ -1,4 +1,4 @@
-NAME='router_uwsgi'
+NAME = 'router_uwsgi'
 
 CFLAGS = []
 LDFLAGS = []

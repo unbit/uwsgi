@@ -1,5 +1,5 @@
 import time
-import sys
+
 
 def application(e, sr):
     time.sleep(3)

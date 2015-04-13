@@ -1,4 +1,4 @@
-NAME='router_memcached'
+NAME = 'router_memcached'
 
 CFLAGS = []
 LDFLAGS = []

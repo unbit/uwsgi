@@ -1,4 +1,4 @@
-NAME='clock_realtime'
+NAME = 'clock_realtime'
 
 CFLAGS = []
 LDFLAGS = []

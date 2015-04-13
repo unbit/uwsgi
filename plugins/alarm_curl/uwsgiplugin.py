@@ -1,4 +1,4 @@
-NAME='alarm_curl'
+NAME = 'alarm_curl'
 
 CFLAGS = []
 LDFLAGS = []

@@ -1,4 +1,4 @@
-NAME='example'
+NAME = 'example'
 
 CFLAGS = []
 LDFLAGS = []

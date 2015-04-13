@@ -1,4 +1,4 @@
-NAME='router_redis'
+NAME = 'router_redis'
 
 CFLAGS = []
 LDFLAGS = []

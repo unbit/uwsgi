@@ -1,4 +1,5 @@
-NAME='router_access'
+NAME = 'router_access'
+
 CFLAGS = []
 LDFLAGS = []
 LIBS = ['-lwrap']

@@ -1,7 +1,7 @@
+NAME = 'emperor_amqp'
 
-NAME='emperor_amqp'
 CFLAGS = []
 LDFLAGS = []
 LIBS = []
 
-GCC_LIST = ['amqp','emperor_amqp']
+GCC_LIST = ['amqp', 'emperor_amqp']

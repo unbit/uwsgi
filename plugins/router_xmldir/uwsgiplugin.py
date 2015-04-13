@@ -1,4 +1,5 @@
-NAME='router_xmldir'
+NAME = 'router_xmldir'
+
 CFLAGS = []
 LDFLAGS = []
 LIBS = []

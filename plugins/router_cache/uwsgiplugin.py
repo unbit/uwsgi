@@ -1,4 +1,4 @@
-NAME='router_cache'
+NAME = 'router_cache'
 
 CFLAGS = []
 LDFLAGS = []

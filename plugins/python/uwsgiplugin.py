@@ -1,6 +1,8 @@
-import os,sys
+import os
+import sys
 
 from distutils import sysconfig
+
 
 def get_python_version():
     version = sysconfig.get_config_var('VERSION')
@@ -10,13 +12,31 @@ def get_python_version():
         pass
     return version
 
-NAME='python'
-GCC_LIST = ['python_plugin', 'pyutils', 'pyloader', 'wsgi_handlers', 'wsgi_headers', 'wsgi_subhandler', 'web3_subhandler', 'pump_subhandler', 'gil', 'uwsgi_pymodule', 'profiler', 'symimporter', 'tracebacker', 'raw']
+NAME = 'python'
+GCC_LIST = [
+    'python_plugin',
+    'pyutils',
+    'pyloader',
+    'wsgi_handlers',
+    'wsgi_headers',
+    'wsgi_subhandler',
+    'web3_subhandler',
+    'pump_subhandler',
+    'gil',
+    'uwsgi_pymodule',
+    'profiler',
+    'symimporter',
+    'tracebacker',
+    'raw'
+]
 
-CFLAGS = ['-I' + sysconfig.get_python_inc(), '-I' + sysconfig.get_python_inc(plat_specific=True) ] 
+CFLAGS = [
+    '-I' + sysconfig.get_python_inc(),
+    '-I' + sysconfig.get_python_inc(plat_specific=True),
+]
 LDFLAGS = []
 
-if not 'UWSGI_PYTHON_NOLIB' in os.environ:
+if 'UWSGI_PYTHON_NOLIB' not in os.environ:
     LIBS = sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
     # check if it is a non-shared build (but please, add --enable-shared to your python's ./configure script)
     if not sysconfig.get_config_var('Py_ENABLE_SHARED'):
@@ -37,13 +57,13 @@ if not 'UWSGI_PYTHON_NOLIB' in os.environ:
         uname = os.uname()
         if uname[4].startswith('arm'):
             libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LIBRARY'))
-            if not os.path.exists(libpath): 
+            if not os.path.exists(libpath):
                 libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LDLIBRARY'))
         else:
             libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LDLIBRARY'))
-            if not os.path.exists(libpath): 
+            if not os.path.exists(libpath):
                 libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LIBRARY'))
-        if not os.path.exists(libpath): 
+        if not os.path.exists(libpath):
             libpath = '%s/libpython%s.a' % (libdir, version)
         LIBS.append(libpath)
         # hack for messy linkers/compilers
