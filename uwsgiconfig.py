@@ -1,6 +1,6 @@
 # uWSGI build system
 
-uwsgi_version = '2.0.10'
+uwsgi_version = '2.0.11'
 
 import os
 import re
@@ -768,7 +768,7 @@ class uConf(object):
 
         if 'UWSGI_PROFILE_OVERRIDE' in os.environ:
             for item in os.environ['UWSGI_PROFILE_OVERRIDE'].split(';'):
-                k,v = item.split('=', 2)
+                k,v = item.split('=', 1)
                 self.set(k, v)
 
         if 'UWSGI_AS_LIB' in os.environ:
