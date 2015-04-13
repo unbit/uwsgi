@@ -47,14 +47,14 @@ extern struct uwsgi_plugin gridfs_plugin;
 
 static void uwsgi_gridfs_do(struct wsgi_request *wsgi_req, struct uwsgi_gridfs_mountpoint *ugm, char *itemname, int need_free) {
 	try {
-		std::unique_ptr<mongo::DBClientBase> conn;
+		std::auto_ptr<mongo::DBClientBase> conn;
 
 		if (ugm->replica) {
-			conn = std::unique_ptr<mongo::DBClientBase> (new mongo::DBClientReplicaSet(ugm->replica, ugm->servers, ugm->timeout));
+			conn = std::auto_ptr<mongo::DBClientBase> (new mongo::DBClientReplicaSet(ugm->replica, ugm->servers, ugm->timeout));
 			dynamic_cast<mongo::DBClientReplicaSet *>(conn.get())->connect();
 		}
 		else {
-			conn = std::unique_ptr<mongo::DBClientBase> (new mongo::DBClientConnection(true, 0, ugm->timeout));
+			conn = std::auto_ptr<mongo::DBClientBase> (new mongo::DBClientConnection(true, 0, ugm->timeout));
 			dynamic_cast<mongo::DBClientConnection *>(conn.get())->connect(ugm->server);
 		}
 
