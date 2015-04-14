@@ -1,3 +1,7 @@
+#include <memory>
+#include <vector>
+#include <cstring>
+
 #include <uwsgi.h>
 
 #include <client/dbclient.h>
@@ -7,6 +11,7 @@ struct uwsgi_gridfs_mountpoint {
 	char *mountpoint;
 	uint16_t mountpoint_len;
 	char *server;
+	char *replica;
 	char *db;
 	char *timeout_str;
 	int timeout;
@@ -23,6 +28,7 @@ struct uwsgi_gridfs_mountpoint {
 	char *password;
 	char *bucket;
 	uint16_t bucket_len;
+	std::vector<mongo::HostAndPort> servers;
 };
 
 struct uwsgi_gridfs {
@@ -40,33 +46,44 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_plugin gridfs_plugin;
 
 static void uwsgi_gridfs_do(struct wsgi_request *wsgi_req, struct uwsgi_gridfs_mountpoint *ugm, char *itemname, int need_free) {
-
 	try {
-		mongo::scoped_ptr<mongo::ScopedDbConnection> conn( mongo::ScopedDbConnection::getScopedDbConnection(ugm->server, ugm->timeout) );
+		std::unique_ptr<mongo::DBClientBase> conn;
+
+		if (ugm->replica) {
+			conn = std::unique_ptr<mongo::DBClientBase> (new mongo::DBClientReplicaSet(ugm->replica, ugm->servers, ugm->timeout));
+			dynamic_cast<mongo::DBClientReplicaSet *>(conn.get())->connect();
+		}
+		else {
+			conn = std::unique_ptr<mongo::DBClientBase> (new mongo::DBClientConnection(true, 0, ugm->timeout));
+			dynamic_cast<mongo::DBClientConnection *>(conn.get())->connect(ugm->server);
+		}
+
 		try {
 			if (ugm->username && ugm->password) {
 				std::string errmsg;
-				if ((*conn).conn().auth(ugm->db, ugm->username, ugm->password, errmsg)) {
+				if (!conn->auth(ugm->db, ugm->username, ugm->password, errmsg)) {
 					uwsgi_log("[uwsgi-gridfs]: %s\n", errmsg.c_str());
-					(*conn).done();
 					uwsgi_403(wsgi_req);
 					return;
 				}
 			}
-			mongo::GridFS gridfs((*conn).conn(), ugm->db, ugm->bucket);
-			mongo::GridFile gfile = gridfs.findFile(itemname);
+			mongo::GridFS gridfs((*conn.get()), ugm->db);
+			mongo::GridFile gfile = gridfs.findFileByName(itemname);
+
 			if (need_free) {
 				free(itemname);
 				itemname = NULL;
 			}
+
 			if (!gfile.exists()) {
-				(*conn).done();
 				uwsgi_404(wsgi_req);
 				return;
 			}
+
 			uwsgi_response_prepare_headers(wsgi_req, (char *)"200 OK", 6);
 			// first get the content_type (if possibile)
 			std::string filename = gfile.getFilename();
+
 			if (!ugm->no_mime) {
 				size_t mime_type_len = 0;
 				char *mime_type = uwsgi_get_mime_type((char *)filename.c_str(), filename.length(), &mime_type_len);
@@ -74,11 +91,13 @@ static void uwsgi_gridfs_do(struct wsgi_request *wsgi_req, struct uwsgi_gridfs_m
 					uwsgi_response_add_content_type(wsgi_req, mime_type, mime_type_len);
 				}
 			}
+
 			if (ugm->orig_filename) {
 				char *filename_header = uwsgi_concat3((char *)"inline; filename=\"", (char *)filename.c_str(), (char *)"\"");
 				uwsgi_response_add_header(wsgi_req, (char *)"Content-Disposition", 19, filename_header, 19 + filename.length());
 				free(filename_header);
 			}
+
 			uwsgi_response_add_content_length(wsgi_req, gfile.getContentLength());
 
 			char http_last_modified[49];
@@ -92,7 +111,7 @@ static void uwsgi_gridfs_do(struct wsgi_request *wsgi_req, struct uwsgi_gridfs_m
 					char *etag = uwsgi_concat3((char *)"\"", (char *)g_md5.c_str(), (char *)"\"");
 					uwsgi_response_add_header(wsgi_req, (char *)"ETag", 4, etag, 2+g_md5.length());
 					free(etag);
-				}	
+				}
 			}
 
 			if (ugm->md5) {
@@ -108,22 +127,20 @@ static void uwsgi_gridfs_do(struct wsgi_request *wsgi_req, struct uwsgi_gridfs_m
 				int i;
 				for(i=0;i<nc;i++) {
 					mongo::GridFSChunk gchunk = gfile.getChunk(i);
-					int chunk_len = 0;	
+					int chunk_len = 0;
 					const char *chunk = gchunk.data(chunk_len);
 					uwsgi_response_write_body_do(wsgi_req, (char *) chunk, chunk_len);
 				}
 			}
-			(*conn).done();
 		}
 		catch ( mongo::DBException &e ) {
 			uwsgi_log("[uwsgi-gridfs]: %s\n", e.what());
-			(*conn).done();
 			if (need_free && itemname) {
 				free(itemname);
 				itemname = NULL;
 			}
 		}
-	}	
+	}
 	catch ( mongo::DBException &e ) {
 		uwsgi_log("[uwsgi-gridfs]: %s\n", e.what());
 		if (need_free && itemname) {
@@ -139,6 +156,7 @@ static struct uwsgi_gridfs_mountpoint *uwsgi_gridfs_add_mountpoint(char *arg, si
 	if (uwsgi_kvlist_parse(arg, arg_len, ',', '=',
                         "mountpoint", &ugm->mountpoint,
                         "server", &ugm->server,
+                        "replica", &ugm->replica,
                         "db", &ugm->db,
                         "prefix", &ugm->prefix,
                         "bucket", &ugm->bucket,
@@ -196,6 +214,20 @@ static struct uwsgi_gridfs_mountpoint *uwsgi_gridfs_add_mountpoint(char *arg, si
 		ugm->itemname_len = strlen(ugm->itemname);
 	}
 
+	if (ugm->replica) {
+		std::string buffer(ugm->server);
+		
+		size_t pos;
+		while ((pos = buffer.find(",")) != std::string::npos) {
+			ugm->servers.push_back(mongo::HostAndPort(buffer.substr(0, pos)));
+			buffer.erase(0, pos + 1);
+		}
+
+		if (!ugm->servers.size()) {
+			ugm->servers.push_back(mongo::HostAndPort(ugm->server));
+		}
+	}
+
 	return ugm;
 }
 
@@ -247,6 +279,7 @@ extern "C" int uwsgi_gridfs_request(struct wsgi_request *wsgi_req) {
 
 
 extern "C" void uwsgi_gridfs_mount() {
+	mongo::client::initialize();
 	if (!uwsgi.skip_atexit) {
 		uwsgi_log("*** WARNING libmongoclient could have a bug with atexit() hooks, if you get segfault on end/reload, add --skip-atexit ***\n");
 	}
