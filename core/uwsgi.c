@@ -965,7 +965,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ns-net", required_argument, 0, "add network namespace", uwsgi_opt_set_str, &uwsgi.ns_net, 0},
 #endif
 	{"enable-proxy-protocol", no_argument, 0, "enable PROXY1 protocol support (only for http parsers)", uwsgi_opt_true, &uwsgi.enable_proxy_protocol, 0},
-	{"reuse-port", no_argument, 0, "enable REUSE_PORT flag on socket (BSD only)", uwsgi_opt_true, &uwsgi.reuse_port, 0},
+	{"reuse-port", no_argument, 0, "enable REUSE_PORT flag on socket (BSD and Linux >3.9 only)", uwsgi_opt_true, &uwsgi.reuse_port, 0},
 	{"tcp-fast-open", required_argument, 0, "enable TCP_FASTOPEN flag on TCP sockets with the specified qlen value", uwsgi_opt_set_int, &uwsgi.tcp_fast_open, 0},
 	{"tcp-fastopen", required_argument, 0, "enable TCP_FASTOPEN flag on TCP sockets with the specified qlen value", uwsgi_opt_set_int, &uwsgi.tcp_fast_open, 0},
 	{"tcp-fast-open-client", no_argument, 0, "use sendto(..., MSG_FASTOPEN, ...) instead of connect() if supported", uwsgi_opt_true, &uwsgi.tcp_fast_open_client, 0},
