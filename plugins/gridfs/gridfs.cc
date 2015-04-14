@@ -7,6 +7,10 @@
 #include <client/dbclient.h>
 #include <client/gridfs.h>
 
+/*
+	Thanks to WeirdCarrotMonster (https://github.com/WeirdCarrotMonster)
+*/
+
 struct uwsgi_gridfs_mountpoint {
 	char *mountpoint;
 	uint16_t mountpoint_len;
