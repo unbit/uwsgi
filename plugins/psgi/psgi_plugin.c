@@ -361,30 +361,15 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
         av_store( av, 1, newSViv(1));
         if (!hv_store(env, "psgi.version", 12, newRV_noinc((SV *)av ), 0)) goto clear;
 
-        if (uwsgi.numproc > 1) {
-                if (!hv_store(env, "psgi.multiprocess", 17, newSViv(1), 0)) goto clear;
-        }
-        else {
-                if (!hv_store(env, "psgi.multiprocess", 17, newSViv(0), 0)) goto clear;
-        }
+        // All the simple bools.
+        if (!hv_store(env, "psgi.multiprocess", 17, uwsgi.numproc > 1    ? &PL_sv_yes : &PL_sv_no, 0)) goto clear;
+        if (!hv_store(env, "psgi.multithread",  16, uwsgi.threads > 1    ? &PL_sv_yes : &PL_sv_no, 0)) goto clear;
+        if (!hv_store(env, "psgi.nonblocking",  16, uwsgi.async   > 0    ? &PL_sv_yes : &PL_sv_no, 0)) goto clear;
+        if (!hv_store(env, "psgix.harakiri",    14, uwsgi.master_process ? &PL_sv_yes : &PL_sv_no, 0)) goto clear;
 
-        if (uwsgi.threads > 1) {
-                if (!hv_store(env, "psgi.multithread", 16, newSViv(1), 0)) goto clear;
-        }
-        else {
-                if (!hv_store(env, "psgi.multithread", 16, newSViv(0), 0)) goto clear;
-        }
-
-        if (!hv_store(env, "psgi.run_once", 13, newSViv(0), 0)) goto clear;
-
-        if (uwsgi.async > 0) {
-                if (!hv_store(env, "psgi.nonblocking", 16, newSViv(1), 0)) goto clear;
-        }
-        else {
-                if (!hv_store(env, "psgi.nonblocking", 16, newSViv(0), 0)) goto clear;
-        }
-
-        if (!hv_store(env, "psgi.streaming", 14, newSViv(1), 0)) goto clear;
+        if (!hv_store(env, "psgi.run_once",  13, &PL_sv_no,  0)) goto clear;
+        if (!hv_store(env, "psgi.streaming", 14, &PL_sv_yes, 0)) goto clear;
+        if (!hv_store(env, "psgix.cleanup",  13, &PL_sv_yes, 0)) goto clear;
 
 	SV *us;
         // psgi.url_scheme, honour HTTPS var or UWSGI_SCHEME
@@ -418,11 +403,6 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 		if (!hv_store(env, "psgix.logger", 12,newRV((SV*) ((SV **)wi->responder1)[0]) ,0)) goto clear;
 	}
 
-	if (uwsgi.master_process) {
-		if (!hv_store(env, "psgix.harakiri", 14, newSViv(1), 0)) goto clear;
-	}
-
-	if (!hv_store(env, "psgix.cleanup", 13, newSViv(1), 0)) goto clear;
 	// cleanup handlers array
 	av = newAV();
 	if (!hv_store(env, "psgix.cleanup.handlers", 22, newRV_noinc((SV *)av ), 0)) goto clear;

@@ -1,0 +1,48 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use TAP::Harness;
+
+my $cpus  = `nproc`;
+my @perls = qw/
+    5.20.2
+    5.18.4
+    5.16.3
+    5.14.4
+    5.12.4
+    5.10.1
+    5.8.9
+/;
+
+my %installed;
+@installed{ map /(uwsgi-perl-[-\w.]+)/ ? $1 : (), `perlbrew list` } = ();
+
+my $tap = TAP::Harness->new( { verbosity => 1 } );
+
+for my $perl (@perls) {
+    for my $thread (0, 1) {
+        my $name = $ENV{UWSGI_PERL} =
+            'uwsgi-perl-' . $perl . ( '-thread' x $thread );
+
+        warn "\n# $name\n\n";
+
+        # Install required perlbrew, unless already installed.
+        system 'perlbrew', 'install', $perl,
+            '--as', $name, '-D', 'useshrplib', '-j', $cpus, '-n', '--noman',
+            ('--thread') x $thread and die $!
+            unless exists $installed{$name};
+
+        # Clean previously compiled uWSGI.
+        system 'python', 'uwsgiconfig.py', '-c' and die $!;
+
+        # Compile uWSGI, only show STDERR.
+        `perlbrew exec --with $name python uwsgiconfig.py -b plonly`;
+        exit if $?;
+
+        my $res = $tap->runtests( @ARGV ? @ARGV : <t/perl/*.t> );
+
+        exit $res->exit if $res->exit;
+    }
+}
