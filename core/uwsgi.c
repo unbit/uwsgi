@@ -792,6 +792,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cheaper-rss-limit-hard", required_argument, 0, "if total workers resident memory usage is higher try to stop workers", uwsgi_opt_set_64bit, &uwsgi.cheaper_rss_limit_hard, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
 	{"idle", required_argument, 0, "set idle mode (put uWSGI in cheap mode after inactivity)", uwsgi_opt_set_int, &uwsgi.idle, UWSGI_OPT_MASTER},
 	{"die-on-idle", no_argument, 0, "shutdown uWSGI when idle", uwsgi_opt_true, &uwsgi.die_on_idle, 0},
+	{"die-on-no-workers", no_argument, 0, "shutdown uWSGI when no workers are running", uwsgi_opt_true, &uwsgi.die_on_no_workers, 0},
 	{"mount", required_argument, 0, "load application under mountpoint", uwsgi_opt_add_string_list, &uwsgi.mounts, 0},
 	{"worker-mount", required_argument, 0, "load application under mountpoint in the specified worker or after workers spawn", uwsgi_opt_add_string_list, &uwsgi.mounts, 0},
 

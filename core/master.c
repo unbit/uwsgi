@@ -2,6 +2,33 @@
 
 extern struct uwsgi_server uwsgi;
 
+static void master_check_processes() {
+
+	// run the function, only if required
+	if (!uwsgi.die_on_no_workers) return;
+
+	int alive_processes = 0;
+	int dead_processes = 0;
+
+	int i;
+	for (i = 1; i <= uwsgi.numproc; i++) {
+		if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+			alive_processes++;
+		}
+		else {
+			dead_processes++;
+		}
+	}
+
+	if (uwsgi.die_on_no_workers) {
+		if (!alive_processes) {
+			uwsgi_log_verbose("no more processes running, auto-killing ...\n");
+			exit(1);
+			// never here;
+		}
+	}
+}
+
 void uwsgi_update_load_counters() {
 
 	int i;
@@ -726,6 +753,8 @@ int master_loop(char **argv, char **environ) {
 
 			// update load counter
 			uwsgi_update_load_counters();
+
+			master_check_processes();
 
 
 			// check uwsgi-cron table

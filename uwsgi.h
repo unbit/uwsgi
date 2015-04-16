@@ -2792,6 +2792,8 @@ struct uwsgi_server {
 	int emperor_tyrant_initgroups;
 	char *safe_pidfile;
 	char *safe_pidfile2;
+
+	int die_on_no_workers;
 };
 
 struct uwsgi_rpc {
