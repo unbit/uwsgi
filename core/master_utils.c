@@ -783,6 +783,8 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		goto end;
 	if (uwsgi_stats_keylong_comma(us, "gid", (unsigned long long) getgid()))
 		goto end;
+	if (uwsgi_stats_keyval_comma(us, "proc_name", uwsgi.procname))
+		goto end;
 
 	char *cwd = uwsgi_get_cwd();
 	if (uwsgi_stats_keyval_comma(us, "cwd", cwd)) {
