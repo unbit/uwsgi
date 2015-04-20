@@ -139,6 +139,11 @@ extern "C" {
 
 #define uwsgi_foreach_token(x, y, z, w) for(z=strtok_r(x, y, &w);z;z = strtok_r(NULL, y, &w))
 
+#if defined(UWSGI_WARN_UNUSED_RESULT) && defined(__GNUC__)
+#define WARN_UNUSED_RESULT  __attribute__ ((warn_unused_result))
+#else
+#define WARN_UNUSED_RESULT
+#endif
 
 #ifndef __need_IOV_MAX
 #define __need_IOV_MAX
@@ -3301,7 +3306,7 @@ int event_queue_add_file_monitor(int, char *, int *);
 struct uwsgi_fmon *event_queue_ack_file_monitor(int, int);
 
 
-int uwsgi_register_signal(uint8_t, char *, void *, uint8_t);
+int uwsgi_register_signal(uint8_t, char *, void *, uint8_t) WARN_UNUSED_RESULT;
 int uwsgi_add_file_monitor(uint8_t, char *);
 int uwsgi_add_timer(uint8_t, int);
 int uwsgi_signal_add_rb_timer(uint8_t, int, int);
@@ -4227,37 +4232,37 @@ void uwsgi_bind_sockets(void);
 void uwsgi_set_sockets_protocols(void);
 
 struct uwsgi_buffer *uwsgi_buffer_new(size_t);
-int uwsgi_buffer_append(struct uwsgi_buffer *, char *, size_t);
-int uwsgi_buffer_fix(struct uwsgi_buffer *, size_t);
-int uwsgi_buffer_ensure(struct uwsgi_buffer *, size_t);
+int uwsgi_buffer_append(struct uwsgi_buffer *, char *, size_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_fix(struct uwsgi_buffer *, size_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_ensure(struct uwsgi_buffer *, size_t) WARN_UNUSED_RESULT;
 void uwsgi_buffer_destroy(struct uwsgi_buffer *);
-int uwsgi_buffer_u8(struct uwsgi_buffer *, uint8_t);
-int uwsgi_buffer_byte(struct uwsgi_buffer *, char);
-int uwsgi_buffer_u16le(struct uwsgi_buffer *, uint16_t);
-int uwsgi_buffer_u16be(struct uwsgi_buffer *, uint16_t);
-int uwsgi_buffer_u32be(struct uwsgi_buffer *, uint32_t);
-int uwsgi_buffer_u32le(struct uwsgi_buffer *, uint32_t);
-int uwsgi_buffer_u64le(struct uwsgi_buffer *, uint64_t);
-int uwsgi_buffer_f32be(struct uwsgi_buffer *, float);
-int uwsgi_buffer_u24be(struct uwsgi_buffer *, uint32_t);
-int uwsgi_buffer_u64be(struct uwsgi_buffer *, uint64_t);
-int uwsgi_buffer_f64be(struct uwsgi_buffer *, double);
-int uwsgi_buffer_num64(struct uwsgi_buffer *, int64_t);
-int uwsgi_buffer_append_keyval(struct uwsgi_buffer *, char *, uint16_t, char *, uint16_t);
-int uwsgi_buffer_append_keyval32(struct uwsgi_buffer *, char *, uint32_t, char *, uint32_t);
-int uwsgi_buffer_append_keynum(struct uwsgi_buffer *, char *, uint16_t, int64_t);
-int uwsgi_buffer_append_valnum(struct uwsgi_buffer *, int64_t);
-int uwsgi_buffer_append_ipv4(struct uwsgi_buffer *, void *);
-int uwsgi_buffer_append_keyipv4(struct uwsgi_buffer *, char *, uint16_t, void *);
+int uwsgi_buffer_u8(struct uwsgi_buffer *, uint8_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_byte(struct uwsgi_buffer *, char) WARN_UNUSED_RESULT;
+int uwsgi_buffer_u16le(struct uwsgi_buffer *, uint16_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_u16be(struct uwsgi_buffer *, uint16_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_u32be(struct uwsgi_buffer *, uint32_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_u32le(struct uwsgi_buffer *, uint32_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_u64le(struct uwsgi_buffer *, uint64_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_f32be(struct uwsgi_buffer *, float) WARN_UNUSED_RESULT;
+int uwsgi_buffer_u24be(struct uwsgi_buffer *, uint32_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_u64be(struct uwsgi_buffer *, uint64_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_f64be(struct uwsgi_buffer *, double) WARN_UNUSED_RESULT;
+int uwsgi_buffer_num64(struct uwsgi_buffer *, int64_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_append_keyval(struct uwsgi_buffer *, char *, uint16_t, char *, uint16_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_append_keyval32(struct uwsgi_buffer *, char *, uint32_t, char *, uint32_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_append_keynum(struct uwsgi_buffer *, char *, uint16_t, int64_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_append_valnum(struct uwsgi_buffer *, int64_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_append_ipv4(struct uwsgi_buffer *, void *) WARN_UNUSED_RESULT;
+int uwsgi_buffer_append_keyipv4(struct uwsgi_buffer *, char *, uint16_t, void *) WARN_UNUSED_RESULT;
 int uwsgi_buffer_decapitate(struct uwsgi_buffer *, size_t);
-int uwsgi_buffer_append_base64(struct uwsgi_buffer *, char *, size_t);
-int uwsgi_buffer_insert(struct uwsgi_buffer *, size_t, char *, size_t);
-int uwsgi_buffer_insert_chunked(struct uwsgi_buffer *, size_t, size_t);
-int uwsgi_buffer_append_chunked(struct uwsgi_buffer *, size_t);
-int uwsgi_buffer_append_json(struct uwsgi_buffer *, char *, size_t);
+int uwsgi_buffer_append_base64(struct uwsgi_buffer *, char *, size_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_insert(struct uwsgi_buffer *, size_t, char *, size_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_insert_chunked(struct uwsgi_buffer *, size_t, size_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_append_chunked(struct uwsgi_buffer *, size_t) WARN_UNUSED_RESULT;
+int uwsgi_buffer_append_json(struct uwsgi_buffer *, char *, size_t) WARN_UNUSED_RESULT;
 int uwsgi_buffer_set_uh(struct uwsgi_buffer *, uint8_t, uint8_t);
 void uwsgi_buffer_map(struct uwsgi_buffer *, char *, size_t);
-struct uwsgi_buffer *uwsgi_buffer_from_file(char *);
+struct uwsgi_buffer *uwsgi_buffer_from_file(char *) WARN_UNUSED_RESULT;
 
 ssize_t uwsgi_buffer_write_simple(struct wsgi_request *, struct uwsgi_buffer *);
 
@@ -4478,10 +4483,10 @@ uint64_t uwsgi_be64(char *);
 
 int uwsgi_websocket_handshake(struct wsgi_request *, char *, uint16_t, char *, uint16_t, char *, uint16_t);
 
-int uwsgi_response_prepare_headers(struct wsgi_request *, char *, uint16_t);
-int uwsgi_response_prepare_headers_int(struct wsgi_request *, int);
-int uwsgi_response_add_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
-int uwsgi_response_add_header_force(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+int uwsgi_response_prepare_headers(struct wsgi_request *, char *, uint16_t) WARN_UNUSED_RESULT;
+int uwsgi_response_prepare_headers_int(struct wsgi_request *, int) WARN_UNUSED_RESULT;
+int uwsgi_response_add_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t) WARN_UNUSED_RESULT;
+int uwsgi_response_add_header_force(struct wsgi_request *, char *, uint16_t, char *, uint16_t) WARN_UNUSED_RESULT;
 int uwsgi_response_commit_headers(struct wsgi_request *);
 int uwsgi_response_sendfile_do(struct wsgi_request *, int, size_t, size_t);
 int uwsgi_response_sendfile_do_can_close(struct wsgi_request *, int, size_t, size_t, int);
@@ -4509,7 +4514,7 @@ int uwsgi_proto_ssl_sendfile(struct wsgi_request *, int, size_t, size_t);
 
 ssize_t uwsgi_sendfile_do(int, int, size_t, size_t);
 int uwsgi_proto_base_fix_headers(struct wsgi_request *);
-int uwsgi_response_add_content_length(struct wsgi_request *, uint64_t);
+int uwsgi_response_add_content_length(struct wsgi_request *, uint64_t) WARN_UNUSED_RESULT;
 int uwsgi_response_add_content_range(struct wsgi_request *, uint64_t, uint64_t, uint64_t);
 int uwsgi_response_add_expires(struct wsgi_request *, uint64_t);
 int uwsgi_response_add_last_modified(struct wsgi_request *, uint64_t);
@@ -4611,8 +4616,8 @@ struct uwsgi_cache_magic_context {
 };
 
 char *uwsgi_cache_magic_get(char *, uint16_t, uint64_t *, uint64_t *, char *);
-int uwsgi_cache_magic_set(char *, uint16_t, char *, uint64_t, uint64_t, uint64_t, char *);
-int uwsgi_cache_magic_del(char *, uint16_t, char *);
+int uwsgi_cache_magic_set(char *, uint16_t, char *, uint64_t, uint64_t, uint64_t, char *) WARN_UNUSED_RESULT;
+int uwsgi_cache_magic_del(char *, uint16_t, char *) WARN_UNUSED_RESULT;
 int uwsgi_cache_magic_exists(char *, uint16_t, char *);
 int uwsgi_cache_magic_clear(char *);
 void uwsgi_cache_magic_context_hook(char *, uint16_t, char *, uint16_t, void *);

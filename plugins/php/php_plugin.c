@@ -115,7 +115,8 @@ static int sapi_uwsgi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 	
 	h = zend_llist_get_first_ex(&sapi_headers->headers, &pos);
 	while (h) {
-		uwsgi_response_add_header(wsgi_req, NULL, 0, h->header, h->header_len);
+		if (uwsgi_response_add_header(wsgi_req, NULL, 0, h->header, h->header_len))
+			return SAPI_HEADER_SEND_FAILED;
 		h = zend_llist_get_next_ex(&sapi_headers->headers, &pos);
 	}
 

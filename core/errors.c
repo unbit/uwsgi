@@ -69,7 +69,8 @@ void uwsgi_redirect_to_slash(struct wsgi_request *wsgi_req) {
 		redirect = uwsgi_concat3n(wsgi_req->path_info, wsgi_req->path_info_len, "/?", 2, wsgi_req->query_string, wsgi_req->query_string_len);
 		redirect_len = wsgi_req->path_info_len + 2 + wsgi_req->query_string_len;
         }
-        uwsgi_response_add_header(wsgi_req, "Location", 8, redirect, redirect_len);
+	// do not care about errors
+        if (uwsgi_response_add_header(wsgi_req, "Location", 8, redirect, redirect_len)) {};
 	free(redirect);	
         return;
 }

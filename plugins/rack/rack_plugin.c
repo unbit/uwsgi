@@ -772,7 +772,7 @@ VALUE send_header(VALUE obj, VALUE headers) {
 	for(i=0;i<header_value_len;i++) {
 		// multiline header, send it !!!
 		if (header_value[i] == '\n') {
-			uwsgi_response_add_header(wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey), this_header, cnt);
+			if (uwsgi_response_add_header(wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey), this_header, cnt)) goto clear;
 			this_header += cnt+1;
 			cnt = 0;
 			continue;
@@ -781,7 +781,8 @@ VALUE send_header(VALUE obj, VALUE headers) {
 	}
 
 	if (cnt > 0) {
-		uwsgi_response_add_header(wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey), this_header, cnt);
+		// do not care about errors
+		if (uwsgi_response_add_header(wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey), this_header, cnt)) {};
 	}
 
 clear:

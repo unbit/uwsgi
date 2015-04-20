@@ -743,8 +743,8 @@ static int transform_fixcl(struct wsgi_request *wsgi_req, struct uwsgi_transform
                 wsgi_req->write_errors++;
                 return -1;
         }
-	// do not check for errors !!!
-        uwsgi_response_add_header(wsgi_req, "Content-Length", 14, buf, ret);
+	// do not care about errors
+        if (uwsgi_response_add_header(wsgi_req, "Content-Length", 14, buf, ret)) {};
 	return 0;
 }
 static int uwsgi_router_fixcl_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {

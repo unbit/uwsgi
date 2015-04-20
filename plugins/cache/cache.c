@@ -225,7 +225,8 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                                 argc = 3;
                                 if (!uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh->_pktsize, argv, argvs, &argc)) {
                                         if (argc > 1) {
-						uwsgi_cache_magic_set(argv[0], argvs[0], argv[1], argvs[1], 0, 0, NULL);
+						// do not care about errors
+						if (uwsgi_cache_magic_set(argv[0], argvs[0], argv[1], argvs[1], 0, 0, NULL)) {};
                                         }
                                 }
                         }
@@ -233,7 +234,8 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                 case 2:
                         // del
                         if (wsgi_req->uh->_pktsize > 0) {
-                                uwsgi_cache_magic_del(wsgi_req->buffer, wsgi_req->uh->_pktsize, NULL);
+				// do not care about errors
+                                if (uwsgi_cache_magic_del(wsgi_req->buffer, wsgi_req->uh->_pktsize, NULL)) {};
                         }
                         break;
                 case 3:

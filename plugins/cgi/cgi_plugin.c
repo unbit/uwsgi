@@ -323,7 +323,8 @@ static int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, int fd, char *buf, siz
 					}
 				}
 
-				uwsgi_response_add_header(wsgi_req, NULL, 0, key, header_size);
+				// do not care about errors
+				if (uwsgi_response_add_header(wsgi_req, NULL, 0, key, header_size)) {};
 				key = NULL;
 				value = NULL;
 			}

@@ -426,10 +426,14 @@ int uwsgi_websocket_handshake(struct wsgi_request *wsgi_req, char *key, uint16_t
 
 void uwsgi_websockets_init() {
         uwsgi.websockets_pong = uwsgi_buffer_new(2);
-        uwsgi_buffer_append(uwsgi.websockets_pong, "\x8A\0", 2);
+        if (uwsgi_buffer_append(uwsgi.websockets_pong, "\x8A\0", 2)) goto error;
         uwsgi.websockets_ping = uwsgi_buffer_new(2);
-        uwsgi_buffer_append(uwsgi.websockets_ping, "\x89\0", 2);
+        if (uwsgi_buffer_append(uwsgi.websockets_ping, "\x89\0", 2)) goto error;
 	uwsgi.websockets_ping_freq = 30;
 	uwsgi.websockets_pong_tolerance = 3;
 	uwsgi.websockets_max_size = 1024;
+	return;
+error:
+	uwsgi_log("Failing to initializing websockets, exiting!!!\n");
+	exit(1);
 }

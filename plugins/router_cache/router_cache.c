@@ -85,14 +85,16 @@ static int transform_cache(struct wsgi_request *wsgi_req, struct uwsgi_transform
 	// store only successfull response
 	if (wsgi_req->write_errors == 0 && (wsgi_req->status == 200 || (utcc->status && wsgi_req->status == utcc->status))  && ub->pos > 0) {
 		if (utcc->cache_it) {
-			uwsgi_cache_magic_set(utcc->cache_it->buf, utcc->cache_it->pos, ub->buf, ub->pos, utcc->cache_it_expires,
-				UWSGI_CACHE_FLAG_UPDATE, utcc->cache_it_to ? utcc->cache_it_to->buf : NULL);
+			// do not care about errors
+			if (uwsgi_cache_magic_set(utcc->cache_it->buf, utcc->cache_it->pos, ub->buf, ub->pos, utcc->cache_it_expires,
+				UWSGI_CACHE_FLAG_UPDATE, utcc->cache_it_to ? utcc->cache_it_to->buf : NULL)) {};
 #ifdef UWSGI_ZLIB
 			if (utcc->cache_it_gzip) {
 				struct uwsgi_buffer *gzipped = uwsgi_gzip(ub->buf, ub->pos);
 				if (gzipped) {
-					uwsgi_cache_magic_set(utcc->cache_it_gzip->buf, utcc->cache_it_gzip->pos, gzipped->buf, gzipped->pos, utcc->cache_it_expires,
-                                		UWSGI_CACHE_FLAG_UPDATE, utcc->cache_it_to ? utcc->cache_it_to->buf : NULL);
+					// do not care about errors
+					if (uwsgi_cache_magic_set(utcc->cache_it_gzip->buf, utcc->cache_it_gzip->pos, gzipped->buf, gzipped->pos, utcc->cache_it_expires,
+                                		UWSGI_CACHE_FLAG_UPDATE, utcc->cache_it_to ? utcc->cache_it_to->buf : NULL)) {};
 					uwsgi_buffer_destroy(gzipped);
 				}
 			}
@@ -180,7 +182,7 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 	if (value) {
 		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto error;
 		if (mime_type) {
-                        uwsgi_response_add_content_type(wsgi_req, mime_type, mime_type_len);
+                        if (uwsgi_response_add_content_type(wsgi_req, mime_type, mime_type_len)) goto error;
 		}
 		else {
 			if (uwsgi_response_add_content_type(wsgi_req, urcc->content_type, urcc->content_type_len)) goto error;
