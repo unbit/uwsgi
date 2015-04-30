@@ -23,9 +23,10 @@ static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_transforma
 	struct uwsgi_transformation_gzip *utgz = (struct uwsgi_transformation_gzip *) ut->data;
 	struct uwsgi_buffer *ub = ut->chunk;
 
-        if (ub->pos == 0) {
-        	// Don't try to compress empty responses.
-        	return 0;
+	if (ub->pos == 0) {
+		// Don't try to compress empty responses.
+		free(utgz);
+		return 0;
         }
 
 	if (ut->is_final) {
@@ -44,7 +45,7 @@ static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_transforma
 	uwsgi_buffer_map(ub, gzipped, dlen);
 	if (!utgz->header) {
 		// do not check for errors !!!
-        	uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4);
+		uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4);
 		utgz->header = 1;
 		if (uwsgi_buffer_insert(ub, 0, gzheader, 10)) {
 			return -1;
@@ -64,7 +65,7 @@ static int uwsgi_routing_func_gzip(struct wsgi_request *wsgi_req, struct uwsgi_r
 	ut->can_stream = 1;
 	// this is the trasformation clearing the memory
 	ut = uwsgi_add_transformation(wsgi_req, transform_gzip, utgz);
-        ut->is_final = 1;
+	ut->is_final = 1;
 	return UWSGI_ROUTE_NEXT;
 }
 
