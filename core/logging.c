@@ -291,8 +291,8 @@ void logto(char *logfile) {
 		uwsgi.logfile = logfile;
 
 		if (uwsgi.chmod_logfile_value) {
-			if (chmod(uwsgi.logfile, uwsgi.chmod_logfile_value)) {
-				uwsgi_error("chmod()");
+			if (fchmod(fd, uwsgi.chmod_logfile_value)) {
+				uwsgi_error("fchmod()");
 			}
 		}
 	}
