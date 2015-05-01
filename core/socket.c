@@ -243,14 +243,14 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	// chmod unix socket for lazy users
 	if (chmod_socket == 1 && abstract_socket == 0) {
 		if (uwsgi.chmod_socket_value) {
-			if (fchmod(serverfd, uwsgi.chmod_socket_value) != 0) {
-				uwsgi_error("fchmod()");
+			if (chmod(socket_name, uwsgi.chmod_socket_value) != 0) {
+				uwsgi_error("chmod()");
 			}
 		}
 		else {
-			uwsgi_log("fchmod() socket to 666 for lazy and brave users\n");
-			if (fchmod(serverfd, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) != 0) {
-				uwsgi_error("fchmod()");
+			uwsgi_log("chmod() socket to 666 for lazy and brave users\n");
+			if (chmod(socket_name, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) != 0) {
+				uwsgi_error("chmod()");
 			}
 		}
 	}
@@ -1766,14 +1766,14 @@ void uwsgi_bind_sockets() {
                                 	}
 					if (uwsgi.chmod_socket) {
                 				if (uwsgi.chmod_socket_value) {
-							if (fchmod(uwsgi_sock->fd, uwsgi.chmod_socket_value) != 0) {
-								uwsgi_error("inherit fd0: fchmod()");
+                        				if (chmod(uwsgi_sock->name, uwsgi.chmod_socket_value) != 0) {
+                                				uwsgi_error("inherit fd0: chmod()");
                         				}
                 				}
                 				else {
-							uwsgi_log("fchmod() fd0 socket to 666 for lazy and brave users\n");
-							if (fchmod(uwsgi_sock->fd, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) != 0) {
-								uwsgi_error("inherit fd0: fchmod()");
+                        				uwsgi_log("chmod() fd0 socket to 666 for lazy and brave users\n");
+                        				if (chmod(uwsgi_sock->name, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) != 0) {
+                                				uwsgi_error("inherit fd0: chmod()");
                         				}
 						}
                 			}
