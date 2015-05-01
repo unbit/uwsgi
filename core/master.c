@@ -429,8 +429,8 @@ int master_loop(char **argv, char **environ) {
 		if (uwsgi.emperor_proxy) {
 			uwsgi.emperor_fd_proxy = bind_to_unix(uwsgi.emperor_proxy, uwsgi.listen_queue, 0, 0);
 			if (uwsgi.emperor_fd_proxy < 0) exit(1);
-			if (fchmod(uwsgi.emperor_fd_proxy, S_IRUSR|S_IWUSR)) {
-				uwsgi_error("[emperor-proxy] fchmod()");
+			if (chmod(uwsgi.emperor_proxy, S_IRUSR|S_IWUSR)) {
+				uwsgi_error("[emperor-proxy] chmod()");
 				exit(1);
 			}
 			event_queue_add_fd_read(uwsgi.master_queue, uwsgi.emperor_fd_proxy);
@@ -444,8 +444,8 @@ int master_loop(char **argv, char **environ) {
 	if (uwsgi.setns_socket) {
 		uwsgi.setns_socket_fd = bind_to_unix(uwsgi.setns_socket, uwsgi.listen_queue, 0, 0);
 		if (uwsgi.setns_socket_fd < 0) exit(1);
-		if (fchmod(uwsgi.setns_socket_fd, S_IRUSR|S_IWUSR)) {
-			uwsgi_error("[setns-socket] fchmod()");
+		if (chmod(uwsgi.setns_socket, S_IRUSR|S_IWUSR)) {
+                	uwsgi_error("[setns-socket] chmod()");
                         exit(1);
                 }
                 event_queue_add_fd_read(uwsgi.master_queue, uwsgi.setns_socket_fd);
