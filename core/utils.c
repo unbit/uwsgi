@@ -4487,6 +4487,30 @@ mode_t uwsgi_mode_t(char *value, int *error) {
 	return mode;
 }
 
+int uwsgi_wait_for_socket(char *socket_name) {
+        if (!uwsgi.wait_for_socket_timeout) {
+                uwsgi.wait_for_socket_timeout = 60;
+        }
+        uwsgi_log("waiting for %s (max %d seconds) ...\n", socket_name, uwsgi.wait_for_socket_timeout);
+        int counter = 0;
+        for (;;) {
+                if (counter > uwsgi.wait_for_socket_timeout) {
+                        uwsgi_log("%s unavailable after %d seconds\n", socket_name, counter);
+                        return -1;
+                }
+		// wait for 1 second to respect uwsgi.wait_for_fs_timeout
+		int fd = uwsgi_connect(socket_name, 1, 0);
+		if (fd < 0) goto retry;
+		close(fd);
+                uwsgi_log_verbose("%s ready\n", socket_name);
+                return 0;
+retry:
+                sleep(1);
+                counter++;
+        }
+	return -1;
+}
+
 int uwsgi_wait_for_mountpoint(char *mountpoint) {
         if (!uwsgi.wait_for_fs_timeout) {
                 uwsgi.wait_for_fs_timeout = 60;
@@ -4517,6 +4541,7 @@ retry:
                 sleep(1);
                 counter++;
         }
+	return -1;
 }
 
 // type -> 1 file, 2 dir, 0 both
@@ -4541,6 +4566,7 @@ retry:
                 sleep(1);
                 counter++;
 	}
+	return -1;
 }
 
 #if !defined(_GNU_SOURCE) && !defined(__UCLIBC__)

@@ -2766,6 +2766,10 @@ struct uwsgi_server {
 	struct uwsgi_string_list *emperor_wrapper_override;
 	struct uwsgi_string_list *emperor_wrapper_fallback;
 
+	// uWSGI 2.0.11
+	struct uwsgi_string_list *wait_for_socket;
+	int wait_for_socket_timeout;
+
 	// uWSGI 2.1
 	char *fork_socket;
 	int new_argc;
@@ -4952,6 +4956,7 @@ char *uwsgi_subscription_algo_name(void *);
 
 int uwsgi_wait_for_fs(char *, int);
 int uwsgi_wait_for_mountpoint(char *);
+int uwsgi_wait_for_socket(char *);
 void uwsgi_hooks_setns_run(struct uwsgi_string_list *, pid_t, uid_t, gid_t);
 char *vassal_attr_get(struct uwsgi_instance *, char *);
 int vassal_attr_get_multi(struct uwsgi_instance *, char *, int (*)(struct uwsgi_instance *, char *, void *), void *);

@@ -495,6 +495,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"wait-for-mountpoint", required_argument, 0, "wait for the specified mountpoint to appear before running root hooks", uwsgi_opt_add_string_list, &uwsgi.wait_for_mountpoint, 0},
 	{"wait-for-fs-timeout", required_argument, 0, "set the timeout for wait-for-fs/file/dir", uwsgi_opt_set_int, &uwsgi.wait_for_fs_timeout, 0},
 
+	{"wait-for-socket", required_argument, 0, "wait for the specified socket to be ready before loading apps", uwsgi_opt_add_string_list, &uwsgi.wait_for_socket, 0},
+	{"wait-for-socket-timeout", required_argument, 0, "set the timeout for wait-for-socket", uwsgi_opt_set_int, &uwsgi.wait_for_socket_timeout, 0},
+
 	{"call-asap", required_argument, 0, "call the specified function as soon as possible", uwsgi_opt_add_string_list, &uwsgi.call_asap, 0},
 	{"call-pre-jail", required_argument, 0, "call the specified function before jailing", uwsgi_opt_add_string_list, &uwsgi.call_pre_jail, 0},
 	{"call-post-jail", required_argument, 0, "call the specified function after jailing", uwsgi_opt_add_string_list, &uwsgi.call_post_jail, 0},
@@ -2611,6 +2614,11 @@ int uwsgi_start(void *v_argv) {
 	if (!uwsgi.master_as_root && !uwsgi.chown_socket && !uwsgi.drop_after_init && !uwsgi.drop_after_apps) {
 		uwsgi_as_root();
 	}
+
+	// wait for socket
+	uwsgi_foreach(usl, uwsgi.wait_for_socket) {
+                if (uwsgi_wait_for_socket(usl->value)) exit(1);
+        }
 
 	if (uwsgi.logto2) {
 		if (!uwsgi.is_a_reload || uwsgi.log_reopen) {
