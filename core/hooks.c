@@ -557,6 +557,22 @@ static int uwsgi_hook_retryrpc(char *arg) {
 	return 0;
 }
 
+static int uwsgi_hook_wait_for_fs(char *arg) {
+	return uwsgi_wait_for_fs(arg, 0);
+}
+
+static int uwsgi_hook_wait_for_file(char *arg) {
+	return uwsgi_wait_for_fs(arg, 1);
+}
+
+static int uwsgi_hook_wait_for_dir(char *arg) {
+	return uwsgi_wait_for_fs(arg, 2);
+}
+
+static int uwsgi_hook_wait_for_socket(char *arg) {
+	return uwsgi_wait_for_socket(arg);
+}
+
 void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("cd", uwsgi_hook_chdir);
 	uwsgi_register_hook("chdir", uwsgi_hook_chdir);
@@ -597,6 +613,12 @@ void uwsgi_register_base_hooks() {
 
 	uwsgi_register_hook("rpc", uwsgi_hook_rpc);
 	uwsgi_register_hook("retryrpc", uwsgi_hook_retryrpc);
+
+	uwsgi_register_hook("wait_for_fs", uwsgi_hook_wait_for_fs);
+	uwsgi_register_hook("wait_for_file", uwsgi_hook_wait_for_file);
+	uwsgi_register_hook("wait_for_dir", uwsgi_hook_wait_for_dir);
+
+	uwsgi_register_hook("wait_for_socket", uwsgi_hook_wait_for_socket);
 
 	// for testing
 	uwsgi_register_hook("exit", uwsgi_hook_exit);

@@ -2760,6 +2760,10 @@ struct uwsgi_server {
 	// uWSGI 2.0.10
 	struct uwsgi_string_list *emperor_wrapper_override;
 	struct uwsgi_string_list *emperor_wrapper_fallback;
+
+	// uWSGI 2.0.11
+	struct uwsgi_string_list *wait_for_socket;
+	int wait_for_socket_timeout;
 };
 
 struct uwsgi_rpc {
@@ -4852,6 +4856,7 @@ void vassal_sos();
 
 int uwsgi_wait_for_fs(char *, int);
 int uwsgi_wait_for_mountpoint(char *);
+int uwsgi_wait_for_socket(char *);
 
 #ifdef __cplusplus
 }
