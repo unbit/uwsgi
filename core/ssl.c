@@ -30,15 +30,15 @@ void uwsgi_ssl_info_cb(SSL const *ssl, int where, int ret) {
 }
 
 int uwsgi_ssl_verify_callback(int ok, X509_STORE_CTX * x509_store) {
-        char buf[256];
-        X509 *err_cert;
-        int depth;
-        int err;
-        depth = X509_STORE_CTX_get_error_depth(x509_store);
-        err_cert = X509_STORE_CTX_get_current_cert(x509_store);
-        X509_NAME_oneline(X509_get_subject_name(err_cert), buf, 256);
-        err = X509_STORE_CTX_get_error(x509_store);
         if (!ok) {
+                char buf[256];
+                X509 *err_cert;
+                int depth;
+                int err;
+                depth = X509_STORE_CTX_get_error_depth(x509_store);
+                err_cert = X509_STORE_CTX_get_current_cert(x509_store);
+                X509_NAME_oneline(X509_get_subject_name(err_cert), buf, 256);
+                err = X509_STORE_CTX_get_error(x509_store);
                 uwsgi_log("[uwsgi-ssl] client certificate verify error: num=%d:%s:depth=%d:%s\n", err, X509_verify_cert_error_string(err), depth, buf);
         }
         return ok;
