@@ -242,7 +242,6 @@ static void uwsgi_cache_add_items(struct uwsgi_cache *uc) {
                                 goto next;
                         }
                         key = space+1;
-                        key_len = usl->len - ((space-usl->value)+1);
                 }
 		char *value = strchr(key, '=');
 		if (!value) {
