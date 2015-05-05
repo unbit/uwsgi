@@ -3884,7 +3884,6 @@ int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, char kv_separ
 					}
 				}
 				va_end(ap);
-				base = ptr;
 				break;
 			}
 			else if (usl->value[i] == '\\' && !escaped) {
