@@ -347,7 +347,10 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         for item in additional_sources.split(','):
             gcc_list.append(item)
 
-    cflags.append('-DUWSGI_CFLAGS=\\"%s\\"' % uwsgi_cflags)
+    if uc.filename.endswith('coverity.ini'):
+        cflags.append('-DUWSGI_CFLAGS=\\"\\"')
+    else:
+        cflags.append('-DUWSGI_CFLAGS=\\"%s\\"' % uwsgi_cflags)
     cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
 
     post_build = []
@@ -560,6 +563,7 @@ class uConf(object):
     def __init__(self, filename, mute=False):
         global GCC
 
+        self.filename = filename
         self.config = ConfigParser.ConfigParser()
         if not mute:
             print("using profile: %s" % filename)
