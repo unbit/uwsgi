@@ -302,9 +302,15 @@ int uwsgi_master_check_spoolers_death(int diedpid) {
 	struct uwsgi_spooler *uspool = uwsgi.spoolers;
 	while (uspool) {
 		if (uspool->pid > 0 && diedpid == uspool->pid) {
-			uwsgi_log("OOOPS the spooler is no more...trying respawn...\n");
-			uspool->respawned++;
-			uspool->pid = spooler_start(uspool);
+			if (uwsgi.spooler_cheap) {
+				uwsgi_log_verbose("spooler %s ended\n", uspool->dir);
+				uspool->pid = 0;
+			}
+			else {
+				uwsgi_log("OOOPS the spooler is no more...trying respawn...\n");
+				uspool->respawned++;
+				uspool->pid = spooler_start(uspool);
+			}
 			return -1;
 		}
 		uspool = uspool->next;

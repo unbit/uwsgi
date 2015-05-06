@@ -328,6 +328,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"spooler-harakiri", required_argument, 0, "set harakiri timeout for spooler tasks", uwsgi_opt_set_int, &uwsgi.harakiri_options.spoolers, 0},
 	{"spooler-frequency", required_argument, 0, "set spooler frequency", uwsgi_opt_set_int, &uwsgi.spooler_frequency, 0},
 	{"spooler-freq", required_argument, 0, "set spooler frequency", uwsgi_opt_set_int, &uwsgi.spooler_frequency, 0},
+	{"spooler-cheap", no_argument, 0, "set spooler cheap mode", uwsgi_opt_true, &uwsgi.spooler_cheap, 0},
 
 	{"mule", optional_argument, 0, "add a mule", uwsgi_opt_add_mule, NULL, UWSGI_OPT_MASTER},
 	{"mules", required_argument, 0, "add the specified number of mules", uwsgi_opt_add_mules, NULL, UWSGI_OPT_MASTER},
@@ -3242,6 +3243,8 @@ next:
 	while (uspool) {
 		if (uspool->mode == UWSGI_SPOOLER_EXTERNAL)
 			goto next2;
+		// skip spooler start on cheap mode
+		if (uwsgi.spooler_cheap) goto next2;
 		uspool->pid = spooler_start(uspool);
 next2:
 		uspool = uspool->next;

@@ -1146,6 +1146,8 @@ struct uwsgi_spooler {
 	int signal_pipe[2];
 
 	struct uwsgi_spooler *next;
+
+	time_t last_task_managed;
 };
 
 #ifdef UWSGI_ROUTING
@@ -2798,6 +2800,7 @@ struct uwsgi_server {
 	char *safe_pidfile2;
 
 	int die_on_no_workers;
+	int spooler_cheap;
 };
 
 struct uwsgi_rpc {
@@ -4964,6 +4967,7 @@ int vassal_attr_get_multi(struct uwsgi_instance *, char *, int (*)(struct uwsgi_
 int uwsgi_zeus_spawn_instance(struct uwsgi_instance *);
 
 time_t uwsgi_parse_http_date(char *, uint16_t);
+void uwsgi_spooler_cheap_check(void);
 #ifdef __cplusplus
 }
 #endif
