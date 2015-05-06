@@ -30,7 +30,7 @@ void uwsgi_ssl_info_cb(SSL const *ssl, int where, int ret) {
 }
 
 int uwsgi_ssl_verify_callback(int ok, X509_STORE_CTX * x509_store) {
-        if (!ok) {
+        if (!ok && uwsgi.ssl_verbose) {
                 char buf[256];
                 X509 *err_cert;
                 int depth;
