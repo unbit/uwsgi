@@ -23,18 +23,17 @@ static int transform_gzip(struct wsgi_request *wsgi_req, struct uwsgi_transforma
 	struct uwsgi_transformation_gzip *utgz = (struct uwsgi_transformation_gzip *) ut->data;
 	struct uwsgi_buffer *ub = ut->chunk;
 
-	if (ub->pos == 0) {
-		// Don't try to compress empty responses.
-		free(utgz);
-		return 0;
-	}
-
 	if (ut->is_final) {
-		if (uwsgi_gzip_fix(&utgz->z, utgz->crc32, ub, utgz->len)) {
+		if (utgz->len > 0 && uwsgi_gzip_fix(&utgz->z, utgz->crc32, ub, utgz->len)) {
 			free(utgz);
 			return -1;
 		}
 		free(utgz);
+		return 0;
+	}
+
+	if (ub->pos == 0) {
+		// Don't try to compress empty responses.
 		return 0;
 	}
 
