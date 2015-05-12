@@ -1448,6 +1448,72 @@ PyObject *py_uwsgi_sharedarea_inc64(PyObject * self, PyObject * args) {
 
 }
 
+PyObject *py_uwsgi_sharedarea_inc32(PyObject * self, PyObject * args) {
+        int id;
+        uint64_t pos = 0;
+        int32_t value = 1;
+
+        if (!PyArg_ParseTuple(args, "iL|i:sharedarea_inc32", &id, &pos, &value)) {
+                return NULL;
+        }
+
+        UWSGI_RELEASE_GIL
+        int ret = uwsgi_sharedarea_inc32(id, pos, value);
+        UWSGI_GET_GIL
+
+        if (ret) {
+                return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_inc32()");
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+
+}
+
+PyObject *py_uwsgi_sharedarea_dec64(PyObject * self, PyObject * args) {
+        int id;
+        uint64_t pos = 0;
+        int64_t value = 1;
+
+        if (!PyArg_ParseTuple(args, "iL|l:sharedarea_dec64", &id, &pos, &value)) {
+                return NULL;
+        }
+
+        UWSGI_RELEASE_GIL
+        int ret = uwsgi_sharedarea_dec64(id, pos, value);
+        UWSGI_GET_GIL
+
+        if (ret) {
+                return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_dec64()");
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+
+}
+
+PyObject *py_uwsgi_sharedarea_dec32(PyObject * self, PyObject * args) {
+        int id;
+        uint64_t pos = 0;
+        int32_t value = 1;
+
+        if (!PyArg_ParseTuple(args, "iL|i:sharedarea_dec32", &id, &pos, &value)) {
+                return NULL;
+        }
+
+        UWSGI_RELEASE_GIL
+        int ret = uwsgi_sharedarea_dec32(id, pos, value);
+        UWSGI_GET_GIL
+
+        if (ret) {
+                return PyErr_Format(PyExc_ValueError, "error calling uwsgi_sharedarea_dec32()");
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+
+}
+
 PyObject *py_uwsgi_sharedarea_write32(PyObject * self, PyObject * args) {
         int id;
         uint64_t pos = 0;
@@ -2569,6 +2635,9 @@ static PyMethodDef uwsgi_sa_methods[] = {
 	{"sharedarea_write16", py_uwsgi_sharedarea_write16, METH_VARARGS, ""},
 	{"sharedarea_inclong", py_uwsgi_sharedarea_inc64, METH_VARARGS, ""},
 	{"sharedarea_inc64", py_uwsgi_sharedarea_inc64, METH_VARARGS, ""},
+	{"sharedarea_inc32", py_uwsgi_sharedarea_inc32, METH_VARARGS, ""},
+	{"sharedarea_dec64", py_uwsgi_sharedarea_dec64, METH_VARARGS, ""},
+	{"sharedarea_dec32", py_uwsgi_sharedarea_dec32, METH_VARARGS, ""},
 	{"sharedarea_rlock", py_uwsgi_sharedarea_rlock, METH_VARARGS, ""},
 	{"sharedarea_wlock", py_uwsgi_sharedarea_wlock, METH_VARARGS, ""},
 	{"sharedarea_unlock", py_uwsgi_sharedarea_unlock, METH_VARARGS, ""},
