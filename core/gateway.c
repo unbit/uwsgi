@@ -53,7 +53,7 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop) (int, void *), v
 }
 
 static void gateway_brutal_end() {
-        _exit(UWSGI_END_CODE);
+	_exit(UWSGI_END_CODE);
 }
 
 void gateway_respawn(int id) {

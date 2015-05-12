@@ -10,7 +10,7 @@ static char *check_qs(char *qs, uint16_t qs_len, char *key, uint16_t keylen, uin
 	// search for the equal sign
 	char *equal = memchr(qs, '=', qs_len);
 	if (!equal) return NULL;
-	
+
 	if (uwsgi_strncmp(key, keylen, qs, equal-qs)) {
 		return NULL;
 	}
@@ -49,8 +49,8 @@ char *uwsgi_get_qs(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, ui
 	if (qs_len > 0) {
 		char *value = check_qs(qs, qs_len, key, keylen, vallen);
 		if (value) {
-                	return value;
-                }
+			return value;
+		}
 	}
 
 	return NULL;

@@ -12,9 +12,9 @@ ssize_t uwsgi_sendfile_do(int sockfd, int filefd, size_t pos, size_t len) {
 
 #if defined(__FreeBSD__) || defined(__DragonFly__)
 	off_t sf_len = len;
-        int sf_ret = sendfile(filefd, sockfd, pos, len, NULL,  &sf_len, 0);
-        if (sf_ret == 0 || (sf_ret == -1 && errno == EAGAIN)) return sf_len;
-        return -1;
+	int sf_ret = sendfile(filefd, sockfd, pos, len, NULL, &sf_len, 0);
+	if (sf_ret == 0 || (sf_ret == -1 && errno == EAGAIN)) return sf_len;
+	return -1;
 #elif defined(__APPLE__) && !defined(NO_SENDFILE)
 	off_t sf_len = len;
 	int sf_ret = sendfile(filefd, sockfd, pos, &sf_len, NULL, 0);
@@ -61,28 +61,28 @@ int uwsgi_simple_sendfile(struct wsgi_request *wsgi_req, int fd, size_t pos, siz
 	wsgi_req->write_pos = 0;
 
 	for(;;) {
-                int ret = wsgi_req->socket->proto_sendfile(wsgi_req, fd, pos, len);
-                if (ret < 0) {
-                        if (!uwsgi.ignore_write_errors) {
-                                uwsgi_error("uwsgi_simple_sendfile()");
-                        }
-                        wsgi_req->write_errors++;
-                        return -1;
-                }
-                if (ret == UWSGI_OK) {
-                        break;
-                }
-                ret = uwsgi_wait_write_req(wsgi_req);
-                if (ret < 0) {
-                        wsgi_req->write_errors++;
-                        return -1;
-                }
-                if (ret == 0) {
-                        uwsgi_log("uwsgi_simple_sendfile() TIMEOUT !!!\n");
-                        wsgi_req->write_errors++;
-                        return -1;
-                }
-        }
+		int ret = wsgi_req->socket->proto_sendfile(wsgi_req, fd, pos, len);
+		if (ret < 0) {
+			if (!uwsgi.ignore_write_errors) {
+				uwsgi_error("uwsgi_simple_sendfile()");
+			}
+			wsgi_req->write_errors++;
+			return -1;
+		}
+		if (ret == UWSGI_OK) {
+			break;
+		}
+		ret = uwsgi_wait_write_req(wsgi_req);
+		if (ret < 0) {
+			wsgi_req->write_errors++;
+			return -1;
+		}
+		if (ret == 0) {
+			uwsgi_log("uwsgi_simple_sendfile() TIMEOUT !!!\n");
+			wsgi_req->write_errors++;
+			return -1;
+		}
+	}
 
 	return 0;
 }

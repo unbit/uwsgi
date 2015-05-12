@@ -17,7 +17,7 @@ uint64_t uwsgi_worker_exceptions(int wid) {
 
 void uwsgi_curse(int wid, int sig) {
 	uwsgi.workers[wid].cursed_at = uwsgi_now();
-        uwsgi.workers[wid].no_mercy_at = uwsgi.workers[wid].cursed_at + uwsgi.worker_reload_mercy;
+	uwsgi.workers[wid].no_mercy_at = uwsgi.workers[wid].cursed_at + uwsgi.worker_reload_mercy;
 
 	if (sig) {
 		(void) kill(uwsgi.workers[wid].pid, sig);
@@ -35,14 +35,14 @@ void uwsgi_curse_mule(int mid, int sig) {
 
 static void uwsgi_signal_spoolers(int signum) {
 
-        struct uwsgi_spooler *uspool = uwsgi.spoolers;
-        while (uspool) {
-                if (uspool->pid > 0) {
-                        kill(uspool->pid, signum);
-                        uwsgi_log("killing the spooler with pid %d\n", uspool->pid);
-                }
-                uspool = uspool->next;
-        }
+	struct uwsgi_spooler *uspool = uwsgi.spoolers;
+	while (uspool) {
+		if (uspool->pid > 0) {
+			kill(uspool->pid, signum);
+			uwsgi_log("killing the spooler with pid %d\n", uspool->pid);
+		}
+		uspool = uspool->next;
+	}
 
 }
 void uwsgi_destroy_processes() {
@@ -50,20 +50,20 @@ void uwsgi_destroy_processes() {
 	int i;
 	int waitpid_status;
 
-        uwsgi_signal_spoolers(SIGKILL);
+	uwsgi_signal_spoolers(SIGKILL);
 
-        uwsgi_detach_daemons();
+	uwsgi_detach_daemons();
 
-        for (i = 0; i < ushared->gateways_cnt; i++) {
-                if (ushared->gateways[i].pid > 0) {
-                        kill(ushared->gateways[i].pid, SIGKILL);
+	for (i = 0; i < ushared->gateways_cnt; i++) {
+		if (ushared->gateways[i].pid > 0) {
+			kill(ushared->gateways[i].pid, SIGKILL);
 			waitpid(ushared->gateways[i].pid, &waitpid_status, 0);
 			uwsgi_log("gateway \"%s %d\" has been buried (pid: %d)\n", ushared->gateways[i].name, ushared->gateways[i].num, (int) ushared->gateways[i].pid);
 		}
-        }
+	}
 
 	if (uwsgi.emperor_pid > 0) {
-                kill(uwsgi.emperor_pid, SIGINT);
+		kill(uwsgi.emperor_pid, SIGINT);
 		time_t timeout = uwsgi_now() + (uwsgi.reload_mercy ? uwsgi.reload_mercy : 3);
 		// increase timeout for being more tolerant
 		timeout+=2;
@@ -218,35 +218,34 @@ int uwsgi_cheaper_algo_manual(int can_spawn) {
 
 /*
 
-        -- Cheaper, spare algorithm, adapted from old-fashioned spare system --
-        
-        when all of the workers are busy, the overload_count is incremented.
-        as soon as overload_count is higher than uwsgi.cheaper_overload (--cheaper-overload options)
-        at most cheaper_step (default to 1) new workers are spawned.
+	-- Cheaper, spare algorithm, adapted from old-fashioned spare system --
 
-        when at least one worker is free, the overload_count is decremented and the idle_count is incremented.
-        If overload_count reaches 0, the system will count active workers (the ones uncheaped) and busy workers (the ones running a request)
+	when all of the workers are busy, the overload_count is incremented.
+	as soon as overload_count is higher than uwsgi.cheaper_overload (--cheaper-overload options)
+	at most cheaper_step (default to 1) new workers are spawned.
+
+	when at least one worker is free, the overload_count is decremented and the idle_count is incremented.
+	If overload_count reaches 0, the system will count active workers (the ones uncheaped) and busy workers (the ones running a request)
 	if there is exacly 1 free worker we are in "stable state" (1 spare worker available). no worker will be touched.
 	if the number of active workers is higher than uwsgi.cheaper_count and at least uwsgi.cheaper_overload cycles are passed from the last
-        "cheap it" procedure, then cheap a worker.
+	"cheap it" procedure, then cheap a worker.
 
-        Example:
-            10 processes
-            2 cheaper
-            2 cheaper step
-            3 cheaper_overload 
-            1 second master cycle
-    
-            there are 7 workers running (triggered by some kind of spike activity).
-	    Of this, 6 are busy, 1 is free. We are in stable state.
-            After a bit the spike disappear and idle_count start to increase.
+	Example:
+		10 processes
+		2 cheaper
+		2 cheaper step
+		3 cheaper_overload
+		1 second master cycle
 
-	    After 3 seconds (uwsgi.cheaper_overload cycles) the oldest worker will be cheaped. This will happens
-	    every  seconds (uwsgi.cheaper_overload cycles) til the number of workers is == uwsgi.cheaper_count.
+		there are 7 workers running (triggered by some kind of spike activity).
+		Of this, 6 are busy, 1 is free. We are in stable state.
+		After a bit the spike disappear and idle_count start to increase.
 
-	    If during the "cheap them all" procedure, an overload condition come again (another spike) the "cheap them all"
-            will be interrupted.
+		After 3 seconds (uwsgi.cheaper_overload cycles) the oldest worker will be cheaped. This will happens
+		every seconds (uwsgi.cheaper_overload cycles) til the number of workers is == uwsgi.cheaper_count.
 
+		If during the "cheap them all" procedure, an overload condition come again (another spike) the "cheap them all"
+		will be interrupted.
 
 */
 
@@ -336,9 +335,9 @@ healthy:
 
 /*
 
-	-- Cheaper,  backlog algorithm (supported only on Linux) --
+	-- Cheaper, backlog algorithm (supported only on Linux) --
 
-        increse the number of workers when the listen queue is higher than uwsgi.cheaper_overload.
+	increse the number of workers when the listen queue is higher than uwsgi.cheaper_overload.
 	Decrese when lower.
 
 */
@@ -419,9 +418,9 @@ void uwsgi_reload(char **argv) {
 	// ask for configuration (if needed)
 	if (uwsgi.has_emperor && uwsgi.emperor_fd_config > -1) {
 		char byte = 2;
-                if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
-                        uwsgi_error("uwsgi_reload()/write()");
-                }
+		if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
+			uwsgi_error("uwsgi_reload()/write()");
+		}
 	}
 
 	uwsgi_log("chdir() to %s\n", uwsgi.cwd);
@@ -571,9 +570,9 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 			}
 		}
 
-		
+
 		if (uwsgi.shared->spooler_signal_pipe[0] != -1)
-                	close(uwsgi.shared->spooler_signal_pipe[0]);
+			close(uwsgi.shared->spooler_signal_pipe[0]);
 		if (uwsgi.i_am_a_spooler && uwsgi.i_am_a_spooler->pid != getpid()) {
 			if (uwsgi.shared->spooler_signal_pipe[1] != -1)
 				close(uwsgi.shared->spooler_signal_pipe[1]);
@@ -624,10 +623,10 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 
 		// fd alarms
 		struct uwsgi_alarm_fd *uafd = uwsgi.alarm_fds;
-        	while(uafd) {
+		while(uafd) {
 			close(uafd->fd);
-                	uafd = uafd->next;
-        	}
+			uafd = uafd->next;
+		}
 	}
 
 
@@ -680,11 +679,11 @@ int uwsgi_respawn_worker(int wid) {
 		// OVERENGINEERING (just to be safe)
 		uwsgi.workers[uwsgi.mywid].id = uwsgi.mywid;
 		/*
-		   uwsgi.workers[uwsgi.mywid].harakiri = 0;
-		   uwsgi.workers[uwsgi.mywid].user_harakiri = 0;
-		   uwsgi.workers[uwsgi.mywid].rss_size = 0;
-		   uwsgi.workers[uwsgi.mywid].vsz_size = 0;
-		 */
+			uwsgi.workers[uwsgi.mywid].harakiri = 0;
+			uwsgi.workers[uwsgi.mywid].user_harakiri = 0;
+			uwsgi.workers[uwsgi.mywid].rss_size = 0;
+			uwsgi.workers[uwsgi.mywid].vsz_size = 0;
+		*/
 		// do not reset worker counters on reload !!!
 		//uwsgi.workers[uwsgi.mywid].requests = 0;
 		// ...but maintain a delta counter (yes this is racy in multithread)
@@ -694,12 +693,12 @@ int uwsgi_respawn_worker(int wid) {
 		//uwsgi.workers[uwsgi.mywid].last_spawn = uwsgi.current_time;
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
 		/*
-		   uwsgi.workers[uwsgi.mywid].cheaped = 0;
-		   uwsgi.workers[uwsgi.mywid].suspended = 0;
-		   uwsgi.workers[uwsgi.mywid].sig = 0;
-		 */
+			uwsgi.workers[uwsgi.mywid].cheaped = 0;
+			uwsgi.workers[uwsgi.mywid].suspended = 0;
+			uwsgi.workers[uwsgi.mywid].sig = 0;
+		*/
 
-		// reset the apps count with a copy from the master 
+		// reset the apps count with a copy from the master
 		uwsgi.workers[uwsgi.mywid].apps_cnt = uwsgi.workers[0].apps_cnt;
 
 		// reset wsgi_request structures
@@ -857,22 +856,22 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 
 	if (uwsgi.caches) {
 
-		
+
 		if (uwsgi_stats_key(us, "caches"))
-                goto end;
+		goto end;
 
 		if (uwsgi_stats_list_open(us)) goto end;
 
 		struct uwsgi_cache *uc = uwsgi.caches;
 		while(uc) {
 			if (uwsgi_stats_object_open(us))
-                        	goto end;
+				goto end;
 
 			if (uwsgi_stats_keyval_comma(us, "name", uc->name ? uc->name : "default"))
-                        	goto end;
+				goto end;
 
 			if (uwsgi_stats_keyval_comma(us, "hash", uc->hash->name))
-                        	goto end;
+				goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "hashsize", (unsigned long long) uc->hashsize))
 				goto end;
@@ -923,7 +922,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 
 	if (uwsgi.has_metrics && !uwsgi.stats_no_metrics) {
 		if (uwsgi_stats_key(us, "metrics"))
-                	goto end;
+			goto end;
 
 		if (uwsgi_stats_object_open(us))
 			goto end;
@@ -931,52 +930,52 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		uwsgi_rlock(uwsgi.metrics_lock);
 		struct uwsgi_metric *um = uwsgi.metrics;
 		while(um) {
-        		int64_t um_val = *um->value;
+			int64_t um_val = *um->value;
 
 			if (uwsgi_stats_key(us, um->name)) {
 				uwsgi_rwunlock(uwsgi.metrics_lock);
-                		goto end;
+				goto end;
 			}
 
 			if (uwsgi_stats_object_open(us)) {
 				uwsgi_rwunlock(uwsgi.metrics_lock);
-                                goto end;
+				goto end;
 			}
 
 			if (uwsgi_stats_keylong(us, "type", (long long) um->type)) {
-        			uwsgi_rwunlock(uwsgi.metrics_lock);
+				uwsgi_rwunlock(uwsgi.metrics_lock);
 				goto end;
-			} 
+			}
 
 			if (uwsgi_stats_comma(us)) {
-        			uwsgi_rwunlock(uwsgi.metrics_lock);
+				uwsgi_rwunlock(uwsgi.metrics_lock);
 				goto end;
 			}
 
 			if (uwsgi_stats_keyval_comma(us, "oid", um->oid ? um->oid : "")) {
-                                uwsgi_rwunlock(uwsgi.metrics_lock);
-                                goto end;
-                        }
+				uwsgi_rwunlock(uwsgi.metrics_lock);
+				goto end;
+			}
 
 			if (uwsgi_stats_keyslong(us, "value", (long long) um_val)) {
-        			uwsgi_rwunlock(uwsgi.metrics_lock);
+				uwsgi_rwunlock(uwsgi.metrics_lock);
 				goto end;
-			} 
+			}
 
 			if (uwsgi_stats_object_close(us)) {
-                                uwsgi_rwunlock(uwsgi.metrics_lock);
-                                goto end;
-                        }
+				uwsgi_rwunlock(uwsgi.metrics_lock);
+				goto end;
+			}
 
 			um = um->next;
 			if (um) {
 				if (uwsgi_stats_comma(us)) {
-        				uwsgi_rwunlock(uwsgi.metrics_lock);
+					uwsgi_rwunlock(uwsgi.metrics_lock);
 					goto end;
 				}
 			}
 		}
-        	uwsgi_rwunlock(uwsgi.metrics_lock);
+		uwsgi_rwunlock(uwsgi.metrics_lock);
 
 		if (uwsgi_stats_object_close(us))
 			goto end;
@@ -1196,7 +1195,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 				goto end;
 
 			if (uwsgi_stats_list_open(us))
-                        	goto end;
+				goto end;
 
 			if (uwsgi_stats_dump_vars(us, uc)) goto end;
 
@@ -1379,29 +1378,29 @@ nocores:
 
 			// legion nodes start
 			if (uwsgi_stats_key(us, "nodes"))
-                                goto end;
+				goto end;
 
-                        if (uwsgi_stats_list_open(us))
-                                goto end;
+			if (uwsgi_stats_list_open(us))
+				goto end;
 
-                        struct uwsgi_string_list *nodes = legion->nodes;
-                        while (nodes) {
+			struct uwsgi_string_list *nodes = legion->nodes;
+			while (nodes) {
 
 				if (uwsgi_stats_str(us, nodes->value))
-                                	goto end;
+					goto end;
 
-                                nodes = nodes->next;
-                                if (nodes) {
-                                        if (uwsgi_stats_comma(us))
-                                                goto end;
-                                }
-                        }
+				nodes = nodes->next;
+				if (nodes) {
+					if (uwsgi_stats_comma(us))
+						goto end;
+				}
+			}
 
 			if (uwsgi_stats_list_close(us))
 				goto end;
 
-                        if (uwsgi_stats_comma(us))
-                        	goto end;
+			if (uwsgi_stats_comma(us))
+				goto end;
 
 
 			// legion members start
@@ -1569,7 +1568,7 @@ void trigger_harakiri(int i) {
 void uwsgi_master_fix_request_counters() {
 	int i;
 	uint64_t total_counter = 0;
-        for (i = 1; i <= uwsgi.numproc;i++) {
+	for (i = 1; i <= uwsgi.numproc;i++) {
 		uint64_t tmp_counter = 0;
 		int j;
 		for(j=0;j<uwsgi.cores;j++) {
@@ -1691,7 +1690,7 @@ void uwsgi_cheaper_increase() {
 }
 
 void uwsgi_cheaper_decrease() {
-        uwsgi.cheaper_fifo_delta--;
+	uwsgi.cheaper_fifo_delta--;
 }
 
 void uwsgi_go_cheap() {
@@ -1700,75 +1699,75 @@ void uwsgi_go_cheap() {
 	if (uwsgi.status.is_cheap) return;
 	uwsgi_log_verbose("going cheap...\n");
 	uwsgi.status.is_cheap = 1;
-                for (i = 1; i <= uwsgi.numproc; i++) {
-                        uwsgi.workers[i].cheaped = 1;
+		for (i = 1; i <= uwsgi.numproc; i++) {
+			uwsgi.workers[i].cheaped = 1;
 			uwsgi.workers[i].rss_size = 0;
-        		uwsgi.workers[i].vsz_size = 0;
-                        if (uwsgi.workers[i].pid == 0)
-                                continue;
+			uwsgi.workers[i].vsz_size = 0;
+			if (uwsgi.workers[i].pid == 0)
+				continue;
 			uwsgi_log("killing worker %d (pid: %d)\n", i, (int) uwsgi.workers[i].pid);
-                        kill(uwsgi.workers[i].pid, SIGKILL);
-                        if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
-                                if (errno != ECHILD)
-                                        uwsgi_error("uwsgi_go_cheap()/waitpid()");
-                        }
-                }
-                uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
-                uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
+			kill(uwsgi.workers[i].pid, SIGKILL);
+			if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
+				if (errno != ECHILD)
+					uwsgi_error("uwsgi_go_cheap()/waitpid()");
+			}
+		}
+		uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
+		uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
 }
 
 #ifdef __linux__
 void uwsgi_setns_preopen() {
 	struct dirent *de;
-        DIR *ns = opendir("/proc/self/ns");
-        if (!ns) {
-                uwsgi_error("uwsgi_setns_preopen()/opendir()");
+	DIR *ns = opendir("/proc/self/ns");
+	if (!ns) {
+		uwsgi_error("uwsgi_setns_preopen()/opendir()");
 		exit(1);
-        }
-        while ((de = readdir(ns)) != NULL) {
-                if (strlen(de->d_name) > 0 && de->d_name[0] == '.') continue;
+	}
+	while ((de = readdir(ns)) != NULL) {
+		if (strlen(de->d_name) > 0 && de->d_name[0] == '.') continue;
 		if (!strcmp(de->d_name, "user")) continue;
-                struct uwsgi_string_list *usl = NULL;
-                int found = 0;
-                uwsgi_foreach(usl, uwsgi.setns_socket_skip) {
-                        if (!strcmp(de->d_name, usl->value)) {
-                                found = 1;
-                                break;
-                        }
-                }
-                if (found) continue;
-                char *filename = uwsgi_concat2("/proc/self/ns/", de->d_name);
-                uwsgi.setns_fds[uwsgi.setns_fds_count] = open(filename, O_RDONLY);
-                if (uwsgi.setns_fds[uwsgi.setns_fds_count] < 0) {
-                        uwsgi_error_open(filename);
-                        free(filename);
+		struct uwsgi_string_list *usl = NULL;
+		int found = 0;
+		uwsgi_foreach(usl, uwsgi.setns_socket_skip) {
+			if (!strcmp(de->d_name, usl->value)) {
+				found = 1;
+				break;
+			}
+		}
+		if (found) continue;
+		char *filename = uwsgi_concat2("/proc/self/ns/", de->d_name);
+		uwsgi.setns_fds[uwsgi.setns_fds_count] = open(filename, O_RDONLY);
+		if (uwsgi.setns_fds[uwsgi.setns_fds_count] < 0) {
+			uwsgi_error_open(filename);
+			free(filename);
 			exit(1);
-                }
-                free(filename);
-                uwsgi.setns_fds_count++;
-        }
+		}
+		free(filename);
+		uwsgi.setns_fds_count++;
+	}
 	closedir(ns);
 }
 void uwsgi_master_manage_setns(int fd) {
 
-        struct sockaddr_un snsun;
-        socklen_t snsun_len = sizeof(struct sockaddr_un);
+	struct sockaddr_un snsun;
+	socklen_t snsun_len = sizeof(struct sockaddr_un);
 
-        int setns_client = accept(fd, (struct sockaddr *) &snsun, &snsun_len);
-        if (setns_client < 0) {
-                uwsgi_error("uwsgi_master_manage_setns()/accept()");
-                return;
-        }
+	int setns_client = accept(fd, (struct sockaddr *) &snsun, &snsun_len);
+	if (setns_client < 0) {
+		uwsgi_error("uwsgi_master_manage_setns()/accept()");
+		return;
+	}
 
 	int i;
 	int tmp_fds[64];
 	int *fds = tmp_fds;
-        int num_fds = 0;
+	int num_fds = 0;
 
 	struct msghdr sn_msg;
-        void *sn_msg_control;
-        struct iovec sn_iov[2];
-        struct cmsghdr *cmsg;
+	void *sn_msg_control;
+	struct iovec sn_iov[2];
+	struct cmsghdr *cmsg;
 	DIR *ns = NULL;
 
 	if (uwsgi.setns_fds_count) {
@@ -1809,38 +1808,38 @@ void uwsgi_master_manage_setns(int fd) {
 
 send:
 
-        sn_msg_control = uwsgi_malloc(CMSG_SPACE(sizeof(int) * num_fds));
+	sn_msg_control = uwsgi_malloc(CMSG_SPACE(sizeof(int) * num_fds));
 
-        sn_iov[0].iov_base = "uwsgi-setns";
-        sn_iov[0].iov_len = 11;
-        sn_iov[1].iov_base = &num_fds;
-        sn_iov[1].iov_len = sizeof(int);
+	sn_iov[0].iov_base = "uwsgi-setns";
+	sn_iov[0].iov_len = 11;
+	sn_iov[1].iov_base = &num_fds;
+	sn_iov[1].iov_len = sizeof(int);
 
-        sn_msg.msg_name = NULL;
-        sn_msg.msg_namelen = 0;
+	sn_msg.msg_name = NULL;
+	sn_msg.msg_namelen = 0;
 
-        sn_msg.msg_iov = sn_iov;
-        sn_msg.msg_iovlen = 2;
+	sn_msg.msg_iov = sn_iov;
+	sn_msg.msg_iovlen = 2;
 
-        sn_msg.msg_flags = 0;
-        sn_msg.msg_control = sn_msg_control;
-        sn_msg.msg_controllen = CMSG_SPACE(sizeof(int) * num_fds);
+	sn_msg.msg_flags = 0;
+	sn_msg.msg_control = sn_msg_control;
+	sn_msg.msg_controllen = CMSG_SPACE(sizeof(int) * num_fds);
 
-        cmsg = CMSG_FIRSTHDR(&sn_msg);
-        cmsg->cmsg_len = CMSG_LEN(sizeof(int) * num_fds);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
+	cmsg = CMSG_FIRSTHDR(&sn_msg);
+	cmsg->cmsg_len = CMSG_LEN(sizeof(int) * num_fds);
+	cmsg->cmsg_level = SOL_SOCKET;
+	cmsg->cmsg_type = SCM_RIGHTS;
 
-        int *sn_fd_ptr = (int *) CMSG_DATA(cmsg);
+	int *sn_fd_ptr = (int *) CMSG_DATA(cmsg);
 	for(i=0;i<num_fds;i++) {
 		sn_fd_ptr[i] = fds[i];
 	}
 
-        if (sendmsg(setns_client, &sn_msg, 0) < 0) {
-                uwsgi_error("uwsgi_master_manage_setns()/sendmsg()");
-        }
+	if (sendmsg(setns_client, &sn_msg, 0) < 0) {
+		uwsgi_error("uwsgi_master_manage_setns()/sendmsg()");
+	}
 
-        free(sn_msg_control);
+	free(sn_msg_control);
 
 clear:
 	close(setns_client);

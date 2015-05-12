@@ -1,22 +1,22 @@
 /*
 
-        uWSGI rbtree implementation based on nginx
+	uWSGI rbtree implementation based on nginx
 
-        Copyright (C) Igor Sysoev
-        Copyright (C) Nginx, Inc.
-        Copyright (C) Unbit S.a.s.
+	Copyright (C) Igor Sysoev
+	Copyright (C) Nginx, Inc.
+	Copyright (C) Unbit S.a.s.
 
-        The red-black tree code is based on the algorithm described in
-        the "Introduction to Algorithms" by Cormen, Leiserson and Rivest.
+	The red-black tree code is based on the algorithm described in
+	the "Introduction to Algorithms" by Cormen, Leiserson and Rivest.
 */
 
 #include <uwsgi.h>
 
-#define uwsgi_rbt_red(node)               ((node)->color = 1)
-#define uwsgi_rbt_black(node)             ((node)->color = 0)
-#define uwsgi_rbt_is_red(node)            ((node)->color)
-#define uwsgi_rbt_is_black(node)          (!uwsgi_rbt_is_red(node))
-#define uwsgi_rbt_copy_color(n1, n2)      (n1->color = n2->color)
+#define uwsgi_rbt_red(node)				((node)->color = 1)
+#define uwsgi_rbt_black(node)			((node)->color = 0)
+#define uwsgi_rbt_is_red(node)			((node)->color)
+#define uwsgi_rbt_is_black(node)		(!uwsgi_rbt_is_red(node))
+#define uwsgi_rbt_copy_color(n1, n2)	(n1->color = n2->color)
 
 
 struct uwsgi_rbtree *uwsgi_init_rb_timer() {
@@ -107,21 +107,21 @@ static void uwsgi_rbtree_rr(struct uwsgi_rb_timer **root, struct uwsgi_rb_timer 
 
 
 static void uwsgi_rbt_add(struct uwsgi_rb_timer *temp, struct uwsgi_rb_timer *node, struct uwsgi_rb_timer *sentinel) {
-        struct uwsgi_rb_timer **p;
+	struct uwsgi_rb_timer **p;
 
-        for (;;) {
+	for (;;) {
 
-                p = (node->value < temp->value) ? &temp->left : &temp->right;
-                if (*p == sentinel)
-                        break;
-                temp = *p;
-        }
+		p = (node->value < temp->value) ? &temp->left : &temp->right;
+		if (*p == sentinel)
+			break;
+		temp = *p;
+	}
 
-        *p = node;
-        node->parent = temp;
-        node->left = sentinel;
-        node->right = sentinel;
-        uwsgi_rbt_red(node);
+	*p = node;
+	node->parent = temp;
+	node->left = sentinel;
+	node->right = sentinel;
+	uwsgi_rbt_red(node);
 }
 
 

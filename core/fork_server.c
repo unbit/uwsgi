@@ -47,20 +47,20 @@ void uwsgi_fork_server(char *socket) {
 		if (rlen <= 0) continue;
 		if (uwsgi.has_emperor && interesting_fd == uwsgi.emperor_fd) {
 			char byte;
-        		ssize_t rlen = read(uwsgi.emperor_fd, &byte, 1);
-        		if (rlen > 0) {
-                		uwsgi_log_verbose("received message %d from emperor\n", byte);
+			ssize_t rlen = read(uwsgi.emperor_fd, &byte, 1);
+			if (rlen > 0) {
+				uwsgi_log_verbose("received message %d from emperor\n", byte);
 			}
 			exit(0);
 		}
 		if (interesting_fd != fd) continue;
 		struct sockaddr_un client_src;
-        	socklen_t client_src_len = 0;
-        	int client_fd = accept(fd, (struct sockaddr *) &client_src, &client_src_len);
-        	if (client_fd < 0) {
-                	uwsgi_error("uwsgi_fork_server()/accept()");
+		socklen_t client_src_len = 0;
+		int client_fd = accept(fd, (struct sockaddr *) &client_src, &client_src_len);
+		if (client_fd < 0) {
+			uwsgi_error("uwsgi_fork_server()/accept()");
 			continue;
-        	}
+		}
 		char hbuf[4];
 		pid_t ppid = -1;
 		uid_t uid = -1;
@@ -77,7 +77,7 @@ void uwsgi_fork_server(char *socket) {
 			goto end;
 		}
 		remains -= len;
-	
+
 		if (uwsgi_read_nb(client_fd, hbuf + (4-remains), remains, uwsgi.socket_timeout)) {
 			uwsgi_error("uwsgi_fork_server()/uwsgi_read_nb()");
 			goto end;
@@ -88,9 +88,9 @@ void uwsgi_fork_server(char *socket) {
 		char *body_argv = uwsgi_malloc(uh->_pktsize);
 		if (uwsgi_read_nb(client_fd, body_argv, uh->_pktsize, uwsgi.socket_timeout)) {
 			free(body_argv);
-                        uwsgi_error("uwsgi_fork_server()/uwsgi_read_nb()");
-                        goto end;
-                }
+			uwsgi_error("uwsgi_fork_server()/uwsgi_read_nb()");
+			goto end;
+		}
 
 		pid_t pid = fork();
 		if (pid < 0) {
@@ -99,11 +99,11 @@ void uwsgi_fork_server(char *socket) {
 			for(i=0;i<fds_count;i++) close(fds[i]);
 			// error on fork()
 			uwsgi_error("uwsgi_fork_server()/fork()");
-			goto end;		
+			goto end;
 		}
 		else if (pid > 0) {
 			free(body_argv);
-			// close inherited decriptors 
+			// close inherited decriptors
 			int i;
 			for(i=0;i<fds_count;i++) close(fds[i]);
 			// wait for child death...
@@ -118,26 +118,26 @@ void uwsgi_fork_server(char *socket) {
 				close(uwsgi.emperor_fd);
 				if (uwsgi.emperor_fd_config > -1) close(uwsgi.emperor_fd_config);
 			}
-			
-			// set EMPEROR_FD and FD_CONFIG env vars	
+
+			// set EMPEROR_FD and FD_CONFIG env vars
 			char *uef = uwsgi_num2str(fds[0]);
-        		if (setenv("UWSGI_EMPEROR_FD", uef, 1)) {
-                		uwsgi_error("uwsgi_fork_server()/setenv()");
-                		exit(1);
-        		}
-        		free(uef);
+			if (setenv("UWSGI_EMPEROR_FD", uef, 1)) {
+				uwsgi_error("uwsgi_fork_server()/setenv()");
+				exit(1);
+			}
+			free(uef);
 
 			int pipe_config = -1;
 			int on_demand = -1;
 
 			if (uh->modifier2 & VASSAL_HAS_CONFIG && fds_count > 1) {
-				pipe_config = fds[1];	
+				pipe_config = fds[1];
 				char *uef = uwsgi_num2str(pipe_config);
 				if (setenv("UWSGI_EMPEROR_FD_CONFIG", uef, 1)) {
-                                	uwsgi_error("uwsgi_fork_server()/setenv()");
-                                	exit(1);
-                        	}
-                        	free(uef);
+					uwsgi_error("uwsgi_fork_server()/setenv()");
+					exit(1);
+				}
+				free(uef);
 			}
 
 			if (uh->modifier2 & VASSAL_HAS_ON_DEMAND && fds_count > 1) {
@@ -162,7 +162,7 @@ void uwsgi_fork_server(char *socket) {
 			// now fork again and die
 			pid_t new_pid = fork();
 			if (new_pid < 0) {
-                        	uwsgi_error("uwsgi_fork_server()/fork()");
+				uwsgi_error("uwsgi_fork_server()/fork()");
 				exit(1);
 			}
 			else if (new_pid > 0) {
@@ -173,9 +173,9 @@ void uwsgi_fork_server(char *socket) {
 				struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
 				// leave space for header
 				ub->pos = 4;
-				if (uwsgi_buffer_append_keynum(ub, "pid", 3, getpid())) exit(1); 
+				if (uwsgi_buffer_append_keynum(ub, "pid", 3, getpid())) exit(1);
 				// fix uwsgi header
-        			if (uwsgi_buffer_set_uh(ub, 35, 0)) goto end;
+				if (uwsgi_buffer_set_uh(ub, 35, 0)) goto end;
 				// send_pid()
 				if (uwsgi_write_nb(client_fd, ub->buf, ub->pos, uwsgi.socket_timeout)) exit(1);
 				close(client_fd);
@@ -197,7 +197,7 @@ void uwsgi_fork_server(char *socket) {
 				}
 
 				char *new_procname = uwsgi_calloc(procname_len);
-				
+
 				uwsgi.new_argv = uwsgi_calloc(sizeof(char *) * (uwsgi.new_argc + 1));
 				int counter = 0;
 				uwsgi_foreach(usl, usl_argv) {
@@ -218,10 +218,10 @@ void uwsgi_fork_server(char *socket) {
 				// continue with uWSGI startup
 				return;
 			}
-		}	
+		}
 
 end:
 		close(client_fd);
-		
+
 	}
 }

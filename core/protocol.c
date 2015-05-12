@@ -4,17 +4,17 @@ extern struct uwsgi_server uwsgi;
 
 // this is like uwsgi_str_num but with security checks
 static size_t get_content_length(char *buf, uint16_t size) {
-        int i;
-        size_t val = 0;
-        for (i = 0; i < size; i++) {
-                if (buf[i] >= '0' && buf[i] <= '9') {
-                        val = (val * 10) + (buf[i] - '0');
-                        continue;
-                }
-                break;
-        }
+	int i;
+	size_t val = 0;
+	for (i = 0; i < size; i++) {
+		if (buf[i] >= '0' && buf[i] <= '9') {
+			val = (val * 10) + (buf[i] - '0');
+			continue;
+		}
+		break;
+	}
 
-        return val;
+	return val;
 }
 
 
@@ -314,7 +314,7 @@ static int uwsgi_proto_check_11(struct wsgi_request *wsgi_req, char *key, char *
 
 	if (wsgi_req->remote_addr_len == 0 && !uwsgi_proto_key("REMOTE_ADDR", 11)) {
 		wsgi_req->remote_addr = buf;
-                wsgi_req->remote_addr_len = len;
+		wsgi_req->remote_addr_len = len;
 		return 0;
 	}
 
@@ -338,10 +338,10 @@ static int uwsgi_proto_check_11(struct wsgi_request *wsgi_req, char *key, char *
 	}
 
 	if (!uwsgi_proto_key("HTTP_ORIGIN", 11)) {
-                wsgi_req->http_origin = buf;
-                wsgi_req->http_origin_len = len;
-                return 0;
-        }
+		wsgi_req->http_origin = buf;
+		wsgi_req->http_origin_len = len;
+		return 0;
+	}
 
 	return 0;
 }
@@ -360,10 +360,10 @@ static int uwsgi_proto_check_12(struct wsgi_request *wsgi_req, char *key, char *
 	}
 
 	if (!uwsgi_proto_key("HTTP_REFERER", 12)) {
-                wsgi_req->referer = buf;
-                wsgi_req->referer_len = len;
-                return 0;
-        }
+		wsgi_req->referer = buf;
+		wsgi_req->referer_len = len;
+		return 0;
+	}
 
 	if (!uwsgi_proto_key("UWSGI_SCHEME", 12)) {
 		wsgi_req->scheme = buf;
@@ -502,7 +502,7 @@ static int uwsgi_proto_check_20(struct wsgi_request *wsgi_req, char *key, char *
 
 	if (!uwsgi_proto_key("HTTP_X_FORWARDED_SSL", 20)) {
 		wsgi_req->https = buf;
-                wsgi_req->https_len = len;
+		wsgi_req->https_len = len;
 	}
 
 	if (!uwsgi_proto_key("HTTP_ACCEPT_ENCODING", 20)) {
@@ -528,22 +528,22 @@ static int uwsgi_proto_check_22(struct wsgi_request *wsgi_req, char *key, char *
 	}
 
 	if (!uwsgi_proto_key("HTTP_X_FORWARDED_PROTO", 22)) {
-                wsgi_req->scheme = buf;
-                wsgi_req->scheme_len = len;
-        }
+		wsgi_req->scheme = buf;
+		wsgi_req->scheme_len = len;
+	}
 
 	return 0;
 }
 
 static int uwsgi_proto_check_27(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
 
-        if (!uwsgi_proto_key("HTTP_SEC_WEBSOCKET_PROTOCOL", 27)) {
-                wsgi_req->http_sec_websocket_protocol = buf;
-                wsgi_req->http_sec_websocket_protocol_len = len;
-                return 0;
-        }
+	if (!uwsgi_proto_key("HTTP_SEC_WEBSOCKET_PROTOCOL", 27)) {
+		wsgi_req->http_sec_websocket_protocol = buf;
+		wsgi_req->http_sec_websocket_protocol_len = len;
+		return 0;
+	}
 
-        return 0;
+	return 0;
 }
 
 
@@ -947,34 +947,34 @@ int uwsgi_hooked_parse(char *buffer, size_t len, void (*hook) (char *, uint16_t,
 
 int uwsgi_hooked_parse_array(char *buffer, size_t len, void (*hook) (uint16_t, char *, uint16_t, void *), void *data) {
 
-        char *ptrbuf, *bufferend;
-        uint16_t valsize = 0;
-        char *value;
+	char *ptrbuf, *bufferend;
+	uint16_t valsize = 0;
+	char *value;
 	uint16_t pos = 0;
 
-        ptrbuf = buffer;
-        bufferend = buffer + len;
+	ptrbuf = buffer;
+	bufferend = buffer + len;
 
-        while (ptrbuf < bufferend) {
-                if (ptrbuf + 2 > bufferend)
-                        return -1;
-                memcpy(&valsize, ptrbuf, 2);
+	while (ptrbuf < bufferend) {
+		if (ptrbuf + 2 > bufferend)
+			return -1;
+		memcpy(&valsize, ptrbuf, 2);
 #ifdef __BIG_ENDIAN__
-                valsize = uwsgi_swap16(valsize);
+		valsize = uwsgi_swap16(valsize);
 #endif
-                ptrbuf += 2;
-                if (ptrbuf + valsize > bufferend)
-                        return -1;
+		ptrbuf += 2;
+		if (ptrbuf + valsize > bufferend)
+			return -1;
 
-                // key
-                value = ptrbuf;
-                // now call the hook
-                hook(pos, value, valsize, data);
-                ptrbuf += valsize;
+		// key
+		value = ptrbuf;
+		// now call the hook
+		hook(pos, value, valsize, data);
+		ptrbuf += valsize;
 		pos++;
-        }
+	}
 
-        return 0;
+	return 0;
 
 }
 
@@ -1056,7 +1056,7 @@ char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen
 	}
 
 	if (wsgi_req->var_cnt >= uwsgi.vec_size - (4 + 2)) {
-        	uwsgi_log("max vec size reached. skip this header.\n");
+		uwsgi_log("max vec size reached. skip this header.\n");
 		return NULL;
 	}
 
@@ -1067,7 +1067,7 @@ char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen
 
 	memcpy(ptr, key, keylen);
 	wsgi_req->hvec[wsgi_req->var_cnt].iov_base = ptr;
-        wsgi_req->hvec[wsgi_req->var_cnt].iov_len = keylen;
+	wsgi_req->hvec[wsgi_req->var_cnt].iov_len = keylen;
 	wsgi_req->var_cnt++;
 	ptr += keylen;
 
@@ -1078,7 +1078,7 @@ char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen
 
 	memcpy(ptr, val, vallen);
 	wsgi_req->hvec[wsgi_req->var_cnt].iov_base = ptr;
-        wsgi_req->hvec[wsgi_req->var_cnt].iov_len = vallen;
+	wsgi_req->hvec[wsgi_req->var_cnt].iov_len = vallen;
 	wsgi_req->var_cnt++;
 
 	wsgi_req->len += (2 + keylen + 2 + vallen);
@@ -1089,12 +1089,12 @@ char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen
 int uwsgi_req_append_path_info_with_index(struct wsgi_request *wsgi_req, char *index, uint16_t index_len) {
 
 	if (!wsgi_req->proto_parser_buf) {
-                if (wsgi_req->proto_parser_remains > 0) {
-                        wsgi_req->proto_parser_buf = uwsgi_malloc(wsgi_req->proto_parser_remains);
-                        memcpy(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_remains_buf, wsgi_req->proto_parser_remains);
-                        wsgi_req->proto_parser_remains_buf = wsgi_req->proto_parser_buf;
-                }
-        }
+		if (wsgi_req->proto_parser_remains > 0) {
+			wsgi_req->proto_parser_buf = uwsgi_malloc(wsgi_req->proto_parser_remains);
+			memcpy(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_remains_buf, wsgi_req->proto_parser_remains);
+			wsgi_req->proto_parser_remains_buf = wsgi_req->proto_parser_buf;
+		}
+	}
 
 	uint8_t need_slash = 0;
 	if (wsgi_req->path_info_len > 0) {
@@ -1107,28 +1107,28 @@ int uwsgi_req_append_path_info_with_index(struct wsgi_request *wsgi_req, char *i
 
 	// 2 + 9 + 2
 	if ((wsgi_req->len + (13 + wsgi_req->path_info_len)) > uwsgi.buffer_size) {
-                uwsgi_log("not enough buffer space to transform the PATH_INFO variable, consider increasing it with the --buffer-size option\n");
-                return -1;
-        }
+		uwsgi_log("not enough buffer space to transform the PATH_INFO variable, consider increasing it with the --buffer-size option\n");
+		return -1;
+	}
 
 	if (wsgi_req->var_cnt >= uwsgi.vec_size - (4 + 2)) {
-                uwsgi_log("max vec size reached for PATH_INFO + index. skip this request.\n");
-                return -1;
-        }
+		uwsgi_log("max vec size reached for PATH_INFO + index. skip this request.\n");
+		return -1;
+	}
 
 	uint16_t keylen = 9;
 	char *ptr = wsgi_req->buffer + wsgi_req->len;
 	*ptr++ = (uint8_t) (keylen & 0xff);
-        *ptr++ = (uint8_t) ((keylen >> 8) & 0xff);
+	*ptr++ = (uint8_t) ((keylen >> 8) & 0xff);
 
 	memcpy(ptr, "PATH_INFO", keylen);
 	wsgi_req->hvec[wsgi_req->var_cnt].iov_base = ptr;
 	wsgi_req->hvec[wsgi_req->var_cnt].iov_len = keylen;
 	wsgi_req->var_cnt++;
-        ptr += keylen;
+	ptr += keylen;
 
 	*ptr++ = (uint8_t) (wsgi_req->path_info_len & 0xff);
-        *ptr++ = (uint8_t) ((wsgi_req->path_info_len >> 8) & 0xff);
+	*ptr++ = (uint8_t) ((wsgi_req->path_info_len >> 8) & 0xff);
 
 	char *new_path_info = ptr;
 
@@ -1140,8 +1140,8 @@ int uwsgi_req_append_path_info_with_index(struct wsgi_request *wsgi_req, char *i
 	memcpy(ptr, index, index_len);
 
 	wsgi_req->hvec[wsgi_req->var_cnt].iov_base = new_path_info;
-        wsgi_req->hvec[wsgi_req->var_cnt].iov_len = wsgi_req->path_info_len;
-        wsgi_req->var_cnt++;
+	wsgi_req->hvec[wsgi_req->var_cnt].iov_len = wsgi_req->path_info_len;
+	wsgi_req->var_cnt++;
 
 	wsgi_req->len += 13 + wsgi_req->path_info_len;
 	wsgi_req->path_info = new_path_info;

@@ -3,56 +3,56 @@
 extern struct uwsgi_server uwsgi;
 
 struct http_status_codes {
-        const char      key[3];
-        const char      *message;
-        int             message_size;
+	const char	key[3];
+	const char	*message;
+	int			message_size;
 };
 
 /* statistically ordered */
 struct http_status_codes hsc[] = {
-        {"200", "OK"},
-        {"302", "Found"},
-        {"404", "Not Found"},
-        {"500", "Internal Server Error"},
-        {"301", "Moved Permanently"},
-        {"304", "Not Modified"},
-        {"303", "See Other"},
-        {"403", "Forbidden"},
-        {"307", "Temporary Redirect"},
-        {"401", "Unauthorized"},
-        {"400", "Bad Request"},
-        {"405", "Method Not Allowed"},
-        {"408", "Request Timeout"},
+	{"200", "OK"},
+	{"302", "Found"},
+	{"404", "Not Found"},
+	{"500", "Internal Server Error"},
+	{"301", "Moved Permanently"},
+	{"304", "Not Modified"},
+	{"303", "See Other"},
+	{"403", "Forbidden"},
+	{"307", "Temporary Redirect"},
+	{"401", "Unauthorized"},
+	{"400", "Bad Request"},
+	{"405", "Method Not Allowed"},
+	{"408", "Request Timeout"},
 
-        {"100", "Continue"},
-        {"101", "Switching Protocols"},
-        {"201", "Created"},
-        {"202", "Accepted"},
-        {"203", "Non-Authoritative Information"},
-        {"204", "No Content"},
-        {"205", "Reset Content"},
-        {"206", "Partial Content"},
-        {"300", "Multiple Choices"},
-        {"305", "Use Proxy"},
-        {"402", "Payment Required"},
-        {"406", "Not Acceptable"},
-        {"407", "Proxy Authentication Required"},
-        {"409", "Conflict"},
-        {"410", "Gone"},
-        {"411", "Length Required"},
-        {"412", "Precondition Failed"},
-        {"413", "Request Entity Too Large"},
-        {"414", "Request-URI Too Long"},
-        {"415", "Unsupported Media Type"},
-        {"416", "Requested Range Not Satisfiable"},
-        {"417", "Expectation Failed"},
-        {"501", "Not Implemented"},
-        {"502", "Bad Gateway"},
-        {"503", "Service Unavailable"},
-        {"504", "Gateway Timeout"},
-        {"505", "HTTP Version Not Supported"},
-        {"509", "Bandwidth Limit Exceeded"},
-        {"", NULL},
+	{"100", "Continue"},
+	{"101", "Switching Protocols"},
+	{"201", "Created"},
+	{"202", "Accepted"},
+	{"203", "Non-Authoritative Information"},
+	{"204", "No Content"},
+	{"205", "Reset Content"},
+	{"206", "Partial Content"},
+	{"300", "Multiple Choices"},
+	{"305", "Use Proxy"},
+	{"402", "Payment Required"},
+	{"406", "Not Acceptable"},
+	{"407", "Proxy Authentication Required"},
+	{"409", "Conflict"},
+	{"410", "Gone"},
+	{"411", "Length Required"},
+	{"412", "Precondition Failed"},
+	{"413", "Request Entity Too Large"},
+	{"414", "Request-URI Too Long"},
+	{"415", "Unsupported Media Type"},
+	{"416", "Requested Range Not Satisfiable"},
+	{"417", "Expectation Failed"},
+	{"501", "Not Implemented"},
+	{"502", "Bad Gateway"},
+	{"503", "Service Unavailable"},
+	{"504", "Gateway Timeout"},
+	{"505", "HTTP Version Not Supported"},
+	{"509", "Bandwidth Limit Exceeded"},
+	{"", NULL},
 };
 
 
@@ -161,9 +161,9 @@ void uwsgi_init_default() {
 
 	// filling http status codes
 	struct http_status_codes *http_sc;
-        for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-                http_sc->message_size = strlen(http_sc->message);
-        }
+	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
+		http_sc->message_size = strlen(http_sc->message);
+	}
 
 	uwsgi.empty = "";
 
@@ -177,7 +177,7 @@ void uwsgi_init_default() {
 	uwsgi.wait_read2_hook = uwsgi_simple_wait_read2_hook;
 
 	uwsgi_websockets_init();
-	
+
 	// 1 MB default limit
 	uwsgi.chunked_input_limit = 1024*1024;
 
@@ -376,7 +376,7 @@ void uwsgi_setup_workers() {
 		uwsgi_log("mapped %llu bytes (%llu KB) for %d cores\n", (unsigned long long) total_memory, (unsigned long long) (total_memory / 1024), uwsgi.cores * uwsgi.numproc);
 
 	// allocate signal table
-        uwsgi.shared->signal_table = uwsgi_calloc_shared(sizeof(struct uwsgi_signal_entry) * 256 * (uwsgi.numproc + 1));
+	uwsgi.shared->signal_table = uwsgi_calloc_shared(sizeof(struct uwsgi_signal_entry) * 256 * (uwsgi.numproc + 1));
 
 #ifdef UWSGI_ROUTING
 	uwsgi_fixup_routes(uwsgi.routes);
@@ -420,50 +420,50 @@ pid_t uwsgi_daemonize2() {
 // fix/check related options
 void sanitize_args() {
 
-        if (uwsgi.async > 0) {
-                uwsgi.cores = uwsgi.async;
-        }
+	if (uwsgi.async > 0) {
+		uwsgi.cores = uwsgi.async;
+	}
 
-        if (uwsgi.threads > 1) {
-                uwsgi.has_threads = 1;
-                uwsgi.cores = uwsgi.threads;
-        }
+	if (uwsgi.threads > 1) {
+		uwsgi.has_threads = 1;
+		uwsgi.cores = uwsgi.threads;
+	}
 
-        if (uwsgi.harakiri_options.workers > 0) {
-                if (!uwsgi.post_buffering) {
-                        uwsgi_log(" *** WARNING: you have enabled harakiri without post buffering. Slow upload could be rejected on post-unbuffered webservers *** \n");
-                }
-        }
+	if (uwsgi.harakiri_options.workers > 0) {
+		if (!uwsgi.post_buffering) {
+			uwsgi_log(" *** WARNING: you have enabled harakiri without post buffering. Slow upload could be rejected on post-unbuffered webservers *** \n");
+		}
+	}
 
-        if (uwsgi.write_errors_exception_only) {
-                uwsgi.ignore_sigpipe = 1;
-                uwsgi.ignore_write_errors = 1;
-        }
+	if (uwsgi.write_errors_exception_only) {
+		uwsgi.ignore_sigpipe = 1;
+		uwsgi.ignore_write_errors = 1;
+	}
 
-        if (uwsgi.cheaper_count == 0) uwsgi.cheaper = 0;
+	if (uwsgi.cheaper_count == 0) uwsgi.cheaper = 0;
 
-        if (uwsgi.cheaper_count > 0 && uwsgi.cheaper_count >= uwsgi.numproc) {
-                uwsgi_log("invalid cheaper value: must be lower than processes\n");
-                exit(1);
-        }
+	if (uwsgi.cheaper_count > 0 && uwsgi.cheaper_count >= uwsgi.numproc) {
+		uwsgi_log("invalid cheaper value: must be lower than processes\n");
+		exit(1);
+	}
 
-        if (uwsgi.cheaper && uwsgi.cheaper_count) {
+	if (uwsgi.cheaper && uwsgi.cheaper_count) {
 		if (uwsgi.cheaper_initial) {
-                	if (uwsgi.cheaper_initial < uwsgi.cheaper_count) {
-                        	uwsgi_log("warning: invalid cheaper-initial value (%d), must be equal or higher than cheaper (%d), using %d as initial number of workers\n",
-                                	uwsgi.cheaper_initial, uwsgi.cheaper_count, uwsgi.cheaper_count);
-                        	uwsgi.cheaper_initial = uwsgi.cheaper_count;
-                	}
-                	else if (uwsgi.cheaper_initial > uwsgi.numproc) {
-                        	uwsgi_log("warning: invalid cheaper-initial value (%d), must be lower or equal than worker count (%d), using %d as initial number of workers\n",
-                                	uwsgi.cheaper_initial, uwsgi.numproc, uwsgi.numproc);
-                        	uwsgi.cheaper_initial = uwsgi.numproc;
-                	}
+			if (uwsgi.cheaper_initial < uwsgi.cheaper_count) {
+				uwsgi_log("warning: invalid cheaper-initial value (%d), must be equal or higher than cheaper (%d), using %d as initial number of workers\n",
+					uwsgi.cheaper_initial, uwsgi.cheaper_count, uwsgi.cheaper_count);
+				uwsgi.cheaper_initial = uwsgi.cheaper_count;
+			}
+			else if (uwsgi.cheaper_initial > uwsgi.numproc) {
+				uwsgi_log("warning: invalid cheaper-initial value (%d), must be lower or equal than worker count (%d), using %d as initial number of workers\n",
+					uwsgi.cheaper_initial, uwsgi.numproc, uwsgi.numproc);
+				uwsgi.cheaper_initial = uwsgi.numproc;
+			}
 		}
 		else {
-                        uwsgi.cheaper_initial = uwsgi.cheaper_count;
+			uwsgi.cheaper_initial = uwsgi.cheaper_count;
 		}
-        }
+	}
 
 	if (uwsgi.max_worker_lifetime > 0 && uwsgi.min_worker_lifetime >= uwsgi.max_worker_lifetime) {
 		uwsgi_log("invalid min-worker-lifetime value (%d), must be lower than max-worker-lifetime (%d)\n",
@@ -495,10 +495,10 @@ void sanitize_args() {
 const char *uwsgi_http_status_msg(char *status, uint16_t *len) {
 	struct http_status_codes *http_sc;
 	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-                if (!strncmp(http_sc->key, status, 3)) {
-                        *len = http_sc->message_size;
+		if (!strncmp(http_sc->key, status, 3)) {
+			*len = http_sc->message_size;
 			return http_sc->message;
-                }
-        }
+		}
+	}
 	return NULL;
 }

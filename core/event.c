@@ -42,7 +42,7 @@ static int uwsgi_poll_fd_del(struct uwsgi_poll_event *upe, int fd) {
 	for(i=0;i<upe->nevents;i++) {
 		if (upe->poll[i].fd == fd) {
 			if (i < upe->nevents-1) {
-				memcpy(&upe->poll[i], &upe->poll[i+1], sizeof(struct uwsgi_poll_event) * (upe->nevents - (i+1))); 
+				memcpy(&upe->poll[i], &upe->poll[i+1], sizeof(struct uwsgi_poll_event) * (upe->nevents - (i+1)));
 			}
 			upe->nevents--;
 			return 0;
@@ -99,10 +99,10 @@ void *event_queue_alloc(int nevents) {
 
 int event_queue_interesting_fd_is_read(void *events, int id) {
 	struct pollfd *pevents = (struct pollfd *)events;
-        struct pollfd *upoll = &pevents[id];
-        if (upoll->revents & POLLIN) {
+	struct pollfd *upoll = &pevents[id];
+	if (upoll->revents & POLLIN) {
 		return 1;
-	}	
+	}
 	return 0;
 }
 
@@ -116,7 +116,7 @@ int event_queue_fd_write_to_readwrite(int eq, int fd) {
 			pthread_mutex_unlock(&upe->lock);
 			return 0;
 		}
-	}	
+	}
 	pthread_mutex_unlock(&upe->lock);
 	return -1;
 }
@@ -127,11 +127,11 @@ int event_queue_fd_read_to_readwrite(int eq, int fd) {
 
 int event_queue_interesting_fd_is_write(void *events, int id) {
 	struct pollfd *pevents = (struct pollfd *)events;
-        struct pollfd *upoll = &pevents[id];
-        if (upoll->revents & POLLOUT) {
-                return 1;
-        }
-        return 0;
+	struct pollfd *upoll = &pevents[id];
+	if (upoll->revents & POLLOUT) {
+		return 1;
+	}
+	return 0;
 }
 
 int event_queue_add_fd_read(int eq, int fd) {
@@ -139,20 +139,20 @@ int event_queue_add_fd_read(int eq, int fd) {
 	pthread_mutex_lock(&upe->lock);
 	if (uwsgi_poll_fd_is_registered(upe, fd)) {
 		pthread_mutex_unlock(&upe->lock);
-		return 0;	
+		return 0;
 	}
 	int ret = uwsgi_poll_fd_add(upe, fd, POLLIN);
 	pthread_mutex_unlock(&upe->lock);
 	return ret;
 }
 int event_queue_add_fd_write(int eq, int fd) {
-        struct uwsgi_poll_event *upe = uwsgi_poll_event_queue[eq];
+	struct uwsgi_poll_event *upe = uwsgi_poll_event_queue[eq];
 	pthread_mutex_lock(&upe->lock);
-        if (uwsgi_poll_fd_is_registered(upe, fd)) {
+	if (uwsgi_poll_fd_is_registered(upe, fd)) {
 		pthread_mutex_unlock(&upe->lock);
 		return 0;
 	}
-        int ret = uwsgi_poll_fd_add(upe, fd, POLLOUT);
+	int ret = uwsgi_poll_fd_add(upe, fd, POLLOUT);
 	pthread_mutex_unlock(&upe->lock);
 	return ret;
 }
@@ -166,25 +166,25 @@ int event_queue_del_fd(int eq, int fd, int event) {
 int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
 	struct uwsgi_poll_event *upe = uwsgi_poll_event_queue[eq];
 	pthread_mutex_lock(&upe->lock);
-        uwsgi_poll_queue_rebuild(upe);
-        int ret = poll(upe->poll, upe->nevents, timeout * 1000);
+	uwsgi_poll_queue_rebuild(upe);
+	int ret = poll(upe->poll, upe->nevents, timeout * 1000);
 	int cnt = 0;
-        if (ret > 0) {
-                int i;
-                for(i=0;i<upe->nevents;i++) {
-                        if (upe->poll[i].revents) {
-				struct pollfd *pevents = (struct pollfd *)events;	
+	if (ret > 0) {
+		int i;
+		for(i=0;i<upe->nevents;i++) {
+			if (upe->poll[i].revents) {
+				struct pollfd *pevents = (struct pollfd *)events;
 				struct pollfd *upoll = &pevents[cnt];
 				upoll->fd = upe->poll[i].fd;
 				upoll->revents = upe->poll[i].revents;
 				upoll->events = upe->poll[i].events;
 				cnt++;
-                        }
-                }
-        }
+			}
+		}
+	}
 	pthread_mutex_unlock(&upe->lock);
 	if (ret <= 0) return ret;
-        return cnt;
+	return cnt;
 }
 int event_queue_interesting_fd_has_error(void *events, int id) {
 	struct pollfd *pevents = (struct pollfd *)events;
@@ -196,7 +196,7 @@ int event_queue_interesting_fd_has_error(void *events, int id) {
 }
 int event_queue_interesting_fd(void *events, int id) {
 	struct pollfd *pevents = (struct pollfd *)events;
-        struct pollfd *upoll = &pevents[id];
+	struct pollfd *upoll = &pevents[id];
 	return upoll->fd;
 }
 int event_queue_fd_write_to_read(int eq, int fd) {
@@ -209,7 +209,7 @@ int event_queue_fd_write_to_read(int eq, int fd) {
 			pthread_mutex_unlock(&upe->lock);
 			return 0;
 		}
-	}	
+	}
 	pthread_mutex_unlock(&upe->lock);
 	return -1;
 }
@@ -223,7 +223,7 @@ int event_queue_fd_read_to_write(int eq, int fd) {
 			pthread_mutex_unlock(&upe->lock);
 			return 0;
 		}
-	}	
+	}
 	pthread_mutex_unlock(&upe->lock);
 	return -1;
 }
@@ -402,7 +402,7 @@ int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
 	int ret;
 	uint_t nget = 1;
 	timespec_t ts;
-	
+
 
 	if (timeout >= 0) {
 		ts.tv_sec = timeout;
@@ -415,10 +415,10 @@ int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
 
 	if (ret < 0) {
 		if (errno == ETIME) return 0;
-                if (errno != EINTR) {
-                        uwsgi_error("port_getn()");
-                }
-                return -1;
+		if (errno != EINTR) {
+			uwsgi_error("port_getn()");
+		}
+		return -1;
 	}
 
 	uint_t i;
@@ -426,11 +426,11 @@ int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
 	for(i=0;i<nget;i++) {
 		port_event_t *pe_i = &pe[i];
 		if (pe_i->portev_source == PORT_SOURCE_FD) {
-                	// event must be readded (damn Oracle/Sun why the fu*k you made such a horrible choice ???? why not adding a ONESHOT flag ???)
-                	if (port_associate(eq, pe_i->portev_source, pe_i->portev_object, pe_i->portev_events, (void *)((long) eq))) {
-                        	uwsgi_error("port_associate");
-                	}
-        	}
+			// event must be readded (damn Oracle/Sun why the fu*k you made such a horrible choice ???? why not adding a ONESHOT flag ???)
+			if (port_associate(eq, pe_i->portev_source, pe_i->portev_object, pe_i->portev_events, (void *)((long) eq))) {
+				uwsgi_error("port_associate");
+			}
+		}
 	}
 
 	return nget;
@@ -1220,7 +1220,7 @@ enum {
 };
 
 
-/* Bits to be set in the FLAGS parameter of `timerfd_settime'.  */
+/* Bits to be set in the FLAGS parameter of `timerfd_settime'. */
 enum {
 	TFD_TIMER_ABSTIME = 1 << 0
 #define TFD_TIMER_ABSTIME TFD_TIMER_ABSTIME

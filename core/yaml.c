@@ -7,9 +7,9 @@ extern struct uwsgi_server uwsgi;
 
 #ifndef UWSGI_LIBYAML
 /*
-   yaml file must be read ALL into memory.
-   This memory must not be freed for all the server lifecycle
-   */
+	yaml file must be read ALL into memory.
+	This memory must not be freed for all the server lifecycle
+*/
 
 void yaml_rstrip(char *line) {
 
@@ -254,7 +254,7 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 			}
 		}
 		else {
-			// get dict value       
+			// get dict value
 			val = strstr(key, ": ");
 			if (!val) {
 				val = strstr(key, ":\t");

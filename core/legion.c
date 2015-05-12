@@ -11,7 +11,6 @@ extern struct uwsgi_server uwsgi;
 	Lord of the Legion. There can only be one (and only one) Lord for each Legion.
 	If a member of a Legion spawns with an higher valor than the current Lord, it became the new Lord.
 
-
 */
 
 struct uwsgi_legion *uwsgi_legion_get_by_socket(int fd) {
@@ -108,9 +107,9 @@ static void legion_rebuild_scrolls(struct uwsgi_legion *ul) {
 			return;
 		}
 		*ptr ++= (uint8_t) (uln->scroll_len & 0xff);
-        	*ptr ++= (uint8_t) ((uln->scroll_len >> 8) &0xff);
-        	memcpy(ptr, uln->scroll, uln->scroll_len); ptr += uln->scroll_len;
-        	ul->scrolls_len += 2 + uln->scroll_len;
+		*ptr ++= (uint8_t) ((uln->scroll_len >> 8) &0xff);
+		memcpy(ptr, uln->scroll, uln->scroll_len); ptr += uln->scroll_len;
+		ul->scrolls_len += 2 + uln->scroll_len;
 		uln = uln->next;
 	}
 }
@@ -259,8 +258,8 @@ uint64_t uwsgi_legion_checksum(struct uwsgi_legion *ul) {
 		nodes = nodes->next;
 	}
 
-	return checksum;	
-	
+	return checksum;
+
 }
 
 static void legions_check_nodes_step2() {
@@ -349,7 +348,7 @@ static void legions_check_nodes_step2() {
 							uwsgi_log("[uwsgi-legion] ERROR, lord hook returned: %d\n", ret);
 							if (uwsgi.legion_death_on_lord_error) {
 								ul->dead = 1;
-                						uwsgi_legion_announce(ul);
+								uwsgi_legion_announce(ul);
 								ul->suspended_til = uwsgi_now() + uwsgi.legion_death_on_lord_error;
 								uwsgi_log("[uwsgi-legion] suspending myself from Legion \"%s\" for %d seconds\n", ul->legion, uwsgi.legion_death_on_lord_error);
 								goto next;
@@ -358,14 +357,14 @@ static void legions_check_nodes_step2() {
 						usl = usl->next;
 					}
 					if (ul->scroll_len > 0 && ul->scroll_len <= ul->lord_scroll_size) {
-                				uwsgi_wlock(ul->lock);
-                				ul->lord_scroll_len = ul->scroll_len;
-                				memcpy(ul->lord_scroll, ul->scroll, ul->lord_scroll_len);
-                				uwsgi_rwunlock(ul->lock);
-        				}
-        				else {
-                				ul->lord_scroll_len = 0;
-        				}
+						uwsgi_wlock(ul->lock);
+						ul->lord_scroll_len = ul->scroll_len;
+						memcpy(ul->lord_scroll, ul->scroll, ul->lord_scroll_len);
+						uwsgi_rwunlock(ul->lock);
+					}
+					else {
+						ul->lord_scroll_len = 0;
+					}
 					uwsgi_log("[uwsgi-legion] i am now the Lord of the Legion %s\n", ul->legion);
 					ul->i_am_the_lord = uwsgi_now();
 					// trick: reduce the time needed by the old lord to unlord itself
@@ -399,15 +398,15 @@ static void legions_check_nodes_step2() {
 			if (ul->i_am_the_lord) {
 				uwsgi_log("[uwsgi-legion] i cannot be The Lord of The Legion %s without a quorum ...\n", ul->legion);
 				// no more lord, trigger unlord hooks
-                                struct uwsgi_string_list *usl = ul->unlord_hooks;
-                                while (usl) {
-                                	int ret = uwsgi_legion_action_call("unlord", ul, usl);
-                                        if (ret) {
-                                        	uwsgi_log("[uwsgi-legion] ERROR, unlord hook returned: %d\n", ret);
-                                        }
-                                        usl = usl->next;
-                                }
-                                ul->i_am_the_lord = 0;
+				struct uwsgi_string_list *usl = ul->unlord_hooks;
+				while (usl) {
+					int ret = uwsgi_legion_action_call("unlord", ul, usl);
+					if (ret) {
+						uwsgi_log("[uwsgi-legion] ERROR, unlord hook returned: %d\n", ret);
+					}
+					usl = usl->next;
+				}
+				ul->i_am_the_lord = 0;
 			}
 			ul->last_warning = uwsgi_now();
 		}
@@ -423,7 +422,7 @@ struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *ul) {
 
 	memcpy(best_uuid, ul->uuid, 36);
 	uint64_t best_valor = ul->valor;
-	
+
 	struct uwsgi_legion_node *best_node = NULL;
 
 	struct uwsgi_legion_node *nodes = ul->nodes_head;
@@ -513,7 +512,7 @@ static void *legion_loop(void *foobar) {
 		if (rlen < 0 && errno != EINTR) {
 			if (uwsgi_instance_is_reloading || uwsgi_instance_is_dying) return NULL;
 			uwsgi_nuclear_blast();
-			return NULL;	
+			return NULL;
 		}
 
 		now = uwsgi_now();
@@ -637,9 +636,9 @@ static void *legion_loop(void *foobar) {
 			// remove node announcing death
 			else if (legion_msg.dead) {
 				uwsgi_log("[uwsgi-legion] %s: %.*s valor: %llu uuid: %.*s announced its death to Legion %s\n", node->valor > 0 ? "node" : "arbiter", node->name_len, node->name, node->valor, 36, node->uuid, ul->legion);
-                                uwsgi_wlock(ul->lock);
-                                uwsgi_legion_remove_node(ul, node);
-                                uwsgi_rwunlock(ul->lock);
+				uwsgi_wlock(ul->lock);
+				uwsgi_legion_remove_node(ul, node);
+				uwsgi_rwunlock(ul->lock);
 				continue;
 			}
 
@@ -694,14 +693,14 @@ static int legion_action_log(struct uwsgi_legion *ul, char *arg) {
 
 static int legion_action_alarm(struct uwsgi_legion *ul, char *arg) {
 	char *space = strchr(arg,' ');
-        if (!space) {
-                uwsgi_log("invalid alarm action syntax, must be: <alarm> <msg>\n");
-                return -1;
-        }
-        *space = 0;
-        uwsgi_alarm_trigger(arg, space+1,  strlen(space+1));
-        *space = ' ';
-        return 0;
+	if (!space) {
+		uwsgi_log("invalid alarm action syntax, must be: <alarm> <msg>\n");
+		return -1;
+	}
+	*space = 0;
+	uwsgi_alarm_trigger(arg, space+1, strlen(space+1));
+	*space = ' ';
+	return 0;
 }
 
 void uwsgi_start_legions() {
@@ -806,12 +805,12 @@ int uwsgi_legion_announce(struct uwsgi_legion *ul) {
 
 	if (ul->scroll_len > 0) {
 		if (uwsgi_buffer_append_keyval(ub, "scroll", 6, ul->scroll, ul->scroll_len))
-                	goto err;
+			goto err;
 	}
 
 	if (ul->dead) {
 		if (uwsgi_buffer_append_keyval(ub, "dead", 4, "1", 1))
-                	goto err;
+			goto err;
 	}
 
 	encrypted = uwsgi_malloc(ub->pos + 4 + EVP_MAX_BLOCK_LENGTH);
@@ -860,15 +859,15 @@ err:
 void uwsgi_opt_legion_mcast(char *opt, char *value, void *foobar) {
 	uwsgi_opt_legion(opt, value, foobar);
 	char *legion = uwsgi_str(value);
-	char *space = strchr(legion, ' ');	
+	char *space = strchr(legion, ' ');
 	// over engineering
 	if (!space) exit(1);
 	*space = 0;
 	struct uwsgi_legion *ul = uwsgi_legion_get_by_name(legion);
-        if (!ul) {
-                uwsgi_log("unknown legion: %s\n", legion);
-                exit(1);
-        }
+	if (!ul) {
+		uwsgi_log("unknown legion: %s\n", legion);
+		exit(1);
+	}
 	uwsgi_legion_register_node(ul, uwsgi_str(ul->addr));
 	free(legion);
 }
@@ -891,7 +890,7 @@ void uwsgi_opt_legion_node(char *opt, char *value, void *foobar) {
 	}
 
 	uwsgi_legion_register_node(ul, space + 1);
-	
+
 }
 
 void uwsgi_legion_register_node(struct uwsgi_legion *ul, char *addr) {
@@ -909,20 +908,20 @@ void uwsgi_legion_register_node(struct uwsgi_legion *ul, char *addr) {
 
 void uwsgi_opt_legion_quorum(char *opt, char *value, void *foobar) {
 
-        char *legion = uwsgi_str(value);
+	char *legion = uwsgi_str(value);
 
-        char *space = strchr(legion, ' ');
-        if (!space) {
-                uwsgi_log("invalid legion-quorum syntax, must be <legion> <quorum>\n");
-                exit(1);
-        }
-        *space = 0;
+	char *space = strchr(legion, ' ');
+	if (!space) {
+		uwsgi_log("invalid legion-quorum syntax, must be <legion> <quorum>\n");
+		exit(1);
+	}
+	*space = 0;
 
-        struct uwsgi_legion *ul = uwsgi_legion_get_by_name(legion);
-        if (!ul) {
-                uwsgi_log("unknown legion: %s\n", legion);
-                exit(1);
-        }
+	struct uwsgi_legion *ul = uwsgi_legion_get_by_name(legion);
+	if (!ul) {
+		uwsgi_log("unknown legion: %s\n", legion);
+		exit(1);
+	}
 
 	ul->quorum = atoi(space+1);
 	free(legion);
@@ -930,25 +929,25 @@ void uwsgi_opt_legion_quorum(char *opt, char *value, void *foobar) {
 
 void uwsgi_opt_legion_scroll(char *opt, char *value, void *foobar) {
 
-        char *legion = uwsgi_str(value);
+	char *legion = uwsgi_str(value);
 
-        char *space = strchr(legion, ' ');
-        if (!space) {
-                uwsgi_log("invalid legion-scroll syntax, must be <legion> <scroll>\n");
-                exit(1);
-        }
-        *space = 0;
+	char *space = strchr(legion, ' ');
+	if (!space) {
+		uwsgi_log("invalid legion-scroll syntax, must be <legion> <scroll>\n");
+		exit(1);
+	}
+	*space = 0;
 
-        struct uwsgi_legion *ul = uwsgi_legion_get_by_name(legion);
-        if (!ul) {
-                uwsgi_log("unknown legion: %s\n", legion);
-                exit(1);
-        }
+	struct uwsgi_legion *ul = uwsgi_legion_get_by_name(legion);
+	if (!ul) {
+		uwsgi_log("unknown legion: %s\n", legion);
+		exit(1);
+	}
 
-        ul->scroll = space+1;
+	ul->scroll = space+1;
 	ul->scroll_len = strlen(ul->scroll);
 	// DO NOT FREE IT !!!
-        //free(legion);
+	//free(legion);
 }
 
 
@@ -960,9 +959,9 @@ void uwsgi_opt_legion_hook(char *opt, char *value, void *foobar) {
 		uwsgi_log("[uwsgi-legion] invalid option name (%s), this should not happen (possible bug)\n", opt);
 		exit(1);
 	}
-  
+
 	char *legion = uwsgi_str(value);
-	
+
 	char *space = strchr(legion, ' ');
 	if (!space) {
 		uwsgi_log("[uwsgi-legion] invalid %s syntax, must be <legion> <action>\n", opt);
@@ -1100,11 +1099,11 @@ struct uwsgi_legion *uwsgi_legion_register(char *legion, char *addr, char *valor
 		s_iv_len = strlen(iv);
 	}
 	if ((unsigned int) iv_len > s_iv_len) {
-                char *secret_tmp = uwsgi_malloc(iv_len);
-                memcpy(secret_tmp, iv, s_iv_len);
-                memset(secret_tmp + s_iv_len, '0', iv_len - s_iv_len);
-                iv = secret_tmp;
-        }
+		char *secret_tmp = uwsgi_malloc(iv_len);
+		memcpy(secret_tmp, iv, s_iv_len);
+		memset(secret_tmp + s_iv_len, '0', iv_len - s_iv_len);
+		iv = secret_tmp;
+	}
 
 	if (EVP_EncryptInit_ex(ctx, cipher, NULL, (const unsigned char *) secret, (const unsigned char *) iv) <= 0) {
 		uwsgi_error("EVP_EncryptInit_ex()");
@@ -1188,11 +1187,11 @@ struct uwsgi_legion_action *uwsgi_legion_action_register(char *name, int (*func)
 
 void uwsgi_legion_announce_death(void) {
 	struct uwsgi_legion *legion = uwsgi.legions;
-        while (legion) {
-                legion->dead = 1;
-                uwsgi_legion_announce(legion);
-                legion = legion->next;
-        }
+	while (legion) {
+		legion->dead = 1;
+		uwsgi_legion_announce(legion);
+		legion = legion->next;
+	}
 }
 
 void uwsgi_legion_atexit(void) {
@@ -1230,7 +1229,7 @@ int uwsgi_legion_i_am_the_lord(char *name) {
 char *uwsgi_legion_lord_scroll(char *name, uint16_t *rlen) {
 	char *buf = NULL;
 	struct uwsgi_legion *legion = uwsgi_legion_get_by_name(name);
-        if (!legion) return 0;
+	if (!legion) return 0;
 	uwsgi_rlock(legion->lock);
 	if (legion->lord_scroll_len > 0) {
 		buf = uwsgi_malloc(legion->lord_scroll_len);
@@ -1243,8 +1242,8 @@ char *uwsgi_legion_lord_scroll(char *name, uint16_t *rlen) {
 
 char *uwsgi_legion_scrolls(char *name, uint64_t *rlen) {
 	char *buf = NULL;
-        struct uwsgi_legion *legion = uwsgi_legion_get_by_name(name);
-        if (!legion) return NULL;
+	struct uwsgi_legion *legion = uwsgi_legion_get_by_name(name);
+	if (!legion) return NULL;
 	uwsgi_rlock(legion->lock);
 	buf = uwsgi_malloc(legion->scrolls_len);
 	memcpy(buf, legion->scrolls, legion->scrolls_len);

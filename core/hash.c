@@ -5,49 +5,49 @@ extern struct uwsgi_server uwsgi;
 // Bernstein classic hash (this is not static as it is used by other areas)
 uint32_t djb33x_hash(char *key, uint64_t keylen) {
 
-        register uint32_t hash = 5381;
-        uint64_t i;
+	register uint32_t hash = 5381;
+	uint64_t i;
 
-        for (i = 0; i < keylen; i++) {
-                hash = ((hash << 5) + hash) ^ key[i];
-        }
+	for (i = 0; i < keylen; i++) {
+		hash = ((hash << 5) + hash) ^ key[i];
+	}
 
-        return hash;
+	return hash;
 }
 
 // Murmur2 hash Copyright (C) Austin Appleby
 // adapted from nginx
 static uint32_t murmur2_hash(char *key, uint64_t keylen) {
 
-	uint32_t  h, k;
+	uint32_t h, k;
 	uint8_t *ukey = (uint8_t *) key;
 	h = 0 ^ keylen;
 	while (keylen >= 4) {
-        	k  = ukey[0];
-        	k |= ukey[1] << 8;
-        	k |= ukey[2] << 16;
-        	k |= ukey[3] << 24;
+		k  = ukey[0];
+		k |= ukey[1] << 8;
+		k |= ukey[2] << 16;
+		k |= ukey[3] << 24;
 
-        	k *= 0x5bd1e995;
-        	k ^= k >> 24;
-        	k *= 0x5bd1e995;
+		k *= 0x5bd1e995;
+		k ^= k >> 24;
+		k *= 0x5bd1e995;
 
-        	h *= 0x5bd1e995;
-        	h ^= k;
+		h *= 0x5bd1e995;
+		h ^= k;
 
-        	ukey += 4;
-        	keylen -= 4;
-    	}
+		ukey += 4;
+		keylen -= 4;
+	}
 
 	switch (keylen) {
 		case 3:
-        		h ^= key[2] << 16;
-    		case 2:
-        		h ^= key[1] << 8;
-    		case 1:
-        		h ^= key[0];
-        		h *= 0x5bd1e995;
-    	}
+			h ^= key[2] << 16;
+		case 2:
+			h ^= key[1] << 8;
+		case 1:
+			h ^= key[0];
+			h *= 0x5bd1e995;
+	}
 
 	h ^= h >> 13;
 	h *= 0x5bd1e995;
@@ -91,7 +91,7 @@ void uwsgi_hash_algo_register(char *name, uint32_t (*func)(char *, uint64_t)) {
 		if (!strcmp(uha->name, name)) return;
 		old_uha = uha;
 		uha = uha->next;
-	} 
+	}
 
 	uha = uwsgi_calloc(sizeof(struct uwsgi_hash_algo));
 	uha->name = name;

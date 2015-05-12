@@ -66,11 +66,11 @@ int uwsgi_pthread_robust_mutexes_enabled = 1;
 
 #ifndef PTHREAD_PRIO_INHERIT
 int pthread_mutexattr_setprotocol (pthread_mutexattr_t *__attr,
-                                          int __protocol);
+									int __protocol);
 #define PTHREAD_PRIO_INHERIT 1
 #endif
 
-// REMEMBER lock must contains space for both pthread_mutex_t and pthread_mutexattr_t !!! 
+// REMEMBER lock must contains space for both pthread_mutex_t and pthread_mutexattr_t !!!
 struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
 
 	pthread_mutexattr_t attr;
@@ -295,9 +295,9 @@ pid_t uwsgi_rwlock_fast_check(struct uwsgi_lock_item * uli) {
 
 #elif defined(UWSGI_LOCK_USE_POSIX_SEM)
 
-#define UWSGI_LOCK_SIZE         sizeof(sem_t)
-#define UWSGI_RWLOCK_SIZE       sizeof(sem_t)
-#define UWSGI_LOCK_ENGINE_NAME  "POSIX semaphores"
+#define UWSGI_LOCK_SIZE			sizeof(sem_t)
+#define UWSGI_RWLOCK_SIZE		sizeof(sem_t)
+#define UWSGI_LOCK_ENGINE_NAME	"POSIX semaphores"
 
 #include <semaphore.h>
 
@@ -403,36 +403,36 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) {
 
 #elif defined(UWSGI_LOCK_USE_WINDOWS_MUTEX)
 
-#define UWSGI_LOCK_ENGINE_NAME "windows mutexes"
-#define UWSGI_LOCK_SIZE         sizeof(HANDLE)
-#define UWSGI_RWLOCK_SIZE       sizeof(HANDLE)
+#define UWSGI_LOCK_ENGINE_NAME	"windows mutexes"
+#define UWSGI_LOCK_SIZE			sizeof(HANDLE)
+#define UWSGI_RWLOCK_SIZE		sizeof(HANDLE)
 
 
 struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
 
-        struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
+	struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
 	struct _SECURITY_ATTRIBUTES sa;
 	memset(&sa, 0, sizeof(struct _SECURITY_ATTRIBUTES));
 	sa.bInheritHandle = 1;
 	uli->lock_ptr = CreateMutex(&sa, FALSE, NULL);
-        return uli;
+	return uli;
 }
 
 void uwsgi_lock_fast(struct uwsgi_lock_item *uli) {
 	WaitForSingleObject(uli->lock_ptr, INFINITE);
-        uli->pid = uwsgi.mypid;
+	uli->pid = uwsgi.mypid;
 }
 
 void uwsgi_unlock_fast(struct uwsgi_lock_item *uli) {
 	ReleaseMutex(uli->lock_ptr);
-        uli->pid = 0;
+	uli->pid = 0;
 }
 
 pid_t uwsgi_lock_fast_check(struct uwsgi_lock_item *uli) {
 	if (WaitForSingleObject(uli->lock_ptr, 0) == WAIT_TIMEOUT) {
 		return 0;
 	}
-        return uli->pid;
+	return uli->pid;
 }
 
 struct uwsgi_lock_item *uwsgi_rwlock_fast_init(char *id) {
@@ -531,7 +531,7 @@ void uwsgi_lock_ipcsem(struct uwsgi_lock_item *uli) {
 
 retry:
 	if (semop(semid, &sb, 1)) {
-		if (errno == EINTR) goto retry; 
+		if (errno == EINTR) goto retry;
 		uwsgi_error("uwsgi_lock_ipcsem()/semop()");
 #ifdef EIDRM
 		if (errno == EIDRM) {
@@ -554,7 +554,7 @@ void uwsgi_unlock_ipcsem(struct uwsgi_lock_item *uli) {
 
 retry:
 	if (semop(semid, &sb, 1)) {
-		if (errno == EINTR) goto retry; 
+		if (errno == EINTR) goto retry;
 		uwsgi_error("uwsgi_unlock_ipcsem()/semop()");
 #ifdef EIDRM
 		if (errno == EIDRM) {
@@ -655,14 +655,14 @@ void uwsgi_robust_mutexes_watchdog() {
 	pthread_t tid;
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
-        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-        // 32K should be more than enough...
-        pthread_attr_setstacksize(&attr, 32 * 1024);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+	// 32K should be more than enough...
+	pthread_attr_setstacksize(&attr, 32 * 1024);
 
-        if (pthread_create(&tid, &attr, uwsgi_robust_mutexes_watchdog_loop, NULL)) {
-                uwsgi_error("uwsgi_robust_mutexes_watchdog()/pthread_create()");
+	if (pthread_create(&tid, &attr, uwsgi_robust_mutexes_watchdog_loop, NULL)) {
+		uwsgi_error("uwsgi_robust_mutexes_watchdog()/pthread_create()");
 		exit(1);
-        }
+	}
 }
 
 #endif
@@ -744,14 +744,14 @@ ready:
 
 	if (uwsgi.use_thunder_lock) {
 		// process shared thunder lock
-		uwsgi.the_thunder_lock = uwsgi_lock_init("thunder");	
+		uwsgi.the_thunder_lock = uwsgi_lock_init("thunder");
 #ifdef UNBIT
 		// we have a serious bug on Unbit (and very probably on older libc)
 		// when all of the workers die in the same moment the pthread robust mutes is left
 		// in inconsistent state and we have no way to recover
 		// we span a thread in the master constantly ensuring the lock is ok
 		// for now we apply it only for Unbit (where thunder-lock is automatically enabled)
-		uwsgi_robust_mutexes_watchdog();		
+		uwsgi_robust_mutexes_watchdog();
 #endif
 	}
 

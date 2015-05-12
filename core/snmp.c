@@ -368,28 +368,28 @@ static ssize_t build_snmp_response(uint8_t oid1, uint8_t oid2, uint8_t * buffer,
 }
 
 static ssize_t build_snmp_metric_response(int64_t value, uint8_t type, uint8_t * buffer, int size, uint8_t * seq1, uint8_t * seq2, uint8_t * seq3) {
-        uint8_t oid_sz;
+	uint8_t oid_sz;
 
 	if (type == UWSGI_METRIC_GAUGE) {
-        	buffer[size - 2] = SNMP_GAUGE;
-        	oid_sz = snmp_int_to_snmp(value, SNMP_GAUGE, buffer + (size - 1));
+		buffer[size - 2] = SNMP_GAUGE;
+		oid_sz = snmp_int_to_snmp(value, SNMP_GAUGE, buffer + (size - 1));
 	}
 	else {
 		buffer[size - 2] = SNMP_COUNTER64;
-        	oid_sz = snmp_int_to_snmp(value, SNMP_COUNTER64, buffer + (size - 1));
+		oid_sz = snmp_int_to_snmp(value, SNMP_COUNTER64, buffer + (size - 1));
 	}
 
-        if (oid_sz < 1)
-                return -1;
+	if (oid_sz < 1)
+		return -1;
 
-        oid_sz--;
+	oid_sz--;
 
-        buffer[1] += oid_sz;
-        *seq1 += oid_sz;
-        *seq2 += oid_sz;
-        *seq3 += oid_sz;
+	buffer[1] += oid_sz;
+	*seq1 += oid_sz;
+	*seq2 += oid_sz;
+	*seq3 += oid_sz;
 
-        return size + oid_sz;
+	return size + oid_sz;
 
 }
 
@@ -449,15 +449,15 @@ int uwsgi_setup_snmp(void) {
 }
 
 void uwsgi_master_manage_snmp(int snmp_fd) {
-        struct sockaddr_in udp_client;
-        socklen_t udp_len = sizeof(udp_client);
-        ssize_t rlen = recvfrom(snmp_fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
+	struct sockaddr_in udp_client;
+	socklen_t udp_len = sizeof(udp_client);
+	ssize_t rlen = recvfrom(snmp_fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
 
-        if (rlen < 0) {
-                uwsgi_error("recvfrom()");
-        }
-        else if (rlen > 0) {
-                manage_snmp(snmp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
-        }
+	if (rlen < 0) {
+		uwsgi_error("recvfrom()");
+	}
+	else if (rlen > 0) {
+		manage_snmp(snmp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
+	}
 }
 

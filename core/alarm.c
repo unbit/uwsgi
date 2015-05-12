@@ -222,7 +222,7 @@ static void uwsgi_alarm_thread_loop(struct uwsgi_thread *ut) {
 	char *buf = uwsgi_malloc(uwsgi.alarm_msg_size + sizeof(long));
 	for (;;) {
 		int interesting_fd = -1;
-                int ret = event_queue_wait(ut->queue, -1, &interesting_fd);
+		int ret = event_queue_wait(ut->queue, -1, &interesting_fd);
 		if (ret > 0) {
 			if (interesting_fd == ut->pipe[1]) {
 				ssize_t len = read(ut->pipe[1], buf, uwsgi.alarm_msg_size + sizeof(long));
@@ -243,7 +243,7 @@ static void uwsgi_alarm_thread_loop(struct uwsgi_thread *ut) {
 				int fd_read = 0;
 				while(uafd) {
 					if (interesting_fd == uafd->fd) {
-						if (fd_read) goto raise;	
+						if (fd_read) goto raise;
 						size_t remains = uafd->buf_len;
 						while(remains) {
 							ssize_t len = read(uafd->fd, uafd->buf + (uafd->buf_len-remains), remains);
@@ -313,7 +313,7 @@ void uwsgi_alarms_init() {
 		char *space1 = strchr(space0+1, ' ');
 		if (!space1) {
 			uwsgi_log("invalid alarm-fd syntax: %s\n", usl->value);
-                        exit(1);
+			exit(1);
 		}
 
 		char *colon = strchr(space0+1, ':');
@@ -436,7 +436,7 @@ struct uwsgi_alarm_fd *uwsgi_add_alarm_fd(int fd, char *alarm, size_t buf_len, c
 		exit(1);
 	}
 
-	if (!buf_len) buf_len = 1;	
+	if (!buf_len) buf_len = 1;
 
 	while(uafd) {
 		// check if an equal alarm has been added

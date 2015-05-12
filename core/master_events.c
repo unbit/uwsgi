@@ -45,7 +45,7 @@ int uwsgi_master_manage_events(int interesting_fd) {
 	// emperor event ?
 	if (uwsgi.has_emperor) {
 		if (uwsgi.emperor_fd_proxy > -1 && interesting_fd == uwsgi.emperor_fd_proxy) {
-			uwsgi_master_manage_emperor_proxy(uwsgi.emperor_fd_proxy, uwsgi.emperor_fd, uwsgi.emperor_fd_config, -1);	
+			uwsgi_master_manage_emperor_proxy(uwsgi.emperor_fd_proxy, uwsgi.emperor_fd, uwsgi.emperor_fd_config, -1);
 			return 0;
 		}
 
@@ -62,7 +62,7 @@ int uwsgi_master_manage_events(int interesting_fd) {
 #endif
 
 	if (uwsgi_fsmon_event(interesting_fd)) {
-                return 0;
+		return 0;
 	}
 
 	// reload on fd
@@ -87,9 +87,9 @@ int uwsgi_master_manage_events(int interesting_fd) {
 				else {
 					uwsgi_log_verbose("*** fd %d ready !!! ***\n", interesting_fd);
 				}
-                                uwsgi_block_signal(SIGHUP);
-                                grace_them_all(0);
-                                uwsgi_unblock_signal(SIGHUP);				
+				uwsgi_block_signal(SIGHUP);
+				grace_them_all(0);
+				uwsgi_unblock_signal(SIGHUP);
 				return 0;
 			}
 			usl = usl->next;
@@ -97,36 +97,36 @@ int uwsgi_master_manage_events(int interesting_fd) {
 	}
 
 	// brutal reload on fd
-        if (uwsgi.brutal_reload_on_fd) {
-                // custom -> fd
-                // custom2 -> len (optional, default 1)
-                // custom_ptr -> log message (optional)
-                struct uwsgi_string_list *usl = uwsgi.brutal_reload_on_fd;
-                while(usl) {
-                        if (interesting_fd == (int) usl->custom) {
+	if (uwsgi.brutal_reload_on_fd) {
+		// custom -> fd
+		// custom2 -> len (optional, default 1)
+		// custom_ptr -> log message (optional)
+		struct uwsgi_string_list *usl = uwsgi.brutal_reload_on_fd;
+		while(usl) {
+			if (interesting_fd == (int) usl->custom) {
 				char stack_tmp[8];
-                                char *tmp = stack_tmp;
-                                if (usl->custom2 > 8) {
-                                        tmp = uwsgi_malloc(usl->custom2);
-                                }
-                                if (read(interesting_fd, tmp, usl->custom2) <= 0) {
-                                        uwsgi_error("[brutal-reload-on-fd] read()");
-                                }
-                                if (usl->custom_ptr) {
-                                        uwsgi_log_verbose("*** fd %d ready: %s ***\n", interesting_fd, usl->custom_ptr);
-                                }
-                                else {
-                                        uwsgi_log_verbose("*** fd %d ready !!! ***\n", interesting_fd);
-                                }
-                                uwsgi_block_signal(SIGQUIT);
-                                reap_them_all(0);
-                                uwsgi_unblock_signal(SIGQUIT);
-                                if (usl->custom2 > 8) free(tmp);
-                                return 0;
-                        }
-                        usl = usl->next;
-                }
-        }
+				char *tmp = stack_tmp;
+				if (usl->custom2 > 8) {
+					tmp = uwsgi_malloc(usl->custom2);
+				}
+				if (read(interesting_fd, tmp, usl->custom2) <= 0) {
+					uwsgi_error("[brutal-reload-on-fd] read()");
+				}
+				if (usl->custom_ptr) {
+					uwsgi_log_verbose("*** fd %d ready: %s ***\n", interesting_fd, usl->custom_ptr);
+				}
+				else {
+					uwsgi_log_verbose("*** fd %d ready !!! ***\n", interesting_fd);
+				}
+				uwsgi_block_signal(SIGQUIT);
+				reap_them_all(0);
+				uwsgi_unblock_signal(SIGQUIT);
+				if (usl->custom2 > 8) free(tmp);
+				return 0;
+			}
+			usl = usl->next;
+		}
+	}
 
 
 	// wakeup from cheap mode ?

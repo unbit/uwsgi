@@ -18,7 +18,7 @@ void uwsgi_build_plugin(char *directory) {
 
 	if (!uwsgi_file_exists(UWSGI_BUILD_DIR)) {
 		if (mkdir(UWSGI_BUILD_DIR, S_IRWXU) < 0) {
-        		uwsgi_error("uwsgi_build_plugin()/mkdir() " UWSGI_BUILD_DIR "/");
+			uwsgi_error("uwsgi_build_plugin()/mkdir() " UWSGI_BUILD_DIR "/");
 			_exit(1);
 		}
 	}
@@ -49,27 +49,27 @@ void uwsgi_build_plugin(char *directory) {
 	}
 
 	char *config_py = uwsgi_get_config_py();
-        if (!config_py) {
-                uwsgi_log("unable to generate uwsgiconfig.py");
-                _exit(1);
-        }
+	if (!config_py) {
+		uwsgi_log("unable to generate uwsgiconfig.py");
+		_exit(1);
+	}
 
-        if (strlen(config_py) == 0) {
-                uwsgi_log("invalid uwsgiconfig.py");
-                _exit(1);
-        }
+	if (strlen(config_py) == 0) {
+		uwsgi_log("invalid uwsgiconfig.py");
+		_exit(1);
+	}
 
-        int config_py_fd = open(UWSGI_BUILD_DIR "/uwsgiconfig.py", O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
-        if (config_py_fd < 0) {
-                uwsgi_error_open(UWSGI_BUILD_DIR "/uwsgiconfig.py");
-                _exit(1);
-        }
+	int config_py_fd = open(UWSGI_BUILD_DIR "/uwsgiconfig.py", O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
+	if (config_py_fd < 0) {
+		uwsgi_error_open(UWSGI_BUILD_DIR "/uwsgiconfig.py");
+		_exit(1);
+	}
 
-        ssize_t config_py_len = (ssize_t) strlen(config_py);
-        if (write(config_py_fd, config_py, config_py_len) != config_py_len) {
-                uwsgi_error("uwsgi_build_plugin()/write()");
-                _exit(1);
-        }
+	ssize_t config_py_len = (ssize_t) strlen(config_py);
+	if (write(config_py_fd, config_py, config_py_len) != config_py_len) {
+		uwsgi_error("uwsgi_build_plugin()/write()");
+		_exit(1);
+	}
 
 	char *cflags = uwsgi_get_cflags();
 	if (!cflags) {
@@ -85,7 +85,7 @@ void uwsgi_build_plugin(char *directory) {
 		uwsgi_error("uwsgi_build_plugin()/setenv()");
 		_exit(1);
 	}
-	
+
 	// now run the python script
 	char *argv[6];
 
@@ -98,7 +98,7 @@ void uwsgi_build_plugin(char *directory) {
 	if (space) {
 		*space = 0;
 		argv[3] = directory;
-                argv[4] = space+1;
+		argv[4] = space+1;
 		argv[5] = NULL;
 	}
 	else {
@@ -107,6 +107,6 @@ void uwsgi_build_plugin(char *directory) {
 	}
 
 	execvp(argv[0], argv);
-	// never here...	
+	// never here...
 	_exit(1);
 }

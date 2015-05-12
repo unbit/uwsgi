@@ -6,54 +6,54 @@ int uwsgi_simple_wait_read_hook(int fd, int timeout) {
 	struct pollfd upoll;
 	timeout = timeout * 1000;
 
-        upoll.fd = fd;
-        upoll.events = POLLIN;
-        upoll.revents = 0;
-        int ret = poll(&upoll, 1, timeout);
+	upoll.fd = fd;
+	upoll.events = POLLIN;
+	upoll.revents = 0;
+	int ret = poll(&upoll, 1, timeout);
 
-        if (ret > 0) {
-                if (upoll.revents & POLLIN) {
-                        return 1;
-                }
+	if (ret > 0) {
+		if (upoll.revents & POLLIN) {
+			return 1;
+		}
 		return -1;
-        }
-        if (ret < 0) {
-                uwsgi_error("uwsgi_simple_wait_read_hook()/poll()");
-        }
+	}
+	if (ret < 0) {
+		uwsgi_error("uwsgi_simple_wait_read_hook()/poll()");
+	}
 
-        return ret;
+	return ret;
 }
 
 int uwsgi_simple_wait_read2_hook(int fd0, int fd1, int timeout, int *fd) {
-        struct pollfd upoll[2];
-        timeout = timeout * 1000;
+	struct pollfd upoll[2];
+	timeout = timeout * 1000;
 
-        upoll[0].fd = fd0;
-        upoll[0].events = POLLIN;
-        upoll[0].revents = 0;
+	upoll[0].fd = fd0;
+	upoll[0].events = POLLIN;
+	upoll[0].revents = 0;
 
-        upoll[1].fd = fd1;
-        upoll[1].events = POLLIN;
-        upoll[1].revents = 0;
+	upoll[1].fd = fd1;
+	upoll[1].events = POLLIN;
+	upoll[1].revents = 0;
 
-        int ret = poll(upoll, 2, timeout);
+	int ret = poll(upoll, 2, timeout);
 
-        if (ret > 0) {
-                if (upoll[0].revents & POLLIN) {
+	if (ret > 0) {
+		if (upoll[0].revents & POLLIN) {
 			*fd = fd0;
-                        return 1;
-                }
-                if (upoll[1].revents & POLLIN) {
+			return 1;
+		}
+		if (upoll[1].revents & POLLIN) {
 			*fd = fd1;
-                        return 1;
-                }
-                return -1;
-        }
-        if (ret < 0) {
-                uwsgi_error("uwsgi_simple_wait_read_hook2()/poll()");
-        }
+			return 1;
+		}
+		return -1;
+	}
+	if (ret < 0) {
+		uwsgi_error("uwsgi_simple_wait_read_hook2()/poll()");
+	}
 
-        return ret;
+	return ret;
 }
 
 
@@ -65,9 +65,9 @@ void uwsgi_request_body_seek(struct wsgi_request *wsgi_req, off_t pos) {
 	if (wsgi_req->post_file) {
 		if (pos < 0) {
 			if (fseek(wsgi_req->post_file, pos, SEEK_CUR)) {
-                        	uwsgi_req_error("uwsgi_request_body_seek()/fseek()");
+				uwsgi_req_error("uwsgi_request_body_seek()/fseek()");
 				wsgi_req->read_errors++;
-                	}
+			}
 			wsgi_req->post_pos = ftell(wsgi_req->post_file);
 			return;
 		}
@@ -103,8 +103,8 @@ void uwsgi_request_body_seek(struct wsgi_request *wsgi_req, off_t pos) {
 */
 
 #define uwsgi_read_error0(x) uwsgi_log("[uwsgi-body-read] Error reading %llu bytes. Content-Length: %llu consumed: %llu left: %llu message: Client closed connection\n",\
-                        (unsigned long long) x,\
-                        (unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_pos, (unsigned long long) wsgi_req->post_cl-wsgi_req->post_pos);
+			(unsigned long long) x,\
+			(unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_pos, (unsigned long long) wsgi_req->post_cl-wsgi_req->post_pos);
 
 #define uwsgi_read_error(x) uwsgi_log("[uwsgi-body-read] Error reading %llu bytes. Content-Length: %llu consumed: %llu left: %llu message: %s\n",\
 			(unsigned long long) x,\
@@ -112,8 +112,8 @@ void uwsgi_request_body_seek(struct wsgi_request *wsgi_req, off_t pos) {
 			strerror(errno));
 
 #define uwsgi_read_timeout(x) uwsgi_log("[uwsgi-body-read] Timeout reading %llu bytes. Content-Length: %llu consumed: %llu left: %llu\n",\
-                        (unsigned long long) x,\
-                        (unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_pos, (unsigned long long) wsgi_req->post_cl-wsgi_req->post_pos);
+			(unsigned long long) x,\
+			(unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_pos, (unsigned long long) wsgi_req->post_cl-wsgi_req->post_pos);
 
 static int consume_body_for_readline(struct wsgi_request *wsgi_req) {
 
@@ -128,20 +128,20 @@ static int consume_body_for_readline(struct wsgi_request *wsgi_req) {
 		wsgi_req->post_readline_pos = 0;
 		// still something to use ?
 		if (wsgi_req->post_readline_size - wsgi_req->post_readline_watermark < remains) {
-        		char *tmp_buf = realloc(wsgi_req->post_readline_buf, wsgi_req->post_readline_size + remains);
-                	if (!tmp_buf) {
-                		uwsgi_req_error("consume_body_for_readline()/realloc()");
-                        	return -1;
-                	}
-                	wsgi_req->post_readline_buf = tmp_buf;
-                	wsgi_req->post_readline_size += remains;
+			char *tmp_buf = realloc(wsgi_req->post_readline_buf, wsgi_req->post_readline_size + remains);
+			if (!tmp_buf) {
+				uwsgi_req_error("consume_body_for_readline()/realloc()");
+				return -1;
+			}
+			wsgi_req->post_readline_buf = tmp_buf;
+			wsgi_req->post_readline_size += remains;
 			// INFORM THE USER HIS readline() USAGE IS FOOLISH
 			if (!wsgi_req->post_warning && wsgi_req->post_readline_size > (uwsgi.body_read_warning * 1024*1024)) {
 				uwsgi_log("[uwsgi-warning] you are using readline() on request body allocating over than %llu MB, that is really bad and can be avoided...\n", (unsigned long long) (wsgi_req->post_readline_size/(1024*1024)));
 				wsgi_req->post_warning = 1;
 			}
 		}
-        }
+	}
 
 	remains = UMIN(wsgi_req->post_readline_size - wsgi_req->post_readline_watermark, wsgi_req->post_cl - wsgi_req->post_pos);
 
@@ -188,25 +188,25 @@ static int consume_body_for_readline(struct wsgi_request *wsgi_req) {
 	}
 wait:
 	ret = uwsgi_wait_read_req(wsgi_req);
-        if (ret > 0) {
-        	len = wsgi_req->socket->proto_read_body(wsgi_req, wsgi_req->post_readline_buf + wsgi_req->post_readline_watermark , remains);
-                if (len > 0) {
+	if (ret > 0) {
+		len = wsgi_req->socket->proto_read_body(wsgi_req, wsgi_req->post_readline_buf + wsgi_req->post_readline_watermark , remains);
+		if (len > 0) {
 			wsgi_req->post_pos += len;
 			wsgi_req->post_readline_watermark += len;
 			return 0;
 		}
 		uwsgi_read_error(remains);
 		wsgi_req->read_errors++;
-                return -1;
+		return -1;
 	}
-        // 0 means timeout
-        else if (ret == 0) {
+	// 0 means timeout
+	else if (ret == 0) {
 		uwsgi_read_timeout(remains);
 		return -1;
-        }
+	}
 	uwsgi_read_error(remains);
 	wsgi_req->read_errors++;
-        return -1;
+	return -1;
 }
 
 // TODO take hint into account
@@ -214,9 +214,9 @@ wait:
 char *uwsgi_request_body_readline(struct wsgi_request *wsgi_req, ssize_t hint, ssize_t *rlen) {
 
 	// return 0 if no post_cl or pos >= post_cl and no residual data
-        if ((!wsgi_req->post_cl || wsgi_req->post_pos >= wsgi_req->post_cl ) && !wsgi_req->post_readline_pos) {
+	if ((!wsgi_req->post_cl || wsgi_req->post_pos >= wsgi_req->post_cl ) && !wsgi_req->post_readline_pos) {
 		return uwsgi.empty;
-        }
+	}
 
 	// some residual data ?
 	if (wsgi_req->post_readline_pos > 0) {
@@ -252,33 +252,33 @@ char *uwsgi_request_body_readline(struct wsgi_request *wsgi_req, ssize_t hint, s
 	}
 
 	// ok, no newline found, consume a bit more of memory and retry
-        for(;;) {
+	for(;;) {
 		// no more data to consume
 		if (wsgi_req->post_pos >= wsgi_req->post_cl) break;
 
-                        if (consume_body_for_readline(wsgi_req)) {
+			if (consume_body_for_readline(wsgi_req)) {
 				wsgi_req->read_errors++;
-                                *rlen = -1;
-                                return NULL;
-                        }
+				*rlen = -1;
+				return NULL;
+			}
 			size_t i;
-                        for(i=wsgi_req->post_readline_pos;i<wsgi_req->post_readline_watermark;i++) {
-                                if (wsgi_req->post_readline_buf[i] == '\n') {
-                                        *rlen = (i+1)-wsgi_req->post_readline_pos;
-                                        char *buf = wsgi_req->post_readline_buf + wsgi_req->post_readline_pos;
-                                        wsgi_req->post_readline_pos += *rlen;
-                                        if (wsgi_req->post_readline_pos >= wsgi_req->post_readline_watermark) {
-                                                wsgi_req->post_readline_pos = 0;
+			for(i=wsgi_req->post_readline_pos;i<wsgi_req->post_readline_watermark;i++) {
+				if (wsgi_req->post_readline_buf[i] == '\n') {
+					*rlen = (i+1)-wsgi_req->post_readline_pos;
+					char *buf = wsgi_req->post_readline_buf + wsgi_req->post_readline_pos;
+					wsgi_req->post_readline_pos += *rlen;
+					if (wsgi_req->post_readline_pos >= wsgi_req->post_readline_watermark) {
+						wsgi_req->post_readline_pos = 0;
 						wsgi_req->post_readline_watermark = 0;
-                                        }
-                                        return buf;
-                                }
-                        }
-                }
+					}
+					return buf;
+				}
+			}
+		}
 
 	// no line found, let's return all
-        *rlen = wsgi_req->post_readline_size - wsgi_req->post_readline_pos;
-        char *buf = wsgi_req->post_readline_buf + wsgi_req->post_readline_pos;
+	*rlen = wsgi_req->post_readline_size - wsgi_req->post_readline_pos;
+	char *buf = wsgi_req->post_readline_buf + wsgi_req->post_readline_pos;
 	wsgi_req->post_readline_pos = 0;
 	return buf;
 
@@ -290,73 +290,71 @@ char *uwsgi_request_body_read(struct wsgi_request *wsgi_req, ssize_t hint, ssize
 	size_t remains = hint;
 
 	// return empty if no post_cl or pos >= post_cl and no residual data
-        if ((!wsgi_req->post_cl || wsgi_req->post_pos >= wsgi_req->post_cl ) && !wsgi_req->post_readline_pos) {
+	if ((!wsgi_req->post_cl || wsgi_req->post_pos >= wsgi_req->post_cl ) && !wsgi_req->post_readline_pos) {
 		return uwsgi.empty;
-        }
+	}
 
-        // return the whole input
-        if (remains <= 0) {
-                remains = wsgi_req->post_cl;
-        }
+	// return the whole input
+	if (remains <= 0) {
+		remains = wsgi_req->post_cl;
+	}
 
-        // some residual data ?
-        if (wsgi_req->post_readline_pos > 0) {
-                       if (remains <= (wsgi_req->post_readline_watermark - wsgi_req->post_readline_pos)) {
-				*rlen = remains;
-				char *buf = wsgi_req->post_readline_buf + wsgi_req->post_readline_pos;
-				wsgi_req->post_readline_pos += remains;
-				return buf;
-                        }
-			// the hint is higher than residual data, let's copy it to read() memory and go on	
-			size_t avail = wsgi_req->post_readline_watermark - wsgi_req->post_readline_pos;
-			// check if we have enough memory...
-			if (avail > wsgi_req->post_read_buf_size) {
-				char *tmp_buf = realloc(wsgi_req->post_read_buf, avail);
-				if (!tmp_buf) {
-                                	uwsgi_req_error("uwsgi_request_body_read()/realloc()");
-                                	*rlen = -1;
-					wsgi_req->read_errors++;
-                                	return NULL;
-                        	}
-                        	wsgi_req->post_read_buf = tmp_buf;
-                        	wsgi_req->post_read_buf_size = avail;
-                        	if (!wsgi_req->post_warning && wsgi_req->post_read_buf_size > (uwsgi.body_read_warning * 1024*1024)) {
-                                	uwsgi_log("[uwsgi-warning] you are using read() on request body allocating over than %llu MB, that is really bad and can be avoided...\n", (unsigned long long) (wsgi_req->post_read_buf_size/(1024*1024)));
-                                	wsgi_req->post_warning = 1;
-                        	}
+	// some residual data ?
+	if (wsgi_req->post_readline_pos > 0) {
+		if (remains <= (wsgi_req->post_readline_watermark - wsgi_req->post_readline_pos)) {
+			*rlen = remains;
+			char *buf = wsgi_req->post_readline_buf + wsgi_req->post_readline_pos;
+			wsgi_req->post_readline_pos += remains;
+			return buf;
+		}
+		// the hint is higher than residual data, let's copy it to read() memory and go on	
+		size_t avail = wsgi_req->post_readline_watermark - wsgi_req->post_readline_pos;
+		// check if we have enough memory...
+		if (avail > wsgi_req->post_read_buf_size) {
+			char *tmp_buf = realloc(wsgi_req->post_read_buf, avail);
+			if (!tmp_buf) {
+				uwsgi_req_error("uwsgi_request_body_read()/realloc()");
+				*rlen = -1;
+				wsgi_req->read_errors++;
+				return NULL;
 			}
-			// fix remains...
-			if (remains > 0) {
-				remains -= avail;
+			wsgi_req->post_read_buf = tmp_buf;
+			wsgi_req->post_read_buf_size = avail;
+			if (!wsgi_req->post_warning && wsgi_req->post_read_buf_size > (uwsgi.body_read_warning * 1024*1024)) {
+				uwsgi_log("[uwsgi-warning] you are using read() on request body allocating over than %llu MB, that is really bad and can be avoided...\n", (unsigned long long) (wsgi_req->post_read_buf_size/(1024*1024)));
+				wsgi_req->post_warning = 1;
 			}
-			*rlen += avail;
-			memcpy(wsgi_req->post_read_buf, wsgi_req->post_readline_buf + wsgi_req->post_readline_pos, avail);
-                	wsgi_req->post_readline_pos = 0;
-			wsgi_req->post_readline_watermark = 0;
-        }
+		}
+		// fix remains...
+		if (remains > 0) {
+			remains -= avail;
+		}
+		*rlen += avail;
+		memcpy(wsgi_req->post_read_buf, wsgi_req->post_readline_buf + wsgi_req->post_readline_pos, avail);
+		wsgi_req->post_readline_pos = 0;
+		wsgi_req->post_readline_watermark = 0;
+	}
 
-        if (remains + wsgi_req->post_pos > wsgi_req->post_cl) {
-                remains = wsgi_req->post_cl - wsgi_req->post_pos;
-        }
+	if (remains + wsgi_req->post_pos > wsgi_req->post_cl) {
+		remains = wsgi_req->post_cl - wsgi_req->post_pos;
+	}
 
-
-
-        if (remains == 0) {
+	if (remains == 0) {
 		if (*rlen > 0) {
 			return wsgi_req->post_read_buf;
 		}
 		else {
-                	return uwsgi.empty;
+			return uwsgi.empty;
 		}
-        }
+	}
 
 	// read from post buffering memory
-        if (uwsgi.post_buffering > 0 && !wsgi_req->post_file) {
+	if (uwsgi.post_buffering > 0 && !wsgi_req->post_file) {
 		*rlen += remains;
-                char *buf = wsgi_req->post_buffering_buf+wsgi_req->post_pos;
+		char *buf = wsgi_req->post_buffering_buf+wsgi_req->post_pos;
 		wsgi_req->post_pos += remains;
 		return buf;
-        }
+	}
 
 	// ok we need to check if we need to allocate memory
 	if (!wsgi_req->post_read_buf) {
@@ -382,9 +380,9 @@ char *uwsgi_request_body_read(struct wsgi_request *wsgi_req, ssize_t hint, ssize
 			wsgi_req->post_read_buf = tmp_buf;
 			wsgi_req->post_read_buf_size = (remains+*rlen);
 			if (!wsgi_req->post_warning && wsgi_req->post_read_buf_size > (uwsgi.body_read_warning * 1024*1024)) {
-                                uwsgi_log("[uwsgi-warning] you are using read() on request body allocating over than %llu MB, that is really bad and can be avoided...\n", (unsigned long long) (wsgi_req->post_read_buf_size/(1024*1024)));
-                                wsgi_req->post_warning = 1;
-                        }
+				uwsgi_log("[uwsgi-warning] you are using read() on request body allocating over than %llu MB, that is really bad and can be avoided...\n", (unsigned long long) (wsgi_req->post_read_buf_size/(1024*1024)));
+				wsgi_req->post_warning = 1;
+			}
 		}
 	}
 
@@ -428,13 +426,13 @@ char *uwsgi_request_body_read(struct wsgi_request *wsgi_req, ssize_t hint, ssize
 		}
 wait:
 		ret = uwsgi_wait_read_req(wsgi_req);
-        	if (ret > 0) {
+		if (ret > 0) {
 			len = wsgi_req->socket->proto_read_body(wsgi_req, wsgi_req->post_read_buf + *rlen, remains);
 			if (len > 0) {
 				wsgi_req->post_pos+=len;
 				remains -= len;
-                        	*rlen += len;
-                        	continue;
+				*rlen += len;
+				continue;
 			}else if (len < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS)) {
 				goto wait;
 			}
@@ -471,37 +469,37 @@ wait:
 
 int uwsgi_postbuffer_do_in_mem(struct wsgi_request *wsgi_req) {
 
-        size_t remains = wsgi_req->post_cl;
-        int ret;
-        char *ptr = wsgi_req->post_buffering_buf;
+	size_t remains = wsgi_req->post_cl;
+	int ret;
+	char *ptr = wsgi_req->post_buffering_buf;
 
-        while (remains > 0) {
-                if (uwsgi.harakiri_options.workers > 0) {
-                        inc_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
-                }
+	while (remains > 0) {
+		if (uwsgi.harakiri_options.workers > 0) {
+			inc_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
+		}
 
-                ssize_t rlen = wsgi_req->socket->proto_read_body(wsgi_req, ptr, remains);
-                if (rlen > 0) {
+		ssize_t rlen = wsgi_req->socket->proto_read_body(wsgi_req, ptr, remains);
+		if (rlen > 0) {
 			remains -= rlen;
 			ptr += rlen;
 			continue;
 		}
-                if (rlen == 0) {
+		if (rlen == 0) {
 			uwsgi_read_error0(remains);
 			return -1; 
 		}
-                if (rlen < 0) {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
-                                goto wait;
-                        }
+		if (rlen < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+				goto wait;
+			}
 			uwsgi_read_error(remains);
 			wsgi_req->read_errors++;
-                        return -1;
-                }
+			return -1;
+		}
 
 wait:
-                ret = uwsgi_wait_read_req(wsgi_req);
-                if (ret > 0) {
+		ret = uwsgi_wait_read_req(wsgi_req);
+		if (ret > 0) {
 			rlen = wsgi_req->socket->proto_read_body(wsgi_req, ptr, remains);
 			if (rlen > 0) {
 				remains -= rlen;
@@ -509,73 +507,73 @@ wait:
 				continue;
 			}
 		}
-                if (ret < 0) {
+		if (ret < 0) {
 			uwsgi_read_error(remains);
 			wsgi_req->read_errors++;
-                        return -1;
-                }
+			return -1;
+		}
 		uwsgi_read_timeout(remains);
-                return -1;
+		return -1;
 	}
 
-        return 0;
+	return 0;
 
 }
 
 
 int uwsgi_postbuffer_do_in_disk(struct wsgi_request *wsgi_req) {
 
-        size_t post_remains = wsgi_req->post_cl;
-        int ret;
-        int upload_progress_fd = -1;
-        char *upload_progress_filename = NULL;
+	size_t post_remains = wsgi_req->post_cl;
+	int ret;
+	int upload_progress_fd = -1;
+	char *upload_progress_filename = NULL;
 
-        wsgi_req->post_file = uwsgi_tmpfile();
-        if (!wsgi_req->post_file) {
-                uwsgi_req_error("uwsgi_postbuffer_do_in_disk()/uwsgi_tmpfile()");
+	wsgi_req->post_file = uwsgi_tmpfile();
+	if (!wsgi_req->post_file) {
+		uwsgi_req_error("uwsgi_postbuffer_do_in_disk()/uwsgi_tmpfile()");
 		wsgi_req->read_errors++;
-                return -1;
-        }
+		return -1;
+	}
 
-        if (uwsgi.upload_progress) {
-                // first check for X-Progress-ID size
-                // separator + 'X-Progress-ID' + '=' + uuid     
-                upload_progress_filename = uwsgi_upload_progress_create(wsgi_req, &upload_progress_fd);
-                if (!upload_progress_filename) {
-                        uwsgi_log("invalid X-Progress-ID value: must be a UUID\n");
-                }
-        }
+	if (uwsgi.upload_progress) {
+		// first check for X-Progress-ID size
+		// separator + 'X-Progress-ID' + '=' + uuid     
+		upload_progress_filename = uwsgi_upload_progress_create(wsgi_req, &upload_progress_fd);
+		if (!upload_progress_filename) {
+			uwsgi_log("invalid X-Progress-ID value: must be a UUID\n");
+		}
+	}
 
-        // manage buffered data and upload progress
-        while (post_remains > 0) {
+	// manage buffered data and upload progress
+	while (post_remains > 0) {
 
-                // during post buffering we need to constantly reset the harakiri
-                if (uwsgi.harakiri_options.workers > 0) {
-                        inc_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
-                }
+		// during post buffering we need to constantly reset the harakiri
+		if (uwsgi.harakiri_options.workers > 0) {
+			inc_harakiri(wsgi_req, uwsgi.harakiri_options.workers);
+		}
 
-                // we use the already available post buffering buffer to read chunks....
-                size_t remains = UMIN(post_remains, uwsgi.post_buffering);
+		// we use the already available post buffering buffer to read chunks....
+		size_t remains = UMIN(post_remains, uwsgi.post_buffering);
 
-                // first try to read data (there could be something already available
-                ssize_t rlen = wsgi_req->socket->proto_read_body(wsgi_req, wsgi_req->post_buffering_buf, remains);
-                if (rlen > 0) goto write;
-                if (rlen == 0) {
+		// first try to read data (there could be something already available
+		ssize_t rlen = wsgi_req->socket->proto_read_body(wsgi_req, wsgi_req->post_buffering_buf, remains);
+		if (rlen > 0) goto write;
+		if (rlen == 0) {
 			uwsgi_read_error0(remains);
 			goto end;
 		}
-                if (rlen < 0) {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
-                                goto wait;
-                        }
+		if (rlen < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+				goto wait;
+			}
 			uwsgi_read_error(remains);
 			wsgi_req->read_errors++;
-                        goto end;
-                }
+			goto end;
+		}
 
 wait:
-                ret = uwsgi_wait_read_req(wsgi_req);
-                if (ret > 0) {
+		ret = uwsgi_wait_read_req(wsgi_req);
+		if (ret > 0) {
 			rlen = wsgi_req->socket->proto_read_body(wsgi_req, wsgi_req->post_buffering_buf, remains);
 			if (rlen > 0) goto write;
 			if (rlen == 0) {
@@ -585,45 +583,45 @@ wait:
 				uwsgi_read_error(remains);
 				wsgi_req->read_errors++;
 			}
-                        goto end;
+			goto end;
 		}
-                if (ret < 0) {
+		if (ret < 0) {
 			uwsgi_read_error(remains);
 			wsgi_req->read_errors++;
-                        goto end;
-                }
+			goto end;
+		}
 		uwsgi_read_timeout(remains);
-                goto end;
+		goto end;
 
 write:
-                if (fwrite(wsgi_req->post_buffering_buf, rlen, 1, wsgi_req->post_file) != 1) {
-                        uwsgi_req_error("uwsgi_postbuffer_do_in_disk()/fwrite()");
+		if (fwrite(wsgi_req->post_buffering_buf, rlen, 1, wsgi_req->post_file) != 1) {
+			uwsgi_req_error("uwsgi_postbuffer_do_in_disk()/fwrite()");
 			wsgi_req->read_errors++;
-                        goto end;
-                }
+			goto end;
+		}
 
-                post_remains -= rlen;
+		post_remains -= rlen;
 
 		if (upload_progress_filename) {
-                        // stop updating it on errors
-                        if (uwsgi_upload_progress_update(wsgi_req, upload_progress_fd, post_remains)) {
-                                uwsgi_upload_progress_destroy(upload_progress_filename, upload_progress_fd);
-                                upload_progress_filename = NULL;
-                        }
-                }
-        }
-        rewind(wsgi_req->post_file);
+			// stop updating it on errors
+			if (uwsgi_upload_progress_update(wsgi_req, upload_progress_fd, post_remains)) {
+				uwsgi_upload_progress_destroy(upload_progress_filename, upload_progress_fd);
+				upload_progress_filename = NULL;
+			}
+		}
+	}
+	rewind(wsgi_req->post_file);
 
-        if (upload_progress_filename) {
-                uwsgi_upload_progress_destroy(upload_progress_filename, upload_progress_fd);
-        }
+	if (upload_progress_filename) {
+		uwsgi_upload_progress_destroy(upload_progress_filename, upload_progress_fd);
+	}
 
-        return 0;
+	return 0;
 
 end:
-        if (upload_progress_filename) {
-                uwsgi_upload_progress_destroy(upload_progress_filename, upload_progress_fd);
-        }
-        return -1;
+	if (upload_progress_filename) {
+		uwsgi_upload_progress_destroy(upload_progress_filename, upload_progress_fd);
+	}
+	return -1;
 }
 

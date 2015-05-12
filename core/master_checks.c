@@ -18,13 +18,13 @@ void uwsgi_master_check_death() {
 
 // check if all of the workers are dead, and trigger a reload
 int uwsgi_master_check_reload(char **argv) {
-        if (uwsgi_instance_is_reloading) {
-                int i;
-                for(i=1;i<=uwsgi.numproc;i++) {
-                        if (uwsgi.workers[i].pid > 0) {
-                                return 0;
-                        }
-                }
+	if (uwsgi_instance_is_reloading) {
+		int i;
+		for(i=1;i<=uwsgi.numproc;i++) {
+			if (uwsgi.workers[i].pid > 0) {
+				return 0;
+			}
+		}
 		for(i=0;i<uwsgi.mules_cnt;i++) {
 			if (uwsgi.mules[i].pid > 0) {
 				return 0;
@@ -33,7 +33,7 @@ int uwsgi_master_check_reload(char **argv) {
 		uwsgi_reload(argv);
 		// never here (unless in shared library mode)
 		return -1;
-        }
+	}
 	return 0;
 }
 
@@ -58,7 +58,7 @@ void uwsgi_master_check_chain() {
 	// if all the processes are recycled, the chain is over
 	if (uwsgi.status.chain_reloading > uwsgi.numproc) {
 		uwsgi.status.chain_reloading = 0;
-                uwsgi_log_verbose("chain reloading complete\n");
+		uwsgi_log_verbose("chain reloading complete\n");
 		return;
 	}
 
@@ -77,7 +77,7 @@ void uwsgi_master_check_chain() {
 		else {
 			uwsgi.status.chain_reloading++;
 		}
-        }
+	}
 	uwsgi_unblock_signal(SIGHUP);
 }
 
@@ -264,13 +264,13 @@ int uwsgi_master_check_mules_deadline() {
 		}
 		// user harakiri
 		if (uwsgi.mules[i].user_harakiri > 0) {
-                        if (uwsgi.mules[i].user_harakiri < (time_t) uwsgi.current_time) {
-                                uwsgi_log("*** HARAKIRI ON MULE %d (pid: %d) ***\n", i + 1, uwsgi.mules[i].pid);
-                                kill(uwsgi.mules[i].pid, SIGKILL);
-                                uwsgi.mules[i].user_harakiri = 0;
+			if (uwsgi.mules[i].user_harakiri < (time_t) uwsgi.current_time) {
+				uwsgi_log("*** HARAKIRI ON MULE %d (pid: %d) ***\n", i + 1, uwsgi.mules[i].pid);
+				kill(uwsgi.mules[i].pid, SIGKILL);
+				uwsgi.mules[i].user_harakiri = 0;
 				ret = 1;
-                        }
-                }
+			}
+		}
 	}
 	return ret;
 }
@@ -286,11 +286,11 @@ int uwsgi_master_check_spoolers_deadline() {
 			ret = 1;
 		}
 		if (uspool->user_harakiri > 0 && uspool->user_harakiri < (time_t) uwsgi.current_time) {
-                        uwsgi_log("*** HARAKIRI ON THE SPOOLER (pid: %d) ***\n", uspool->pid);
-                        kill(uspool->pid, SIGKILL);
-                        uspool->user_harakiri = 0;
+			uwsgi_log("*** HARAKIRI ON THE SPOOLER (pid: %d) ***\n", uspool->pid);
+			kill(uspool->pid, SIGKILL);
+			uspool->user_harakiri = 0;
 			ret = 1;
-                }
+		}
 		uspool = uspool->next;
 	}
 	return ret;

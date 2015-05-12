@@ -22,21 +22,21 @@ static int uwsgi_yajl_cb_null(void *ctx) {
 }
 
 static int uwsgi_yajl_cb_boolean(void *ctx, int b) {
-        struct uwsgi_yajl_old_state *uyos = (struct uwsgi_yajl_old_state *) ctx;
-        if (!uyos->key) return 1;
+	struct uwsgi_yajl_old_state *uyos = (struct uwsgi_yajl_old_state *) ctx;
+	if (!uyos->key) return 1;
 	if (b) {
-        	add_exported_option(uyos->key, strdup("1"), 0);
+		add_exported_option(uyos->key, strdup("1"), 0);
 	}
 	else {
-        	add_exported_option(uyos->key, strdup("0"), 0);
+		add_exported_option(uyos->key, strdup("0"), 0);
 	}
 	return 1;
 }
 
 static int uwsgi_yajl_cb_integer(void *ctx, long n) {
-        struct uwsgi_yajl_old_state *uyos = (struct uwsgi_yajl_old_state *) ctx;
-        if (!uyos->key) return 1;
-        add_exported_option(uyos->key, uwsgi_64bit2str((int64_t) n), 0);
+	struct uwsgi_yajl_old_state *uyos = (struct uwsgi_yajl_old_state *) ctx;
+	if (!uyos->key) return 1;
+	add_exported_option(uyos->key, uwsgi_64bit2str((int64_t) n), 0);
 	return 1;
 }
 
@@ -46,8 +46,8 @@ static int uwsgi_yajl_cb_double(void *ctx, double n) {
 
 static int uwsgi_yajl_cb_string(void *ctx, const unsigned char *s, unsigned int s_len) {
 	struct uwsgi_yajl_old_state *uyos = (struct uwsgi_yajl_old_state *) ctx;
-        if (!uyos->key) return 1;
-        add_exported_option(uyos->key, uwsgi_concat2n((char *)s, (size_t)s_len, "", 0), 0);
+	if (!uyos->key) return 1;
+	add_exported_option(uyos->key, uwsgi_concat2n((char *)s, (size_t)s_len, "", 0), 0);
 	return 1;
 }
 
@@ -59,7 +59,7 @@ static int uwsgi_yajl_cb_map_key(void *ctx, const unsigned char *s, unsigned int
 	struct uwsgi_yajl_old_state *uyos = (struct uwsgi_yajl_old_state *) ctx;
 	if (!uyos->in_object) {
 		if (!uwsgi_strncmp(uyos->object, strlen(uyos->object), (char *)s, (size_t)s_len)) {
-			uyos->in_object = 1; 
+			uyos->in_object = 1;
 		}
 		return 1;
 	}
@@ -84,32 +84,32 @@ static yajl_callbacks callbacks = {
 };
 
 void uwsgi_json_config(char *file, char *magic_table[]) {
-        size_t len = 0;
+	size_t len = 0;
 
-        char *object_asked = "uwsgi";
-        char *colon;
+	char *object_asked = "uwsgi";
+	char *colon;
 
-        if (uwsgi_check_scheme(file)) {
-                colon = uwsgi_get_last_char(file, '/');
-                colon = uwsgi_get_last_char(colon, ':');
-        }
-        else {
-                colon = uwsgi_get_last_char(file, ':');
-        }
+	if (uwsgi_check_scheme(file)) {
+		colon = uwsgi_get_last_char(file, '/');
+		colon = uwsgi_get_last_char(colon, ':');
+	}
+	else {
+		colon = uwsgi_get_last_char(file, ':');
+	}
 
-        if (colon) {
-                colon[0] = 0;
-                if (colon[1] != 0) {
-                        object_asked = colon + 1;
-                }
-        }
+	if (colon) {
+		colon[0] = 0;
+		if (colon[1] != 0) {
+			object_asked = colon + 1;
+		}
+	}
 
 	struct uwsgi_yajl_old_state uyos;
 	memset(&uyos, 0, sizeof(struct uwsgi_yajl_old_state));
 	uyos.object = object_asked;
-        uwsgi_log_initial("[uWSGI] getting JSON configuration from %s\n", file);
+	uwsgi_log_initial("[uWSGI] getting JSON configuration from %s\n", file);
 
-        char *json_data = uwsgi_open_and_read(file, &len, 1, magic_table);
+	char *json_data = uwsgi_open_and_read(file, &len, 1, magic_table);
 
 	yajl_handle hand = yajl_alloc(&callbacks, NULL, NULL, &uyos);
 
@@ -127,34 +127,34 @@ void uwsgi_json_config(char *file, char *magic_table[]) {
 void uwsgi_json_config(char *file, char *magic_table[]) {
 	size_t len = 0;
 
-        char *object_asked = "uwsgi";
-        char *colon;
+	char *object_asked = "uwsgi";
+	char *colon;
 
-        if (uwsgi_check_scheme(file)) {
-                colon = uwsgi_get_last_char(file, '/');
-                colon = uwsgi_get_last_char(colon, ':');
-        }
-        else {
-                colon = uwsgi_get_last_char(file, ':');
-        }
+	if (uwsgi_check_scheme(file)) {
+		colon = uwsgi_get_last_char(file, '/');
+		colon = uwsgi_get_last_char(colon, ':');
+	}
+	else {
+		colon = uwsgi_get_last_char(file, ':');
+	}
 
-        if (colon) {
-                colon[0] = 0;
-                if (colon[1] != 0) {
-                        object_asked = colon + 1;
-                }
-        }
+	if (colon) {
+		colon[0] = 0;
+		if (colon[1] != 0) {
+			object_asked = colon + 1;
+		}
+	}
 
-        uwsgi_log_initial("[uWSGI] getting JSON configuration from %s\n", file);
+	uwsgi_log_initial("[uWSGI] getting JSON configuration from %s\n", file);
 
-        char *json_data = uwsgi_open_and_read(file, &len, 1, magic_table);
+	char *json_data = uwsgi_open_and_read(file, &len, 1, magic_table);
 
 	char errbuf[1024];
 	yajl_val node = yajl_tree_parse((const char *)json_data, errbuf, sizeof(errbuf));
 
 	if (!node) {
 		uwsgi_log("error parsing JSON data: %s\n", errbuf);
-                exit(1);
+		exit(1);
 	}
 
 	const char * path[] = { object_asked, NULL };
@@ -169,35 +169,35 @@ void uwsgi_json_config(char *file, char *magic_table[]) {
 		char *key = (char *) v->u.object.keys[i];
 		yajl_val o = v->u.object.values[i];
 		if (YAJL_IS_STRING(o)) {
-                        add_exported_option(key, YAJL_GET_STRING(o) , 0);
-                }
-                else if (YAJL_IS_TRUE(o)) {
-                        add_exported_option(key, strdup("1"), 0);
-                }
-                else if (YAJL_IS_FALSE(o) || YAJL_IS_NULL(o)) {
-                        add_exported_option(key, strdup("0"), 0);
-                }
-		else if (YAJL_IS_NUMBER(o) || YAJL_IS_INTEGER(o)) {
-                        add_exported_option(key, YAJL_GET_NUMBER(o), 0);
+			add_exported_option(key, YAJL_GET_STRING(o) , 0);
 		}
-                else if (YAJL_IS_ARRAY(o)) {
+		else if (YAJL_IS_TRUE(o)) {
+			add_exported_option(key, strdup("1"), 0);
+		}
+		else if (YAJL_IS_FALSE(o) || YAJL_IS_NULL(o)) {
+			add_exported_option(key, strdup("0"), 0);
+		}
+		else if (YAJL_IS_NUMBER(o) || YAJL_IS_INTEGER(o)) {
+			add_exported_option(key, YAJL_GET_NUMBER(o), 0);
+		}
+		else if (YAJL_IS_ARRAY(o)) {
 			size_t j;
-			for(j=0;j<o->u.array.len;j++) {	
-				yajl_val a_o = o->u.array.values[j];		
+			for(j=0;j<o->u.array.len;j++) {
+				yajl_val a_o = o->u.array.values[j];
 				if (YAJL_IS_STRING(a_o)) {
-                        		add_exported_option(key, YAJL_GET_STRING(a_o) , 0);
-                		}
-                		else if (YAJL_IS_TRUE(a_o)) {
-                        		add_exported_option(key, strdup("1"), 0);
-                		}
-                		else if (YAJL_IS_FALSE(a_o) || YAJL_IS_NULL(a_o)) {
-                        		add_exported_option(key, strdup("0"), 0);
-                		}
-                		else if (YAJL_IS_NUMBER(a_o) || YAJL_IS_INTEGER(a_o)) {
-                        		add_exported_option(key, YAJL_GET_NUMBER(a_o), 0);
-                		}
+					add_exported_option(key, YAJL_GET_STRING(a_o) , 0);
+				}
+				else if (YAJL_IS_TRUE(a_o)) {
+					add_exported_option(key, strdup("1"), 0);
+				}
+				else if (YAJL_IS_FALSE(a_o) || YAJL_IS_NULL(a_o)) {
+					add_exported_option(key, strdup("0"), 0);
+				}
+				else if (YAJL_IS_NUMBER(a_o) || YAJL_IS_INTEGER(a_o)) {
+					add_exported_option(key, YAJL_GET_NUMBER(a_o), 0);
+				}
 			}
-                }
+		}
 	}
 }
 #else

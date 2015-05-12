@@ -100,7 +100,7 @@ uint64_t uwsgi_mount_flag(char *mflag) {
 	struct uwsgi_mount_flag *umf = umflags;
 	while(umf->key) {
 		if (!strcmp(umf->key, mflag)) return umf->value;
-		umf++; 
+		umf++;
 	}
 	return 0;
 }
@@ -137,9 +137,9 @@ parsed:
 	iov[3].iov_len = strlen(where) + 1;
 
 	iov[4].iov_base = "target";
-        iov[4].iov_len = 7;
-        iov[5].iov_base = what;
-        iov[5].iov_len = strlen(what) + 1;
+	iov[4].iov_len = 7;
+	iov[5].iov_base = what;
+	iov[5].iov_len = strlen(what) + 1;
 
 	return nmount(iov, 6, (int) mountflags);
 #endif
@@ -148,18 +148,18 @@ parsed:
 
 int uwsgi_umount(char *where, char *flags) {
 	unsigned long mountflags = 0;
-        if (!flags) goto parsed;
-        char *mflags = uwsgi_str(flags);
-        char *p, *ctx = NULL;
+	if (!flags) goto parsed;
+	char *mflags = uwsgi_str(flags);
+	char *p, *ctx = NULL;
 	uwsgi_foreach_token(mflags, ",", p, ctx) {
-                unsigned long flag = (unsigned long) uwsgi_mount_flag(p);
-                if (!flag) {
-                        uwsgi_log("unknown umount flag \"%s\"\n", p);
-                        exit(1);
-                }
-                mountflags |= flag;
-        }
-        free(mflags);
+		unsigned long flag = (unsigned long) uwsgi_mount_flag(p);
+		if (!flag) {
+			uwsgi_log("unknown umount flag \"%s\"\n", p);
+			exit(1);
+		}
+		mountflags |= flag;
+	}
+	free(mflags);
 parsed:
 #ifdef __linux__
 	// we need a special case for recursive umount
@@ -168,35 +168,35 @@ parsed:
 		int unmounted = 1;
 		char *slashed = uwsgi_concat2(where, "/");
 		while (unmounted) {
-                	unmounted = 0;
-                	FILE *procmounts = fopen("/proc/self/mounts", "r");
-                	if (!procmounts) {
+			unmounted = 0;
+			FILE *procmounts = fopen("/proc/self/mounts", "r");
+			if (!procmounts) {
 				uwsgi_log("the /proc filesystem must be mounted for recursive umount\n");
 				uwsgi_error("open()");
 				exit(1);
 			}
 			char line[1024];
-                	while (fgets(line, 1024, procmounts) != NULL) {
-                        	char *delim0 = strchr(line, ' ');
-                        	if (!delim0) continue;
-                        	delim0++;
-                        	char *delim1 = strchr(delim0, ' ');
-                        	if (!delim1) continue;
-                        	*delim1 = 0;
-				if (!uwsgi_starts_with(delim0, strlen(delim0), slashed, strlen(slashed))) goto unmountable; 
-                                continue;
+			while (fgets(line, 1024, procmounts) != NULL) {
+				char *delim0 = strchr(line, ' ');
+				if (!delim0) continue;
+				delim0++;
+				char *delim1 = strchr(delim0, ' ');
+				if (!delim1) continue;
+				*delim1 = 0;
+				if (!uwsgi_starts_with(delim0, strlen(delim0), slashed, strlen(slashed))) goto unmountable;
+				continue;
 unmountable:
-                        	if (!umount2(delim0, mountflags)) unmounted++;
-                	}
-                	fclose(procmounts);
-        	}
+				if (!umount2(delim0, mountflags)) unmounted++;
+			}
+			fclose(procmounts);
+		}
 		free(slashed);
 	}
-        return umount2(where, mountflags);
+	return umount2(where, mountflags);
 #elif defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	return unmount(where, mountflags);
 #endif
-        return -1;
+	return -1;
 }
 
 int uwsgi_mount_hook(char *arg) {
@@ -221,7 +221,7 @@ int uwsgi_mount_hook(char *arg) {
 		uwsgi_error("uwsgi_mount()");
 		free(tmp_arg);
 		return -1;
-	}	
+	}
 	free(tmp_arg);
 	return 0;
 error:
@@ -233,17 +233,17 @@ error:
 int uwsgi_umount_hook(char *arg) {
 	char *tmp_arg = uwsgi_str(arg);
 	char *where = tmp_arg;
-        char *flags = strchr(where, ' ');
-        if (flags) {
-        	*flags = 0; flags++;
+	char *flags = strchr(where, ' ');
+	if (flags) {
+		*flags = 0; flags++;
 	}
-        if (uwsgi_umount(where, flags)) {
-                uwsgi_error("uwsgi_umount()");
-                free(tmp_arg);
-                return -1;
-        }       
-        free(tmp_arg);
-        return 0;
+	if (uwsgi_umount(where, flags)) {
+		uwsgi_error("uwsgi_umount()");
+		free(tmp_arg);
+		return -1;
+	}
+	free(tmp_arg);
+	return 0;
 }
 
 int uwsgi_check_mountpoint(char *mountpoint) {

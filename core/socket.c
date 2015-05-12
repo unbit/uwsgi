@@ -7,18 +7,18 @@ static int connect_to_tcp(char *, int, int, int);
 static int connect_to_udp(char *, int);
 
 void uwsgi_socket_setup_protocol(struct uwsgi_socket *uwsgi_sock, char *protocol) {
-        if (!protocol) protocol = "uwsgi";
-        struct uwsgi_protocol *up = uwsgi.protocols;
-        while(up) {
-                if (!strcmp(protocol, up->name)) {
-                        up->func(uwsgi_sock);
-                        return;
-                }
-                up = up->next;
-        }
+	if (!protocol) protocol = "uwsgi";
+	struct uwsgi_protocol *up = uwsgi.protocols;
+	while(up) {
+		if (!strcmp(protocol, up->name)) {
+			up->func(uwsgi_sock);
+			return;
+		}
+		up = up->next;
+	}
 
-        uwsgi_log("unable to find protocol %s\n", protocol);
-        exit(1);
+	uwsgi_log("unable to find protocol %s\n", protocol);
+	exit(1);
 }
 
 
@@ -32,9 +32,9 @@ static int uwsgi_socket_strcmp(char *sock1, char *sock2) {
 	}
 
 	if (!uwsgi_starts_with(sock2, sock2_len, "0.0.0.0:", 8)) {
-                sock2 += 7;
-                sock2_len = strlen(sock2);
-        }
+		sock2 += 7;
+		sock2_len = strlen(sock2);
+	}
 
 	return uwsgi_strncmp(sock1, sock1_len, sock2, sock2_len);
 }
@@ -355,15 +355,15 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 }
 
 static int uwsgi_connect_do(char *socket_name, int timeout, int async) {
-        char *tcp_port = strchr(socket_name, ':');
+	char *tcp_port = strchr(socket_name, ':');
 
-        if (tcp_port) {
-                tcp_port[0] = 0;
-                tcp_port++;
-                return connect_to_tcp(socket_name, atoi(tcp_port), timeout, async);
-        }
+	if (tcp_port) {
+		tcp_port[0] = 0;
+		tcp_port++;
+		return connect_to_tcp(socket_name, atoi(tcp_port), timeout, async);
+	}
 
-        return connect_to_unix(socket_name, timeout, async);
+	return connect_to_unix(socket_name, timeout, async);
 }
 
 int uwsgi_connectn(char *socket_name, uint16_t len, int timeout, int async) {
@@ -387,10 +387,10 @@ int uwsgi_connect_udp(char *socket_name) {
 	if (!udp_port) goto end;
 	*udp_port = 0;
 	udp_port++;
-        fd = connect_to_udp(zeroed_socket_name, atoi(udp_port));
+	fd = connect_to_udp(zeroed_socket_name, atoi(udp_port));
 end:
-        free(zeroed_socket_name);
-        return fd;
+	free(zeroed_socket_name);
+	return fd;
 }
 
 static int connect_to_unix(char *socket_name, int timeout, int async) {
@@ -479,31 +479,31 @@ static int connect_to_tcp(char *socket_name, int port, int timeout, int async) {
 
 static int connect_to_udp(char *socket_name, int port) {
 
-        struct sockaddr_in uws_addr;
-        memset(&uws_addr, 0, sizeof(struct sockaddr_in));
+	struct sockaddr_in uws_addr;
+	memset(&uws_addr, 0, sizeof(struct sockaddr_in));
 
-        uws_addr.sin_family = AF_INET;
-        uws_addr.sin_port = htons(port);
+	uws_addr.sin_family = AF_INET;
+	uws_addr.sin_port = htons(port);
 
-        if (socket_name[0] == 0) {
-                uws_addr.sin_addr.s_addr = INADDR_ANY;
-        }
-        else {
-                uws_addr.sin_addr.s_addr = inet_addr(socket_name);
-        }
+	if (socket_name[0] == 0) {
+		uws_addr.sin_addr.s_addr = INADDR_ANY;
+	}
+	else {
+		uws_addr.sin_addr.s_addr = inet_addr(socket_name);
+	}
 
-        int fd = socket(AF_INET, SOCK_DGRAM, 0);
-        if (fd < 0) {
-                uwsgi_error("connect_to_udp()/socket()");
-                return -1;
-        }
+	int fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd < 0) {
+		uwsgi_error("connect_to_udp()/socket()");
+		return -1;
+	}
 
 	if (connect(fd, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in))) {
 		close(fd);
 		return -1;
 	}
 
-        return fd;
+	return fd;
 
 }
 
@@ -674,7 +674,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		socket_to_in_addr6(socket_name, tcp_port, 0, &uws_addr);
 		addr_len = sizeof(struct sockaddr_in6);
 	}
-	else {	
+	else {
 #endif
 		socket_to_in_addr(socket_name, tcp_port, 0, (struct sockaddr_in *) &uws_addr);
 #ifdef AF_INET6
@@ -684,7 +684,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 	serverfd = create_server_socket(family, SOCK_STREAM);
 	if (serverfd < 0) return -1;
-	
+
 #ifdef __linux__
 #ifndef IP_FREEBIND
 #define IP_FREEBIND 15
@@ -1547,16 +1547,16 @@ void uwsgi_setup_shared_sockets() {
 		if (!uwsgi.is_a_reload) {
 			char *tcp_port = strrchr(shared_sock->name, ':');
 			int current_defer_accept = uwsgi.no_defer_accept;
-                        if (shared_sock->no_defer) {
-                        	uwsgi.no_defer_accept = 1;
-                        }
+			if (shared_sock->no_defer) {
+				uwsgi.no_defer_accept = 1;
+			}
 			if (tcp_port == NULL) {
 				shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 				shared_sock->family = AF_UNIX;
 				uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
 				if (uwsgi.chown_socket) {
-                                        uwsgi_chown(shared_sock->name, uwsgi.chown_socket);
-                                }
+					uwsgi_chown(shared_sock->name, uwsgi.chown_socket);
+				}
 			}
 			else {
 #ifdef AF_INET6
@@ -1583,10 +1583,10 @@ void uwsgi_setup_shared_sockets() {
 				uwsgi_log("unable to create shared socket on: %s\n", shared_sock->name);
 				exit(1);
 			}
- 
+
 			if (shared_sock->no_defer) {
-                                uwsgi.no_defer_accept = current_defer_accept;
-                        }
+				uwsgi.no_defer_accept = current_defer_accept;
+			}
 
 		}
 		else {
@@ -1698,9 +1698,9 @@ void uwsgi_bind_sockets() {
 		if (!uwsgi_sock->bound && !uwsgi_socket_is_already_bound(uwsgi_sock->name)) {
 			char *tcp_port = strrchr(uwsgi_sock->name, ':');
 			int current_defer_accept = uwsgi.no_defer_accept;
-                        if (uwsgi_sock->no_defer) {
-                                uwsgi.no_defer_accept = 1;
-                        }
+			if (uwsgi_sock->no_defer) {
+				uwsgi.no_defer_accept = 1;
+			}
 			if (tcp_port == NULL) {
 				uwsgi_sock->fd = bind_to_unix(uwsgi_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 				uwsgi_sock->family = AF_UNIX;
@@ -1762,21 +1762,21 @@ void uwsgi_bind_sockets() {
 				uwsgi_log("uwsgi socket %d inherited UNIX address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
 				if (!uwsgi.is_a_reload) {
 					if (uwsgi.chown_socket) {
-                                        	uwsgi_chown(uwsgi_sock->name, uwsgi.chown_socket);
-                                	}
+						uwsgi_chown(uwsgi_sock->name, uwsgi.chown_socket);
+					}
 					if (uwsgi.chmod_socket) {
-                				if (uwsgi.chmod_socket_value) {
-                        				if (chmod(uwsgi_sock->name, uwsgi.chmod_socket_value) != 0) {
-                                				uwsgi_error("inherit fd0: chmod()");
-                        				}
-                				}
-                				else {
-                        				uwsgi_log("chmod() fd0 socket to 666 for lazy and brave users\n");
-                        				if (chmod(uwsgi_sock->name, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) != 0) {
-                                				uwsgi_error("inherit fd0: chmod()");
-                        				}
+						if (uwsgi.chmod_socket_value) {
+							if (chmod(uwsgi_sock->name, uwsgi.chmod_socket_value) != 0) {
+								uwsgi_error("inherit fd0: chmod()");
+							}
 						}
-                			}
+						else {
+							uwsgi_log("chmod() fd0 socket to 666 for lazy and brave users\n");
+							if (chmod(uwsgi_sock->name, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) != 0) {
+								uwsgi_error("inherit fd0: chmod()");
+							}
+						}
+					}
 				}
 			}
 			else {
@@ -1876,25 +1876,25 @@ nextsock:
 
 void uwsgi_tcp_nodelay(int fd) {
 #ifdef TCP_NODELAY
-        int flag = 1;
-        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int))) {
-                uwsgi_error("uwsgi_tcp_nodelay()/setsockopt()");
-        }
+	int flag = 1;
+	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int))) {
+		uwsgi_error("uwsgi_tcp_nodelay()/setsockopt()");
+	}
 #endif
 }
 
 int uwsgi_accept(int server_fd) {
 	struct sockaddr_un client_src;
-        memset(&client_src, 0, sizeof(struct sockaddr_un));
-        socklen_t client_src_len = 0;
+	memset(&client_src, 0, sizeof(struct sockaddr_un));
+	socklen_t client_src_len = 0;
 #if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
-        return accept4(server_fd, (struct sockaddr *) &client_src, &client_src_len, SOCK_NONBLOCK);
+	return accept4(server_fd, (struct sockaddr *) &client_src, &client_src_len, SOCK_NONBLOCK);
 #elif defined(__linux__)
-        int client_fd = accept(server_fd, (struct sockaddr *) &client_src, &client_src_len);
-        if (client_fd >= 0) {
-                uwsgi_socket_nb(client_fd);
-        }
-        return client_fd;
+	int client_fd = accept(server_fd, (struct sockaddr *) &client_src, &client_src_len);
+	if (client_fd >= 0) {
+		uwsgi_socket_nb(client_fd);
+	}
+	return client_fd;
 #else
  	return accept(server_fd, (struct sockaddr *) &client_src, &client_src_len);
 #endif
@@ -1928,7 +1928,7 @@ int uwsgi_socket_passcred(int fd) {
 #ifdef SO_PASSCRED
 	int optval = 1;
 	if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &optval, sizeof(optval)) < 0) {
-                uwsgi_error("uwsgi_socket_passcred()/setsockopt()");
+		uwsgi_error("uwsgi_socket_passcred()/setsockopt()");
 		return -1;
 	}
 	return 0;

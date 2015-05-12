@@ -11,8 +11,6 @@ void uwsgi_init_queue() {
 		exit(1);
 	}
 
-
-
 	if (uwsgi.queue_store) {
 		uwsgi.queue_filesize = uwsgi.queue_blocksize * uwsgi.queue_size + 16;
 		int queue_fd;

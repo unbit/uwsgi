@@ -66,7 +66,7 @@ char *uwsgi_regexp_apply_ovec(char *src, int src_n, char *dst, int dst_n, int *o
 	int dollar = 0;
 
 	size_t dollars = n;
-	
+
 	for(i=0;i<dst_n;i++) {
 		if (dst[i] == '$') {
 			dollars++;
