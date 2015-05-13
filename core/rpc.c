@@ -110,9 +110,9 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 	if (node == NULL || !strcmp(node, "")) {
 		// allocate the whole buffer
 		if (!uwsgi.rpc_table) {
-                	uwsgi_log("local rpc subsystem is still not initialized !!!\n");
-                	return NULL;
-        	}
+			uwsgi_log("local rpc subsystem is still not initialized !!!\n");
+			return NULL;
+		}
 		*len = uwsgi_rpc(func, argc, argv, argvs, &buffer);
 		if (buffer)
 			return buffer;
@@ -190,9 +190,9 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 		rlen = content_len;
 
 		// read the raw value from the socket
-                if (uwsgi_read_whole_true_nb(fd, buffer, rlen, uwsgi.socket_timeout)) {
+		if (uwsgi_read_whole_true_nb(fd, buffer, rlen, uwsgi.socket_timeout)) {
 			goto error;
-                }
+		}
 	}
 
 	close(fd);

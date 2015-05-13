@@ -78,18 +78,18 @@ void uwsgi_systemd_init(char *systemd_socket) {
 
 int uwsgi_notify_socket_manage(int fd) {
 	char buf[8192];
-        ssize_t rlen = read(fd, buf, 8192);
-        if (rlen < 0) {
-                if (uwsgi_is_again()) return 0;
-                uwsgi_error("uwsgi_notify_socket_manage()/read()");
-                exit(1);
-        }
+	ssize_t rlen = read(fd, buf, 8192);
+	if (rlen < 0) {
+		if (uwsgi_is_again()) return 0;
+		uwsgi_error("uwsgi_notify_socket_manage()/read()");
+		exit(1);
+	}
 
 	if (rlen > 0) {
 		uwsgi_log_verbose("[notify-socket] %.*s\n", rlen, buf);
-        }
+	}
 
-        return 0;
+	return 0;
 }
 
 int uwsgi_notify_msg(char *dst, char *msg, size_t len) {
@@ -103,10 +103,10 @@ int uwsgi_notify_msg(char *dst, char *msg, size_t len) {
 	}
 	struct sockaddr_un un_addr;
 	memset(&un_addr, 0, sizeof(struct sockaddr_un));
-        un_addr.sun_family = AF_UNIX;
-        // use 102 as the magic number
-        strncat(un_addr.sun_path, dst, 102);
-        if (sendto(notify_fd, msg, len, 0, (struct sockaddr *) &un_addr, sizeof(un_addr)) < 0) {
+	un_addr.sun_family = AF_UNIX;
+	// use 102 as the magic number
+	strncat(un_addr.sun_path, dst, 102);
+	if (sendto(notify_fd, msg, len, 0, (struct sockaddr *) &un_addr, sizeof(un_addr)) < 0) {
 		return -1;
 	}
 	return 0;

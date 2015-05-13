@@ -36,23 +36,23 @@ void uwsgi_update_load_counters() {
 	uint64_t idle_workers = 0;
 	static time_t last_sos = 0;
 
-        for (i = 1; i <= uwsgi.numproc; i++) {
-                if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-                        if (uwsgi_worker_is_busy(i) == 0) {
+	for (i = 1; i <= uwsgi.numproc; i++) {
+		if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+			if (uwsgi_worker_is_busy(i) == 0) {
 				idle_workers++;
 			}
 			else {
 				busy_workers++;
 			}
-                }
-        }
+		}
+	}
 
 	if (busy_workers >= (uint64_t) uwsgi.numproc) {
 		ushared->overloaded++;
-	
+
 		if (uwsgi.vassal_sos) {
 			if (uwsgi.current_time - last_sos > uwsgi.vassal_sos) {
-                        	uwsgi_log_verbose("asking Emperor for reinforcements (overload: %llu)...\n", (unsigned long long) ushared->overloaded);
+				uwsgi_log_verbose("asking Emperor for reinforcements (overload: %llu)...\n", (unsigned long long) ushared->overloaded);
 				vassal_sos();
 				last_sos = uwsgi.current_time;
 			}
@@ -273,12 +273,12 @@ static void master_check_listen_queue() {
 	while(uwsgi_sock) {
 		if (uwsgi_sock->family == AF_INET) {
 			get_tcp_info(uwsgi_sock);
-                }
+		}
 #ifdef __linux__
 #ifdef SIOBKLGQ
-                else if (uwsgi_sock->family == AF_UNIX) {
-                	get_linux_unbit_SIOBKLGQ(uwsgi_sock);
-                }
+		else if (uwsgi_sock->family == AF_UNIX) {
+			get_linux_unbit_SIOBKLGQ(uwsgi_sock);
+		}
 #endif
 #endif
 
@@ -307,24 +307,24 @@ static void master_check_listen_queue() {
 
 	uwsgi.shared->backlog = backlog;
 
-        if (uwsgi.vassal_sos_backlog > 0 && uwsgi.has_emperor) {
-        	if (uwsgi.shared->backlog >= (uint64_t) uwsgi.vassal_sos_backlog) {
-                	// ask emperor for help
-                        uwsgi_log_verbose("asking Emperor for reinforcements (backlog: %llu)...\n", (unsigned long long) uwsgi.shared->backlog);
+	if (uwsgi.vassal_sos_backlog > 0 && uwsgi.has_emperor) {
+		if (uwsgi.shared->backlog >= (uint64_t) uwsgi.vassal_sos_backlog) {
+			// ask emperor for help
+			uwsgi_log_verbose("asking Emperor for reinforcements (backlog: %llu)...\n", (unsigned long long) uwsgi.shared->backlog);
 			vassal_sos();
-                }
+		}
 	}
 }
 
 void vassal_sos() {
 	if (!uwsgi.has_emperor) {
 		uwsgi_log("[broodlord] instance not governed by an Emperor !!!\n");
-		return;	
+		return;
 	}
 	char byte = 30;
-        if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
-        	uwsgi_error("vassal_sos()/write()");
-        }
+	if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
+		uwsgi_error("vassal_sos()/write()");
+	}
 }
 
 int master_loop(char **argv, char **environ) {
@@ -445,10 +445,10 @@ int master_loop(char **argv, char **environ) {
 		uwsgi.setns_socket_fd = bind_to_unix(uwsgi.setns_socket, uwsgi.listen_queue, 0, 0);
 		if (uwsgi.setns_socket_fd < 0) exit(1);
 		if (chmod(uwsgi.setns_socket, S_IRUSR|S_IWUSR)) {
-                	uwsgi_error("[setns-socket] chmod()");
-                        exit(1);
-                }
-                event_queue_add_fd_read(uwsgi.master_queue, uwsgi.setns_socket_fd);
+			uwsgi_error("[setns-socket] chmod()");
+			exit(1);
+		}
+		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.setns_socket_fd);
 	}
 #endif
 
@@ -567,7 +567,7 @@ int master_loop(char **argv, char **environ) {
 	uwsgi_check_touches(uwsgi.touch_signal);
 	// daemon touches
 	struct uwsgi_daemon *ud = uwsgi.daemons;
-        while (ud) {
+	while (ud) {
 		if (ud->touch) {
 			uwsgi_check_touches(ud->touch);
 		}
@@ -577,10 +577,10 @@ int master_loop(char **argv, char **environ) {
 	uwsgi_foreach(usl, uwsgi.hook_touch) {
 		char *space = strchr(usl->value, ' ');
 		if (space) {
-                        *space = 0;
-                        usl->len = strlen(usl->value);
+			*space = 0;
+			usl->len = strlen(usl->value);
 			uwsgi_string_new_list((struct uwsgi_string_list **)&usl->custom_ptr, space+1);
-                }
+		}
 	}
 	uwsgi_check_touches(uwsgi.hook_touch);
 
@@ -599,15 +599,15 @@ int master_loop(char **argv, char **environ) {
 	}
 
 	uwsgi_foreach(usl, uwsgi.rb_signal_timers) {
-                char *space = strchr(usl->value, ' ');
-                if (!space) {
-                        uwsgi_log("invalid redblack signal timer syntax, must be: <signal> <seconds>\n");
-                        exit(1);
-                }
-                *space = 0;
-                uwsgi_signal_add_rb_timer(atoi(usl->value), atoi(space+1), 0);
-                *space = ' ';
-        }
+		char *space = strchr(usl->value, ' ');
+		if (!space) {
+			uwsgi_log("invalid redblack signal timer syntax, must be: <signal> <seconds>\n");
+			exit(1);
+		}
+		*space = 0;
+		uwsgi_signal_add_rb_timer(atoi(usl->value), atoi(space+1), 0);
+		*space = ' ';
+	}
 
 	// setup cheaper algos (can be stacked)
 	uwsgi.cheaper_algo = uwsgi_cheaper_algo_spare;
@@ -886,10 +886,10 @@ int master_loop(char **argv, char **environ) {
 				}
 
 				// daemon touches
-        			struct uwsgi_daemon *ud = uwsgi.daemons;
-        			while (ud) {
-                			if (ud->pid > 0 && ud->touch) {
-                        			touched = uwsgi_check_touches(ud->touch);
+				struct uwsgi_daemon *ud = uwsgi.daemons;
+				while (ud) {
+					if (ud->pid > 0 && ud->touch) {
+						touched = uwsgi_check_touches(ud->touch);
 						if (touched) {
 							uwsgi_log_verbose("*** %s has been touched... reloading daemon \"%s\" (pid: %d) !!! ***\n", touched, ud->command, (int) ud->pid);
 							if (kill(-ud->pid, ud->stop_signal)) {
@@ -899,9 +899,9 @@ int master_loop(char **argv, char **environ) {
 								}
 							}
 						}
-                			}
+					}
 					ud = ud->next;
-                		}
+				}
 
 				// hook touches
 				touched = uwsgi_check_touches(uwsgi.hook_touch);
@@ -944,13 +944,12 @@ int master_loop(char **argv, char **environ) {
 
 		/* What happens here ?
 
-		   case 1) the diedpid is not a worker, report it and continue
-		   case 2) the diedpid is a worker and we are not in a reload procedure -> reload it
-		   case 3) the diedpid is a worker and we are in graceful reload -> uwsgi.ready_to_reload++ and continue
-		   case 3) the diedpid is a worker and we are in brutal reload -> uwsgi.ready_to_die++ and continue
+			case 1) the diedpid is not a worker, report it and continue
+			case 2) the diedpid is a worker and we are not in a reload procedure -> reload it
+			case 3) the diedpid is a worker and we are in graceful reload -> uwsgi.ready_to_reload++ and continue
+			case 3) the diedpid is a worker and we are in brutal reload -> uwsgi.ready_to_die++ and continue
 
-
-		 */
+		*/
 
 		int thewid = find_worker_id(diedpid);
 		if (thewid <= 0) {

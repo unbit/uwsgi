@@ -105,9 +105,9 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
 	}
 
 	if (uwsgi.mywid == 0 && uwsgi.workers[0].pid != uwsgi.mypid) {
-                uwsgi_log("only the master and the workers can register signal handlers\n");
-                return -1;
-        }
+		uwsgi_log("only the master and the workers can register signal handlers\n");
+		return -1;
+	}
 
 	if (strlen(receiver) > 63)
 		return -1;
@@ -138,10 +138,10 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
 	// check for cow
 	if (uwsgi.mywid == 0) {
 		int i;
-                for(i=1;i<=uwsgi.numproc;i++) {
-                        int pos = (i * 256);
-                        memcpy(&uwsgi.shared->signal_table[pos], &uwsgi.shared->signal_table[0], sizeof(struct uwsgi_signal_entry) * 256);
-                }
+		for(i=1;i<=uwsgi.numproc;i++) {
+			int pos = (i * 256);
+			memcpy(&uwsgi.shared->signal_table[pos], &uwsgi.shared->signal_table[0], sizeof(struct uwsgi_signal_entry) * 256);
+		}
 	}
 
 	uwsgi_unlock(uwsgi.signal_table_lock);
@@ -269,13 +269,13 @@ int uwsgi_remote_signal_send(char *addr, uint8_t sig) {
 	uh._pktsize = 0;
 	uh.modifier2 = sig;
 
-        int fd = uwsgi_connect(addr, 0, 1);
-        if (fd < 0) return -1;
+	int fd = uwsgi_connect(addr, 0, 1);
+	if (fd < 0) return -1;
 
-        // wait for connection
-        if (uwsgi.wait_write_hook(fd, uwsgi.socket_timeout) <= 0) goto end;
+	// wait for connection
+	if (uwsgi.wait_write_hook(fd, uwsgi.socket_timeout) <= 0) goto end;
 
-        if (uwsgi_write_true_nb(fd, (char *) &uh, 4, uwsgi.socket_timeout)) goto end;
+	if (uwsgi_write_true_nb(fd, (char *) &uh, 4, uwsgi.socket_timeout)) goto end;
 
 	if (uwsgi_read_whole_true_nb(fd, (char *) &uh, 4, uwsgi.socket_timeout)) goto end;
 	close(fd);
@@ -333,14 +333,14 @@ void uwsgi_route_signal(uint8_t sig) {
 	}
 	// send to al lactive workers
 	else if (!strcmp(use->receiver, "active-workers")) {
-                for (i = 1; i <= uwsgi.numproc; i++) {
+		for (i = 1; i <= uwsgi.numproc; i++) {
 			if (uwsgi.workers[i].pid > 0 && !uwsgi.workers[i].cheaped && !uwsgi.workers[i].suspended) {
-                        	if (uwsgi_signal_send(uwsgi.workers[i].signal_pipe[0], sig)) {
-                                	uwsgi_log("could not deliver signal %d to worker %d\n", sig, i);
-                        	}
+				if (uwsgi_signal_send(uwsgi.workers[i].signal_pipe[0], sig)) {
+					uwsgi_log("could not deliver signal %d to worker %d\n", sig, i);
+				}
 			}
-                }
-        }
+		}
+	}
 	// route to specific worker
 	else if (!strncmp(use->receiver, "worker", 6)) {
 		i = atoi(use->receiver + 6);

@@ -164,9 +164,9 @@ void daemonize(char *logfile) {
 	}
 
 	/*if (chdir("/") != 0) {
-	   uwsgi_error("chdir()");
-	   exit(1);
-	   } */
+		uwsgi_error("chdir()");
+		exit(1);
+	} */
 
 	uwsgi_remap_fd(0, "/dev/null");
 
@@ -1003,26 +1003,26 @@ nonroot:
 static void close_and_free_request(struct wsgi_request *wsgi_req) {
 
 	// close the connection with the client
-        if (!wsgi_req->fd_closed) {
-                // NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
-                wsgi_req->socket->proto_close(wsgi_req);
-        }
+	if (!wsgi_req->fd_closed) {
+		// NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
+		wsgi_req->socket->proto_close(wsgi_req);
+	}
 
-        if (wsgi_req->post_file) {
-                fclose(wsgi_req->post_file);
-        }
+	if (wsgi_req->post_file) {
+		fclose(wsgi_req->post_file);
+	}
 
-        if (wsgi_req->post_read_buf) {
-                free(wsgi_req->post_read_buf);
-        }
+	if (wsgi_req->post_read_buf) {
+		free(wsgi_req->post_read_buf);
+	}
 
-        if (wsgi_req->post_readline_buf) {
-                free(wsgi_req->post_readline_buf);
-        }
+	if (wsgi_req->post_readline_buf) {
+		free(wsgi_req->post_readline_buf);
+	}
 
-        if (wsgi_req->proto_parser_buf) {
-                free(wsgi_req->proto_parser_buf);
-        }
+	if (wsgi_req->proto_parser_buf) {
+		free(wsgi_req->proto_parser_buf);
+	}
 
 }
 
@@ -1032,19 +1032,19 @@ void uwsgi_destroy_request(struct wsgi_request *wsgi_req) {
 	close_and_free_request(wsgi_req);
 
 	int foo;
-        if (uwsgi.threads > 1) {
-                // now the thread can die...
-                pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &foo);
-        }
+	if (uwsgi.threads > 1) {
+		// now the thread can die...
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &foo);
+	}
 
 	// reset for avoiding following requests to fail on non-uwsgi protocols
 	// thanks Marko Tiikkaja for catching it
 	wsgi_req->uh->_pktsize = 0;
 
 	// some plugins expected async_id to be defined before setup
-        int tmp_id = wsgi_req->async_id;
-        memset(wsgi_req, 0, sizeof(struct wsgi_request));
-        wsgi_req->async_id = tmp_id;
+	int tmp_id = wsgi_req->async_id;
+	memset(wsgi_req, 0, sizeof(struct wsgi_request));
+	wsgi_req->async_id = tmp_id;
 }
 
 // finalize/close/free a request
@@ -1196,7 +1196,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
 
 	if (uwsgi.max_requests > 0 && uwsgi.workers[uwsgi.mywid].delta_requests >= (uwsgi.max_requests + ((uwsgi.mywid-1) * uwsgi.max_requests_delta))
-	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
+		&& (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
 		goodbye_cruel_world("max requests reached (%llu >= %llu)",
 			(unsigned long long) uwsgi.workers[uwsgi.mywid].delta_requests,
 			(unsigned long long) (uwsgi.max_requests + ((uwsgi.mywid-1) * uwsgi.max_requests_delta))
@@ -1819,9 +1819,9 @@ char *uwsgi_resolve_ip(char *domain) {
 	he = gethostbyname(domain);
 	if (!he || !*he->h_addr_list || (he->h_addrtype != AF_INET
 #ifdef AF_INET6
-					 && he->h_addrtype != AF_INET6
+		&& he->h_addrtype != AF_INET6
 #endif
-	    )) {
+	)) {
 		return NULL;
 	}
 
@@ -4468,60 +4468,60 @@ mode_t uwsgi_mode_t(char *value, int *error) {
 	mode_t mode = 0;
 	*error = 0;
 
-        if (strlen(value) < 3) {
+	if (strlen(value) < 3) {
 		*error = 1;
 		return mode;
 	}
 
-        if (strlen(value) == 3) {
-                mode = (mode << 3) + (value[0] - '0');
-                mode = (mode << 3) + (value[1] - '0');
-                mode = (mode << 3) + (value[2] - '0');
-        }
-        else {
-                mode = (mode << 3) + (value[1] - '0');
-                mode = (mode << 3) + (value[2] - '0');
-                mode = (mode << 3) + (value[3] - '0');
-        }
+	if (strlen(value) == 3) {
+		mode = (mode << 3) + (value[0] - '0');
+		mode = (mode << 3) + (value[1] - '0');
+		mode = (mode << 3) + (value[2] - '0');
+	}
+	else {
+		mode = (mode << 3) + (value[1] - '0');
+		mode = (mode << 3) + (value[2] - '0');
+		mode = (mode << 3) + (value[3] - '0');
+	}
 
 	return mode;
 }
 
 int uwsgi_wait_for_socket(char *socket_name) {
-        if (!uwsgi.wait_for_socket_timeout) {
-                uwsgi.wait_for_socket_timeout = 60;
-        }
-        uwsgi_log("waiting for %s (max %d seconds) ...\n", socket_name, uwsgi.wait_for_socket_timeout);
-        int counter = 0;
-        for (;;) {
-                if (counter > uwsgi.wait_for_socket_timeout) {
-                        uwsgi_log("%s unavailable after %d seconds\n", socket_name, counter);
-                        return -1;
-                }
+	if (!uwsgi.wait_for_socket_timeout) {
+		uwsgi.wait_for_socket_timeout = 60;
+	}
+	uwsgi_log("waiting for %s (max %d seconds) ...\n", socket_name, uwsgi.wait_for_socket_timeout);
+	int counter = 0;
+	for (;;) {
+		if (counter > uwsgi.wait_for_socket_timeout) {
+			uwsgi_log("%s unavailable after %d seconds\n", socket_name, counter);
+			return -1;
+		}
 		// wait for 1 second to respect uwsgi.wait_for_fs_timeout
 		int fd = uwsgi_connect(socket_name, 1, 0);
 		if (fd < 0) goto retry;
 		close(fd);
-                uwsgi_log_verbose("%s ready\n", socket_name);
-                return 0;
+		uwsgi_log_verbose("%s ready\n", socket_name);
+		return 0;
 retry:
-                sleep(1);
-                counter++;
-        }
+		sleep(1);
+		counter++;
+	}
 	return -1;
 }
 
 int uwsgi_wait_for_mountpoint(char *mountpoint) {
-        if (!uwsgi.wait_for_fs_timeout) {
-                uwsgi.wait_for_fs_timeout = 60;
-        }
-        uwsgi_log("waiting for %s (max %d seconds) ...\n", mountpoint, uwsgi.wait_for_fs_timeout);
-        int counter = 0;
-        for (;;) {
-                if (counter > uwsgi.wait_for_fs_timeout) {
-                        uwsgi_log("%s unavailable after %d seconds\n", mountpoint, counter);
-                        return -1;
-                }
+	if (!uwsgi.wait_for_fs_timeout) {
+		uwsgi.wait_for_fs_timeout = 60;
+	}
+	uwsgi_log("waiting for %s (max %d seconds) ...\n", mountpoint, uwsgi.wait_for_fs_timeout);
+	int counter = 0;
+	for (;;) {
+		if (counter > uwsgi.wait_for_fs_timeout) {
+			uwsgi_log("%s unavailable after %d seconds\n", mountpoint, counter);
+			return -1;
+		}
 		struct stat st0;
 		struct stat st1;
 		if (stat(mountpoint, &st0)) goto retry;
@@ -4533,38 +4533,38 @@ int uwsgi_wait_for_mountpoint(char *mountpoint) {
 		}
 		free(relative);
 		// useless :P
-                if (!S_ISDIR(st1.st_mode)) goto retry;
+		if (!S_ISDIR(st1.st_mode)) goto retry;
 		if (st0.st_dev == st1.st_dev) goto retry;
-                uwsgi_log_verbose("%s mounted\n", mountpoint);
-                return 0;
+		uwsgi_log_verbose("%s mounted\n", mountpoint);
+		return 0;
 retry:
-                sleep(1);
-                counter++;
-        }
+		sleep(1);
+		counter++;
+	}
 	return -1;
 }
 
 // type -> 1 file, 2 dir, 0 both
 int uwsgi_wait_for_fs(char *filename, int type) {
 	if (!uwsgi.wait_for_fs_timeout) {
-        	uwsgi.wait_for_fs_timeout = 60;
-        }
-        uwsgi_log("waiting for %s (max %d seconds) ...\n", filename, uwsgi.wait_for_fs_timeout);
-        int counter = 0;
-        for (;;) {
-        	if (counter > uwsgi.wait_for_fs_timeout) {
-                	uwsgi_log("%s unavailable after %d seconds\n", filename, counter);
+		uwsgi.wait_for_fs_timeout = 60;
+	}
+	uwsgi_log("waiting for %s (max %d seconds) ...\n", filename, uwsgi.wait_for_fs_timeout);
+	int counter = 0;
+	for (;;) {
+		if (counter > uwsgi.wait_for_fs_timeout) {
+			uwsgi_log("%s unavailable after %d seconds\n", filename, counter);
 			return -1;
-                }
+		}
 		struct stat st;
 		if (stat(filename, &st)) goto retry;
 		if (type == 1 && !S_ISREG(st.st_mode)) goto retry;
 		if (type == 2 && !S_ISDIR(st.st_mode)) goto retry;
-                uwsgi_log_verbose("%s found\n", filename);
+		uwsgi_log_verbose("%s found\n", filename);
 		return 0;
 retry:
-                sleep(1);
-                counter++;
+		sleep(1);
+		counter++;
 	}
 	return -1;
 }
@@ -4572,31 +4572,31 @@ retry:
 #if !defined(_GNU_SOURCE) && !defined(__UCLIBC__)
 int uwsgi_versionsort(const struct dirent **da, const struct dirent **db) {
 
-        const char *a = (*da)->d_name;
-        const char *b = (*db)->d_name;
+	const char *a = (*da)->d_name;
+	const char *b = (*db)->d_name;
 
-        long la, lb;
-        char *endptr;
+	long la, lb;
+	char *endptr;
 
-        // Check if a and b are valid numbers.
-        la = strtol(a, &endptr, 10);
-        if (strcmp(endptr, "\0") || endptr == a) {
-            a = NULL;
-        }
+	// Check if a and b are valid numbers.
+	la = strtol(a, &endptr, 10);
+	if (strcmp(endptr, "\0") || endptr == a) {
+		a = NULL;
+	}
 
-        lb = strtol(b, &endptr, 10);
-        if (strcmp(endptr, "\0") || endptr == b) {
-            b = NULL;
-        }
+	lb = strtol(b, &endptr, 10);
+	if (strcmp(endptr, "\0") || endptr == b) {
+		b = NULL;
+	}
 
-        if (a && b) {
-            return (la < lb ? -1 : la > lb);
-        } else if (a) {
-            return -1;
-        } else if (b) {
-            return 1;
-        } else {
-            return strcmp((*da)->d_name, (*db)->d_name);
-        }
+	if (a && b) {
+		return (la < lb ? -1 : la > lb);
+	} else if (a) {
+		return -1;
+	} else if (b) {
+		return 1;
+	} else {
+		return strcmp((*da)->d_name, (*db)->d_name);
+	}
 }
 #endif

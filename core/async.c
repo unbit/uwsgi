@@ -40,8 +40,8 @@ void uwsgi_async_init() {
 	uwsgi.rb_async_timeouts = uwsgi_init_rb_timer();
 
 	// optimization, this array maps file descriptor to requests
-        uwsgi.async_waiting_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
-        uwsgi.async_proto_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
+	uwsgi.async_waiting_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
+	uwsgi.async_proto_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
 
 }
 
@@ -94,7 +94,7 @@ static void runqueue_push(struct wsgi_request *wsgi_req) {
 		uwsgi.async_runqueue = uar;
 	}
 	else {
-		uar->prev = uwsgi.async_runqueue_last;	
+		uar->prev = uwsgi.async_runqueue_last;
 	}
 
 	if (uwsgi.async_runqueue_last) {
@@ -122,14 +122,14 @@ void async_reset_request(struct wsgi_request *wsgi_req) {
 		free(wsgi_req->async_timeout);
 		wsgi_req->async_timeout = NULL;
 	}
-	
+
 	struct uwsgi_async_fd *uaf = wsgi_req->waiting_fds;
 	while (uaf) {
-        	event_queue_del_fd(uwsgi.async_queue, uaf->fd, uaf->event);
-                uwsgi.async_waiting_fd_table[uaf->fd] = NULL;
-                struct uwsgi_async_fd *current_uaf = uaf;
-                uaf = current_uaf->next;
-                free(current_uaf);
+		event_queue_del_fd(uwsgi.async_queue, uaf->fd, uaf->event);
+		uwsgi.async_waiting_fd_table[uaf->fd] = NULL;
+		struct uwsgi_async_fd *current_uaf = uaf;
+		uaf = current_uaf->next;
+		free(current_uaf);
 	}
 
 	wsgi_req->waiting_fds = NULL;
@@ -165,7 +165,7 @@ static void async_expire_timeouts(uint64_t now) {
 
 int async_add_fd_read(struct wsgi_request *wsgi_req, int fd, int timeout) {
 
-	if (uwsgi.async < 1 || !uwsgi.async_waiting_fd_table){ 
+	if (uwsgi.async < 1 || !uwsgi.async_waiting_fd_table){
 		uwsgi_log_verbose("ASYNC call without async mode !!!\n");
 		return -1;
 	}
@@ -223,35 +223,35 @@ static int async_wait_fd_read(int fd, int timeout) {
 
 static int async_wait_fd_read2(int fd0, int fd1, int timeout, int *fd) {
 
-        struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 
-        wsgi_req->async_ready_fd = 0;
+	wsgi_req->async_ready_fd = 0;
 
-        if (async_add_fd_read(wsgi_req, fd0, timeout)) {
-                return -1;
-        }
+	if (async_add_fd_read(wsgi_req, fd0, timeout)) {
+		return -1;
+	}
 
-        if (async_add_fd_read(wsgi_req, fd1, timeout)) {
+	if (async_add_fd_read(wsgi_req, fd1, timeout)) {
 		// reset already registered fd
 		async_reset_request(wsgi_req);
-                return -1;
-        }
+		return -1;
+	}
 
-        if (uwsgi.schedule_to_main) {
-                uwsgi.schedule_to_main(wsgi_req);
-        }
+	if (uwsgi.schedule_to_main) {
+		uwsgi.schedule_to_main(wsgi_req);
+	}
 
-        if (wsgi_req->async_timed_out) {
-                wsgi_req->async_timed_out = 0;
-                return 0;
-        }
+	if (wsgi_req->async_timed_out) {
+		wsgi_req->async_timed_out = 0;
+		return 0;
+	}
 
 	if (wsgi_req->async_ready_fd) {
 		*fd = wsgi_req->async_last_ready_fd;
 		return 1;
 	}
 
-        return -1;
+	return -1;
 }
 
 
@@ -330,61 +330,61 @@ static int async_wait_fd_write(int fd, int timeout) {
 
 void async_schedule_to_req(void) {
 #ifdef UWSGI_ROUTING
-        if (uwsgi_apply_routes(uwsgi.wsgi_req) == UWSGI_ROUTE_BREAK) {
+	if (uwsgi_apply_routes(uwsgi.wsgi_req) == UWSGI_ROUTE_BREAK) {
 		goto end;
-        }
+	}
 	// a trick to avoid calling routes again
 	uwsgi.wsgi_req->is_routing = 1;
 #endif
 	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req);
-        if (uwsgi.wsgi_req->async_status <= UWSGI_OK) goto end;
+	if (uwsgi.wsgi_req->async_status <= UWSGI_OK) goto end;
 
 	if (uwsgi.schedule_to_main) {
-        	uwsgi.schedule_to_main(uwsgi.wsgi_req);
+		uwsgi.schedule_to_main(uwsgi.wsgi_req);
 	}
 	return;
 
 end:
 	async_reset_request(uwsgi.wsgi_req);
 	uwsgi_close_request(uwsgi.wsgi_req);
-	uwsgi.wsgi_req->async_status = UWSGI_OK;	
+	uwsgi.wsgi_req->async_status = UWSGI_OK;
 	uwsgi.async_queue_unused_ptr++;
-        uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
+	uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
 }
 
 void async_schedule_to_req_green(void) {
 	struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
 #ifdef UWSGI_ROUTING
-        if (uwsgi_apply_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
-                goto end;
-        }
+	if (uwsgi_apply_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
+		goto end;
+	}
 #endif
-        for(;;) {
+	for(;;) {
 		wsgi_req->async_status = uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req);
-                if (wsgi_req->async_status <= UWSGI_OK) {
-                        break;
-                }
-                wsgi_req->switches++;
+		if (wsgi_req->async_status <= UWSGI_OK) {
+			break;
+		}
+		wsgi_req->switches++;
 		if (uwsgi.schedule_fix) {
 			uwsgi.schedule_fix(wsgi_req);
 		}
-                // switch after each yield
+		// switch after each yield
 		if (uwsgi.schedule_to_main)
-                	uwsgi.schedule_to_main(wsgi_req);
-        }
+			uwsgi.schedule_to_main(wsgi_req);
+	}
 
 #ifdef UWSGI_ROUTING
 end:
 #endif
 	// re-set the global state
 	uwsgi.wsgi_req = wsgi_req;
-        async_reset_request(wsgi_req);
-        uwsgi_close_request(wsgi_req);
+	async_reset_request(wsgi_req);
+	uwsgi_close_request(wsgi_req);
 	// re-set the global state (routing could have changed it)
 	uwsgi.wsgi_req = wsgi_req;
-        wsgi_req->async_status = UWSGI_OK;
+	wsgi_req->async_status = UWSGI_OK;
 	uwsgi.async_queue_unused_ptr++;
-        uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req;
+	uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req;
 }
 
 static int uwsgi_async_wait_milliseconds_hook(int timeout) {
@@ -394,12 +394,12 @@ static int uwsgi_async_wait_milliseconds_hook(int timeout) {
 	async_add_timeout(wsgi_req, timeout);
 	wsgi_req->async_force_again = 1;
 	if (uwsgi.schedule_to_main) {
-                uwsgi.schedule_to_main(wsgi_req);
-        }
-        if (wsgi_req->async_timed_out) {
-                wsgi_req->async_timed_out = 0;
-                return 0;
-        }
+		uwsgi.schedule_to_main(wsgi_req);
+	}
+	if (wsgi_req->async_timed_out) {
+		wsgi_req->async_timed_out = 0;
+		return 0;
+	}
 
 	return -1;
 }
@@ -429,8 +429,8 @@ void async_loop() {
 	uwsgi.async_runqueue = NULL;
 
 	uwsgi.wait_write_hook = async_wait_fd_write;
-        uwsgi.wait_read_hook = async_wait_fd_read;
-        uwsgi.wait_read2_hook = async_wait_fd_read2;
+	uwsgi.wait_read_hook = async_wait_fd_read;
+	uwsgi.wait_read2_hook = async_wait_fd_read2;
 	uwsgi.wait_milliseconds_hook = uwsgi_async_wait_milliseconds_hook;
 
 	if (uwsgi.signal_socket > -1) {
@@ -482,10 +482,10 @@ void async_loop() {
 			// signals are executed in the main stack... in the future we could have dedicated stacks for them
 			if (uwsgi.signal_socket > -1 && (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket)) {
 				uwsgi.wsgi_req = find_first_available_wsgi_req();
-                                if (uwsgi.wsgi_req == NULL) {
-                                	uwsgi_async_queue_is_full((time_t)now);
-                                        continue; 
-                                }
+				if (uwsgi.wsgi_req == NULL) {
+					uwsgi_async_queue_is_full((time_t)now);
+					continue;
+				}
 				uwsgi_receive_signal(uwsgi.wsgi_req, interesting_fd, "worker", uwsgi.mywid);
 				continue;
 			}
@@ -542,7 +542,7 @@ void async_loop() {
 					async_reset_request(uwsgi.wsgi_req);
 					// parsing complete
 					if (!proto_parser_status) {
-						// remove fd from event poll and fd proto table 
+						// remove fd from event poll and fd proto table
 						uwsgi.async_proto_fd_table[interesting_fd] = NULL;
 						event_queue_del_fd(uwsgi.async_queue, interesting_fd, event_queue_read());
 						// put request in the runqueue (set it as UWSGI_OK to signal the first run)

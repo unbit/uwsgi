@@ -315,27 +315,27 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 			signal(SIGTERM, end_me);
 
 			char stack[PTHREAD_STACK_MIN];
-                	pid_t pid = clone((int (*)(void *))daemon_spawn, stack + PTHREAD_STACK_MIN, SIGCHLD | CLONE_NEWPID, (void *) ud);
-                        if (pid > 0) {
+			pid_t pid = clone((int (*)(void *))daemon_spawn, stack + PTHREAD_STACK_MIN, SIGCHLD | CLONE_NEWPID, (void *) ud);
+			if (pid > 0) {
 
 #ifdef PR_SET_PDEATHSIG
 				if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
-                                	uwsgi_error("uwsgi_spawn_daemon()/prctl()");
-                        	}
+					uwsgi_error("uwsgi_spawn_daemon()/prctl()");
+				}
 #endif
-                                // block all signals except SIGTERM
-                                sigset_t smask;
-                                sigfillset(&smask);
+				// block all signals except SIGTERM
+				sigset_t smask;
+				sigfillset(&smask);
 				sigdelset(&smask, SIGTERM);
-                                sigprocmask(SIG_BLOCK, &smask, NULL);
-                                int status;
-                                if (waitpid(pid, &status, 0) < 0) {
-                                        uwsgi_error("uwsgi_spawn_daemon()/waitpid()");
-                                }
-                                _exit(0);
-                        }
+				sigprocmask(SIG_BLOCK, &smask, NULL);
+				int status;
+				if (waitpid(pid, &status, 0) < 0) {
+					uwsgi_error("uwsgi_spawn_daemon()/waitpid()");
+				}
+				_exit(0);
+			}
 			uwsgi_error("uwsgi_spawn_daemon()/clone()");
-                        exit(1);
+			exit(1);
 		}
 #endif
 		daemon_spawn((void *) ud);
@@ -494,7 +494,7 @@ void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
 
 void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 
-        struct uwsgi_daemon *uwsgi_ud = uwsgi.daemons, *old_ud;
+	struct uwsgi_daemon *uwsgi_ud = uwsgi.daemons, *old_ud;
 
 	char *d_command = NULL;
 	char *d_freq = NULL;
@@ -514,24 +514,24 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 	char *arg = uwsgi_str(value);
 
 	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
-		"command", &d_command,	
-		"cmd", &d_command,	
-		"exec", &d_command,	
-		"freq", &d_freq,	
-		"pidfile", &d_pidfile,	
-		"control", &d_control,	
-		"daemonize", &d_daemonize,	
-		"daemon", &d_daemonize,	
-		"touch", &d_touch,	
-		"stopsignal", &d_stopsignal,	
-		"stop_signal", &d_stopsignal,	
-		"reloadsignal", &d_reloadsignal,	
-		"reload_signal", &d_reloadsignal,	
-		"stdin", &d_stdin,	
-		"uid", &d_uid,	
-		"gid", &d_gid,	
-		"ns_pid", &d_ns_pid,	
-		"chdir", &d_chdir,	
+		"command", &d_command,
+		"cmd", &d_command,
+		"exec", &d_command,
+		"freq", &d_freq,
+		"pidfile", &d_pidfile,
+		"control", &d_control,
+		"daemonize", &d_daemonize,
+		"daemon", &d_daemonize,
+		"touch", &d_touch,
+		"stopsignal", &d_stopsignal,
+		"stop_signal", &d_stopsignal,
+		"reloadsignal", &d_reloadsignal,
+		"reload_signal", &d_reloadsignal,
+		"stdin", &d_stdin,
+		"uid", &d_uid,
+		"gid", &d_gid,
+		"ns_pid", &d_ns_pid,
+		"chdir", &d_chdir,
 	NULL)) {
 		uwsgi_log("invalid --%s keyval syntax\n", opt);
 		exit(1);
@@ -551,46 +551,46 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 
 
 
-        if (!uwsgi_ud) {
-                uwsgi.daemons = uwsgi_calloc(sizeof(struct uwsgi_daemon));
-                uwsgi_ud = uwsgi.daemons;
-        }
-        else {
-                while (uwsgi_ud) {
-                        old_ud = uwsgi_ud;
-                        uwsgi_ud = uwsgi_ud->next;
-                }
+	if (!uwsgi_ud) {
+		uwsgi.daemons = uwsgi_calloc(sizeof(struct uwsgi_daemon));
+		uwsgi_ud = uwsgi.daemons;
+	}
+	else {
+		while (uwsgi_ud) {
+			old_ud = uwsgi_ud;
+			uwsgi_ud = uwsgi_ud->next;
+		}
 
-                uwsgi_ud = uwsgi_calloc(sizeof(struct uwsgi_daemon));
-                old_ud->next = uwsgi_ud;
-        }
-        uwsgi_ud->command = d_command;
-        uwsgi_ud->freq = d_freq ? atoi(d_freq) : 10;
-        uwsgi_ud->daemonize = d_daemonize ? 1 : 0;
-        uwsgi_ud->pidfile = d_pidfile;
-        uwsgi_ud->stop_signal = d_stopsignal ? atoi(d_stopsignal) : SIGTERM;
-        uwsgi_ud->reload_signal = d_reloadsignal ? atoi(d_reloadsignal) : 0;
-        uwsgi_ud->control = d_control ? 1 : 0;
+		uwsgi_ud = uwsgi_calloc(sizeof(struct uwsgi_daemon));
+		old_ud->next = uwsgi_ud;
+	}
+	uwsgi_ud->command = d_command;
+	uwsgi_ud->freq = d_freq ? atoi(d_freq) : 10;
+	uwsgi_ud->daemonize = d_daemonize ? 1 : 0;
+	uwsgi_ud->pidfile = d_pidfile;
+	uwsgi_ud->stop_signal = d_stopsignal ? atoi(d_stopsignal) : SIGTERM;
+	uwsgi_ud->reload_signal = d_reloadsignal ? atoi(d_reloadsignal) : 0;
+	uwsgi_ud->control = d_control ? 1 : 0;
 	uwsgi_ud->uid = d_uid ? atoi(d_uid) : 0;
 	uwsgi_ud->gid = d_gid ? atoi(d_gid) : 0;
 	uwsgi_ud->honour_stdin = d_stdin ? 1 : 0;
 #ifdef UWSGI_SSL
-        uwsgi_ud->legion = d_legion;
+	uwsgi_ud->legion = d_legion;
 #endif
-        uwsgi_ud->ns_pid = d_ns_pid ? 1 : 0;
+	uwsgi_ud->ns_pid = d_ns_pid ? 1 : 0;
 
 	uwsgi_ud->chdir = d_chdir;
 
 	if (d_touch) {
 		size_t i,rlen = 0;
 		char **argv = uwsgi_split_quoted(d_touch, strlen(d_touch), ";", &rlen);
-		for(i=0;i<rlen;i++) {	
+		for(i=0;i<rlen;i++) {
 			uwsgi_string_new_list(&uwsgi_ud->touch, argv[i]);
 		}
 		if (argv) free(argv);
 	}
 
-        uwsgi.daemons_cnt++;
+	uwsgi.daemons_cnt++;
 
 	free(arg);
 

@@ -26,14 +26,14 @@ struct uwsgi_hook *uwsgi_hook_by_name(char *name) {
 
 void uwsgi_register_hook(char *name, int (*func)(char *)) {
 	struct uwsgi_hook *old_uh = NULL, *uh = uwsgi.hooks;
-        while(uh) {
-                if (!strcmp(uh->name, name)) {
-                        uh->func = func;
+	while(uh) {
+		if (!strcmp(uh->name, name)) {
+			uh->func = func;
 			return;
-                }
+		}
 		old_uh = uh;
 		uh = uh->next;
-        }
+	}
 
 	uh = uwsgi_calloc(sizeof(struct uwsgi_hook));
 	uh->name = name;
@@ -54,7 +54,7 @@ static int uwsgi_hook_alarm(char *arg) {
 		return -1;
 	}
 	*space = 0;
-	uwsgi_alarm_trigger(arg, space+1,  strlen(space+1));
+	uwsgi_alarm_trigger(arg, space+1, strlen(space+1));
 	*space = ' ';
 	return 0;
 }
@@ -68,35 +68,35 @@ static int uwsgi_hook_chdir(char *arg) {
 }
 
 static int uwsgi_hook_mkdir(char *arg) {
-        int ret = mkdir(arg, 0777);
-        if (ret) {
-                uwsgi_error("uwsgi_hook_mkdir()");
-        }
-        return ret;
+	int ret = mkdir(arg, 0777);
+	if (ret) {
+		uwsgi_error("uwsgi_hook_mkdir()");
+	}
+	return ret;
 }
 
 static int uwsgi_hook_putenv(char *arg) {
-        int ret = putenv(arg);
-        if (ret) {
-                uwsgi_error("uwsgi_hook_putenv()");
-        }
-        return ret;
+	int ret = putenv(arg);
+	if (ret) {
+		uwsgi_error("uwsgi_hook_putenv()");
+	}
+	return ret;
 }
 
 static int uwsgi_hook_exec(char *arg) {
 	int ret = uwsgi_run_command_and_wait(NULL, arg);
 	if (ret != 0) {
-        	uwsgi_log("command \"%s\" exited with non-zero code: %d\n", arg, ret);
-        }
+		uwsgi_log("command \"%s\" exited with non-zero code: %d\n", arg, ret);
+	}
 	return ret;
 }
 
 static int uwsgi_hook_safeexec(char *arg) {
-        int ret = uwsgi_run_command_and_wait(NULL, arg);
-        if (ret != 0) {
-                uwsgi_log("command \"%s\" exited with non-zero code: %d\n", arg, ret);
-        }
-        return 0;
+	int ret = uwsgi_run_command_and_wait(NULL, arg);
+	if (ret != 0) {
+		uwsgi_log("command \"%s\" exited with non-zero code: %d\n", arg, ret);
+	}
+	return 0;
 }
 
 static int uwsgi_hook_exit(char *arg) {
@@ -147,113 +147,113 @@ static int uwsgi_hook_writefifo(char *arg) {
 		return -1;
 	}
 	close(fd);
-        return 0;
+	return 0;
 }
 
 static int uwsgi_hook_write(char *arg) {
-        char *space = strchr(arg, ' ');
-        if (!space) {
-                uwsgi_log("invalid hook write syntax, must be: <file> <string>\n");
-                return -1;
-        }
-        *space = 0;
-        int fd = open(arg, O_WRONLY|O_CREAT|O_TRUNC, 0666);
-        if (fd < 0) {
-                uwsgi_error_open(arg);
-                *space = ' ';
-                return -1;
-        }
-        *space = ' ';
-        size_t l = strlen(space+1);
-        if (write(fd, space+1, l) != (ssize_t) l) {
-                uwsgi_error("uwsgi_hook_write()/write()");
-                close(fd);
-                return -1;
-        }
-        close(fd);
-        return 0;
+	char *space = strchr(arg, ' ');
+	if (!space) {
+		uwsgi_log("invalid hook write syntax, must be: <file> <string>\n");
+		return -1;
+	}
+	*space = 0;
+	int fd = open(arg, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+	if (fd < 0) {
+		uwsgi_error_open(arg);
+		*space = ' ';
+		return -1;
+	}
+	*space = ' ';
+	size_t l = strlen(space+1);
+	if (write(fd, space+1, l) != (ssize_t) l) {
+		uwsgi_error("uwsgi_hook_write()/write()");
+		close(fd);
+		return -1;
+	}
+	close(fd);
+	return 0;
 }
 
 static int uwsgi_hook_creat(char *arg) {
-        int fd = open(arg, O_WRONLY|O_CREAT|O_TRUNC, 0666);
-        if (fd < 0) {
-                uwsgi_error_open(arg);
-                return -1;
-        }
-        close(fd);
-        return 0;
+	int fd = open(arg, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+	if (fd < 0) {
+		uwsgi_error_open(arg);
+		return -1;
+	}
+	close(fd);
+	return 0;
 }
 
 
 static int uwsgi_hook_append(char *arg) {
-        char *space = strchr(arg, ' ');
-        if (!space) {
-                uwsgi_log("invalid hook append syntax, must be: <file> <string>\n");
-                return -1;
-        }
-        *space = 0;
-        int fd = open(arg, O_WRONLY|O_CREAT|O_APPEND, 0666);
-        if (fd < 0) {
-                uwsgi_error_open(arg);
-                *space = ' ';
-                return -1;
-        }
-        *space = ' ';
-        size_t l = strlen(space+1);
-        if (write(fd, space+1, l) != (ssize_t) l) {
-                uwsgi_error("uwsgi_hook_append()/write()");
-                close(fd);
-                return -1;
-        }
-        close(fd);
-        return 0;
+	char *space = strchr(arg, ' ');
+	if (!space) {
+		uwsgi_log("invalid hook append syntax, must be: <file> <string>\n");
+		return -1;
+	}
+	*space = 0;
+	int fd = open(arg, O_WRONLY|O_CREAT|O_APPEND, 0666);
+	if (fd < 0) {
+		uwsgi_error_open(arg);
+		*space = ' ';
+		return -1;
+	}
+	*space = ' ';
+	size_t l = strlen(space+1);
+	if (write(fd, space+1, l) != (ssize_t) l) {
+		uwsgi_error("uwsgi_hook_append()/write()");
+		close(fd);
+		return -1;
+	}
+	close(fd);
+	return 0;
 }
 
 
 static int uwsgi_hook_writen(char *arg) {
-        char *space = strchr(arg, ' ');
-        if (!space) {
-                uwsgi_log("invalid hook writen syntax, must be: <file> <string>\n");
-                return -1;
-        }
-        *space = 0;
-        int fd = open(arg, O_WRONLY|O_CREAT|O_TRUNC, 0666);
-        if (fd < 0) {
-                uwsgi_error_open(arg);
-                *space = ' ';
-                return -1;
-        }
-        *space = ' ';
-        size_t l = strlen(space+1);
+	char *space = strchr(arg, ' ');
+	if (!space) {
+		uwsgi_log("invalid hook writen syntax, must be: <file> <string>\n");
+		return -1;
+	}
+	*space = 0;
+	int fd = open(arg, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+	if (fd < 0) {
+		uwsgi_error_open(arg);
+		*space = ' ';
+		return -1;
+	}
+	*space = ' ';
+	size_t l = strlen(space+1);
 	char *buf = uwsgi_malloc(l + 1);
 	memcpy(buf, space+1, l);
 	buf[l] = '\n';
-        if (write(fd, buf, l+1) != (ssize_t) (l+1)) {
-                uwsgi_error("uwsgi_hook_writen()/write()");
+	if (write(fd, buf, l+1) != (ssize_t) (l+1)) {
+		uwsgi_error("uwsgi_hook_writen()/write()");
 		free(buf);
-                close(fd);
-                return -1;
-        }
+		close(fd);
+		return -1;
+	}
 	free(buf);
-        close(fd);
-        return 0;
+	close(fd);
+	return 0;
 }
 
 static int uwsgi_hook_appendn(char *arg) {
-        char *space = strchr(arg, ' ');
+	char *space = strchr(arg, ' ');
 	if (space)
-        	*space = 0;
-        int fd = open(arg, O_WRONLY|O_CREAT|O_APPEND, 0666);
-        if (fd < 0) {
-                uwsgi_error_open(arg);
+		*space = 0;
+	int fd = open(arg, O_WRONLY|O_CREAT|O_APPEND, 0666);
+	if (fd < 0) {
+		uwsgi_error_open(arg);
 		if (space)
-                	*space = ' ';
-                return -1;
-        }
+			*space = ' ';
+		return -1;
+	}
 	if (!space) {
 		// simple newline
 		if (write(fd, "\n", 1) != 1) {
-                	uwsgi_error("uwsgi_hook_appendn()/write()");
+			uwsgi_error("uwsgi_hook_appendn()/write()");
 			close(fd);
 			return -1;
 		}
@@ -261,35 +261,35 @@ static int uwsgi_hook_appendn(char *arg) {
 		return 0;
 	}
 
-        *space = ' ';
-        size_t l = strlen(space+1);
-        char *buf = uwsgi_malloc(l + 1);
+	*space = ' ';
+	size_t l = strlen(space+1);
+	char *buf = uwsgi_malloc(l + 1);
 	memcpy(buf, space+1, l);
-        buf[l] = '\n';
-        if (write(fd, buf, l+1) != (ssize_t) (l+1)) {
-                uwsgi_error("uwsgi_hook_appendn()/write()");
-                free(buf);
-                close(fd);
-                return -1;
-        }
-        free(buf);
-        close(fd);
-        return 0;
+	buf[l] = '\n';
+	if (write(fd, buf, l+1) != (ssize_t) (l+1)) {
+		uwsgi_error("uwsgi_hook_appendn()/write()");
+		free(buf);
+		close(fd);
+		return -1;
+	}
+	free(buf);
+	close(fd);
+	return 0;
 }
 
 
 
 static int uwsgi_hook_chmod(char *arg) {
 	char *space = strchr(arg, ' ');
-        if (!space) {
-                uwsgi_log("invalid hook chmod syntax, must be: <file> <mode>\n");
-                return -1;
-        }
-        *space = 0;
+	if (!space) {
+		uwsgi_log("invalid hook chmod syntax, must be: <file> <mode>\n");
+		return -1;
+	}
+	*space = 0;
 	int error = 0;
 	mode_t mask = uwsgi_mode_t(space+1, &error);
 	if (error) {
-		uwsgi_log("invalid hook chmod mask: %s\n", space+1); 
+		uwsgi_log("invalid hook chmod mask: %s\n", space+1);
 		*space = ' ';
 		return -1;
 	}
@@ -305,30 +305,30 @@ static int uwsgi_hook_chmod(char *arg) {
 static int uwsgi_hook_sticky(char *arg) {
 	struct stat st;
 	if (stat(arg, &st)) {
-                uwsgi_error("uwsgi_hook_sticky()/stat()");
+		uwsgi_error("uwsgi_hook_sticky()/stat()");
 		return -1;
 	}
-        if (chmod(arg, st.st_mode | S_ISVTX)) {
-                uwsgi_error("uwsgi_hook_sticky()/chmod()");
+	if (chmod(arg, st.st_mode | S_ISVTX)) {
+		uwsgi_error("uwsgi_hook_sticky()/chmod()");
 		return -1;
-        }
-        return 0;
+	}
+	return 0;
 }
 
 
 static int uwsgi_hook_chown(char *arg) {
-        char *space = strchr(arg, ' ');
-        if (!space) {
-                uwsgi_log("invalid hook chown syntax, must be: <file> <uid> <gid>\n");
-                return -1;
-        }
-        *space = 0;
+	char *space = strchr(arg, ' ');
+	if (!space) {
+		uwsgi_log("invalid hook chown syntax, must be: <file> <uid> <gid>\n");
+		return -1;
+	}
+	*space = 0;
 
 	char *space2 = strchr(space+1, ' ');
 	if (!space2) {
 		*space = ' ';
-                uwsgi_log("invalid hook chown syntax, must be: <file> <uid> <gid>\n");
-                return -1;
+		uwsgi_log("invalid hook chown syntax, must be: <file> <uid> <gid>\n");
+		return -1;
 	}
 	*space2 = 0;
 
@@ -342,35 +342,35 @@ static int uwsgi_hook_chown(char *arg) {
 
 	struct group *gr = getgrnam(space2+1);
 	if (!gr) {
-                uwsgi_log("unable to find gid %s\n", space2+1);
-                *space = ' ';
-                *space2 = ' ';
-                return -1;
-        }
-        int ret = chown(arg, pw->pw_uid, gr->gr_gid);
-        *space = ' ';
-        *space2 = ' ';
-        if (ret) {
-                uwsgi_error("uwsgi_hook_chown()/chown)");
-        }
-        return ret;
+		uwsgi_log("unable to find gid %s\n", space2+1);
+		*space = ' ';
+		*space2 = ' ';
+		return -1;
+	}
+	int ret = chown(arg, pw->pw_uid, gr->gr_gid);
+	*space = ' ';
+	*space2 = ' ';
+	if (ret) {
+		uwsgi_error("uwsgi_hook_chown()/chown)");
+	}
+	return ret;
 }
 
 static int uwsgi_hook_chown2(char *arg) {
-        char *space = strchr(arg, ' ');
-        if (!space) {
-                uwsgi_log("invalid hook chown2 syntax, must be: <file> <uid> <gid>\n");
-                return -1;
-        }
-        *space = 0;
+	char *space = strchr(arg, ' ');
+	if (!space) {
+		uwsgi_log("invalid hook chown2 syntax, must be: <file> <uid> <gid>\n");
+		return -1;
+	}
+	*space = 0;
 
-        char *space2 = strchr(space+1, ' ');
-        if (!space2) {
-                *space = ' ';
-                uwsgi_log("invalid hook chown2 syntax, must be: <file> <uid> <gid>\n");
-                return -1;
-        }
-        *space2 = 0;
+	char *space2 = strchr(space+1, ' ');
+	if (!space2) {
+		*space = ' ';
+		uwsgi_log("invalid hook chown2 syntax, must be: <file> <uid> <gid>\n");
+		return -1;
+	}
+	*space2 = 0;
 
 	if (!is_a_number(space+1)) {
 		uwsgi_log("invalid hook chown2 syntax, uid must be a number\n");
@@ -380,19 +380,19 @@ static int uwsgi_hook_chown2(char *arg) {
 	}
 
 	if (!is_a_number(space2+1)) {
-                uwsgi_log("invalid hook chown2 syntax, gid must be a number\n");
-                *space = ' ';
-                *space2 = ' ';
-                return -1;
-        }
+		uwsgi_log("invalid hook chown2 syntax, gid must be a number\n");
+		*space = ' ';
+		*space2 = ' ';
+		return -1;
+	}
 
-        int ret = chown(arg, atoi(space+1), atoi(space2+1));
-        *space = ' ';
-        *space2 = ' ';
-        if (ret) {
-                uwsgi_error("uwsgi_hook_chown2()/chown)");
-        }
-        return ret;
+	int ret = chown(arg, atoi(space+1), atoi(space2+1));
+	*space = ' ';
+	*space2 = ' ';
+	if (ret) {
+		uwsgi_error("uwsgi_hook_chown2()/chown)");
+	}
+	return ret;
 }
 
 
@@ -409,28 +409,28 @@ static int uwsgi_hook_hostname(char *arg) {
 
 
 static int uwsgi_hook_callint(char *arg) {
-        char *space = strchr(arg, ' ');
-        if (space) {
-                *space = 0;
-                int num = atoi(space+1);
-                void (*func)(int) = dlsym(RTLD_DEFAULT, arg);
-                if (!func) {
-                	uwsgi_log("unable to call function \"%s(%d)\"\n", arg, num);
-                        *space = ' ';
-                        return -1;
+	char *space = strchr(arg, ' ');
+	if (space) {
+		*space = 0;
+		int num = atoi(space+1);
+		void (*func)(int) = dlsym(RTLD_DEFAULT, arg);
+		if (!func) {
+			uwsgi_log("unable to call function \"%s(%d)\"\n", arg, num);
+			*space = ' ';
+			return -1;
 		}
-                *space = ' ';
-                func(num);
-        }
-        else {
-                void (*func)(void) = dlsym(RTLD_DEFAULT, arg);
-                if (!func) {
-                        uwsgi_log("unable to call function \"%s\"\n", arg);
-                        return -1;
-                }
-                func();
-        }
-        return 0;
+		*space = ' ';
+		func(num);
+	}
+	else {
+		void (*func)(void) = dlsym(RTLD_DEFAULT, arg);
+		if (!func) {
+			uwsgi_log("unable to call function \"%s\"\n", arg);
+			return -1;
+		}
+		func();
+	}
+	return 0;
 }
 
 
@@ -439,82 +439,82 @@ static int uwsgi_hook_call(char *arg) {
 	if (space) {
 		*space = 0;
 		void (*func)(char *) = dlsym(RTLD_DEFAULT, arg);
-                if (!func) {
-                	uwsgi_log("unable to call function \"%s(%s)\"\n", arg, space + 1);
+		if (!func) {
+			uwsgi_log("unable to call function \"%s(%s)\"\n", arg, space + 1);
 			*space = ' ';
 			return -1;
 		}
 		*space = ' ';
-                func(space + 1);
+		func(space + 1);
 	}
 	else {
 		void (*func)(void) = dlsym(RTLD_DEFAULT, arg);
-                if (!func) {
-                	uwsgi_log("unable to call function \"%s\"\n", arg);
+		if (!func) {
+			uwsgi_log("unable to call function \"%s\"\n", arg);
 			return -1;
 		}
-                func();
+		func();
 	}
 	return 0;
 }
 
 static int uwsgi_hook_callintret(char *arg) {
-        char *space = strchr(arg, ' ');
-        if (space) {
-                *space = 0;
-                int num = atoi(space+1);
-                int (*func)(int) = dlsym(RTLD_DEFAULT, arg);
-                if (!func) {
-                        uwsgi_log("unable to call function \"%s(%d)\"\n", arg, num);
-                        *space = ' ';
-                        return -1;
-                }
-                *space = ' ';
-                return func(num);
-        }
-        int (*func)(void) = dlsym(RTLD_DEFAULT, arg);
-        if (!func) {
-        	uwsgi_log("unable to call function \"%s\"\n", arg);
-                return -1;
-        }
+	char *space = strchr(arg, ' ');
+	if (space) {
+		*space = 0;
+		int num = atoi(space+1);
+		int (*func)(int) = dlsym(RTLD_DEFAULT, arg);
+		if (!func) {
+			uwsgi_log("unable to call function \"%s(%d)\"\n", arg, num);
+			*space = ' ';
+			return -1;
+		}
+		*space = ' ';
+		return func(num);
+	}
+	int (*func)(void) = dlsym(RTLD_DEFAULT, arg);
+	if (!func) {
+		uwsgi_log("unable to call function \"%s\"\n", arg);
+		return -1;
+	}
 	return func();
 }
 
 
 static int uwsgi_hook_callret(char *arg) {
-        char *space = strchr(arg, ' ');
-        if (space) {
-                *space = 0;
-                int (*func)(char *) = dlsym(RTLD_DEFAULT, arg);
-                if (!func) {
-                        uwsgi_log("unable to call function \"%s(%s)\"\n", arg, space + 1);
-                        *space = ' ';
-                        return -1;
-                }
-                *space = ' ';
-                return func(space + 1);
-        }
-        int (*func)(void) = dlsym(RTLD_DEFAULT, arg);
-        if (!func) {
-        	uwsgi_log("unable to call function \"%s\"\n", arg);
-                return -1;
-        }
-        return func();
+	char *space = strchr(arg, ' ');
+	if (space) {
+		*space = 0;
+		int (*func)(char *) = dlsym(RTLD_DEFAULT, arg);
+		if (!func) {
+			uwsgi_log("unable to call function \"%s(%s)\"\n", arg, space + 1);
+			*space = ' ';
+			return -1;
+		}
+		*space = ' ';
+		return func(space + 1);
+	}
+	int (*func)(void) = dlsym(RTLD_DEFAULT, arg);
+	if (!func) {
+		uwsgi_log("unable to call function \"%s\"\n", arg);
+		return -1;
+	}
+	return func();
 }
 
 static int uwsgi_hook_rpc(char *arg) {
 
 	int ret = -1;
 	size_t i, argc = 0;
-        char **rargv = uwsgi_split_quoted(arg, strlen(arg), " \t", &argc);
-        if (!argc) goto end;
+	char **rargv = uwsgi_split_quoted(arg, strlen(arg), " \t", &argc);
+	if (!argc) goto end;
 	if (argc > 256) goto destroy;
 
-        char *argv[256];
-        uint16_t argvs[256];
+	char *argv[256];
+	uint16_t argvs[256];
 
-        char *node = NULL;
-        char *func = rargv[0];
+	char *node = NULL;
+	char *func = rargv[0];
 
 	char *at = strchr(func, '@');
 	if (at) {
@@ -522,27 +522,27 @@ static int uwsgi_hook_rpc(char *arg) {
 		node = at + 1;
 	}
 
-        for(i=0;i<(argc-1);i++) {
+	for(i=0;i<(argc-1);i++) {
 		size_t a_len = strlen(rargv[i+1]);
 		if (a_len > 0xffff) goto destroy;
-                argv[i] = rargv[i+1] ;
-                argvs[i] = a_len;
-        }
+		argv[i] = rargv[i+1] ;
+		argvs[i] = a_len;
+	}
 
-        uint64_t size = 0;
-        // response must be always freed
-        char *response = uwsgi_do_rpc(node, func, argc-1, argv, argvs, &size);
-        if (response) {
+	uint64_t size = 0;
+	// response must be always freed
+	char *response = uwsgi_do_rpc(node, func, argc-1, argv, argvs, &size);
+	if (response) {
 		if (at) *at = '@';
 		uwsgi_log("[rpc result from \"%s\"] %.*s\n", rargv[0], size, response);
-                free(response);
+		free(response);
 		ret = 0;
-        }
+	}
 
 destroy:
-        for(i=0;i<argc;i++) {
-                free(rargv[i]);
-        }
+	for(i=0;i<argc;i++) {
+		free(rargv[i]);
+	}
 end:
 	free(rargv);
 	return ret;
@@ -635,35 +635,35 @@ int uwsgi_hooks_run_and_return(struct uwsgi_string_list *l, char *phase, char *c
 			return -1;
 		}
 	}
-        uwsgi_foreach(usl, l) {
-                char *colon = strchr(usl->value, ':');
-                if (!colon) {
-                        uwsgi_log("invalid hook syntax, must be hook:args\n");
-                        exit(1);
-                }
-                *colon = 0;
-                int private = 0;
-                char *action = usl->value;
-                // private hook ?
-                if (action[0] == '!') {
-                        action++;
-                        private = 1;
-                }
-                struct uwsgi_hook *uh = uwsgi_hook_by_name(action);
-                if (!uh) {
-                        uwsgi_log("hook action not found: %s\n", action);
-                        exit(1);
-                }
-                *colon = ':';
+	uwsgi_foreach(usl, l) {
+		char *colon = strchr(usl->value, ':');
+		if (!colon) {
+			uwsgi_log("invalid hook syntax, must be hook:args\n");
+			exit(1);
+		}
+		*colon = 0;
+		int private = 0;
+		char *action = usl->value;
+		// private hook ?
+		if (action[0] == '!') {
+			action++;
+			private = 1;
+		}
+		struct uwsgi_hook *uh = uwsgi_hook_by_name(action);
+		if (!uh) {
+			uwsgi_log("hook action not found: %s\n", action);
+			exit(1);
+		}
+		*colon = ':';
 
-                if (private) {
-                        uwsgi_log("running --- PRIVATE HOOK --- (%s)...\n", phase);
-                }
-                else {
-                        uwsgi_log("running \"%s\" (%s)...\n", usl->value, phase);
-                }
+		if (private) {
+			uwsgi_log("running --- PRIVATE HOOK --- (%s)...\n", phase);
+		}
+		else {
+			uwsgi_log("running \"%s\" (%s)...\n", usl->value, phase);
+		}
 
-                int ret = uh->func(colon+1);
+		int ret = uh->func(colon+1);
 		if (ret != 0) {
 			if (fatal) {
 				if (context) {
@@ -673,7 +673,7 @@ int uwsgi_hooks_run_and_return(struct uwsgi_string_list *l, char *phase, char *c
 			}
 			final_ret = ret;
 		}
-        }
+	}
 
 	if (context) {
 		unsetenv("UWSGI_HOOK_CONTEXT");
@@ -693,12 +693,12 @@ void uwsgi_hooks_run(struct uwsgi_string_list *l, char *phase, int fatal) {
 					return;
 				}
 				else {
-                                       	if (kill(uwsgi.workers[0].pid, SIGINT)) {
+					if (kill(uwsgi.workers[0].pid, SIGINT)) {
 						uwsgi_error("uwsgi_hooks_run()/kill()");
 						exit(1);
 					}
 					return;
-                               	}
+				}
 			}
 		}
 		exit(1);
@@ -712,10 +712,10 @@ namespace and call hooks in its namespace context.
 */
 void uwsgi_hooks_setns_run(struct uwsgi_string_list *l, pid_t pid, uid_t uid, gid_t gid) {
 	int (*u_setns) (int, int) = (int (*)(int, int)) dlsym(RTLD_DEFAULT, "setns");
-        if (!u_setns) {
-                uwsgi_log("your system misses setns() syscall !!!\n");
+	if (!u_setns) {
+		uwsgi_log("your system misses setns() syscall !!!\n");
 		return;
-        }
+	}
 
 	struct uwsgi_string_list *usl = NULL;
 	uwsgi_foreach(usl, l) {
@@ -741,8 +741,8 @@ void uwsgi_hooks_setns_run(struct uwsgi_string_list *l, pid_t pid, uid_t uid, gi
 			char *gidstr = uwsgi_num2str(gid);
 
 			char *namespaces = uwsgi_concat2n(usl->value, action-usl->value, "", 0);
-        		char *p, *ctx = NULL;
-        		uwsgi_foreach_token(namespaces, ",", p, ctx) {
+			char *p, *ctx = NULL;
+			uwsgi_foreach_token(namespaces, ",", p, ctx) {
 				char *procfile = uwsgi_concat4("/proc/", pidstr, "/ns/", p);
 				int fd = open(procfile, O_RDONLY);
 				if (fd < 0) {
@@ -755,7 +755,7 @@ void uwsgi_hooks_setns_run(struct uwsgi_string_list *l, pid_t pid, uid_t uid, gi
 				}
 				close(fd);
 				free(procfile);
-                	}
+			}
 
 			if (setenv("UWSGI_VASSAL_PID", pidstr, 1)) {
 				uwsgi_error("uwsgi_hooks_setns_run()/setenv()");
@@ -781,14 +781,14 @@ void uwsgi_hooks_setns_run(struct uwsgi_string_list *l, pid_t pid, uid_t uid, gi
 			}
 			*colon = 0;
 			struct uwsgi_hook *uh = uwsgi_hook_by_name(action);
-                	if (!uh) {
-                        	uwsgi_log("hook action not found: %s\n", action);
-                        	exit(1);
-                	}
-                	*colon = ':';
+			if (!uh) {
+				uwsgi_log("hook action not found: %s\n", action);
+				exit(1);
+			}
+			*colon = ':';
 
-                        uwsgi_log("running \"%s\" (setns)...\n", usl->value);
-                	exit(uh->func(colon+1));
+			uwsgi_log("running \"%s\" (setns)...\n", usl->value);
+			exit(uh->func(colon+1));
 		}
 		else {
 			uwsgi_error("uwsgi_hooks_setns_run()/fork()");

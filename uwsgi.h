@@ -18,15 +18,15 @@ extern "C" {
 
 #define UWSGI_END_OF_OPTIONS { NULL, 0, 0, NULL, NULL, NULL, 0},
 
-#define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
-#define uwsgi_error_realpath(x)  uwsgi_log("realpath() of %s failed: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
-#define uwsgi_log_safe(x)  if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log(x);
-#define uwsgi_error_safe(x)  if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
+#define uwsgi_error(x) uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
+#define uwsgi_error_realpath(x) uwsgi_log("realpath() of %s failed: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
+#define uwsgi_log_safe(x) if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log(x);
+#define uwsgi_error_safe(x) if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_log_initial if (!uwsgi.no_initial_output) uwsgi_log
 #define uwsgi_log_alarm(x, ...) uwsgi_log("[uwsgi-alarm" x, __VA_ARGS__)
 #define uwsgi_fatal_error(x) uwsgi_error(x); exit(1);
-#define uwsgi_error_open(x)  uwsgi_log("open(\"%s\"): %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
-#define uwsgi_req_error(x)  if (wsgi_req->uri_len > 0 && wsgi_req->method_len > 0 && wsgi_req->remote_addr_len > 0) uwsgi_log_verbose("%s: %s [%s line %d] during %.*s %.*s (%.*s)\n", x, strerror(errno), __FILE__, __LINE__,\
+#define uwsgi_error_open(x) uwsgi_log("open(\"%s\"): %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
+#define uwsgi_req_error(x) if (wsgi_req->uri_len > 0 && wsgi_req->method_len > 0 && wsgi_req->remote_addr_len > 0) uwsgi_log_verbose("%s: %s [%s line %d] during %.*s %.*s (%.*s)\n", x, strerror(errno), __FILE__, __LINE__,\
 		wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, wsgi_req->remote_addr_len, wsgi_req->remote_addr); else uwsgi_log_verbose("%s %s [%s line %d] \n",x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_debug(x, ...) uwsgi_log("[uWSGI DEBUG] " x, __VA_ARGS__);
 #define uwsgi_rawlog(x) if (write(2, x, strlen(x)) != strlen(x)) uwsgi_error("write()")
@@ -41,22 +41,22 @@ extern "C" {
 #define wsgi_req_time ((wsgi_req->end_of_request-wsgi_req->start_of_request)/1000)
 
 #define thunder_lock if (!uwsgi.is_et) {\
-                        if (uwsgi.use_thunder_lock) {\
-                                uwsgi_lock(uwsgi.the_thunder_lock);\
-                        }\
-                        else if (uwsgi.threads > 1) {\
-                                pthread_mutex_lock(&uwsgi.thunder_mutex);\
-                        }\
-                    }
+			if (uwsgi.use_thunder_lock) {\
+				uwsgi_lock(uwsgi.the_thunder_lock);\
+			}\
+			else if (uwsgi.threads > 1) {\
+				pthread_mutex_lock(&uwsgi.thunder_mutex);\
+			}\
+		}
 
 #define thunder_unlock if (!uwsgi.is_et) {\
-                        if (uwsgi.use_thunder_lock) {\
-                                uwsgi_unlock(uwsgi.the_thunder_lock);\
-                        }\
-                        else if (uwsgi.threads > 1) {\
-                                pthread_mutex_unlock(&uwsgi.thunder_mutex);\
-                        }\
-                        }
+			if (uwsgi.use_thunder_lock) {\
+				uwsgi_unlock(uwsgi.the_thunder_lock);\
+			}\
+			else if (uwsgi.threads > 1) {\
+				pthread_mutex_unlock(&uwsgi.thunder_mutex);\
+			}\
+			}
 
 
 #define uwsgi_n64(x) strtoul(x, NULL, 10)
@@ -135,7 +135,7 @@ extern "C" {
 	uwsgi.gp_cnt++;\
 	}\
 
-#define uwsgi_foreach(x, y) for(x=y;x;x = x->next) 
+#define uwsgi_foreach(x, y) for(x=y;x;x = x->next)
 
 #define uwsgi_foreach_token(x, y, z, w) for(z=strtok_r(x, y, &w);z;z = strtok_r(NULL, y, &w))
 
@@ -180,7 +180,7 @@ extern "C" {
 #include <net/if.h>
 #ifdef __linux__
 #ifndef MSG_FASTOPEN
-#define MSG_FASTOPEN   0x20000000
+#define MSG_FASTOPEN	0x20000000
 #endif
 #endif
 #undef _GNU_SOURCE
@@ -302,14 +302,14 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #if defined(__sun__)
 #define WAIT_ANY (-1)
 #include <sys/filio.h>
-#define PRIO_MAX  20
+#define PRIO_MAX	20
 #endif
 
 #if defined(__HAIKU__) || defined(__CYGWIN__)
 #ifndef WAIT_ANY
 #define WAIT_ANY (-1)
 #endif
-#define PRIO_MAX  20
+#define PRIO_MAX	20
 #endif
 
 #include <sys/ioctl.h>
@@ -369,8 +369,8 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #undef uuid_t
 #endif
 #undef CMSG_DATA
-#define CMSG_DATA(cmsg)         \
-        ((unsigned char *) ((struct cmsghdr *)(cmsg) + 1))
+#define CMSG_DATA(cmsg)	 \
+	((unsigned char *) ((struct cmsghdr *)(cmsg) + 1))
 #endif
 
 struct uwsgi_buffer {
@@ -876,7 +876,7 @@ struct uwsgi_opt {
 #elif defined(__HAIKU__)
 #elif defined(__HURD__)
 #define PATH_MAX 8192
-#define RTLD_DEFAULT   ((void *) 0)
+#define RTLD_DEFAULT	((void *) 0)
 #else
 #include <machine/endian.h>
 #endif
@@ -1001,9 +1001,9 @@ struct uwsgi_socket {
 };
 
 struct uwsgi_protocol {
-        char *name;
-        void (*func)(struct uwsgi_socket *);
-        struct uwsgi_protocol *next;
+	char *name;
+	void (*func)(struct uwsgi_socket *);
+	struct uwsgi_protocol *next;
 };
 
 struct uwsgi_server;
@@ -1062,10 +1062,10 @@ struct uwsgi_plugin {
 	void (*master_cleanup) (void);
 
 	struct uwsgi_buffer* (*backtrace)(struct wsgi_request *);
-        struct uwsgi_buffer* (*exception_class)(struct wsgi_request *);
-        struct uwsgi_buffer* (*exception_msg)(struct wsgi_request *);
-        struct uwsgi_buffer* (*exception_repr)(struct wsgi_request *);
-        void (*exception_log)(struct wsgi_request *);
+	struct uwsgi_buffer* (*exception_class)(struct wsgi_request *);
+	struct uwsgi_buffer* (*exception_msg)(struct wsgi_request *);
+	struct uwsgi_buffer* (*exception_repr)(struct wsgi_request *);
+	void (*exception_log)(struct wsgi_request *);
 
 	void (*vassal)(struct uwsgi_instance *);
 	void (*vassal_before_exec)(struct uwsgi_instance *, char **);
@@ -1165,7 +1165,7 @@ struct uwsgi_route {
 	pcre_extra *pattern_extra;
 
 	char *orig_route;
-	
+
 	// one for each core
 	int *ovn;
 	int **ovector;
@@ -1544,14 +1544,14 @@ struct wsgi_request {
 	uint16_t http_origin_len;
 	char *http_sec_websocket_protocol;
 	uint16_t http_sec_websocket_protocol_len;
-	
+
 
 	struct uwsgi_buffer *chunked_input_buf;
 	uint8_t chunked_input_parser_status;
 	ssize_t chunked_input_chunk_len;
 	size_t chunked_input_need;
 	uint8_t chunked_input_complete;
-        size_t chunked_input_decapitate;
+	size_t chunked_input_decapitate;
 
 	uint64_t stream_id;
 
@@ -2094,17 +2094,17 @@ struct uwsgi_server {
 
 	struct uwsgi_string_list *hook_asap;
 	struct uwsgi_string_list *hook_pre_jail;
-        struct uwsgi_string_list *hook_post_jail;
-        struct uwsgi_string_list *hook_in_jail;
-        struct uwsgi_string_list *hook_as_root;
-        struct uwsgi_string_list *hook_as_user;
-        struct uwsgi_string_list *hook_as_user_atexit;
-        struct uwsgi_string_list *hook_pre_app;
-        struct uwsgi_string_list *hook_post_app;
-        struct uwsgi_string_list *hook_accepting;
-        struct uwsgi_string_list *hook_accepting1;
-        struct uwsgi_string_list *hook_accepting_once;
-        struct uwsgi_string_list *hook_accepting1_once;
+	struct uwsgi_string_list *hook_post_jail;
+	struct uwsgi_string_list *hook_in_jail;
+	struct uwsgi_string_list *hook_as_root;
+	struct uwsgi_string_list *hook_as_user;
+	struct uwsgi_string_list *hook_as_user_atexit;
+	struct uwsgi_string_list *hook_pre_app;
+	struct uwsgi_string_list *hook_post_app;
+	struct uwsgi_string_list *hook_accepting;
+	struct uwsgi_string_list *hook_accepting1;
+	struct uwsgi_string_list *hook_accepting_once;
+	struct uwsgi_string_list *hook_accepting1_once;
 
 	struct uwsgi_string_list *hook_emperor_start;
 	struct uwsgi_string_list *hook_master_start;
@@ -2113,11 +2113,11 @@ struct uwsgi_server {
 	struct uwsgi_string_list *hook_emperor_reload;
 	struct uwsgi_string_list *hook_emperor_lost;
 
-        struct uwsgi_string_list *hook_as_vassal;
-        struct uwsgi_string_list *hook_as_emperor;
-        struct uwsgi_string_list *hook_as_mule;
-        struct uwsgi_string_list *hook_as_gateway;
-	
+	struct uwsgi_string_list *hook_as_vassal;
+	struct uwsgi_string_list *hook_as_emperor;
+	struct uwsgi_string_list *hook_as_mule;
+	struct uwsgi_string_list *hook_as_gateway;
+
 
 	struct uwsgi_string_list *exec_asap;
 	struct uwsgi_string_list *exec_pre_jail;
@@ -2129,47 +2129,47 @@ struct uwsgi_server {
 	struct uwsgi_string_list *exec_pre_app;
 	struct uwsgi_string_list *exec_post_app;
 
-        struct uwsgi_string_list *exec_as_vassal;
-        struct uwsgi_string_list *exec_as_emperor;
+	struct uwsgi_string_list *exec_as_vassal;
+	struct uwsgi_string_list *exec_as_emperor;
 
 	struct uwsgi_string_list *call_asap;
 	struct uwsgi_string_list *call_pre_jail;
-        struct uwsgi_string_list *call_post_jail;
-        struct uwsgi_string_list *call_in_jail;
-        struct uwsgi_string_list *call_as_root;
-        struct uwsgi_string_list *call_as_user;
-        struct uwsgi_string_list *call_as_user_atexit;
-        struct uwsgi_string_list *call_pre_app;
-        struct uwsgi_string_list *call_post_app;
+	struct uwsgi_string_list *call_post_jail;
+	struct uwsgi_string_list *call_in_jail;
+	struct uwsgi_string_list *call_as_root;
+	struct uwsgi_string_list *call_as_user;
+	struct uwsgi_string_list *call_as_user_atexit;
+	struct uwsgi_string_list *call_pre_app;
+	struct uwsgi_string_list *call_post_app;
 
-        struct uwsgi_string_list *call_as_vassal;
-        struct uwsgi_string_list *call_as_vassal1;
-        struct uwsgi_string_list *call_as_vassal3;
+	struct uwsgi_string_list *call_as_vassal;
+	struct uwsgi_string_list *call_as_vassal1;
+	struct uwsgi_string_list *call_as_vassal3;
 
-        struct uwsgi_string_list *call_as_emperor;
-        struct uwsgi_string_list *call_as_emperor1;
-        struct uwsgi_string_list *call_as_emperor2;
-        struct uwsgi_string_list *call_as_emperor4;
+	struct uwsgi_string_list *call_as_emperor;
+	struct uwsgi_string_list *call_as_emperor1;
+	struct uwsgi_string_list *call_as_emperor2;
+	struct uwsgi_string_list *call_as_emperor4;
 
 	struct uwsgi_string_list *mount_asap;
 	struct uwsgi_string_list *mount_pre_jail;
-        struct uwsgi_string_list *mount_post_jail;
-        struct uwsgi_string_list *mount_in_jail;
-        struct uwsgi_string_list *mount_as_root;
+	struct uwsgi_string_list *mount_post_jail;
+	struct uwsgi_string_list *mount_in_jail;
+	struct uwsgi_string_list *mount_as_root;
 
-        struct uwsgi_string_list *mount_as_vassal;
-        struct uwsgi_string_list *mount_as_emperor;
+	struct uwsgi_string_list *mount_as_vassal;
+	struct uwsgi_string_list *mount_as_emperor;
 
 	struct uwsgi_string_list *umount_asap;
 	struct uwsgi_string_list *umount_pre_jail;
-        struct uwsgi_string_list *umount_post_jail;
-        struct uwsgi_string_list *umount_in_jail;
-        struct uwsgi_string_list *umount_as_root;
+	struct uwsgi_string_list *umount_post_jail;
+	struct uwsgi_string_list *umount_in_jail;
+	struct uwsgi_string_list *umount_as_root;
 
-        struct uwsgi_string_list *umount_as_vassal;
-        struct uwsgi_string_list *umount_as_emperor;
+	struct uwsgi_string_list *umount_as_vassal;
+	struct uwsgi_string_list *umount_as_emperor;
 
-        struct uwsgi_string_list *after_request_hooks;
+	struct uwsgi_string_list *after_request_hooks;
 
 	struct uwsgi_string_list *wait_for_interface;
 	int wait_for_interface_timeout;
@@ -2649,7 +2649,7 @@ struct uwsgi_server {
 
 	// rpc
 	uint64_t rpc_max;
-	struct uwsgi_rpc *rpc_table;	
+	struct uwsgi_rpc *rpc_table;
 
 	// subscription client
 	int subscriptions_blocked;
@@ -2728,8 +2728,8 @@ struct uwsgi_server {
 	struct uwsgi_string_list *schemes;
 
 	// inject text files (useful for advanced templating)
-        struct uwsgi_string_list *inject_before;
-        struct uwsgi_string_list *inject_after;
+	struct uwsgi_string_list *inject_before;
+	struct uwsgi_string_list *inject_after;
 
 	// this is a unix socket receiving external notifications (like subscription replies)
 	char *notify_socket;
@@ -2782,7 +2782,7 @@ struct uwsgi_server {
 	char *emperor_fork_server_attr;
 	char *emperor_wrapper_attr;
 	int emperor_subreaper;
-        struct uwsgi_string_list *hook_as_on_demand_vassal;
+	struct uwsgi_string_list *hook_as_on_demand_vassal;
 	uint64_t max_requests_delta;
 	char *emperor_chdir_attr;
 	struct uwsgi_string_list *subscription_algos;
@@ -3710,7 +3710,7 @@ struct uwsgi_subscribe_slot {
 #endif
 
 	// uWSGI 2.1 (algo is required)
-        struct uwsgi_subscribe_node *(*algo) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *);
+	struct uwsgi_subscribe_node *(*algo) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *);
 
 };
 
@@ -4016,7 +4016,7 @@ struct uwsgi_stats_pusher_instance {
 	struct uwsgi_stats_pusher *pusher;
 	char *arg;
 	void *data;
-	int raw;	
+	int raw;
 	int configured;
 	int freq;
 	time_t last_run;
@@ -4379,7 +4379,7 @@ struct uwsgi_offload_engine {
 	char *name;
 	int (*prepare_func)(struct wsgi_request *, struct uwsgi_offload_request *);
 	int (*event_func) (struct uwsgi_thread *, struct uwsgi_offload_request *, int);
-	struct uwsgi_offload_engine *next;	
+	struct uwsgi_offload_engine *next;
 };
 
 struct uwsgi_offload_engine *uwsgi_offload_engine_by_name(char *);
@@ -4589,7 +4589,7 @@ int uwsgi_exceptions_catch(struct wsgi_request *);
 uint64_t uwsgi_worker_exceptions(int);
 struct uwsgi_exception_handler *uwsgi_register_exception_handler(char *, int (*)(struct uwsgi_exception_handler_instance *, char *, size_t));
 
-char *proxy1_parse(char *ptr, char *watermark, char **src, uint16_t *src_len, char **dst, uint16_t *dst_len,  char **src_port, uint16_t *src_port_len, char **dst_port, uint16_t *dst_port_len);
+char *proxy1_parse(char *ptr, char *watermark, char **src, uint16_t *src_len, char **dst, uint16_t *dst_len, char **src_port, uint16_t *src_port_len, char **dst_port, uint16_t *dst_port_len);
 void uwsgi_async_queue_is_full(time_t);
 char *uwsgi_get_header(struct wsgi_request *, char *, uint16_t, uint16_t *);
 
@@ -4786,37 +4786,37 @@ struct uwsgi_metric_threshold {
 };
 
 struct uwsgi_metric {
-        char *name;
-        char *oid;
+	char *name;
+	char *oid;
 
 	size_t name_len;
 	size_t oid_len;
 
-        // pre-computed snmp representation
-        char *asn;
-        size_t asn_len;
+	// pre-computed snmp representation
+	char *asn;
+	size_t asn_len;
 
-        // ABSOLUTE/COUNTER/GAUGE
-        uint8_t type;
+	// ABSOLUTE/COUNTER/GAUGE
+	uint8_t type;
 
-        // this could be taken from a file storage and must be always added to value by the collector (default 0)
-        int64_t initial_value;
-        // the value of the metric (point to a shared memory area)
-        int64_t *value;
+	// this could be taken from a file storage and must be always added to value by the collector (default 0)
+	int64_t initial_value;
+	// the value of the metric (point to a shared memory area)
+	int64_t *value;
 
-        // a custom blob you can attach to a metric
-        void *custom;
+	// a custom blob you can attach to a metric
+	void *custom;
 
-        // the collection frequency
-        uint32_t freq;
-        time_t last_update;
+	// the collection frequency
+	uint32_t freq;
+	time_t last_update;
 
-        // run this function to collect the value
-	struct uwsgi_metric_collector *collector;	
-        // take the value from this pointer to a 64bit value
-        int64_t *ptr;
-        // get the initial value from this file, and store each update in it
-        char *filename;
+	// run this function to collect the value
+	struct uwsgi_metric_collector *collector;
+	// take the value from this pointer to a 64bit value
+	int64_t *ptr;
+	// get the initial value from this file, and store each update in it
+	char *filename;
 
 	// pointer to memory mapped storage
 	char *map;
@@ -4833,7 +4833,7 @@ struct uwsgi_metric {
 	struct uwsgi_metric_child *children;
 	struct uwsgi_metric_threshold *thresholds;
 
-        struct uwsgi_metric *next;
+	struct uwsgi_metric *next;
 
 	// allow to reset metrics after each push
 	uint8_t reset_after_push;

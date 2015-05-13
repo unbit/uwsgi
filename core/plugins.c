@@ -14,7 +14,7 @@ static void uwsgi_plugin_parse_section(char *filename) {
 			if (equal) {
 				*equal = 0;
 				if (!strcmp(p, "requires")) {
-					if (!plugin_already_loaded(equal+1)) {	
+					if (!plugin_already_loaded(equal+1)) {
 						uwsgi_load_plugin(-1, equal + 1, NULL);
 					}
 				}
@@ -103,7 +103,7 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 	char *init_func = strchr(plugin_name, '|');
 	if (init_func) {
 		init_func[0] = 0;
-		init_func++;	
+		init_func++;
 	}
 
 	if (!uwsgi_endswith(plugin_name, "_plugin.so")) {

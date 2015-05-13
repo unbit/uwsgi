@@ -3,9 +3,9 @@
 extern struct uwsgi_server uwsgi;
 
 /*
-   ini file must be read ALL into memory.
-   This memory must not be freed for all the server lifecycle
-   */
+	ini file must be read ALL into memory.
+	This memory must not be freed for all the server lifecycle
+*/
 
 static char *last_file = NULL;
 
@@ -186,43 +186,43 @@ void uwsgi_emperor_ini_attrs(char *filename, char *section_asked, struct uwsgi_d
 	char *key, *val, *ini_line;
 
 	while (len) {
-                ini_line = ini_get_line(ini, len);
-                if (ini_line == NULL) {
-                        break;
-                }
-                // skip empty line
-                key = ini_lstrip(ini);
-                ini_rstrip(key);
-                if (key[0] != 0) {
-                        if (key[0] == '[') {
-                                section = key + 1;
-                                section[strlen(section) - 1] = 0;
-                        }
-                        else if (key[0] == ';' || key[0] == '#') {
-                                // this is a comment
-                        }
-                        else {
-                                // val is always valid, but (obviously) can be ignored
-                                val = ini_get_key(key);
+		ini_line = ini_get_line(ini, len);
+		if (ini_line == NULL) {
+			break;
+		}
+		// skip empty line
+		key = ini_lstrip(ini);
+		ini_rstrip(key);
+		if (key[0] != 0) {
+			if (key[0] == '[') {
+				section = key + 1;
+				section[strlen(section) - 1] = 0;
+			}
+			else if (key[0] == ';' || key[0] == '#') {
+				// this is a comment
+			}
+			else {
+				// val is always valid, but (obviously) can be ignored
+				val = ini_get_key(key);
 
-                                if (!strcmp(section, section_asked)) {
-                                        ini_rstrip(key);
+				if (!strcmp(section, section_asked)) {
+					ini_rstrip(key);
 					struct uwsgi_string_list *usl = uwsgi_string_list_has_item(uwsgi.emperor_collect_attributes, key, strlen(key));
 					if (usl) {
-                                        	val = ini_lstrip(val);
-                                        	ini_rstrip(val);
+						val = ini_lstrip(val);
+						ini_rstrip(val);
 						char *value = uwsgi_str(val);
-                                        	uwsgi_dyn_dict_new(attrs, usl->value, usl->len, value, strlen(value));
+						uwsgi_dyn_dict_new(attrs, usl->value, usl->len, value, strlen(value));
 					}
-                                }
-                        }
-                }
+				}
+			}
+		}
 
 
-                len -= (ini_line - ini);
-                ini += (ini_line - ini);
+		len -= (ini_line - ini);
+		ini += (ini_line - ini);
 
-        }
-	
+	}
+
 	free(orig_ini);
 }

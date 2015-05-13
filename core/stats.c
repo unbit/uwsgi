@@ -317,40 +317,40 @@ int uwsgi_stats_keylong_comma(struct uwsgi_stats *us, char *key, unsigned long l
 
 int uwsgi_stats_keyslong(struct uwsgi_stats *us, char *key, long long num) {
 
-        if (uwsgi_stats_apply_tabs(us))
-                return -1;
+	if (uwsgi_stats_apply_tabs(us))
+		return -1;
 
-        char *ptr = us->base + us->pos;
-        char *watermark = us->base + us->size;
-        size_t available = watermark - ptr;
+	char *ptr = us->base + us->pos;
+	char *watermark = us->base + us->size;
+	size_t available = watermark - ptr;
 
-        int ret = snprintf(ptr, available, "\"%s\":%lld", key, num);
-        if (ret <= 0)
-                return -1;
-        while (ret >= (int) available) {
-                char *new_base = realloc(us->base, us->size + us->chunk);
-                if (!new_base)
-                        return -1;
-                us->base = new_base;
-                us->size += us->chunk;
-                ptr = us->base + us->pos;
-                watermark = us->base + us->size;
-                available = watermark - ptr;
-                ret = snprintf(ptr, available, "\"%s\":%lld", key, num);
-                if (ret <= 0)
-                        return -1;
-        }
+	int ret = snprintf(ptr, available, "\"%s\":%lld", key, num);
+	if (ret <= 0)
+		return -1;
+	while (ret >= (int) available) {
+		char *new_base = realloc(us->base, us->size + us->chunk);
+		if (!new_base)
+			return -1;
+		us->base = new_base;
+		us->size += us->chunk;
+		ptr = us->base + us->pos;
+		watermark = us->base + us->size;
+		available = watermark - ptr;
+		ret = snprintf(ptr, available, "\"%s\":%lld", key, num);
+		if (ret <= 0)
+			return -1;
+	}
 
-        us->pos += ret;
-        return 0;
+	us->pos += ret;
+	return 0;
 }
 
 
 int uwsgi_stats_keyslong_comma(struct uwsgi_stats *us, char *key, long long num) {
-        int ret = uwsgi_stats_keyslong(us, key, num);
-        if (ret)
-                return -1;
-        return uwsgi_stats_comma(us);
+	int ret = uwsgi_stats_keyslong(us, key, num);
+	if (ret)
+		return -1;
+	return uwsgi_stats_comma(us);
 }
 
 
@@ -563,7 +563,7 @@ static void stats_dump_var(char *k, uint16_t kl, char *v, uint16_t vl, void *dat
 	free(escaped_var);
 	if (uwsgi_stats_comma(us)) {
 		us->dirty = 1;
-	}	
+	}
 	return;
 }
 

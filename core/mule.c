@@ -43,14 +43,14 @@ void uwsgi_mule(int id) {
 #endif
 
 		signal(SIGALRM, SIG_IGN);
-                signal(SIGHUP, end_me);
-                signal(SIGINT, end_me);
-                signal(SIGTERM, end_me);
-                signal(SIGUSR1, SIG_IGN);
-                signal(SIGUSR2, SIG_IGN);
-                signal(SIGPIPE, SIG_IGN);
-                signal(SIGSTOP, SIG_IGN);
-                signal(SIGTSTP, SIG_IGN);
+		signal(SIGHUP, end_me);
+		signal(SIGINT, end_me);
+		signal(SIGTERM, end_me);
+		signal(SIGUSR1, SIG_IGN);
+		signal(SIGUSR2, SIG_IGN);
+		signal(SIGPIPE, SIG_IGN);
+		signal(SIGSTOP, SIG_IGN);
+		signal(SIGTSTP, SIG_IGN);
 
 		uwsgi.muleid = id;
 		// avoid race conditions
@@ -92,17 +92,17 @@ void uwsgi_mule_run() {
 	int id = uwsgi.muleid;
 	int i;
 	if (uwsgi.mules[id - 1].patch) {
-                        for (i = 0; i < 256; i++) {
-                                if (uwsgi.p[i]->mule) {
-                                        if (uwsgi.p[i]->mule(uwsgi.mules[id - 1].patch) == 1) {
-                                                // never here ?
-                                                end_me(1);
-                                        }
-                                }
-                        }
-                }
+		for (i = 0; i < 256; i++) {
+			if (uwsgi.p[i]->mule) {
+				if (uwsgi.p[i]->mule(uwsgi.mules[id - 1].patch) == 1) {
+					// never here ?
+					end_me(1);
+				}
+			}
+		}
+	}
 
-                uwsgi_mule_handler();
+	uwsgi_mule_handler();
 }
 
 int uwsgi_farm_has_mule(struct uwsgi_farm *farm, int muleid) {
@@ -451,7 +451,6 @@ void uwsgi_setup_mules_and_farms() {
 			mules_list++;
 
 			strncpy(uwsgi.farms[i].name, farm_value, 0xff);
-			
 
 			// create the socket pipe
 			create_signal_pipe(uwsgi.farms[i].signal_pipe);

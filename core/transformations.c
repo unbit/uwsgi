@@ -37,7 +37,7 @@ int uwsgi_apply_transformations(struct wsgi_request *wsgi_req, char *buf, size_t
 
 		// if the transformation cannot stream, continue buffering (the func will be called at the end)
 		if (!ut->can_stream) return 1;
-		
+
 		ut->round++;
 		if (ut->func(wsgi_req, ut)) {
 			return -1;
@@ -71,7 +71,7 @@ run all the remaining (or buffered) transformations
 int uwsgi_apply_final_transformations(struct wsgi_request *wsgi_req) {
 	struct uwsgi_transformation *ut = wsgi_req->transformations;
 	wsgi_req->transformed_chunk = NULL;
-        wsgi_req->transformed_chunk_len = 0;
+	wsgi_req->transformed_chunk_len = 0;
 	char *t_buf = NULL;
 	size_t t_len = 0;
 	uint8_t flushed = 0;
@@ -85,7 +85,7 @@ int uwsgi_apply_final_transformations(struct wsgi_request *wsgi_req) {
 				// stop the chain if no chunk is available
 				if (!ut->chunk) return 0;
 				t_buf = ut->chunk->buf;
-                		t_len = ut->chunk->pos;
+				t_len = ut->chunk->pos;
 				goto next;
 			}
 		}
@@ -98,18 +98,18 @@ int uwsgi_apply_final_transformations(struct wsgi_request *wsgi_req) {
 				ut->chunk = uwsgi_buffer_new(uwsgi.page_size);
 			}
 		}
-		
+
 		if (t_len > 0) {
 			if (uwsgi_buffer_append(ut->chunk, t_buf, t_len)) {
 				return -1;
-                	}
+			}
 		}
-		
+
 		// run the transformation
 		ut->round++;
 		if (ut->func(wsgi_req, ut)) {
 			return -1;
-                }
+		}
 
 		if (ut->flushed) flushed = 1;
 
@@ -122,9 +122,9 @@ next:
 	// if we are here, all of the transformations are applied
 	if (!flushed) {
 		wsgi_req->transformed_chunk = t_buf;
-        	wsgi_req->transformed_chunk_len = t_len;
+		wsgi_req->transformed_chunk_len = t_len;
 	}
-        return 0;
+	return 0;
 }
 
 void uwsgi_free_transformations(struct wsgi_request *wsgi_req) {

@@ -100,15 +100,15 @@ pid_t spooler_start(struct uwsgi_spooler * uspool) {
 	else if (pid == 0) {
 
 		signal(SIGALRM, SIG_IGN);
-                signal(SIGHUP, SIG_IGN);
-                signal(SIGINT, end_me);
-                signal(SIGTERM, end_me);
+		signal(SIGHUP, SIG_IGN);
+		signal(SIGINT, end_me);
+		signal(SIGTERM, end_me);
 		// USR1 will be used to wake up the spooler
 		uwsgi_unix_signal(SIGUSR1, spooler_wakeup);
-                signal(SIGUSR2, SIG_IGN);
-                signal(SIGPIPE, SIG_IGN);
-                signal(SIGSTOP, SIG_IGN);
-                signal(SIGTSTP, SIG_IGN);
+		signal(SIGUSR2, SIG_IGN);
+		signal(SIGPIPE, SIG_IGN);
+		signal(SIGSTOP, SIG_IGN);
+		signal(SIGTSTP, SIG_IGN);
 
 		uwsgi.mypid = getpid();
 		uspool->pid = uwsgi.mypid;
@@ -138,19 +138,19 @@ void uwsgi_spooler_run() {
 	struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
 	uwsgi.signal_socket = uwsgi.shared->spooler_signal_pipe[1];
 
-                for (i = 0; i < 256; i++) {
-                        if (uwsgi.p[i]->spooler_init) {
-                                uwsgi.p[i]->spooler_init();
-                        }
-                }
+		for (i = 0; i < 256; i++) {
+			if (uwsgi.p[i]->spooler_init) {
+				uwsgi.p[i]->spooler_init();
+			}
+		}
 
-                for (i = 0; i < uwsgi.gp_cnt; i++) {
-                        if (uwsgi.gp[i]->spooler_init) {
-                                uwsgi.gp[i]->spooler_init();
-                        }
-                }
+		for (i = 0; i < uwsgi.gp_cnt; i++) {
+			if (uwsgi.gp[i]->spooler_init) {
+				uwsgi.gp[i]->spooler_init();
+			}
+		}
 
-                spooler(uspool);
+		spooler(uspool);
 }
 
 void destroy_spool(char *dir, char *file) {
@@ -183,13 +183,13 @@ static void spooler_req_parser_hook(char *key, uint16_t key_len, char *value, ui
 		sr->spooler = value;
 		sr->spooler_len = value_len;
 		return;
-	} 
+	}
 
 	if (!uwsgi_strncmp(key, key_len, "priority", 8)) {
-                sr->priority = value;
-                sr->priority_len = value_len;
-                return;
-        }
+		sr->priority = value;
+		sr->priority_len = value_len;
+		return;
+	}
 
 	if (!uwsgi_strncmp(key, key_len, "at", 2)) {
 		// at can be a float...
@@ -220,7 +220,7 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 	// parse the request buffer
 	memset(&sr, 0, sizeof(struct spooler_req));
 	uwsgi_hooked_parse(buf, len, spooler_req_parser_hook, &sr);
-	
+
 	struct uwsgi_spooler *uspool = uwsgi.spoolers;
 	if (!uspool) {
 		uwsgi_log("[uwsgi-spooler] no spooler available\n");
@@ -248,7 +248,7 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 	size_t filename_len = 0;
 
 	if (sr.priority && sr.priority_len) {
-		filename_len = strlen(uspool->dir) + sr.priority_len + strlen(uwsgi.hostname) + 256;	
+		filename_len = strlen(uspool->dir) + sr.priority_len + strlen(uwsgi.hostname) + 256;
 		filename = uwsgi_malloc(filename_len);
 		int ret = snprintf(filename, filename_len, "%s/%.*s", uspool->dir, (int) sr.priority_len, sr.priority);
 		if (ret <= 0 || ret >= (int) filename_len) {
@@ -262,8 +262,8 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 
 		ret = snprintf(filename, filename_len, "%s/%.*s/uwsgi_spoolfile_on_%s_%d_%llu_%d_%llu_%llu", uspool->dir, (int)sr.priority_len, sr.priority, uwsgi.hostname, (int) getpid(), (unsigned long long) internal_counter, rand(),
 				(unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec);
-		if (ret <= 0 || ret >=(int)  filename_len) {
-                        uwsgi_log("[uwsgi-spooler] error generating spooler filename\n");
+		if (ret <= 0 || ret >=(int) filename_len) {
+			uwsgi_log("[uwsgi-spooler] error generating spooler filename\n");
 			free(filename);
 			uwsgi_unlock(uspool->lock);
 			return NULL;
@@ -271,11 +271,11 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 	}
 	else {
 		filename_len = strlen(uspool->dir) + strlen(uwsgi.hostname) + 256;
-                filename = uwsgi_malloc(filename_len);
+		filename = uwsgi_malloc(filename_len);
 		int ret = snprintf(filename, filename_len, "%s/uwsgi_spoolfile_on_%s_%d_%llu_%d_%llu_%llu", uspool->dir, uwsgi.hostname, (int) getpid(), (unsigned long long) internal_counter,
 				rand(), (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec);
 		if (ret <= 0 || ret >= (int) filename_len) {
-                        uwsgi_log("[uwsgi-spooler] error generating spooler filename\n");
+			uwsgi_log("[uwsgi-spooler] error generating spooler filename\n");
 			free(filename);
 			uwsgi_unlock(uspool->lock);
 			return NULL;
@@ -327,13 +327,13 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 
 	if (sr.at > 0) {
 #ifdef __UCLIBC__
-		struct timespec ts[2]; 
-		ts[0].tv_sec = sr.at; 
+		struct timespec ts[2];
+		ts[0].tv_sec = sr.at;
 		ts[0].tv_nsec = 0;
 		ts[1].tv_sec = sr.at;
-		ts[1].tv_nsec = 0; 
+		ts[1].tv_nsec = 0;
 		if (futimens(fd, ts)) {
-			uwsgi_error("uwsgi_spooler_request()/futimens()");	
+			uwsgi_error("uwsgi_spooler_request()/futimens()");
 		}
 #else
 		struct timeval tv[2];
@@ -360,7 +360,7 @@ char *uwsgi_spool_request(struct wsgi_request *wsgi_req, char *buf, size_t len, 
 	// and here waiting threads can continue
 	uwsgi_unlock(uspool->lock);
 
-/*	wake up the spoolers attached to the specified dir ... (HACKY) 
+/*	wake up the spoolers attached to the specified dir ... (HACKY)
 	no need to fear races, as USR1 is harmless an all of the uWSGI processes...
 	it could be a problem if a new process takes the old pid, but modern systems should avoid that
 */
@@ -554,10 +554,10 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 				uwsgi_error("spooler_manage_task()/chdir()");
 				return;
 			}
-#ifdef __UCLIBC__ 
+#ifdef __UCLIBC__
 			char *prio_path = uwsgi_malloc(PATH_MAX);
-			realpath(".", prio_path);		
-#else 
+			realpath(".", prio_path);
+#else
 			char *prio_path = realpath(".", NULL);
 #endif
 			spooler_scandir(uspool, prio_path);
@@ -705,22 +705,22 @@ void uwsgi_spooler_cheap_check() {
 	char *last_managed = NULL;
 	while(uspool) {
 		// skip already active spoolers
-		if (uspool->pid > 0) goto next; 
+		if (uspool->pid > 0) goto next;
 		// spooler dir names (in multiprocess mode, are ordered, so we can use
 		// this trick for avoiding spawning multiple processes for the same dir
 		// in the same cycle
 		if (!last_managed || strcmp(last_managed, uspool->dir)) {
 			// unfortunately, reusing readdir/scandir of the spooler is too dungeorus
 			// as the code is run in the master, let's do a simpler check
-        		struct dirent *dp;
+			struct dirent *dp;
 			DIR *sdir = opendir(uspool->dir);
 			if (!sdir) goto next;
-                	while ((dp = readdir(sdir)) != NULL) {
+			while ((dp = readdir(sdir)) != NULL) {
 				if (strncmp("uwsgi_spoolfile_on_", dp->d_name, 19)) continue;
 				// a uwsgi_spoolfile_on_* file has been found...
 				uspool->respawned++;
 				// spawn a new spooler
-                                uspool->pid = spooler_start(uspool);
+				uspool->pid = spooler_start(uspool);
 				last_managed = uspool->dir;
 				break;
 			}

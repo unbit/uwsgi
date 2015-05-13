@@ -139,9 +139,9 @@ static int uwsgi_validate_metric_name(char *buf) {
 		)) {
 
 			return 0;
-		
+
 		}
-	}	
+	}
 
 	return 1;
 }
@@ -158,37 +158,37 @@ static int uwsgi_validate_metric_name(char *buf) {
 
 static int uwsgi_validate_metric_oid(char *buf) {
 	if (!buf) return 1;
-        size_t len = strlen(buf);
-        size_t i;
-        for(i=0;i<len;i++) {
-                if ( !(
-                        (buf[i] >= '0' && buf[i] <= '9') ||
-                        buf[i] == '.'
-                )) {
-                
-                        return 0;
-                
-                }
-        }
+	size_t len = strlen(buf);
+	size_t i;
+	for(i=0;i<len;i++) {
+		if ( !(
+			(buf[i] >= '0' && buf[i] <= '9') ||
+			buf[i] == '.'
+		)) {
 
-        return 1;
+			return 0;
+
+		}
+	}
+
+	return 1;
 }
 
 void uwsgi_metric_append(struct uwsgi_metric *um) {
 	struct uwsgi_metric *old_metric=NULL,*metric=uwsgi.metrics;
 	while(metric) {
 		old_metric = metric;
-                metric = metric->next;
+		metric = metric->next;
 	}
 
 	if (old_metric) {
-                       old_metric->next = um;
-        }
-        else {
-        	uwsgi.metrics = um;
-        }
+		old_metric->next = um;
+	}
+	else {
+		uwsgi.metrics = um;
+	}
 
-        uwsgi.metrics_cnt++;
+	uwsgi.metrics_cnt++;
 }
 
 struct uwsgi_metric_collector *uwsgi_metric_collector_by_name(char *name) {
@@ -249,8 +249,8 @@ found:
 		char *oid_tmp = uwsgi_str(metric->oid);
 		// slower but we save lot of memory
 		struct uwsgi_buffer *ub = uwsgi_buffer_new(1);
-                uwsgi_foreach_token(oid_tmp, ".", p, ctx) {
-			uint64_t l = strtoull(p, NULL, 10);	
+		uwsgi_foreach_token(oid_tmp, ".", p, ctx) {
+			uint64_t l = strtoull(p, NULL, 10);
 			if (uwsgi_base128(ub, l, 1)) {
 				uwsgi_log("unable to encode oid %s to asn/ber\n", metric->oid);
 				exit(1);
@@ -293,7 +293,7 @@ found:
 			uwsgi_log("unable to register metric: %s\n", name);
 			exit(1);
 		}
-		
+
 		// we can now safely close the file descriptor and update the file from memory
 		close(fd);
 		free(filename);
@@ -370,17 +370,17 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 	}
 
 	if (m_collector) {
-		collector = m_collector;	
+		collector = m_collector;
 	}
 
 	if (m_freq) freq = strtoul(m_freq, NULL, 10);
 
-	
+
 	if (m_initial_value) {
-		initial_value = strtoll(m_initial_value, NULL, 10);		
+		initial_value = strtoll(m_initial_value, NULL, 10);
 	}
 
-	struct uwsgi_metric* um =  uwsgi_register_metric(m_name, m_oid, type, collector, NULL, freq, NULL);
+	struct uwsgi_metric* um = uwsgi_register_metric(m_name, m_oid, type, collector, NULL, freq, NULL);
 	um->initial_value = initial_value;
 
 	if (m_reset_after_push){
@@ -389,21 +389,21 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 
 	if (m_children) {
 		char *p, *ctx = NULL;
-        	uwsgi_foreach_token(m_children, ";", p, ctx) {
+		uwsgi_foreach_token(m_children, ";", p, ctx) {
 			struct uwsgi_metric *child = uwsgi_metric_find_by_name(p);
 			if (!child) {
 				uwsgi_log("unable to find metric \"%s\"\n", p);
 				exit(1);
 			}
 			uwsgi_metric_add_child(um, child);
-                }
-        }
+		}
+	}
 
 	if (m_alias) {
 		struct uwsgi_metric *alias = uwsgi_metric_find_by_name(m_alias);
 		if (!alias) {
 			uwsgi_log("unable to find metric \"%s\"\n", m_alias);
-                        exit(1);
+			exit(1);
 		}
 		um->ptr = (void *) alias;
 	}
@@ -440,12 +440,12 @@ struct uwsgi_metric *uwsgi_register_keyval_metric(char *arg) {
 static void *uwsgi_metrics_loop(void *arg) {
 
 	// block signals on this thread
-        sigset_t smask;
-        sigfillset(&smask);
+	sigset_t smask;
+	sigfillset(&smask);
 #ifndef UWSGI_DEBUG
-        sigdelset(&smask, SIGSEGV);
+	sigdelset(&smask, SIGSEGV);
 #endif
-        pthread_sigmask(SIG_BLOCK, &smask, NULL);
+	pthread_sigmask(SIG_BLOCK, &smask, NULL);
 
 	for(;;) {
 		struct uwsgi_metric *metric = uwsgi.metrics;
@@ -509,13 +509,13 @@ next:
 	}
 
 	return NULL;
-	
+
 }
 
 void uwsgi_metrics_start_collector() {
 	if (!uwsgi.has_metrics) return;
 	pthread_t t;
-        pthread_create(&t, NULL, uwsgi_metrics_loop, NULL);
+	pthread_create(&t, NULL, uwsgi_metrics_loop, NULL);
 	uwsgi_log("metrics collector thread started\n");
 }
 
@@ -524,7 +524,7 @@ struct uwsgi_metric *uwsgi_metric_find_by_name(char *name) {
 	while(um) {
 		if (!strcmp(um->name, name)) {
 			return um;
-		}	
+		}
 		um = um->next;
 	}
 
@@ -532,15 +532,15 @@ struct uwsgi_metric *uwsgi_metric_find_by_name(char *name) {
 }
 
 struct uwsgi_metric *uwsgi_metric_find_by_namen(char *name, size_t len) {
-        struct uwsgi_metric *um = uwsgi.metrics;
-        while(um) {
-                if (!uwsgi_strncmp(um->name, um->name_len, name, len)) {
-                        return um;
-                }
-                um = um->next;
-        }
+	struct uwsgi_metric *um = uwsgi.metrics;
+	while(um) {
+		if (!uwsgi_strncmp(um->name, um->name_len, name, len)) {
+			return um;
+		}
+		um = um->next;
+	}
 
-        return NULL;
+	return NULL;
 }
 
 struct uwsgi_metric_child *uwsgi_metric_add_child(struct uwsgi_metric *parent, struct uwsgi_metric *child) {
@@ -562,39 +562,39 @@ struct uwsgi_metric_child *uwsgi_metric_add_child(struct uwsgi_metric *parent, s
 }
 
 struct uwsgi_metric *uwsgi_metric_find_by_oid(char *oid) {
-        struct uwsgi_metric *um = uwsgi.metrics;
-        while(um) {
-                if (um->oid && !strcmp(um->oid, oid)) {
-                        return um;
-                }
-                um = um->next;
-        }
+	struct uwsgi_metric *um = uwsgi.metrics;
+	while(um) {
+		if (um->oid && !strcmp(um->oid, oid)) {
+			return um;
+		}
+		um = um->next;
+	}
 
-        return NULL;
+	return NULL;
 }
 
 struct uwsgi_metric *uwsgi_metric_find_by_oidn(char *oid, size_t len) {
-        struct uwsgi_metric *um = uwsgi.metrics;
-        while(um) {
-                if (um->oid && !uwsgi_strncmp(um->oid, um->oid_len, oid, len)) {
-                        return um;
-                }
-                um = um->next;
-        }
+	struct uwsgi_metric *um = uwsgi.metrics;
+	while(um) {
+		if (um->oid && !uwsgi_strncmp(um->oid, um->oid_len, oid, len)) {
+			return um;
+		}
+		um = um->next;
+	}
 
-        return NULL;
+	return NULL;
 }
 
 struct uwsgi_metric *uwsgi_metric_find_by_asn(char *asn, size_t len) {
-        struct uwsgi_metric *um = uwsgi.metrics;
-        while(um) {
-                if (um->oid && um->asn && !uwsgi_strncmp(um->asn, um->asn_len, asn, len)) {
-                        return um;
-                }
-                um = um->next;
-        }
+	struct uwsgi_metric *um = uwsgi.metrics;
+	while(um) {
+		if (um->oid && um->asn && !uwsgi_strncmp(um->asn, um->asn_len, asn, len)) {
+			return um;
+		}
+		um = um->next;
+	}
 
-        return NULL;
+	return NULL;
 }
 
 
@@ -613,12 +613,12 @@ struct uwsgi_metric *uwsgi_metric_find_by_asn(char *asn, size_t len) {
 #define um_op struct uwsgi_metric *um = NULL;\
 	if (!uwsgi.has_metrics) return -1;\
 	if (name) {\
-                um = uwsgi_metric_find_by_name(name);\
-        }\
-        else if (oid) {\
-                um = uwsgi_metric_find_by_oid(oid);\
-        }\
-        if (!um) return -1;\
+		um = uwsgi_metric_find_by_name(name);\
+	}\
+	else if (oid) {\
+		um = uwsgi_metric_find_by_oid(oid);\
+	}\
+	if (!um) return -1;\
 	if (um->collector || um->type == UWSGI_METRIC_ALIAS) return -1;\
 	uwsgi_wlock(uwsgi.metrics_lock)
 
@@ -630,21 +630,21 @@ int uwsgi_metric_set(char *name, char *oid, int64_t value) {
 }
 
 int uwsgi_metric_inc(char *name, char *oid, int64_t value) {
-        um_op;
+	um_op;
 	*um->value += value;
 	uwsgi_rwunlock(uwsgi.metrics_lock);
 	return 0;
 }
 
 int uwsgi_metric_dec(char *name, char *oid, int64_t value) {
-        um_op;
+	um_op;
 	*um->value -= value;
 	uwsgi_rwunlock(uwsgi.metrics_lock);
 	return 0;
 }
 
 int uwsgi_metric_mul(char *name, char *oid, int64_t value) {
-        um_op;
+	um_op;
 	*um->value *= value;
 	uwsgi_rwunlock(uwsgi.metrics_lock);
 	return 0;
@@ -653,7 +653,7 @@ int uwsgi_metric_mul(char *name, char *oid, int64_t value) {
 int uwsgi_metric_div(char *name, char *oid, int64_t value) {
 	// avoid division by zero
 	if (value == 0) return -1;
-        um_op;
+	um_op;
 	*um->value /= value;
 	uwsgi_rwunlock(uwsgi.metrics_lock);
 	return 0;
@@ -681,38 +681,38 @@ int64_t uwsgi_metric_get(char *name, char *oid) {
 }
 
 int64_t uwsgi_metric_getn(char *name, size_t nlen, char *oid, size_t olen) {
-        if (!uwsgi.has_metrics) return 0;
-        int64_t ret = 0;
-        struct uwsgi_metric *um = NULL;
-        if (name) {
-                um = uwsgi_metric_find_by_namen(name, nlen);
-        }
-        else if (oid) {
-                um = uwsgi_metric_find_by_oidn(oid, olen);
-        }
-        if (!um) return 0;
+	if (!uwsgi.has_metrics) return 0;
+	int64_t ret = 0;
+	struct uwsgi_metric *um = NULL;
+	if (name) {
+		um = uwsgi_metric_find_by_namen(name, nlen);
+	}
+	else if (oid) {
+		um = uwsgi_metric_find_by_oidn(oid, olen);
+	}
+	if (!um) return 0;
 
-        // now (in rlocked context) we get the value from
-        // the map
-        uwsgi_rlock(uwsgi.metrics_lock);
-        ret = *um->value;
-        // unlock
-        uwsgi_rwunlock(uwsgi.metrics_lock);
-        return ret;
+	// now (in rlocked context) we get the value from
+	// the map
+	uwsgi_rlock(uwsgi.metrics_lock);
+	ret = *um->value;
+	// unlock
+	uwsgi_rwunlock(uwsgi.metrics_lock);
+	return ret;
 }
 
 int uwsgi_metric_set_max(char *name, char *oid, int64_t value) {
 	um_op;
-    if (value > *um->value)
-        *um->value = value;
+	if (value > *um->value)
+		*um->value = value;
 	uwsgi_rwunlock(uwsgi.metrics_lock);
 	return 0;
 }
 
 int uwsgi_metric_set_min(char *name, char *oid, int64_t value) {
 	um_op;
-    if ((value > um->initial_value || 0) && value < *um->value)
-        *um->value = value;
+	if ((value > um->initial_value || 0) && value < *um->value)
+		*um->value = value;
 	uwsgi_rwunlock(uwsgi.metrics_lock);
 	return 0;
 }
@@ -732,7 +732,7 @@ void uwsgi_setup_metrics() {
 
 	// create the main rwlock
 	uwsgi.metrics_lock = uwsgi_rwlock_init("metrics");
-	
+
 	// get realpath of the storage dir
 	if (uwsgi.metrics_dir) {
 		char *dir = uwsgi_expand_path(uwsgi.metrics_dir, strlen(uwsgi.metrics_dir), NULL);
@@ -788,8 +788,8 @@ void uwsgi_setup_metrics() {
 		if (i > 0) uwsgi_metric_add_child(total_rss, rss);
 
 		uwsgi_metric_name("worker.%d.vsz_size", i) ; uwsgi_metric_oid("3.%d.12", i);
-                struct uwsgi_metric *vsz = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].vsz_size, 0, NULL);
-                if (i > 0) uwsgi_metric_add_child(total_vsz, vsz);
+		struct uwsgi_metric *vsz = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].vsz_size, 0, NULL);
+		if (i > 0) uwsgi_metric_add_child(total_vsz, vsz);
 
 		// skip core metrics for worker 0
 		if (i == 0) continue;
@@ -833,7 +833,7 @@ void uwsgi_setup_metrics() {
 	int pos = 0;
 	while(uwsgi_sock) {
 		uwsgi_metric_name("socket.%d.listen_queue", pos) ; uwsgi_metric_oid("7.%d.1", pos);
-                uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi_sock->queue, 0, NULL);
+		uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi_sock->queue, 0, NULL);
 		pos++;
 		uwsgi_sock = uwsgi_sock->next;
 	}
@@ -864,7 +864,7 @@ void uwsgi_setup_metrics() {
 
 	// remap aliases
 	metric = uwsgi.metrics;
-        while(metric) {
+	while(metric) {
 		if (metric->type == UWSGI_METRIC_ALIAS) {
 			struct uwsgi_metric *alias = (struct uwsgi_metric *) metric->ptr;
 			if (!alias) {
@@ -889,15 +889,15 @@ void uwsgi_setup_metrics() {
 		char *m_reset = NULL;
 		char *m_msg = NULL;
 		if (uwsgi_kvlist_parse(usl->value, usl->len, ',', '=',
-                	"key", &m_key,
-                	"value", &m_value,
-                	"alarm", &m_alarm,
-                	"rate", &m_rate,
-                	"msg", &m_msg,
-                	"reset", &m_reset,
-                	NULL)) {
-                		uwsgi_log("invalid metric threshold keyval syntax: %s\n", usl->value);
-                		exit(1);
+			"key", &m_key,
+			"value", &m_value,
+			"alarm", &m_alarm,
+			"rate", &m_rate,
+			"msg", &m_msg,
+			"reset", &m_reset,
+			NULL)) {
+				uwsgi_log("invalid metric threshold keyval syntax: %s\n", usl->value);
+				exit(1);
 		}
 
 		if (!m_key || !m_value) {
@@ -957,7 +957,7 @@ void uwsgi_setup_metrics() {
 		uwsgi_log("memory allocated for metrics storage: %llu bytes (%llu MB)\n", uwsgi.metrics_cnt * uwsgi.page_size, (uwsgi.metrics_cnt * uwsgi.page_size)/1024/1024);
 		if (uwsgi.metrics_dir_restore) {
 			metric = uwsgi.metrics;
-        		while(metric) {
+			while(metric) {
 				if (metric->map) {
 					metric->initial_value = strtoll(metric->map, NULL, 10);
 				}
@@ -996,66 +996,66 @@ static int64_t uwsgi_metric_collector_ptr(struct uwsgi_metric *um) {
 
 static int64_t uwsgi_metric_collector_sum(struct uwsgi_metric *um) {
 	int64_t total = 0;
-        struct uwsgi_metric_child *umc = um->children;
-        while(umc) {
-                struct uwsgi_metric *c = umc->um;
-                total += *c->value;
-                umc = umc->next;
-        }
+	struct uwsgi_metric_child *umc = um->children;
+	while(umc) {
+		struct uwsgi_metric *c = umc->um;
+		total += *c->value;
+		umc = umc->next;
+	}
 
-        return total;
+	return total;
 }
 
 static int64_t uwsgi_metric_collector_accumulator(struct uwsgi_metric *um) {
-        int64_t total = *um->value;
-        struct uwsgi_metric_child *umc = um->children;
-        while(umc) {
-                struct uwsgi_metric *c = umc->um;
-                total += *c->value;
-                umc = umc->next;
-        }
+	int64_t total = *um->value;
+	struct uwsgi_metric_child *umc = um->children;
+	while(umc) {
+		struct uwsgi_metric *c = umc->um;
+		total += *c->value;
+		umc = umc->next;
+	}
 
-        return total;
+	return total;
 }
 
 static int64_t uwsgi_metric_collector_multiplier(struct uwsgi_metric *um) {
-        int64_t total = 0;
-        struct uwsgi_metric_child *umc = um->children;
-        while(umc) {
-                struct uwsgi_metric *c = umc->um;
-                total += *c->value;
-                umc = umc->next;
-        }
+	int64_t total = 0;
+	struct uwsgi_metric_child *umc = um->children;
+	while(umc) {
+		struct uwsgi_metric *c = umc->um;
+		total += *c->value;
+		umc = umc->next;
+	}
 
-        return total * um->arg1n;
+	return total * um->arg1n;
 }
 
 static int64_t uwsgi_metric_collector_adder(struct uwsgi_metric *um) {
-        int64_t total = 0;
-        struct uwsgi_metric_child *umc = um->children;
-        while(umc) {
-                struct uwsgi_metric *c = umc->um;
-                total += *c->value;
-                umc = umc->next;
-        }
+	int64_t total = 0;
+	struct uwsgi_metric_child *umc = um->children;
+	while(umc) {
+		struct uwsgi_metric *c = umc->um;
+		total += *c->value;
+		umc = umc->next;
+	}
 
-        return total + um->arg1n;
+	return total + um->arg1n;
 }
 
 static int64_t uwsgi_metric_collector_avg(struct uwsgi_metric *um) {
-        int64_t total = 0;
+	int64_t total = 0;
 	int64_t count = 0;
-        struct uwsgi_metric_child *umc = um->children;
-        while(umc) {
-                struct uwsgi_metric *c = umc->um;
-                total += *c->value;
+	struct uwsgi_metric_child *umc = um->children;
+	while(umc) {
+		struct uwsgi_metric *c = umc->um;
+		total += *c->value;
 		count++;
-                umc = umc->next;
-        }
+		umc = umc->next;
+	}
 
 	if (count == 0) return 0;
 
-        return total/count;
+	return total/count;
 }
 
 static int64_t uwsgi_metric_collector_func(struct uwsgi_metric *um) {
@@ -1066,7 +1066,7 @@ static int64_t uwsgi_metric_collector_func(struct uwsgi_metric *um) {
 		um->custom = func;
 	}
 	if (!func) return 0;
-        return func(um);
+	return func(um);
 }
 
 void uwsgi_metrics_collectors_setup() {

@@ -114,7 +114,7 @@ struct uwsgi_fsmon *uwsgi_register_fsmon(char *path, void (*func) (struct uwsgi_
 	fs->path = path;
 	fs->func = func;
 	fs->data = data;
-	
+
 	if (old_fs) {
 		old_fs->next = fs;
 	}

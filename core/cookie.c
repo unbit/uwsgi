@@ -34,7 +34,7 @@ static char *check_cookie(char *cookie, uint16_t cookie_len, char *key, uint16_t
 	// now search for the first equal sign
 	char *equal = memchr(cookie, '=', cookie_len);
 	if (!equal) return NULL;
-	
+
 	if (uwsgi_strncmp(key, keylen, cookie, equal-cookie)) {
 		return NULL;
 	}
@@ -73,8 +73,8 @@ char *uwsgi_get_cookie(struct wsgi_request *wsgi_req, char *key, uint16_t keylen
 	if (cookie_len > 0) {
 		char *value = check_cookie(cookie, cookie_len, key, keylen, vallen);
 		if (value) {
-                	return value;
-                }
+			return value;
+		}
 	}
 
 	return NULL;

@@ -38,7 +38,7 @@
 	Protocol
 
 	(each message is a basic uwsgi packet: modifier1 pktsize modifier2 payload)
-	
+
 	modifier2 identifies the type of the message
 
 	0 -> I_AM_ALIVE {node: 'node001', max_vassals: '100', running_vassals: '17'} [ emperor -> zeus ]
@@ -47,7 +47,7 @@
 
 	2 -> ACCEPTED_VASSAL {name: 'foobar.ini'} [ emperor -> zeus ]
 
-        3 -> CONFIG_CHUNK {name: 'foobar.ini', body: '[uwsgi].....'} [ zeus -> the choosen emperor ]
+	3 -> CONFIG_CHUNK {name: 'foobar.ini', body: '[uwsgi].....'} [ zeus -> the choosen emperor ]
 
 	4 -> CONFIG_END {name: 'foobar.ini'} [ zeus -> the choosen emperor ]
 
@@ -74,7 +74,7 @@
 int uwsgi_zeus_spawn_instance(struct uwsgi_instance *ui) {
 	int i, nodes = 1;
 	char *how_many_nodes = vassal_attr_get(ui, "zeus-nodes");
-	if (how_many_nodes) {	
+	if (how_many_nodes) {
 		nodes = atoi(how_many_nodes);
 	}
 	for(i=0;i<nodes;i++) {
@@ -82,7 +82,7 @@ int uwsgi_zeus_spawn_instance(struct uwsgi_instance *ui) {
 		// free slots will be used
 
 		// send NEW_VASSAL request to the node,
-		// if it answers with ACCEPTED_VASSAL 
+		// if it answers with ACCEPTED_VASSAL
 	}
 	return 0;
 }

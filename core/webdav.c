@@ -30,32 +30,32 @@ int uwsgi_webdav_multistatus_close(struct uwsgi_buffer *ub) {
 
 int uwsgi_webdav_multistatus_response_new(struct uwsgi_buffer *ub) {
 	if (uwsgi_buffer_append(ub, "<D:response>\n", 13)) return -1;
-        return 0;
+	return 0;
 }
 
 int uwsgi_webdav_multistatus_response_close(struct uwsgi_buffer *ub) {
 	if (uwsgi_buffer_append(ub, "</D:response>\n", 14)) return -1;
-        return 0;
+	return 0;
 }
 
 int uwsgi_webdav_multistatus_propstat_new(struct uwsgi_buffer *ub) {
 	if (uwsgi_buffer_append(ub, "<D:propstat>\n", 13)) return -1;
-        return 0;
+	return 0;
 }
 
 int uwsgi_webdav_multistatus_propstat_close(struct uwsgi_buffer *ub) {
 	if (uwsgi_buffer_append(ub, "</D:propstat>\n", 14)) return -1;
-        return 0;
+	return 0;
 }
 
 int uwsgi_webdav_multistatus_prop_new(struct uwsgi_buffer *ub) {
 	if (uwsgi_buffer_append(ub, "<D:prop>\n", 9)) return -1;
-        return 0;
+	return 0;
 }
 
 int uwsgi_webdav_multistatus_prop_close(struct uwsgi_buffer *ub) {
 	if (uwsgi_buffer_append(ub, "</D:prop>\n", 10)) return -1;
-        return 0;
+	return 0;
 }
 
 // shortcut for adding a propfind-response item
@@ -79,9 +79,9 @@ int uwsgi_webdav_propfind_item_add(struct uwsgi_buffer *ub, char *href, uint16_t
 
 	// getlastmodified
 	if (mtime > 0) {
-		if (uwsgi_buffer_append(ub, "<D:getlastmodified>", 19)) return -1;	
+		if (uwsgi_buffer_append(ub, "<D:getlastmodified>", 19)) return -1;
 		if (uwsgi_buffer_httpdate(ub, mtime)) return -1;
-		if (uwsgi_buffer_append(ub, "</D:getlastmodified>\n", 21)) return -1;	
+		if (uwsgi_buffer_append(ub, "</D:getlastmodified>\n", 21)) return -1;
 	}
 
 	// displayname

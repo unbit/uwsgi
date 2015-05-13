@@ -56,7 +56,7 @@ static int uwsgi_offload_enqueue(struct wsgi_request *wsgi_req, struct uwsgi_off
 		return -1;
 	}
 #ifdef UWSGI_DEBUG
-        uwsgi_log("[offload] created session %p\n", uor);
+	uwsgi_log("[offload] created session %p\n", uor);
 #endif
 	return 0;
 }
@@ -71,26 +71,26 @@ static int uwsgi_offload_enqueue(struct wsgi_request *wsgi_req, struct uwsgi_off
 
 static int u_offload_pipe_prepare(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor) {
 
-        if (uor->fd < 0 || !uor->len) {
-                return -1;
-        }
-        return 0;
+	if (uor->fd < 0 || !uor->len) {
+		return -1;
+	}
+	return 0;
 }
 
 /*
 
-        memory offload engine:
-                buf -> pointer to the memory to transfer (memory is freed at the end)
-                len -> amount of data to transfer
+	memory offload engine:
+		buf -> pointer to the memory to transfer (memory is freed at the end)
+		len -> amount of data to transfer
 
 */
 
 static int u_offload_memory_prepare(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor) {
 
-        if (!uor->buf || !uor->len) {
-                return -1;
-        }
-        return 0;
+	if (!uor->buf || !uor->len) {
+		return -1;
+	}
+	return 0;
 }
 
 
@@ -121,7 +121,7 @@ static int u_offload_transfer_prepare(struct wsgi_request *wsgi_req, struct uwsg
 
 	sendfile offload engine:
 		name -> filename to transfer
-		fd -> file descriptor of file to transfer	
+		fd -> file descriptor of file to transfer
 		fd2 -> sendfile destination (default wsgi_req->fd)
 		len -> size of the file or amount of data to transfer
 		pos -> position in the file
@@ -316,19 +316,19 @@ struct uwsgi_thread *uwsgi_offload_thread_start() {
 
 	offload memory transfer
 
-        uor->len -> the size of the memory chunk
-        uor->buf -> the memory to transfer
+	uor->len -> the size of the memory chunk
+	uor->buf -> the memory to transfer
 	uor->written -> written bytes
 
-        status: none
+	status: none
 
 */
 
 static int u_offload_memory_do(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor, int fd) {
 	if (fd == -1) {
-                if (event_queue_add_fd_write(ut->queue, uor->s)) return -1;
-                return 0;
-        }
+		if (event_queue_add_fd_write(ut->queue, uor->s)) return -1;
+		return 0;
+	}
 	ssize_t rlen = write(uor->s, uor->buf + uor->written, uor->len - uor->written);
 	if (rlen > 0) {
 		uor->written += rlen;
@@ -337,9 +337,9 @@ static int u_offload_memory_do(struct uwsgi_thread *ut, struct uwsgi_offload_req
 		}
 		return 0;
 	}
-        else if (rlen < 0) {
+	else if (rlen < 0) {
 		uwsgi_offload_retry
-                uwsgi_error("u_offload_memory_do()");
+		uwsgi_error("u_offload_memory_do()");
 	}
 	return -1;
 }
@@ -365,15 +365,15 @@ static int u_offload_sendfile_do(struct uwsgi_thread *ut, struct uwsgi_offload_r
 #if defined(__linux__) || defined(__sun__) || defined(__GNU_kFreeBSD__)
 	ssize_t len = sendfile(uor->fd2, uor->fd, &uor->pos, 128 * 1024);
 	if (len > 0) {
-        	uor->written += len;
-                if (uor->written >= uor->len) {
+		uor->written += len;
+		if (uor->written >= uor->len) {
 			return -1;
 		}
 		return 0;
 	}
-        else if (len < 0) {
+	else if (len < 0) {
 		uwsgi_offload_retry
-                uwsgi_error("u_offload_sendfile_do()");
+		uwsgi_error("u_offload_sendfile_do()");
 	}
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
 	off_t sbytes = 0;
@@ -382,17 +382,17 @@ static int u_offload_sendfile_do(struct uwsgi_thread *ut, struct uwsgi_offload_r
 	if (ret == -1) {
 		uor->pos += sbytes;
 		uwsgi_offload_retry
-                uwsgi_error("u_offload_sendfile_do()");
+		uwsgi_error("u_offload_sendfile_do()");
 	}
 #elif defined(__APPLE__) && !defined(NO_SENDFILE)
 	off_t len = 0;
-        int ret = sendfile(uor->fd, uor->fd2, uor->pos, &len, NULL, 0);
-        // transfer finished
-        if (ret == -1) {
-                uor->pos += len;
-                uwsgi_offload_retry
-                uwsgi_error("u_offload_sendfile_do()");
-        }
+	int ret = sendfile(uor->fd, uor->fd2, uor->pos, &len, NULL, 0);
+	// transfer finished
+	if (ret == -1) {
+		uor->pos += len;
+		uwsgi_offload_retry
+		uwsgi_error("u_offload_sendfile_do()");
+	}
 #endif
 	return -1;
 
@@ -407,7 +407,7 @@ static int u_offload_sendfile_do(struct uwsgi_thread *ut, struct uwsgi_offload_r
 */
 
 static int u_offload_pipe_do(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor, int fd) {
-	
+
 	ssize_t rlen;
 
 	// setup
@@ -474,7 +474,7 @@ the offload task starts soon after the call to connect()
 		4 -> write to fd
 */
 static int u_offload_transfer_do(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor, int fd) {
-	
+
 	ssize_t rlen;
 
 	// setup
@@ -502,7 +502,7 @@ static int u_offload_transfer_do(struct uwsgi_thread *ut, struct uwsgi_offload_r
 					if (event_queue_fd_write_to_read(ut->queue, uor->fd)) return -1;
 					return 0;
 				}
-				rlen = write(uor->fd, uor->ubuf->buf + uor->written, uor->ubuf->pos-uor->written);	
+				rlen = write(uor->fd, uor->ubuf->buf + uor->written, uor->ubuf->pos-uor->written);
 				if (rlen > 0) {
 					uor->written += rlen;
 					if (uor->written >= (size_t)uor->ubuf->pos) {
@@ -516,7 +516,7 @@ static int u_offload_transfer_do(struct uwsgi_thread *ut, struct uwsgi_offload_r
 					uwsgi_offload_retry
 					uwsgi_error("u_offload_transfer_do() -> write()");
 				}
-			}	
+			}
 			return -1;
 		// read event from s or fd
 		case 2:
@@ -602,21 +602,21 @@ int uwsgi_offload_run(struct wsgi_request *wsgi_req, struct uwsgi_offload_reques
 	}
 
 	if (wait) {
-                if (pipe(uor->pipe)) {
-                        uwsgi_error("uwsgi_offload_setup()/pipe()");
-                        return -1;
-                }
-                *wait = uor->pipe[0];
-                uwsgi_socket_nb(uor->pipe[0]);
-                uwsgi_socket_nb(uor->pipe[1]);
-        }
+		if (pipe(uor->pipe)) {
+			uwsgi_error("uwsgi_offload_setup()/pipe()");
+			return -1;
+		}
+		*wait = uor->pipe[0];
+		uwsgi_socket_nb(uor->pipe[0]);
+		uwsgi_socket_nb(uor->pipe[1]);
+	}
 
-        if (uor->takeover) {
-                wsgi_req->fd_closed = 1;
+	if (uor->takeover) {
+		wsgi_req->fd_closed = 1;
 		// avoid edge-triggered mode
 		if (wsgi_req->socket->retry)
 			wsgi_req->socket->retry[wsgi_req->async_id] = 0;
-        }
+	}
 
 	if (uwsgi_offload_enqueue(wsgi_req, uor)) {
 		close(uor->pipe[0]);
@@ -625,10 +625,10 @@ int uwsgi_offload_run(struct wsgi_request *wsgi_req, struct uwsgi_offload_reques
 			wsgi_req->fd_closed = 0;
 		}
 		return -1;
-        }
+	}
 
-        return 0;
-	
+	return 0;
+
 };
 
 struct uwsgi_offload_engine *uwsgi_offload_engine_by_name(char *name) {
@@ -691,17 +691,17 @@ int uwsgi_offload_request_net_do(struct wsgi_request *wsgi_req, char *socketname
 }
 
 int uwsgi_offload_request_memory_do(struct wsgi_request *wsgi_req, char *buf, size_t len) {
-        struct uwsgi_offload_request uor;
-        uwsgi_offload_setup(uwsgi.offload_engine_memory, &uor, wsgi_req, 1);
-        uor.buf = buf;
-        uor.len = len;
-        return uwsgi_offload_run(wsgi_req, &uor, NULL);
+	struct uwsgi_offload_request uor;
+	uwsgi_offload_setup(uwsgi.offload_engine_memory, &uor, wsgi_req, 1);
+	uor.buf = buf;
+	uor.len = len;
+	return uwsgi_offload_run(wsgi_req, &uor, NULL);
 }
 
 int uwsgi_offload_request_pipe_do(struct wsgi_request *wsgi_req, int fd, size_t len) {
-        struct uwsgi_offload_request uor;
-        uwsgi_offload_setup(uwsgi.offload_engine_pipe, &uor, wsgi_req, 1);
-        uor.fd = fd;
-        uor.len = len;
-        return uwsgi_offload_run(wsgi_req, &uor, NULL);
+	struct uwsgi_offload_request uor;
+	uwsgi_offload_setup(uwsgi.offload_engine_pipe, &uor, wsgi_req, 1);
+	uor.fd = fd;
+	uor.len = len;
+	return uwsgi_offload_run(wsgi_req, &uor, NULL);
 }
