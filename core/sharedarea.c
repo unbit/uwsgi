@@ -280,8 +280,8 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_init_fd(int fd, uint64_t len, off_t of
 	}
         uwsgi.sharedareas[id]->id = id;
         uwsgi.sharedareas[id]->fd = fd;
-        uwsgi.sharedareas[id]->pages = len / uwsgi.page_size;
-        if (len % uwsgi.page_size != 0) uwsgi.sharedareas[id]->pages++;
+        uwsgi.sharedareas[id]->pages = len / (size_t) uwsgi.page_size;
+        if (len % (size_t) uwsgi.page_size != 0) uwsgi.sharedareas[id]->pages++;
         uwsgi.sharedareas[id]->max_pos = len-1;
         char *id_str = uwsgi_num2str(id);
         uwsgi.sharedareas[id]->lock = uwsgi_rwlock_init(uwsgi_concat2("sharedarea", id_str));
@@ -292,12 +292,12 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_init_fd(int fd, uint64_t len, off_t of
 
 struct uwsgi_sharedarea *uwsgi_sharedarea_init(int pages) {
 	int id = uwsgi_sharedarea_new_id();
-	uwsgi.sharedareas[id] = uwsgi_calloc_shared(uwsgi.page_size * (size_t)(pages + 1));
-	uwsgi.sharedareas[id]->area = ((char *) uwsgi.sharedareas[id]) + uwsgi.page_size;
+	uwsgi.sharedareas[id] = uwsgi_calloc_shared((size_t)uwsgi.page_size * (size_t)(pages + 1));
+	uwsgi.sharedareas[id]->area = ((char *) uwsgi.sharedareas[id]) + (size_t) uwsgi.page_size;
 	uwsgi.sharedareas[id]->id = id;
 	uwsgi.sharedareas[id]->fd = -1;
 	uwsgi.sharedareas[id]->pages = pages;
-	uwsgi.sharedareas[id]->max_pos = (uwsgi.page_size * pages) -1;
+	uwsgi.sharedareas[id]->max_pos = ((size_t)uwsgi.page_size * (size_t)pages) -1;
 	char *id_str = uwsgi_num2str(id);
 	uwsgi.sharedareas[id]->lock = uwsgi_rwlock_init(uwsgi_concat2("sharedarea", id_str));
 	free(id_str);
@@ -310,8 +310,8 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_init_ptr(char *area, uint64_t len) {
         uwsgi.sharedareas[id]->area = area;
         uwsgi.sharedareas[id]->id = id;
         uwsgi.sharedareas[id]->fd = -1;
-        uwsgi.sharedareas[id]->pages = len / uwsgi.page_size;
-	if (len % uwsgi.page_size != 0) uwsgi.sharedareas[id]->pages++;
+        uwsgi.sharedareas[id]->pages = len / (size_t) uwsgi.page_size;
+	if (len % (size_t) uwsgi.page_size != 0) uwsgi.sharedareas[id]->pages++;
         uwsgi.sharedareas[id]->max_pos = len-1;
         char *id_str = uwsgi_num2str(id);
         uwsgi.sharedareas[id]->lock = uwsgi_rwlock_init(uwsgi_concat2("sharedarea", id_str));
@@ -348,8 +348,8 @@ struct uwsgi_sharedarea *uwsgi_sharedarea_init_keyval(char *arg) {
 		else {
 			len = uwsgi_n64(s_size);
 		}
-		pages = len / uwsgi.page_size;
-        	if (len % uwsgi.page_size != 0) pages++;
+		pages = len / (size_t) uwsgi.page_size;
+        	if (len % (size_t) uwsgi.page_size != 0) pages++;
 	}
 
 	if (s_offset) {
