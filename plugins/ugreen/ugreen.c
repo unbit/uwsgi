@@ -99,15 +99,14 @@ static int u_green_init() {
 
 
 	for(i=0;i<uwsgi.async;i++) {
-
 		getcontext(&ug.contexts[i]);
-
-		ug.contexts[i].uc_stack.ss_sp = mmap(NULL, ug.u_stack_size + (uwsgi.page_size*2) , PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0) + uwsgi.page_size;
-
-		if (ug.contexts[i].uc_stack.ss_sp == MAP_FAILED) {
+		void *page_base_ptr = mmap(NULL, ug.u_stack_size + (uwsgi.page_size*2) , PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0);
+		if (page_base_ptr == MAP_FAILED) {
 			uwsgi_error("mmap()");
 			exit(1);
 		}
+		ug.contexts[i].uc_stack.ss_sp = page_base_ptr + uwsgi.page_size;
+
 		// set guard pages for stack
 		if (mprotect(ug.contexts[i].uc_stack.ss_sp - uwsgi.page_size, uwsgi.page_size, PROT_NONE)) {
 			uwsgi_error("mprotect()");
