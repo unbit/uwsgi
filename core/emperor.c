@@ -2295,6 +2295,9 @@ void uwsgi_check_emperor() {
 					}
 					free(env_emperor_fd_config);
 				}
+				if (fds)
+					free(fds);
+				close(proxy_fd);
 				break;
 			}
 next:
