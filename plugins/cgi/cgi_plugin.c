@@ -533,9 +533,9 @@ static int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		memcpy(full_path, tmp_path, full_path_len+1);
 
 		if (uwsgi_starts_with(full_path, full_path_len, docroot, docroot_len)) {
+                	uwsgi_log("CGI security error: %s is not under %s\n", full_path, docroot);
 			if (need_free)
 				free(docroot);
-                	uwsgi_log("CGI security error: %s is not under %s\n", full_path, docroot);
                 	return -1;
         	}
 

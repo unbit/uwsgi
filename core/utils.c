@@ -4454,6 +4454,7 @@ void uwsgi_setns(char *path) {
 				}
 			}
 			free(fds);
+			close(ns_fd);
 			break;
 		}
 		if (fds)

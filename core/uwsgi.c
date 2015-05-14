@@ -4517,6 +4517,7 @@ int uwsgi_zerg_attach(char *value) {
 
 	if (zerg == NULL) {
 		uwsgi_log("--- invalid data received from zerg-server ---\n");
+		close(zerg_fd);
 		return -1;
 	}
 
