@@ -1670,6 +1670,8 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 		PyDict_SetItemString(spool_dict, "body", value);
 		Py_DECREF(value);
 	}
+	// PyTuple_SetItem steals a reference !!!
+	Py_INCREF(spool_dict);
 	PyTuple_SetItem(pyargs, 0, spool_dict);
 
 	ret = python_call(spool_func, pyargs, 0, NULL);
