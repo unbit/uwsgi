@@ -521,6 +521,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"reload-on-rss", required_argument, 0, "reload if rss memory is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_rss, UWSGI_OPT_MEMORY},
 	{"evil-reload-on-as", required_argument, 0, "force the master to reload a worker if its address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.evil_reload_on_as, UWSGI_OPT_MASTER | UWSGI_OPT_MEMORY},
 	{"evil-reload-on-rss", required_argument, 0, "force the master to reload a worker if its rss memory is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.evil_reload_on_rss, UWSGI_OPT_MASTER | UWSGI_OPT_MEMORY},
+	{"mem-collector-freq", required_argument, 0, "set the memory collector frequency when evil reloads are in place", uwsgi_opt_set_int, &uwsgi.mem_collector_freq, 0},
 
 	{"reload-on-fd", required_argument, 0, "reload if the specified file descriptor is ready", uwsgi_opt_add_string_list, &uwsgi.reload_on_fd, UWSGI_OPT_MASTER},
 	{"brutal-reload-on-fd", required_argument, 0, "brutal reload if the specified file descriptor is ready", uwsgi_opt_add_string_list, &uwsgi.brutal_reload_on_fd, UWSGI_OPT_MASTER},
@@ -3220,6 +3221,20 @@ next2:
 
 }
 
+// this lives in a worker thread and periodically scans for memory usage
+// when evil reloaders are in place
+void *mem_collector(void *foobar) {
+	uwsgi_log_verbose("mem-collector thread started for worker %d\n", uwsgi.mywid);
+	for(;;) {
+		sleep(uwsgi.mem_collector_freq);
+		uint64_t rss, vsz;
+		get_memusage(&rss, &vsz);
+		uwsgi.workers[uwsgi.mywid].rss_size = rss;
+		uwsgi.workers[uwsgi.mywid].vsz_size = vsz;
+	}
+	return NULL;
+}
+
 int uwsgi_run() {
 
 	// !!! from now on, we could be in the master or in a worker !!!
@@ -3245,6 +3260,11 @@ int uwsgi_run() {
 		}
 	}
 #endif
+
+	if (uwsgi.evil_reload_on_rss || uwsgi.evil_reload_on_as) {
+		pthread_t t;
+		pthread_create(&t, NULL, mem_collector, NULL);
+	}
 
 
 	// eventually maps (or disable) sockets for the  worker

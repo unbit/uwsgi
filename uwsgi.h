@@ -2764,6 +2764,7 @@ struct uwsgi_server {
 	// uWSGI 2.0.11
 	struct uwsgi_string_list *wait_for_socket;
 	int wait_for_socket_timeout;
+	int mem_collector_freq;
 };
 
 struct uwsgi_rpc {

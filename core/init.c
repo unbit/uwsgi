@@ -471,6 +471,10 @@ void sanitize_args() {
 		exit(1);
 	}
 
+	if (uwsgi.evil_reload_on_rss || uwsgi.evil_reload_on_as) {
+		if (!uwsgi.mem_collector_freq) uwsgi.mem_collector_freq = 3;
+	}
+
 	/* here we try to choose if thunder lock is a good thing */
 #ifdef UNBIT
 	if (uwsgi.numproc > 1 && !uwsgi.map_socket) {
