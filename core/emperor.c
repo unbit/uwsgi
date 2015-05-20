@@ -2684,35 +2684,6 @@ next:
 }
 
 void uwsgi_emperor_simple_do_with_attrs(struct uwsgi_emperor_scanner *ues, char *name, char *config, time_t ts, uid_t uid, gid_t gid, char *socket_name, struct uwsgi_dyn_dict *attrs) {
-	uwsgi_emperor_simple_do(ues, name, config, ts, uid, gid, socket_name);
-	struct uwsgi_instance *ui_current = emperor_get(name);
-	// free attrs ?
-	if (!ui_current) {
-		struct uwsgi_dyn_dict *attr = attrs;
-		while(attr) {
-			struct uwsgi_dyn_dict *tmp = attr;
-			attr = attr->next;
-			if (tmp->value) free(tmp->value);
-			free(tmp);
-		}
-		return;
-	}
-
-	// if the instance has attrs mapped, let's free them
-	if (ui_current->attrs) {
-		struct uwsgi_dyn_dict *attr = ui_current->attrs;
-		while(attr) {
-			struct uwsgi_dyn_dict *tmp = attr;
-			attr = attr->next;
-			if (tmp->value) free(tmp->value);
-			free(tmp);
-		}
-	}
-	ui_current->attrs = attrs;
-}
-
-void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char *config, time_t ts, uid_t uid, gid_t gid, char *socket_name) {
-
 	if (!uwsgi_emperor_is_valid(name))
 		return;
 
@@ -2766,8 +2737,16 @@ void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char
 			new_config = uwsgi_str(config);
 			new_config_len = strlen(new_config);
 		}
-		emperor_add(ues, name, ts, new_config, new_config_len, uid, gid, socket_name);
+
+		if (attrs)
+			emperor_add_with_attrs(ues, name, ts, new_config, new_config_len, uid, gid, socket_name, attrs);
+		else
+			emperor_add(ues, name, ts, new_config, new_config_len, uid, gid, socket_name);
 	}
+}
+
+void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char *config, time_t ts, uid_t uid, gid_t gid, char *socket_name) {
+	uwsgi_emperor_simple_do_with_attrs(ues, name, config, ts, uid, gid, socket_name, NULL);
 }
 
 void uwsgi_master_manage_emperor() {
