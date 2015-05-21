@@ -2209,6 +2209,19 @@ void uwsgi_dyn_dict_del(struct uwsgi_dyn_dict *item) {
 	free(item);
 }
 
+void uwsgi_dyn_dict_free(struct uwsgi_dyn_dict **dd) {
+	struct uwsgi_dyn_dict *attr = *dd;
+
+	while(attr) {
+		struct uwsgi_dyn_dict *tmp = attr;
+		attr = attr->next;
+		if (tmp->value) free(tmp->value);
+		free(tmp);
+	}
+
+	*dd = NULL;
+}
+
 void *uwsgi_malloc_shared(size_t size) {
 
 	void *addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);

@@ -3616,6 +3616,7 @@ int uwsgi_simple_parse_vars(struct wsgi_request *, char *, char *);
 void uwsgi_build_mime_dict(char *);
 struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **, char *, int, char *, int);
 void uwsgi_dyn_dict_del(struct uwsgi_dyn_dict *);
+void uwsgi_dyn_dict_free(struct uwsgi_dyn_dict **);
 
 
 void uwsgi_apply_config_pass(char symbol, char *(*)(char *));
