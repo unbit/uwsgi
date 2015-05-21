@@ -195,6 +195,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb_init2(struct uwsgi_emperor_scanne
 	uems->address = (char *) "127.0.0.1:27017";
 	uems->collection = (char *) "uwsgi.emperor.vassals";
 	uems->json = (char *) "";
+	uems->defaults = (char *) "";
 	char *args = NULL;
 	if (arg_len <= 11) goto done;
 	args = ues->arg+11;
