@@ -1,7 +1,7 @@
 #include <uwsgi.h>
 #include <libtcc.h>
 
-uint64_t uwsgi_libtcc_counter = 0;
+unsigned long long uwsgi_libtcc_counter = 0;
 
 static int uwsgi_libtcc_hook(char *arg) {
 	char *func_base = "uwsgi_libtcc_func";
