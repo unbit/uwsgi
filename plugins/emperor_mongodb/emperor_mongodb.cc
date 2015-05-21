@@ -1,3 +1,5 @@
+#include <memory>
+#include <cstring>
 #include <uwsgi.h>
 
 #include "client/dbclient.h"
@@ -17,6 +19,8 @@ struct uwsgi_emperor_mongodb_state {
 	char *username;
 	char *password;
 	char *predigest;
+	char *replica;
+	std::vector<mongo::HostAndPort> servers;
 };
 
 
@@ -37,23 +41,28 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 		mongo::BSONObj p = builder.obj();
 		mongo::BSONObj q = mongo::fromjson(uems->json);
 		mongo::BSONObj d = mongo::fromjson(uems->defaults);
-		// the connection object (will be automatically destroyed at each cycle)
-		mongo::DBClientConnection c;
-		// set the socket timeout
-		c.setSoTimeout(uwsgi.socket_timeout);
-		// connect
-		c.connect(uems->address);
+
+		std::unique_ptr<mongo::DBClientBase> conn;
+
+		if (uems->replica) {
+			conn = std::unique_ptr<mongo::DBClientBase> (new mongo::DBClientReplicaSet(uems->replica, uems->servers, uwsgi.socket_timeout));
+			dynamic_cast<mongo::DBClientReplicaSet *>(conn.get())->connect();
+		}
+		else {
+			conn = std::unique_ptr<mongo::DBClientBase> (new mongo::DBClientConnection(true, 0, uwsgi.socket_timeout));
+			dynamic_cast<mongo::DBClientConnection *>(conn.get())->connect(uems->address);
+		}
 
 		if (uems->database && uems->username && uems->password) {
 			std::string err;
-			if (c.auth(uems->database, uems->username, uems->password, err, uems->predigest ? false : true) == false) {
+			if (conn->auth(uems->database, uems->username, uems->password, err, uems->predigest ? false : true) == false) {
 				uwsgi_log_verbose("[emperor-mongodb] unable to authenticate to db %s: %s\n", uems->database, err.c_str());
 				return;
 			}
 		}
 
 		// run the query
-		std::auto_ptr<mongo::DBClientCursor> cursor = c.query(uems->collection, q, 0, 0, &p);
+		std::unique_ptr<mongo::DBClientCursor> cursor = conn->query(uems->collection, q, 0, 0, &p);
 		while(cursor.get() && cursor->more() ) {
 			mongo::BSONObj p = cursor->next();
 
@@ -136,7 +145,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 				b.appendElements(q);
 				b.append("name", c_ui->name);
 				mongo::BSONObj q2 = b.obj();
-				cursor = c.query(uems->collection, q2, 0, 0, &p);
+				cursor = conn->query(uems->collection, q2, 0, 0, &p);
 				if (!cursor.get()) return;
 #ifdef UWSGI_DEBUG
 				uwsgi_log("JSON: %s\n", q2.toString().c_str());
@@ -203,6 +212,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb_init2(struct uwsgi_emperor_scanne
 		"addr", &uems->address,
 		"address", &uems->address,
 		"server", &uems->address,
+		"replica", &uems->replica,
 		"collection", &uems->collection,
 		"coll", &uems->collection,
 		"json", &uems->json,
@@ -216,6 +226,20 @@ extern "C" void uwsgi_imperial_monitor_mongodb_init2(struct uwsgi_emperor_scanne
 
 		uwsgi_log("[emperor-mongodb] invalid keyval syntax !\n");
 		exit(1);
+	}
+
+	if (uems->replica) {
+		std::string buffer(uems->address);
+		
+		size_t pos;
+		while ((pos = buffer.find(",")) != std::string::npos) {
+			uems->servers.push_back(mongo::HostAndPort(buffer.substr(0, pos)));
+			buffer.erase(0, pos + 1);
+		}
+
+		if (!uems->servers.size()) {
+			uems->servers.push_back(mongo::HostAndPort(uems->address));
+		}
 	}
 done:
 	uwsgi_log("[emperor] enabled emperor MongoDB monitor for %s on collection %s\n", uems->address, uems->collection);

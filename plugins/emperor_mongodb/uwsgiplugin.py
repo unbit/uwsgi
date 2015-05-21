@@ -4,7 +4,9 @@ NAME = 'emperor_mongodb'
 
 CFLAGS = [
     '-I/usr/include/mongo',
-    '-I/usr/local/include/mongo'
+    '-I/usr/local/include/mongo',
+    '-std=c++11',
+    '-Wno-error'
 ]
 LDFLAGS = []
 
