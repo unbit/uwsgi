@@ -2684,12 +2684,19 @@ next:
 }
 
 void uwsgi_emperor_simple_do_with_attrs(struct uwsgi_emperor_scanner *ues, char *name, char *config, time_t ts, uid_t uid, gid_t gid, char *socket_name, struct uwsgi_dyn_dict *attrs) {
-	if (!uwsgi_emperor_is_valid(name))
+	if (!uwsgi_emperor_is_valid(name)) {
+		if (attrs)
+			uwsgi_dyn_dict_free(&attrs);
 		return;
+	}
 
 	struct uwsgi_instance *ui_current = emperor_get(name);
 
 	if (ui_current) {
+		if (ui_current->attrs) {
+			uwsgi_dyn_dict_free(&ui_current->attrs);
+		}
+		ui_current->attrs = attrs;
 
 		// skip in case the instance is going down...
 		if (ui_current->status > 0)
