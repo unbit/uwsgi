@@ -158,7 +158,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 
 // setup a new mongodb imperial monitor
 extern "C" void uwsgi_imperial_monitor_mongodb_init(struct uwsgi_emperor_scanner *ues) {
-
+	mongo::client::initialize();
 	// allocate a new state
 	ues->data = uwsgi_calloc(sizeof(struct uwsgi_emperor_mongodb_state));
 	size_t arg_len = strlen(ues->arg);
