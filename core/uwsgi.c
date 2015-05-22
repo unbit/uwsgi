@@ -1212,7 +1212,7 @@ void wait_for_threads() {
 	int sudden_death = 0;
 
 	pthread_mutex_lock(&uwsgi.six_feet_under_lock);
-	for (i = 0; i < uwsgi.threads; i++) {
+	for (i = 1; i < uwsgi.threads; i++) {
 		if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, pthread_self())) {
 			if (pthread_cancel(uwsgi.workers[uwsgi.mywid].cores[i].thread_id)) {
 				uwsgi_error("pthread_cancel()\n");
@@ -1225,12 +1225,28 @@ void wait_for_threads() {
 		goto end;
 
 	// wait for thread termination
-	for (i = 0; i < uwsgi.threads; i++) {
+	for (i = 1; i < uwsgi.threads; i++) {
 		if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, pthread_self())) {
 			ret = pthread_join(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, NULL);
 			if (ret) {
 				uwsgi_log("pthread_join() = %d\n", ret);
 			}
+		}
+	}
+
+	// cancel inital thread last since after pthread_cancel() and
+	// pthread_join() is called on it, the whole process will appear to be
+	// a zombie. although it won't eliminate process zombie time, but it
+	// should minimize it.
+	if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[0].thread_id, pthread_self())) {
+		if (pthread_cancel(uwsgi.workers[uwsgi.mywid].cores[0].thread_id)) {
+			uwsgi_error("pthread_cancel() on initial thread\n");
+			goto end;
+		}
+
+		ret = pthread_join(uwsgi.workers[uwsgi.mywid].cores[0].thread_id, NULL);
+		if (ret) {
+			uwsgi_log("pthread_join() = %d on initial thread\n", ret);
 		}
 	}
 
