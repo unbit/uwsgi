@@ -39,6 +39,8 @@ int uwsgi_master_check_reload(char **argv) {
 
 // check for chain reload
 void uwsgi_master_check_chain() {
+	static time_t last_check = 0;
+
 	if (!uwsgi.status.chain_reloading) return;
 
 	// we need to ensure the previous worker (if alive) is accepting new requests
@@ -49,7 +51,11 @@ void uwsgi_master_check_chain() {
 		if (previous_worker->pid > 0 && !previous_worker->cheaped) {
 			// the worker has been respawned but it is still not ready
 			if (previous_worker->accepting == 0) {
-				uwsgi_log_verbose("chain is still waiting for worker %d...\n", uwsgi.status.chain_reloading-1);
+				time_t now = uwsgi_now();
+				if (now != last_check) {
+					uwsgi_log_verbose("chain is still waiting for worker %d...\n", uwsgi.status.chain_reloading-1);
+					last_check = now;
+				}
 				return;
 			}
 		}
