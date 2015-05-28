@@ -1778,6 +1778,10 @@ static char *uwsgi_route_var_uwsgi(struct wsgi_request *wsgi_req, char *key, uin
                 ret = uwsgi_64bit2str(wsgi_req->response_size);
                 *vallen = strlen(ret);
         }
+	else if (!uwsgi_strncmp(key, keylen, "sor", 3)) {
+                ret = uwsgi_64bit2str(wsgi_req->start_of_request);
+                *vallen = strlen(ret);
+        }
 
 	return ret;
 }
@@ -1814,6 +1818,10 @@ static char *uwsgi_route_var_time(struct wsgi_request *wsgi_req, char *key, uint
                 ret = uwsgi_num2str(uwsgi_now());
                 *vallen = strlen(ret);
         }
+	else if (!uwsgi_strncmp(key, keylen, "micros", 6)) {
+		ret = uwsgi_64bit2str(uwsgi_micros());
+                *vallen = strlen(ret);
+	}
         return ret;
 }
 
