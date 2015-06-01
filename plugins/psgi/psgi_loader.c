@@ -144,7 +144,7 @@ XS(XS_input_read) {
 			else {
 				long orig_offset = 0;
 				 // first of all get the new orig_len;   
-                                offset = abs(offset);
+                                offset = labs(offset);
                                 if (offset > (long) orig_len) {
                                         new_size = offset;
 					orig_offset = offset - orig_len;
