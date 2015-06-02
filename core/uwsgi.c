@@ -4849,7 +4849,7 @@ extern char *uwsgi_dot_h;
 char *uwsgi_get_dot_h() {
 	char *src = uwsgi_dot_h;
 	size_t len = strlen(src);
-        char *ptr = uwsgi_malloc(len / 2);
+        char *ptr = uwsgi_malloc((len / 2) + 1);
         char *base = ptr;
         size_t i;
         unsigned int u;
@@ -4870,6 +4870,9 @@ char *uwsgi_get_dot_h() {
 	base = ub->buf;
 	ub->buf = NULL;
 	uwsgi_buffer_destroy(ub);
+#else
+        // add final null byte
+        *ptr = '\0';
 #endif
 	return base;
 }
@@ -4882,7 +4885,7 @@ extern char *uwsgi_config_py;
 char *uwsgi_get_config_py() {
         char *src = uwsgi_config_py;
         size_t len = strlen(src);
-        char *ptr = uwsgi_malloc(len / 2);
+        char *ptr = uwsgi_malloc((len / 2) + 1);
         char *base = ptr;
         size_t i;
         unsigned int u;
@@ -4903,6 +4906,9 @@ char *uwsgi_get_config_py() {
         base = ub->buf;
         ub->buf = NULL;
         uwsgi_buffer_destroy(ub);
+#else
+        // add final null byte
+        *ptr = '\0';
 #endif
         return base;
 }
