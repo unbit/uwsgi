@@ -1249,10 +1249,20 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 }
 
 void uwsgi_close_all_sockets() {
+        struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+
+        while (uwsgi_sock) {
+                if (uwsgi_sock->bound)
+                        close(uwsgi_sock->fd);
+                uwsgi_sock = uwsgi_sock->next;
+        }
+}
+
+void uwsgi_close_all_unshared_sockets() {
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
 	while (uwsgi_sock) {
-		if (uwsgi_sock->bound)
+		if (uwsgi_sock->bound && !uwsgi_sock->shared)
 			close(uwsgi_sock->fd);
 		uwsgi_sock = uwsgi_sock->next;
 	}
