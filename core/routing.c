@@ -1215,6 +1215,27 @@ static int uwsgi_router_setpathinfo(struct uwsgi_route *ur, char *arg) {
         return 0;
 }
 
+// fixpathinfo route
+static int uwsgi_router_fixpathinfo_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	if (wsgi_req->script_name_len == 0)
+		return UWSGI_ROUTE_NEXT;
+
+        char *ptr = uwsgi_req_append(wsgi_req, "PATH_INFO", 9, wsgi_req->path_info+wsgi_req->script_name_len, wsgi_req->path_info_len - wsgi_req->script_name_len);
+        if (!ptr) {
+                return UWSGI_ROUTE_BREAK;
+        }
+        wsgi_req->path_info = wsgi_req->path_info+wsgi_req->script_name_len;
+        wsgi_req->path_info_len = wsgi_req->path_info_len - wsgi_req->script_name_len;
+        return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_fixpathinfo(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_fixpathinfo_func;
+        ur->data = arg;
+        ur->data_len = strlen(arg);
+        return 0;
+}
+
+
 // setscheme route
 static int uwsgi_router_setscheme_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
         char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
@@ -1905,6 +1926,7 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("seturi", uwsgi_router_seturi);
         uwsgi_register_router("setremoteaddr", uwsgi_router_setremoteaddr);
         uwsgi_register_router("setpathinfo", uwsgi_router_setpathinfo);
+        uwsgi_register_router("fixpathinfo", uwsgi_router_fixpathinfo);
         uwsgi_register_router("setdocroot", uwsgi_router_setdocroot);
         uwsgi_register_router("setscheme", uwsgi_router_setscheme);
         uwsgi_register_router("setprocname", uwsgi_router_setprocname);
