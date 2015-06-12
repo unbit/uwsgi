@@ -221,7 +221,7 @@ int uwsgi_cheaper_algo_manual(int can_spawn) {
         -- Cheaper, spare algorithm, adapted from old-fashioned spare system --
         
         when all of the workers are busy, the overload_count is incremented.
-        as soon as overload_count is higher than uwsgi.cheaper_overload (--cheaper-overload options)
+        as soon as overload_count reaches to uwsgi.cheaper_overload (--cheaper-overload options)
         at most cheaper_step (default to 1) new workers are spawned.
 
         when at least one worker is free, the overload_count is decremented and the idle_count is incremented.
@@ -275,7 +275,7 @@ int uwsgi_cheaper_algo_spare(int can_spawn) {
 healthy:
 
 	// are we overloaded ?
-	if (can_spawn && overload_count > uwsgi.cheaper_overload) {
+	if (can_spawn && overload_count >= uwsgi.cheaper_overload) {
 
 #ifdef UWSGI_DEBUG
 		uwsgi_log("overloaded !!!\n");
