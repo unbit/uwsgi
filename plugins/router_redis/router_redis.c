@@ -26,6 +26,9 @@ struct uwsgi_router_redis_conf {
 	char *content_type;
 	size_t content_type_len;
 
+	char *content_encoding;
+	size_t content_encoding_len;
+
 	char *no_offload;
 	char *expires;
 	
@@ -237,6 +240,7 @@ read:
 	// send headers
 	if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto error;
 	if (uwsgi_response_add_content_type(wsgi_req, urrc->content_type, urrc->content_type_len)) goto error;
+    if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, urrc->content_encoding, urrc->content_encoding_len)) goto error;
 	if (uwsgi_response_add_content_length(wsgi_req, response_size)) goto error;
 
 	// the first chunk could already contains part of the body
@@ -302,6 +306,7 @@ static int uwsgi_router_redis(struct uwsgi_route *ur, char *args) {
                         "addr", &urrc->addr,
                         "key", &urrc->key,
                         "content_type", &urrc->content_type,
+                        "content_encoding", &urrc->content_encoding,
                         "no_offload", &urrc->no_offload,
                         NULL)) {
 			uwsgi_log("invalid route syntax: %s\n", args);
@@ -319,6 +324,10 @@ static int uwsgi_router_redis(struct uwsgi_route *ur, char *args) {
 
         if (!urrc->content_type) urrc->content_type = "text/html";
         urrc->content_type_len = strlen(urrc->content_type);
+
+	if (urrc->content_encoding) {
+		urrc->content_encoding_len = strlen(urrc->content_encoding);
+	}
 
         ur->data2 = urrc;
 	return 0;
