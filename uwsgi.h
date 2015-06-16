@@ -2802,6 +2802,7 @@ struct uwsgi_server {
 
 	int die_on_no_workers;
 	int spooler_cheap;
+	int cheaper_idle;
 };
 
 struct uwsgi_rpc {
@@ -3953,6 +3954,7 @@ time_t uwsgi_now(void);
 
 int uwsgi_calc_cheaper(void);
 int uwsgi_cheaper_algo_spare(int);
+int uwsgi_cheaper_algo_spare2(int);
 int uwsgi_cheaper_algo_backlog(int);
 int uwsgi_cheaper_algo_backlog2(int);
 int uwsgi_cheaper_algo_manual(int);
