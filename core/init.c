@@ -111,6 +111,7 @@ void uwsgi_init_default() {
 	uwsgi.listen_queue = 100;
 
 	uwsgi.cheaper_overload = 3;
+	uwsgi.cheaper_idle = 10;
 
 	uwsgi.log_master_bufsize = 8192;
 

@@ -790,6 +790,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cheaper-algo", required_argument, 0, "choose to algorithm used for adaptive process spawning", uwsgi_opt_set_str, &uwsgi.requested_cheaper_algo, UWSGI_OPT_MASTER},
 	{"cheaper-step", required_argument, 0, "number of additional processes to spawn at each overload", uwsgi_opt_set_int, &uwsgi.cheaper_step, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
 	{"cheaper-overload", required_argument, 0, "increase workers after specified overload", uwsgi_opt_set_64bit, &uwsgi.cheaper_overload, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
+	{"cheaper-idle", required_argument, 0, "decrease workers after specified idle (algo: spare2) (default: 10)", uwsgi_opt_set_int, &uwsgi.cheaper_idle, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
 	{"cheaper-algo-list", no_argument, 0, "list enabled cheapers algorithms", uwsgi_opt_true, &uwsgi.cheaper_algo_list, 0},
 	{"cheaper-algos-list", no_argument, 0, "list enabled cheapers algorithms", uwsgi_opt_true, &uwsgi.cheaper_algo_list, 0},
 	{"cheaper-list", no_argument, 0, "list enabled cheapers algorithms", uwsgi_opt_true, &uwsgi.cheaper_algo_list, 0},
@@ -2361,6 +2362,7 @@ configure:
 
 	// setup cheaper algos
 	uwsgi_register_cheaper_algo("spare", uwsgi_cheaper_algo_spare);
+	uwsgi_register_cheaper_algo("spare2", uwsgi_cheaper_algo_spare2);
 	uwsgi_register_cheaper_algo("backlog", uwsgi_cheaper_algo_backlog);
 	uwsgi_register_cheaper_algo("manual", uwsgi_cheaper_algo_manual);
 
