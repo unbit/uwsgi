@@ -3240,6 +3240,10 @@ next2:
 // this lives in a worker thread and periodically scans for memory usage
 // when evil reloaders are in place
 void *mem_collector(void *foobar) {
+	// block all signals
+        sigset_t smask;
+        sigfillset(&smask);
+        pthread_sigmask(SIG_BLOCK, &smask, NULL);
 	uwsgi_log_verbose("mem-collector thread started for worker %d\n", uwsgi.mywid);
 	for(;;) {
 		sleep(uwsgi.mem_collector_freq);
