@@ -785,12 +785,14 @@ char *uwsgi_manage_placeholder(char *key) {
 
 		switch(state) {
 			case concat:
+                            {
 				if (current_value) arg1 = current_value;
 				if (value) arg2 = value;
 				char *ret = uwsgi_concat2(arg1, arg2);
 				if (current_value) free(current_value);
 				current_value = ret;	
 				break;
+                            }
 			case sum:
 				if (current_value) arg1n = strtoll(current_value, NULL, 10);
 				if (value) arg2n = strtoll(value, NULL, 10);
