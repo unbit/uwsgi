@@ -689,8 +689,13 @@ class uConf(object):
             print("detected include path: %s" % self.include_path)
 
         try:
-            gcc_major = int(gcc_version.split('.')[0])
-            gcc_minor = int(gcc_version.split('.')[1])
+            gcc_version_components = gcc_version.split('.')
+            gcc_major = int(gcc_version_components[0])
+            if len(gcc_version_components) > 1:
+                gcc_minor = int(gcc_version_components[1])
+            else:
+                # gcc 5.0 is represented as simply "5"
+                gcc_minor = 0
         except:
             raise Exception("you need a C compiler to build uWSGI")
         if (sys.version_info[0] == 2) or (gcc_major < 4) or (gcc_major == 4 and gcc_minor < 3):
