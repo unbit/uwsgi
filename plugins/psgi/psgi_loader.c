@@ -285,7 +285,7 @@ nonworker:
 				uwsgi_log("[perl] WARNING !!! unable to build uwsgi::opt hash !!!\n");
 				goto end;
 			}
-			if (SvTYPE(SvRV(*value)) == SVt_PVAV) {
+			if (SvROK(*value) && SvTYPE(SvRV(*value)) == SVt_PVAV) {
 				if (uwsgi.exported_opts[i]->value == NULL) {
                                         av_push((AV *)SvRV(*value), newSViv(1));
                                 }
