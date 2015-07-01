@@ -398,7 +398,7 @@ class WSGIinput(object):
         rlen = ffi.new('ssize_t*')
         chunk = lib.uwsgi_request_body_read(self.wsgi_req, size, rlen)
         if chunk != ffi.NULL:
-            return ffi.string(chunk, rlen[0])
+            return ffi.buffer(chunk, rlen[0])[:]
         if rlen[0] < 0:
             raise IOError("error reading wsgi.input")
         raise IOError("error waiting for wsgi.input")
@@ -407,7 +407,7 @@ class WSGIinput(object):
         rlen = ffi.new('ssize_t*')
         chunk = lib.uwsgi_request_body_readline(self.wsgi_req, hint, rlen)
         if chunk != ffi.NULL:
-            return ffi.string(chunk, rlen[0])
+            return ffi.buffer(chunk, rlen[0])[:]
         if rlen[0] < 0:
             raise IOError("error reading line from wsgi.input")
         raise IOError("error waiting for line on wsgi.input")
@@ -527,7 +527,7 @@ class uwsgi_pypy_RPC(object):
     def __call__(self, argc, argv, argvs, buf):
         pargs = []
         for i in range(0, argc):
-            pargs.append(ffi.string(argv[i], argvs[i]))
+            pargs.append(ffi.buffer(argv[i], argvs[i])[:])
         response = self.func(*pargs)
         if len(response) > 0:
             buf[0] = lib.uwsgi_malloc(len(response))
@@ -567,7 +567,7 @@ def uwsgi_pypy_rpc(node, func, *args):
 
     response = lib.uwsgi_do_rpc(c_node, ffi.new("char[]", func), argc, argv, argvs, rsize)
     if response:
-        ret = ffi.string(response, rsize[0])
+        ret = ffi.buffer(response, rsize[0])[:]
         lib.free(response)
         return ret
     return None
@@ -596,7 +596,7 @@ def uwsgi_pypy_uwsgi_cache_get(key, cache=ffi.NULL):
     value = lib.uwsgi_cache_magic_get(key, len(key), vallen, ffi.NULL, cache)
     if value == ffi.NULL:
         return None
-    ret = ffi.string(value, vallen[0])
+    ret = ffi.buffer(value, vallen[0])[:]
     libc.free(value)
     return ret
 uwsgi.cache_get = uwsgi_pypy_uwsgi_cache_get
@@ -632,7 +632,7 @@ def uwsgi_pypy_uwsgi_cache_keys(cache=ffi.NULL):
         uci[0] = lib.uwsgi_cache_keys(uc, pos, uci)
         if uci[0] == ffi.NULL:
             break
-        l.append(ffi.string(lib.uwsgi_cache_item_key(uci[0]), uci[0].keysize))
+        l.append(ffi.buffer(lib.uwsgi_cache_item_key(uci[0]), uci[0].keysize)[:])
     lib.uwsgi_cache_rwunlock(uc)
     return l
 uwsgi.cache_keys = uwsgi_pypy_uwsgi_cache_keys
@@ -881,7 +881,7 @@ def uwsgi_pypy_websocket_recv():
     ub = lib.uwsgi_websocket_recv(wsgi_req)
     if ub == ffi.NULL:
         raise IOError("unable to receive websocket message")
-    ret = ffi.string(ub.buf, ub.pos)
+    ret = ffi.buffer(ub.buf, ub.pos)[:]
     lib.uwsgi_buffer_destroy(ub)
     return ret
 uwsgi.websocket_recv = uwsgi_pypy_websocket_recv
@@ -895,7 +895,7 @@ def uwsgi_pypy_websocket_recv_nb():
     ub = lib.uwsgi_websocket_recv_nb(wsgi_req)
     if ub == ffi.NULL:
         raise IOError("unable to receive websocket message")
-    ret = ffi.string(ub.buf, ub.pos)
+    ret = ffi.buffer(ub.buf, ub.pos)[:]
     lib.uwsgi_buffer_destroy(ub)
     return ret
 uwsgi.websocket_recv_nb = uwsgi_pypy_websocket_recv_nb
@@ -933,7 +933,7 @@ def uwsgi_pypy_chunked_read(timeout=0):
     chunk = lib.uwsgi_chunked_read(wsgi_req, rlen, timeout, 0)
     if chunk == ffi.NULL:
         raise IOError("unable to receive chunked part")
-    return ffi.string(chunk, rlen[0])
+    return ffi.buffer(chunk, rlen[0])[:]
 uwsgi.chunked_read = uwsgi_pypy_chunked_read
 
 
@@ -949,7 +949,7 @@ def uwsgi_pypy_chunked_read_nb():
             return None
         raise IOError("unable to receive chunked part")
 
-    return ffi.string(chunk, rlen[0])
+    return ffi.buffer(chunk, rlen[0])[:]
 uwsgi.chunked_read_nb = uwsgi_pypy_chunked_read_nb
 
 
