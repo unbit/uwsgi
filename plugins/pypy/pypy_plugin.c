@@ -167,15 +167,6 @@ ready:
 	if (upypy.setup) {
 		buffer = uwsgi_open_and_read(upypy.setup, &rlen, 1, NULL);
 	}
-#if defined(__APPLE__)
-	else {
-		unsigned long setup_size = 0;
-		char *setup_data = (char*)getsectiondata(&_mh_execute_header, "__DATA", "pypy_setup", &setup_size);
-		if (setup_data) {
-			buffer = uwsgi_concat2n(setup_data, setup_size, "", 0);
-		}
-	}
-#else
 	else {
 		char *start = dlsym(RTLD_DEFAULT, "uwsgi_pypy_setup_start");
 		if (!start) {
@@ -188,8 +179,16 @@ ready:
 		if (start && end) {
 			buffer = uwsgi_concat2n(start, end-start, "", 0);
 		}
-	}
+#if defined(__APPLE__)
+		else {
+			unsigned long setup_size = 0;
+			char *setup_data = (char*)getsectiondata(&_mh_execute_header, "__DATA", "pypy_setup", &setup_size);
+			if (setup_data) {
+				buffer = uwsgi_concat2n(setup_data, setup_size, "", 0);
+			}
+		}
 #endif
+	}
 
 	if (!buffer) {
 		uwsgi_log("you have to load a pypy setup file with --pypy-setup\n");
