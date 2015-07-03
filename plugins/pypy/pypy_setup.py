@@ -176,6 +176,17 @@ char *uwsgi_binary_path();
 
 void *uwsgi_malloc(size_t);
 
+struct uwsgi_logvar {
+	char key[256];
+	uint8_t keylen;
+	char val[256];
+	uint8_t vallen;
+	struct uwsgi_logvar *next;
+};
+
+struct uwsgi_logvar *uwsgi_logvar_get(struct wsgi_request *, char *, uint8_t);
+void uwsgi_logvar_add(struct wsgi_request *, char *, uint8_t, char *, uint8_t);
+
 int uwsgi_response_prepare_headers(struct wsgi_request *, char *, size_t);
 int uwsgi_response_add_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 int uwsgi_response_write_body_do(struct wsgi_request *, char *, size_t);
@@ -960,6 +971,30 @@ def uwsgi_pypy_set_user_harakiri(x):
     wsgi_req = uwsgi_pypy_current_wsgi_req()
     lib.set_user_harakiri(wsgi_req, x)
 uwsgi.set_user_harakiri = uwsgi_pypy_set_user_harakiri
+
+
+def uwsgi_pypy_get_logvar(key):
+    """
+    uwsgi.get_logvar(key)
+    """
+    wsgi_req = uwsgi_pypy_current_wsgi_req()
+    c_key = ffi.new('char[]', key)
+    lv = lib.uwsgi_logvar_get(wsgi_req, c_key, len(key))
+    if lv:
+        return ffi.string(lv.val[0:lv.vallen])
+    return None
+uwsgi.get_logvar = uwsgi_pypy_get_logvar
+
+
+def uwsgi_pypy_set_logvar(key, val):
+    """
+    uwsgi.set_logvar(key, value)
+    """
+    wsgi_req = uwsgi_pypy_current_wsgi_req()
+    c_key = ffi.new('char[]', key)
+    c_val = ffi.new('char[]', val)
+    lib.uwsgi_logvar_add(wsgi_req, c_key, len(key), c_val, len(val))
+uwsgi.set_logvar = uwsgi_pypy_set_logvar
 
 
 print "Initialized PyPy with Python", sys.version
