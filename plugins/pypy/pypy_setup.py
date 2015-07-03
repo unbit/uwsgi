@@ -24,13 +24,13 @@ ssize_t read(int, void *, size_t);
 ssize_t write(int, const void *, size_t);
 int close(int);
 
-void (*uwsgi_pypy_hook_execute_source)(char *);
-void (*uwsgi_pypy_hook_loader)(char *);
-void (*uwsgi_pypy_hook_file_loader)(char *);
-void (*uwsgi_pypy_hook_paste_loader)(char *);
-void (*uwsgi_pypy_hook_pythonpath)(char *);
-void (*uwsgi_pypy_hook_request)(struct wsgi_request *);
-void (*uwsgi_pypy_post_fork_hook)(void);
+extern void (*uwsgi_pypy_hook_execute_source)(char *);
+extern void (*uwsgi_pypy_hook_loader)(char *);
+extern void (*uwsgi_pypy_hook_file_loader)(char *);
+extern void (*uwsgi_pypy_hook_paste_loader)(char *);
+extern void (*uwsgi_pypy_hook_pythonpath)(char *);
+extern void (*uwsgi_pypy_hook_request)(struct wsgi_request *);
+extern void (*uwsgi_pypy_post_fork_hook)(void);
 '''
 
 # here we load CFLAGS and uwsgi.h from the binary

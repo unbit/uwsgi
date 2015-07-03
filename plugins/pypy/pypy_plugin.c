@@ -179,6 +179,15 @@ ready:
 		if (start && end) {
 			buffer = uwsgi_concat2n(start, end-start, "", 0);
 		}
+#if defined(__APPLE__)
+		else {
+			unsigned long setup_size = 0;
+			char *setup_data = (char*)getsectiondata(&_mh_execute_header, "__DATA", "pypy_setup", &setup_size);
+			if (setup_data) {
+				buffer = uwsgi_concat2n(setup_data, setup_size, "", 0);
+			}
+		}
+#endif
 	}
 
 	if (!buffer) {

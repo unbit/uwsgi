@@ -121,6 +121,12 @@ def binarize(name):
     return name.replace('/', '_').replace('.', '_').replace('-', '_')
 
 
+def strip_prefix(prefix, string):
+    if string.startswith(prefix):
+        return string[len(prefix):]
+    return string
+
+
 def spcall(cmd):
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=open('uwsgibuild.log', 'w'))
 
@@ -176,7 +182,7 @@ def spcall3(cmd):
 def add_o(x):
     if x == 'uwsgi':
         x = 'main'
-    elif x.endswith('.a') or x.endswith('.o'):
+    elif x.endswith('.a') or x.endswith('.o') or x.startswith('-'):
         return x
     x = x + '.o'
     return x
@@ -465,7 +471,8 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                                 raise Exception('unable to link binary file')
                         gcc_list.append('%s/%s.o' % (path, bfile[1]))
                     except:
-                        pass
+                        if uwsgi_os == 'Darwin':
+                            gcc_list.append('-sectcreate __DATA %s %s/%s' % (strip_prefix('_uwsgi_', bfile[0]), path, bfile[1]))
 
                 libs += up['LIBS']
 
@@ -1409,7 +1416,8 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
                     raise Exception('unable to link binary file')
             gcc_list.append('%s/%s.o' % (path, bfile[1]))
         except:
-            pass
+            if uwsgi_os == 'Darwin':
+                gcc_list.append('-sectcreate __DATA %s %s/%s' % (strip_prefix('_uwsgi_', bfile[0]), path, bfile[1]))
 
     p_ldflags_blacklist = ('-Wl,--no-undefined',)
     for ldflag in p_ldflags_blacklist:
