@@ -407,6 +407,24 @@ static int uwsgi_hook_hostname(char *arg) {
 #endif
 }
 
+static int uwsgi_hook_unix_signal(char *arg) {
+	char *space = strchr(arg, ' ');
+	if (!space) {
+		uwsgi_log("invalid unix_signal syntax, must be <signum> <func>\n");
+		return -1;
+	}
+	*space = 0;
+	int signum = atoi(arg);
+	*space = ' ';
+	void (*func)(int) = dlsym(RTLD_DEFAULT, space+1);
+	if (!func) {
+		uwsgi_log("unable to find function \"%s\"\n", space+1);
+		return -1;
+	}
+	uwsgi_unix_signal(signum, func);
+	return 0;
+}
+
 
 static int uwsgi_hook_callint(char *arg) {
         char *space = strchr(arg, ' ');
@@ -619,6 +637,8 @@ void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("wait_for_dir", uwsgi_hook_wait_for_dir);
 
 	uwsgi_register_hook("wait_for_socket", uwsgi_hook_wait_for_socket);
+
+	uwsgi_register_hook("unix_signal", uwsgi_hook_unix_signal);
 
 	// for testing
 	uwsgi_register_hook("exit", uwsgi_hook_exit);
