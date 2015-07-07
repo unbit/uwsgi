@@ -92,7 +92,7 @@ static struct uwsgi_alarm_curl_opt uaco[] = {
 static void uwsgi_alarm_curl_setopt(CURL *curl, char *opt, struct uwsgi_alarm_curl_config *uacc) {
 	struct uwsgi_alarm_curl_opt *o = uaco;
 	char *equal = strchr(opt,'=');
-	if (!equal && !uacc->url) {
+	if (!equal || !uacc->url) {
 		uwsgi_alarm_curl_url(curl, CURLOPT_URL, opt, uacc);
 		return;
 	}
