@@ -469,8 +469,10 @@ static char *amqp_simple_get_frame(int fd, struct amqp_frame_header *fh) {
         while(len < fh->size+1) {
                 rlen = recv(fd, ptr, (fh->size+1)-len, 0);
                 if (rlen <= 0) {
-			if (rlen < 0)
+			if (rlen < 0) {
                         	uwsgi_error("recv()");
+			}
+			free(frame);
                         return NULL;
                 }
                 len += rlen;
