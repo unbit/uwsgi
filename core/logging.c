@@ -752,10 +752,11 @@ void get_memusage(uint64_t * rss, uint64_t * vsz) {
 		i = fscanf(procfile, "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %llu %lld", (unsigned long long *) vsz, (unsigned long long *) rss);
 		if (i != 2) {
 			uwsgi_log("warning: invalid record in /proc/self/stat\n");
+		} else {
+			*rss = *rss * uwsgi.page_size;
 		}
 		fclose(procfile);
 	}
-	*rss = *rss * uwsgi.page_size;
 #elif defined(__CYGWIN__)
 	// same as Linux but rss is not in pages...
 	FILE *procfile;
