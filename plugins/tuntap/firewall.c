@@ -375,7 +375,6 @@ void uwsgi_tuntap_peer_send_rules(int fd, struct uwsgi_tuntap_peer *peer) {
                         	exit(1);
                 	}
 			*colon = ':';
-			utpr.target = utpr.target;
 			utpr.target_port = htons(atoi(colon+1));
 		}
 
