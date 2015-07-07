@@ -449,7 +449,7 @@ static int uwsgi_webdav_add_props(struct wsgi_request *wsgi_req, xmlNode *req_pr
 #elif defined(__APPLE__)
 					ssize_t rlen2 = getxattr(filename, key, NULL, 0, 0, 0);
 #endif
-					if (rlen > 0) {
+					if (rlen2 > 0) {
 						// leave space for final 0
 						char *xvalue = uwsgi_calloc(rlen2 + 1);
 #if defined(__linux__)
@@ -461,7 +461,7 @@ static int uwsgi_webdav_add_props(struct wsgi_request *wsgi_req, xmlNode *req_pr
 						}
 						free(xvalue);	
 					}
-					else if (rlen == 0) {
+					else if (rlen2 == 0) {
 						xattr_item = xmlNewTextChild(r_prop, NULL, BAD_CAST xattr_key, NULL);
 					}
 				}
