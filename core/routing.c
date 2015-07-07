@@ -493,7 +493,7 @@ done:
 		r = r->next;
 	}
 
-	uwsgi_log("unable to register route \"%s\"\n", value);
+	uwsgi_log("unable to register route \"%s\". Missing router for: \"%s\"\n", value, command);
 	exit(1);
 }
 
