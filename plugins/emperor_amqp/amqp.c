@@ -663,9 +663,6 @@ static int amqp_send_connection_start_ok(int fd, char *mech, char *sasl_response
 }
 
 int uwsgi_amqp_consume_queue(int fd, char *vhost, char *username, char *password, char *queue, char *exchange, char *exchange_type) {
-
-	char *auth = uwsgi_concat4n("\0",1, username, strlen(username), "\0",1, password, strlen(password));
-
 	if (send(fd, AMQP_CONNECTION_HEADER, 8, 0) < 0) {
 		uwsgi_error("send()");
 		return -1;
@@ -676,6 +673,7 @@ int uwsgi_amqp_consume_queue(int fd, char *vhost, char *username, char *password
 		return -1;
 	}
 
+	char *auth = uwsgi_concat4n("\0",1, username, strlen(username), "\0",1, password, strlen(password));
 	uwsgi_log("sending Connection.start-ok\n");
 	if (amqp_send_connection_start_ok(fd, "PLAIN", auth, strlen(username)+strlen(password)+2, "en_US") < 0) {
 		free(auth);
