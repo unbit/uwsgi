@@ -179,10 +179,6 @@ char *uwsgi_format_airbrake_backtrace(struct uwsgi_thread *ut) {
 				}
 			}
 
-			// skip empty lines
-			if (!p)
-				goto next;
-
 			line_node = xmlNewChild(node, NULL, BAD_CAST "line", NULL);
 
 			if ((n+1)[0] == ')') {
