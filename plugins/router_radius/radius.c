@@ -43,7 +43,7 @@ static uint16_t uwsgi_radius_auth(struct uwsgi_radius_conf *urc, char *auth, siz
 
 	// step 1 pad to 16 bytes boundary
 	size_t pwd16_len = password_len + (16 - (password_len % 16));
-	if (pwd16_len > 128) return 0;
+	if (pwd16_len > 128) goto end;
 	
 	// compute the whole packet size
 	uint16_t access_request_len = 4 + 16 + 2 + username_len + 2 + pwd16_len + 6 + 6;
