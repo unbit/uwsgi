@@ -3338,7 +3338,7 @@ void *mem_collector(void *foobar) {
 	uwsgi_log_verbose("mem-collector thread started for worker %d\n", uwsgi.mywid);
 	for(;;) {
 		sleep(uwsgi.mem_collector_freq);
-		uint64_t rss, vsz;
+		uint64_t rss = 0, vsz = 0;
 		get_memusage(&rss, &vsz);
 		uwsgi.workers[uwsgi.mywid].rss_size = rss;
 		uwsgi.workers[uwsgi.mywid].vsz_size = vsz;
