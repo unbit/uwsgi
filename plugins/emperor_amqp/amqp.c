@@ -164,7 +164,7 @@ char *uwsgi_amqp_consume(int fd, uint64_t *msgsize, char **routing_key) {
 
 	while(current_size < *msgsize) {
 		message = amqp_simple_get_frame(fd, &fh);
-		if (!message) goto clear;
+		if (!message) goto clear3;
 
 		if (fh.type != 3) {
 			free(message);
