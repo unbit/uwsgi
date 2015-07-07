@@ -189,6 +189,7 @@ void uwsgi_tuntap_opt_firewall(char *opt, char *value, void *direction) {
 	char *space2 = strchr(space + 1, ' ');
 	if (!space2) {
 		uwsgi_log("invalid tuntap firewall rule syntax. must be <action> <src/mask> <dst/mask>");
+                return;
 	}
 
 	*space2 = 0;
