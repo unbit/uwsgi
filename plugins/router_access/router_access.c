@@ -37,7 +37,7 @@ static int uwsgi_routing_func_access(struct wsgi_request *wsgi_req, struct uwsgi
 			goto forbidden;		
 		}
 		if (!urac->action) urac->action = "hosts";
-		if (!urac->daemon) urac->deamon = "uwsgi";
+		if (!urac->daemon) urac->daemon = "uwsgi";
 		ur->data2 = urac;
 	}
 
