@@ -203,7 +203,6 @@ static int uwsgi_request_xslt(struct wsgi_request *wsgi_req) {
 		if (value) {
 			memcpy(stylesheet, value, rlen);
 			stylesheet[rlen] = 0;
-			stylesheet_len = rlen;
 			found = 1;
 			break;
 		}
