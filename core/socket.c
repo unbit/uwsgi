@@ -712,6 +712,11 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 	if (uwsgi.tcp_fast_open) {
 #ifdef TCP_FASTOPEN
+
+    #ifndef SOL_TCP
+    #define SOL_TCP IPPROTO_TCP
+    #endif
+
 		if (setsockopt(serverfd, SOL_TCP, TCP_FASTOPEN, (const void *) &uwsgi.tcp_fast_open, sizeof(int)) < 0) {
 			uwsgi_error("TCP_FASTOPEN setsockopt()");
 		}
