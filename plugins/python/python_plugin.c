@@ -1076,6 +1076,17 @@ void uwsgi_python_preinit_apps() {
 	if (up.pre_initialized) goto ready;
 	up.pre_initialized = 1;
 
+	// setup app loaders
+	up.loaders[LOADER_DYN] = uwsgi_dyn_loader;
+	up.loaders[LOADER_UWSGI] = uwsgi_uwsgi_loader;
+	up.loaders[LOADER_FILE] = uwsgi_file_loader;
+	up.loaders[LOADER_PECAN] = uwsgi_pecan_loader;
+	up.loaders[LOADER_PASTE] = uwsgi_paste_loader;
+	up.loaders[LOADER_EVAL] = uwsgi_eval_loader;
+	up.loaders[LOADER_MOUNT] = uwsgi_mount_loader;
+	up.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
+	up.loaders[LOADER_STRING_CALLABLE] = uwsgi_string_callable_loader;
+
 	init_pyargv();
 
         init_uwsgi_embedded_module();
@@ -1135,17 +1146,6 @@ void uwsgi_python_init_apps() {
 		up.current_recursion_depth = uwsgi_malloc(sizeof(int)*uwsgi.async);
         	up.current_frame = uwsgi_malloc(sizeof(struct _frame)*uwsgi.async);
 	}
-
-        // setup app loaders
-        up.loaders[LOADER_DYN] = uwsgi_dyn_loader;
-        up.loaders[LOADER_UWSGI] = uwsgi_uwsgi_loader;
-        up.loaders[LOADER_FILE] = uwsgi_file_loader;
-        up.loaders[LOADER_PECAN] = uwsgi_pecan_loader;
-        up.loaders[LOADER_PASTE] = uwsgi_paste_loader;
-        up.loaders[LOADER_EVAL] = uwsgi_eval_loader;
-        up.loaders[LOADER_MOUNT] = uwsgi_mount_loader;
-        up.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
-        up.loaders[LOADER_STRING_CALLABLE] = uwsgi_string_callable_loader;
 
 	struct uwsgi_string_list *upli = up.import_list;
 	while(upli) {
