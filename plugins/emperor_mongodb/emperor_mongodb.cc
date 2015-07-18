@@ -40,7 +40,6 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 		}
 		mongo::BSONObj p = builder.obj();
 		mongo::BSONObj q = mongo::fromjson(uems->json);
-		mongo::BSONObj d = mongo::fromjson(uems->defaults);
 
 		std::unique_ptr<mongo::DBClientBase> conn;
 
@@ -101,8 +100,9 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 			while(e_attrs) {
 				const char *attr_value = p.getStringField(e_attrs->value);
 				if (strlen(attr_value) == 0) attr_value = NULL;
-
-				if (!attr_value) {
+                // uems->defaults can be NULL
+				if (!attr_value && uems->defaults) {
+		            mongo::BSONObj d = mongo::fromjson(uems->defaults);
 					mongo::BSONElement tmp = d.getField(e_attrs->value);
 
 					if (tmp.type() == mongo::Array) {
