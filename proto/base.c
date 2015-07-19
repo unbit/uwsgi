@@ -287,7 +287,8 @@ retry:
         }
 
         else if (err == SSL_ERROR_SYSCALL) {
-                uwsgi_error("uwsgi_proto_ssl_write()/SSL_write()");
+		if (errno != 0)
+                	uwsgi_error("uwsgi_proto_ssl_write()/SSL_write()");
         }
 
         return -1;
@@ -383,7 +384,8 @@ retry:
         }
 
         else if (err == SSL_ERROR_SYSCALL) {
-                uwsgi_error("uwsgi_proto_ssl_read_body()/SSL_read()");
+		if (errno != 0)
+                	uwsgi_error("uwsgi_proto_ssl_read_body()/SSL_read()");
         }
 
 	return -1;

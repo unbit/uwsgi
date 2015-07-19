@@ -320,7 +320,8 @@ ssize_t hr_ssl_write(struct corerouter_peer *main_peer) {
         }
 
         else if (err == SSL_ERROR_SYSCALL) {
-                uwsgi_cr_error(main_peer, "hr_ssl_write()");
+		if (errno != 0)
+                	uwsgi_cr_error(main_peer, "hr_ssl_write()");
         }
 
         else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {
@@ -380,7 +381,8 @@ ssize_t hr_ssl_read(struct corerouter_peer *main_peer) {
         }
 
         else if (err == SSL_ERROR_SYSCALL) {
-                uwsgi_cr_error(main_peer, "hr_ssl_read()");
+		if (errno != 0)
+                	uwsgi_cr_error(main_peer, "hr_ssl_read()");
         }
 
         else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {
@@ -420,7 +422,8 @@ ssize_t hr_ssl_shutdown(struct corerouter_peer *peer) {
         }
 
         else if (err == SSL_ERROR_SYSCALL) {
-                uwsgi_cr_error(peer, "hr_ssl_shutdown()");
+		if (errno != 0)
+                	uwsgi_cr_error(peer, "hr_ssl_shutdown()");
         }
 
         else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {

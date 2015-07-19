@@ -95,7 +95,7 @@ int uwsgi_cr_peer_del(struct corerouter_peer *peer) {
 	if (peer->flush && !peer->is_flushing) {
 		peer->is_flushing = 1;
 		// on success, suspend the execution
-		if (peer->flush(peer) >= 0) return -1;
+		if (peer->flush(peer) > 0) return -1;
 	}
 	struct corerouter_peer *prev = peer->prev;
 	struct corerouter_peer *next = peer->next;
