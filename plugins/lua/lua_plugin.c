@@ -93,8 +93,8 @@ static int uwsgi_api_rpc(lua_State *L) {
 		
 	if (argc > 0) {
 		uint8_t i;
-		argv = (char **) malloc(sizeof(char **)*argc);
-		argvs = (uint16_t *) malloc(sizeof(uint16_t *)*argc);
+		argv = (char **) uwsgi_malloc(sizeof(char **)*argc);
+		argvs = (uint16_t *) uwsgi_malloc(sizeof(uint16_t *)*argc);
 		
 		for(i = 0; i < argc; i++) {
 			argv[i] = (char *) lua_tolstring(L, i + 3, (size_t *) &argvs[i]); 
@@ -109,6 +109,13 @@ static int uwsgi_api_rpc(lua_State *L) {
 	} else {
 		lua_pushlstring(L, str, len);
 	}
+	
+	if (argc > 0) {
+		free(argv);
+		free(argvs);
+	}
+
+	free(str);
 	
 	return 1;
 }
