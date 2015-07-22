@@ -14,12 +14,17 @@
 extern struct uwsgi_server uwsgi;
 
 struct uwsgi_lua {
-	struct lua_State **L;
+	struct lua_State ***state;
+	struct lua_State **wstate;
 	char *shell;
 	char *filename;
 	struct uwsgi_string_list *load;
 	int gc_freq;
 } ulua;
+
+#define ulua_mywid (uwsgi.mywid-1)
+#define ulua_get_state(id) ulua.state[ulua_mywid][id]
+#define ulua_get_wstate() ulua.wstate[ulua_mywid]
 
 struct uwsgi_plugin lua_plugin;
 
@@ -705,10 +710,23 @@ static const luaL_Reg uwsgi_api[] = {
 
 static int uwsgi_lua_init(){
 
-	uwsgi_log("Initializing Lua environment... (%d lua_States)\n", uwsgi.cores);
-
-	ulua.L = uwsgi_malloc( sizeof(lua_State*) * uwsgi.cores );
-
+	uwsgi_log("Initializing Lua environment... ");
+	
+	ulua.wstate = uwsgi_malloc( sizeof(lua_State*) * uwsgi.numproc );
+	ulua.state = uwsgi_malloc( sizeof(lua_State**) * uwsgi.numproc );
+	
+	int i;
+	
+	for(i=0;i<uwsgi.numproc;i++) {
+		ulua.state[i] = (lua_State**) uwsgi_malloc( sizeof(lua_State**) * uwsgi.cores );
+	}
+	
+	uwsgi_log("%d lua_States (with %d lua_Threads)\n", uwsgi.numproc, uwsgi.cores);
+	
+	if(ulua.gc_freq == 0) {
+		uwsgi_log("WARNING! lua-gc-freq has been set to default value (0), lua garbage collector runs after every request, this may cause performance issues.\n");
+	}
+	
 	// ok the lua engine is ready
 	return 0;
 
@@ -716,54 +734,97 @@ static int uwsgi_lua_init(){
 }
 
 static void uwsgi_lua_app() {
-	int i;
-
+	int i,j,k;
+	int uslnargs;
+	lua_State *L;
+	lua_State **Ls;
+	
 	if (!ulua.filename && !ulua.load && !ulua.shell) return;
 
-		for(i=0;i<uwsgi.cores;i++) {
-			ulua.L[i] = luaL_newstate();
-			luaL_openlibs(ulua.L[i]);
-			luaL_newuwsgilib(ulua.L[i], uwsgi_api);
+		for(i=0;i<uwsgi.numproc;i++) {
 
-			lua_pushstring(ulua.L[i], UWSGI_VERSION);
-        		lua_setfield(ulua.L[i], -2, "version");
+			// spawn worker state
+			L = luaL_newstate();
+
+			// init worker state
+			luaL_openlibs(L);
+			luaL_newuwsgilib(L, uwsgi_api);
+
+			lua_pushstring(L, UWSGI_VERSION);
+        	lua_setfield(L, -2, "version");
+			
+			lua_pushnumber(L, i);
+			lua_setfield(L, -2, "mywid");
+			
+			//everything next must be copied to other threads
+			uslnargs = lua_gettop(L);
 
 			struct uwsgi_string_list *usl = ulua.load;
 			while(usl) {
-				if (luaL_dofile(ulua.L[i], usl->value)) {
-                                        uwsgi_log("unable to load Lua file %s: %s\n", usl->value, lua_tostring(ulua.L[i], -1));
+				if (luaL_dofile(L, usl->value)) {
+                                        uwsgi_log("unable to load Lua file %s: %s\n", usl->value, lua_tostring(L, -1));
                                         exit(1);
                                 }
 				usl = usl->next;
 			}
-
+			
+			uslnargs = lua_gettop(L) - uslnargs;
+			
 			if (ulua.filename) {
-				if (luaL_loadfile(ulua.L[i], ulua.filename)) {
-					uwsgi_log("unable to load Lua file %s: %s\n", ulua.filename, lua_tostring(ulua.L[i], -1));
+				if (luaL_loadfile(L, ulua.filename)) {
+					uwsgi_log("unable to load Lua file %s: %s\n", ulua.filename, lua_tostring(L, -1));
 					exit(1);
 				}
 			
 				// use a pcall
-				//lua_call(ulua.L[i], 0, 1);
-				if (lua_pcall(ulua.L[i], 0, 1, 0) != 0) {
-					uwsgi_log("%s\n", lua_tostring(ulua.L[i], -1));
+				//lua_call(L, 0, 1);
+				if (lua_pcall(L, uslnargs, 1, 0) != 0) {
+					uwsgi_log("%s\n", lua_tostring(L, -1));
 					exit(1);
 				}
 			
 				// if the loaded lua app returns as a table, fetch the
 				// run function.
-				if (lua_istable(ulua.L[i], 2)) {
-					lua_pushstring(ulua.L[i], "run" );
-					lua_gettable(ulua.L[i], 2);
-					lua_replace(ulua.L[i], 2);
+				if (lua_istable(L, -1)) {
+					lua_pushstring(L, "run");
+					lua_gettable(L, -1);
+					lua_replace(L, -1);
 				}
 					
-				if (! lua_isfunction(ulua.L[i], 2))	{
+				if (! lua_isfunction(L, -1))	{
 					uwsgi_log("Can't find WSAPI entry point (no function, nor a table with function'run').\n");
 					exit(1);
 				}
 			}
+			
+			//init threads for current worker
 
+			Ls = ulua.state[i];
+
+
+			lua_newtable(L);
+			
+			uslnargs++;
+			
+			for(j=0;j<uwsgi.cores;j++) {
+
+				Ls[j] = lua_newthread(L);
+				lua_rawseti(L, -2, j + 1);
+
+				// push from master and move to new
+				for(k=0;k<uslnargs;k++) lua_pushvalue(L, -uslnargs-1);
+				
+				lua_xmove(L, Ls[j], uslnargs);
+			}
+			
+			lua_setfield(L, -(2 + uslnargs), "lua_threads");
+			
+			// and the worker is ready!
+			ulua.wstate[i] = L;
+			
+			lua_gc(L, LUA_GCCOLLECT, 0);
+			
+			uwsgi_log("spawned lua_State %d for worker %d\n", i, i + 1);
 	}
 }
 
@@ -772,7 +833,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	int i;
 	const char *http, *http2;
 	size_t slen, slen2;
-	lua_State *L = ulua.L[wsgi_req->async_id];
+	lua_State *L = ulua_get_state(wsgi_req->async_id);
 
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
 		if (lua_pcall(L, 0, 1, 0) == 0) {
@@ -899,8 +960,8 @@ clear:
 	lua_pop(L, 4);
 clear2:
 	// set frequency
-	if (!ulua.gc_freq || uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests % ulua.gc_freq == 0) {
-		lua_gc(L, LUA_GCCOLLECT, 0);
+	if (!ulua.gc_freq || uwsgi.workers[uwsgi.mywid].requests % ulua.gc_freq == 0) {
+		lua_gc(ulua_get_wstate(), LUA_GCCOLLECT, 0);
 	}
 
 	return UWSGI_OK;
@@ -980,7 +1041,7 @@ static int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	
-	lua_State *L = ulua.L[wsgi_req->async_id];
+	lua_State *L = ulua_get_state(wsgi_req->async_id);
 
 #ifdef UWSGI_DEBUG
 	uwsgi_log("managing signal handler on core %d\n", wsgi_req->async_id);
@@ -1012,7 +1073,7 @@ static uint64_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t a
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	
-	lua_State *L = ulua.L[wsgi_req->async_id];
+	lua_State *L = ulua_get_state(wsgi_req->async_id);
 
 #ifdef UWSGI_DEBUG
 	uwsgi_log("get function %d\n", ifunc);
@@ -1138,7 +1199,7 @@ static void uwsgi_lua_hijack(void) {
                 }
                 int ret = -1;
 		// run in the first state
-		lua_State *L = ulua.L[0];		
+		lua_State *L = ulua_get_wstate();		
 		lua_getglobal(L, "debug");
 		lua_getfield(L, -1, "debug");
 		ret = lua_pcall(L, 0, 0, 0);
