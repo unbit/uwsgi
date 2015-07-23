@@ -766,6 +766,7 @@ static int uwsgi_wevdav_manage_proppatch(struct wsgi_request *wsgi_req, xmlDoc *
         encoded_uri[uri_len] = 0;
         xmlNewChild(response, dav_ns, BAD_CAST "href", BAD_CAST encoded_uri);
         free(encoded_uri);
+        free(uri);
 
         // propfind can be "set" or "remove"
         xmlNode *node;

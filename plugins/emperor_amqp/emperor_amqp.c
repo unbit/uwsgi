@@ -25,6 +25,7 @@ void uwsgi_imperial_monitor_amqp_event(struct uwsgi_emperor_scanner *ues) {
 		uwsgi_log("problem with RabbitMQ server, trying reconnection...\n");
 		close(ues->fd);
 		ues->fd = -1;
+		free(amqp_routing_key);
 		return;
 	}
 

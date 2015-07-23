@@ -44,6 +44,7 @@ static void *dumb_loop_run(void *arg1) {
 		}
 	}
 
+	free(str_core);
 	return NULL;
 }
 

@@ -48,12 +48,12 @@ static uint16_t uwsgi_radius_auth(struct uwsgi_radius_conf *urc, char *auth, siz
 	// compute the whole packet size
 	uint16_t access_request_len = 4 + 16 + 2 + username_len + 2 + pwd16_len + 6 + 6;
 	memset(access_request, 0, access_request_len);
-	if (access_request_len > 4096) return 0;
+	if (access_request_len > 4096) goto end;
 	char *pwd16_buf = access_request + (access_request_len - (pwd16_len + 6 + 6));
 	memcpy(pwd16_buf, password, password_len);
 
 	// allocate a buffer for the hash
-	if (urc->secret_len + 16 > 4096) return 0;
+	if (urc->secret_len + 16 > 4096) goto end;
 	memcpy(hash, urc->secret, urc->secret_len);
 	
 	for(i=0;i<pwd16_len;i+=16) {
@@ -121,8 +121,8 @@ static uint16_t uwsgi_radius_auth(struct uwsgi_radius_conf *urc, char *auth, siz
 		memcpy(access_request+4, authenticator, 16);
 		// compute the md5
 		if (!uwsgi_md5(access_request, rlen + urc->secret_len, md5_hash)) {
-                        goto end;
-                }	
+			goto end;
+		}
 		if (memcmp(md5_hash, response_authenticator, 16)) goto end;
 		// Access-Accept
 		if (access_request[0] == 2) {
