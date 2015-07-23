@@ -208,15 +208,7 @@ forbidden:
 	if (uwsgi_response_add_connection_close(wsgi_req)) goto end;
 	if (uwsgi_response_add_content_type(wsgi_req, "text/plain", 10)) goto end;
 
-	if (negotiate && negotiate_len) {
-		char *neg_token = uwsgi_concat2n("Negotiate ", 10, negotiate, negotiate_len);
-		int ret = uwsgi_response_add_header(wsgi_req, "WWW-Authenticate", 16, neg_token, 10 + negotiate_len);
-		free(neg_token);
-		if (ret) goto end;
-	}
-	else {
-		if (uwsgi_response_add_header(wsgi_req, "WWW-Authenticate", 16, "Negotiate", 9)) goto end;
-	}
+	if (uwsgi_response_add_header(wsgi_req, "WWW-Authenticate", 16, "Negotiate", 9)) goto end;
 
         uwsgi_response_write_body_do(wsgi_req, "Unauthorized", 12);
 end:
