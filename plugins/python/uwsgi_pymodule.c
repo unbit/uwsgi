@@ -4,6 +4,42 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 extern struct uwsgi_plugin python_plugin;
 
+PyTypeObject uwsgi_UWSGIInput = {
+    PyObject_HEAD_INIT(NULL)
+    0,
+    "uwsgi.UWSGIInput",
+    sizeof(uwsgi_Input),
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    Py_TPFLAGS_DEFAULT,
+    "",
+};
+
+PyObject *py_current_wsgi_req_with_input(struct wsgi_request **wsgi_req, PyObject *input) {
+    if(input==NULL) {
+        *wsgi_req = py_current_wsgi_req();
+    }
+    else {
+        *wsgi_req = ((uwsgi_Input *)input)->wsgi_req;
+    }
+    return NULL;
+}
+
+
 static PyObject *py_uwsgi_add_var(PyObject * self, PyObject * args) {
 	 char *key = NULL;
         Py_ssize_t keylen = 0;
@@ -998,6 +1034,20 @@ PyObject *py_uwsgi_connection_fd(PyObject * self, PyObject * args) {
 	return PyInt_FromLong(wsgi_req->fd);
 }
 
+PyObject *py_uwsgi_input_object(PyObject * self, PyObject * args) {
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
+
+    uwsgi_Input *input = PyObject_New(uwsgi_Input, &uwsgi_UWSGIInput);
+    if(input == NULL)
+    {
+        return NULL;
+    }
+
+    input->wsgi_req = wsgi_req;
+    return (PyObject *)input;
+}
+
+
 PyObject *py_uwsgi_websocket_handshake(PyObject * self, PyObject * args) {
         char *key = NULL;
         Py_ssize_t key_len = 0;
@@ -1026,15 +1076,28 @@ PyObject *py_uwsgi_websocket_handshake(PyObject * self, PyObject * args) {
         return Py_None;
 }
 
-PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args) {
+
+PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args, PyObject * kwargs) {
 	char *message = NULL;
         Py_ssize_t message_len = 0;
 
-        if (!PyArg_ParseTuple(args, "s#:websocket_send", &message, &message_len)) {
+        PyObject *uwsgi_input = NULL;
+
+        static char *kwlist[] = {"message", "uwsgi_input", NULL};
+
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|O:websocket_send", kwlist, &message, &message_len, &uwsgi_input)) {
                 return NULL;
         }
 
-	struct wsgi_request *wsgi_req = py_current_wsgi_req();
+    struct wsgi_request *wsgi_req;
+    PyObject *err = py_current_wsgi_req_with_input(&wsgi_req, uwsgi_input);
+    if (err != NULL) {
+        return err;
+    }
+
+    if (!wsgi_req->fd) {
+		return PyErr_Format(PyExc_IOError, "unable to send websocket message");
+    }
 
 	UWSGI_RELEASE_GIL	
 	int ret  = uwsgi_websocket_send(wsgi_req, message, message_len);
@@ -1046,15 +1109,27 @@ PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args) {
         return Py_None;
 }
 
-PyObject *py_uwsgi_websocket_send_binary(PyObject * self, PyObject * args) {
+PyObject *py_uwsgi_websocket_send_binary(PyObject * self, PyObject * args, PyObject * kwargs) {
         char *message = NULL;
         Py_ssize_t message_len = 0;
 
-        if (!PyArg_ParseTuple(args, "s#:websocket_send_binary", &message, &message_len)) {
+        PyObject *uwsgi_input = NULL;
+
+        static char *kwlist[] = {"message", "uwsgi_input", NULL};
+
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|O:websocket_send_binary", kwlist, &message, &message_len, &uwsgi_input)) {
                 return NULL;
         }
 
-        struct wsgi_request *wsgi_req = py_current_wsgi_req();
+        struct wsgi_request *wsgi_req;
+        PyObject *err = py_current_wsgi_req_with_input(&wsgi_req, uwsgi_input);
+        if (err != NULL) {
+            return err;
+        }
+
+        if (!wsgi_req->fd) {
+            return PyErr_Format(PyExc_IOError, "unable to send websocket message");
+        }
 
         UWSGI_RELEASE_GIL
         int ret  = uwsgi_websocket_send_binary(wsgi_req, message, message_len);
@@ -1103,11 +1178,28 @@ PyObject *py_uwsgi_chunked_read_nb(PyObject * self, PyObject * args) {
 
 
 
-PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args) {
-	struct wsgi_request *wsgi_req = py_current_wsgi_req();
-	UWSGI_RELEASE_GIL	
+PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args, PyObject * kwargs) {
+    PyObject *uwsgi_input = NULL;
+
+    static char *kwlist[] = {"uwsgi_input", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:websocket_recv", kwlist, &uwsgi_input)) {
+        return NULL;
+    }
+
+    struct wsgi_request *wsgi_req;
+    PyObject *err = py_current_wsgi_req_with_input(&wsgi_req, uwsgi_input);
+    if (err != NULL) {
+        return err;
+    }
+
+    if (!wsgi_req->fd) {
+		return PyErr_Format(PyExc_IOError, "unable to receive websocket message");
+    }
+
+	UWSGI_RELEASE_GIL
 	struct uwsgi_buffer *ub = uwsgi_websocket_recv(wsgi_req);
-	UWSGI_GET_GIL	
+	UWSGI_GET_GIL
 	if (!ub) {
 		return PyErr_Format(PyExc_IOError, "unable to receive websocket message");
 	}
@@ -1117,8 +1209,25 @@ PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args) {
 	return ret;
 }
 
-PyObject *py_uwsgi_websocket_recv_nb(PyObject * self, PyObject * args) {
-        struct wsgi_request *wsgi_req = py_current_wsgi_req();
+PyObject *py_uwsgi_websocket_recv_nb(PyObject * self, PyObject * args, PyObject * kwargs) {
+        PyObject *uwsgi_input = NULL;
+
+        static char *kwlist[] = {"uwsgi_input", NULL};
+
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:websocket_recv_nb", kwlist, &uwsgi_input)) {
+            return NULL;
+        }
+
+        struct wsgi_request *wsgi_req;
+        PyObject *err = py_current_wsgi_req_with_input(&wsgi_req, uwsgi_input);
+        if (err != NULL) {
+            return err;
+        }
+
+        if (!wsgi_req->fd) {
+            return PyErr_Format(PyExc_IOError, "unable to receive websocket message");
+        }
+
         UWSGI_RELEASE_GIL
         struct uwsgi_buffer *ub = uwsgi_websocket_recv_nb(wsgi_req);
         UWSGI_GET_GIL
@@ -2599,10 +2708,12 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 	{"set_user_harakiri", py_uwsgi_set_user_harakiri, METH_VARARGS, ""},
 
-	{"websocket_recv", py_uwsgi_websocket_recv, METH_VARARGS, ""},
-	{"websocket_recv_nb", py_uwsgi_websocket_recv_nb, METH_VARARGS, ""},
-	{"websocket_send", py_uwsgi_websocket_send, METH_VARARGS, ""},
-	{"websocket_send_binary", py_uwsgi_websocket_send_binary, METH_VARARGS, ""},
+    {"input_object", py_uwsgi_input_object, METH_VARARGS, ""},
+
+    {"websocket_recv", (PyCFunction)py_uwsgi_websocket_recv, METH_VARARGS|METH_KEYWORDS, ""},
+	{"websocket_recv_nb", (PyCFunction)py_uwsgi_websocket_recv_nb, METH_VARARGS|METH_KEYWORDS, ""},
+	{"websocket_send", (PyCFunction)py_uwsgi_websocket_send, METH_VARARGS|METH_KEYWORDS|METH_KEYWORDS, ""},
+	{"websocket_send_binary", (PyCFunction)py_uwsgi_websocket_send_binary, METH_VARARGS|METH_KEYWORDS, ""},
 	{"websocket_handshake", py_uwsgi_websocket_handshake, METH_VARARGS, ""},
 
 	{"chunked_read", py_uwsgi_chunked_read, METH_VARARGS, ""},
@@ -3455,6 +3566,11 @@ void init_uwsgi_module_advanced(PyObject * current_uwsgi_module) {
                 Py_DECREF(func);
         }
 
+    uwsgi_UWSGIInput.tp_new = PyType_GenericNew;
+    if(PyType_Ready(&uwsgi_UWSGIInput) < 0) {
+        uwsgi_log("UWSGIInput not ready\n");
+        exit(1);
+    }
 }
 
 void init_uwsgi_module_cache(PyObject * current_uwsgi_module) {

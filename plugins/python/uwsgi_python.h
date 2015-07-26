@@ -307,6 +307,8 @@ void uwsgi_python_set_thread_name(int);
 				return PyErr_Format(PyExc_SystemError, "you can call uwsgi api function only from the main callable");\
 			}
 
+PyObject *py_current_wsgi_req_with_input(struct wsgi_request **, PyObject *);
+
 #define uwsgi_pyexit {PyErr_Print();exit(1);}
 
 #ifdef __linux__
