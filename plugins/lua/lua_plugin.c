@@ -1230,7 +1230,7 @@ static void uwsgi_lua_hijack(void) {
 static void uwsgi_lua_init_apps() {
 	int i;
 
-	if (uwsgi.lazy || uwsgi.lazy_apps) {
+	if (uwsgi.mywid > 0) {
 		uwsgi_lua_init_state(uwsgi.mywid);
 	} else {
 		for(i=1;i<=uwsgi.numproc;i++){
