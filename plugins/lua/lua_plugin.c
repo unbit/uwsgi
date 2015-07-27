@@ -19,6 +19,7 @@ struct uwsgi_lua {
 	char *filename;
 	struct uwsgi_string_list *load;
 	int gc_freq;
+	int gc_full;
 } ulua;
 
 #define ULUA_MYWID (uwsgi.mywid-1)
@@ -47,6 +48,7 @@ static struct uwsgi_option uwsgi_lua_options[] = {
 	{"lua-shell", no_argument, 0, "run the lua interactive shell (debug.debug())", uwsgi_opt_luashell, NULL, 0},
 	{"luashell", no_argument, 0, "run the lua interactive shell (debug.debug())", uwsgi_opt_luashell, NULL, 0},
 	{"lua-gc-freq", no_argument, 0, "set the lua gc frequency (default: 0, runs after every request)", uwsgi_opt_set_int, &ulua.gc_freq, 0},
+	{"lua-gc-full", no_argument, 0, "set the lua gc to perform a full garbage-collection cycle (default: 0, gc performs an incremental step of garbage collection)", uwsgi_opt_set_int, &ulua.gc_full, 0},
 
 	{0, 0, 0, 0},
 
@@ -713,8 +715,10 @@ static int uwsgi_lua_init(){
 	
 	uwsgi_log("%d lua_States (with %d lua_Threads)\n", uwsgi.numproc, uwsgi.cores);
 	
-	if(ulua.gc_freq == 0) {
-		uwsgi_log("WARNING! lua-gc-freq has been set to default value (0), lua garbage collector runs after every request, this may cause performance issues.\n");
+	if(ulua.gc_full == 0) {
+		ulua.gc_full = LUA_GCSTEP;
+	} else {
+		ulua.gc_full = LUA_GCCOLLECT;
 	}
 	
 	// ok the lua engine is ready
@@ -744,9 +748,6 @@ static void uwsgi_lua_post_fork() {
 
 	lua_pushnumber(L, uwsgi.mywid);
 	lua_setfield(L, -2, "mywid");
-	
-	// done
-	lua_pop(L, 1);
 
 	// init main app
 	uslnargs = lua_gettop(L);
@@ -796,6 +797,10 @@ static void uwsgi_lua_post_fork() {
 	// no app ???
 	if (uslnargs == 0 || !lua_isfunction(L, -1)) {
 		// loading dummy
+		if (uslnargs > 0) {
+			lua_pop(L, uslnargs);
+		}		
+			
 		uwsgi_log("Can't find WSAPI entry point (no function, nor a table with function'run').\n");
 		i = luaL_dostring(L, "return function() return '500'; end");
 	}
@@ -805,22 +810,25 @@ static void uwsgi_lua_post_fork() {
 			
 		lua_newtable(L);
 		lua_pushvalue(L, -2);
-		lua_remove(L, -3);
+		lua_rawseti(L, -2, 0);
 				
 		for(i=1;i<uwsgi.cores;i++) {
 
 			// create thread and save it
 			Ls[i] = lua_newthread(L);
-			lua_rawseti(L, -3, i);
+			lua_rawseti(L, -2, i);
 
 			// push app from master and move to new
-			lua_pushvalue(L, -1);
+			lua_pushvalue(L, -2);
 			lua_xmove(L, Ls[i], 1);
 		}
+		
+		lua_setfield(L, -3, "luathreads");
 	}
 			
 	// and the worker is ready!
-			
+	lua_remove(L, -2);
+	
 	lua_gc(L, LUA_GCCOLLECT, 0);
 			
 	uwsgi_log("inited lua_State for worker %d\n", uwsgi.mywid);
@@ -834,11 +842,16 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	lua_State *L = ULUA_WORKER_STATE[wsgi_req->async_id];
 
 	if (wsgi_req->async_status == UWSGI_AGAIN) {	
-		if (lua_pcall(L, 0, 1, 0) == 0) {
-			if (lua_type(L, -1) == LUA_TSTRING || lua_type(L, -1) == LUA_TNUMBER) {
+		while (lua_pcall(L, 0, 1, 0) == 0) {
+			if (lua_isstring(L, -1)) {
 				http = lua_tolstring(L, -1, &slen);
 				uwsgi_response_write_body_do(wsgi_req, (char *)http, slen);
+			} else if (lua_isnil(L, -1)) { // posible dead coroutine
+				lua_pop(L, 1);
+				lua_pushvalue(L, -1);
+				continue;	// retry
 			}
+			
 			lua_pop(L, 1);
 			lua_pushvalue(L, -1);
 			return UWSGI_AGAIN;
@@ -895,7 +908,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	//uwsgi_log("%d %s %s %s\n",i,lua_typename(L, lua_type(L, -3)), lua_typename(L, lua_type(L, -2)) ,  lua_typename(L, lua_type(L, -1)));
 
 	// send status
-	if (lua_type(L, -3) == LUA_TSTRING || lua_type(L, -3) == LUA_TNUMBER) {
+	if (lua_isstring(L, -3)) {
 		http = lua_tolstring(L, -3, &slen);
 		if (uwsgi_response_prepare_headers(wsgi_req, (char *) http, slen))
 			goto clear2;
@@ -942,7 +955,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 		}
 	
 		while ( lua_pcall(L, 0, 1, 0) == 0) {
-			if (lua_type(L, -1) == LUA_TSTRING || lua_type(L, -1) == LUA_TNUMBER) {
+			if (lua_isstring(L, -1)) {
 				http = lua_tolstring(L, -1, &slen);
 				uwsgi_response_write_body_do(wsgi_req, (char *)http, slen);
 			}
@@ -951,7 +964,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 			lua_pushvalue(L, -1);
 		}
 	}
-	else if (lua_type(L, -1) == LUA_TSTRING || lua_type(L, -1) == LUA_TNUMBER) {
+	else if (lua_isstring(L, -1)) {
 		http = lua_tolstring(L, -1, &slen);
 		uwsgi_response_write_body_do(wsgi_req, (char *) http, slen);
 	}
@@ -961,7 +974,7 @@ clear:
 clear2:
 	// set frequency
 	if (!ulua.gc_freq || uwsgi.workers[uwsgi.mywid].requests % ulua.gc_freq == 0) {
-		lua_gc(ULUA_WORKER_STATE[0], LUA_GCCOLLECT, 0);
+		lua_gc(L, ulua.gc_full, 0);
 	}
 
 	return UWSGI_OK;
