@@ -709,9 +709,15 @@ static const luaL_Reg uwsgi_api[] = {
 
 
 static int uwsgi_lua_init(){
+	int i;
+
 	uwsgi_log("Initializing Lua environment... ");
 	
 	ulua.state = uwsgi_malloc(sizeof(lua_State**) * uwsgi.numproc);
+	
+	for (i=0;i<uwsgi.numproc;i++) {
+		ulua.state[i] = uwsgi_malloc(sizeof(lua_State**) * uwsgi.cores);
+	}
 	
 	uwsgi_log("%d lua_States (with %d lua_Threads)\n", uwsgi.numproc, uwsgi.cores);
 	
@@ -726,16 +732,14 @@ static int uwsgi_lua_init(){
 }
 
 
-static void uwsgi_lua_post_fork() {
+static void uwsgi_lua_init_state(int wid) {
 	int i;
 	int uslnargs;
 	lua_State **Ls;
 	lua_State *L;
 
-	// spawn worker state
-	ULUA_WORKER_STATE = (lua_State**) uwsgi_malloc(sizeof(lua_State**) * uwsgi.cores);
-			
-	Ls = ULUA_WORKER_STATE;
+	// spawn worker state		
+	Ls = ulua.state[wid-1];
 	Ls[0] = luaL_newstate();
 	L = Ls[0];
 
@@ -746,7 +750,7 @@ static void uwsgi_lua_post_fork() {
 	lua_pushstring(L, UWSGI_VERSION);
 	lua_setfield(L, -2, "version");
 
-	lua_pushnumber(L, uwsgi.mywid);
+	lua_pushnumber(L, wid);
 	lua_setfield(L, -2, "mywid");
 
 	// init main app
@@ -805,12 +809,13 @@ static void uwsgi_lua_post_fork() {
 		i = luaL_dostring(L, "return function() return '500'; end");
 	}
 			
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -3, "run");
+			
 	//init additional threads for current worker
 	if(uwsgi.cores > 0) {
 			
 		lua_newtable(L);
-		lua_pushvalue(L, -2);
-		lua_rawseti(L, -2, 0);
 				
 		for(i=1;i<uwsgi.cores;i++) {
 
@@ -831,7 +836,7 @@ static void uwsgi_lua_post_fork() {
 	
 	lua_gc(L, LUA_GCCOLLECT, 0);
 			
-	uwsgi_log("inited lua_State for worker %d\n", uwsgi.mywid);
+	uwsgi_log("inited lua_State for worker %d\n", wid);
 }
 
 static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
@@ -1222,6 +1227,18 @@ static void uwsgi_lua_hijack(void) {
 
 }
 
+static void uwsgi_lua_init_apps() {
+	int i;
+
+	if (uwsgi.lazy || uwsgi.lazy_apps) {
+		uwsgi_lua_init_state(uwsgi.mywid);
+	} else {
+		for(i=1;i<=uwsgi.numproc;i++){
+			uwsgi_lua_init_state(i);
+		}
+	}
+}
+	
 struct uwsgi_plugin lua_plugin = {
 
 	.name = "lua",
@@ -1231,8 +1248,7 @@ struct uwsgi_plugin lua_plugin = {
 	.request = uwsgi_lua_request,
 	.after_request = uwsgi_lua_after_request,
 	
-	.post_fork = uwsgi_lua_post_fork,
-	
+	.init_apps = uwsgi_lua_init_apps,
 	
 	.magic = uwsgi_lua_magic,
 	.signal_handler = uwsgi_lua_signal_handler,
