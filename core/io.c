@@ -1119,46 +1119,48 @@ int uwsgi_proxy_nb(struct wsgi_request *wsgi_req, char *addr, struct uwsgi_buffe
 
 	struct uwsgi_buffer *headers = NULL;
 
-        int fd = uwsgi_connect(addr, 0, 1);
-        if (fd < 0) {
+	if (!ub) {
 		return -1;
-        }
-
-        int ret = uwsgi.wait_write_hook(fd, timeout);
-        if (ret <= 0) {
-		goto end;
-        }
-
-        // send the request (+ remaining data)
-	if (ub) {
-        	if (uwsgi_write_true_nb(fd, ub->buf, ub->pos, timeout)) {
-			goto end;
-        	}
 	}
 
-        // send the body
-        while(remains > 0) {
-                ssize_t rlen = 0;
-                char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
-                if (!buf) {
-			goto end;
-                }
-                if (buf == uwsgi.empty) break;
-                // write data to the node
-                if (uwsgi_write_true_nb(fd, buf, rlen, timeout)) {
-			goto end;
-                }
-                remains -= rlen;
-        }
+	int fd = uwsgi_connect(addr, 0, 1);
+	if (fd < 0) {
+		return -1;
+	}
 
-        // read the response
+	int ret = uwsgi.wait_write_hook(fd, timeout);
+	if (ret <= 0) {
+		goto end;
+	}
+
+	// send the request (+ remaining data)
+	if (uwsgi_write_true_nb(fd, ub->buf, ub->pos, timeout)) {
+		goto end;
+	}
+
+	// send the body
+	while(remains > 0) {
+		ssize_t rlen = 0;
+		char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
+		if (!buf) {
+			goto end;
+		}
+		if (buf == uwsgi.empty) break;
+		// write data to the node
+		if (uwsgi_write_true_nb(fd, buf, rlen, timeout)) {
+			goto end;
+		}
+		remains -= rlen;
+	}
+
+	// read the response
 	headers = uwsgi_buffer_new(8192);
 	// max 64k headers
 	ub->limit = UMAX16;
-        for(;;) {
-                char buf[8192];
-                ssize_t rlen = uwsgi_read_true_nb(fd, buf, 8192, timeout);
-                if (rlen > 0) {
+	for(;;) {
+		char buf[8192];
+		ssize_t rlen = uwsgi_read_true_nb(fd, buf, 8192, timeout);
+		if (rlen > 0) {
 			if (headers) {
 				if (uwsgi_buffer_append(headers, buf, rlen)) {
 					goto end;
@@ -1172,14 +1174,14 @@ int uwsgi_proxy_nb(struct wsgi_request *wsgi_req, char *addr, struct uwsgi_buffe
 				}
 			}
 			else {
-                        	if (uwsgi_response_write_body_do(wsgi_req, buf, rlen)) {
-                                	break;
-                        	}
+				if (uwsgi_response_write_body_do(wsgi_req, buf, rlen)) {
+					break;
+				}
 			}
-                        continue;
-                }
-                break;
-        }
+			continue;
+		}
+		break;
+	}
 	if (headers) uwsgi_buffer_destroy(headers);
 
 	close(fd);
