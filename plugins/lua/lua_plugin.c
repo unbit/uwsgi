@@ -15,7 +15,6 @@ extern struct uwsgi_server uwsgi;
 
 struct uwsgi_lua {
 	struct lua_State ***state;
-	int *wsapi_ref;
 	char *shell;
 	char *filename;
 	struct uwsgi_string_list *load;
@@ -715,7 +714,6 @@ static int uwsgi_lua_init(){
 	uwsgi_log("Initializing Lua environment... ");
 	
 	ulua.state = uwsgi_malloc(sizeof(lua_State**) * uwsgi.numproc);
-	ulua.wsapi_ref = uwsgi_malloc(sizeof(int) * uwsgi.numproc);
 	
 	for (i=0;i<uwsgi.numproc;i++) {
 		ulua.state[i] = uwsgi_malloc(sizeof(lua_State*) * uwsgi.cores);
@@ -734,14 +732,12 @@ static int uwsgi_lua_init(){
 }
 
 
-static void uwsgi_lua_init_state(int wid) {
+static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 	int i;
 	int uslnargs;
-	lua_State **Ls;
 	lua_State *L;
 
 	// spawn worker state		
-	Ls = ulua.state[wid-1];
 	Ls[0] = luaL_newstate();
 	L = Ls[0];
 
@@ -754,6 +750,13 @@ static void uwsgi_lua_init_state(int wid) {
 
 	lua_pushnumber(L, wid);
 	lua_setfield(L, -2, "mywid");
+	
+	lua_pushnumber(L, sid);
+	lua_setfield(L, -2, "mysid");
+	
+	// reserve ref 1 for ws func
+	lua_pushvalue(L, -1);
+	luaL_ref(L, LUA_REGISTRYINDEX);
 
 	// init main app
 	uslnargs = lua_gettop(L);
@@ -811,14 +814,14 @@ static void uwsgi_lua_init_state(int wid) {
 		i = luaL_dostring(L, "return function() return '500'; end");
 	}
 	
-	ulua.wsapi_ref[wid-1] = luaL_ref(L, LUA_REGISTRYINDEX);
+	lua_rawseti(L, LUA_REGISTRYINDEX, 1);
 			
 	//init additional threads for current worker
-	if(uwsgi.cores > 0) {
+	if(cores > 0) {
 			
 		lua_newtable(L);
 				
-		for(i=1;i<uwsgi.cores;i++) {
+		for(i=1;i<cores;i++) {
 
 			// create thread and save it
 			Ls[i] = lua_newthread(L);
@@ -838,7 +841,7 @@ static void uwsgi_lua_init_state(int wid) {
 	
 	lua_gc(L, LUA_GCCOLLECT, 0);
 			
-	uwsgi_log("inited lua_State for worker %d\n", wid);
+	uwsgi_log("inited lua_State %d for worker %d\n", sid, wid);
 }
 
 static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
@@ -882,7 +885,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 
 	// put function in the stack
 	//lua_getfield(L, LUA_GLOBALSINDEX, "run");
-	lua_rawgeti(L, LUA_REGISTRYINDEX, ulua.wsapi_ref[ULUA_MYWID]);
+	lua_rawgeti(L, LUA_REGISTRYINDEX, 1);
 	//lua_pushvalue(L, -1);
 
 	// put cgi vars in the stack
@@ -986,8 +989,10 @@ clear:
 	lua_pop(L, 4);
 clear2:
 	// set frequency
-	if (!ulua.gc_freq || uwsgi.workers[uwsgi.mywid].requests % ulua.gc_freq == 0) {
-		lua_gc(L, ulua.gc_full, 0);
+	if (!ulua.gc_freq || 
+		(uwsgi.threads == 1 && uwsgi.workers[uwsgi.mywid].requests % ulua.gc_freq == 0) || 
+		(uwsgi.threads > 1 && uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests % ulua.gc_freq == 0)) {
+			lua_gc(L, ulua.gc_full, 0);
 	}
 
 	return UWSGI_OK;
@@ -1236,13 +1241,26 @@ static void uwsgi_lua_hijack(void) {
 }
 
 static void uwsgi_lua_init_apps() {
-	int i;
+	int i,j,sid;
+	
+	//cores per lua thread
+	int cores = uwsgi.threads > 1 ? 1 : uwsgi.cores;
 
-	if (uwsgi.mywid > 0) {
-		uwsgi_lua_init_state(uwsgi.mywid);
+	if (uwsgi.mywid > 0) {	// lazy app
+		sid = ULUA_MYWID*uwsgi.threads;
+	
+		for(i=0;i<uwsgi.threads;i++) {
+			uwsgi_lua_init_state(&(ULUA_WORKER_STATE[i]), uwsgi.mywid, sid + i, cores);
+		}
+		
 	} else {
-		for(i=1;i<=uwsgi.numproc;i++){
-			uwsgi_lua_init_state(i);
+		for(j=0;j<uwsgi.numproc;j++){
+			sid = j*uwsgi.threads;
+			
+			for(i=0;i<uwsgi.threads;i++) {
+				uwsgi_lua_init_state(&(ulua.state[j][i]), j + 1, sid + i, cores);
+			}
+			
 		}
 	}
 }
