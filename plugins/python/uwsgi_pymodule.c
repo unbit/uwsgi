@@ -4,6 +4,12 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 extern struct uwsgi_plugin python_plugin;
 
+#define py_uwsgi_input_argument_check(uwsgi_input) if(uwsgi_input!=NULL) {\
+    if(!PyObject_TypeCheck(uwsgi_input, &uwsgi_InputIdentityType)) {\
+        return PyErr_Format(PyExc_TypeError, "Invalid argument!");\
+    }}
+
+
 PyTypeObject uwsgi_InputIdentityType = {
     PyObject_HEAD_INIT(NULL)
     0,
@@ -1105,6 +1111,7 @@ PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args, PyObject * k
     if(uwsgi_input == NULL) {
         wsgi_req = py_current_wsgi_req();
     } else {
+        py_uwsgi_input_argument_check(uwsgi_input);
         wsgi_req = py_current_wsgi_req_from_input(uwsgi_input);
     }
 
@@ -1138,6 +1145,7 @@ PyObject *py_uwsgi_websocket_send_binary(PyObject * self, PyObject * args, PyObj
         if(uwsgi_input == NULL) {
             wsgi_req = py_current_wsgi_req();
         } else {
+            py_uwsgi_input_argument_check(uwsgi_input);
             wsgi_req = py_current_wsgi_req_from_input(uwsgi_input);
         }
 
@@ -1205,6 +1213,7 @@ PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args, PyObject * k
     if(uwsgi_input == NULL) {
         wsgi_req = py_current_wsgi_req();
     } else {
+        py_uwsgi_input_argument_check(uwsgi_input);
         wsgi_req = py_current_wsgi_req_from_input(uwsgi_input);
     }
 
@@ -1237,6 +1246,7 @@ PyObject *py_uwsgi_websocket_recv_nb(PyObject * self, PyObject * args, PyObject 
         if(uwsgi_input == NULL) {
             wsgi_req = py_current_wsgi_req();
         } else {
+            py_uwsgi_input_argument_check(uwsgi_input);
             wsgi_req = py_current_wsgi_req_from_input(uwsgi_input);
         }
 
