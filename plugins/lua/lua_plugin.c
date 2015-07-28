@@ -718,7 +718,7 @@ static int uwsgi_lua_init(){
 	int i;
 	
 	for(i=0;i<uwsgi.numproc;i++) {
-		ulua.state[i] = (lua_State**) uwsgi_malloc( sizeof(lua_State**) * uwsgi.cores );
+		ulua.state[i] = (lua_State**) uwsgi_malloc( sizeof(lua_State*) * uwsgi.cores );
 	}
 	
 	uwsgi_log("%d lua_States (with %d lua_Threads)\n", uwsgi.numproc, uwsgi.cores);
