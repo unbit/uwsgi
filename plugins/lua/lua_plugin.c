@@ -15,6 +15,7 @@ extern struct uwsgi_server uwsgi;
 
 struct uwsgi_lua {
 	struct lua_State ***state;
+	int *wsapi_ref;
 	char *shell;
 	char *filename;
 	struct uwsgi_string_list *load;
@@ -714,6 +715,7 @@ static int uwsgi_lua_init(){
 	uwsgi_log("Initializing Lua environment... ");
 	
 	ulua.state = uwsgi_malloc(sizeof(lua_State**) * uwsgi.numproc);
+	ulua.wsapi_ref = uwsgi_malloc(sizeof(int) * uwsgi.numproc);
 	
 	for (i=0;i<uwsgi.numproc;i++) {
 		ulua.state[i] = uwsgi_malloc(sizeof(lua_State**) * uwsgi.cores);
@@ -808,9 +810,8 @@ static void uwsgi_lua_init_state(int wid) {
 		uwsgi_log("Can't find WSAPI entry point (no function, nor a table with function'run').\n");
 		i = luaL_dostring(L, "return function() return '500'; end");
 	}
-			
-	lua_pushvalue(L, -1);
-	lua_setfield(L, -3, "run");
+	
+	ulua.wsapi_ref[wid-1] = luaL_ref(L, LUA_REGISTRYINDEX);
 			
 	//init additional threads for current worker
 	if(uwsgi.cores > 0) {
@@ -824,15 +825,16 @@ static void uwsgi_lua_init_state(int wid) {
 			lua_rawseti(L, -2, i);
 
 			// push app from master and move to new
-			lua_pushvalue(L, -2);
-			lua_xmove(L, Ls[i], 1);
+			//lua_pushvalue(L, -2);
+			//lua_xmove(L, Ls[i], 1);
 		}
 		
-		lua_setfield(L, -3, "luathreads");
+		lua_setfield(L, -2, "luathreads");
 	}
 			
 	// and the worker is ready!
-	lua_remove(L, -2);
+	//lua_remove(L, -2);
+	lua_pop(L, 1);
 	
 	lua_gc(L, LUA_GCCOLLECT, 0);
 			
@@ -846,7 +848,11 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	size_t slen, slen2;
 	lua_State *L = ULUA_WORKER_STATE[wsgi_req->async_id];
 
-	if (wsgi_req->async_status == UWSGI_AGAIN) {	
+	if (wsgi_req->async_status == UWSGI_AGAIN) {
+		if (lua_type(L, -1) != LUA_TFUNCTION) {
+			// wrong async_status status!
+			return -1;
+		}
 		while (lua_pcall(L, 0, 1, 0) == 0) {
 			if (lua_isstring(L, -1)) {
 				http = lua_tolstring(L, -1, &slen);
@@ -876,7 +882,8 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 
 	// put function in the stack
 	//lua_getfield(L, LUA_GLOBALSINDEX, "run");
-	lua_pushvalue(L, -1);
+	lua_rawgeti(L, LUA_REGISTRYINDEX, ulua.wsapi_ref[ULUA_MYWID]);
+	//lua_pushvalue(L, -1);
 
 	// put cgi vars in the stack
 
@@ -896,6 +903,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	lua_pushcfunction(L, uwsgi_lua_input);
 	lua_setfield(L, -2, "read");
 	lua_setfield(L, -2, "input");
+	
 
 #ifdef UWSGI_DEBUG
 	uwsgi_log("stack pos %d\n", lua_gettop(L));
