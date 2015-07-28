@@ -4,17 +4,17 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 extern struct uwsgi_plugin python_plugin;
 
-#define py_uwsgi_input_argument_check(uwsgi_input) if(uwsgi_input!=NULL) {\
-    if(!PyObject_TypeCheck(uwsgi_input, &uwsgi_InputIdentityType)) {\
+#define py_uwsgi_context_argument_check(request_context) if(request_context!=NULL) {\
+    if(!PyObject_TypeCheck(request_context, &uwsgi_RequestContextType)) {\
         return PyErr_Format(PyExc_TypeError, "Invalid argument!");\
     }}
 
 
-PyTypeObject uwsgi_InputIdentityType = {
+PyTypeObject uwsgi_RequestContextType = {
     PyObject_HEAD_INIT(NULL)
     0,
-    "uwsgi.InputIdentityType",
-    sizeof(uwsgi_InputIdentity),
+    "uwsgi.RequestContext",
+    sizeof(uwsgi_RequestContext),
     0,
     0,
     0,
@@ -35,24 +35,24 @@ PyTypeObject uwsgi_InputIdentityType = {
     "",
 };
 
-struct wsgi_request *py_current_wsgi_req_from_input(PyObject *input) {
-    uwsgi_InputIdentity *identity = (uwsgi_InputIdentity *)input;
-    if (identity->wsgi_req == NULL || !(identity->wsgi_req->fd)) {
+struct wsgi_request *py_current_wsgi_req_from_context(PyObject *context) {
+    uwsgi_RequestContext *ctx = (uwsgi_RequestContext *)context;
+    if (ctx->wsgi_req == NULL || !(ctx->wsgi_req->fd)) {
         return NULL;
     }
 
     //verify
-    if(uwsgi.mywid != identity->mywid ||
-        uwsgi.workers[uwsgi.mywid].cores[identity->wsgi_req->async_id].requests != identity->requests) {
+    if(uwsgi.mywid != ctx->mywid ||
+        uwsgi.workers[uwsgi.mywid].cores[ctx->wsgi_req->async_id].requests != ctx->requests) {
         return NULL;
     }
 
-    int in_request = uwsgi.workers[uwsgi.mywid].cores[identity->wsgi_req->async_id].in_request;
+    int in_request = uwsgi.workers[uwsgi.mywid].cores[ctx->wsgi_req->async_id].in_request;
     if (!in_request) {
 		return NULL;
     }
 
-    return identity->wsgi_req;
+    return ctx->wsgi_req;
 }
 
 
@@ -1050,19 +1050,19 @@ PyObject *py_uwsgi_connection_fd(PyObject * self, PyObject * args) {
 	return PyInt_FromLong(wsgi_req->fd);
 }
 
-PyObject *py_uwsgi_input_object(PyObject * self, PyObject * args) {
-	struct wsgi_request *wsgi_req = py_current_wsgi_req();
+PyObject *py_uwsgi_request_context(PyObject * self, PyObject * args) {
+    struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
-    uwsgi_InputIdentity *input = PyObject_New(uwsgi_InputIdentity, &uwsgi_InputIdentityType);
-    if(input == NULL)
+    uwsgi_RequestContext *ctx = PyObject_New(uwsgi_RequestContext, &uwsgi_RequestContextType);
+    if(ctx == NULL)
     {
         return NULL;
     }
 
-    input->mywid = uwsgi.mywid;
-    input->requests = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests;
-    input->wsgi_req = wsgi_req;
-    return (PyObject *)input;
+    ctx->mywid = uwsgi.mywid;
+    ctx->requests = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests;
+    ctx->wsgi_req = wsgi_req;
+    return (PyObject *)ctx;
 }
 
 
@@ -1099,20 +1099,20 @@ PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args, PyObject * k
 	char *message = NULL;
         Py_ssize_t message_len = 0;
 
-        PyObject *uwsgi_input = NULL;
+        PyObject *request_context = NULL;
 
-        static char *kwlist[] = {"message", "uwsgi_input", NULL};
+        static char *kwlist[] = {"message", "request_context", NULL};
 
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|O:websocket_send", kwlist, &message, &message_len, &uwsgi_input)) {
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|O:websocket_send", kwlist, &message, &message_len, &request_context)) {
                 return NULL;
         }
 
     struct wsgi_request *wsgi_req;
-    if(uwsgi_input == NULL) {
+    if(request_context == NULL) {
         wsgi_req = py_current_wsgi_req();
     } else {
-        py_uwsgi_input_argument_check(uwsgi_input);
-        wsgi_req = py_current_wsgi_req_from_input(uwsgi_input);
+        py_uwsgi_context_argument_check(request_context);
+        wsgi_req = py_current_wsgi_req_from_context(request_context);
     }
 
     if(wsgi_req == NULL) {
@@ -1133,20 +1133,20 @@ PyObject *py_uwsgi_websocket_send_binary(PyObject * self, PyObject * args, PyObj
         char *message = NULL;
         Py_ssize_t message_len = 0;
 
-        PyObject *uwsgi_input = NULL;
+        PyObject *request_context = NULL;
 
-        static char *kwlist[] = {"message", "uwsgi_input", NULL};
+        static char *kwlist[] = {"message", "request_context", NULL};
 
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|O:websocket_send_binary", kwlist, &message, &message_len, &uwsgi_input)) {
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|O:websocket_send_binary", kwlist, &message, &message_len, &request_context)) {
                 return NULL;
         }
 
         struct wsgi_request *wsgi_req;
-        if(uwsgi_input == NULL) {
+        if(request_context == NULL) {
             wsgi_req = py_current_wsgi_req();
         } else {
-            py_uwsgi_input_argument_check(uwsgi_input);
-            wsgi_req = py_current_wsgi_req_from_input(uwsgi_input);
+            py_uwsgi_context_argument_check(request_context);
+            wsgi_req = py_current_wsgi_req_from_context(request_context);
         }
 
         if(wsgi_req == NULL) {
@@ -1201,20 +1201,20 @@ PyObject *py_uwsgi_chunked_read_nb(PyObject * self, PyObject * args) {
 
 
 PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args, PyObject * kwargs) {
-    PyObject *uwsgi_input = NULL;
+    PyObject *request_context = NULL;
 
-    static char *kwlist[] = {"uwsgi_input", NULL};
+    static char *kwlist[] = {"request_context", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:websocket_recv", kwlist, &uwsgi_input)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:websocket_recv", kwlist, &request_context)) {
         return NULL;
     }
 
     struct wsgi_request *wsgi_req;
-    if(uwsgi_input == NULL) {
+    if(request_context == NULL) {
         wsgi_req = py_current_wsgi_req();
     } else {
-        py_uwsgi_input_argument_check(uwsgi_input);
-        wsgi_req = py_current_wsgi_req_from_input(uwsgi_input);
+        py_uwsgi_context_argument_check(request_context);
+        wsgi_req = py_current_wsgi_req_from_context(request_context);
     }
 
     if(wsgi_req == NULL) {
@@ -1234,20 +1234,20 @@ PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args, PyObject * k
 }
 
 PyObject *py_uwsgi_websocket_recv_nb(PyObject * self, PyObject * args, PyObject * kwargs) {
-        PyObject *uwsgi_input = NULL;
+        PyObject *request_context = NULL;
 
-        static char *kwlist[] = {"uwsgi_input", NULL};
+        static char *kwlist[] = {"request_context", NULL};
 
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:websocket_recv_nb", kwlist, &uwsgi_input)) {
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:websocket_recv_nb", kwlist, &request_context)) {
             return NULL;
         }
 
         struct wsgi_request *wsgi_req;
-        if(uwsgi_input == NULL) {
+        if(request_context == NULL) {
             wsgi_req = py_current_wsgi_req();
         } else {
-            py_uwsgi_input_argument_check(uwsgi_input);
-            wsgi_req = py_current_wsgi_req_from_input(uwsgi_input);
+            py_uwsgi_context_argument_check(request_context);
+            wsgi_req = py_current_wsgi_req_from_context(request_context);
         }
 
         if(wsgi_req == NULL) {
@@ -2734,7 +2734,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 	{"set_user_harakiri", py_uwsgi_set_user_harakiri, METH_VARARGS, ""},
 
-    {"input_object", py_uwsgi_input_object, METH_VARARGS, ""},
+    {"request_context", py_uwsgi_request_context, METH_VARARGS, ""},
 
     {"websocket_recv", (PyCFunction)py_uwsgi_websocket_recv, METH_VARARGS|METH_KEYWORDS, ""},
 	{"websocket_recv_nb", (PyCFunction)py_uwsgi_websocket_recv_nb, METH_VARARGS|METH_KEYWORDS, ""},
@@ -3592,8 +3592,8 @@ void init_uwsgi_module_advanced(PyObject * current_uwsgi_module) {
                 Py_DECREF(func);
         }
 
-    uwsgi_InputIdentityType.tp_new = PyType_GenericNew;
-    if(PyType_Ready(&uwsgi_InputIdentityType) < 0) {
+    uwsgi_RequestContextType.tp_new = PyType_GenericNew;
+    if(PyType_Ready(&uwsgi_RequestContextType) < 0) {
         uwsgi_log("UWSGIInput not ready\n");
         exit(1);
     }

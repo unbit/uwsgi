@@ -32,20 +32,20 @@ class ClientManager(object):
 
 class Client(object):
     def __init__(self):
-        self.uwsgi_input = None
+        self.ctx = None
         self.send_queue = Queue()
         self.jobs = []
 
 
     def _recv_job(self):
         while True:
-            data = uwsgi.websocket_recv(uwsgi_input=self.uwsgi_input)
+            data = uwsgi.websocket_recv(request_context=self.ctx)
             self.on_data(data)
 
     def _send_job(self):
         while True:
             data = self.send_queue.get()
-            uwsgi.websocket_send(data, uwsgi_input=self.uwsgi_input)
+            uwsgi.websocket_send(data, request_context=self.ctx)
 
     def _exit(self, *args):
         for j in self.jobs:
@@ -71,7 +71,7 @@ class Client(object):
 
     def start(self):
         uwsgi.websocket_handshake()
-        self.uwsgi_input = uwsgi.input_object()
+        self.ctx = uwsgi.request_context()
 
         ClientManager.add(self)
 

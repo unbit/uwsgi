@@ -105,12 +105,12 @@ typedef struct uwsgi_Input {
 // get this object in python,
 // and pass back to uwsgi.
 // uwsgi verify whether this is a valid `struct wsgi_request *` pointer
-typedef struct uwsgi_InputIdentity {
+typedef struct uwsgi_RequestContext {
     PyObject_HEAD
     int mywid;
     uint64_t requests;
     struct wsgi_request *wsgi_req;
-} uwsgi_InputIdentity;
+} uwsgi_RequestContext;
 
 
 struct uwsgi_python {
@@ -320,7 +320,7 @@ void uwsgi_python_set_thread_name(int);
 				return PyErr_Format(PyExc_SystemError, "you can call uwsgi api function only from the main callable");\
 			}
 
-struct wsgi_request *py_current_wsgi_req_from_input(PyObject *);
+struct wsgi_request *py_current_wsgi_req_from_context(PyObject *);
 
 #define uwsgi_pyexit {PyErr_Print();exit(1);}
 
