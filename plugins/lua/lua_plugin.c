@@ -99,8 +99,8 @@ static int uwsgi_api_rpc(lua_State *L) {
 		
 	if (argc > 0) {
 		uint8_t i;
-		argv = (char **) uwsgi_malloc(sizeof(char **)*argc);
-		argvs = (uint16_t *) uwsgi_malloc(sizeof(uint16_t *)*argc);
+		argv = (char **) uwsgi_malloc(sizeof(char *)*argc);
+		argvs = (uint16_t *) uwsgi_malloc(sizeof(uint16_t)*argc);
 		
 		for(i = 0; i < argc; i++) {
 			argv[i] = (char *) lua_tolstring(L, i + 3, (size_t *) &argvs[i]); 
@@ -718,7 +718,7 @@ static int uwsgi_lua_init(){
 	ulua.wsapi_ref = uwsgi_malloc(sizeof(int) * uwsgi.numproc);
 	
 	for (i=0;i<uwsgi.numproc;i++) {
-		ulua.state[i] = uwsgi_malloc(sizeof(lua_State**) * uwsgi.cores);
+		ulua.state[i] = uwsgi_malloc(sizeof(lua_State*) * uwsgi.cores);
 	}
 	
 	uwsgi_log("%d lua_States (with %d lua_Threads)\n", uwsgi.numproc, uwsgi.cores);
