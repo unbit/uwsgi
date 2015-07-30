@@ -669,6 +669,15 @@ static int uwsgi_lua_input(lua_State *L) {
 	return 0;
 }
 
+static int uwsgi_api_async_id_get(lua_State *L) {
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	
+	lua_pushnumber(L, wsgi_req->async_id);
+	
+	return 1;
+}
+
 static const luaL_Reg uwsgi_api[] = {
   {"log", uwsgi_api_log},
   {"connection_fd", uwsgi_api_req_fd},
@@ -698,6 +707,7 @@ static const luaL_Reg uwsgi_api[] = {
 
   {"async_sleep", uwsgi_api_async_sleep},
   {"async_connect", uwsgi_api_async_connect},
+  {"async_id_get", uwsgi_api_async_id_get},
   {"is_connected", uwsgi_api_is_connected},
   {"close", uwsgi_api_close},
   {"wait_fd_read", uwsgi_api_wait_fd_read},
@@ -856,6 +866,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 			// wrong async_status status!
 			return -1;
 		}
+async_coroutine:
 		while (lua_pcall(L, 0, 1, 0) == 0) {
 			if (lua_isstring(L, -1)) {
 				http = lua_tolstring(L, -1, &slen);
@@ -967,7 +978,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 
 	if (lua_type(L, -1) == LUA_TFUNCTION) {
 		if (uwsgi.async > 0) {	
-			return UWSGI_AGAIN;
+			goto async_coroutine;
 		}
 	
 		while ( lua_pcall(L, 0, 1, 0) == 0) {
