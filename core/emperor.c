@@ -2022,6 +2022,20 @@ void emperor_loop() {
 		uwsgi_log("*** Emperor stats server enabled on %s fd: %d ***\n", uwsgi.emperor_stats, uwsgi.emperor_stats_fd);
 	}
 
+
+	if (uwsgi.emperor_trigger_socket) {
+		char *tcp_port = strchr(uwsgi.emperor_trigger_socket, ':');
+                if (tcp_port) {
+                        uwsgi.emperor_trigger_socket_fd = bind_to_tcp(uwsgi.emperor_trigger_socket, uwsgi.listen_queue, tcp_port);
+                }
+                else {
+                        uwsgi.emperor_trigger_socket_fd = bind_to_unix(uwsgi.emperor_trigger_socket, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+                }
+
+                event_queue_add_fd_read(uwsgi.emperor_queue, uwsgi.emperor_trigger_socket_fd);
+                uwsgi_log("*** Emperor trigger socket enabled on %s fd: %d ***\n", uwsgi.emperor_trigger_socket, uwsgi.emperor_trigger_socket_fd);
+	}
+
 	ui = &ui_base;
 
 	int freq = 0;

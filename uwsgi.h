@@ -2805,6 +2805,9 @@ struct uwsgi_server {
 	int die_on_no_workers;
 	int spooler_cheap;
 	int cheaper_idle;
+
+	char *emperor_trigger_socket;
+	int emperor_trigger_socket_fd;
 };
 
 struct uwsgi_rpc {
