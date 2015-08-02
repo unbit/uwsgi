@@ -14,35 +14,31 @@ increase write_errors on error to force socket close
 */
 
 int uwsgi_proto_puwsgi_parser(struct wsgi_request *wsgi_req) {
-	ssize_t len;
 	char *ptr = (char *) wsgi_req->uh;
-	if (wsgi_req->proto_parser_pos < 4) {
-		len = read(wsgi_req->fd, ptr + wsgi_req->proto_parser_pos, 4 - wsgi_req->proto_parser_pos);
-		if (len > 0) {
-			wsgi_req->proto_parser_pos += len;
-			if (wsgi_req->proto_parser_pos == 4) {
+        ssize_t len = read(wsgi_req->fd, ptr + wsgi_req->proto_parser_pos, (uwsgi.buffer_size + 4) - wsgi_req->proto_parser_pos);
+        if (len > 0) {
+                wsgi_req->proto_parser_pos += len;
+                if (wsgi_req->proto_parser_pos >= 4) {
 #ifdef __BIG_ENDIAN__
-                        	wsgi_req->len = uwsgi_swap16(wsgi_req->len);
+                        wsgi_req->uh->_pktsize = uwsgi_swap16(wsgi_req->uh->_pktsize);
 #endif
-				if (wsgi_req->len > uwsgi.buffer_size) {
-                                	uwsgi_log("invalid request block size: %u (max %u)...skip\n", wsgi_req->len, uwsgi.buffer_size);
-					wsgi_req->write_errors++;		
-                                	return -1;
-                        	}
-			}
-			return UWSGI_AGAIN;
-		}
-		goto negative;
-	}
-	len = read(wsgi_req->fd, ptr + wsgi_req->proto_parser_pos, wsgi_req->len - (wsgi_req->proto_parser_pos-4));
-	if (len > 0) {
-		wsgi_req->proto_parser_pos += len;
-		if ((wsgi_req->proto_parser_pos-4) == wsgi_req->len) {
-			return UWSGI_OK;	
-		}
-		return UWSGI_AGAIN;
-	}
-negative:
+                        wsgi_req->len = wsgi_req->uh->_pktsize;
+                        if ((wsgi_req->proto_parser_pos - 4) == wsgi_req->uh->_pktsize) {
+                                return UWSGI_OK;
+                        }
+                        if ((wsgi_req->proto_parser_pos - 4) > wsgi_req->uh->_pktsize) {
+                                wsgi_req->proto_parser_remains = wsgi_req->proto_parser_pos - (4 + wsgi_req->uh->_pktsize);
+                                wsgi_req->proto_parser_remains_buf = wsgi_req->buffer + wsgi_req->uh->_pktsize;
+                                return UWSGI_OK;
+                        }
+                        if (wsgi_req->uh->_pktsize > uwsgi.buffer_size) {
+                                uwsgi_log("invalid request block size: %u (max %u)...skip\n", wsgi_req->uh->_pktsize, uwsgi.buffer_size);
+				wsgi_req->write_errors++;
+                                return -1;
+                        }
+                }
+                return UWSGI_AGAIN;
+        }
 	if (len < 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
 			return UWSGI_AGAIN;
