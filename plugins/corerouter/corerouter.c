@@ -316,6 +316,10 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
                 usr->proto = val;
                 usr->proto_len = vallen;
         }
+	else if (!uwsgi_strncmp("vassal", 6, key, keylen)) {
+                usr->vassal = val;
+                usr->vassal_len = vallen;
+        }
 }
 
 void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
@@ -1073,6 +1077,7 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 				if (uwsgi_stats_keyvaln_comma(us, "key", s_slot->key, s_slot->keylen)) goto end0;
 				if (uwsgi_stats_keylong_comma(us, "hash", (unsigned long long) s_slot->hash)) goto end0;
 				if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) s_slot->hits)) goto end0;
+				if (uwsgi_stats_keyvaln_comma(us, "vassal", s_slot->vassal, s_slot->vassal_len)) goto end0;
 #ifdef UWSGI_SSL
 				if (uwsgi_stats_keylong_comma(us, "sni_enabled", (unsigned long long) s_slot->sni_enabled)) goto end0;
 #endif

@@ -482,6 +482,11 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->algo = usr->algo;
 		if (!current_slot->algo) current_slot->algo = uwsgi.subscription_algo;
 
+		if (usr->vassal_len > 0 && usr->vassal_len <= 0xff) {
+			memcpy(current_slot->vassal, usr->vassal, usr->vassal_len);
+			current_slot->vassal_len = usr->vassal_len;
+		}
+
 
 		if (!slot[hash_key] || current_slot->prev == NULL) {
 			slot[hash_key] = current_slot;
@@ -931,6 +936,7 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 	char *s2_proto = NULL;
 	char *s2_algo = NULL;
 	char *s2_backup = NULL;
+	char *s2_vassal = NULL;
 	struct uwsgi_buffer *ub = NULL;
 
 	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
@@ -949,6 +955,7 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 		"proto", &s2_proto,
 		"algo", &s2_algo,
 		"backup", &s2_backup,
+		"vassal", &s2_vassal,
 		NULL)) {
 		return;
 	}
@@ -1020,6 +1027,11 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
         	goto end;
         if (uwsgi_buffer_append_keynum(ub, "backup", 6, backup))
         	goto end;
+
+	if (s2_vassal) {
+                if (uwsgi_buffer_append_keyval(ub, "vassal", 6, s2_vassal, strlen(s2_vassal)))
+                        goto end;
+	}
 
         if (s2_sni_key) {
                 if (uwsgi_buffer_append_keyval(ub, "sni_key", 7, s2_sni_key, strlen(s2_sni_key)))
@@ -1093,6 +1105,8 @@ end:
 		free(s2_algo);
 	if (s2_backup)
 		free(s2_backup);
+	if (s2_vassal)
+		free(s2_vassal);
 }
 
 void uwsgi_subscribe_all(uint8_t cmd, int verbose) {
