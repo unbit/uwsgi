@@ -160,6 +160,15 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 	if (!current_slot)
 		return NULL;
 
+	// is the slot inactive ?
+	if (current_slot->inactive) {
+		// is a vassal configured for this node ?
+		if (current_slot->vassal_len) {
+			// TODO tell an Emperor to spawn a vassal
+		}
+		return NULL;
+	}
+
 	// slot found, move up in the list increasing hits
 	current_slot->hits++;
 	time_t now = uwsgi_now();
@@ -486,13 +495,14 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 			memcpy(current_slot->vassal, usr->vassal, usr->vassal_len);
 			current_slot->vassal_len = usr->vassal_len;
 		}
+		current_slot->inactive = usr->inactive;
 
 
 		if (!slot[hash_key] || current_slot->prev == NULL) {
 			slot[hash_key] = current_slot;
 		}
 
-		uwsgi_log("[uwsgi-subscription for pid %d] new pool: %.*s (hash key: %d, algo: %s)\n", (int) uwsgi.mypid, usr->keylen, usr->key, current_slot->hash, uwsgi_subscription_algo_name(current_slot->algo));
+		uwsgi_log("[uwsgi-subscription for pid %d] new pool: %.*s (hash key: %d, algo: %s)%s\n", (int) uwsgi.mypid, usr->keylen, usr->key, current_slot->hash, uwsgi_subscription_algo_name(current_slot->algo), current_slot->inactive ? " [inactive]" : "");
 		uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new node: %.*s (weight: %d, backup: %d)\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, usr->weight, usr->backup_level);
 
 		if (current_slot->nodes->notify[0]) {
@@ -937,6 +947,7 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 	char *s2_algo = NULL;
 	char *s2_backup = NULL;
 	char *s2_vassal = NULL;
+	char *s2_inactive = NULL;
 	struct uwsgi_buffer *ub = NULL;
 
 	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
@@ -956,6 +967,7 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 		"algo", &s2_algo,
 		"backup", &s2_backup,
 		"vassal", &s2_vassal,
+		"inactive", &s2_inactive,
 		NULL)) {
 		return;
 	}
@@ -1058,6 +1070,11 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
                         goto end;
 	}
 
+	if (s2_inactive) {
+                if (uwsgi_buffer_append_keyval(ub, "inactive", 8, s2_inactive, strlen(s2_inactive)))
+                        goto end;
+	}
+
         if (uwsgi.subscription_notify_socket) {
                 if (uwsgi_buffer_append_keyval(ub, "notify", 6, uwsgi.subscription_notify_socket, strlen(uwsgi.subscription_notify_socket)))
                         goto end;
@@ -1103,6 +1120,8 @@ end:
 		free(s2_proto);
 	if (s2_algo)
 		free(s2_algo);
+	if (s2_inactive)
+		free(s2_inactive);
 	if (s2_backup)
 		free(s2_backup);
 	if (s2_vassal)
