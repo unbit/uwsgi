@@ -4212,6 +4212,9 @@ struct uwsgi_instance {
 
 	// uWSGI 2.1 (vassal's attributes)
 	struct uwsgi_dyn_dict *attrs;
+
+	// when 1 the instance must be manually activated
+	int suspended;
 };
 
 struct uwsgi_instance *emperor_get_by_fd(int);
