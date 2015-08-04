@@ -2808,6 +2808,10 @@ struct uwsgi_server {
 
 	char *emperor_trigger_socket;
 	int emperor_trigger_socket_fd;
+
+	char *emperor_command_socket;
+	int emperor_command_socket_fd;
+	int emperor_wait_for_command;
 };
 
 struct uwsgi_rpc {

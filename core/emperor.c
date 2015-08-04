@@ -1152,6 +1152,14 @@ void emperor_add_with_attrs(struct uwsgi_emperor_scanner *ues, char *name, time_
 	n_ui->pipe_config[0] = -1;
 	n_ui->pipe_config[1] = -1;
 
+	// Check if the Emperor has to wait for a command before spawning a vassal
+	if (uwsgi.emperor_command_socket) {
+		if (uwsgi.emperor_wait_for_command) {
+			uwsgi_log("[uwsgi-emperor] %s -> \"wait-for-command\" instance detected, waiting for the spawn command ...\n", name);
+			return;
+		}
+	}
+
 	// ok here we check if we need to bind to the specified socket or continue with the activation
 	if (socket_name) {
 		n_ui->on_demand_fd = on_demand_bind(socket_name);
