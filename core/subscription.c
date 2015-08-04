@@ -165,6 +165,8 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 		// is a vassal configured for this node ?
 		if (current_slot->vassal_len) {
 			// TODO tell an Emperor to spawn a vassal
+			// the Emperor command socket could be mapped
+			// to a fixed address or passed in the subscription packet
 		}
 		return NULL;
 	}
