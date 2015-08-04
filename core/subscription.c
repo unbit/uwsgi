@@ -351,6 +351,10 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 				if (!node->weight)
 					node->weight = 1;
 				node->last_requests = 0;
+				if (!usr->inactive && current_slot->inactive) {
+					current_slot->inactive = 0;
+					uwsgi_log("[uwsgi-subscription for pid %d] pool %.*s is now active\n", (int) uwsgi.mypid, usr->keylen, usr->key);
+				}
 				return node;
 			}
 			old_node = node;
@@ -405,6 +409,10 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node->next = NULL;
 
 		uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new node: %.*s (weight: %d, backup: %d)\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, usr->weight, usr->backup_level);
+		if (!usr->inactive && current_slot->inactive) {
+			current_slot->inactive = 0;
+			uwsgi_log("[uwsgi-subscription for pid %d] pool %.*s is now active\n", (int) uwsgi.mypid, usr->keylen, usr->key);
+		}
 		if (node->notify[0]) {
 			char buf[1024];
 			int ret = snprintf(buf, 1024, "[subscription ack] %.*s => new node: %.*s", usr->keylen, usr->key, usr->address_len, usr->address);
