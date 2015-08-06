@@ -56,14 +56,14 @@ static struct uwsgi_option uwsgi_lua_options[] = {
 };
 
 static int ulua_metatable_tostring(lua_State *L, int obj) {
-	// replaces table with __tostring result, or do nothing in case of fail
+	// replace table with __tostring result, or do nothing in case of fail
 	
 	if (!(luaL_getmetafield(L, obj, "__tostring"))) {
 		return 0;
 	}
 	
 	if (!(lua_isfunction(L, -1))) {
-		ulua_log("__tostring is not a function", lua_tostring(L, -1));
+		ulua_log("__tostring is not a function");
 		lua_pop(L, 1);
 		return 0;
 	}
@@ -84,6 +84,25 @@ static int ulua_metatable_tostring(lua_State *L, int obj) {
 	lua_pop(L, 1);
 	
 	return 0;
+}
+
+
+static int ulua_metatable_call(lua_State *L, int obj) {
+	// get __call attr and place it before table, or do nothing in case of fail
+
+	if (!(luaL_getmetafield(L, obj, "__call"))) {
+		return 0;
+	}
+	
+	if (!(lua_isfunction(L, -1))) {
+		ulua_log("__call is not a function");
+		lua_pop(L, 1);
+		return 0;
+	}
+	
+	lua_insert(L, obj-1);
+	
+	return 1;
 }
 
 static int uwsgi_api_log(lua_State *L) {
@@ -120,6 +139,7 @@ static int uwsgi_api_log(lua_State *L) {
 	}
 
 	uwsgi_log("\n");
+	
 	return 0;
 }
 
@@ -165,38 +185,81 @@ static int uwsgi_api_rpc(lua_State *L) {
 	return 1;
 }
 
+static int uwsgi_api_rpc_register_key(const char *key, size_t len) {
+
+	// exists??
+	size_t i;
+	int offset = uwsgi.mywid * uwsgi.rpc_max;
+	
+	for(i = 0; i < uwsgi.shared->rpc_count[uwsgi.mywid]; i++) {
+		if (!strncmp(key, (&uwsgi.rpc_table[offset + i])->name, len)) {
+			if ((&uwsgi.rpc_table[offset + i])->plugin == &lua_plugin) {
+				return 1;
+			}
+			
+			break;
+		}
+	}
+	
+	// no
+	char *name = (char *) uwsgi_malloc(sizeof(char) * len);
+	
+	memcpy(name, key, sizeof(char) * len);
+	
+	if (uwsgi_register_rpc(name, &lua_plugin, 0, name)) {
+		// error
+		free(name);
+		return 0;
+	} 
+
+	return 1;
+}
+
 static int uwsgi_api_register_rpc(lua_State *L) {
+	// legacy rpc register func
 
 	uint8_t argc = lua_gettop(L);
-	const char *name;
-	// a hack for 64bit;
-	int func;
-	long lfunc;
-
+	
 	if (argc < 2) {
 		lua_pushnil(L);
 		return 1;
+	} else if (argc > 2) {
+		lua_pop(L, argc - 2);
 	}
-
-	name = lua_tostring(L, 1);
-
-	lua_pushvalue(L, 2);
-	func = luaL_ref(L, LUA_REGISTRYINDEX);
-
-#ifdef UWSGI_DEBUG
-	ulua_log("registered function %d in global table of lua_State %d", func, ULUA_MYWID);
-#endif
-
-	lfunc = func;
-
-        if (uwsgi_register_rpc((char *)name, &lua_plugin, 0, (void *) lfunc)) {
-		lua_pushnil(L);
-        }
-	else {
+	
+	lua_rawgeti(L, LUA_REGISTRYINDEX, 2);
+	
+	lua_pushvalue(L, -3);
+	lua_pushvalue(L, -3);
+	lua_settable(L, -3);
+	lua_pushvalue(L, -3);
+	
+	lua_rawget(L, -2);
+	
+	if (!(lua_isnil(L, -1))) {
 		lua_pushboolean(L, 1);
 	}
-
+	
 	return 1;
+}
+
+static int uwsgi_api_register_rpc_newindex(lua_State *L) {
+	// 3 args: table, key(string or number), value(not nil)
+	
+	uint8_t argc = lua_gettop(L);
+	size_t len;
+	
+	if (argc != 3) {
+		return 0;
+	}
+	
+	const char *key = lua_tolstring(L, -2, &len);
+
+	if (len && !(lua_isnil(L, -1)) && uwsgi_api_rpc_register_key(key, len)) {
+		lua_rawset(L, -3);
+	}
+	
+	return 0;
 }
 
 static int uwsgi_api_cache_set(lua_State *L) {
@@ -814,6 +877,17 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 	// reserve ref 1 for ws func
 	lua_pushvalue(L, -1);
 	luaL_ref(L, LUA_REGISTRYINDEX);
+	
+	// rpc metatable ref 2
+	lua_newtable(L);
+	lua_newtable(L);
+	lua_pushcfunction(L, uwsgi_api_register_rpc_newindex);
+	lua_setfield(L, -2, "__newindex");
+	lua_setmetatable(L, -2);
+	lua_pushvalue(L, -1);
+	luaL_ref(L, LUA_REGISTRYINDEX);
+	lua_setfield(L, -2, "rpc_ref");
+	
 
 	// init main app
 	uslnargs = lua_gettop(L);
@@ -1165,46 +1239,51 @@ static int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
 
 static uint64_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t argvs[], char **buffer) {
 
-        uint8_t i;
-        const char *sv;
-        size_t sl;
-	long lfunc = (long) func;
-	int ifunc = lfunc;
+	uint8_t i;
+	const char *sv;
+	size_t sl;
 
+	int type;
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	
 	lua_State *L = ULUA_WORKER_STATE[wsgi_req->async_id];
-
-#ifdef UWSGI_DEBUG
-	ulua_log("get function %d", ifunc);
-#endif
-	lua_rawgeti(L, LUA_REGISTRYINDEX, ifunc);
-
-        for(i=0;i<argc;i++) {
-		lua_pushlstring(L, argv[i], argvs[i]);
-        }
-
-        if (lua_pcall(L, argc, 1, 0) != 0) {
-		ulua_log("error running function `f': %s", lua_tostring(L, -1));
-		return 0;
-        }
-
+	lua_rawgeti(L, LUA_REGISTRYINDEX, 2);
 	
-	sv = lua_tolstring(L, -1, &sl);
-
-#ifdef UWSGI_DEBUG
-	ulua_log("sv = %s sl = %lu", sv, (unsigned long) sl);
-#endif
-	if (sl > 0) {
-		*buffer = uwsgi_malloc(sl);
-		memcpy(*buffer, sv, sl);
-		lua_pop(L, 1);
-		return sl;
+	lua_pushstring(L, (char *) func);
+	lua_rawget(L, -2);
+	
+	type = lua_type(L, -1);
+	
+	if (!(type == LUA_TFUNCTION) && !(type == LUA_TTABLE && ulua_metatable_call(L, -1))) {
+		ulua_log("rpc: attempt to call a %s value", lua_typename(L, type));
+		lua_pop(L, 2);
+		return 0;
+	}
+	
+	for(i = 0; i < argc; i++) {
+		lua_pushlstring(L, argv[i], argvs[i]);
 	}
 
-	lua_pop(L, 1);
-        return 0;
+	if (type == LUA_TTABLE) {
+		++argc; //table is the first arg
+	}
+	
+	if (lua_pcall(L, argc, 1, 0) != 0) {
+		ulua_log("rpc: error running function `f': %s", lua_tostring(L, -1));
+		lua_pop(L, 2);
+		return 0;
+	}
 
+	sv = lua_tolstring(L, -1, &sl);
+
+	if (sl > 0) {
+		*buffer = uwsgi_malloc(sizeof(char) * sl);
+		memcpy(*buffer, sv, sizeof(char) * sl);
+	}
+
+	lua_pop(L, 2);
+	
+	return sl;
 }
 
 static void uwsgi_lua_configurator_array(lua_State *L) { 
