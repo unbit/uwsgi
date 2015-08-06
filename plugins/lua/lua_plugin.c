@@ -5,10 +5,10 @@
 #include <lauxlib.h>
 
 #if LUA_VERSION_NUM < 502
-# define luaL_newuwsgilib(L,l) luaL_register(L, "uwsgi",l)
+# define ulua_pushapi luaL_register
 # define lua_rawlen lua_objlen
 #else
-# define luaL_newuwsgilib(L,l) lua_newtable(L);luaL_setfuncs (L, l, 0);lua_pushvalue(L,-1);lua_setglobal(L,"uwsgi")
+# define ulua_pushapi(L,key,api) lua_newtable(L);luaL_setfuncs(L,api,0);lua_pushvalue(L,-1);lua_setglobal(L,key)
 #endif
 
 extern struct uwsgi_server uwsgi;
@@ -29,8 +29,6 @@ struct uwsgi_lua {
 #define ulua_log(c, ar...) uwsgi_log(ULUA_LOG_HEADER" "c"\n", ##ar)
 
 struct uwsgi_plugin lua_plugin;
-
-#define lca(L, n)		ulua_check_args(L, __FUNCTION__, n)
 
 static void uwsgi_opt_luashell(char *opt, char *value, void *foobar) {
 
@@ -88,32 +86,40 @@ static int ulua_metatable_tostring(lua_State *L, int obj) {
 	return 0;
 }
 
-static void ulua_check_args(lua_State *L, const char *func, int n) {
-	int args = lua_gettop(L);
-	char error[1024];
-	if (args != n) {
-		if (n == 1) {
-			snprintf(error, 1024, "uwsgi.%s takes 1 parameter", func+10);
-		}
-		else {
-			snprintf(error, 1024, "uwsgi.%s takes %d parameters", func+10, n);
-		}
-		lua_pushstring(L, error);
-        	lua_error(L);
-	}
-}
-
 static int uwsgi_api_log(lua_State *L) {
+	int16_t argc = lua_gettop(L);
+	unsigned long point;
+	int type;
 	
-	const char *logline ;
-
-	lca(L, 1);
-
-	if (lua_isstring(L, 1)) {
-		logline = lua_tostring(L, 1);
-                ulua_log( "%s", logline);
+	if (!(argc)) {
+		return 0;
+	}
+	
+	uwsgi_log(ULUA_LOG_HEADER);
+	
+	for(argc = -argc; argc < 0; argc++) {
+		type = lua_type(L, argc);
+		
+		switch(type) {
+			case LUA_TNIL: uwsgi_log(" nil"); continue;
+			
+			case LUA_TBOOLEAN: uwsgi_log(lua_toboolean(L, argc) ? " true" : " false"); continue;
+			
+			case LUA_TTABLE: if(!(ulua_metatable_tostring(L, argc))) break;
+			case LUA_TNUMBER:
+			case LUA_TSTRING: uwsgi_log(" %s", lua_tostring(L, argc)); continue;			
+		}
+		
+		point = (unsigned long) (lua_topointer(L, -argc));
+		
+		if (point) {
+			uwsgi_log(" %s: 0x%.8x", lua_typename(L, type), point);
+		} else {
+			uwsgi_log(" %s", lua_typename(L, type));
+		}
 	}
 
+	uwsgi_log("\n");
 	return 0;
 }
 
@@ -778,6 +784,10 @@ static int uwsgi_lua_init(){
 	return 0;
 }
 
+static int uwsgi_lua_dummy_response(lua_State *L) {
+	lua_pushstring(L, "500");
+	return 1;
+}
 
 static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 	int i;
@@ -790,7 +800,7 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 
 	// init worker state
 	luaL_openlibs(L);
-	luaL_newuwsgilib(L, uwsgi_api);
+	ulua_pushapi(L, "uwsgi", uwsgi_api);
 
 	lua_pushstring(L, UWSGI_VERSION);
 	lua_setfield(L, -2, "version");
@@ -824,6 +834,10 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 			ulua_log("unable to load Lua file %s: %s", ulua.filename, lua_tostring(L, -1));
 			lua_pop(L, 1);
 		} else {
+			if (uslnargs > 0) {
+				lua_insert(L, -uslnargs-1);
+			}
+		
 			if (lua_pcall(L, uslnargs, 1, 0) != 0) {
 				ulua_log("%s", lua_tostring(L, -1));
 				lua_pop(L, 1);
@@ -858,7 +872,7 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 		}		
 			
 		ulua_log("Can't find WSAPI entry point (no function, nor a table with function'run').");
-		i = luaL_dostring(L, "return function() return '500'; end");
+		lua_pushcfunction(L, uwsgi_lua_dummy_response);
 	}
 	
 	lua_rawseti(L, LUA_REGISTRYINDEX, 1);
@@ -1085,7 +1099,7 @@ static char *uwsgi_lua_code_string(char *id, char *code, char *func, char *key, 
 		L = luaL_newstate();
                 luaL_openlibs(L);
                 if (luaL_loadfile(L, code) || lua_pcall(L, 0, 0, 0)) {
-					ulua_log("unable to load file %s: %s", code, lua_tostring(L, -1));
+                ulua_log("unable to load file %s: %s", code, lua_tostring(L, -1));
 			lua_close(L);
 			L = NULL;
 			return NULL;
