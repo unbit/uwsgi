@@ -26,6 +26,10 @@ struct uwsgi_lua {
 #define ULUA_WORKER_STATE ulua.state[ULUA_MYWID]
 #define ULUA_LOG_HEADER "[uwsgi-lua]"
 
+#define ULUA_WSAPI_REF 1
+#define ULUA_RPC_REF 2
+#define ULUA_SIGNAL_REF 3
+
 #define ulua_log(c, ar...) uwsgi_log(ULUA_LOG_HEADER" "c"\n", ##ar)
 
 struct uwsgi_plugin lua_plugin;
@@ -55,7 +59,7 @@ static struct uwsgi_option uwsgi_lua_options[] = {
 
 };
 
-static int ulua_metatable_tostring(lua_State *L, int obj) {
+static int uwsgi_lua_metatable_tostring(lua_State *L, int obj) {
 	// replace table with __tostring result, or do nothing in case of fail
 	
 	if (!(luaL_getmetafield(L, obj, "__tostring"))) {
@@ -87,7 +91,7 @@ static int ulua_metatable_tostring(lua_State *L, int obj) {
 }
 
 
-static int ulua_metatable_call(lua_State *L, int obj) {
+static int uwsgi_lua_metatable_call(lua_State *L, int obj) {
 	// get __call attr and place it before table, or do nothing in case of fail
 
 	if (!(luaL_getmetafield(L, obj, "__call"))) {
@@ -103,6 +107,22 @@ static int ulua_metatable_call(lua_State *L, int obj) {
 	lua_insert(L, obj-1);
 	
 	return 1;
+}
+
+static int uwsgi_api_signal(lua_State *L) {
+	uint8_t argc = lua_gettop(L);
+
+	if (argc > 0 && lua_isnumber(L, 1)) {
+		if (argc > 1 && lua_isstring(L, 2)) {
+			lua_pushnumber(L, uwsgi_remote_signal_send((char *) lua_tostring(L, -2), (uint8_t) lua_tonumber(L, 1)));
+			
+			return 1;
+		} else {
+			uwsgi_signal_send(uwsgi.signal_socket, (uint8_t) lua_tonumber(L, 1));
+		}
+	}
+
+	return 0;
 }
 
 static int uwsgi_api_log(lua_State *L) {
@@ -124,12 +144,12 @@ static int uwsgi_api_log(lua_State *L) {
 			
 			case LUA_TBOOLEAN: uwsgi_log(lua_toboolean(L, argc) ? " true" : " false"); continue;
 			
-			case LUA_TTABLE: if(!(ulua_metatable_tostring(L, argc))) break;
+			case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, argc))) break;
 			case LUA_TNUMBER:
 			case LUA_TSTRING: uwsgi_log(" %s", lua_tostring(L, argc)); continue;			
 		}
 		
-		point = (unsigned long) (lua_topointer(L, -argc));
+		point = (unsigned long) (lua_topointer(L, argc));
 		
 		if (point) {
 			uwsgi_log(" %s: 0x%.8x", lua_typename(L, type), point);
@@ -147,8 +167,7 @@ static int uwsgi_api_rpc(lua_State *L) {
 	uint8_t argc = lua_gettop(L);
 	
 	if (argc < 2) {
-		lua_pushnil(L);
-		return 1;
+		return 0;
 	}
 	
 	argc-=2;
@@ -223,17 +242,16 @@ static int uwsgi_api_register_rpc(lua_State *L) {
 	if (argc < 2) {
 		lua_pushnil(L);
 		return 1;
-	} else if (argc > 2) {
-		lua_pop(L, argc - 2);
 	}
 	
-	lua_rawgeti(L, LUA_REGISTRYINDEX, 2);
+	lua_rawgeti(L, LUA_REGISTRYINDEX, ULUA_RPC_REF);
 	
-	lua_pushvalue(L, -3);
-	lua_pushvalue(L, -3);
+	lua_pushvalue(L, 1);
+	lua_pushvalue(L, 2);
+	
 	lua_settable(L, -3);
-	lua_pushvalue(L, -3);
 	
+	lua_pushvalue(L, 1);
 	lua_rawget(L, -2);
 	
 	if (!(lua_isnil(L, -1))) {
@@ -255,7 +273,7 @@ static int uwsgi_api_register_rpc_newindex(lua_State *L) {
 	
 	const char *key = lua_tolstring(L, -2, &len);
 
-	if (len && !(lua_isnil(L, -1)) && uwsgi_api_rpc_register_key(key, len)) {
+	if (len && !(lua_isnil(L, -1)) && uwsgi_api_rpc_register_key(key, len + 1)) {
 		lua_rawset(L, -3);
 	}
 	
@@ -330,22 +348,31 @@ error:
 static int uwsgi_api_register_signal(lua_State *L) {
 
 	int args = lua_gettop(L);
-	uint8_t sig;
-	long lhandler;
 	const char *who;
+	uint8_t sig;
+
+	if (args < 3 || !(lua_isnumber(L, 1))) { // non number value gives us signal 0 from lua_tonumber() result
+		lua_pushnil(L);
+		return 1;
+	}
 	
-	if (args >= 3) {
-
-		sig = lua_tonumber(L, 1);
-		who = lua_tostring(L, 2);
+	sig = (uint8_t) lua_tonumber(L, 1);
+	who = lua_tostring(L, 2);
+	
+	if ((uwsgi.mywid == 0 && (&uwsgi.shared->signal_table[sig])->handler) // we are master and alredy registered?
+		|| !(uwsgi_register_signal(sig, (char *)who, (void *)(1 /* unused */), 6))) { 
+		
+		lua_rawgeti(L, LUA_REGISTRYINDEX, ULUA_SIGNAL_REF);
+		
 		lua_pushvalue(L, 3);
-		lhandler = luaL_ref(L, LUA_REGISTRYINDEX);
-
-		uwsgi_register_signal(sig, (char *)who, (void *) lhandler, 6);
+		lua_rawseti(L, -2, sig);
+		
+		lua_pushboolean(L, 1);
+		return 1;
 	}
 
 	lua_pushnil(L);
-        return 1;
+	return 1;
 }
 
 static int uwsgi_api_cache_clear(lua_State *L) {
@@ -798,6 +825,7 @@ static const luaL_Reg uwsgi_api[] = {
   {"register_signal", uwsgi_api_register_signal},
   {"register_rpc", uwsgi_api_register_rpc},
   {"rpc", uwsgi_api_rpc},
+  {"signal", uwsgi_api_signal},
   {"req_input_read", uwsgi_lua_input},
 
   {"websocket_handshake", uwsgi_api_websocket_handshake},
@@ -885,10 +913,17 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 	lua_setfield(L, -2, "__newindex");
 	lua_setmetatable(L, -2);
 	lua_pushvalue(L, -1);
+	
 	luaL_ref(L, LUA_REGISTRYINDEX);
 	lua_setfield(L, -2, "rpc_ref");
 	
-
+	// signal table ref 3
+	lua_newtable(L);
+	lua_pushvalue(L, -1);
+	
+	luaL_ref(L, LUA_REGISTRYINDEX);
+	lua_setfield(L, -2, "signal_ref");
+	
 	// init main app
 	uslnargs = lua_gettop(L);
 
@@ -949,7 +984,7 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 		lua_pushcfunction(L, uwsgi_lua_dummy_response);
 	}
 	
-	lua_rawseti(L, LUA_REGISTRYINDEX, 1);
+	lua_rawseti(L, LUA_REGISTRYINDEX, ULUA_WSAPI_REF);
 			
 	//init additional threads for current worker
 	if(cores > 0) {
@@ -997,7 +1032,7 @@ async_coroutine:
 					lua_pushvalue(L, -1);
 					continue; // retry
 			
-				case LUA_TTABLE: if(!(ulua_metatable_tostring(L, -1))) break;
+				case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, -1))) break;
 				case LUA_TNUMBER:
 				case LUA_TSTRING:
 				
@@ -1018,7 +1053,7 @@ async_coroutine:
 	}
 
 	// put function in the stack
-	lua_rawgeti(L, LUA_REGISTRYINDEX, 1);
+	lua_rawgeti(L, LUA_REGISTRYINDEX, ULUA_WSAPI_REF);
 
 	// put cgi vars in the stack
 	lua_newtable(L);
@@ -1108,7 +1143,7 @@ async_coroutine:
 	
 			while (lua_pcall(L, 0, 1, 0) == 0) {				
 				switch(lua_type(L, -1)) {
-					case LUA_TTABLE: if(!(ulua_metatable_tostring(L, -1))) break;
+					case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, -1))) break;
 					case LUA_TNUMBER:
 					case LUA_TSTRING:
 							
@@ -1122,7 +1157,7 @@ async_coroutine:
 			
 			break;
 			
-		case LUA_TTABLE: if(!(ulua_metatable_tostring(L, -1))) break;
+		case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, -1))) break;
 		case LUA_TNUMBER:
 		case LUA_TSTRING:
 			
@@ -1214,27 +1249,37 @@ static char *uwsgi_lua_code_string(char *id, char *code, char *func, char *key, 
 
 static int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
 
+	int type;
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	
 	lua_State *L = ULUA_WORKER_STATE[wsgi_req->async_id];
+	
+	lua_rawgeti(L, LUA_REGISTRYINDEX, ULUA_SIGNAL_REF);
+	lua_rawgeti(L, -1, sig);
 
 #ifdef UWSGI_DEBUG
 	ulua_log("managing signal handler on core %d", wsgi_req->async_id);
 #endif
 
-	lua_rawgeti(L, LUA_REGISTRYINDEX, (long) handler);
+	type = lua_type(L, -1);
 
-	lua_pushnumber(L, sig);
-
-	if (lua_pcall(L, 1, 1, 0) != 0) {
-		ulua_log("error running function `f': %s",
-                 lua_tostring(L, -1));
-
+	if (!(type == LUA_TFUNCTION) && !(type == LUA_TTABLE && uwsgi_lua_metatable_call(L, -1))) {
+		ulua_log("signal: attempt to call a %s value", lua_typename(L, type));
+		lua_pop(L, 2);
 		return -1;
 	}
 
+	lua_pushnumber(L, sig);
+
+	if (lua_pcall(L, 1 + (type == LUA_TTABLE), 1, 0) != 0) {
+		ulua_log("signal: error running function `f': %s",
+		lua_tostring(L, -1));
+		lua_pop(L, 2);
+		return -1;
+	}
+
+	lua_pop(L, 2);
 	return 0;
-	
 }
 
 static uint64_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t argvs[], char **buffer) {
@@ -1247,14 +1292,14 @@ static uint64_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t a
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	
 	lua_State *L = ULUA_WORKER_STATE[wsgi_req->async_id];
-	lua_rawgeti(L, LUA_REGISTRYINDEX, 2);
+	lua_rawgeti(L, LUA_REGISTRYINDEX, ULUA_RPC_REF);
 	
 	lua_pushstring(L, (char *) func);
 	lua_rawget(L, -2);
 	
 	type = lua_type(L, -1);
 	
-	if (!(type == LUA_TFUNCTION) && !(type == LUA_TTABLE && ulua_metatable_call(L, -1))) {
+	if (!(type == LUA_TFUNCTION) && !(type == LUA_TTABLE && uwsgi_lua_metatable_call(L, -1))) {
 		ulua_log("rpc: attempt to call a %s value", lua_typename(L, type));
 		lua_pop(L, 2);
 		return 0;
