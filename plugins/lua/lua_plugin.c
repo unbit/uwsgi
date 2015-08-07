@@ -349,6 +349,7 @@ static int uwsgi_api_register_signal(lua_State *L) {
 
 	int args = lua_gettop(L);
 	const char *who;
+	size_t len;
 	uint8_t sig;
 
 	if (args < 3 || !(lua_isnumber(L, 1))) { // non number value gives us signal 0 from lua_tonumber() result
@@ -357,10 +358,16 @@ static int uwsgi_api_register_signal(lua_State *L) {
 	}
 	
 	sig = (uint8_t) lua_tonumber(L, 1);
-	who = lua_tostring(L, 2);
+	who = lua_tolstring(L, 2, &len);
 	
 	if ((uwsgi.mywid == 0 && (&uwsgi.shared->signal_table[sig])->handler) // we are master and alredy registered?
 		|| !(uwsgi_register_signal(sig, (char *)who, (void *)(1 /* unused */), 6))) { 
+		
+		if (uwsgi.mywid > 0) { // signal router hax
+			uwsgi_lock(uwsgi.signal_table_lock);
+			strncpy((&uwsgi.shared->signal_table[sig])->receiver, who, len + 1);
+			uwsgi_unlock(uwsgi.signal_table_lock);
+		}
 		
 		lua_rawgeti(L, LUA_REGISTRYINDEX, ULUA_SIGNAL_REF);
 		
@@ -1460,6 +1467,15 @@ static void uwsgi_lua_init_apps() {
 	}
 }
 	
+static void uwsgi_lua_atexit() {
+	lua_State **Ls = ULUA_WORKER_STATE;
+	int i;
+	
+	for (i = 0; i < uwsgi.threads; i++) {
+		lua_close(Ls[i]);
+	}
+}
+	
 struct uwsgi_plugin lua_plugin = {
 
 	.name = "lua",
@@ -1479,6 +1495,7 @@ struct uwsgi_plugin lua_plugin = {
 	.code_string = uwsgi_lua_code_string,
 	.rpc = uwsgi_lua_rpc,
 
+	.atexit = uwsgi_lua_atexit,
 	.on_load = uwsgi_register_lua_features,
 };
 
