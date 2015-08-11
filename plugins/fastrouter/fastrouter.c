@@ -391,6 +391,7 @@ static int fr_retry(struct corerouter_peer *peer) {
         }
 
 retry:
+
         // start async connect (again)
         cr_connect(peer, fr_instance_connected);
         return 0;

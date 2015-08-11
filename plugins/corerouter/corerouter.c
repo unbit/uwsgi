@@ -512,6 +512,8 @@ static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr, time_t now)
 				peer->retries++;
 				// ignore return value
 				peer->session->retry(peer);
+				// increase timeout;
+				urbt->value += peer->current_timeout;
 				continue;
 			}
 			peer->timed_out = 1;
@@ -524,6 +526,7 @@ static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr, time_t now)
 
 		break;
 	}
+
 }
 
 int uwsgi_cr_set_hooks(struct corerouter_peer *peer, ssize_t (*read_hook)(struct corerouter_peer *), ssize_t (*write_hook)(struct corerouter_peer *)) {
@@ -937,7 +940,6 @@ void uwsgi_corerouter_loop(int id, void *data) {
 				ssize_t ret = hook(peer);
 				// connection closed
 				if (ret == 0) {
-					uwsgi_log("CAZZ\n");
 					corerouter_close_peer(ucr, peer);
 					continue;
 				}
