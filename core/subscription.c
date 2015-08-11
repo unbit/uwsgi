@@ -160,17 +160,6 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 	if (!current_slot)
 		return NULL;
 
-	// is the slot inactive ?
-	if (current_slot->inactive) {
-		// is a vassal configured for this node ?
-		if (current_slot->vassal_len) {
-			// TODO tell an Emperor to spawn a vassal
-			// the Emperor command socket could be mapped
-			// to a fixed address or passed in the subscription packet
-		}
-		return NULL;
-	}
-
 	// slot found, move up in the list increasing hits
 	current_slot->hits++;
 	time_t now = uwsgi_now();
@@ -965,6 +954,7 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 		"key", &s2_key,
 		"socket", &s2_socket,
 		"addr", &s2_addr,
+		"address", &s2_addr,
 		"weight", &s2_weight,
 		"modifier1", &s2_modifier1,
 		"modifier2", &s2_modifier2,

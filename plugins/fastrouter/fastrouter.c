@@ -236,6 +236,7 @@ static ssize_t fr_instance_connected(struct corerouter_peer *peer) {
 	return fr_instance_send_request(peer);
 }
 
+
 // called after receaving the uwsgi header (read vars)
 static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 	struct fastrouter_session *fr = (struct fastrouter_session *) main_peer->session;

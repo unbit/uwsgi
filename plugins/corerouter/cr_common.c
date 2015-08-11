@@ -277,3 +277,8 @@ void uwsgi_corerouter_manage_internal_subscription(struct uwsgi_corerouter *ucr,
 	}
 
 }
+
+int corerouter_spawn_vassal(struct uwsgi_subscribe_node *node) {
+	uwsgi_log("spawning vassal %.*s\n", node->slot->vassal_len, node->slot->vassal);
+	return 0;
+}

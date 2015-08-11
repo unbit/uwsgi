@@ -328,17 +328,38 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
 void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
 	struct corerouter_session *cs = peer->session;
 
-	
 	// manage subscription reference count
 	if (ucr->subscriptions && peer->un && peer->un->len > 0) {
+
+		if (peer->un->slot->inactive && peer->can_retry && peer->retries < (size_t) ucr->max_retries) {
+			corerouter_spawn_vassal(peer->un);
+                        peer->defer_connect = 1;
+
+			// tell the corerouter to stop listening for fd events
+        		if (peer->fd != -1) {
+                		close(peer->fd);
+                		peer->session->corerouter->cr_table[peer->fd] = NULL;
+                		peer->fd = -1;
+                		peer->hook_read = NULL;
+                		peer->hook_write = NULL;
+        		}
+
+                	// set new timeout
+			peer->current_timeout = 5;
+        		peer->timeout = corerouter_reset_timeout(ucr, peer);
+			peer->current_timeout = ucr->socket_timeout;
+			return;
+		}
+
                 // decrease reference count
 #ifdef UWSGI_DEBUG
-               uwsgi_log("[1] node %.*s refcnt: %llu\n", peer->un->len, peer->un->name, peer->un->reference);
+		uwsgi_log("[1] node %.*s refcnt: %llu\n", peer->un->len, peer->un->name, peer->un->reference);
 #endif
-               peer->un->reference--;
+		peer->un->reference--;
 #ifdef UWSGI_DEBUG
-               uwsgi_log("[2] node %.*s refcnt: %llu\n", peer->un->len, peer->un->name, peer->un->reference);
+		uwsgi_log("[2] node %.*s refcnt: %llu\n", peer->un->len, peer->un->name, peer->un->reference);
 #endif
+		
         }
 
 	if (peer->failed) {
@@ -485,6 +506,14 @@ static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr, time_t now)
 
 		if (urbt->value <= current) {
 			peer = (struct corerouter_peer *) urbt->data;
+			// you can manage deferred connections upto X retry times
+			if (peer->defer_connect) {
+				peer->defer_connect = 0;
+				peer->retries++;
+				// ignore return value
+				peer->session->retry(peer);
+				continue;
+			}
 			peer->timed_out = 1;
 			if (peer->connecting) {
 				peer->failed = 1;
@@ -908,6 +937,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 				ssize_t ret = hook(peer);
 				// connection closed
 				if (ret == 0) {
+					uwsgi_log("CAZZ\n");
 					corerouter_close_peer(ucr, peer);
 					continue;
 				}

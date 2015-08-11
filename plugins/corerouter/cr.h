@@ -199,6 +199,8 @@ struct corerouter_peer {
 
 	int is_buffering;
 	int buffering_fd;
+
+	int defer_connect;
 };
 
 struct uwsgi_corerouter {
@@ -364,3 +366,5 @@ struct corerouter_peer *uwsgi_cr_peer_add(struct corerouter_session *);
 struct corerouter_peer *uwsgi_cr_peer_find_by_sid(struct corerouter_session *, uint32_t);
 void corerouter_close_peer(struct uwsgi_corerouter *, struct corerouter_peer *);
 struct uwsgi_rb_timer *corerouter_reset_timeout(struct uwsgi_corerouter *, struct corerouter_peer *);
+
+int corerouter_spawn_vassal(struct uwsgi_subscribe_node *);
