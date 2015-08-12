@@ -47,6 +47,7 @@ struct uwsgi_rados_mountpoint {
 	char *allow_delete;
 	char *allow_mkcol;
 	char *allow_propfind;
+	char *username;
 };
 
 static struct uwsgi_option uwsgi_rados_options[] = {
@@ -405,6 +406,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 			"allow_delete", &urmp->allow_delete,
 			"allow_mkcol", &urmp->allow_mkcol,
 			"allow_propfind", &urmp->allow_propfind,
+			"username", &urmp->username,
 			NULL)) {
 				uwsgi_log("unable to parse rados mountpoint definition\n");
 				exit(1);
@@ -423,7 +425,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 	uwsgi_log("[rados] mounting %s ...\n", urmp->mountpoint);
 	
 	rados_t cluster;
-	if (rados_create(&cluster, NULL) < 0) {
+	if (rados_create(&cluster, urmp->username) < 0) {
 		uwsgi_error("can't create Ceph cluster handle");
 		exit(1);
 	}
