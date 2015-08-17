@@ -332,7 +332,7 @@ void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer 
 	if (ucr->subscriptions && peer->un && peer->un->len > 0) {
 
 		if (peer->un->slot->inactive && peer->can_retry && peer->retries < (size_t) ucr->max_retries) {
-			corerouter_spawn_vassal(peer->un);
+			corerouter_spawn_vassal(ucr, peer->un);
                         peer->defer_connect = 1;
 
 			// tell the corerouter to stop listening for fd events
@@ -745,6 +745,22 @@ void uwsgi_corerouter_loop(int id, void *data) {
 
 		event_queue_add_fd_read(ucr->queue, ucr->cr_stats_server);
 		uwsgi_log("*** %s stats server enabled on %s fd: %d ***\n", ucr->short_name, ucr->stats_server, ucr->cr_stats_server);
+	}
+
+	if (ucr->emperor_socket) {
+		char *colon = strchr(ucr->emperor_socket, ':');
+		if (colon) {
+			ucr->emperor_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+                        ucr->emperor_socket_addr_len = socket_to_in_addr(ucr->emperor_socket, NULL, atoi(colon+1), &ucr->emperor_socket_addr.sa_in);
+		}
+		else {
+			ucr->emperor_socket_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+	  		ucr->emperor_socket_addr_len = socket_to_un_addr(ucr->emperor_socket, &ucr->emperor_socket_addr.sa_un);
+		}
+		if (ucr->emperor_socket_fd < 0) {
+			uwsgi_error("error creating emperor socket client: socket()");
+			exit(1);
+		}
 	}
 
 

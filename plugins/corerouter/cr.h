@@ -283,6 +283,11 @@ struct uwsgi_corerouter {
 
 	size_t buffer_size;
 	int fallback_on_no_key;
+
+	char *emperor_socket;
+	int emperor_socket_fd;
+	union uwsgi_sockaddr emperor_socket_addr;	
+	socklen_t emperor_socket_addr_len;
 };
 
 // a session is started when a client connect to the router
@@ -367,4 +372,4 @@ struct corerouter_peer *uwsgi_cr_peer_find_by_sid(struct corerouter_session *, u
 void corerouter_close_peer(struct uwsgi_corerouter *, struct corerouter_peer *);
 struct uwsgi_rb_timer *corerouter_reset_timeout(struct uwsgi_corerouter *, struct corerouter_peer *);
 
-int corerouter_spawn_vassal(struct uwsgi_subscribe_node *);
+int corerouter_spawn_vassal(struct uwsgi_corerouter *, struct uwsgi_subscribe_node *);
