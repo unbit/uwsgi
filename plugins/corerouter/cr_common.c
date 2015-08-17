@@ -290,7 +290,7 @@ int corerouter_spawn_vassal(struct uwsgi_corerouter *ucr, struct uwsgi_subscribe
 	if (uwsgi_buffer_append_keyval(ub, "vassal", 6, node->slot->vassal, node->slot->vassal_len)) goto end;
 	// TODO choose modifier1 and 2
 	if (uwsgi_buffer_set_uh(ub, 0, 0)) goto end;
-	if (sendto(ucr->emperor_socket_fd, ub->buf, ub->pos, 0, (const struct sockaddr *) &ucr->emperor_socket_addr, ucr->emperor_socket_addr_len) < 0) {
+	if (sendto(ucr->emperor_socket_fd, ub->buf, ub->pos, 0, &ucr->emperor_socket_addr.sa, ucr->emperor_socket_addr_len) < 0) {
 		uwsgi_error("corerouter_spawn_vassal()/sendto()");
 	}
 	ret = 0;

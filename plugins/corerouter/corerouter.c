@@ -761,6 +761,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 			uwsgi_error("error creating emperor socket client: socket()");
 			exit(1);
 		}
+		uwsgi_log("emperor socket mapped to: %s\n", ucr->emperor_socket);	
 	}
 
 
