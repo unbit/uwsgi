@@ -348,6 +348,7 @@ void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer 
 			peer->current_timeout = 5;
         		peer->timeout = corerouter_reset_timeout(ucr, peer);
 			peer->current_timeout = ucr->socket_timeout;
+			peer->failed = 0;
 			return;
 		}
 
