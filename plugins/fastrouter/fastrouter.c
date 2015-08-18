@@ -61,6 +61,8 @@ static struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter-fallback-on-no-key", no_argument, 0, "move to fallback node even if a subscription key is not found", uwsgi_opt_true, &ufr.cr.fallback_on_no_key, 0},
 
 	{"fastrouter-force-key", required_argument, 0, "skip uwsgi parsing and directly set a key", uwsgi_opt_set_str, &ufr.force_key, 0},
+
+	{"fastrouter-emperor-socket", required_argument, 0, "set the emperor command socket that will receive spawn commands", uwsgi_opt_set_str, &ufr.cr.emperor_socket, 0},
 	UWSGI_END_OF_OPTIONS
 };
 
