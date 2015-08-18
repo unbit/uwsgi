@@ -467,7 +467,7 @@ cycle:
 	return received_signal;
 }
 
-pid_t uwsgi_receive_signal(struct wsgi_request *wsgi_req, int fd, char *name, int id) {
+int uwsgi_receive_signal(struct wsgi_request *wsgi_req, int fd, char *name, int id) {
 	uint8_t uwsgi_signal;
 
 	ssize_t ret = read(fd, &uwsgi_signal, 1);
@@ -486,15 +486,15 @@ pid_t uwsgi_receive_signal(struct wsgi_request *wsgi_req, int fd, char *name, in
 		if (uwsgi_signal_handler(wsgi_req, uwsgi_signal)) {
 			uwsgi_log_verbose("error managing signal %d on %s %d\n", uwsgi_signal, name, id);
 		}
-		return getpid();
+		return 1;
 	}
 
-	return -1;
+	return 0;
 
 destroy:
 	// better to kill the whole worker...
 	uwsgi_log_verbose("uWSGI %s %d screams: UAAAAAAH my master disconnected: I will kill myself!!!\n", name, id);
 	end_me(0);
 	// never here
-	return -1;
+	return 0;
 }

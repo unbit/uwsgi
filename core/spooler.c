@@ -423,8 +423,6 @@ void spooler(struct uwsgi_spooler *uspool) {
 
 	int spooler_event_queue = event_queue_init();
 	int interesting_fd = -1;
-	// determining which spooler process is working on signal events
-	pid_t working_spooler_pid = -1;
 
 	if (uwsgi.master_process) {
 		event_queue_add_fd_read(spooler_event_queue, uwsgi.shared->spooler_signal_pipe[1]);
@@ -467,8 +465,7 @@ void spooler(struct uwsgi_spooler *uspool) {
 		if (event_queue_wait(spooler_event_queue, timeout, &interesting_fd) > 0) {
 			if (uwsgi.master_process) {
 				if (interesting_fd == uwsgi.shared->spooler_signal_pipe[1]) {
-					working_spooler_pid = uwsgi_receive_signal(NULL, interesting_fd, "spooler", (int) getpid());
-					if (uwsgi.spooler_signal_as_task && working_spooler_pid == uwsgi.mypid) {
+					if (uwsgi_receive_signal(NULL, interesting_fd, "spooler", (int) getpid())) {
 					    uspool->tasks++;
 					    if (uwsgi.spooler_max_tasks > 0 && uspool->tasks >= (uint64_t) uwsgi.spooler_max_tasks) {
 					        uwsgi_log("[spooler %s pid: %d] maximum number of tasks reached (%d) recycling ...\n", uspool->dir, (int) uwsgi.mypid, uwsgi.spooler_max_tasks);
