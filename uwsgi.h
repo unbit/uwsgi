@@ -2374,6 +2374,7 @@ struct uwsgi_server {
 	int spooler_ordered;
 	int spooler_quiet;
 	int spooler_frequency;
+	int spooler_signal_as_task;
 
 	int snmp;
 	char *snmp_addr;
@@ -4000,7 +4001,7 @@ int uwsgi_is_file2(char *, struct stat *);
 int uwsgi_is_dir(char *);
 int uwsgi_is_link(char *);
 
-void uwsgi_receive_signal(struct wsgi_request *, int, char *, int);
+pid_t uwsgi_receive_signal(struct wsgi_request *, int, char *, int);
 void uwsgi_exec_atexit(void);
 
 struct uwsgi_stats {
