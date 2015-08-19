@@ -465,7 +465,15 @@ void spooler(struct uwsgi_spooler *uspool) {
 		if (event_queue_wait(spooler_event_queue, timeout, &interesting_fd) > 0) {
 			if (uwsgi.master_process) {
 				if (interesting_fd == uwsgi.shared->spooler_signal_pipe[1]) {
-					uwsgi_receive_signal(NULL, interesting_fd, "spooler", (int) getpid());
+					if (uwsgi_receive_signal(NULL, interesting_fd, "spooler", (int) getpid())) {
+					    if (uwsgi.spooler_signal_as_task) {
+					        uspool->tasks++;
+					        if (uwsgi.spooler_max_tasks > 0 && uspool->tasks >= (uint64_t) uwsgi.spooler_max_tasks) {
+					            uwsgi_log("[spooler %s pid: %d] maximum number of tasks reached (%d) recycling ...\n", uspool->dir, (int) uwsgi.mypid, uwsgi.spooler_max_tasks);
+					            end_me(0);
+					        }
+					    }
+					}
 				}
 			}
 		}
