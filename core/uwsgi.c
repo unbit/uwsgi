@@ -632,8 +632,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"notify-socket", required_argument, 0, "enable the notification socket", uwsgi_opt_set_str, &uwsgi.notify_socket, UWSGI_OPT_MASTER},
 	{"subscription-notify-socket", required_argument, 0, "set the notification socket for subscriptions", uwsgi_opt_set_str, &uwsgi.subscription_notify_socket, UWSGI_OPT_MASTER},
-	{"subscription-mountpoints", no_argument, 0, "enable mountpoints support for subscription system", uwsgi_opt_true, &uwsgi.subscription_mountpoints, UWSGI_OPT_MASTER},
-	{"subscription-mountpoint", no_argument, 0, "enable mountpoints support for subscription system", uwsgi_opt_true, &uwsgi.subscription_mountpoints, UWSGI_OPT_MASTER},
+	{"subscription-mountpoints", required_argument, 0, "enable mountpoints support for subscription system", uwsgi_opt_set_int, &uwsgi.subscription_mountpoints, UWSGI_OPT_MASTER},
+	{"subscription-mountpoint", required_argument, 0, "enable mountpoints support for subscription system", uwsgi_opt_set_int, &uwsgi.subscription_mountpoints, UWSGI_OPT_MASTER},
 
 #ifdef UWSGI_SSL
 	{"legion", required_argument, 0, "became a member of a legion", uwsgi_opt_legion, NULL, UWSGI_OPT_MASTER},

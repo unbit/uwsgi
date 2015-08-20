@@ -76,22 +76,26 @@ static int rebuild_key_for_mountpoint(char *path_info, uint16_t path_info_len, s
         // is it / ?
         if (len == 0) return 0;
         // now find the second slash occurrence (if any)
-        char *second_slash = memchr(path_info+1, '/', len);
-        char *new_key = NULL;
-        uint16_t new_key_len = 0;
-        if (second_slash) {
-                new_key = uwsgi_concat2n(peer->key, peer->key_len, path_info, second_slash - path_info);
-                new_key_len = peer->key_len + (second_slash - path_info);
-        }
-        else {
-                new_key = uwsgi_concat2n(peer->key, peer->key_len, path_info, len + 1);
-                new_key_len = peer->key_len + len + 1;
-        }
+	char *second_slash = NULL;
+	char *last_slash = path_info;
+	int i;
+	for(i=0;i<uwsgi.subscription_mountpoints;i++) {
+		if (len < 1) break;
+        	second_slash = memchr(last_slash+1, '/', len);
+		if (!second_slash) {
+			last_slash += 1+len;
+			break;
+		}
+		len -= second_slash - last_slash;
+		last_slash = second_slash;
+	}
+        char *new_key = uwsgi_concat2n(peer->key, peer->key_len, path_info, last_slash - path_info);
+        uint16_t new_key_len = peer->key_len + (last_slash - path_info);
 
-        if (new_key_len <= 0xff) {
-                memcpy(peer->key, new_key, new_key_len);
+       	if (new_key_len <= 0xff) {
+        	memcpy(peer->key, new_key, new_key_len);
                 peer->key_len = new_key_len;
-        }
+       	}
         free(new_key);
         return 0;
 }
