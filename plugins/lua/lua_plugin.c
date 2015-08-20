@@ -15,9 +15,11 @@ extern struct uwsgi_server uwsgi;
 
 struct uwsgi_lua {
 	struct lua_State ***state;
-	char *shell;
-	char *filename;
+	uint8_t shell;
+	uint8_t shell_oneshot;
 	struct uwsgi_string_list *load;
+	char *filename;
+	struct uwsgi_string_list *postload;
 	int gc_freq;
 	int gc_full;
 } ulua;
@@ -30,29 +32,37 @@ struct uwsgi_lua {
 #define ULUA_RPC_REF 2
 #define ULUA_SIGNAL_REF 3
 
+#define ULUA_METRIC_INC 1
+#define ULUA_METRIC_DIV 2
+#define ULUA_METRIC_MUL 3
+#define ULUA_METRIC_DEC 4
+
 #define ulua_log(c, ar...) uwsgi_log(ULUA_LOG_HEADER" "c"\n", ##ar)
 
 struct uwsgi_plugin lua_plugin;
 
 static void uwsgi_opt_luashell(char *opt, char *value, void *foobar) {
-
-        uwsgi.honour_stdin = 1;
-        if (value) {
-                ulua.shell = value;
-        }
-        else {
-                ulua.shell = "";
-        }
+	uwsgi.honour_stdin = 1;
+	ulua.shell = 1;
 }
 
+static void uwsgi_opt_luashell_oneshot(char *opt, char *value, void *foobar) {
+	// enable shell
+	uwsgi_opt_luashell(NULL, NULL, NULL);
+	
+	ulua.shell_oneshot = 1;
+}
 
 static struct uwsgi_option uwsgi_lua_options[] = {
 
 	{"lua", required_argument, 0, "load lua wsapi app", uwsgi_opt_set_str, &ulua.filename, 0},
-	{"lua-load", required_argument, 0, "load a lua file", uwsgi_opt_add_string_list, &ulua.load, 0},
+	{"lua-load", required_argument, 0, "load a lua file before wsapi app", uwsgi_opt_add_string_list, &ulua.load, 0},
+	{"lua-postload", required_argument, 0, "load a lua file after wsapi app", uwsgi_opt_add_string_list, &ulua.postload, 0},
 	{"lua-shell", no_argument, 0, "run the lua interactive shell (debug.debug())", uwsgi_opt_luashell, NULL, 0},
 	{"luashell", no_argument, 0, "run the lua interactive shell (debug.debug())", uwsgi_opt_luashell, NULL, 0},
-	{"lua-gc-freq", no_argument, 0, "set the lua gc frequency (default: 0, runs after every request)", uwsgi_opt_set_int, &ulua.gc_freq, 0},
+	{"lua-shell-oneshot", no_argument, 0, "run the lua interactive shell (debug.debug(), one-shot variant)", uwsgi_opt_luashell_oneshot, NULL, 0},
+	{"luashell-oneshot", no_argument, 0, "run the lua interactive shell (debug.debug(), one-shot variant)", uwsgi_opt_luashell_oneshot, NULL, 0},
+	{"lua-gc-freq", required_argument, 0, "set the lua gc frequency (default: 1, runs after every request)", uwsgi_opt_set_int, &ulua.gc_freq, 0},
 	{"lua-gc-full", no_argument, 0, "set the lua gc to perform a full garbage-collection cycle (default: 0, gc performs an incremental step of garbage collection)", uwsgi_opt_set_int, &ulua.gc_full, 0},
 
 	{0, 0, 0, 0},
@@ -74,7 +84,7 @@ static int uwsgi_lua_metatable_tostring(lua_State *L, int obj) {
 	
 	lua_pushvalue(L, --obj);
 		
-	if (lua_pcall(L, 1, 1, 0) != 0) {
+	if (lua_pcall(L, 1, 1, 0)) {
 		ulua_log("%s", lua_tostring(L, -1));
 		lua_pop(L, 1);
 		return 0;
@@ -109,6 +119,82 @@ static int uwsgi_lua_metatable_call(lua_State *L, int obj) {
 	return 1;
 }
 
+static int uwsgi_api_metric_get(lua_State *L) {
+	
+	if (!(lua_gettop(L)) || !(lua_isstring(L, 1))) {
+		return 0;
+	}
+
+	lua_pushnumber(L, uwsgi_metric_get((char *) lua_tostring(L, 1), NULL));
+	
+	return 1;
+}
+
+static int uwsgi_api_metric_set(lua_State *L) {
+	
+	if ((lua_gettop(L) < 2) || 
+		!(lua_isstring(L, 1)) || 
+		!(lua_isnumber(L, 2)) ||
+		uwsgi_metric_set((char *) lua_tostring(L, 1), NULL, lua_tonumber(L, 2)))
+	{
+		return 0;
+	}
+	
+	lua_pushboolean(L, 1);
+	
+	return 1;
+}
+
+static int uwsgi_lua_metric_op(lua_State *L, uint8_t op) {
+	int64_t value = 1;
+	uint8_t argc = lua_gettop(L);
+	
+	int code = -1;
+	char *name;
+	
+	if (!(argc) || !(lua_isstring(L, 1))) {
+		return 0;
+	}
+	
+	if (argc > 1 && lua_isnumber(L, 2)) {
+		value = lua_tonumber(L, 2);
+	}
+	
+	name = (char *) lua_tostring(L, 1);
+	
+	switch(op) {
+		case ULUA_METRIC_INC: code = uwsgi_metric_inc(name, NULL, value); break;
+		case ULUA_METRIC_DIV: code = uwsgi_metric_div(name, NULL, value); break;
+		case ULUA_METRIC_MUL: code = uwsgi_metric_mul(name, NULL, value); break;
+		case ULUA_METRIC_DEC: code = uwsgi_metric_dec(name, NULL, value); break;
+	}
+	
+	if (code) {
+		return 0;
+	}
+	
+	lua_pushboolean(L, 1);
+	
+	return 1;
+}
+
+static int uwsgi_api_metric_inc(lua_State *L) {
+	return uwsgi_lua_metric_op(L, ULUA_METRIC_INC);
+}
+
+static int uwsgi_api_metric_div(lua_State *L) {
+	return uwsgi_lua_metric_op(L, ULUA_METRIC_DIV);
+}
+
+static int uwsgi_api_metric_mul(lua_State *L) {
+	return uwsgi_lua_metric_op(L, ULUA_METRIC_MUL);
+}
+
+static int uwsgi_api_metric_dec(lua_State *L) {
+	return uwsgi_lua_metric_op(L, ULUA_METRIC_DEC);
+}
+
+
 static int uwsgi_api_signal(lua_State *L) {
 	uint8_t argc = lua_gettop(L);
 
@@ -126,7 +212,8 @@ static int uwsgi_api_signal(lua_State *L) {
 }
 
 static int uwsgi_api_log(lua_State *L) {
-	int argc = lua_gettop(L);
+	uint8_t argc = lua_gettop(L);
+	uint8_t i;
 	unsigned long point;
 	int type;
 	
@@ -136,20 +223,20 @@ static int uwsgi_api_log(lua_State *L) {
 	
 	uwsgi_log(ULUA_LOG_HEADER);
 	
-	for(argc = -argc; argc < 0; argc++) {
-		type = lua_type(L, argc);
+	for(i = 1; i <= argc; i++) {
+		type = lua_type(L, i);
 		
 		switch(type) {
 			case LUA_TNIL: uwsgi_log(" nil"); continue;
 			
-			case LUA_TBOOLEAN: uwsgi_log(lua_toboolean(L, argc) ? " true" : " false"); continue;
+			case LUA_TBOOLEAN: uwsgi_log(lua_toboolean(L, i) ? " true" : " false"); continue;
 			
-			case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, argc))) break;
-			case LUA_TNUMBER:
-			case LUA_TSTRING: uwsgi_log(" %s", lua_tostring(L, argc)); continue;			
+			case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, i - argc - 1))) break;
+			case LUA_TSTRING:
+			case LUA_TNUMBER: uwsgi_log(" %s", lua_tostring(L, i)); continue;			
 		}
 		
-		point = (unsigned long) (lua_topointer(L, argc));
+		point = (unsigned long) (lua_topointer(L, i));
 		
 		if (point) {
 			uwsgi_log(" %s: 0x%.8x", lua_typename(L, type), point);
@@ -164,29 +251,39 @@ static int uwsgi_api_log(lua_State *L) {
 }
 
 static int uwsgi_api_rpc(lua_State *L) {
+	
 	uint8_t argc = lua_gettop(L);
+	uint8_t argnum;
+	uint8_t i;
+	uint64_t len;
 	
 	if (argc < 2) {
 		return 0;
 	}
 	
-	argc-=2;
+	argnum = argc - 2;
 	
 	char **argv = NULL;
 	uint16_t *argvs = NULL;
 		
-	if (argc > 0) {
-		uint8_t i;
-		argv = (char **) uwsgi_malloc(sizeof(char *)*argc);
-		argvs = (uint16_t *) uwsgi_malloc(sizeof(uint16_t)*argc);
+	if (argnum > 0) {
+		argv = (char **) uwsgi_malloc(sizeof(char *)*argnum);
+		argvs = (uint16_t *) uwsgi_malloc(sizeof(uint16_t)*argnum);
 		
-		for(i = 0; i < argc; i++) {
-			argv[i] = (char *) lua_tolstring(L, i + 3, (size_t *) &argvs[i]); 
+		for(i = 0; i < argnum; i++) {	
+			switch(lua_type(L, i + 3)) {
+				case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, i + 2 - argc))) break;
+				case LUA_TSTRING:
+				case LUA_TNUMBER: argv[i] = (char *) lua_tolstring(L, i + 3, (size_t *) &argvs[i]); continue;
+			}
+			
+			// default
+			argv[i] = NULL; 
+			argvs[i] = 0;
 		}
 	}
 	
-	uint64_t len;
-	char *str = uwsgi_do_rpc((char *) lua_tostring(L, 1), (char *) lua_tostring(L, 2), argc, argv, argvs, &len);
+	char *str = uwsgi_do_rpc((char *) lua_tostring(L, 1), (char *) lua_tostring(L, 2), argnum, argv, argvs, &len);
 	
 	if (!(len)) { // fail??
 		lua_pushnil(L);
@@ -280,145 +377,370 @@ static int uwsgi_api_register_rpc_newindex(lua_State *L) {
 	return 0;
 }
 
-static int uwsgi_api_cache_set(lua_State *L) {
-
+static int uwsgi_lua_cache_set(lua_State *L, uint8_t flag) {
+	
 	uint8_t argc = lua_gettop(L);
-	const char *key ;
-	const char *value ;
+	
+	char *cache = NULL;
 	uint64_t expires = 0;
-	size_t vallen;
+	
+	char *key;
 	size_t keylen;
-	const char *cache = NULL;
-
-	if (argc < 2) goto error;
-
-	key = lua_tolstring(L, 1, &keylen);
-	value = lua_tolstring(L, 2, &vallen);
+	
+	char *value = NULL;
+	size_t valuelen = 0;
+	
+	if (argc < 2) {
+		return 0;
+	}
+	
+	// key
+	key = (char *) lua_tolstring(L, 1, &keylen);
+	
+	// value
+	switch(lua_type(L, 2)) {
+		case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, -argc + 1))) break;
+		case LUA_TSTRING:
+		case LUA_TNUMBER: value = (char *) lua_tolstring(L, 2, &valuelen);
+	}
+	
 	if (argc > 2) {
 		expires = lua_tonumber(L, 3);
 		if (argc > 3) {
-			cache = lua_tostring(L, 4);
+			cache = (char *) lua_tostring(L, 4);
 		}
 	}
-
-        if (!uwsgi_cache_magic_set((char *)key, keylen, (char *)value, vallen, expires, 0, (char *) cache)) {
+	
+	if (!uwsgi_cache_magic_set(key, keylen, value, valuelen, expires, flag, cache)) {
 		lua_pushboolean(L, 1);
 		return 1;
 	}
-error:
+	
+	return 0;
+}
 
-	lua_pushnil(L);
-	return 1;
-
+static int uwsgi_api_cache_set(lua_State *L) {
+	return uwsgi_lua_cache_set(L, 0);
 }
 
 static int uwsgi_api_cache_update(lua_State *L) {
+	return uwsgi_lua_cache_set(L, UWSGI_CACHE_FLAG_UPDATE);
+}
 
-        uint8_t argc = lua_gettop(L);
-        const char *key ;
-        const char *value ;
-        uint64_t expires = 0;
-        size_t vallen;
-        size_t keylen;
-        const char *cache = NULL;
+static int uwsgi_lua_cache_set_table(lua_State *L, uint8_t flag) {
+	
+	uint8_t argc = lua_gettop(L);
+	uint8_t error = 0;
+	
+	char *cache = NULL;
+	uint64_t expires = 0;
+	
+	char *key;
+	size_t keylen;
+	
+	char *value = NULL;
+	size_t valuelen = 0;
+	
+	if (argc < 1 || !lua_istable(L, 1)) {
+		return 0;
+	}
+	
+	if (argc > 1) {
+		expires = lua_tonumber(L, 2);
+		if (argc > 2) {
+			cache = (char *) lua_tostring(L, 3);
+		}
+	}
+	
+	lua_pushnil(L);
+	
+	while(lua_next(L, 1)) {
+		lua_pushvalue(L, -2);
+		
+		//key
+		key = (char *) lua_tolstring(L, -1, &keylen);
+		
+		//value
+		switch(lua_type(L, -2)) {
+			case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, -2))) break;
+			case LUA_TSTRING:
+			case LUA_TNUMBER: value = (char *) lua_tolstring(L, -2, &valuelen);
+		}
+		
+		if (uwsgi_cache_magic_set(key, keylen, value, valuelen, expires, flag, cache)) {
+			lua_pop(L, 2);
+			lua_pushvalue(L, -1);
+			++error;
+		} else {
+			lua_pop(L, 2);
+		}
+	}
+	
+	if (!error) {
+		lua_pushboolean(L, 1);
+		return 1;
+	}
+	
+	lua_pushnumber(L, error);
+	lua_insert(L, -(++error));
+	
+	lua_pushnil(L);
+	lua_insert(L, -(++error));
 
-        if (argc < 2) goto error;
+	return error;
+	
+}
 
-        key = lua_tolstring(L, 1, &keylen);
-        value = lua_tolstring(L, 2, &vallen);
-        if (argc > 2) {
-                expires = lua_tonumber(L, 3);
-                if (argc > 3) {
-                        cache = lua_tostring(L, 4);
-                }
-        }       
+static int uwsgi_api_cache_set_table(lua_State *L) {
+	return uwsgi_lua_cache_set_table(L, 0);
+}
 
-        if (!uwsgi_cache_magic_set((char *)key, keylen, (char *)value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE, (char *)cache)) {
-                lua_pushboolean(L, 1);
-                return 1;
-        }
-error:
+static int uwsgi_api_cache_update_table(lua_State *L) {
+	return uwsgi_lua_cache_set_table(L, UWSGI_CACHE_FLAG_UPDATE);
+}
 
-        lua_pushnil(L);
-        return 1;
 
+static int uwsgi_lua_cache_set_multi(lua_State *L, uint8_t flag) {
+	
+	uint8_t argc = lua_gettop(L);
+	uint8_t error = 0;
+	uint8_t i;
+	
+	char *cache;
+	uint64_t expires;
+	
+	char *key;
+	size_t keylen;
+	
+	char *value = NULL;
+	size_t valuelen = 0;
+	
+	if (argc < 4) {
+		return 0;
+	}
+	
+	expires = lua_tonumber(L, 1);
+	cache = (char *) lua_tostring(L, 2);
+	
+	for (i = 4; i <= argc; i+=2) {
+		// key
+		key = (char *) lua_tolstring(L, i - 1, &keylen);
+	
+		// value
+		switch(lua_type(L, i)) {
+			case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, i - argc - 1 - error))) break;
+			case LUA_TSTRING:
+			case LUA_TNUMBER: value = (char *) lua_tolstring(L, i, &valuelen);
+		}
+		
+		if (uwsgi_cache_magic_set(key, keylen, value, valuelen, expires, flag, cache)) {
+			lua_pushnumber(L, ++error);
+		}
+	}	
+	
+	if(!error) {
+		lua_pushboolean(L, 1);
+		return 1;
+	}
+	
+	lua_pushnil(L);
+	lua_insert(L, -(++error));
+	
+	return error;
+}
+
+static int uwsgi_api_cache_set_multi(lua_State *L) {
+	return uwsgi_lua_cache_set_multi(L, 0);
+}
+
+static int uwsgi_api_cache_update_multi(lua_State *L) {
+	return uwsgi_lua_cache_set_multi(L, UWSGI_CACHE_FLAG_UPDATE);
 }
 
 
 static int uwsgi_api_cache_clear(lua_State *L) {
 
-        const char *cache = NULL;
-        uint8_t argc = lua_gettop(L);
+	char *cache = NULL;
+	uint8_t argc = lua_gettop(L);
 
-        if (argc > 0) {
-        	cache = lua_tostring(L, 2);
-        }
-        if (!uwsgi_cache_magic_clear((char *)cache)) {
-        	lua_pushboolean(L, 1);
-                return 1;
-        }
+	if (argc > 0) {
+		cache = (char *) lua_tostring(L, 1);
+	}
+	
+	if (!uwsgi_cache_magic_clear(cache)) {
+		lua_pushboolean(L, 1);
+		return 1;
+	}
 
-        lua_pushnil(L);
-        return 1;
-
+	return 0;
 }
 
 
 static int uwsgi_api_cache_del(lua_State *L) {
 
-        size_t keylen;
-        const char *key ;
-        const char *cache = NULL;
-        uint8_t argc = lua_gettop(L);
+	size_t keylen;
+	char *key;
+	char *cache = NULL;
+	uint8_t argc = lua_gettop(L);
 
-        if (argc == 0) goto error;
+	if (!(argc)) {
+		return 0;
+	}
 
-        if (lua_isstring(L, 1)) {
-                // get the key
-                key = lua_tolstring(L, 1, &keylen);
-                if (argc > 1) {
-                        cache = lua_tostring(L, 2);
-                }
-                if (!uwsgi_cache_magic_del((char *)key, keylen, (char *)cache)) {
-                        lua_pushboolean(L, 1);
-                        return 1;
-                }
-        }
-
-error:
-        lua_pushnil(L);
-        return 1;
-
+	// get the key
+	key = (char *) lua_tolstring(L, 1, &keylen);
+	
+	if (argc > 1) {
+		cache = (char *) lua_tostring(L, 2);
+	}
+				
+	if (keylen && !uwsgi_cache_magic_del(key, keylen, cache)) {
+		lua_pushboolean(L, 1);
+		return 1;
+	}
+	
+	return 0;
 }
 
+static int uwsgi_api_cache_del_multi(lua_State *L) {
+	
+	size_t keylen;
+	char *key;
+	char *cache;
+	uint8_t argc = lua_gettop(L);
+	uint8_t error = 0;
+	uint8_t i;
+	
+	if (argc < 1) {
+		return 0;
+	}
+	
+	cache = (char *) lua_tostring(L, 1);
+	
+	for (i = 2; i <= argc; i++) {
+		key = (char *) lua_tolstring(L, i, &keylen);
+		
+		if (!keylen || uwsgi_cache_magic_del(key, keylen, cache)) {
+			lua_pushnumber(L, ++error);
+		}
+	}
+	
+	if (!error) {
+		lua_pushboolean(L, 1);
+		return 1;
+	}
+	
+	lua_pushnil(L);
+	lua_insert(L, -(++error));
+	
+	return error;
+}
 
 static int uwsgi_api_cache_exists(lua_State *L) {
 
-        size_t keylen;
-        const char *key ;
-        const char *cache = NULL;
-        uint8_t argc = lua_gettop(L);
+	size_t keylen;
+	char *key;
+	char *cache = NULL;
+	uint8_t argc = lua_gettop(L);
 
-        if (argc == 0) goto error;
+	if (argc < 1) {
+		return 0;
+	}
 
-        if (lua_isstring(L, 1)) {
-                // get the key
-                key = lua_tolstring(L, 1, &keylen);
-                if (argc > 1) {
-                        cache = lua_tostring(L, 2);
-                }
-                if (uwsgi_cache_magic_exists((char *)key, keylen,(char *)cache)) {
-			lua_pushboolean(L, 1);
-                	return 1;
-                }
-        }
+	// get the key
+	key = (char *) lua_tolstring(L, 1, &keylen);
+	
+	if (argc > 1) {
+		cache = (char *) lua_tostring(L, 2);
+	}
 
-error:
-        lua_pushnil(L);
-        return 1;
+	lua_pushboolean(L, keylen && uwsgi_cache_magic_exists(key, keylen, cache));
 
+	return 1;
 }
 
+static int uwsgi_api_cache_exists_multi(lua_State *L) {
+
+	size_t keylen;
+	char *key;
+	char *cache;
+	uint8_t argc = lua_gettop(L);
+	uint8_t i;
+	
+	if (argc < 2) {
+		return 0;
+	}
+
+	cache = (char *) lua_tostring(L, 1);
+	
+	for (i = 2; i <= argc; i++) {
+	
+		key = (char *) lua_tolstring(L, i, &keylen);
+		lua_pushboolean(L, keylen && uwsgi_cache_magic_exists(key, keylen, cache));
+		
+	}
+
+	return argc - 1;
+}
+
+
+static int uwsgi_api_signal_wait(lua_State *L) {
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	uint8_t args = lua_gettop(L);
+	int received_signal;
+	
+	wsgi_req->signal_received = -1;
+	
+	if (args > 0 && lua_isnumber(L, 1)) {
+		received_signal = uwsgi_signal_wait(wsgi_req, lua_tonumber(L, 1));
+	} else {
+		received_signal = uwsgi_signal_wait(wsgi_req, -1);
+	}
+	
+	if (received_signal < 0) {
+		lua_pushnil(L);
+	} else {
+		wsgi_req->signal_received = received_signal;
+		lua_pushnumber(L, received_signal);
+	}
+	
+	return 1;
+}
+
+static int uwsgi_api_signal_received(lua_State *L) {
+	
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	
+	lua_pushnumber(L, wsgi_req->signal_received);
+	
+	return 1;
+}
+
+static int uwsgi_api_signal_registered(lua_State *L) {
+	
+	uint8_t args = lua_gettop(L);
+	struct uwsgi_signal_entry *use;
+	uint8_t sig;
+	
+	if (args < 1 || !(lua_isnumber(L, 1))) {
+		return 0;
+	}
+	
+	sig = (uint8_t) lua_tonumber(L, 1);
+	use = &uwsgi.shared->signal_table[sig];
+	
+	lua_pushboolean(L, use->handler ? 1 : 0);
+	lua_pushstring(L, use->receiver);
+		
+	if (uwsgi.mywid > 0) {
+		use = &uwsgi.shared->signal_table[sig + uwsgi.mywid*256];
+	}
+		
+	lua_pushnumber(L, use->modifier1);
+
+	return 3;
+}
 
 static int uwsgi_api_register_signal(lua_State *L) {
 
@@ -442,7 +764,7 @@ static int uwsgi_api_register_signal(lua_State *L) {
 	who = lua_tolstring(L, 2, &len);
 	use = &uwsgi.shared->signal_table[sig];
 		
-	if (len == 0) {
+	if (!len) {
 		who = (const char *) &len; // len is zero anyway
 	} else if (len > 63) {
 		ulua_log("receiver is too long: %s", who);
@@ -451,13 +773,14 @@ static int uwsgi_api_register_signal(lua_State *L) {
 	
 	if (use->handler && use->modifier1 != 6) {
 		ulua_log("signal %s has already been taken, but not by lua-plugin", sig);
-		return 0;
 	}
 	
+	// register signal's receiver on master
+	// copy handlers and modifiers if calling from mywid == 0
 	if (!(use->handler) || strcmp(use->receiver, who)) {
 		uwsgi_lock(uwsgi.signal_table_lock);
 		
-		strncpy(use->receiver, who, len + 1);
+		strcpy(use->receiver, who);
 			
 		if (!(use->handler)) {
 			use->handler = (void *) (1 /* unused */);
@@ -475,6 +798,7 @@ static int uwsgi_api_register_signal(lua_State *L) {
 		uwsgi_unlock(uwsgi.signal_table_lock);
 	} 
 	
+	// worker, just register handler and modifier1
 	if (uwsgi.mywid > 0) {
 		use = &uwsgi.shared->signal_table[sig + uwsgi.mywid*256];
 	
@@ -487,7 +811,7 @@ static int uwsgi_api_register_signal(lua_State *L) {
 			uwsgi_unlock(uwsgi.signal_table_lock);
 		}
 	}	
-		
+	
 	if (args > 2) {
 		lua_rawgeti(L, LUA_REGISTRYINDEX, ULUA_SIGNAL_REF);
 			
@@ -495,7 +819,7 @@ static int uwsgi_api_register_signal(lua_State *L) {
 		lua_rawseti(L, -2, sig);
 	}
 	
-	ulua_log("signum %d registered (by wid %d, target: %s)", sig, uwsgi.mywid, len != 0 ? who : "default");
+	ulua_log("signum %d registered (by wid %d, target: %s)", sig, uwsgi.mywid, len ? who : "default");
 	
 	lua_pushboolean(L, 1);
 	return 1;
@@ -514,7 +838,7 @@ static int uwsgi_api_add_file_monitor(lua_State *L) {
 	sig = (uint8_t) lua_tonumber(L, 1);
 	file = lua_tolstring(L, 2, &len);
 	
-	if (len == 0) {
+	if (!len) {
 		return 0;
 	}
 	
@@ -859,33 +1183,73 @@ static int uwsgi_api_websocket_recv_nb(lua_State *L) {
 
 static int uwsgi_api_cache_get(lua_State *L) {
 
-        char *value ;
-        uint64_t valsize;
+	char *value;
+	uint64_t valsize;
 	size_t keylen;
-	const char *key ;
-	const char *cache = NULL;
+	char *key;
+	char *cache = NULL;
 	uint8_t argc = lua_gettop(L);
 
 	if (argc == 0) goto error;
 
-	if (lua_isstring(L, 1)) {
-		// get the key
-		key = lua_tolstring(L, 1, &keylen);
-		if (argc > 1) {
-			cache = lua_tostring(L, 2);
-		}
-        	value = uwsgi_cache_magic_get((char *)key, keylen, &valsize, NULL, (char *)cache);
-        	if (value) {
-                	lua_pushlstring(L, value, valsize);
-			free(value);
-			return 1;
-        	}
+	// get the key
+	key = (char *) lua_tolstring(L, 1, &keylen);
+		
+	if (argc > 1) {
+		cache = (char *) lua_tostring(L, 2);
+	}
+	
+	if (!keylen) goto error;
+	
+	value = uwsgi_cache_magic_get(key, keylen, &valsize, NULL, cache);
+	
+	if (value) {
+		lua_pushlstring(L, value, valsize);
+		free(value);
+		return 1;
 	}
 
 error:
 	lua_pushnil(L);
-        return 1;
+	return 1;
 
+}
+
+static int uwsgi_api_cache_get_multi(lua_State *L) {
+
+	char *value ;
+	uint64_t valsize;
+	size_t keylen;
+	char *key;
+	char *cache;
+	
+	uint8_t argc = lua_gettop(L);
+	uint8_t i;
+	
+	if (argc < 2) {
+		return 0;
+	}
+	
+	cache = (char *) lua_tostring(L, 1);
+	
+	for (i = 2; i <= argc; i++) {
+	
+		value = NULL;
+		key = (char *) lua_tolstring(L, i, &keylen);
+		
+		if (keylen) {
+			value = uwsgi_cache_magic_get(key, keylen, &valsize, NULL, cache);
+		}
+		
+		if (value) {
+			lua_pushlstring(L, value, valsize);
+			free(value);
+		} else {
+			lua_pushnil(L);
+		}
+	}
+
+	return argc - 1;
 }
 
 static int uwsgi_api_req_fd(lua_State *L) {
@@ -965,6 +1329,7 @@ static int uwsgi_lua_input(lua_State *L) {
 	return 0;
 }
 
+
 static int uwsgi_api_async_id_get(lua_State *L) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -974,30 +1339,81 @@ static int uwsgi_api_async_id_get(lua_State *L) {
 	return 1;
 }
 
+static int uwsgi_api_memory_usage(lua_State *L) {
+
+	uint64_t rss = 0;
+	uint64_t vsz = 0;
+	
+	get_memusage(&rss, &vsz);
+	
+	lua_pushnumber(L, rss);
+	lua_pushnumber(L, vsz);
+	
+	return 2;
+}
+
+static int uwsgi_api_pid(lua_State *L) {
+	
+	int id = 0;
+	
+	if (lua_gettop(L) > 0) {
+		id = lua_tonumber(L, 1);
+	}
+	
+	if (id <= uwsgi.numproc) {
+		lua_pushnumber(L, uwsgi.workers[id].pid);
+		return 1;
+	}
+	
+	return 0;
+	
+}
+
 static const luaL_Reg uwsgi_api[] = {
   {"log", uwsgi_api_log},
   {"connection_fd", uwsgi_api_req_fd},
 
+  {"metric_get", uwsgi_api_metric_get},
+  {"metric_set", uwsgi_api_metric_set},
+  {"metric_inc", uwsgi_api_metric_inc},
+  {"metric_div", uwsgi_api_metric_div},
+  {"metric_mul", uwsgi_api_metric_mul},
+  {"metric_dec", uwsgi_api_metric_dec},
+  
   {"cache_get", uwsgi_api_cache_get},
+  {"cache_get_multi", uwsgi_api_cache_get_multi},
   {"cache_set", uwsgi_api_cache_set},
+  {"cache_set_table", uwsgi_api_cache_set_table},
+  {"cache_set_multi", uwsgi_api_cache_set_multi},
   {"cache_update", uwsgi_api_cache_update},
+  {"cache_update_table", uwsgi_api_cache_update_table},
+  {"cache_update_multi", uwsgi_api_cache_update_multi},
   {"cache_del", uwsgi_api_cache_del},
+  {"cache_del_multi", uwsgi_api_cache_del_multi},
   {"cache_exists", uwsgi_api_cache_exists},
+  {"cache_exists_multi", uwsgi_api_cache_exists_multi},
   {"cache_clear", uwsgi_api_cache_clear},
 
   {"register_signal", uwsgi_api_register_signal},
+  {"signal_registered", uwsgi_api_signal_registered},
+  {"signal_wait", uwsgi_api_signal_wait},
+  {"signal_received", uwsgi_api_signal_received},
   {"add_file_monitor", uwsgi_api_add_file_monitor},
   {"add_timer", uwsgi_api_signal_add_timer},
   {"add_rb_timer", uwsgi_api_signal_add_rb_timer},
   {"add_cron", uwsgi_api_signal_add_cron},
+  
   {"alarm", uwsgi_api_alarm},
   
   {"register_rpc", uwsgi_api_register_rpc},
-  
+
   {"rpc", uwsgi_api_rpc},
   {"signal", uwsgi_api_signal},
   
   {"req_input_read", uwsgi_lua_input},
+  
+  {"mem", uwsgi_api_memory_usage},
+  {"pid", uwsgi_api_pid},
 
   {"websocket_handshake", uwsgi_api_websocket_handshake},
   {"websocket_recv", uwsgi_api_websocket_recv},
@@ -1036,7 +1452,7 @@ static int uwsgi_lua_init(){
 	
 	uwsgi_log("%d lua_States (with %d lua_Threads)\n", uwsgi.numproc, uwsgi.cores);
 	
-	if(ulua.gc_full == 0) {
+	if(!(ulua.gc_full)) {
 		ulua.gc_full = LUA_GCSTEP;
 	} else {
 		ulua.gc_full = LUA_GCCOLLECT;
@@ -1079,7 +1495,7 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 	
 	// rpc metatable ref 2
 	lua_newtable(L);
-	lua_newtable(L);
+	lua_createtable(L, 0, 1);
 	lua_pushcfunction(L, uwsgi_api_register_rpc_newindex);
 	lua_setfield(L, -2, "__newindex");
 	lua_setmetatable(L, -2);
@@ -1099,6 +1515,7 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 	uslnargs = lua_gettop(L);
 
 	struct uwsgi_string_list *usl = ulua.load;
+	
 	while(usl) {
 		if (luaL_dofile(L, usl->value)) {
 			ulua_log("unable to load Lua file %s: %s", usl->value, lua_tostring(L, -1));
@@ -1112,13 +1529,15 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 	if (ulua.filename) {
 		if (luaL_loadfile(L, ulua.filename)) {
 			ulua_log("unable to load Lua file %s: %s", ulua.filename, lua_tostring(L, -1));
-			lua_pop(L, 1);
+			lua_pop(L, uslnargs + 1);
+			uslnargs = 0;
 		} else {
+			// put function before args
 			if (uslnargs > 0) {
-				lua_insert(L, -uslnargs-1);
+				lua_insert(L, -uslnargs - 1);
 			}
 		
-			if (lua_pcall(L, uslnargs, 1, 0) != 0) {
+			if (lua_pcall(L, uslnargs, 1, 0)) {
 				ulua_log("%s", lua_tostring(L, -1));
 				lua_pop(L, 1);
 				uslnargs = 0;
@@ -1126,31 +1545,22 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 				uslnargs = 1;
 			}
 		}
-	}
-			
-	//we need only one, the last one
-	if (uslnargs > 1) {
-		lua_replace(L, -uslnargs);
-				
-		if (uslnargs > 2) {
-			lua_pop(L, uslnargs - 2);
-		}
+	} else {
+		lua_pop(L, uslnargs);
+		uslnargs = 0;
 	}
 			
 	// table ??
-	if (lua_istable(L, -1)) {
+	if (uslnargs > 0 && lua_istable(L, -1)) {
 		lua_pushstring(L, "run");
 		lua_gettable(L, -1);
 		lua_replace(L, -1);
 	}
 			
 	// no app ???
-	if (uslnargs == 0 || !lua_isfunction(L, -1)) {
+	if (!uslnargs || !lua_isfunction(L, -1)) {
 		// loading dummy
-		if (uslnargs > 0) {
-			lua_pop(L, uslnargs);
-		}		
-			
+		lua_pop(L, uslnargs);	
 		ulua_log("Can't find WSAPI entry point (no function, nor a table with function'run').");
 		lua_pushcfunction(L, uwsgi_lua_dummy_response);
 	}
@@ -1159,7 +1569,7 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 			
 	//init additional threads for current worker
 	if (cores > 0) {
-			
+	
 		lua_createtable(L, cores - 1, 0);
 				
 		for(i = 1; i < cores; i++) {
@@ -1173,12 +1583,21 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 		lua_setfield(L, -2, "luathreads");
 	}
 			
-	// and the worker is ready!
 	lua_pop(L, 1);
 	
+	// post load
+	usl = ulua.postload;
+	
+	while(usl) {
+		if (luaL_loadfile(L, usl->value) || lua_pcall(L, 0, 0, 0)) {
+			ulua_log("unable to load Lua file %s: %s", usl->value, lua_tostring(L, -1));
+			lua_pop(L, 1);
+		}
+		usl = usl->next;
+	}
+	
+	// and the worker is ready!
 	lua_gc(L, LUA_GCCOLLECT, 0);
-			
-	ulua_log("inited lua_State %d for worker %d", sid, wid);
 }
 
 static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
@@ -1195,7 +1614,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
 async_coroutine:
-		while (lua_pcall(L, 0, 1, 0) == 0) {
+		while (!lua_pcall(L, 0, 1, 0)) {
 			switch(lua_type(L, -1)) {
 				case LUA_TNIL: // posible dead coroutine
 				
@@ -1204,8 +1623,8 @@ async_coroutine:
 					continue; // retry
 			
 				case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, -1))) break;
-				case LUA_TNUMBER:
 				case LUA_TSTRING:
+				case LUA_TNUMBER:
 				
 					http = lua_tolstring(L, -1, &slen);
 					uwsgi_response_write_body_do(wsgi_req, (char *)http, slen);
@@ -1250,7 +1669,7 @@ async_coroutine:
 #endif
 
 	// call function
-	if (lua_pcall(L, 1, 3, 0) != 0) {
+	if (lua_pcall(L, 1, 3, 0)) {
 		ulua_log("%s", lua_tostring(L, -1));
 		lua_pop(L, 1);
 		goto clear2;
@@ -1263,14 +1682,9 @@ async_coroutine:
 	// send status
 	http = lua_tolstring(L, -3, &slen);
 	
-	if (!(slen)) {
+	if (uwsgi_response_prepare_headers(wsgi_req, (char *) http, slen)) {
 		ulua_log("invalid response status!!!");
 		// let's continue 
-	} else {
-		if (uwsgi_response_prepare_headers(wsgi_req, (char *) http, slen)) {
-			lua_pop(L, 3);
-			goto clear2;
-		}
 	}
 
 	// send headers
@@ -1278,14 +1692,18 @@ async_coroutine:
 	
 		lua_pushnil(L);
 		
-		while(lua_next(L, -3) != 0) {
-			http = lua_tolstring(L, -2, &slen);
+		while(lua_next(L, -3)) {
+		
+			// lua_tolstring may change the 'lua_next' sequence, if the key is not a string, by modifying it
+			lua_pushvalue(L, -2); 
+			// so -1 is key, -2 is value
+			http = lua_tolstring(L, -1, &slen);
 
-			if (lua_istable(L, -1)) {
-				tlen = lua_rawlen(L, -1);
+			if (lua_istable(L, -2)) {
+				tlen = lua_rawlen(L, -2);
 			
 				for (i = 1; i <= tlen; i++) {
-					lua_rawgeti(L, -1, i);
+					lua_rawgeti(L, -2, i);
 					
 					http2 = lua_tolstring(L, -1, &slen2);
 					uwsgi_response_add_header(wsgi_req, (char *) http, slen, (char *) http2, slen2);
@@ -1295,11 +1713,11 @@ async_coroutine:
 				
 			} else {
 			
-				http2 = lua_tolstring(L, -1, &slen2);
+				http2 = lua_tolstring(L, -2, &slen2);
 				uwsgi_response_add_header(wsgi_req, (char *) http, slen, (char *) http2, slen2);
 			}
 			
-			lua_pop(L, 1);
+			lua_pop(L, 2);
 		}
 	}
 
@@ -1313,11 +1731,11 @@ async_coroutine:
 				goto async_coroutine;
 			}
 	
-			while (lua_pcall(L, 0, 1, 0) == 0) {				
+			while (!lua_pcall(L, 0, 1, 0)) {				
 				switch(lua_type(L, -1)) {
 					case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, -1))) break;
-					case LUA_TNUMBER:
 					case LUA_TSTRING:
+					case LUA_TNUMBER:
 							
 						http = lua_tolstring(L, -1, &slen);
 						uwsgi_response_write_body_do(wsgi_req, (char *) http, slen);
@@ -1330,8 +1748,8 @@ async_coroutine:
 			break;
 			
 		case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, -1))) break;
-		case LUA_TNUMBER:
 		case LUA_TSTRING:
+		case LUA_TNUMBER:
 			
 			http = lua_tolstring(L, -1, &slen);
 			uwsgi_response_write_body_do(wsgi_req, (char *) http, slen);
@@ -1341,9 +1759,10 @@ clear:
 	lua_pop(L, 4);
 clear2:
 	// set frequency
-	if (!ulua.gc_freq || 
+	if (ulua.gc_freq && (ulua.gc_freq == 1 || 
 		(uwsgi.threads == 1 && uwsgi.workers[uwsgi.mywid].requests % ulua.gc_freq == 0) || 
-		(uwsgi.threads > 1 && uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests % ulua.gc_freq == 0)) {
+		(uwsgi.threads > 1 && uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests % ulua.gc_freq == 0))) 
+	{
 			lua_gc(L, ulua.gc_full, 0);
 	}
 
@@ -1359,15 +1778,13 @@ static void uwsgi_lua_after_request(struct wsgi_request *wsgi_req) {
 
 static int uwsgi_lua_magic(char *mountpoint, char *lazy) {
 
-	if (!strcmp(lazy+strlen(lazy)-4, ".lua")) {
-                ulua.filename = lazy;
-                return 1;
-        }
-        else if (!strcmp(lazy+strlen(lazy)-3, ".ws")) {
-                ulua.filename = lazy;
-                return 1;
-        }
-
+	if( !strcmp(lazy+strlen(lazy)-4, ".lua")  ||
+		!strcmp(lazy+strlen(lazy)-5, ".luac") ||
+		!strcmp(lazy+strlen(lazy)-3, ".ws")) 
+	{
+		ulua.filename = lazy;
+		return 1;
+	}
 
 	return 0;
 }
@@ -1405,7 +1822,7 @@ static char *uwsgi_lua_code_string(char *id, char *code, char *func, char *key, 
 	ulua_log("stack pos %d %.*s", lua_gettop(L), keylen, key);
 #endif
 
-        if (lua_pcall(L, 1, 1, 0) != 0) {
+        if (lua_pcall(L, 1, 1, 0)) {
                 ulua_log("error running function `f': %s", lua_tostring(L, -1));
                 return NULL;
 
@@ -1443,7 +1860,7 @@ static int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
 
 	lua_pushnumber(L, sig);
 
-	if (lua_pcall(L, 1 + (type == LUA_TTABLE), 1, 0) != 0) {
+	if (lua_pcall(L, 1 + (type == LUA_TTABLE), 1, 0)) {
 		ulua_log("signal: error running function `f': %s",
 		lua_tostring(L, -1));
 		lua_pop(L, 2);
@@ -1457,8 +1874,8 @@ static int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
 static uint64_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t argvs[], char **buffer) {
 
 	uint8_t i;
-	const char *sv;
-	size_t sl;
+	const char *sv = NULL;
+	size_t sl = 0;
 
 	int type;
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -1480,18 +1897,18 @@ static uint64_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t a
 	for(i = 0; i < argc; i++) {
 		lua_pushlstring(L, argv[i], argvs[i]);
 	}
-
-	if (type == LUA_TTABLE) {
-		++argc; //table is the first arg
-	}
 	
-	if (lua_pcall(L, argc, 1, 0) != 0) {
+	if (lua_pcall(L, argc + (type == LUA_TTABLE), 1, 0)) {
 		ulua_log("rpc: error running function `f': %s", lua_tostring(L, -1));
 		lua_pop(L, 2);
 		return 0;
 	}
 
-	sv = lua_tolstring(L, -1, &sl);
+	switch(lua_type(L, -1)) {
+		case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, -1))) break;
+		case LUA_TSTRING:
+		case LUA_TNUMBER: sv = lua_tolstring(L, -1, &sl);
+	}
 
 	if (sl > 0) {
 		*buffer = uwsgi_malloc(sizeof(char) * sl);
@@ -1576,36 +1993,61 @@ static void uwsgi_lua_configurator(char *filename, char *magic_table[]) {
 	lua_close(L);
 }
 
-static void uwsgi_register_lua_features() {
+static void uwsgi_register_lua_features() {	
+	uwsgi_register_configurator(".luac", uwsgi_lua_configurator);
 	uwsgi_register_configurator(".lua", uwsgi_lua_configurator);
+	
+	// non zero defaults:
+	ulua.gc_freq = 1;
 }
 
 static void uwsgi_lua_hijack(void) {
-        if (ulua.shell && uwsgi.mywid == 1) {
-                uwsgi.workers[uwsgi.mywid].hijacked = 1;
-                uwsgi.workers[uwsgi.mywid].hijacked_count++;
-                // re-map stdin to stdout and stderr if we are logging to a file
-                if (uwsgi.logfile) {
-                        if (dup2(0, 1) < 0) {
-                                uwsgi_error("dup2()");
-                        }
-                        if (dup2(0, 2) < 0) {
-                                uwsgi_error("dup2()");
-                        }
-                }
-                int ret = -1;
+
+	if (ulua.shell && uwsgi.mywid == 1) {
+	
+		if (ulua.shell_oneshot && uwsgi.workers[uwsgi.mywid].hijacked_count > 0) {
+			uwsgi.workers[uwsgi.mywid].hijacked = 0;
+			return;
+		}
+		
+		uwsgi.workers[uwsgi.mywid].hijacked = 1;
+		uwsgi.workers[uwsgi.mywid].hijacked_count++;
+		// re-map stdin to stdout and stderr if we are logging to a file
+		if (uwsgi.logfile) {
+			if (dup2(0, 1) < 0) {
+				uwsgi_error("dup2()");
+			}
+			if (dup2(0, 2) < 0) {
+				uwsgi_error("dup2()");
+			}
+		}
+
 		// run in the first state
 		lua_State *L = ULUA_WORKER_STATE[0];		
 		lua_getglobal(L, "debug");
 		lua_getfield(L, -1, "debug");
-		ret = lua_pcall(L, 0, 0, 0);
-                if (ret == 0) {
-                        exit(UWSGI_QUIET_CODE);
-                }
-                exit(0);
-        }
+		
+		ulua_log("Hallo, this is lua debug.debug() aka lua_debug, use CTRL+D to exit");
+		
+		if (lua_pcall(L, 0, 0, 0)) {
+			ulua_log("unable to call 'debug.debug()': %s", lua_tostring(L, -1));
+		}
 
+		if (ulua.shell_oneshot || uwsgi.master_process) { // master will respawn it anyway
+		
+			uwsgi.workers[uwsgi.mywid].hijacked = 0;
+			
+			uwsgi_log("\n");
+			ulua_log("worker %d has been resumed...", uwsgi.mywid);
+			
+			return;
+		} 
+			
+		exit(UWSGI_QUIET_CODE);
+
+	}
 }
+
 
 static void uwsgi_lua_init_apps() {
 	int i,j,sid;
@@ -1620,6 +2062,7 @@ static void uwsgi_lua_init_apps() {
 			uwsgi_lua_init_state(&(ULUA_WORKER_STATE[i]), uwsgi.mywid, sid + i, cores);
 		}
 		
+		ulua_log("inited %d lua_State(s) for worker %d", uwsgi.threads, uwsgi.mywid);
 	} else {
 		for(j=0;j<uwsgi.numproc;j++){
 			sid = j*uwsgi.threads;
@@ -1628,6 +2071,7 @@ static void uwsgi_lua_init_apps() {
 				uwsgi_lua_init_state(&(ulua.state[j][i]), j + 1, sid + i, cores);
 			}
 			
+			ulua_log("inited %d lua_State(s) for worker %d", uwsgi.threads, j + 1);
 		}
 	}
 }
