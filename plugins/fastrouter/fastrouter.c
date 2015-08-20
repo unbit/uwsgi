@@ -19,6 +19,9 @@ struct fastrouter_session {
 	int has_key;
 	uint64_t content_length;
 	uint64_t buffered;
+
+	char *path_info;
+        uint16_t path_info_len;
 };
 
 static struct uwsgi_option fastrouter_options[] = {
@@ -66,6 +69,33 @@ static struct uwsgi_option fastrouter_options[] = {
 	UWSGI_END_OF_OPTIONS
 };
 
+static int rebuild_key_for_mountpoint(char *path_info, uint16_t path_info_len, struct corerouter_peer *peer) {
+        if (path_info_len == 0) return -1;
+        if (path_info[0] != '/') return -1;
+        uint16_t len = path_info_len -1;
+        // is it / ?
+        if (len == 0) return 0;
+        // now find the second slash occurrence (if any)
+        char *second_slash = memchr(path_info+1, '/', len);
+        char *new_key = NULL;
+        uint16_t new_key_len = 0;
+        if (second_slash) {
+                new_key = uwsgi_concat2n(peer->key, peer->key_len, path_info, second_slash - path_info);
+                new_key_len = peer->key_len + (second_slash - path_info);
+        }
+        else {
+                new_key = uwsgi_concat2n(peer->key, peer->key_len, path_info, len + 1);
+                new_key_len = peer->key_len + len + 1;
+        }
+
+        if (new_key_len <= 0xff) {
+                memcpy(peer->key, new_key, new_key_len);
+                peer->key_len = new_key_len;
+        }
+        free(new_key);
+        return 0;
+}
+
 static void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 
 	struct corerouter_peer *peer = (struct corerouter_peer *) data;
@@ -110,6 +140,14 @@ static void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vall
 		}
                 return;
         }
+
+	if (uwsgi.subscription_mountpoints) {
+		if (!uwsgi_strncmp("PATH_INFO", 9, key, keylen)) {
+			fr->path_info = val;
+			fr->path_info_len = vallen;
+                }
+	}
+
 
 	if (ufr.cr.post_buffering > 0) {
 		if (!uwsgi_strncmp("CONTENT_LENGTH", 14, key, keylen)) {
@@ -324,6 +362,10 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 		// check the hostname;
 		if (new_peer->key_len == 0)
 			return -1;
+
+		if (uwsgi.subscription_mountpoints) {
+                	if (rebuild_key_for_mountpoint(fr->path_info, fr->path_info_len, new_peer)) return -1;
+                }
 
 		// find an instance using the key
 		if (ucr->mapper(ucr, new_peer))
