@@ -752,7 +752,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 		char *colon = strchr(ucr->emperor_socket, ':');
 		if (colon) {
 			ucr->emperor_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
-                        ucr->emperor_socket_addr_len = socket_to_in_addr(ucr->emperor_socket, NULL, atoi(colon+1), &ucr->emperor_socket_addr.sa_in);
+                        ucr->emperor_socket_addr_len = socket_to_in_addr(ucr->emperor_socket, colon, 0, &ucr->emperor_socket_addr.sa_in);
 		}
 		else {
 			ucr->emperor_socket_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
