@@ -2812,6 +2812,7 @@ struct uwsgi_server {
 	char *emperor_command_socket;
 	int emperor_command_socket_fd;
 	int emperor_wait_for_command;
+	struct uwsgi_string_list *emperor_wait_for_command_ignore;
 };
 
 struct uwsgi_rpc {

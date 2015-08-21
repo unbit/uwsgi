@@ -1161,7 +1161,7 @@ void emperor_add_with_attrs(struct uwsgi_emperor_scanner *ues, char *name, time_
 
 	// Check if the Emperor has to wait for a command before spawning a vassal
 	if (uwsgi.emperor_command_socket) {
-		if (uwsgi.emperor_wait_for_command) {
+		if (uwsgi.emperor_wait_for_command && !uwsgi_string_list_has_item(uwsgi.emperor_wait_for_command_ignore, name, strlen(name))) {
 			n_ui->suspended = 1;
 			uwsgi_log("[uwsgi-emperor] %s -> \"wait-for-command\" instance detected, waiting for the spawn command ...\n", name);
 			return;
