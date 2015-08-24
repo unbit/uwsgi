@@ -288,6 +288,8 @@ struct uwsgi_corerouter {
 	int emperor_socket_fd;
 	union uwsgi_sockaddr emperor_socket_addr;	
 	socklen_t emperor_socket_addr_len;
+
+	int defer_connect_timeout;
 };
 
 // a session is started when a client connect to the router

@@ -345,7 +345,7 @@ void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer 
         		}
 
                 	// set new timeout
-			peer->current_timeout = 5;
+			peer->current_timeout = ucr->defer_connect_timeout;
         		peer->timeout = corerouter_reset_timeout(ucr, peer);
 			peer->current_timeout = ucr->socket_timeout;
 			peer->failed = 0;
@@ -719,6 +719,9 @@ void uwsgi_corerouter_loop(int id, void *data) {
 
 	if (!ucr->socket_timeout)
 		ucr->socket_timeout = 60;
+
+	if (!ucr->defer_connect_timeout)
+		ucr->defer_connect_timeout = 5;
 
 	if (!ucr->static_node_gracetime)
 		ucr->static_node_gracetime = 30;
