@@ -3857,8 +3857,8 @@ void uwsgi_init_all_apps() {
 			what++;
 			for (j = 0; j < 256; j++) {
 				if (uwsgi.p[j]->mount_app) {
-					uwsgi_log("mounting %s on %s\n", what, app_mps->value);
-					if (uwsgi.p[j]->mount_app(app_mps->value, what) != -1)
+					uwsgi_log("mounting %s on %s\n", what, app_mps->value[0] == 0 ? "/" : app_mps->value);
+					if (uwsgi.p[j]->mount_app(app_mps->value[0] == 0 ? "/" : app_mps->value, what) != -1)
 						break;
 				}
 			}

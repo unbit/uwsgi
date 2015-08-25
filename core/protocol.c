@@ -715,7 +715,7 @@ next:
 	}
 
 	if (uwsgi.manage_script_name) {
-		if (uwsgi_apps_cnt > 0 && wsgi_req->path_info_len > 1 && wsgi_req->path_info_pos != -1) {
+		if (uwsgi_apps_cnt > 0 && wsgi_req->path_info_len >= 1 && wsgi_req->path_info_pos != -1) {
 			// starts with 1 as the 0 app is the default (/) one
 			int best_found = 0;
 			char *orig_path_info = wsgi_req->path_info;
