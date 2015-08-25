@@ -201,6 +201,9 @@ struct corerouter_peer {
 	int buffering_fd;
 
 	int defer_connect;
+
+	char *vassal;
+	uint8_t vassal_len;
 };
 
 struct uwsgi_corerouter {
@@ -374,4 +377,4 @@ struct corerouter_peer *uwsgi_cr_peer_find_by_sid(struct corerouter_session *, u
 void corerouter_close_peer(struct uwsgi_corerouter *, struct corerouter_peer *);
 struct uwsgi_rb_timer *corerouter_reset_timeout(struct uwsgi_corerouter *, struct corerouter_peer *);
 
-int corerouter_spawn_vassal(struct uwsgi_corerouter *, struct uwsgi_subscribe_node *);
+int corerouter_spawn_vassal(struct uwsgi_corerouter *, struct uwsgi_subscribe_node *, int);

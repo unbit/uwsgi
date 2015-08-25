@@ -167,8 +167,14 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 	while (node) {
 		// is the node alive ?
 		if (now - node->last_check > uwsgi.subscription_tolerance) {
-			if (node->death_mark == 0)
-				uwsgi_log("[uwsgi-subscription for pid %d] %.*s => marking %.*s as failed (no announce received in %d seconds)\n", (int) uwsgi.mypid, (int) keylen, key, (int) node->len, node->name, uwsgi.subscription_tolerance);
+			if (node->death_mark == 0) {
+				if (node->len > 0) {
+					uwsgi_log("[uwsgi-subscription for pid %d] %.*s => marking %.*s as failed (no announce received in %d seconds)\n", (int) uwsgi.mypid, (int) keylen, key, (int) node->len, node->name, uwsgi.subscription_tolerance);
+				}
+				else if (node->vassal_len > 0) {
+					uwsgi_log("[uwsgi-subscription for pid %d] %.*s => marking vassal %.*s as failed (no announce received in %d seconds)\n", (int) uwsgi.mypid, (int) keylen, key, (int) node->vassal_len, node->vassal, uwsgi.subscription_tolerance);
+				}
+			}
 			node->failcnt++;
 			node->death_mark = 1;
 		}
@@ -301,7 +307,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(slot, usr->key, usr->keylen), *old_slot = NULL, *a_slot;
 	struct uwsgi_subscribe_node *node, *old_node = NULL;
 
-	if (usr->address_len > 0xff || usr->address_len == 0)
+	if ((usr->address_len > 0xff || usr->address_len == 0) && (usr->vassal_len > 0xff || usr->vassal_len == 0))
 		return NULL;
 
 	if (current_slot) {
@@ -315,18 +321,29 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 			return NULL;
 		}
 
+		int has_address = 0;
+		if (usr->address_len > 0)
+			has_address = 1;
+
 		node = current_slot->nodes;
 		while (node) {
-			if (!uwsgi_strncmp(node->name, node->len, usr->address, usr->address_len)) {
+			if ((usr->address_len > 0 && !uwsgi_strncmp(node->name, node->len, usr->address, usr->address_len))
+				|| (usr->vassal_len > 0 && !uwsgi_strncmp(node->vassal, node->vassal_len, usr->vassal, usr->vassal_len))) {
 #ifdef UWSGI_SSL
 				// this should avoid sending sniffed packets...
 				if (current_slot->sign_ctx && !subscription_is_safe(usr) && usr->unix_check <= node->unix_check) {
-					uwsgi_log("[uwsgi-subscription for pid %d] invalid (sniffed ?) packet sent for slot: %.*s node: %.*s unix_check: %lu\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, (unsigned long) usr->unix_check);
+					uwsgi_log("[uwsgi-subscription for pid %d] invalid (sniffed ?) packet sent for slot: %.*s node: %.*s unix_check: %lu\n", (int) uwsgi.mypid, usr->keylen, usr->key, (int) usr->address_len, usr->address, (unsigned long) usr->unix_check);
 					return NULL;
 				}
 				// eventually the packet could be upgraded to sni...
 				uwsgi_subscription_sni_check(current_slot, usr);
 #endif
+				if (has_address && node->len == 0) {
+					memcpy(node->name, usr->address, usr->address_len);
+					node->len = usr->address_len;
+					uwsgi_log("[uwsgi-subscription for pid %d] %.*s => updated vassal node: %.*s with address %.*s (weight: %d, backup: %d)\n", (int) uwsgi.mypid, usr->keylen, usr->key, (int) usr->vassal_len, usr->vassal, (int) usr->address_len, usr->address, usr->weight, usr->backup_level);	
+				}
+
 				// remove death mark and update cores and load
 				node->death_mark = 0;
 				node->last_check = uwsgi_now();
@@ -340,10 +357,6 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 				if (!node->weight)
 					node->weight = 1;
 				node->last_requests = 0;
-				if (!usr->inactive && current_slot->inactive) {
-					current_slot->inactive = 0;
-					uwsgi_log("[uwsgi-subscription for pid %d] pool %.*s is now active\n", (int) uwsgi.mypid, usr->keylen, usr->key);
-				}
 				return node;
 			}
 			old_node = node;
@@ -391,17 +404,19 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		}
 		node->last_check = uwsgi_now();
 		node->slot = current_slot;
-		memcpy(node->name, usr->address, usr->address_len);
+		node->vassal_len = usr->vassal_len;
+
+		if (node->len > 0)
+			memcpy(node->name, usr->address, node->len);
+		if (usr->vassal_len > 0)
+			memcpy(node->vassal, usr->vassal, node->vassal_len);
+		
 		if (old_node) {
 			old_node->next = node;
 		}
 		node->next = NULL;
 
 		uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new node: %.*s (weight: %d, backup: %d)\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, usr->weight, usr->backup_level);
-		if (!usr->inactive && current_slot->inactive) {
-			current_slot->inactive = 0;
-			uwsgi_log("[uwsgi-subscription for pid %d] pool %.*s is now active\n", (int) uwsgi.mypid, usr->keylen, usr->key);
-		}
 		if (node->notify[0]) {
 			char buf[1024];
 			int ret = snprintf(buf, 1024, "[subscription ack] %.*s => new node: %.*s", usr->keylen, usr->key, usr->address_len, usr->address);
@@ -468,7 +483,11 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 			memcpy(current_slot->nodes->notify, usr->notify, usr->notify_len);
 			current_slot->nodes->notify[usr->notify_len] = 0;
 		}
-		memcpy(current_slot->nodes->name, usr->address, usr->address_len);
+		if (usr->address_len > 0)
+			memcpy(current_slot->nodes->name, usr->address, usr->address_len);
+		current_slot->nodes->vassal_len = usr->vassal_len;
+		if (current_slot->nodes->vassal_len > 0)
+			memcpy(current_slot->nodes->vassal, usr->vassal, usr->vassal_len);
 		current_slot->nodes->last_check = uwsgi_now();
 
 		current_slot->nodes->next = NULL;
@@ -490,19 +509,17 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->algo = usr->algo;
 		if (!current_slot->algo) current_slot->algo = uwsgi.subscription_algo;
 
-		if (usr->vassal_len > 0 && usr->vassal_len <= 0xff) {
-			memcpy(current_slot->vassal, usr->vassal, usr->vassal_len);
-			current_slot->vassal_len = usr->vassal_len;
-		}
-		current_slot->inactive = usr->inactive;
-
-
 		if (!slot[hash_key] || current_slot->prev == NULL) {
 			slot[hash_key] = current_slot;
 		}
 
-		uwsgi_log("[uwsgi-subscription for pid %d] new pool: %.*s (hash key: %d, algo: %s)%s\n", (int) uwsgi.mypid, usr->keylen, usr->key, current_slot->hash, uwsgi_subscription_algo_name(current_slot->algo), current_slot->inactive ? " [inactive]" : "");
-		uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new node: %.*s (weight: %d, backup: %d)\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, usr->weight, usr->backup_level);
+		uwsgi_log("[uwsgi-subscription for pid %d] new pool: %.*s (hash key: %d, algo: %s)\n", (int) uwsgi.mypid, usr->keylen, usr->key, current_slot->hash, uwsgi_subscription_algo_name(current_slot->algo));
+		if (usr->address_len > 0) {
+			uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new node: %.*s (weight: %d, backup: %d)\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, usr->weight, usr->backup_level);
+		}
+		else {
+			uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new vassal node: %.*s (weight: %d, backup: %d)\n", (int) uwsgi.mypid, usr->keylen, usr->key, usr->vassal_len, usr->vassal, usr->weight, usr->backup_level);
+		}
 
 		if (current_slot->nodes->notify[0]) {
 			char buf[1024];

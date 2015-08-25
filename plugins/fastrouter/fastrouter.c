@@ -378,6 +378,12 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 
 		// check instance
 		if (new_peer->instance_address_len == 0) {
+			// check if the connection was deferred
+			if (new_peer->defer_connect) {
+				new_peer->current_timeout = ufr.cr.defer_connect_timeout;
+                        	new_peer->timeout = corerouter_reset_timeout(&ufr.cr, new_peer);
+				return len;
+			}
 			if (ufr.cr.fallback_on_no_key) {
 				new_peer->failed = 1;
 				new_peer->can_retry = 1;
@@ -436,6 +442,14 @@ static int fr_retry(struct corerouter_peer *peer) {
         }
 
         if (peer->instance_address_len == 0) {
+		// first retry is consumed for the first attempt
+		if (peer->defer_connect && (peer->retries+1) < ufr.cr.max_retries) {
+                	peer->current_timeout = ufr.cr.defer_connect_timeout;
+                        peer->timeout = corerouter_reset_timeout(&ufr.cr, peer);
+                        return 1;
+                }
+		// ensure deferred connect is disabled
+		peer->defer_connect = 0;
                 return -1;
         }
 

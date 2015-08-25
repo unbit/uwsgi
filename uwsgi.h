@@ -3423,8 +3423,6 @@ struct uwsgi_subscribe_req {
 
 	char *vassal;
 	uint16_t vassal_len;
-
-	uint8_t inactive;
 };
 
 void uwsgi_nuclear_blast();
@@ -3706,6 +3704,9 @@ struct uwsgi_subscribe_node {
 	uint64_t backup_level;
 	//here the solution is a bit hacky, we take the first letter of the proto ('u','\0' -> uwsgi, 'h' -> http, 'f' -> fastcgi, 's' -> scgi)
 	char proto;
+
+	char vassal[0xff];
+	uint16_t vassal_len;
 };
 
 struct uwsgi_subscribe_slot {
@@ -3730,10 +3731,7 @@ struct uwsgi_subscribe_slot {
 
 	// uWSGI 2.1 (algo is required)
         struct uwsgi_subscribe_node *(*algo) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *);
-	char vassal[0xff];
-	uint16_t vassal_len;
 
-	uint8_t inactive;
 };
 
 void mule_send_msg(int, char *, size_t);

@@ -320,9 +320,6 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
                 usr->vassal = val;
                 usr->vassal_len = vallen;
         }
-	else if (!uwsgi_strncmp("inactive", 8, key, keylen)) {
-		usr->inactive = uwsgi_str_num(val, vallen);
-	}
 }
 
 void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
@@ -330,27 +327,6 @@ void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer 
 
 	// manage subscription reference count
 	if (ucr->subscriptions && peer->un && peer->un->len > 0) {
-
-		if (peer->un->slot->inactive && peer->can_retry && peer->retries < (size_t) ucr->max_retries) {
-			corerouter_spawn_vassal(ucr, peer->un);
-                        peer->defer_connect = 1;
-
-			// tell the corerouter to stop listening for fd events
-        		if (peer->fd != -1) {
-                		close(peer->fd);
-                		peer->session->corerouter->cr_table[peer->fd] = NULL;
-                		peer->fd = -1;
-                		peer->hook_read = NULL;
-                		peer->hook_write = NULL;
-        		}
-
-                	// set new timeout
-			peer->current_timeout = ucr->defer_connect_timeout;
-        		peer->timeout = corerouter_reset_timeout(ucr, peer);
-			peer->current_timeout = ucr->socket_timeout;
-			peer->failed = 0;
-			return;
-		}
 
                 // decrease reference count
 #ifdef UWSGI_DEBUG
@@ -512,6 +488,14 @@ static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr, time_t now)
 				peer->defer_connect = 0;
 				peer->retries++;
 				// ignore return value
+				if (peer->un) {
+					if (peer->un->reference == 0) {
+						uwsgi_log("[BUG] subscription reference counting is 0 !!!\n");
+						corerouter_close_peer(ucr, peer);
+						continue;
+					}
+					peer->un->reference--;
+				}
 				peer->session->retry(peer);
 				// increase timeout;
 				urbt->value += peer->current_timeout;
@@ -1133,8 +1117,6 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 				if (uwsgi_stats_keyvaln_comma(us, "key", s_slot->key, s_slot->keylen)) goto end0;
 				if (uwsgi_stats_keylong_comma(us, "hash", (unsigned long long) s_slot->hash)) goto end0;
 				if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) s_slot->hits)) goto end0;
-				if (uwsgi_stats_keyvaln_comma(us, "vassal", s_slot->vassal, s_slot->vassal_len)) goto end0;
-				if (uwsgi_stats_keylong_comma(us, "inactive", (unsigned long long) s_slot->inactive)) goto end0;
 #ifdef UWSGI_SSL
 				if (uwsgi_stats_keylong_comma(us, "sni_enabled", (unsigned long long) s_slot->sni_enabled)) goto end0;
 #endif
@@ -1148,6 +1130,7 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 					if (uwsgi_stats_object_open(us)) goto end0;
 
 					if (uwsgi_stats_keyvaln_comma(us, "name", s_node->name, s_node->len)) goto end0;
+					if (uwsgi_stats_keyvaln_comma(us, "vassal", s_node->vassal, s_node->vassal_len)) goto end0;
 
 					if (uwsgi_stats_keylong_comma(us, "modifier1", (unsigned long long) s_node->modifier1)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "modifier2", (unsigned long long) s_node->modifier2)) goto end0;
