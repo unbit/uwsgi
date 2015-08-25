@@ -94,12 +94,12 @@ static void stats_pusher_statsd(struct uwsgi_stats_pusher_instance *uspi, time_t
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
 	struct uwsgi_metric *um = uwsgi.metrics;
 	while(um) {
+		if (u_stats_pusher_statsd.no_workers && !uwsgi_starts_with(um->name, um->name_len, "worker.", 7)) {
+		    goto next;
+		}
 		uwsgi_rlock(uwsgi.metrics_lock);
 		// ignore return value
-		if (u_stats_pusher_statsd.no_workers && strstr(um->name, "worker.") != NULL) {
-		    // no-op
-		}
-		else if (um->type == UWSGI_METRIC_GAUGE) {
+		if (um->type == UWSGI_METRIC_GAUGE) {
 			statsd_send_metric(ub, uspi, um->name, um->name_len, *um->value, "|g");
 		}
 		else {
@@ -111,6 +111,7 @@ static void stats_pusher_statsd(struct uwsgi_stats_pusher_instance *uspi, time_t
 			*um->value = um->initial_value;
 			uwsgi_rwunlock(uwsgi.metrics_lock);
 		}
+		next:
 		um = um->next;
 	}
 	uwsgi_buffer_destroy(ub);
