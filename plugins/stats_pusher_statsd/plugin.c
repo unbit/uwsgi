@@ -16,6 +16,14 @@ it exports values exposed by the metric subsystem
 
 extern struct uwsgi_server uwsgi;
 
+struct uwsgi_stats_pusher_statsd {
+    int no_workers;
+} u_stats_pusher_statsd;
+
+static struct uwsgi_option stats_pusher_statsd_options[] = {
+	{"statsd-no-workers", no_argument, 0, "disable generation of single worker metrics", uwsgi_opt_true, &u_stats_pusher_statsd.no_workers, 0}
+};
+
 // configuration of a statsd node
 struct statsd_node {
 	int fd;
@@ -86,6 +94,9 @@ static void stats_pusher_statsd(struct uwsgi_stats_pusher_instance *uspi, time_t
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
 	struct uwsgi_metric *um = uwsgi.metrics;
 	while(um) {
+		if (u_stats_pusher_statsd.no_workers && !uwsgi_starts_with(um->name, um->name_len, "worker.", 7)) {
+		    goto next;
+		}
 		uwsgi_rlock(uwsgi.metrics_lock);
 		// ignore return value
 		if (um->type == UWSGI_METRIC_GAUGE) {
@@ -100,6 +111,7 @@ static void stats_pusher_statsd(struct uwsgi_stats_pusher_instance *uspi, time_t
 			*um->value = um->initial_value;
 			uwsgi_rwunlock(uwsgi.metrics_lock);
 		}
+		next:
 		um = um->next;
 	}
 	uwsgi_buffer_destroy(ub);
@@ -114,6 +126,7 @@ static void stats_pusher_statsd_init(void) {
 struct uwsgi_plugin stats_pusher_statsd_plugin = {
 
         .name = "stats_pusher_statsd",
+        .options = stats_pusher_statsd_options,
         .on_load = stats_pusher_statsd_init,
 };
 
