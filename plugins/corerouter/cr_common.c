@@ -279,6 +279,10 @@ void uwsgi_corerouter_manage_internal_subscription(struct uwsgi_corerouter *ucr,
 }
 
 int corerouter_spawn_vassal(struct uwsgi_corerouter *ucr, struct uwsgi_subscribe_node *node, int attempt) {
+	// TODO
+	// a vassal field could be in the form address:name where address is the emperor command socket
+	// to use. As we cannot know in advance if it will be a UDP or UNIX address, we need to
+	// re-create and close the socket every time.
 	if (!ucr->emperor_socket)
 		return -1;
 	int ret = -1;
