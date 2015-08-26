@@ -310,6 +310,9 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 	if ((usr->address_len > 0xff || usr->address_len == 0) && (usr->vassal_len > 0xff || usr->vassal_len == 0))
 		return NULL;
 
+	if (uwsgi.subscription_vassal_required && usr->vassal_len == 0)
+		return NULL;
+
 	if (current_slot) {
 #ifdef UWSGI_SSL
 		if (uwsgi.subscriptions_sign_check_dir && !uwsgi_subscription_sign_check(current_slot, usr)) {
