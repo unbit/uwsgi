@@ -1511,6 +1511,7 @@ static void *logger_thread_loop(void *noarg) {
         if (uwsgi.req_log_master) {
                 logpoll[1].events = POLLIN;
                 logpoll[1].fd = uwsgi.shared->worker_req_log_pipe[0];
+		logpolls++;
         }
 
 
