@@ -1512,6 +1512,7 @@ static void *logger_thread_loop(void *noarg) {
         if (uwsgi.req_log_master) {
                 logpoll[1].events = POLLIN;
                 logpoll[1].fd = uwsgi.shared->worker_req_log_pipe[0];
+		logpolls++;
         }
 
 
@@ -1548,6 +1549,19 @@ void uwsgi_threaded_logger_spawn() {
                 	event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_req_log_pipe[0]);
                 }
                 uwsgi.threaded_logger = 0;
+	}
+}
+
+void uwsgi_threaded_logger_worker_spawn() {
+	pthread_t logger_thread;
+
+        pthread_mutex_init(&uwsgi.threaded_logger_lock, NULL);
+
+	uwsgi.log_master_buf = uwsgi_malloc(uwsgi.log_master_bufsize);
+
+        if (pthread_create(&logger_thread, NULL, logger_thread_loop, NULL)) {
+                uwsgi_error_safe("uwsgi_threaded_logger_worker_spawn()/pthread_create()");
+		exit(1);
 	}
 }
 

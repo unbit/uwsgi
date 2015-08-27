@@ -714,6 +714,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"req-logger", required_argument, 0, "set/append a request logger", uwsgi_opt_set_req_logger, NULL, UWSGI_OPT_REQ_LOG_MASTER},
 	{"logger-req", required_argument, 0, "set/append a request logger", uwsgi_opt_set_req_logger, NULL, UWSGI_OPT_REQ_LOG_MASTER},
 	{"logger", required_argument, 0, "set/append a logger", uwsgi_opt_set_logger, NULL, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+	{"worker-logger", required_argument, 0, "set/append a logger in single-worker setup", uwsgi_opt_set_worker_logger, NULL, 0},
+	{"worker-logger-req", required_argument, 0, "set/append a request logger in single-worker setup", uwsgi_opt_set_req_logger, NULL, 0},
 	{"logger-list", no_argument, 0, "list enabled loggers", uwsgi_opt_true, &uwsgi.loggers_list, 0},
 	{"loggers-list", no_argument, 0, "list enabled loggers", uwsgi_opt_true, &uwsgi.loggers_list, 0},
 	{"threaded-logger", no_argument, 0, "offload log writing to a thread", uwsgi_opt_true, &uwsgi.threaded_logger, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -721,6 +723,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"log-encoder", required_argument, 0, "add an item in the log encoder chain", uwsgi_opt_add_string_list, &uwsgi.requested_log_encoders, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"log-req-encoder", required_argument, 0, "add an item in the log req encoder chain", uwsgi_opt_add_string_list, &uwsgi.requested_log_req_encoders, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+
+	{"worker-log-encoder", required_argument, 0, "add an item in the log encoder chain", uwsgi_opt_add_string_list, &uwsgi.requested_log_encoders, 0},
+	{"worker-log-req-encoder", required_argument, 0, "add an item in the log req encoder chain", uwsgi_opt_add_string_list, &uwsgi.requested_log_req_encoders, 0},
 	
 
 #ifdef UWSGI_PCRE
@@ -2354,6 +2359,13 @@ configure:
 	// setup master logging
 	if (uwsgi.log_master)
 		uwsgi_setup_log_master();
+	else if (uwsgi.numproc == 1 && uwsgi.log_worker && uwsgi.master_process == 0) {
+		// hack for allowing request loggers
+		if (uwsgi.requested_req_logger)
+			uwsgi.req_log_master = 1;
+                uwsgi_setup_log_master();
+                uwsgi_threaded_logger_worker_spawn();
+        }
 
 	// setup offload engines
 	uwsgi_offload_engines_register_all();
@@ -4151,6 +4163,11 @@ void uwsgi_opt_set_logger(char *opt, char *value, void *prefix) {
 	else {
 		uwsgi_string_new_list(&uwsgi.requested_logger, uwsgi_str(value));
 	}
+}
+
+void uwsgi_opt_set_worker_logger(char *opt, char *value, void *prefix) {
+	uwsgi_opt_set_logger(opt, value, prefix);
+	uwsgi.log_worker = 1;
 }
 
 void uwsgi_opt_set_req_logger(char *opt, char *value, void *prefix) {

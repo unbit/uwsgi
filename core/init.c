@@ -413,7 +413,8 @@ pid_t uwsgi_daemonize2() {
 		uwsgi_write_pidfile(uwsgi.pidfile2);
 	}
 
-	if (uwsgi.log_master) uwsgi_setup_log_master();
+	if (uwsgi.log_master) 
+		uwsgi_setup_log_master();
 
 	return uwsgi.mypid;
 }

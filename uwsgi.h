@@ -2810,7 +2810,9 @@ struct uwsgi_server {
 	char *emperor_trigger_socket;
 	int emperor_trigger_socket_fd;
 
-    int spooler_signal_as_task;
+	int spooler_signal_as_task;
+
+	int log_worker;
 };
 
 struct uwsgi_rpc {
@@ -3803,6 +3805,7 @@ void uwsgi_opt_set_str(char *, char *, void *);
 void uwsgi_opt_custom(char *, char *, void *);
 void uwsgi_opt_set_null(char *, char *, void *);
 void uwsgi_opt_set_logger(char *, char *, void *);
+void uwsgi_opt_set_worker_logger(char *, char *, void *);
 void uwsgi_opt_set_req_logger(char *, char *, void *);
 void uwsgi_opt_set_str_spaced(char *, char *, void *);
 void uwsgi_opt_add_string_list(char *, char *, void *);
@@ -4549,6 +4552,7 @@ void uwsgi_master_manage_emperor(void);
 void uwsgi_master_manage_udp(int);
 
 void uwsgi_threaded_logger_spawn(void);
+void uwsgi_threaded_logger_worker_spawn(void);
 
 void uwsgi_master_check_idle(void);
 int uwsgi_master_check_workers_deadline(void);
