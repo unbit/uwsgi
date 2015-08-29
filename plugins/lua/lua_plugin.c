@@ -597,7 +597,8 @@ static int uwsgi_lua_cache_del_exists(lua_State *L, int cache_do(char *, uint16_
 		key = (char *) lua_tolstring(L, 1, &keylen);
 		
 		if (!keylen || (cache_do(key, keylen, cache) - reverse)) {
-			++error;
+			lua_pushnil(L);
+			return 1;
 		}
 	}
 			
@@ -742,6 +743,8 @@ static int uwsgi_api_signal_registered(lua_State *L) {
 
 static int uwsgi_api_register_signal(lua_State *L) {
 
+	// !! This is plugin specific function !!
+
 	uint8_t args = lua_gettop(L);
 	uint8_t sig;
 	struct uwsgi_signal_entry *use;
@@ -765,7 +768,7 @@ static int uwsgi_api_register_signal(lua_State *L) {
 	if (len == 0) {
 		who = (const char *) &len; // len is zero anyway
 	} else if (len > 63) {
-		ulua_log("receiver is too long: %s", who);
+		ulua_log("receiver lengh overflow: %s", who);
 		return 0;
 	}
 	
@@ -774,27 +777,25 @@ static int uwsgi_api_register_signal(lua_State *L) {
 	}
 	
 	// register signal's receiver on master
-	// copy handlers and modifiers if calling from mywid == 0
 	if (!(use->handler) || strcmp(use->receiver, who)) {
 		uwsgi_lock(uwsgi.signal_table_lock);
 		
+		// master-proc checks receiver
 		strcpy(use->receiver, who);
 			
+		// if master has not any handler
+		// if has, then only update receiver
 		if (!(use->handler)) {
-			use->handler = (void *) (1 /* unused */);
-			use->modifier1 = 6;
-			
-			if (uwsgi.mywid == 0) {
-				if (uwsgi.muleid > 0) {
-					// ok we done
-					uwsgi_unlock(uwsgi.signal_table_lock);
-					lua_pushboolean(L, 1);
-					return 1;
-				}
-			
-				for(i = 1; i <= uwsgi.numproc; i++) {
-					use = &uwsgi.shared->signal_table[sig + i*256];
-					use->handler = (void *) (1 /* unused */);
+			use->handler = (void *) (1 /* unused */); // unsupported
+			use->modifier1 = 6; // for future checks
+		}
+		
+		// from non-lazy worker
+		if (uwsgi.mywid == 0 && uwsgi.muleid == 0) {			
+			for(i = 1; i <= uwsgi.numproc; i++) {
+				use = &uwsgi.shared->signal_table[sig + i*256];
+				if (!(use->handler)) {
+					use->handler = (void *) (1 /* unused */); // unsupported
 					use->modifier1 = 6;
 				}
 			}
@@ -803,14 +804,14 @@ static int uwsgi_api_register_signal(lua_State *L) {
 		uwsgi_unlock(uwsgi.signal_table_lock);
 	} 
 	
-	// worker, just register handler and modifier1
+	// lazy (or runtime) worker, just register handler and modifier1
 	if (uwsgi.mywid > 0) {
 		use = &uwsgi.shared->signal_table[sig + uwsgi.mywid*256];
 	
 		if (use->modifier1 != 6) {
 			uwsgi_lock(uwsgi.signal_table_lock);
 			
-			use->handler = (void *) (1 /* unused */);
+			use->handler = (void *) (1 /* unused */); // unsupported
 			use->modifier1 = 6;
 			
 			uwsgi_unlock(uwsgi.signal_table_lock);
@@ -1188,44 +1189,85 @@ static int uwsgi_api_websocket_recv_nb(lua_State *L) {
 
 static int uwsgi_api_cache_get(lua_State *L) {
 
-	char *value;
-	uint64_t valsize;
-	size_t keylen;
-	char *key;
-	char *cache = NULL;
 	uint8_t argc = lua_gettop(L);
 
-	if (argc == 0) goto error;
+	char *value;
+	uint64_t valsize;
+	
+	char *key;
+	size_t keylen;
 
-	// get the key
-	key = (char *) lua_tolstring(L, 1, &keylen);
+	char *cache = NULL;
+	
+	size_t error;
+	size_t tlen;
+	size_t i;
 		
 	if (argc > 1) {
 		cache = (char *) lua_tostring(L, 2);
+	} else if (!argc) {
+		return 0;
 	}
 	
-	if (!keylen) goto error;
+	if (lua_istable(L, 1)) {
+		
+		error = 0;
+		tlen = lua_rawlen(L, 1);
+		
+		lua_createtable(L, 0, tlen);
+		
+		for(i = 1; i <= tlen; i++) {
+			
+			lua_rawgeti(L, 1, i);
+			
+			key = (char *) lua_tolstring(L, -1, &keylen);
+
+			value = (keylen) ? uwsgi_cache_magic_get(key, keylen, &valsize, NULL, cache) : NULL;
+			
+			if (value) {
+				lua_pushlstring(L, value, valsize);
+				free(value);
+				lua_rawset(L, -3);
+			} else {
+				++error;
+				lua_pop(L, 1);
+			}
+		
+		}
+		
+		if (!error) {
+			return 1;
+		}
+		
+		lua_pushnumber(L, error);
+		return 2;
+		
+	}
 	
-	value = uwsgi_cache_magic_get(key, keylen, &valsize, NULL, cache);
-	
+	key = (char *) lua_tolstring(L, 1, &keylen);
+		
+	value = (keylen) ? uwsgi_cache_magic_get(key, keylen, &valsize, NULL, cache) : NULL;
+		
 	if (value) {
 		lua_pushlstring(L, value, valsize);
 		free(value);
-		return 1;
+	} else {
+		lua_pushnil(L);
 	}
-
-error:
-	lua_pushnil(L);
+		
 	return 1;
 
 }
+
 
 static int uwsgi_api_cache_get_multi(lua_State *L) {
 
 	char *value ;
 	uint64_t valsize;
-	size_t keylen;
+	
 	char *key;
+	size_t keylen;
+	
 	char *cache;
 	
 	int argc = lua_gettop(L);
@@ -1244,12 +1286,9 @@ static int uwsgi_api_cache_get_multi(lua_State *L) {
 	
 	for (i = 2; i <= argc; i++) {
 	
-		value = NULL;
 		key = (char *) lua_tolstring(L, i, &keylen);
 		
-		if (keylen) {
-			value = uwsgi_cache_magic_get(key, keylen, &valsize, NULL, cache);
-		}
+		value = (keylen) ? uwsgi_cache_magic_get(key, keylen, &valsize, NULL, cache) : NULL;
 		
 		if (value) {
 			lua_pushlstring(L, value, valsize);
@@ -1261,6 +1300,54 @@ static int uwsgi_api_cache_get_multi(lua_State *L) {
 
 	return argc - 1;
 }
+
+static int uwsgi_api_cache_get_tmulti(lua_State *L) {
+
+	char *value ;
+	uint64_t valsize;
+	
+	char *key;
+	size_t keylen;
+	
+	char *cache;
+	
+	int argc = lua_gettop(L);
+	int error = 0;
+	int i;
+	
+	if (argc < 2) {
+		return 0;
+	}
+
+	cache = (char *) lua_tostring(L, 1);
+	
+	lua_createtable(L, 0, argc - 1);
+	
+	for (i = 2; i <= argc; i++) {
+	
+		key = (char *) lua_tolstring(L, i, &keylen);
+		
+		value = (keylen) ? uwsgi_cache_magic_get(key, keylen, &valsize, NULL, cache) : NULL;
+		
+		if (value) {
+			lua_pushlstring(L, value, valsize);
+			free(value);
+			lua_setfield(L, -2, key);
+		} else {
+			++error;
+		}
+			
+	}
+	
+	if (!error) {
+		return 1;
+	}
+	
+	lua_pushnumber(L, error);
+	return 2;
+	
+}
+
 
 static int uwsgi_api_req_fd(lua_State *L) {
 
@@ -1460,35 +1547,36 @@ static int uwsgi_api_mule_msg(lua_State *L) {
 	if (argc == 1) {
 		mule_send_msg(uwsgi.shared->mule_queue_pipe[0], msg, msglen);
 	} else {
-		fd = -1;
-		mule_id = -1;
 		type = lua_type(L, 2);
-		
+	
 		if (type == LUA_TSTRING) {
+				
 			struct uwsgi_farm *uf = get_farm_by_name((char *)lua_tostring(L, 2));
 			
 			if (!uf) {
 				ulua_log("mule_msg: unknown farm");
 				return 0;
 			}
-			
+				
 			fd = uf->queue_pipe[0];
-			
+
 		} else if (type == LUA_TNUMBER) {
+		
 			mule_id = lua_tonumber(L, 2);
 		
 			if (mule_id < 0 && mule_id > uwsgi.mules_cnt) {
 				ulua_log("mule_msg: mule_id is out of range");
 				return 0;
 			}
-		
+			
 			if (mule_id == 0) {
 				fd = uwsgi.shared->mule_queue_pipe[0];
 			} else {
 				fd = uwsgi.mules[mule_id-1].queue_pipe[0];
 			}
-			
+				
 		} else {
+			fd = -1;
 			ulua_log("mule_msg: invalid mule");
 		}
 		
@@ -1656,7 +1744,7 @@ static int uwsgi_api_queue_set(lua_State *L) {
 				error++;
 			}
 		}
-			
+	
 	}
 	
 	if (!error) {
@@ -1866,6 +1954,7 @@ static const luaL_Reg uwsgi_api_base[] = {
   
   {"cache_get", uwsgi_api_cache_get},
   {"cache_get_multi", uwsgi_api_cache_get_multi},
+  {"cache_get_tmulti", uwsgi_api_cache_get_tmulti},
   {"cache_set", uwsgi_api_cache_set},
   {"cache_set_multi", uwsgi_api_cache_set_multi},
   {"cache_update", uwsgi_api_cache_update},
@@ -1985,7 +2074,7 @@ static int uwsgi_lua_init() {
 	
 	ulua.state = uwsgi_malloc(sizeof(lua_State**) * uwsgi.numproc);
 	
-	for (i=0;i<uwsgi.numproc;i++) {
+	for (i = 0; i<uwsgi.numproc; i++) {
 		ulua.state[i] = uwsgi_malloc(sizeof(lua_State*) * uwsgi.cores);
 	}
 	
