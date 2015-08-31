@@ -586,7 +586,7 @@ static int uwsgi_lua_cache_del_exists(lua_State *L, int cache_do(char *, uint16_
 			
 			key = (char *) lua_tolstring(L, -1, &keylen);
 			
-			if (!keylen || !cache_do(key, keylen, cache)) {
+			if (!keylen || (cache_do(key, keylen, cache) - reverse)) {
 				++error;
 			}
 			
@@ -818,7 +818,7 @@ static int uwsgi_api_register_signal(lua_State *L) {
 		}
 	}	
 	
-	if (args > 2) {
+	if (args > 2 && uwsgi.muleid == 0) {
 		lua_rawgeti(L, LUA_REGISTRYINDEX, ULUA_SIGNAL_REF);
 			
 		lua_pushvalue(L, 3);
@@ -1475,6 +1475,13 @@ static int uwsgi_api_pid(lua_State *L) {
 	
 }
 
+static int uwsgi_api_mypid(lua_State *L) {
+	
+	lua_pushnumber(L, uwsgi.mypid);
+
+	return 1;
+}
+
 static int uwsgi_api_mule_msg_get(lua_State *L) {
 
 	uint8_t argc = lua_gettop(L);
@@ -1988,6 +1995,7 @@ static const luaL_Reg uwsgi_api_base[] = {
   
   {"mem", uwsgi_api_memory_usage},
   {"pid", uwsgi_api_pid},
+  {"mypid", uwsgi_api_mypid},
   
   {"setprocname", uwsgi_api_setprocname},
 
@@ -2796,10 +2804,8 @@ static int uwsgi_lua_mule(char *file) {
 	lua_pushnumber(L, uwsgi.muleid);
 	lua_setfield(L, -2, "mymid");
 	
-	if (file != load) {
-		lua_pushstring(L, file);
-		lua_setfield(L, -2, "mule_callme");
-	}
+	lua_pushstring(L, (file != load) ? file : "");
+	lua_setfield(L, -2, "mule_param");
 	
 	lua_pop(L, 1);
 	
@@ -2807,11 +2813,6 @@ static int uwsgi_lua_mule(char *file) {
 		ulua_log("mule%d: unable to load Lua file %s: %s", uwsgi.muleid, load, lua_tostring(L, -1));
 		lua_close(L);
 		return 0;
-	}
-	
-	if (file != load) {
-		lua_pop(L, 1);
-		lua_getglobal(L, file);
 	}
 	
 	type_code = lua_type(L, -1);
