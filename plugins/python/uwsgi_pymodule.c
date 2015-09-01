@@ -11,8 +11,7 @@ extern struct uwsgi_plugin python_plugin;
 
 
 PyTypeObject uwsgi_RequestContextType = {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "uwsgi.RequestContext",
     sizeof(uwsgi_RequestContext),
     0,
