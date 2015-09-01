@@ -324,9 +324,9 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 			return NULL;
 		}
 
-		int has_address = 0;
-		if (usr->address_len > 0)
-			has_address = 1;
+		int has_address_and_vassal = 0;
+		if (usr->address_len > 0 && usr->vassal_len > 0)
+			has_address_and_vassal = 1;
 
 		node = current_slot->nodes;
 		while (node) {
@@ -341,10 +341,16 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 				// eventually the packet could be upgraded to sni...
 				uwsgi_subscription_sni_check(current_slot, usr);
 #endif
-				if (has_address && node->len == 0) {
-					memcpy(node->name, usr->address, usr->address_len);
-					node->len = usr->address_len;
-					uwsgi_log("[uwsgi-subscription for pid %d] %.*s => updated vassal node: %.*s with address %.*s (weight: %d, backup: %d)\n", (int) uwsgi.mypid, usr->keylen, usr->key, (int) usr->vassal_len, usr->vassal, (int) usr->address_len, usr->address, usr->weight, usr->backup_level);	
+				// only for vassal mode
+				if (has_address_and_vassal) {
+					if (usr->address_len == node->len && !memcmp(usr->address, node->name, node->len)) {
+						// record already exists
+					}
+					else {
+						memcpy(node->name, usr->address, usr->address_len);
+						node->len = usr->address_len;
+						uwsgi_log("[uwsgi-subscription for pid %d] %.*s => updated vassal node: %.*s with address %.*s (weight: %d, backup: %d)\n", (int) uwsgi.mypid, usr->keylen, usr->key, (int) usr->vassal_len, usr->vassal, (int) usr->address_len, usr->address, usr->weight, usr->backup_level);	
+					}
 				}
 
 				// remove death mark and update cores and load
