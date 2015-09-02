@@ -483,13 +483,26 @@ void uwsgi_check_logrotate(void) {
 	int need_rotation = 0;
 	int need_reopen = 0;
 	off_t logsize;
+	int logfd;
+	struct stat logstat;
 
 	if (uwsgi.log_master) {
-		logsize = lseek(uwsgi.original_log_fd, 0, SEEK_CUR);
+		logfd = uwsgi.original_log_fd;
 	}
 	else {
-		logsize = lseek(2, 0, SEEK_CUR);
+		logfd = 2;
 	}
+
+	if (fstat(logfd, &logstat) < 0) {
+		uwsgi_error("uwsgi_check_logrotate()/fstat()");
+		return;
+	}
+
+	if (logstat.st_mode & S_IFIFO) {
+		return;
+	}
+
+	logsize = lseek(logfd, 0, SEEK_CUR);
 	if (logsize < 0) {
 		uwsgi_error("uwsgi_check_logrotate()/lseek()");
 		return;
