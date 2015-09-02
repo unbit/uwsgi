@@ -35,7 +35,7 @@ extern struct uwsgi_server uwsgi;
 	value_type = UWSGI_METRIC_COUNTER/UWSGI_METRIC_GAUGE/UWSGI_METRIC_ABSOLUTE
 	collect_way = "ptr" -> get from a pointer / UWSGI_METRIC_FUNC -> get from a func with the prototype int64_t func(struct uwsgi_metric *); / UWSGI_METRIC_FILE -> get the value from a file, ptr is the filename
 
-	For some metric (or all ?) you may want to hold a value even after a server reload. For such a reason you can specify a directory on wich the server (on startup/restart) will look for
+	For some metric (or all ?) you may want to hold a value even after a server reload. For such a reason you can specify a directory in which the server (on startup/restart) will look for
 	a file named like the metric and will read the initial value from it. It may look an old-fashioned and quite inefficient way, but it is the most versatile for a sysadmin (allowing him/her
 	to even modify the values manually)
 

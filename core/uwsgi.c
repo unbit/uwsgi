@@ -125,21 +125,21 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"if-hostname", required_argument, 0, "(opt logic) check for hostname", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_hostname, UWSGI_OPT_IMMEDIATE},
 	{"if-not-hostname", required_argument, 0, "(opt logic) check for hostname", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_hostname, UWSGI_OPT_IMMEDIATE},
 
-	{"if-exists", required_argument, 0, "(opt logic) check for file/directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_exists, UWSGI_OPT_IMMEDIATE},
-	{"if-not-exists", required_argument, 0, "(opt logic) check for file/directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_exists, UWSGI_OPT_IMMEDIATE},
-	{"ifexists", required_argument, 0, "(opt logic) check for file/directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_exists, UWSGI_OPT_IMMEDIATE},
+	{"if-exists", required_argument, 0, "(opt logic) check for file/directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_exists, UWSGI_OPT_IMMEDIATE},
+	{"if-not-exists", required_argument, 0, "(opt logic) check for file/directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_exists, UWSGI_OPT_IMMEDIATE},
+	{"ifexists", required_argument, 0, "(opt logic) check for file/directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_exists, UWSGI_OPT_IMMEDIATE},
 
 	{"if-plugin", required_argument, 0, "(opt logic) check for plugin", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_plugin, UWSGI_OPT_IMMEDIATE},
 	{"if-not-plugin", required_argument, 0, "(opt logic) check for plugin", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_plugin, UWSGI_OPT_IMMEDIATE},
 	{"ifplugin", required_argument, 0, "(opt logic) check for plugin", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_plugin, UWSGI_OPT_IMMEDIATE},
 
-	{"if-file", required_argument, 0, "(opt logic) check for file existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_file, UWSGI_OPT_IMMEDIATE},
-	{"if-not-file", required_argument, 0, "(opt logic) check for file existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_file, UWSGI_OPT_IMMEDIATE},
-	{"if-dir", required_argument, 0, "(opt logic) check for directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_dir, UWSGI_OPT_IMMEDIATE},
-	{"if-not-dir", required_argument, 0, "(opt logic) check for directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_dir, UWSGI_OPT_IMMEDIATE},
+	{"if-file", required_argument, 0, "(opt logic) check for file existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_file, UWSGI_OPT_IMMEDIATE},
+	{"if-not-file", required_argument, 0, "(opt logic) check for file existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_file, UWSGI_OPT_IMMEDIATE},
+	{"if-dir", required_argument, 0, "(opt logic) check for directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_dir, UWSGI_OPT_IMMEDIATE},
+	{"if-not-dir", required_argument, 0, "(opt logic) check for directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_dir, UWSGI_OPT_IMMEDIATE},
 
-	{"ifdir", required_argument, 0, "(opt logic) check for directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_dir, UWSGI_OPT_IMMEDIATE},
-	{"if-directory", required_argument, 0, "(opt logic) check for directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_dir, UWSGI_OPT_IMMEDIATE},
+	{"ifdir", required_argument, 0, "(opt logic) check for directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_dir, UWSGI_OPT_IMMEDIATE},
+	{"if-directory", required_argument, 0, "(opt logic) check for directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_dir, UWSGI_OPT_IMMEDIATE},
 
 	{"endif", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
 	{"end-if", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
@@ -218,7 +218,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-stats", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
 	{"emperor-stats-server", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
 	{"emperor-trigger-socket", required_argument, 0, "enable the Emperor trigger socket", uwsgi_opt_set_str, &uwsgi.emperor_trigger_socket, 0},
-	{"early-emperor", no_argument, 0, "spawn the emperor as soon as possibile", uwsgi_opt_true, &uwsgi.early_emperor, 0},
+	{"early-emperor", no_argument, 0, "spawn the emperor as soon as possible", uwsgi_opt_true, &uwsgi.early_emperor, 0},
 	{"emperor-broodlord", required_argument, 0, "run the emperor in BroodLord mode", uwsgi_opt_set_int, &uwsgi.emperor_broodlord, 0},
 	{"emperor-throttle", required_argument, 0, "set throttling level (in milliseconds) for bad behaving vassals (default 1000)", uwsgi_opt_set_int, &uwsgi.emperor_throttle, 0},
 	{"emperor-max-throttle", required_argument, 0, "set max throttling level (in milliseconds) for bad behaving vassals (default 3 minutes)", uwsgi_opt_set_int, &uwsgi.emperor_max_throttle, 0},
@@ -244,7 +244,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 	{"emperor-collect-attribute", required_argument, 0, "collect the specified vassal attribute from imperial monitors", uwsgi_opt_add_string_list, &uwsgi.emperor_collect_attributes, 0},
 	{"emperor-collect-attr", required_argument, 0, "collect the specified vassal attribute from imperial monitors", uwsgi_opt_add_string_list, &uwsgi.emperor_collect_attributes, 0},
-	{"emperor-fork-server-attr", required_argument, 0, "set teh vassal's attribute to get when checking for fork-server", uwsgi_opt_set_str, &uwsgi.emperor_fork_server_attr, 0},
+	{"emperor-fork-server-attr", required_argument, 0, "set the vassal's attribute to get when checking for fork-server", uwsgi_opt_set_str, &uwsgi.emperor_fork_server_attr, 0},
 	{"emperor-wrapper-attr", required_argument, 0, "set the vassal's attribute to get when checking for fork-wrapper", uwsgi_opt_set_str, &uwsgi.emperor_wrapper_attr, 0},
 	{"emperor-chdir-attr", required_argument, 0, "set the vassal's attribute to get when checking for chdir", uwsgi_opt_set_str, &uwsgi.emperor_chdir_attr, 0},
 	{"imperial-monitor-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
@@ -1242,7 +1242,7 @@ void wait_for_threads() {
 		}
 	}
 
-	// cancel inital thread last since after pthread_cancel() and
+	// cancel initial thread last since after pthread_cancel() and
 	// pthread_join() is called on it, the whole process will appear to be
 	// a zombie. although it won't eliminate process zombie time, but it
 	// should minimize it.

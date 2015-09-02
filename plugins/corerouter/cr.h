@@ -311,7 +311,7 @@ struct corerouter_session {
 	// this is the linked list of backends
 	struct corerouter_peer *peers;
 
-	// connect after the next successfull write
+	// connect after the next successful write
 	struct corerouter_peer *connect_peer_after_write;
 
 	union uwsgi_sockaddr client_sockaddr;

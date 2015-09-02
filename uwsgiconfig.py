@@ -311,7 +311,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
 
     # embed uwsgi.h in the server binary. It increases the binary size, but will be very useful
     # for various tricks (like cffi integration)
-    # if possibile, the blob is compressed
+    # if possible, the blob is compressed
     if sys.version_info[0] >= 3:
         uwsgi_dot_h_content = open('uwsgi.h', 'rb').read()
     else:
@@ -329,7 +329,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
     gcc_list.append('core/dot_h')
 
     # embed uwsgiconfig.py in the server binary. It increases the binary size, but will be very useful
-    # if possibile, the blob is compressed
+    # if possible, the blob is compressed
     if sys.version_info[0] >= 3:
         uwsgi_config_py_content = open('uwsgiconfig.py', 'rb').read()
     else:

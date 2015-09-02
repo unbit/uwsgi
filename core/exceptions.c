@@ -35,7 +35,7 @@ extern struct uwsgi_server uwsgi;
 		struct uwsgi_buffer *exception_repr(struct wsgi_request *);
 		void exception_log(struct wsgi_request *);
 
-		Remember to reset the exception status (if possibile) after each call
+		Remember to reset the exception status (if possible) after each call
 
 	Exceptions catcher:
 

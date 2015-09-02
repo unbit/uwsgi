@@ -231,7 +231,7 @@ static int timed_connect(struct pollfd *fdpoll , struct sockaddr *addr, int addr
 				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: unable to connect to uWSGI server: %s", strerror(errno));
 				return HTTP_BAD_GATEWAY;
 			}
-			/* something hapened on the socket ... */
+			/* something happened on the socket ... */
 			else if (cnt > 0) {
 				if (getsockopt(fdpoll->fd, SOL_SOCKET, SO_ERROR, (void*)(&soopt), &solen) < 0) {
 					ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: unable to connect to uWSGI server: %s", strerror(errno));

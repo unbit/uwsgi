@@ -4,7 +4,7 @@
 
 	jail systems (Linux namespaces, FreeBSD jails...) heavily rely on mount/umount
 
-	to simplify setups (expecially because the mount command could not be available in
+	to simplify setups (especially because the mount command could not be available in
 	the initial phase of jailing, we need an api to mount/umount filesystems
 
 	int uwsgi_mount(char *fs, char *what, char *where, int flags);

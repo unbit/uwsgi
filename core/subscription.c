@@ -184,9 +184,9 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 			continue;
 		}
 
-		struct uwsgi_subscribe_node *choosen_node = current_slot->algo(current_slot, node, client);
-		if (choosen_node)
-			return choosen_node;
+		struct uwsgi_subscribe_node *chosen_node = current_slot->algo(current_slot, node, client);
+		if (chosen_node)
+			return chosen_node;
 
 		node = node->next;
 	}
@@ -1153,12 +1153,12 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_iphash(struct uwsgi_
 		
 	// now re-iterate until count matches;
 	count = 0;
-        struct uwsgi_subscribe_node *choosen_node = NULL;
+        struct uwsgi_subscribe_node *chosen_node = NULL;
         node = current_slot->nodes;
         while (node) {
                 if (!node->death_mark) {
 			if (count == hash) {
-				choosen_node = node;
+				chosen_node = node;
 				break;
 			}
 			count++;
@@ -1166,11 +1166,11 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_iphash(struct uwsgi_
                 node = node->next;
         }
 
-        if (choosen_node) {
-                choosen_node->reference++;
+        if (chosen_node) {
+                chosen_node->reference++;
         }
 
-        return choosen_node;
+        return chosen_node;
 }
 
 // least reference count
@@ -1182,7 +1182,7 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_sub
         if (node)
                 return NULL;
 
-        struct uwsgi_subscribe_node *choosen_node = NULL;
+        struct uwsgi_subscribe_node *chosen_node = NULL;
 retry:
         node = current_slot->nodes;
         uint64_t min_rc = 0;
@@ -1191,7 +1191,7 @@ retry:
 			if (node->backup_level == backup_level) {
                         	if (min_rc == 0 || node->reference < min_rc) {
                                 	min_rc = node->reference;
-                                	choosen_node = node;
+                                	chosen_node = node;
                                 	if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->last_requests <= node->last_requests))
                                         	break;
                         	}
@@ -1203,15 +1203,15 @@ retry:
                 node = node->next;
         }
 
-        if (choosen_node) {
-                choosen_node->reference++;
+        if (chosen_node) {
+                chosen_node->reference++;
         }
 	else if (has_backup) {
                 backup_level = has_backup;
                 goto retry;
         }
 
-        return choosen_node;
+        return chosen_node;
 }
 
 // weighted least reference count
@@ -1223,7 +1223,7 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wlrc(struct uwsgi_su
         if (node)
                 return NULL;
 
-        struct uwsgi_subscribe_node *choosen_node = NULL;
+        struct uwsgi_subscribe_node *chosen_node = NULL;
 retry:
         node = current_slot->nodes;
 	has_backup = 0;
@@ -1239,7 +1239,7 @@ retry:
 
                         	if (min_rc == 0 || ref < min_rc) {
                                 	min_rc = ref;
-                                	choosen_node = node;
+                                	chosen_node = node;
                                 	if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->last_requests <= node->last_requests))
                                 	        break;
                         	}
@@ -1251,15 +1251,15 @@ retry:
                 node = node->next;
         }
 
-        if (choosen_node) {
-                choosen_node->reference++;
+        if (chosen_node) {
+                chosen_node->reference++;
         }
 	else if (has_backup) {
                 backup_level = has_backup;
                 goto retry;
         }
 
-        return choosen_node;
+        return chosen_node;
 }
 
 // weighted round robin algo (with backup support)
@@ -1291,12 +1291,12 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wrr(struct uwsgi_sub
 retry:
         node = current_slot->nodes;
 	has_backup = 0;
-        struct uwsgi_subscribe_node *choosen_node = NULL;
+        struct uwsgi_subscribe_node *chosen_node = NULL;
         while (node) {
                 if (!node->death_mark) {
 			if (node->backup_level == backup_level) {
                         	node->wrr = node->weight / min_weight;
-                        	choosen_node = node;
+                        	chosen_node = node;
                 	}
 			else if (node->backup_level > backup_level && (!has_backup || has_backup > node->backup_level)) {
 				has_backup = node->backup_level;
@@ -1304,15 +1304,15 @@ retry:
 		}
                 node = node->next;
         }
-        if (choosen_node) {
-                choosen_node->wrr--;
-                choosen_node->reference++;
+        if (chosen_node) {
+                chosen_node->wrr--;
+                chosen_node->reference++;
         }
 	else if (has_backup) {
 		backup_level = has_backup;
 		goto retry;
 	}
-        return choosen_node;
+        return chosen_node;
 }
 
 void uwsgi_subscription_init_algos() {

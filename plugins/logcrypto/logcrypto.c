@@ -2,7 +2,7 @@
 
 /*
 
-	this is an UDP logger encrypting each packet with the choosen algo, key and iv.
+	this is an UDP logger encrypting each packet with the chosen algo, key and iv.
 
 	It is useful in cloud services without persistent storage for which you want to send logs to an external system.
 

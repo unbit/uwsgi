@@ -349,7 +349,7 @@ void uwsgi_setup_log() {
 
 }
 
-static struct uwsgi_logger *setup_choosen_logger(struct uwsgi_string_list *usl) {
+static struct uwsgi_logger *setup_chosen_logger(struct uwsgi_string_list *usl) {
 	char *id = NULL;
 	char *name = usl->value;
 
@@ -374,43 +374,43 @@ static struct uwsgi_logger *setup_choosen_logger(struct uwsgi_string_list *usl) 
 		*colon = 0;
 	}
 
-	struct uwsgi_logger *choosen_logger = uwsgi_get_logger(name);
-	if (!choosen_logger) {
+	struct uwsgi_logger *chosen_logger = uwsgi_get_logger(name);
+	if (!chosen_logger) {
 		uwsgi_log("unable to find logger %s\n", name);
 		exit(1);
 	}
 
 	// make a copy of the logger
-	struct uwsgi_logger *copy_of_choosen_logger = uwsgi_malloc(sizeof(struct uwsgi_logger));
-	memcpy(copy_of_choosen_logger, choosen_logger, sizeof(struct uwsgi_logger));
-	choosen_logger = copy_of_choosen_logger;
-	choosen_logger->id = id;
-	choosen_logger->next = NULL;
+	struct uwsgi_logger *copy_of_chosen_logger = uwsgi_malloc(sizeof(struct uwsgi_logger));
+	memcpy(copy_of_chosen_logger, chosen_logger, sizeof(struct uwsgi_logger));
+	chosen_logger = copy_of_chosen_logger;
+	chosen_logger->id = id;
+	chosen_logger->next = NULL;
 
 	if (colon) {
-		choosen_logger->arg = colon + 1;
+		chosen_logger->arg = colon + 1;
 		// check for empty string
-		if (*choosen_logger->arg == 0) {
-			choosen_logger->arg = NULL;
+		if (*chosen_logger->arg == 0) {
+			chosen_logger->arg = NULL;
 		}
 		*colon = ':';
 	}
-	return choosen_logger;
+	return chosen_logger;
 }
 
 void uwsgi_setup_log_master(void) {
 
 	struct uwsgi_string_list *usl = uwsgi.requested_logger;
 	while (usl) {
-		struct uwsgi_logger *choosen_logger = setup_choosen_logger(usl);
-		uwsgi_append_logger(choosen_logger);
+		struct uwsgi_logger *chosen_logger = setup_chosen_logger(usl);
+		uwsgi_append_logger(chosen_logger);
 		usl = usl->next;
 	}
 
 	usl = uwsgi.requested_req_logger;
 	while (usl) {
-                struct uwsgi_logger *choosen_logger = setup_choosen_logger(usl);
-                uwsgi_append_req_logger(choosen_logger);
+                struct uwsgi_logger *chosen_logger = setup_chosen_logger(usl);
+                uwsgi_append_req_logger(chosen_logger);
                 usl = usl->next;
         }
 
