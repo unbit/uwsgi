@@ -216,7 +216,7 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
         // stud (for me) has made the best choice on choosing DH approach
 
         long ssloptions = SSL_OP_NO_SSLv2 | SSL_OP_ALL | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
-// disable compression (if possibile)
+// disable compression (if possible)
 #ifdef SSL_OP_NO_COMPRESSION
         ssloptions |= SSL_OP_NO_COMPRESSION;
 #endif
@@ -225,7 +225,7 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 		ssloptions |= SSL_OP_NO_SSLv3;
 	}
 
-// release/reuse buffers as soon as possibile
+// release/reuse buffers as soon as possible
 #ifdef SSL_MODE_RELEASE_BUFFERS
         SSL_CTX_set_mode(ctx, SSL_MODE_RELEASE_BUFFERS);
 #endif
@@ -307,7 +307,7 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
                 ssloptions |= SSL_OP_CIPHER_SERVER_PREFERENCE;
         }
 
-        // set session context (if possibile), this is required for client certificate authentication
+        // set session context (if possible), this is required for client certificate authentication
         if (name) {
                 SSL_CTX_set_session_id_context(ctx, (unsigned char *) name, strlen(name));
         }

@@ -888,7 +888,7 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 				uwsgi_error("poll()");
 				return -1;
 			}
-			/* something hapened on the socket ... */
+			/* something happened on the socket ... */
 			else if (cnt > 0) {
 				if (getsockopt(fdpoll->fd, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
 					uwsgi_error("getsockopt()");

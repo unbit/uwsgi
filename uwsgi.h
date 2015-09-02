@@ -624,7 +624,7 @@ struct uwsgi_logger {
 	int count;
 	struct msghdr msg;
 	char *buf;
-	// used by choosen logger
+	// used by chosen logger
 	char *arg;
 	struct uwsgi_logger *next;
 };
@@ -944,7 +944,7 @@ struct uwsgi_socket {
 	int (*proto_accept) (struct wsgi_request *, int);
 	// call that to parse the request (without the body)
 	int (*proto) (struct wsgi_request *);
-	// call that to write reponse
+	// call that to write response
 	int (*proto_write) (struct wsgi_request *, char *, size_t);
 	// call that to write headers (if a special case is needed for them)
 	int (*proto_write_headers) (struct wsgi_request *, char *, size_t);

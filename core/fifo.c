@@ -58,7 +58,7 @@ static void emperor_rescan(int signum) {
 
 /*
 
-this is called as soon as possibile allowing plugins (or hooks) to override it
+this is called as soon as possible allowing plugins (or hooks) to override it
 
 */
 void uwsgi_master_fifo_prepare() {

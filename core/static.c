@@ -408,7 +408,7 @@ ssize_t uwsgi_append_static_path(char *dir, size_t dir_len, char *file, size_t f
 static int uwsgi_static_stat(struct wsgi_request *wsgi_req, char *filename, size_t *filename_len, struct stat *st, struct uwsgi_string_list **index) {
 
 	int ret = stat(filename, st);
-	// if non-existant return -1
+	// if non-existent return -1
 	if (ret < 0)
 		return -1;
 

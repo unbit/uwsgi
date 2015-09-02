@@ -501,7 +501,7 @@ cycle:
 		if (rounds > uc->max_items) {
 			uwsgi_log("ALARM !!! cache-loop (and potential deadlock) detected slot = %lu prev = %lu next = %lu\n", slot, uci->prev, uci->next);
 			// terrible case: the whole uWSGI stack can deadlock, leaving only the master alive
-			// if the master is avalable, trigger a brutal reload
+			// if the master is available, trigger a brutal reload
 			if (uwsgi.master_process) {
 				kill(uwsgi.workers[0].pid, SIGTERM);
 			}
@@ -835,7 +835,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 			}
 		}
 
-		// set this as late as possibile (to reduce races risk)
+		// set this as late as possible (to reduce races risk)
 
 		uci->valsize = vallen;
 		uci->keysize = keylen;

@@ -525,7 +525,7 @@ void uwsgi_proto_zeromq_close(struct wsgi_request *wsgi_req) {
 
 	we have a problem... recent Mongrel2 releases introduced a ring buffer that limit the amount of messages we can send (or better, the amount of
 	messages mongrel2 is able to manage). If we send a big static file we can fill that buffer immediately. How to deal with this ? We know that the
-	message ring can contains a fixed amount of messages. We could try to split the file in chunks (upto the maximum number supported by a specific mongrel2 instance).
+	message ring can contains a fixed amount of messages. We could try to split the file in chunks (up to the maximum number supported by a specific mongrel2 instance).
 	This is suboptimal, but there are no better solutions for now. Before you ask: do you really think that sending a single message with a 2GB file is a good approach ?????
 	By the way, for now, waiting for a better approach, we use a 2MB buffer. Should support flawlessly files up to 32MB without being rejected by mongrel2. For bigger files you
 	can tune it to higher values (or increase the mongrel2 ring buffer)

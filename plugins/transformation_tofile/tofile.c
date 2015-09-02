@@ -25,7 +25,7 @@ static int transform_tofile(struct wsgi_request *wsgi_req, struct uwsgi_transfor
 	struct uwsgi_transformation_tofile_conf *uttc = (struct uwsgi_transformation_tofile_conf *) ut->data;
 	struct uwsgi_buffer *ub = ut->chunk;
 
-	// store only successfull response
+	// store only successful response
 	if (wsgi_req->write_errors == 0 && wsgi_req->status == 200 && ub->pos > 0) {
 		if (uttc->filename) {
 			int fd = open(uttc->filename->buf, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);

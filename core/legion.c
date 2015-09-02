@@ -587,7 +587,7 @@ static void *legion_loop(void *foobar) {
 				continue;
 			}
 
-			// check for loop packets... (expecially when in multicast mode)
+			// check for loop packets... (especially when in multicast mode)
 			if (!uwsgi_strncmp(uwsgi.hostname, uwsgi.hostname_len, legion_msg.name, legion_msg.name_len)) {
 				if (legion_msg.pid == ul->pid) {
 					if (legion_msg.valor == ul->valor) {

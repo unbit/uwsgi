@@ -351,7 +351,7 @@ send_body:
 
 static char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int *need_free, int *is_a_file, int *discard_base, char **script_name) {
 
-	struct uwsgi_dyn_dict *udd = uc.mountpoint, *choosen_udd = NULL;
+	struct uwsgi_dyn_dict *udd = uc.mountpoint, *chosen_udd = NULL;
 	int best_found = 0;
 	struct stat st;
 	char *path = NULL;
@@ -361,7 +361,7 @@ static char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int 
 			if (udd->vallen) {
 				if (!uwsgi_starts_with(path_info, path_info_len, udd->key, udd->keylen) && udd->keylen > best_found) {
 					best_found = udd->keylen ;
-					choosen_udd = udd;
+					chosen_udd = udd;
 					path = udd->value;
 					*script_name = udd->key;
 					*discard_base = udd->keylen;
@@ -374,13 +374,13 @@ static char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int 
 		}
 	}
 
-	if (choosen_udd == NULL) {
-		choosen_udd = uc.default_cgi;
-		if (!choosen_udd) return NULL;
-		path = choosen_udd->key;
+	if (chosen_udd == NULL) {
+		chosen_udd = uc.default_cgi;
+		if (!chosen_udd) return NULL;
+		path = chosen_udd->key;
 	}
 
-	if (choosen_udd->status == 0) {
+	if (chosen_udd->status == 0) {
 		char *tmp_udd = uwsgi_malloc(PATH_MAX+1);
 		if (!realpath(path, tmp_udd)) {
 			free(tmp_udd);
@@ -401,7 +401,7 @@ static char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int 
 		return tmp_udd;
 	}
 
-	if (choosen_udd->status == 2)
+	if (chosen_udd->status == 2)
 		*is_a_file = 1;
 	return path;
 }
