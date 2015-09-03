@@ -1083,10 +1083,15 @@ error:
 }
 
 static int uwsgi_api_websocket_send(lua_State *L) {
-	uint8_t argc = lua_gettop(L);
+	int argc = lua_gettop(L);
         if (argc == 0) goto error;
 
 	size_t message_len = 0;
+	
+	if (lua_istable(L, 1)) {
+		uwsgi_lua_metatable_tostring(L, -argc);
+	}
+	
 	const char *message = lua_tolstring(L, 1, &message_len);
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
@@ -1102,10 +1107,15 @@ error:
 }
 
 static int uwsgi_api_websocket_send_binary(lua_State *L) {
-        uint8_t argc = lua_gettop(L);
+        int argc = lua_gettop(L);
         if (argc == 0) goto error;
 
         size_t message_len = 0;
+		
+	if (lua_istable(L, 1)) {
+		uwsgi_lua_metatable_tostring(L, -argc);
+	}
+	
         const char *message = lua_tolstring(L, 1, &message_len);
         struct wsgi_request *wsgi_req = current_wsgi_req();
 
@@ -1190,6 +1200,33 @@ static int uwsgi_api_websocket_recv_nb(lua_State *L) {
         lua_pushlstring(L, ub->buf, ub->pos);
         uwsgi_buffer_destroy(ub);
         return 1;
+}
+
+static int uwsgi_api_chunked_read(lua_State *L) {
+	size_t len = 0;
+	int timeout = lua_gettop(L) ? lua_tonumber(L, 1) : 0;	
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	char *chunk = uwsgi_chunked_read(wsgi_req, &len, timeout, 0);
+	if (!chunk) {
+		lua_pushstring(L, "unable to receive chunked part");
+		lua_error(L);
+		return 0;
+	}
+	lua_pushlstring(L, chunk, len);
+	return 1;
+}
+
+static int uwsgi_api_chunked_read_nb(lua_State *L) {
+	size_t len = 0;
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	char *chunk = uwsgi_chunked_read(wsgi_req, &len, 0, 1);
+	if (!chunk) {
+		lua_pushstring(L, "unable to receive chunked part");
+		lua_error(L);
+		return 0;
+	}
+	lua_pushlstring(L, chunk, len);
+	return 1;
 }
 
 static int uwsgi_api_cache_get(lua_State *L) {
@@ -2034,6 +2071,8 @@ static const luaL_Reg uwsgi_api_worker[] = {
   {"rpc", uwsgi_api_rpc},
   
   {"req_input_read", uwsgi_lua_input},
+  {"chunked_read", uwsgi_api_chunked_read},
+  {"chunked_read_nb", uwsgi_api_chunked_read_nb},
   
   {"async_sleep", uwsgi_api_async_sleep},
   {"async_connect", uwsgi_api_async_connect},
@@ -2894,6 +2933,7 @@ static int uwsgi_lua_mule(char *file) {
 		
 		// init error close the state
 		lua_close(L);
+		ULUA_MULE_STATE = NULL;
 		return 0;
 	}
 	
@@ -2913,6 +2953,7 @@ static int uwsgi_lua_mule(char *file) {
 			
 			// loop exeption close the state
 			lua_close(L);
+			ULUA_MULE_STATE = NULL;
 			return 1; // respawn pls
 		}
 	}
