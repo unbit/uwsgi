@@ -396,9 +396,10 @@ static int uwsgi_hook_chown2(char *arg) {
 }
 
 
-#ifdef __sun__
+#if defined(UWSGI_SUNOS_EXTERN_SETHOSTNAME)
 extern int sethostname(char *, int);
 #endif
+
 static int uwsgi_hook_hostname(char *arg) {
 #ifdef __CYGWIN__
 	return -1;
