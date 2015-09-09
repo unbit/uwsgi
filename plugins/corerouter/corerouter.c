@@ -320,6 +320,9 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
                 usr->vassal = val;
                 usr->vassal_len = vallen;
         }
+	else if (!uwsgi_strncmp("clear", 5, key, keylen)) {
+		usr->clear = uwsgi_str_num(val, vallen);
+	}
 }
 
 void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {

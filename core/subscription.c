@@ -344,7 +344,11 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 				// only for vassal mode
 				if (has_address_and_vassal) {
 					if (usr->address_len == node->len && !memcmp(usr->address, node->name, node->len)) {
-						// record already exists
+						// record already exists, clear it ?
+						if (usr->clear) {
+							node->len = 0;
+							uwsgi_log("[uwsgi-subscription for pid %d] %.*s => cleared address for vassal node: %.*s (weight: %d, backup: %d)\n", (int) uwsgi.mypid, usr->keylen, usr->key, (int) usr->vassal_len, usr->vassal, usr->weight, usr->backup_level);
+						}
 					}
 					else {
 						memcpy(node->name, usr->address, usr->address_len);
@@ -1109,6 +1113,13 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
                 if (uwsgi_buffer_append_keyval(ub, "notify", 6, uwsgi.notify_socket, strlen(uwsgi.notify_socket)))
                         goto end;
         }
+
+	// clear instead of unsubscribe
+	if (uwsgi_instance_is_dying && cmd == 1 && uwsgi.subscription_clear_on_shutdown) {
+		if (uwsgi_buffer_append_keynum(ub, "clear", 5, 1))
+                	goto end;
+		cmd = 0;
+	}
 
         if (uwsgi_subscription_ub_fix(ub, modifier1, modifier2, cmd, s2_sign)) goto end;
 
