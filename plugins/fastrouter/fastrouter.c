@@ -382,6 +382,8 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 			if (new_peer->defer_connect) {
 				new_peer->current_timeout = ufr.cr.defer_connect_timeout;
                         	new_peer->timeout = corerouter_reset_timeout(&ufr.cr, new_peer);
+				// stop reading from the client
+				if (uwsgi_cr_set_hooks(main_peer, NULL, NULL)) return -1;
 				return len;
 			}
 			if (ufr.cr.fallback_on_no_key) {
@@ -446,6 +448,8 @@ static int fr_retry(struct corerouter_peer *peer) {
 		if (peer->defer_connect && (peer->retries+1) < ufr.cr.max_retries) {
                 	peer->current_timeout = ufr.cr.defer_connect_timeout;
                         peer->timeout = corerouter_reset_timeout(&ufr.cr, peer);
+			// stop reading from the client
+			if (uwsgi_cr_set_hooks(peer->session->main_peer, NULL, NULL)) return -1;
                         return 1;
                 }
 		// ensure deferred connect is disabled
@@ -454,7 +458,6 @@ static int fr_retry(struct corerouter_peer *peer) {
         }
 
 retry:
-
         // start async connect (again)
         cr_connect(peer, fr_instance_connected);
         return 0;
