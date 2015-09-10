@@ -339,6 +339,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
         	// this part must be heavy locked in threaded modes
                 if (uwsgi.threads > 1) {
                 	pthread_mutex_lock(&up.lock_pyloaders);
+			up.is_dynamically_loading_an_app = 1;
                 }
 	}
 
@@ -363,6 +364,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	if (wsgi_req->dynamic) {
 		if (uwsgi.threads > 1) {
+			up.is_dynamically_loading_an_app = 0;
 			pthread_mutex_unlock(&up.lock_pyloaders);
 		}
 	}

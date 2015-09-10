@@ -213,6 +213,9 @@ struct uwsgi_python {
 
 	int call_osafterfork;
 	int pre_initialized;
+
+	// when 1 we have the app-loading lock held
+	int is_dynamically_loading_an_app;
 };
 
 

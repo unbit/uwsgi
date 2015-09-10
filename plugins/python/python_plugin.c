@@ -204,15 +204,18 @@ struct uwsgi_option uwsgi_python_options[] = {
 
 /* this routine will be called after each fork to reinitialize the various locks */
 void uwsgi_python_pthread_prepare(void) {
-	pthread_mutex_lock(&up.lock_pyloaders);
+	if (!up.is_dynamically_loading_an_app)
+		pthread_mutex_lock(&up.lock_pyloaders);
 }
 
 void uwsgi_python_pthread_parent(void) {
-	pthread_mutex_unlock(&up.lock_pyloaders);
+	if (!up.is_dynamically_loading_an_app)
+		pthread_mutex_unlock(&up.lock_pyloaders);
 }
 
 void uwsgi_python_pthread_child(void) {
-	pthread_mutex_init(&up.lock_pyloaders, NULL);
+	if (!up.is_dynamically_loading_an_app)
+		pthread_mutex_init(&up.lock_pyloaders, NULL);
 }
 
 PyMethodDef uwsgi_spit_method[] = { {"uwsgi_spit", py_uwsgi_spit, METH_VARARGS, ""} };
