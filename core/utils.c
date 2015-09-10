@@ -333,9 +333,11 @@ void uwsgi_as_root() {
 	if (getuid() > 0)
 		goto nonroot;
 
+#ifndef __RUMP__
 	if (!uwsgi.master_as_root && !uwsgi.uidname) {
 		uwsgi_log_initial("uWSGI running as root, you can use --uid/--gid/--chroot options\n");
 	}
+#endif
 
 	int in_jail = 0;
 
@@ -905,9 +907,11 @@ void uwsgi_as_root() {
 		}
 	}
 
+#ifndef __RUMP__
 	if (!getuid()) {
 		uwsgi_log_initial("*** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
 	}
+#endif
 
 #ifdef UWSGI_CAP
 

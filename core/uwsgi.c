@@ -2086,7 +2086,6 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 
 	int i;
 
-	struct utsname uuts;
 
 	// signal mask is inherited, and sme process manager could make a real mess...
 	sigset_t smask;
@@ -2448,6 +2447,10 @@ configure:
 
 	uwsgi_log_initial("compiled with version: %s on %s\n", __VERSION__, UWSGI_BUILD_DATE);
 
+#ifdef __RUMP__
+	uwsgi_log_initial("Rump system detected\n");
+#else
+	struct utsname uuts;
 #ifdef __sun__
 	if (uname(&uuts) < 0) {
 #else
@@ -2460,6 +2463,7 @@ configure:
 		uwsgi_log_initial("nodename: %s\n", uuts.nodename);
 		uwsgi_log_initial("machine: %s\n", uuts.machine);
 	}
+#endif
 
 	uwsgi_log_initial("clock source: %s\n", uwsgi.clock->name);
 #ifdef UWSGI_PCRE
@@ -2672,10 +2676,13 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_write_pidfile(uwsgi.pidfile2);
 	}
 
+#ifndef __RUMP__
 	if (!uwsgi.master_process && !uwsgi.command_mode) {
 		uwsgi_log_initial("*** WARNING: you are running uWSGI without its master process manager ***\n");
 	}
+#endif
 
+#ifndef __RUMP__
 #ifdef RLIMIT_NPROC
 	if (uwsgi.rl_nproc.rlim_max > 0) {
 		uwsgi.rl_nproc.rlim_cur = uwsgi.rl_nproc.rlim_max;
@@ -2695,6 +2702,8 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 #endif
+#endif
+
 #ifndef __OpenBSD__
 
 	if (uwsgi.rl.rlim_max > 0) {

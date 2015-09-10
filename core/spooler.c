@@ -496,7 +496,11 @@ static void spooler_scandir(struct uwsgi_spooler *uspool, char *dir) {
 	if (!dir)
 		dir = uspool->dir;
 
+#ifdef __NetBSD__
+	n = scandir(dir, &tasklist, NULL, (void *)uwsgi_versionsort);
+#else
 	n = scandir(dir, &tasklist, NULL, uwsgi_versionsort);
+#endif
 	if (n < 0) {
 		uwsgi_error("scandir()");
 		return;

@@ -5,7 +5,7 @@ uwsgi_version = '2.1-dev'
 import os
 import re
 import time
-uwsgi_os = os.uname()[0]
+uwsgi_os = os.environ.get('UWSGI_FORCE_OS', os.uname()[0])
 uwsgi_os_k = re.split('[-+]', os.uname()[2])[0]
 uwsgi_os_v = os.uname()[3]
 uwsgi_cpu = os.uname()[4]
@@ -30,7 +30,6 @@ except:
 GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
 if not GCC:
     GCC = 'gcc'
-
 
 def get_preprocessor():
     if 'clang' in GCC:

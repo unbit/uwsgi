@@ -476,6 +476,20 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) {
 
 #endif
 
+#ifdef __RUMP__
+int semctl(int _0, int _1, int _2, ...) {
+	return 0;
+}
+int semget(key_t _0, int _1, int _2) {
+	return 0;
+}
+int semop(int _0, struct sembuf * _1, size_t _2) {
+	return 0;
+}
+#undef UWSGI_LOCK_ENGINE_NAME
+#define UWSGI_LOCK_ENGINE_NAME "fake"
+#endif
+
 struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *id) {
 
 	// used by ftok
