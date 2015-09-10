@@ -810,7 +810,12 @@ class uConf(object):
             self.libs.append('-lsendfile')
             self.libs.append('-lrt')
             self.gcc_list.append('lib/sun_fixes')
-            self.ldflags.append('-L/lib')
+            sunos_major = int(uwsgi_os_k.split('.')[0])
+            sunos_minor = int(uwsgi_os_k.split('.')[1])
+            # solaris < 11 does not have sethostname declared in unistd
+            if not (sunos_major == 5 and sunos_minor > 10):
+                self.cflags.append('-DUWSGI_SUNOS_EXTERN_SETHOSTNAME')
+                self.ldflags.append('-L/lib')
             if not uwsgi_os_v.startswith('Nexenta'):
                 self.libs.remove('-rdynamic')
 
