@@ -682,7 +682,12 @@ static int uwsgi_api_cache_exists_multi(lua_State *L) {
 	for (i = 2; i <= argc; i++) {
 	
 		key = (char *) lua_tolstring(L, i, &keylen);
-		lua_pushboolean(L, keylen && uwsgi_cache_magic_exists(key, keylen, cache));
+		
+		if (keylen && uwsgi_cache_magic_exists(key, keylen, cache)) {
+			lua_pushboolean(L, 1);
+		} else {
+			lua_pushnil(L);
+		}
 		
 	}
 
