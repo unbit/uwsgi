@@ -1693,19 +1693,19 @@ static int uwsgi_api_queue_push(lua_State *L) {
 		list = (char **) uwsgi_malloc(sizeof(char *) * argc);
 		slen = (size_t *) uwsgi_malloc(sizeof(size_t) * argc);
 		
-		for (i = 1; i <= argc; ++i) {
+		for (i = 0; i < argc; ++i) {
 			
-			if (lua_istable(L, i)) {
-				uwsgi_lua_metatable_tostring(L, i - argc - 1);
+			if (lua_istable(L, i + 1)) {
+				uwsgi_lua_metatable_tostring(L, i - argc);
 			}
 			
-			list[i] = (char *) lua_tolstring(L, i, &slen[i]);
+			list[i] = (char *) lua_tolstring(L, i + 1, &slen[i]);
 			
 		}
 		
 		uwsgi_wlock(uwsgi.queue_lock);
 		
-		for (i = 1; i <= argc; ++i) {
+		for (i = 0; i < argc; ++i) {
 		
 			if (!slen[i] || uwsgi_queue_push(list[i], slen[i])) {
 				++error;
@@ -1912,15 +1912,15 @@ static int uwsgi_api_queue_get(lua_State *L) {
 		
 		list = (uint64_t *) uwsgi_malloc(sizeof(uint64_t) * argc);
 		
-		for (i = 1; i <= argc; ++i) {
-			list[i] = lua_tonumber(L, i);
+		for (i = 0; i < argc; ++i) {
+			list[i] = lua_tonumber(L, i + 1);
 		}
 		
 		lua_pop(L, argc);
 		
 		uwsgi_rlock(uwsgi.queue_lock);
 		
-		for (i = 1; i <= argc; ++i) {
+		for (i = 0; i < argc; ++i) {
 			str = uwsgi_queue_get(list[i], &len);
 			
 			if (len) {
