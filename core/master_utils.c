@@ -704,6 +704,7 @@ int uwsgi_respawn_worker(int wid) {
 		for(i=0;i<uwsgi.cores;i++) {
 			uwsgi.workers[uwsgi.mywid].cores[i].in_request = 0;
 			memset(&uwsgi.workers[uwsgi.mywid].cores[i].req, 0, sizeof(struct wsgi_request));
+			memset(uwsgi.workers[uwsgi.mywid].cores[i].buffer, 0, sizeof(struct uwsgi_header));
 		}
 
 		uwsgi_fixup_fds(wid, 0, NULL);
