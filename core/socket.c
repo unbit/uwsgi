@@ -674,7 +674,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		socket_to_in_addr6(socket_name, tcp_port, 0, &uws_addr);
 		addr_len = sizeof(struct sockaddr_in6);
 	}
-	else {	
+	else {
 #endif
 		socket_to_in_addr(socket_name, tcp_port, 0, (struct sockaddr_in *) &uws_addr);
 #ifdef AF_INET6
@@ -684,7 +684,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 	serverfd = create_server_socket(family, SOCK_STREAM);
 	if (serverfd < 0) return -1;
-	
+
 #ifdef __linux__
 #ifndef IP_FREEBIND
 #define IP_FREEBIND 15
@@ -713,11 +713,11 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	if (uwsgi.tcp_fast_open) {
 #ifdef TCP_FASTOPEN
 
-    #ifndef SOL_TCP
-    #define SOL_TCP IPPROTO_TCP
+    #ifndef IPPROTO_TCP
+    #define IPPROTO_TCP IPPROTO_TCP
     #endif
 
-		if (setsockopt(serverfd, SOL_TCP, TCP_FASTOPEN, (const void *) &uwsgi.tcp_fast_open, sizeof(int)) < 0) {
+		if (setsockopt(serverfd, IPPROTO_TCP, TCP_FASTOPEN, (const void *) &uwsgi.tcp_fast_open, sizeof(int)) < 0) {
 			uwsgi_error("TCP_FASTOPEN setsockopt()");
 		}
 		else {
@@ -1598,7 +1598,7 @@ void uwsgi_setup_shared_sockets() {
 				uwsgi_log("unable to create shared socket on: %s\n", shared_sock->name);
 				exit(1);
 			}
- 
+
 			if (shared_sock->no_defer) {
                                 uwsgi.no_defer_accept = current_defer_accept;
                         }
