@@ -2811,6 +2811,9 @@ struct uwsgi_server {
 	int spooler_signal_as_task;
 
 	int log_worker;
+
+	// number of args to consider part of binary_path
+	int binary_argc;
 };
 
 struct uwsgi_rpc {
