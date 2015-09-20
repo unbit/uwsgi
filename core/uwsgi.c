@@ -1695,6 +1695,18 @@ next:
                                         }
 				}
 			}
+			if (uwsgi.master_fifo) {
+				// also remove all master fifo
+				struct uwsgi_string_list *usl;
+				uwsgi_foreach(usl, uwsgi.master_fifo) {
+					if (unlink(usl->value)) {
+						uwsgi_error("unlink()");
+					}
+					else {
+						uwsgi_log("VACUUM: master fifo %s removed.\n", usl->value);
+					}
+				}
+			}
 		}
 	}
 }
