@@ -2923,7 +2923,7 @@ static void uwsgi_lua_init_apps() {
 		sid = ULUA_MYWID*uwsgi.threads;
 	
 		for(i=0;i<uwsgi.threads;i++) {
-			uwsgi_lua_init_state(&(ULUA_WORKER_STATE[i]), uwsgi.mywid, sid + i, cores);
+			uwsgi_lua_init_state(&(ULUA_WORKER_STATE[i]), uwsgi.mywid, sid + i + 1, cores);
 		}
 		
 		ulua_log("inited %d lua_State(s) for worker %d", uwsgi.threads, uwsgi.mywid);
@@ -2932,7 +2932,7 @@ static void uwsgi_lua_init_apps() {
 			sid = j*uwsgi.threads;
 			
 			for(i=0;i<uwsgi.threads;i++) {
-				uwsgi_lua_init_state(&(ulua.state[j][i]), j + 1, sid + i, cores);
+				uwsgi_lua_init_state(&(ulua.state[j][i]), j + 1, sid + i + 1, cores);
 			}
 			
 			ulua_log("inited %d lua_State(s) for worker %d", uwsgi.threads, j + 1);
