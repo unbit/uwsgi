@@ -1609,6 +1609,7 @@ struct uwsgi_timer {
 	int id;
 	int registered;
 	uint8_t sig;
+	long nsvalue;
 };
 
 struct uwsgi_signal_rb_timer {
@@ -3318,6 +3319,7 @@ int event_queue_interesting_fd_is_read(void *, int);
 int event_queue_interesting_fd_is_write(void *, int);
 
 int event_queue_add_timer(int, int *, int);
+int event_queue_add_timer_hr(int, int *, int, long);
 struct uwsgi_timer *event_queue_ack_timer(int);
 
 int event_queue_add_file_monitor(int, char *, int *);
@@ -3327,6 +3329,7 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int, int);
 int uwsgi_register_signal(uint8_t, char *, void *, uint8_t);
 int uwsgi_add_file_monitor(uint8_t, char *);
 int uwsgi_add_timer(uint8_t, int);
+int uwsgi_add_timer_hr(uint8_t, int, long);
 int uwsgi_signal_add_rb_timer(uint8_t, int, int);
 int uwsgi_signal_handler(struct wsgi_request *, uint8_t);
 
