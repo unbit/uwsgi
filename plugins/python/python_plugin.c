@@ -149,6 +149,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 
 	{"paste", required_argument, 0, "load a paste.deploy config file", uwsgi_opt_set_str, &up.paste, 0},
 	{"paste-logger", no_argument, 0, "enable paste fileConfig logger", uwsgi_opt_true, &up.paste_logger, 0},
+	{"paste-name", required_argument, 0, "specify the name of the paste section", uwsgi_opt_set_str, &up.paste_name, 0},
 
 
 	{"web3", required_argument, 0, "load a web3 app", uwsgi_opt_set_str, &up.web3, 0},
