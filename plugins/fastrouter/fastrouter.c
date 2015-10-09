@@ -67,6 +67,7 @@ static struct uwsgi_option fastrouter_options[] = {
 
 	{"fastrouter-emperor-socket", required_argument, 0, "set the emperor command socket that will receive spawn commands", uwsgi_opt_set_str, &ufr.cr.emperor_socket, 0},
 	{"fastrouter-defer-connect-timeout", required_argument, 0, "set fastrouter defer connect timeout", uwsgi_opt_set_int, &ufr.cr.defer_connect_timeout, 0},
+	{"fastrouter-max-retries", required_argument, 0, "set fastrouter max retry attempts", uwsgi_opt_set_int, &ufr.cr.max_retries, 0},
 	UWSGI_END_OF_OPTIONS
 };
 
