@@ -154,6 +154,7 @@ struct uwsgi_python {
 	char *file_config;
 	char *paste;
 	int paste_logger;
+	char *paste_name;
 	char *eval;
 
 	char *web3;

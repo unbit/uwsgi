@@ -711,7 +711,11 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 		exit(UWSGI_FAILED_APP_CODE);
 	}
 
-	paste_arg = PyTuple_New(1);
+	if (up.paste_name) {
+		paste_arg = PyTuple_New(2);
+	} else {
+		paste_arg = PyTuple_New(1);
+	}
 	if (!paste_arg) {
 		PyErr_Print();
 		exit(UWSGI_FAILED_APP_CODE);
@@ -720,6 +724,13 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 	if (PyTuple_SetItem(paste_arg, 0, UWSGI_PYFROMSTRING(paste))) {
 		PyErr_Print();
 		exit(UWSGI_FAILED_APP_CODE);
+	}
+
+	if (up.paste_name) {
+		if (PyTuple_SetItem(paste_arg, 1, UWSGI_PYFROMSTRING(up.paste_name))) {
+			PyErr_Print();
+			exit(UWSGI_FAILED_APP_CODE);
+		}
 	}
 
 	paste_app = PyEval_CallObject(paste_loadapp, paste_arg);
