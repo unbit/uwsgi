@@ -625,6 +625,9 @@ class uConf(object):
             '-D_FILE_OFFSET_BITS=64'
         ] + os.environ.get("CFLAGS", "").split() + self.get('cflags', '').split()
 
+        for path in self.include_path:
+            self.cflags.append('-I%s' % path)
+
         report['kernel'] = uwsgi_os
 
         if uwsgi_os == 'Linux':
