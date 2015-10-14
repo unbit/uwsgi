@@ -1017,7 +1017,7 @@ wait:
 
 
 /*
-	like the previous one but consume the whole len (if possibile)
+	like the previous one but consume the whole len (if possible)
 */
 
 int uwsgi_read_whole_true_nb(int fd, char *buf, size_t remains, int timeout) {

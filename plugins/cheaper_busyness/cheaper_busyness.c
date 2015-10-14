@@ -8,7 +8,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-// this global struct containes all of the relevant values
+// this global struct contains all of the relevant values
 struct uwsgi_cheaper_busyness_global {
 	uint64_t busyness_max;
 	uint64_t busyness_min;

@@ -338,7 +338,7 @@ PerlInterpreter *uwsgi_perl_new_interpreter(void) {
         PL_perl_destruct_level = 2;
         PL_origalen = 1;
         perl_construct(pi);
-	// over-engeneering
+	// over-engineering
         PL_origalen = 1;
 
 	return pi;

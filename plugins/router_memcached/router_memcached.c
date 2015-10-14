@@ -96,7 +96,7 @@ static int transform_memcached(struct wsgi_request *wsgi_req, struct uwsgi_trans
         struct uwsgi_transformation_memcached_conf *utmc = (struct uwsgi_transformation_memcached_conf *) ut->data;
         struct uwsgi_buffer *ub = ut->chunk;
 
-        // store only successfull response
+        // store only successful response
         if (wsgi_req->write_errors == 0 && wsgi_req->status == 200 && ub->pos > 0) {
 		memcached_store(utmc->addr->buf, utmc->key, ub, utmc->expires);
         }

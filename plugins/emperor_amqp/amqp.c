@@ -24,7 +24,7 @@ static char *amqp_get_str(char *ptr, char *watermark) {
 
         uint8_t str_size;
 
-	// over engeneering...
+	// over engineering...
 	if (ptr+1 > watermark) return NULL;
 
         str_size = *ptr;

@@ -443,7 +443,7 @@ static int http_headers_parse_dumb(struct corerouter_peer *peer, int skip) {
 
 	// leave space for X-Forwarded-For and X-Forwarded-Proto: https
 	peer->out = uwsgi_buffer_new(hr->headers_size + 256);
-        // force this buffer to be destroyed as soon as possibile
+        // force this buffer to be destroyed as soon as possible
         peer->out_need_free = 1;
         peer->out->limit = UMAX16;
         peer->out_pos = 0;
@@ -583,7 +583,7 @@ int http_headers_parse(struct corerouter_peer *peer, int skip) {
 	char *query_string = NULL;
 
 	peer->out = uwsgi_buffer_new(uwsgi.page_size);
-	// force this buffer to be destroyed as soon as possibile
+	// force this buffer to be destroyed as soon as possible
 	peer->out_need_free = 1;
 	peer->out->limit = UMAX16;
 	// leave space for the uwsgi header

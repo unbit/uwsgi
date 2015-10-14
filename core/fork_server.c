@@ -67,7 +67,7 @@ void uwsgi_fork_server(char *socket) {
 		gid_t gid = -1;
 		int fds_count = 8;
 		size_t remains = 4;
-		// we can receive upto 8 fds (generally from 1 to 3)
+		// we can receive up to 8 fds (generally from 1 to 3)
 		int fds[8];
 		// we only read 4 bytes header
 		ssize_t len = uwsgi_recv_cred_and_fds(client_fd, hbuf, remains, &ppid, &uid, &gid, fds, &fds_count);
@@ -179,7 +179,7 @@ void uwsgi_fork_server(char *socket) {
 				// send_pid()
 				if (uwsgi_write_nb(client_fd, ub->buf, ub->pos, uwsgi.socket_timeout)) exit(1);
 				close(client_fd);
-				uwsgi_log("double fork() and reparenting successfull (new pid: %d)\n", getpid());
+				uwsgi_log("double fork() and reparenting successful (new pid: %d)\n", getpid());
 				uwsgi_buffer_destroy(ub);
 
 

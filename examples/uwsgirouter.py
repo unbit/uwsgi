@@ -37,7 +37,7 @@ def application(env, start_response):
         # get the input fd
         input = env['wsgi.input'].fileno()
 
-        # read (in async mode) upto 'cl' data and send to uwsgi peer
+        # read (in async mode) up to 'cl' data and send to uwsgi peer
         while cl > 0:
             bufsize = min(cl, 4096)
             yield uwsgi.wait_fd_read(input, 30)
