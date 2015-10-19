@@ -3103,7 +3103,9 @@ static void uwsgi_lua_init_apps() {
 		}
 	}
 
-	uwsgi_apps_cnt++;
+	if (ulua.wsapi) {
+		uwsgi_apps_cnt++;
+	}
 }
 
 static int uwsgi_lua_mule_msg(char *msg, size_t len) {
