@@ -451,7 +451,7 @@ void uwsgi_setup_mules_and_farms() {
 			mules_list++;
 
 			strncpy(uwsgi.farms[i].name, farm_value, 0xff);
-			
+			uwsgi.farms[i].name[0xff-1] = '\0';
 
 			// create the socket pipe
 			create_signal_pipe(uwsgi.farms[i].signal_pipe);
