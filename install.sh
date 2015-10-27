@@ -12,7 +12,7 @@ then
 fi
 
 echo "downloading latest uWSGI tarball..."
-curl -o uwsgi_latest_from_installer.tar.gz http://projects.unbit.it/downloads/uwsgi-latest.tar.gz
+curl -o uwsgi_latest_from_installer.tar.gz https://projects.unbit.it/downloads/uwsgi-latest.tar.gz
 mkdir uwsgi_latest_from_installer
 tar zvxC uwsgi_latest_from_installer --strip-components=1 -f uwsgi_latest_from_installer.tar.gz
 cd uwsgi_latest_from_installer
