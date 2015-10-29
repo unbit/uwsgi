@@ -2,10 +2,7 @@ import os
 
 NAME = 'rbthreads'
 
-try:
-    RUBYPATH = os.environ['UWSGICONFIG_RUBYPATH']
-except:
-    RUBYPATH = 'ruby'
+RUBYPATH = os.environ.get('UWSGICONFIG_RUBYPATH', 'ruby')
 
 
 CFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print RbConfig::CONFIG['CFLAGS']\"").read().rstrip().split()

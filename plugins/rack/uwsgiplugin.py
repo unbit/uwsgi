@@ -2,10 +2,7 @@ import os
 
 NAME = 'rack'
 
-try:
-    RUBYPATH = os.environ['UWSGICONFIG_RUBYPATH']
-except:
-    RUBYPATH = 'ruby'
+RUBYPATH = os.environ.get('UWSGICONFIG_RUBYPATH', 'ruby')
 
 rbconfig = 'Config'
 
