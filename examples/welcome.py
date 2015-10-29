@@ -14,11 +14,8 @@ print(sys.modules)
 print(sys.argv)
 
 try:
-    if sys.argv[1] == 'debug':
-        DEBUG = True
-    else:
-        raise
-except:
+    DEBUG = sys.argv[1] == 'debug'
+except IndexError:
     DEBUG = False
 
 
@@ -73,7 +70,7 @@ def setprocname():
 def application(env, start_response):
     try:
         uwsgi.mule_msg(env['REQUEST_URI'], 1)
-    except:
+    except Exception:
         pass
 
     req = uwsgi.workers()[uwsgi.worker_id()-1]['requests']
@@ -82,7 +79,7 @@ def application(env, start_response):
 
     try:
         gc.collect(2)
-    except:
+    except Exception:
         pass
     if DEBUG:
         print(env['wsgi.input'].fileno())
@@ -95,7 +92,7 @@ def application(env, start_response):
 
     try:
         gc.collect(2)
-    except:
+    except Exception:
         pass
 
     if DEBUG:
