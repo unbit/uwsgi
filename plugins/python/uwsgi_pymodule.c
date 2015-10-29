@@ -2462,7 +2462,7 @@ PyObject *py_uwsgi_reload_worker(PyObject * self, PyObject * args) {
         return NULL;
     }
 
-    if (wid > uwsgi.numproc) {
+    if (wid < 0 || wid > uwsgi.numproc) {
         return PyErr_Format(PyExc_ValueError, "invalid worker id");
     }
 
