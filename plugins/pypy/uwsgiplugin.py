@@ -11,5 +11,5 @@ try:
     import __pypy__  # NOQA
     import sys
     CFLAGS.append('-DUWSGI_PYPY_HOME="\\"%s\\""' % sys.prefix)
-except:
+except ImportError:
     pass

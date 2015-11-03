@@ -4,7 +4,7 @@ from threading import Thread
 
 try:
     import cPickle as pickle
-except:
+except ImportError:
     import pickle
 
 import uwsgi
@@ -246,7 +246,7 @@ class mule_brain(object):
         if uwsgi.mule_id() == self.num:
             try:
                 self.f()
-            except:
+            except BaseException:
                 exc = sys.exc_info()
                 sys.excepthook(exc[0], exc[1], exc[2])
                 sys.exit(1)
@@ -259,7 +259,7 @@ class mule_brainloop(mule_brain):
             while True:
                 try:
                     self.f()
-                except:
+                except BaseException:
                     exc = sys.exc_info()
                     sys.excepthook(exc[0], exc[1], exc[2])
                     sys.exit(1)

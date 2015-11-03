@@ -17,14 +17,14 @@ from optparse import OptionParser
 
 try:
     from queue import Queue
-except:
+except ImportError:
     from Queue import Queue
 
 from distutils import sysconfig
 
 try:
     import ConfigParser
-except:
+except ImportError:
     import configparser as ConfigParser
 
 GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
@@ -40,17 +40,19 @@ CPP = os.environ.get('CPP', get_preprocessor())
 
 try:
     CPUCOUNT = int(os.environ.get('CPUCOUNT', -1))
-except:
+except ValueError:
     CPUCOUNT = -1
 
 if CPUCOUNT < 1:
     try:
         import multiprocessing
         CPUCOUNT = multiprocessing.cpu_count()
-    except:
+    except (ImportError, NotImplementedError):
         try:
-            CPUCOUNT = int(os.sysconf('SC_NPROCESSORS_ONLN'))
-        except:
+            CPUCOUNT = os.sysconf('SC_NPROCESSORS_ONLN')
+        # AttributeError means os.syconf function is not available and
+        # ValueError means the name passed to it is not supported
+        except (AttributeError, ValueError):
             CPUCOUNT = 1
 
 
@@ -152,7 +154,7 @@ def uniq_warnings(elements):
 if uwsgi_version.endswith('-dev') and os.path.exists('%s/.git' % os.path.dirname(os.path.abspath(__file__))):
     try:
         uwsgi_version += '-%s' % spcall('git rev-parse --short HEAD')
-    except:
+    except Exception:
         pass
 
 
@@ -225,7 +227,7 @@ def compile(cflags, last_cflags_ts, objfile, srcfile):
                 raise
         print("%s is up to date" % objfile)
         return
-    except:
+    except Exception:
         pass
     cmdline = "%s -c %s -o %s %s" % (GCC, cflags, objfile, srcfile)
     push_command(objfile, cmdline)
@@ -414,14 +416,14 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                 if uwsgi_os.startswith('CYGWIN'):
                     try:
                         p_cflags.remove('-fstack-protector')
-                    except:
+                    except ValueError:
                         pass
 
                 if GCC in ('clang',):
                     try:
                         p_cflags.remove('-fno-fast-math')
                         p_cflags.remove('-ggdb3')
-                    except:
+                    except ValueError:
                         pass
 
                 p_cflags_blacklist = (
@@ -433,13 +435,13 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                 for cflag in p_cflags_blacklist:
                     try:
                         p_cflags.remove(cflag)
-                    except:
+                    except ValueError:
                         pass
 
                 try:
                     if up['post_build']:
                         post_build.append(up['post_build'])
-                except:
+                except Exception:
                     pass
 
                 for cfile in up['GCC_LIST']:
@@ -469,7 +471,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                             if os.system(objcopy_cmd) != 0:
                                 raise Exception('unable to link binary file')
                         gcc_list.append('%s/%s.o' % (path, bfile[1]))
-                    except:
+                    except Exception:
                         if uwsgi_os == 'Darwin':
                             gcc_list.append('-sectcreate __DATA %s %s/%s' % (strip_prefix('_uwsgi_', bfile[0]), path, bfile[1]))
 
@@ -553,7 +555,7 @@ def open_profile(filename):
         wrapped = False
         try:
             import urllib2
-        except:
+        except ImportError:
             import urllib.request
             wrapped = True
 
@@ -635,7 +637,7 @@ class uConf(object):
                 if int(lk_ver[0]) <= 2 and int(lk_ver[1]) <= 6 and int(lk_ver[2]) <= 9:
                     self.cflags.append('-DOBSOLETE_LINUX_KERNEL')
                     report['kernel'] = 'Old Linux'
-            except:
+            except Exception:
                 pass
 
         if uwsgi_os == 'GNU':
@@ -662,7 +664,7 @@ class uConf(object):
 
             if not self.include_path:
                 raise
-        except:
+        except Exception:
             self.include_path = ['/usr/include', '/usr/local/include']
 
         additional_include_paths = self.get('additional_include_paths')
@@ -674,7 +676,7 @@ class uConf(object):
             for inc in os.environ['UWSGI_REMOVE_INCLUDES'].split(','):
                 try:
                     self.include_path.remove(inc)
-                except:
+                except ValueError:
                     pass
 
         if not mute:
@@ -688,7 +690,7 @@ class uConf(object):
             else:
                 # gcc 5.0 is represented as simply "5"
                 gcc_minor = 0
-        except:
+        except Exception:
             raise Exception("you need a C compiler to build uWSGI")
         # add -fno-strict-aliasing only on python2 and gcc < 4.3
         if (sys.version_info[0] == 2) or (gcc_major < 4) or (gcc_major == 4 and gcc_minor < 3):
@@ -739,7 +741,7 @@ class uConf(object):
             if value == "" or value == "false":
                 return None
             return value
-        except:
+        except Exception:
             if default is not None:
                 return default
             return None
@@ -802,7 +804,7 @@ class uConf(object):
                 if obsd_major >= 5 and obsd_minor > 0:
                     self.cflags.append('-DUWSGI_NEW_OPENBSD')
                     report['kernel'] = 'New OpenBSD'
-            except:
+            except Exception:
                 pass
 
         if uwsgi_os == 'SunOS':
@@ -859,7 +861,7 @@ class uConf(object):
                     fbsd_major = int(uwsgi_os_k.split('.')[0])
                     if fbsd_major >= 9:
                         locking_mode = 'posix_sem'
-                except:
+                except Exception:
                     pass
             elif uwsgi_os == 'GNU':
                 locking_mode = 'posix_sem'
@@ -1316,7 +1318,7 @@ def get_plugin_up(path):
     elif os.path.isdir(path):
         try:
             execfile('%s/uwsgiplugin.py' % path, up)
-        except:
+        except Exception:
             f = open('%s/uwsgiplugin.py' % path)
             exec(f.read(), up)
             f.close()
@@ -1363,7 +1365,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
     post_build = None
     try:
         post_build = up['post_build']
-    except:
+    except KeyError:
         pass
 
     p_cflags.insert(0, '-I.')
@@ -1376,7 +1378,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
     try:
         for opt in uc.config.options(name):
             p_cflags.append('-DUWSGI_PLUGIN_%s_%s="%s"' % (name.upper(), opt.upper(), uc.config.get(name, opt, '1')))
-    except:
+    except Exception:
         pass
 
     if uc:
@@ -1419,7 +1421,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
                 if os.system(objcopy_cmd) != 0:
                     raise Exception('unable to link binary file')
             gcc_list.append('%s/%s.o' % (path, bfile[1]))
-        except:
+        except Exception:
             if uwsgi_os == 'Darwin':
                 gcc_list.append('-sectcreate __DATA %s %s/%s' % (strip_prefix('_uwsgi_', bfile[0]), path, bfile[1]))
 
@@ -1427,7 +1429,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
     for ldflag in p_ldflags_blacklist:
         try:
             p_ldflags.remove(ldflag)
-        except:
+        except ValueError:
             pass
 
     p_cflags_blacklist = (
@@ -1441,21 +1443,21 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
     for cflag in p_cflags_blacklist:
         try:
             p_cflags.remove(cflag)
-        except:
+        except ValueError:
             pass
 
     if GCC in ('clang',):
         try:
             p_cflags.remove('-fno-fast-math')
             p_cflags.remove('-ggdb3')
-        except:
+        except ValueError:
             pass
 
     if uwsgi_os.startswith('CYGWIN'):
         try:
             p_cflags.remove('-fstack-protector')
             p_ldflags.remove('-fstack-protector')
-        except:
+        except ValueError:
             pass
 
     need_pic = ' -fPIC'
@@ -1490,7 +1492,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
             print_compilation_output(None, objline)
             os.system(objline)
             os.unlink('.uwsgi_plugin_section')
-    except:
+    except Exception:
         pass
 
     if post_build:
@@ -1551,7 +1553,7 @@ if __name__ == "__main__":
                 bconf = options.build[0]
             else:
                 bconf = options.cflags[0]
-        except:
+        except Exception:
             bconf = os.environ.get('UWSGI_PROFILE', 'default.ini')
         if not bconf.endswith('.ini'):
             bconf += '.ini'
@@ -1574,7 +1576,7 @@ if __name__ == "__main__":
     elif options.plugin:
         try:
             bconf = options.plugin[1]
-        except:
+        except Exception:
             bconf = os.environ.get('UWSGI_PROFILE', 'default.ini')
         if not bconf.endswith('.ini'):
             bconf += '.ini'
@@ -1584,7 +1586,7 @@ if __name__ == "__main__":
         gcc_list, cflags, ldflags, libs = uc.get_gcll()
         try:
             name = options.plugin[2]
-        except:
+        except Exception:
             name = None
         print("*** uWSGI building and linking plugin %s ***" % options.plugin[0])
         build_plugin(options.plugin[0], uc, cflags, ldflags, libs, name)
@@ -1596,7 +1598,7 @@ if __name__ == "__main__":
         name = None
         try:
             name = options.extra_plugin[1]
-        except:
+        except Exception:
             pass
         build_plugin(options.extra_plugin[0], None, cflags, ldflags, None, name)
     elif options.clean:

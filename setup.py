@@ -47,7 +47,7 @@ def patch_bin_path(cmd, conf):
                 os.makedirs(cmd.install_scripts)
             conf.set('bin_name',
                      os.path.join(cmd.install_scripts, conf.get('bin_name')))
-        except:
+        except Exception:
             conf.set('bin_name', sys.prefix + '/bin/' + bin_name)
 
 

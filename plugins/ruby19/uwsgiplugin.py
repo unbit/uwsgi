@@ -2,10 +2,7 @@ import os
 
 NAME = 'ruby19'
 
-try:
-    RUBYPATH = os.environ['UWSGICONFIG_RUBYPATH']
-except:
-    RUBYPATH = 'ruby'
+RUBYPATH = os.environ.get('UWSGICONFIG_RUBYPATH', 'ruby')
 
 rbconfig = 'Config'
 

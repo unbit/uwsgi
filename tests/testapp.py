@@ -127,7 +127,7 @@ def reload(env, start_response):
 #        print 4/0
 #
 #        print uwsgi.pippo
-#    except:
+#    except Exception:
 #        print "bah"
 
 #    print "ok"

@@ -67,6 +67,6 @@ def application(env, sr):
                     try:
                         msg = queue.get_nowait()
                         uwsgi.websocket_send(msg)
-                    except:
+                    except Exception:
                         pass
     return ""
