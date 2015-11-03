@@ -1069,6 +1069,8 @@ struct uwsgi_plugin {
 
 	void (*vassal)(struct uwsgi_instance *);
 	void (*vassal_before_exec)(struct uwsgi_instance *, char **);
+
+	int (*worker)(void);
 };
 
 #ifdef UWSGI_PCRE

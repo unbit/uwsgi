@@ -201,6 +201,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"early-python-import", required_argument, 0, "import a python module in the early phase", uwsgi_early_python_import, NULL, UWSGI_OPT_IMMEDIATE},
 	{"early-pythonpath", required_argument, 0, "add directory (or glob) to pythonpath (immediate version)", uwsgi_opt_pythonpath, NULL,  UWSGI_OPT_IMMEDIATE},
 	{"early-python-path", required_argument, 0, "add directory (or glob) to pythonpath (immediate version)", uwsgi_opt_pythonpath, NULL,  UWSGI_OPT_IMMEDIATE},
+	{"python-worker-override", required_argument, 0, "override worker with the specified python script", uwsgi_opt_set_str, &up.worker_override, 0},
 
 	{0, 0, 0, 0, 0, 0, 0},
 };
@@ -1959,6 +1960,19 @@ static void uwsgi_python_on_load() {
 	uwsgi_register_logger("python", uwsgi_python_logger);
 }
 
+static int uwsgi_python_worker() {
+	if (!up.worker_override)
+		return 0;
+	UWSGI_GET_GIL;
+	FILE *pyfile = fopen(up.worker_override, "r");
+	if (!pyfile) {
+		uwsgi_error_open(up.worker_override);
+		exit(1);
+	}
+	PyRun_SimpleFile(pyfile, up.worker_override);
+	return 1;
+}
+
 struct uwsgi_plugin python_plugin = {
 	.name = "python",
 	.alias = "python",
@@ -2010,5 +2024,6 @@ struct uwsgi_plugin python_plugin = {
 	.exception_log = uwsgi_python_exception_log,
 	.backtrace = uwsgi_python_backtrace,
 
+	.worker = uwsgi_python_worker,
 
 };

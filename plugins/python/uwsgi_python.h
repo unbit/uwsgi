@@ -219,6 +219,8 @@ struct uwsgi_python {
 	int is_dynamically_loading_an_app;
 
 	int wsgi_disable_file_wrapper;
+
+	char *worker_override;
 };
 
 
