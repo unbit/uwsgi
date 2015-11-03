@@ -170,6 +170,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 
 	{"py-call-osafterfork", no_argument, 0, "enable child processes running cpython to trap OS signals", uwsgi_opt_true, &up.call_osafterfork, 0},
 
+	{"python-worker-override", required_argument, 0, "override worker with the specified python script", uwsgi_opt_set_str, &up.worker_override, 0},
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -1895,6 +1897,19 @@ static void uwsgi_python_on_load() {
 	uwsgi_register_logger("python", uwsgi_python_logger);
 }
 
+static int uwsgi_python_worker() {
+	if (!up.worker_override)
+		return 0;
+	UWSGI_GET_GIL;
+	FILE *pyfile = fopen(up.worker_override, "r");
+	if (!pyfile) {
+		uwsgi_error_open(up.worker_override);
+		exit(1);
+	}
+	PyRun_SimpleFile(pyfile, up.worker_override);
+	return 1;
+}
+
 struct uwsgi_plugin python_plugin = {
 	.name = "python",
 	.alias = "python",
@@ -1946,5 +1961,6 @@ struct uwsgi_plugin python_plugin = {
 	.exception_log = uwsgi_python_exception_log,
 	.backtrace = uwsgi_python_backtrace,
 
+	.worker = uwsgi_python_worker,
 
 };
