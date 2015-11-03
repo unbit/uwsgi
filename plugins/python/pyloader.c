@@ -602,12 +602,12 @@ PyObject *uwsgi_file_loader(void *arg1) {
 		Py_DECREF(wsgi_file_dict);
 		Py_DECREF(wsgi_file_module);
                 free(py_filename);
-		uwsgi_log( "unable to find \"application\" callable in file %s\n", filename);
+		uwsgi_log( "unable to find \"%s\" callable in file %s\n", callable, filename);
 		return NULL;
 	}
 
 	if (!PyFunction_Check(wsgi_file_callable) && !PyCallable_Check(wsgi_file_callable)) {
-		uwsgi_log( "\"application\" must be a callable object in file %s\n", filename);
+		uwsgi_log( "\"%s\" must be a callable object in file %s\n", callable, filename);
 		Py_DECREF(wsgi_file_callable);
 		Py_DECREF(wsgi_file_dict);
 		Py_DECREF(wsgi_file_module);
