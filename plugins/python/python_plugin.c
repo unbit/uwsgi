@@ -794,6 +794,19 @@ void init_uwsgi_embedded_module() {
 		exit(1);
 	}
 
+	PyObject *py_sockets_list = PyList_New(0);
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+	while(uwsgi_sock) {
+		if (uwsgi_sock->bound) {
+			PyList_Append(py_sockets_list, PyInt_FromLong(uwsgi_sock->fd));
+		}
+		uwsgi_sock = uwsgi_sock->next;
+	}
+	if (PyDict_SetItemString(up.embedded_dict, "sockets", py_sockets_list)) {
+                PyErr_Print();
+                exit(1);
+        }
+
 	PyObject *py_magic_table = PyDict_New();
 	uint8_t mtk;
 	for (i = 0; i <= 0xff; i++) {
@@ -1901,6 +1914,9 @@ static int uwsgi_python_worker() {
 	if (!up.worker_override)
 		return 0;
 	UWSGI_GET_GIL;
+	// ensure signals can be used again from python
+	if (!up.call_osafterfork)
+		PyOS_AfterFork();
 	FILE *pyfile = fopen(up.worker_override, "r");
 	if (!pyfile) {
 		uwsgi_error_open(up.worker_override);
