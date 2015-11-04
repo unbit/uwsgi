@@ -2239,7 +2239,18 @@ PyObject *py_uwsgi_total_requests(PyObject * self, PyObject * args) {
 }
 
 	/* uWSGI workers */
-PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
+PyObject *py_uwsgi_workers(PyObject * self, PyObject * args, PyObject * kwargs) {
+    PyObject *warehouse = Py_False;
+    static char *kwlist[] = {"warehouse", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:workers", kwlist, &warehouse)) {
+            return NULL;
+    }
+
+    int show_warehouse = PyObject_IsTrue(warehouse);
+    if (show_warehouse == -1) {
+        return PyErr_Format(PyExc_ValueError, "invalid argument!");
+    }
 
 	PyObject *worker_dict, *apps_dict, *apps_tuple, *zero;
 	int i, j;
@@ -2360,6 +2371,14 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		}
 		Py_DECREF(zero);
 
+		if(show_warehouse) {
+            zero = PyString_FromString(uwsgi.workers[i + 1].warehouse);
+            if (PyDict_SetItemString(worker_dict, "warehouse", zero)) {
+                goto clear;
+            }
+            Py_DECREF(zero);
+		}
+
 		apps_tuple = PyTuple_New(uwsgi.workers[i+1].apps_cnt);
 
 		for(j=0;j<uwsgi.workers[i+1].apps_cnt;j++) {
@@ -2425,6 +2444,65 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 	Py_INCREF(Py_None);
 	return Py_None;
 
+}
+
+PyObject *py_uwsgi_worker_warehouse_set(PyObject * self, PyObject * args) {
+    char *value;
+    Py_ssize_t valuelen;
+    if (!PyArg_ParseTuple(args, "s#:worker_warehouse_set", &value, &valuelen)) {
+        return NULL;
+    }
+
+    if (valuelen > UWSGI_WORKER_WAREHOUSE_MAX_SIZE) {
+        return PyErr_Format(PyExc_ValueError, "argument too long!");
+    }
+
+    UWSGI_RELEASE_GIL
+
+    memset(uwsgi.workers[uwsgi.mywid].warehouse, '\0', sizeof(uwsgi.workers[uwsgi.mywid].warehouse));
+    memcpy(uwsgi.workers[uwsgi.mywid].warehouse, value, valuelen);
+
+    UWSGI_GET_GIL
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyObject *py_uwsgi_worker_warehouse_get(PyObject * self, PyObject * args) {
+    return PyString_FromString(uwsgi.workers[uwsgi.mywid].warehouse);
+}
+
+PyObject *py_uwsgi_worker_warehouse_clear(PyObject * self, PyObject * args) {
+    UWSGI_RELEASE_GIL
+
+    memset(uwsgi.workers[uwsgi.mywid].warehouse, '\0', sizeof(uwsgi.workers[uwsgi.mywid].warehouse));
+
+    UWSGI_GET_GIL
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyObject *py_uwsgi_workers_warehouse(PyObject * self, PyObject * args) {
+    int i;
+    PyObject * warehouse = PyTuple_New(uwsgi.numproc);
+
+    if (warehouse == NULL) {
+        uwsgi_error("PyTuple_New() error!");
+        return PyErr_Format(PyExc_SystemError, "can not create tuple");
+    }
+
+    for (i = 0; i < uwsgi.numproc; i++) {
+        if(PyTuple_SetItem(warehouse, i, PyString_FromString(uwsgi.workers[i + 1].warehouse))) {
+            goto clear;
+        }
+    }
+
+    return warehouse;
+
+clear:
+    Py_DECREF(warehouse);
+    return NULL;
 }
 
 
@@ -2654,7 +2732,7 @@ PyObject *py_uwsgi_suspend(PyObject * self, PyObject * args) {
 static PyMethodDef uwsgi_advanced_methods[] = {
 	{"reload", py_uwsgi_reload, METH_VARARGS, ""},
 	{"stop", py_uwsgi_stop, METH_VARARGS, ""},
-	{"workers", py_uwsgi_workers, METH_VARARGS, ""},
+	{"workers", (PyCFunction)py_uwsgi_workers, METH_VARARGS|METH_KEYWORDS, ""},
 	{"masterpid", py_uwsgi_masterpid, METH_VARARGS, ""},
 	{"total_requests", py_uwsgi_total_requests, METH_VARARGS, ""},
 	{"request_id", py_uwsgi_request_id, METH_VARARGS, ""},
@@ -2749,6 +2827,11 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"add_var", py_uwsgi_add_var, METH_VARARGS, ""},
 
 	{"micros", py_uwsgi_micros, METH_VARARGS, ""},
+
+	{"worker_warehouse_set", py_uwsgi_worker_warehouse_set, METH_VARARGS, ""},
+	{"worker_warehouse_get", py_uwsgi_worker_warehouse_get, METH_VARARGS, ""},
+	{"worker_warehouse_clear", py_uwsgi_worker_warehouse_clear, METH_VARARGS, ""},
+	{"workers_warehouse", py_uwsgi_workers_warehouse, METH_VARARGS, ""},
 
 	{NULL, NULL},
 };

@@ -775,6 +775,8 @@ int uwsgi_respawn_worker(int wid) {
 			memset(uwsgi.workers[uwsgi.mywid].cores[i].buffer, 0, sizeof(struct uwsgi_header));
 		}
 
+		memset(uwsgi.workers[uwsgi.mywid].warehouse, '\0', sizeof(uwsgi.workers[uwsgi.mywid].warehouse));
+
 		uwsgi_fixup_fds(wid, 0, NULL);
 
 		uwsgi.my_signal_socket = uwsgi.workers[wid].signal_pipe[1];
