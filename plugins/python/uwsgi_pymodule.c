@@ -2470,6 +2470,10 @@ PyObject *py_uwsgi_reload_worker(PyObject * self, PyObject * args) {
         wid = uwsgi.mywid;
     }
 
+    if (wid == 0) {
+        return PyErr_Format(PyExc_ValueError, "only worker can call without argument");
+    }
+
     if (kill(uwsgi.workers[wid].pid, SIGHUP)) {
         uwsgi_error("kill()");
         Py_INCREF(Py_None);
