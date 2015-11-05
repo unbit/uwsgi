@@ -22,6 +22,8 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, char *magic
 	char *xml_content;
 	size_t xml_size = 0;
 
+	LIBXML_TEST_VERSION
+
 	if (uwsgi_check_scheme(filename)) {
 		colon = uwsgi_get_last_char(filename, '/');
 		colon = uwsgi_get_last_char(colon, ':');
