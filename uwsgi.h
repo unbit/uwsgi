@@ -85,6 +85,8 @@ extern "C" {
 #define MAX_TIMERS 64
 #define MAX_CRONS 64
 
+#define UWSGI_WORKER_WAREHOUSE_MAX_SIZE 1024 * 128  // 128KB
+
 #define UWSGI_VIA_SENDFILE	1
 #define UWSGI_VIA_ROUTE	2
 #define UWSGI_VIA_OFFLOAD	3
@@ -3028,6 +3030,9 @@ struct uwsgi_worker {
 	int accepting;
 
 	char name[0xff];
+
+	// user can put custom value in the warehouse.
+	char warehouse[UWSGI_WORKER_WAREHOUSE_MAX_SIZE + 1];
 };
 
 
