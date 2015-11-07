@@ -258,43 +258,72 @@ static int uwsgi_api_signal(lua_State *L) {
 	return 0;
 }
 
-static int uwsgi_api_log(lua_State *L) {
-	uint16_t argc = lua_gettop(L);
-	uint16_t i;
-	
+static const char *uwsgi_lua_log_tostring(lua_State *L, int obj, size_t *len) {
+
+	int type = lua_type(L, obj);
 	const void *point;
-	int type;
-	
-	if (!(argc)) {
-		return 0;
-	}
-	
-	uwsgi_log(ULUA_LOG_HEADER);
-	
-	for(i = 1; i <= argc; i++) {
-		type = lua_type(L, i);
-		
-		switch(type) {
-			case LUA_TNIL: uwsgi_log(" nil"); continue;
-			case LUA_TNONE: uwsgi_log(" none"); continue;
-			case LUA_TBOOLEAN: uwsgi_log(lua_toboolean(L, i) ? " true" : " false"); continue;
-			case LUA_TUSERDATA:
-			case LUA_TTABLE: if(!(uwsgi_lua_metatable_tostring(L, i - argc - 1))) break;
-			case LUA_TSTRING:
-			case LUA_TNUMBER: uwsgi_log(" %s", lua_tostring(L, i)); continue;			
-		}
-		
-		point = lua_topointer(L, i);
-		
-		if (point) {
-			uwsgi_log(" <%s: %p>", lua_typename(L, type), point);
-		} else {
-			uwsgi_log(" <%s>", lua_typename(L, type));
-		}
+
+	switch(type) {
+		case LUA_TNIL: if (len) *len = 3; return "nil";
+		case LUA_TNONE: if (len) *len = 4; return "none";
+		case LUA_TBOOLEAN:
+
+			if (lua_toboolean(L, obj)) {
+				if (len) *len = 4;
+				return "true";
+			}
+
+			if (len) *len = 5;
+			return "false";
+
+		case LUA_TSTRING:
+		case LUA_TNUMBER: break;
+		case LUA_TUSERDATA:
+		case LUA_TTABLE: if (uwsgi_lua_metatable_tostring(L, obj)) break;
+		default:
+
+			point = lua_topointer(L, obj);
+
+			if (point) {
+				lua_pushfstring(L, "<%s: %p>", lua_typename(L, type), point);
+			} else {
+				lua_pushfstring(L, "<%s>", lua_typename(L, type));
+			}
+
+			lua_replace(L, obj-1);
 	}
 
-	uwsgi_log("\n");
-	
+	return lua_tolstring(L, obj, len);
+}
+
+static int uwsgi_api_log(lua_State *L) {
+
+	struct uwsgi_buffer *ub;
+	uint16_t argc = lua_gettop(L);
+
+	const char *str;
+	size_t len;
+	int i;
+
+	if (argc > 1) {
+		ub = uwsgi_buffer_new(0);
+
+		for (i = 1 - argc; i < 0; i++) {
+			str = uwsgi_lua_log_tostring(L, i, &len);
+			if (uwsgi_buffer_ensure(ub, len + 2)) break;
+			if (uwsgi_buffer_byte(ub, ' ')) break;
+			if (uwsgi_buffer_append(ub, (char *) str, len)) break;
+		}
+
+		if (!uwsgi_buffer_byte(ub, 0))
+			ulua_log("%s%s", uwsgi_lua_log_tostring(L, -argc, NULL), ub->buf);
+		uwsgi_buffer_destroy(ub);
+
+	} else if (argc) {
+
+		ulua_log("%s", uwsgi_lua_log_tostring(L, -argc, NULL));
+	}
+
 	return 0;
 }
 
