@@ -5,12 +5,12 @@ filename = 'logo_uWSGI.png'
 
 try:
     filename = sys.argv[1]
-except:
+except IndexError:
     pass
 
 try:
     content_type = sys.argv[2]
-except:
+except IndexError:
     pass
 
 

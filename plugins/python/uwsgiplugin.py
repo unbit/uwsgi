@@ -8,7 +8,7 @@ def get_python_version():
     version = sysconfig.get_config_var('VERSION')
     try:
         version = version + sys.abiflags
-    except:
+    except Exception:
         pass
     return version
 
@@ -72,7 +72,7 @@ if 'UWSGI_PYTHON_NOLIB' not in os.environ:
     else:
         try:
             libdir = sysconfig.get_config_var('LIBDIR')
-        except:
+        except Exception:
             libdir = "%s/lib" % sysconfig.PREFIX
 
         LDFLAGS.append("-L%s" % libdir)

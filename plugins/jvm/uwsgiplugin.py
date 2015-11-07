@@ -10,7 +10,7 @@ operating_system = os.uname()[0].lower()
 
 try:
     arch = os.environ['JVM_ARCH']
-except:
+except KeyError:
     arch = os.uname()[4].lower()
 
 if arch in ('i686', 'x86', 'x86_32'):
@@ -45,12 +45,12 @@ else:
 
 try:
     JVM_INCPATH = ['-I"' + os.environ['UWSGICONFIG_JVM_INCPATH'] + '"']
-except:
+except KeyError:
     pass
 
 try:
     JVM_LIBPATH = ['-L"' + os.environ['UWSGICONFIG_JVM_LIBPATH'] + '"']
-except:
+except KeyError:
     pass
 
 if not JVM_INCPATH or not JVM_LIBPATH:

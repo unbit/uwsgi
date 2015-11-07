@@ -376,7 +376,7 @@ static struct uwsgi_logger *setup_choosen_logger(struct uwsgi_string_list *usl) 
 
 	struct uwsgi_logger *choosen_logger = uwsgi_get_logger(name);
 	if (!choosen_logger) {
-		uwsgi_log("unable to find logger %s\n", name);
+		uwsgi_log("unable to find logger '%s'\n", name);
 		exit(1);
 	}
 

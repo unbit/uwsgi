@@ -13,7 +13,7 @@ def application(e, sr):
 
     try:
         time.sleep(2)
-    except:
+    except Exception:
         print("CLIENT DISCONNECTED !!!")
     print("2 seconds elapsed")
 
@@ -21,7 +21,7 @@ def application(e, sr):
 
     try:
         time.sleep(2)
-    except:
+    except Exception:
         print("CLIENT DISCONNECTED !!!")
     print("2 seconds elapsed")
 

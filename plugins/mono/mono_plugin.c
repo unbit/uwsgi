@@ -611,7 +611,7 @@ static void uwsgi_mono_init_thread(int core_id) {
 	// SIGPWR, SIGXCPU: these are used internally by the GC and pthreads.
 	sigset_t smask;
         sigemptyset(&smask);
-#if defined(__APPLE__) || defined(__OpenBSD__) || defined(__FreeBSD__)
+#if defined(__APPLE__) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
         sigaddset(&smask, SIGXFSZ);
 #else
         sigaddset(&smask, SIGPWR);
