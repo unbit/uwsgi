@@ -67,19 +67,17 @@ static int uwsgi_canon(request_rec *r, char *url)
     }
     url += sizeof(UWSGI_SCHEME); /* Keep slashes */
 
-    // is it a unix socket ?
-    if (strlen(url) == 2) {
-	*sport = 0;
+    err = ap_proxy_canon_netloc(r->pool, &url, NULL, NULL, &host, &port);
+    if (err) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                    "error parsing URL %s: %s", url, err);
+        return HTTP_BAD_REQUEST;
     }
-    else {
-        err = ap_proxy_canon_netloc(r->pool, &url, NULL, NULL, &host, &port);
-        if (err) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                      "error parsing URL %s: %s", url, err);
-            return HTTP_BAD_REQUEST;
-        }
-	apr_snprintf(sport, sizeof(sport), ":%u", port);
-    }
+
+    if (port != UWSGI_DEFAULT_PORT)
+        apr_snprintf(sport, sizeof(sport), ":%u", port);
+    else
+        sport[0] = '\0';
 
     if (ap_strchr(host, ':')) { /* if literal IPv6 address */
         host = apr_pstrcat(r->pool, "[", host, "]", NULL);
