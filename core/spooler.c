@@ -14,7 +14,7 @@ static void spooler_manage_task(struct uwsgi_spooler *, char *, char *);
 static uint64_t wakeup = 0;
 
 // function to allow waking up the spooler if blocked in event_wait
-void spooler_wakeup() {
+void spooler_wakeup(int signum) {
 	wakeup++;
 }
 
@@ -100,15 +100,15 @@ pid_t spooler_start(struct uwsgi_spooler * uspool) {
 	else if (pid == 0) {
 
 		signal(SIGALRM, SIG_IGN);
-                signal(SIGHUP, SIG_IGN);
-                signal(SIGINT, end_me);
-                signal(SIGTERM, end_me);
+		signal(SIGHUP, SIG_IGN);
+		signal(SIGINT, end_me);
+		signal(SIGTERM, end_me);
 		// USR1 will be used to wake up the spooler
 		uwsgi_unix_signal(SIGUSR1, spooler_wakeup);
-                signal(SIGUSR2, SIG_IGN);
-                signal(SIGPIPE, SIG_IGN);
-                signal(SIGSTOP, SIG_IGN);
-                signal(SIGTSTP, SIG_IGN);
+		signal(SIGUSR2, SIG_IGN);
+		signal(SIGPIPE, SIG_IGN);
+		signal(SIGSTOP, SIG_IGN);
+		signal(SIGTSTP, SIG_IGN);
 
 		uwsgi.mypid = getpid();
 		uspool->pid = uwsgi.mypid;
