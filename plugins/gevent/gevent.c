@@ -385,7 +385,7 @@ static void gil_gevent_get() {
 }
 
 static void gil_gevent_release() {
-	PyGILState_Release((PyGILState_STATE) pthread_getspecific(up.upt_gil_key));
+	PyGILState_Release((PyGILState_STATE)(unsigned long) pthread_getspecific(up.upt_gil_key));
 }
 
 static void monkey_patch() {

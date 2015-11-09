@@ -263,6 +263,7 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                         }
                         break;
 		case 6:
+                {
 			// dump
 			uc = uwsgi.caches;
 			if (wsgi_req->uh->_pktsize > 0) {
@@ -298,6 +299,7 @@ static int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 			uwsgi_response_write_body_do(wsgi_req, cache_dump->buf, cache_dump->pos);
 			uwsgi_buffer_destroy(cache_dump);
 			break;
+                }
 		case 17:
 			if (wsgi_req->uh->_pktsize == 0) break;
 			memset(&ucmc, 0, sizeof(struct uwsgi_cache_magic_context));
