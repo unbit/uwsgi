@@ -326,7 +326,9 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 
 	backend->worker->s->read += len;
 
-	if (!apr_date_checkmask(buffer, "HTTP/#.# ###*") || len >= sizeof(buffer)-1) {
+	if (!(apr_date_checkmask(buffer, "HTTP/#.# ###*") ||
+		    apr_date_checkmask(buffer, "HTTP/# ###*")) ||
+		  len >= sizeof(buffer)-1) {
 		// oops
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
