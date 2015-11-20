@@ -1174,7 +1174,7 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 							}
 						}
 						else {
-							match = strcmp(computed_addr, uwsgi_sock->name);
+							match = uwsgi_socket_strcmp(computed_addr, uwsgi_sock->name);
 						}
 					}
 					if (!match) {
