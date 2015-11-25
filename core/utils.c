@@ -1819,13 +1819,16 @@ void *uwsgi_calloc(size_t size) {
 char *uwsgi_resolve_ip(char *domain) {
 
 	struct hostent *he;
+	int checker;
 
 	he = gethostbyname(domain);
-	if (!he || !*he->h_addr_list || (he->h_addrtype != AF_INET
+	checker = (!he || !*he->h_addr_list);
 #ifdef AF_INET6
-					 && he->h_addrtype != AF_INET6
+	checker = checker || (he->h_addrtype != AF_INET && he->h_addrtype != AF_INET6);
+#else
+	checker = checker || (he->h_addrtype != AF_INET);
 #endif
-	    )) {
+	if (checker) {
 		return NULL;
 	}
 
