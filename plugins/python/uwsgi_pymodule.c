@@ -2069,6 +2069,67 @@ PyObject *py_uwsgi_spooler_pids(PyObject * self, PyObject * args) {
     return ret;
 }
 
+PyObject *py_uwsgi_spooler_get_task(PyObject * self, PyObject * args) {
+
+	char spool_buf[0xffff];
+	struct uwsgi_header uh;
+	char *body = NULL;
+	size_t body_len = 0;
+
+	int spool_fd;
+
+	char *task_path = NULL;
+
+	struct stat task_stat;
+
+	if (!PyArg_ParseTuple(args, "s:spooler_get_task", &task_path)) {
+		return NULL;
+	}
+
+	if (lstat(task_path, &task_stat)) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	if (access(task_path, R_OK | W_OK)) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	spool_fd = open(task_path, O_RDWR);
+
+	if (spool_fd < 0) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	if (uwsgi_spooler_read_header(task_path, spool_fd, &uh) ||
+		uwsgi_spooler_read_content(spool_fd, spool_buf, &body, &body_len, &uh, &task_stat)) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	PyObject *spool_dict = PyDict_New();
+
+	PyObject *value = PyString_FromString(task_path);
+	PyDict_SetItemString(spool_dict, "spooler_task_name", value);
+	Py_DECREF(value);
+
+	if (uwsgi_hooked_parse(spool_buf, uh._pktsize, uwsgi_python_add_item, spool_dict)) {
+		Py_XDECREF(spool_dict);
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	if (body && body_len > 0) {
+		PyObject *value = PyString_FromStringAndSize(body, body_len);
+		PyDict_SetItemString(spool_dict, "body", value);
+		Py_DECREF(value);
+	}
+
+	return spool_dict;
+}
+
 
 PyObject *py_uwsgi_connect(PyObject * self, PyObject * args) {
 
@@ -2502,6 +2563,8 @@ static PyMethodDef uwsgi_spooler_methods[] = {
 	{"spooler_jobs", py_uwsgi_spooler_jobs, METH_VARARGS, ""},
 	{"spooler_pid", py_uwsgi_spooler_pid, METH_VARARGS, ""},
 	{"spooler_pids", py_uwsgi_spooler_pids, METH_VARARGS, ""},
+
+	{"spooler_get_task", py_uwsgi_spooler_get_task, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 
