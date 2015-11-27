@@ -2205,101 +2205,101 @@ PyObject *py_uwsgi_spooler_pids(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_spooler_get_task(PyObject * self, PyObject * args) {
 
-        char spool_buf[0xffff];
-        struct uwsgi_header uh;
-        char *body = NULL;
-        size_t body_len = 0;
+	char spool_buf[0xffff];
+	struct uwsgi_header uh;
+	char *body = NULL;
+	size_t body_len = 0;
 
-        int spool_fd;
+	int spool_fd;
 
-        char *task_path = NULL;
+	char *task_path = NULL;
 
-        struct stat task_stat;
+	struct stat task_stat;
 
-        if (!PyArg_ParseTuple(args, "s:spooler_get_task", &task_path)) {
-                return NULL;
-        }
+	if (!PyArg_ParseTuple(args, "s:spooler_get_task", &task_path)) {
+		return NULL;
+	}
 
-        if (lstat(task_path, &task_stat)) {
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
+	if (lstat(task_path, &task_stat)) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
 
-        if (access(task_path, R_OK | W_OK)) {
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
+	if (access(task_path, R_OK | W_OK)) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
 
-        spool_fd = open(task_path, O_RDWR);
+	spool_fd = open(task_path, O_RDWR);
 
-        if (spool_fd < 0) {
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
+	if (spool_fd < 0) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
 
-        // check if the file is locked by another process
-        if (uwsgi_fcntl_is_locked(spool_fd)) {
-                uwsgi_protected_close(spool_fd);
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
+	// check if the file is locked by another process
+	if (uwsgi_fcntl_is_locked(spool_fd)) {
+		uwsgi_protected_close(spool_fd);
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
 
-        // unlink() can destroy the lock !!!
-        if (access(task_path, R_OK | W_OK)) {
-                uwsgi_protected_close(spool_fd);
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
+	// unlink() can destroy the lock !!!
+	if (access(task_path, R_OK | W_OK)) {
+		uwsgi_protected_close(spool_fd);
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
 
-        ssize_t rlen = uwsgi_protected_read(spool_fd, &uh, 4);
+	ssize_t rlen = uwsgi_protected_read(spool_fd, &uh, 4);
 
-        if (rlen != 4) {
-                uwsgi_protected_close(spool_fd);
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
+	if (rlen != 4) {
+		uwsgi_protected_close(spool_fd);
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
 
 #ifdef __BIG_ENDIAN__
-        uh._pktsize = uwsgi_swap16(uh._pktsize);
+	uh._pktsize = uwsgi_swap16(uh._pktsize);
 #endif
 
-        if (uwsgi_protected_read(spool_fd, spool_buf, uh._pktsize) != uh._pktsize) {
-                uwsgi_protected_close(spool_fd);
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
+	if (uwsgi_protected_read(spool_fd, spool_buf, uh._pktsize) != uh._pktsize) {
+		uwsgi_protected_close(spool_fd);
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
 
-        // body available ?
-        if (task_stat.st_size > (uh._pktsize + 4)) {
-                body_len = task_stat.st_size - (uh._pktsize + 4);
-                body = uwsgi_malloc(body_len);
-                if ((size_t) uwsgi_protected_read(spool_fd, body, body_len) != body_len) {
-                        uwsgi_protected_close(spool_fd);
-                        free(body);
-                        Py_INCREF(Py_None);
-                        return Py_None;
-                }
-        }
+	// body available ?
+	if (task_stat.st_size > (uh._pktsize + 4)) {
+		body_len = task_stat.st_size - (uh._pktsize + 4);
+		body = uwsgi_malloc(body_len);
+		if ((size_t) uwsgi_protected_read(spool_fd, body, body_len) != body_len) {
+			uwsgi_protected_close(spool_fd);
+			free(body);
+			Py_INCREF(Py_None);
+			return Py_None;
+		}
+	}
 
-        PyObject *spool_dict = PyDict_New();
+	PyObject *spool_dict = PyDict_New();
 
-        PyObject *value = PyString_FromString(task_path);
-        PyDict_SetItemString(spool_dict, "spooler_task_name", value);
-        Py_DECREF(value);
+	PyObject *value = PyString_FromString(task_path);
+	PyDict_SetItemString(spool_dict, "spooler_task_name", value);
+	Py_DECREF(value);
 
-        if (uwsgi_hooked_parse(spool_buf, uh._pktsize, uwsgi_python_add_item, spool_dict)) {
-                Py_XDECREF(spool_dict);
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
+	if (uwsgi_hooked_parse(spool_buf, uh._pktsize, uwsgi_python_add_item, spool_dict)) {
+		Py_XDECREF(spool_dict);
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
 
-        if (body && body_len > 0) {
-                PyObject *value = PyString_FromStringAndSize(body, body_len);
-                PyDict_SetItemString(spool_dict, "body", value);
-                Py_DECREF(value);
-        }
+	if (body && body_len > 0) {
+		PyObject *value = PyString_FromStringAndSize(body, body_len);
+		PyDict_SetItemString(spool_dict, "body", value);
+		Py_DECREF(value);
+	}
 
-        return spool_dict;
+	return spool_dict;
 }
 
 
@@ -2736,7 +2736,7 @@ static PyMethodDef uwsgi_spooler_methods[] = {
 	{"spooler_pid", py_uwsgi_spooler_pid, METH_VARARGS, ""},
 	{"spooler_pids", py_uwsgi_spooler_pids, METH_VARARGS, ""},
 
-        {"spooler_get_task", py_uwsgi_spooler_get_task, METH_VARARGS, ""},
+	{"spooler_get_task", py_uwsgi_spooler_get_task, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 
