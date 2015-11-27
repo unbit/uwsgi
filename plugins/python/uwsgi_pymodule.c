@@ -2243,22 +2243,13 @@ PyObject *py_uwsgi_spooler_get_task(PyObject * self, PyObject * args) {
 		return Py_None;
 	}
 
-	PyObject *spool_dict = PyDict_New();
+	uwsgi_protected_close(spool_fd);
 
-	PyObject *value = PyString_FromString(task_path);
-	PyDict_SetItemString(spool_dict, "spooler_task_name", value);
-	Py_DECREF(value);
+	PyObject *spool_dict = uwsgi_python_dict_from_spooler_content(task_path, spool_buf, uh._pktsize, body, body_len);
 
-	if (uwsgi_hooked_parse(spool_buf, uh._pktsize, uwsgi_python_add_item, spool_dict)) {
-		Py_XDECREF(spool_dict);
+	if (!spool_dict) {
 		Py_INCREF(Py_None);
 		return Py_None;
-	}
-
-	if (body && body_len > 0) {
-		PyObject *value = PyString_FromStringAndSize(body, body_len);
-		PyDict_SetItemString(spool_dict, "body", value);
-		Py_DECREF(value);
 	}
 
 	return spool_dict;
