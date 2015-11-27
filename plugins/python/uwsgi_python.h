@@ -271,6 +271,8 @@ void init_uwsgi_module_cache(PyObject *);
 void init_uwsgi_module_queue(PyObject *);
 void init_uwsgi_module_snmp(PyObject *);
 
+PyObject *uwsgi_python_dict_from_spooler_content(char *, char *, uint16_t, char *, size_t);
+
 PyObject *uwsgi_pyimport_by_filename(char *, char *);
 
 void threaded_swap_ts(struct wsgi_request *, struct uwsgi_app *);

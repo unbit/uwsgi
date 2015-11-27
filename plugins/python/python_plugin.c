@@ -1643,6 +1643,26 @@ void uwsgi_python_add_item(char *key, uint16_t keylen, char *val, uint16_t valle
 	Py_DECREF(zero);
 }
 
+PyObject *uwsgi_python_dict_from_spooler_content(char *filename, char *buf, uint16_t len, char *body, size_t body_len) {
+
+	PyObject *spool_dict = PyDict_New();
+
+	PyObject *value = PyString_FromString(filename);
+	PyDict_SetItemString(spool_dict, "spooler_task_name", value);
+	Py_DECREF(value);
+
+	if (uwsgi_hooked_parse(buf, len, uwsgi_python_add_item, spool_dict))
+		return NULL;
+
+	if (body && body_len > 0) {
+		PyObject *value = PyString_FromStringAndSize(body, body_len);
+		PyDict_SetItemString(spool_dict, "body", value);
+		Py_DECREF(value);
+	}
+
+	return spool_dict;
+}
+
 int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, size_t body_len) {
 
 	static int random_seed_reset = 0;
@@ -1668,25 +1688,15 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 	}
 
 	int retval = -1;
-	PyObject *spool_dict = PyDict_New();
 	PyObject *pyargs = PyTuple_New(1);
 	PyObject *ret = NULL;
 
-	PyObject *value = PyString_FromString(filename);
-	PyDict_SetItemString(spool_dict, "spooler_task_name", value);
-	Py_DECREF(value);
-
-	if (uwsgi_hooked_parse(buf, len, uwsgi_python_add_item, spool_dict)) {
-		// malformed packet, destroy it
+	PyObject *spool_dict = uwsgi_python_dict_from_spooler_content(filename, buf, len, body, body_len);
+	if (!spool_dict) {
 		retval = -2;
 		goto clear;
 	}
 
-	if (body && body_len > 0) {
-		PyObject *value = PyString_FromStringAndSize(body, body_len);
-		PyDict_SetItemString(spool_dict, "body", value);
-		Py_DECREF(value);
-	}
 	// PyTuple_SetItem steals a reference !!!
 	Py_INCREF(spool_dict);
 	PyTuple_SetItem(pyargs, 0, spool_dict);
