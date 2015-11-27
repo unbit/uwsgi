@@ -3072,6 +3072,15 @@ char *uwsgi_spool_request(struct wsgi_request *, char *, size_t, char *, size_t)
 void spooler(struct uwsgi_spooler *);
 pid_t spooler_start(struct uwsgi_spooler *);
 
+int uwsgi_spooler_read_header(char *, int, struct uwsgi_header *);
+int uwsgi_spooler_read_content(int, char *, char **, size_t *, struct uwsgi_header *, struct stat *);
+
+#if defined(_GNU_SOURCE) || defined(__UCLIBC__)
+#define uwsgi_versionsort versionsort
+#else
+int uwsgi_versionsort(const struct dirent **da, const struct dirent **db);
+#endif
+
 void uwsgi_curse(int, int);
 void uwsgi_curse_mule(int, int);
 void uwsgi_destroy_processes(void);

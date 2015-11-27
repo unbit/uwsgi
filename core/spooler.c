@@ -516,6 +516,60 @@ static void spooler_readdir(struct uwsgi_spooler *uspool, char *dir) {
 	}
 }
 
+int uwsgi_spooler_read_header(char *task, int spool_fd, struct uwsgi_header *uh) {
+
+	// check if the file is locked by another process
+	if (uwsgi_fcntl_is_locked(spool_fd)) {
+		uwsgi_protected_close(spool_fd);
+		return -1;
+	}
+
+	// unlink() can destroy the lock !!!
+	if (access(task, R_OK|W_OK)) {
+		uwsgi_protected_close(spool_fd);
+		return -1;
+	}
+
+	ssize_t rlen = uwsgi_protected_read(spool_fd, uh, 4);
+
+	if (rlen != 4) {
+		// it could be here for broken file or just opened one
+		if (rlen < 0)
+			uwsgi_error("spooler_manage_task()/read()");
+		uwsgi_protected_close(spool_fd);
+		return -1;
+	}
+
+#ifdef __BIG_ENDIAN__
+	uh->pktsize = uwsgi_swap16(uh->pktsize);
+#endif
+
+	return 0;
+}
+
+int uwsgi_spooler_read_content(int spool_fd, char *spool_buf, char **body, size_t *body_len, struct uwsgi_header *uh, struct stat *sf_lstat) {
+
+	if (uwsgi_protected_read(spool_fd, spool_buf, uh->pktsize) != uh->pktsize) {
+		uwsgi_error("spooler_manage_task()/read()");
+		uwsgi_protected_close(spool_fd);
+		return 1;
+	}
+
+	// body available ?
+	if (sf_lstat->st_size > (uh->pktsize + 4)) {
+		*body_len = sf_lstat->st_size - (uh->pktsize + 4);
+		*body = uwsgi_malloc(*body_len);
+		if ((size_t) uwsgi_protected_read(spool_fd, *body, *body_len) != *body_len) {
+			uwsgi_error("spooler_manage_task()/read()");
+			uwsgi_protected_close(spool_fd);
+			free(*body);
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 
 	int i, ret;
@@ -569,53 +623,15 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 				return;
 			}
 
-			// check if the file is locked by another process
-			if (uwsgi_fcntl_is_locked(spool_fd)) {
-				uwsgi_protected_close(spool_fd);
+			if (uwsgi_spooler_read_header(task, spool_fd, &uh))
 				return;
-			}
 
-			// unlink() can destroy the lock !!!
-			if (access(task, R_OK | W_OK)) {
-				uwsgi_protected_close(spool_fd);
-				return;
-			}
-
-			ssize_t rlen = uwsgi_protected_read(spool_fd, &uh, 4);
-
-			if (rlen != 4) {
-				// it could be here for broken file or just opened one
-				if (rlen < 0)
-					uwsgi_error("read()");
-				uwsgi_protected_close(spool_fd);
-				return;
-			}
-
-#ifdef __BIG_ENDIAN__
-			uh.pktsize = uwsgi_swap16(uh.pktsize);
-#endif
-
-			if (uwsgi_protected_read(spool_fd, spool_buf, uh.pktsize) != uh.pktsize) {
-				uwsgi_error("read()");
+			if (uwsgi_spooler_read_content(spool_fd, spool_buf, &body, &body_len, &uh, &sf_lstat)) {
 				destroy_spool(dir, task);
-				uwsgi_protected_close(spool_fd);
 				return;
 			}
 
-			// body available ?
-			if (sf_lstat.st_size > (uh.pktsize + 4)) {
-				body_len = sf_lstat.st_size - (uh.pktsize + 4);
-				body = uwsgi_malloc(body_len);
-				if ((size_t) uwsgi_protected_read(spool_fd, body, body_len) != body_len) {
-					uwsgi_error("read()");
-					destroy_spool(dir, task);
-					uwsgi_protected_close(spool_fd);
-					free(body);
-					return;
-				}
-			}
-
-			// now the task is running and should not be waken up
+			// now the task is running and should not be woken up
 			uspool->running = 1;
 
 			if (!uwsgi.spooler_quiet)
