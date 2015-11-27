@@ -2237,48 +2237,10 @@ PyObject *py_uwsgi_spooler_get_task(PyObject * self, PyObject * args) {
 		return Py_None;
 	}
 
-	// check if the file is locked by another process
-	if (uwsgi_fcntl_is_locked(spool_fd)) {
-		uwsgi_protected_close(spool_fd);
+	if (uwsgi_spooler_read_header(task_path, spool_fd, &uh) ||
+		uwsgi_spooler_read_content(spool_fd, spool_buf, &body, &body_len, &uh, &task_stat)) {
 		Py_INCREF(Py_None);
 		return Py_None;
-	}
-
-	// unlink() can destroy the lock !!!
-	if (access(task_path, R_OK | W_OK)) {
-		uwsgi_protected_close(spool_fd);
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	ssize_t rlen = uwsgi_protected_read(spool_fd, &uh, 4);
-
-	if (rlen != 4) {
-		uwsgi_protected_close(spool_fd);
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-#ifdef __BIG_ENDIAN__
-	uh._pktsize = uwsgi_swap16(uh._pktsize);
-#endif
-
-	if (uwsgi_protected_read(spool_fd, spool_buf, uh._pktsize) != uh._pktsize) {
-		uwsgi_protected_close(spool_fd);
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	// body available ?
-	if (task_stat.st_size > (uh._pktsize + 4)) {
-		body_len = task_stat.st_size - (uh._pktsize + 4);
-		body = uwsgi_malloc(body_len);
-		if ((size_t) uwsgi_protected_read(spool_fd, body, body_len) != body_len) {
-			uwsgi_protected_close(spool_fd);
-			free(body);
-			Py_INCREF(Py_None);
-			return Py_None;
-		}
 	}
 
 	PyObject *spool_dict = PyDict_New();
