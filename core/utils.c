@@ -1815,17 +1815,18 @@ void *uwsgi_calloc(size_t size) {
 	return ptr;
 }
 
+#ifdef AF_INET6
+#define ADDR_AF_INET_FAMILY(addrtype) (addrtype == AF_INET || addrtype == AF_INET6)
+#else
+#define ADDR_AF_INET_FAMILY(addrtype) (addrtype == AF_INET)
+#endif
 
 char *uwsgi_resolve_ip(char *domain) {
 
 	struct hostent *he;
 
 	he = gethostbyname(domain);
-	if (!he || !*he->h_addr_list || (he->h_addrtype != AF_INET
-#ifdef AF_INET6
-					 && he->h_addrtype != AF_INET6
-#endif
-	    )) {
+	if (!he || !*he->h_addr_list || !ADDR_AF_INET_FAMILY(he->h_addrtype)) {
 		return NULL;
 	}
 
