@@ -3102,6 +3102,10 @@ static void uwsgi_lua_init_apps() {
 			ulua_log("inited %d lua_State(s) for worker %d", uwsgi.threads, j + 1);
 		}
 	}
+
+	if (ulua.wsapi) {
+		uwsgi_apps_cnt++;
+	}
 }
 
 static int uwsgi_lua_mule_msg(char *msg, size_t len) {
