@@ -266,9 +266,9 @@ def build_uwsgi(uc, print_only=False, gcll=None):
             # allow name=path syntax
             kv = item.split('=')
             p = kv[0]
-            if p is None or p == 'None':
-                continue
             p = p.strip()
+            if not p or p == 'None':
+                continue
             if p == 'ugreen':
                 if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku' or uwsgi_os.startswith('CYGWIN') or (uwsgi_os == 'Darwin' and uwsgi_os_k.startswith('8')):
                     continue
@@ -400,7 +400,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                     p = p.strip()
                     path = 'plugins/%s' % p
 
-                if p is None or p == 'None':
+                if not p or p == 'None':
                     continue
 
                 if p == 'ugreen':
@@ -719,7 +719,7 @@ class uConf(object):
 
             interpolations = {}
             for option in self.config.options('uwsgi'):
-                interpolations[option] = self.get(option)
+                interpolations[option] = self.get(option, default='')
             iconfig = ConfigParser.ConfigParser(interpolations)
             iconfig.readfp(open_profile(inherit))
 
@@ -739,7 +739,7 @@ class uConf(object):
         try:
             value = self.config.get('uwsgi', key)
             if value == "" or value == "false":
-                return None
+                return default
             return value
         except Exception:
             if default is not None:
