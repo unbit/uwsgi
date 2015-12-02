@@ -327,43 +327,42 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 	backend->worker->s->read += len;
 
 	if (!(apr_date_checkmask(buffer, "HTTP/#.# ###*") ||
-		    apr_date_checkmask(buffer, "HTTP/# ###*")) ||
-		  len >= sizeof(buffer)-1) {
+	    apr_date_checkmask(buffer, "HTTP/# ###*")) ||
+	    len >= sizeof(buffer)-1) {
 		// oops
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
-        char keepchar = buffer[12];
-        buffer[12] = '\0';
-        r->status = atoi(&buffer[9]);
+	char keepchar = buffer[12];
+	buffer[12] = '\0';
+	r->status = atoi(&buffer[9]);
 
-        if (keepchar != '\0') {
-                buffer[12] = keepchar;
-        } else {
-                /* 2616 requires the space in Status-Line; the origin
-                 * server may have sent one but ap_rgetline_core will
-                 * have stripped it. */
-                buffer[12] = ' ';
-                buffer[13] = '\0';
-            }
-        r->status_line = apr_pstrdup(r->pool, &buffer[9]);
+	if (keepchar != '\0') {
+		buffer[12] = keepchar;
+	} else {
+		/* 2616 requires the space in Status-Line; the origin
+		* server may have sent one but ap_rgetline_core will
+		* have stripped it. */
+		buffer[12] = ' ';
+		buffer[13] = '\0';
+	}
+	r->status_line = apr_pstrdup(r->pool, &buffer[9]);
 
-		// start parsing headers;
-		while ((len = ap_getline(buffer, sizeof(buffer), rp, 1)) > 0) {
-			value = strchr(buffer, ':');
-			// invalid header skip
-			if (!value) continue;
-			*value = '\0';
-        		++value;
-        		while (apr_isspace(*value)) ++value; 
-        		for (end = &value[strlen(value)-1]; end > value && apr_isspace(*end); --end) *end = '\0';
-			apr_table_add(r->headers_out, buffer, value);
-		}
-
+	// start parsing headers;
+	while ((len = ap_getline(buffer, sizeof(buffer), rp, 1)) > 0) {
+		value = strchr(buffer, ':');
+		// invalid header skip
+		if (!value) continue;
+		*value = '\0';
+		++value;
+		while (apr_isspace(*value)) ++value; 
+		for (end = &value[strlen(value)-1]; end > value && apr_isspace(*end); --end) *end = '\0';
+		apr_table_add(r->headers_out, buffer, value);
+	}
 
 	if ((buf = apr_table_get(r->headers_out, "Content-Type"))) {
-                ap_set_content_type(r, apr_pstrdup(r->pool, buf));
-            }
+		ap_set_content_type(r, apr_pstrdup(r->pool, buf));
+	}
 	
 	int finish = 0;
 	while(!finish) {
