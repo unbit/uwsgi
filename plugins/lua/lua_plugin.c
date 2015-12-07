@@ -983,7 +983,7 @@ static int uwsgi_api_register_signal(lua_State *L) {
 		uwsgi_lock(uwsgi.signal_table_lock);
 
 		// master-proc checks receiver
-		strcpy(use->receiver, who, len+1);
+		strncpy(use->receiver, who, len+1);
 
 		// if master has not any handler
 		// if has, then only update receiver
