@@ -1,4 +1,4 @@
-# uswgi --spooler-external ../other_app/myspool --mule --mule
+# uwsgi --spooler-external ../other_app/myspool --mule --mule --wsgi-file t/spooler/read.py --http :8080
 
 from uwsgidecorators import spoolraw, muleloop
 
