@@ -190,10 +190,20 @@ void uwsgi_opt_add_cron2(char *opt, char *value, void *foobar) {
 
 int uwsgi_signal_add_cron(uint8_t sig, int minute, int hour, int day, int month, int week) {
 
+        int i;
+
         if (!uwsgi.master_process)
                 return -1;
 
         uwsgi_lock(uwsgi.cron_table_lock);
+
+        for (i = 0; i < ushared->cron_cnt; i++) {
+                if (ushared->cron[i].sig == sig) {
+                        uwsgi_unlock(uwsgi.cron_table_lock);
+                        uwsgi_log("cron handler already registered for signal %u!\n", sig);
+                        return -1;
+                }
+        }
 
         if (ushared->cron_cnt < MAX_CRONS) {
 
