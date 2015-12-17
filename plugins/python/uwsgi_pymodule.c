@@ -294,6 +294,21 @@ static PyObject *py_uwsgi_add_cron(PyObject * self, PyObject * args) {
 	return Py_True;
 }
 
+static PyObject *py_uwsgi_del_cron(PyObject * self, PyObject * args) {
+
+	uint8_t uwsgi_signal;
+
+	if (!PyArg_ParseTuple(args, "B:del_cron", &uwsgi_signal)) {
+                return NULL;
+        }
+
+	if (uwsgi_signal_del_cron(uwsgi_signal)) {
+		return PyErr_Format(PyExc_ValueError, "unable to del cron");
+	}
+
+	Py_INCREF(Py_True);
+	return Py_True;
+}
 
 static PyObject *py_uwsgi_add_timer(PyObject * self, PyObject * args) {
 
@@ -2810,6 +2825,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"add_ms_timer", py_uwsgi_add_ms_timer, METH_VARARGS, ""},
 	{"add_rb_timer", py_uwsgi_add_rb_timer, METH_VARARGS, ""},
 	{"add_cron", py_uwsgi_add_cron, METH_VARARGS, ""},
+	{"del_cron", py_uwsgi_del_cron, METH_VARARGS, ""},
 
 #ifdef UWSGI_ROUTING
 	{"route", py_uwsgi_route, METH_VARARGS, ""},
