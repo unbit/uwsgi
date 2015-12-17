@@ -230,6 +230,7 @@ int uwsgi_signal_del_cron(uint8_t sig) {
             if (ushared->cron[i].sig == sig) {
                 memmove(ushared->cron + i, ushared->cron + i + 1, (ushared->cron_cnt - (i + 1)) * sizeof(struct uwsgi_cron));
                 ushared->cron_cnt--;
+                break;
             }
         }
 

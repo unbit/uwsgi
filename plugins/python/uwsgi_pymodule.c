@@ -280,11 +280,22 @@ static PyObject *py_uwsgi_close(PyObject * self, PyObject * args) {
 static PyObject *py_uwsgi_add_cron(PyObject * self, PyObject * args) {
 
 	uint8_t uwsgi_signal;
-	int minute, hour, day, month, week;
+	int minute, hour, day, month, week, i;
 
 	if (!PyArg_ParseTuple(args, "Biiiii:add_cron", &uwsgi_signal, &minute, &hour, &day, &month, &week)) {
                 return NULL;
         }
+
+  uwsgi_lock(uwsgi.cron_table_lock);
+
+  for (i = 0; i < ushared->cron_cnt; i++) {
+    if (ushared->cron[i].sig == uwsgi_signal) {
+      uwsgi_unlock(uwsgi.cron_table_lock);
+      return PyErr_Format(PyExc_ValueError, "cron handler already registered for this signal");
+    }
+  }
+
+  uwsgi_unlock(uwsgi.cron_table_lock);
 
 	if (uwsgi_signal_add_cron(uwsgi_signal, minute, hour, day, month, week)) {
 		return PyErr_Format(PyExc_ValueError, "unable to add cron");
