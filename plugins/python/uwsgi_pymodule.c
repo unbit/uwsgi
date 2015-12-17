@@ -318,6 +318,8 @@ PyObject *py_uwsgi_list_cron(PyObject * self, PyObject * noarg) {
   PyObject *cron_list;
   cron_list = (PyObject *) Py_BuildValue("[]");
 
+  uwsgi_lock(uwsgi.cron_table_lock);
+
   for (i = 0; i < ushared->cron_cnt; i++) {
 	  cron_dict = Py_BuildValue("{s:i,s:i,s:i,s:i,s:i,s:i,s:B,s:s,s:i,s:i,s:i,s:B,s:i}",
 	          "minute", ushared->cron[i].minute, "hour", ushared->cron[i].hour,
@@ -329,6 +331,8 @@ PyObject *py_uwsgi_list_cron(PyObject * self, PyObject * noarg) {
 	          "pid", ushared->cron[i].pid);
 	  PyList_Append(cron_list, cron_dict);
   }
+
+  uwsgi_unlock(uwsgi.cron_table_lock);
 
   return cron_list;
 }
