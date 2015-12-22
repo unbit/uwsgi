@@ -217,6 +217,8 @@ struct uwsgi_python {
 
 	// when 1 we have the app-loading lock held
 	int is_dynamically_loading_an_app;
+
+	int wsgi_disable_file_wrapper;
 };
 
 
