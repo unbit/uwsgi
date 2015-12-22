@@ -1077,6 +1077,8 @@ int uwsgi_regexp_match(pcre *, pcre_extra *, char *, int);
 int uwsgi_regexp_match_ovec(pcre *, pcre_extra *, char *, int, int *, int);
 int uwsgi_regexp_ovector(pcre *, pcre_extra *);
 char *uwsgi_regexp_apply_ovec(char *, int, char *, int, int *, int);
+
+int uwsgi_regexp_match_pattern(char *pattern, char *str);
 #endif
 
 
