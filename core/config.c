@@ -314,6 +314,24 @@ int uwsgi_logic_opt_if_not_hostname(char *key, char *value) {
         return 0;
 }
 
+#ifdef UWSGI_PCRE
+int uwsgi_logic_opt_if_hostname_match(char *key, char *value) {
+	if (uwsgi_regexp_match_pattern(uwsgi.logic_opt_data, uwsgi.hostname)) {
+		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+		return 1;
+	}
+	return 0;
+}
+
+int uwsgi_logic_opt_if_not_hostname_match(char *key, char *value) {
+	if (!uwsgi_regexp_match_pattern(uwsgi.logic_opt_data, uwsgi.hostname)) {
+		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+		return 1;
+	}
+	return 0;
+}
+#endif
+
 int uwsgi_count_options(struct uwsgi_option *uopt) {
 
         struct uwsgi_option *aopt;

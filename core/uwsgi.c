@@ -125,6 +125,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"if-hostname", required_argument, 0, "(opt logic) check for hostname", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_hostname, UWSGI_OPT_IMMEDIATE},
 	{"if-not-hostname", required_argument, 0, "(opt logic) check for hostname", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_hostname, UWSGI_OPT_IMMEDIATE},
 
+#ifdef UWSGI_PCRE
+	{"if-hostname-match", required_argument, 0, "(opt logic) try to match hostname against a regular expression", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_hostname_match, UWSGI_OPT_IMMEDIATE},
+	{"if-not-hostname-match", required_argument, 0, "(opt logic) try to match hostname against a regular expression", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_hostname_match, UWSGI_OPT_IMMEDIATE},
+#endif
+
 	{"if-exists", required_argument, 0, "(opt logic) check for file/directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_exists, UWSGI_OPT_IMMEDIATE},
 	{"if-not-exists", required_argument, 0, "(opt logic) check for file/directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_exists, UWSGI_OPT_IMMEDIATE},
 	{"ifexists", required_argument, 0, "(opt logic) check for file/directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_exists, UWSGI_OPT_IMMEDIATE},
