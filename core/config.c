@@ -1,5 +1,4 @@
 #include <uwsgi.h>
-#include <regex.h>
 
 /*
 
@@ -315,39 +314,23 @@ int uwsgi_logic_opt_if_not_hostname(char *key, char *value) {
         return 0;
 }
 
+#ifdef UWSGI_PCRE
 int uwsgi_logic_opt_if_hostname_match(char *key, char *value) {
-
-	regex_t preg;
-
-	if (regcomp(&preg, uwsgi.logic_opt_data, REG_NOSUB)) {
-		uwsgi_error("regcomp");
-		exit(1);
-	}
-
-	if (!regexec(&preg, uwsgi.hostname, 0, NULL, 0)) {
+	if (uwsgi_regexp_match_pattern(uwsgi.logic_opt_data, uwsgi.hostname)) {
 		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
 		return 1;
 	}
-
 	return 0;
 }
 
 int uwsgi_logic_opt_if_not_hostname_match(char *key, char *value) {
-
-	regex_t preg;
-
-	if (regcomp(&preg, uwsgi.logic_opt_data, REG_NOSUB)) {
-		uwsgi_error("regcomp");
-		exit(1);
-	}
-
-	if (regexec(&preg, uwsgi.hostname, 0, NULL, 0)) {
+	if (!uwsgi_regexp_match_pattern(uwsgi.logic_opt_data, uwsgi.hostname)) {
 		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
 		return 1;
 	}
-
 	return 0;
 }
+#endif
 
 int uwsgi_count_options(struct uwsgi_option *uopt) {
 
