@@ -342,7 +342,7 @@ static char *uwsgi_scheme_data(char *url, size_t *size, int add_zero) {
 			uwsgi_log("0 size binary data !!!\n");
 			exit(1);
 		}
-		if (datasize > SIZE_MAX) {
+		if (datasize > SIZE_MAX-1) {
 			uwsgi_log("size binary data bigger than SIZE_MAX !!!\n");
 			exit(1);
 		}
@@ -1017,7 +1017,7 @@ wait:
 
 
 /*
-	like the previous one but consume the whole len (if possibile)
+	like the previous one but consume the whole len (if possible)
 */
 
 int uwsgi_read_whole_true_nb(int fd, char *buf, size_t remains, int timeout) {

@@ -123,7 +123,7 @@ void uwsgi_master_check_idle() {
 		last_request_timecheck = uwsgi.current_time;
 		last_request_count = uwsgi.workers[0].requests;
 	}
-	// a bit of over-engeneering to avoid clock skews
+	// a bit of over-engineering to avoid clock skews
 	else if (last_request_timecheck < uwsgi.current_time && (uwsgi.current_time - last_request_timecheck > uwsgi.idle)) {
 		uwsgi_log("workers have been inactive for more than %d seconds (%llu-%llu)\n", uwsgi.idle, (unsigned long long) uwsgi.current_time, (unsigned long long) last_request_timecheck);
 		uwsgi.status.is_cheap = 1;
@@ -146,7 +146,7 @@ void uwsgi_master_check_idle() {
 				continue;
 			// first send SIGINT
 			kill(uwsgi.workers[i].pid, SIGINT);
-			// and start waiting upto 3 seconds
+			// and start waiting up to 3 seconds
 			int j;
 			for(j=0;j<3;j++) {
 				sleep(1);

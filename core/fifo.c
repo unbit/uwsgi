@@ -26,18 +26,18 @@ static char *uwsgi_fifo_by_slot() {
 
 #define announce_fifo uwsgi_log_verbose("active master fifo is now %s\n", uwsgi_fifo_by_slot())
 
-static void uwsgi_fifo_set_slot_zero() { uwsgi.master_fifo_slot = 0; announce_fifo; }
-static void uwsgi_fifo_set_slot_one() { uwsgi.master_fifo_slot = 1; announce_fifo; }
-static void uwsgi_fifo_set_slot_two() { uwsgi.master_fifo_slot = 2; announce_fifo; }
-static void uwsgi_fifo_set_slot_three() { uwsgi.master_fifo_slot = 3; announce_fifo; }
-static void uwsgi_fifo_set_slot_four() { uwsgi.master_fifo_slot = 4; announce_fifo; }
-static void uwsgi_fifo_set_slot_five() { uwsgi.master_fifo_slot = 5; announce_fifo; }
-static void uwsgi_fifo_set_slot_six() { uwsgi.master_fifo_slot = 6; announce_fifo; }
-static void uwsgi_fifo_set_slot_seven() { uwsgi.master_fifo_slot = 7; announce_fifo; }
-static void uwsgi_fifo_set_slot_eight() { uwsgi.master_fifo_slot = 8; announce_fifo; }
-static void uwsgi_fifo_set_slot_nine() { uwsgi.master_fifo_slot = 9; announce_fifo; }
+static void uwsgi_fifo_set_slot_zero(int signum) { uwsgi.master_fifo_slot = 0; announce_fifo; }
+static void uwsgi_fifo_set_slot_one(int signum) { uwsgi.master_fifo_slot = 1; announce_fifo; }
+static void uwsgi_fifo_set_slot_two(int signum) { uwsgi.master_fifo_slot = 2; announce_fifo; }
+static void uwsgi_fifo_set_slot_three(int signum) { uwsgi.master_fifo_slot = 3; announce_fifo; }
+static void uwsgi_fifo_set_slot_four(int signum) { uwsgi.master_fifo_slot = 4; announce_fifo; }
+static void uwsgi_fifo_set_slot_five(int signum) { uwsgi.master_fifo_slot = 5; announce_fifo; }
+static void uwsgi_fifo_set_slot_six(int signum) { uwsgi.master_fifo_slot = 6; announce_fifo; }
+static void uwsgi_fifo_set_slot_seven(int signum) { uwsgi.master_fifo_slot = 7; announce_fifo; }
+static void uwsgi_fifo_set_slot_eight(int signum) { uwsgi.master_fifo_slot = 8; announce_fifo; }
+static void uwsgi_fifo_set_slot_nine(int signum) { uwsgi.master_fifo_slot = 9; announce_fifo; }
 
-static void subscriptions_blocker() {
+static void subscriptions_blocker(int signum) {
 	if (uwsgi.subscriptions_blocked) {
 		uwsgi_log_verbose("subscriptions re-enabled\n");
 		uwsgi.subscriptions_blocked = 0;
@@ -48,7 +48,7 @@ static void subscriptions_blocker() {
 	}
 }
 
-static void emperor_rescan() {
+static void emperor_rescan(int signum) {
 	if (uwsgi.emperor_pid > 0) {
 		if (kill(uwsgi.emperor_pid, SIGWINCH)) {
 			uwsgi_error("emperor_rescan()/kill()");
@@ -58,7 +58,7 @@ static void emperor_rescan() {
 
 /*
 
-this is called as soon as possibile allowing plugins (or hooks) to override it
+this is called as soon as possible allowing plugins (or hooks) to override it
 
 */
 void uwsgi_master_fifo_prepare() {

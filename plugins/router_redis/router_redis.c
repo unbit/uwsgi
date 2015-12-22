@@ -98,7 +98,7 @@ static int transform_redis(struct wsgi_request *wsgi_req, struct uwsgi_transform
         struct uwsgi_transformation_redis_conf *utrc = (struct uwsgi_transformation_redis_conf *) ut->data;
         struct uwsgi_buffer *ub = ut->chunk;
 
-        // store only successfull response
+        // store only successful response
         if (wsgi_req->write_errors == 0 && wsgi_req->status == 200 && ub->pos > 0) {
 		redis_store(utrc->addr->buf, utrc->key, ub, utrc->expires);
         }

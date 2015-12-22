@@ -16,6 +16,7 @@
 /core/config_py.c
 
 /t/ring/target
+/t/spooler/spooldir/uwsgi_*
 
 core/dot_h.c
 

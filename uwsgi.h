@@ -624,7 +624,7 @@ struct uwsgi_logger {
 	int count;
 	struct msghdr msg;
 	char *buf;
-	// used by choosen logger
+	// used by chosen logger
 	char *arg;
 	struct uwsgi_logger *next;
 };
@@ -944,7 +944,7 @@ struct uwsgi_socket {
 	int (*proto_accept) (struct wsgi_request *, int);
 	// call that to parse the request (without the body)
 	int (*proto) (struct wsgi_request *);
-	// call that to write reponse
+	// call that to write response
 	int (*proto_write) (struct wsgi_request *, char *, size_t);
 	// call that to write headers (if a special case is needed for them)
 	int (*proto_write_headers) (struct wsgi_request *, char *, size_t);
@@ -3121,6 +3121,9 @@ void uwsgi_master_manage_snmp(int);
 char *uwsgi_spool_request(struct wsgi_request *, char *, size_t, char *, size_t);
 void spooler(struct uwsgi_spooler *);
 pid_t spooler_start(struct uwsgi_spooler *);
+
+int uwsgi_spooler_read_header(char *, int, struct uwsgi_header *);
+int uwsgi_spooler_read_content(int, char *, char **, size_t *, struct uwsgi_header *, struct stat *);
 
 #if defined(_GNU_SOURCE) || defined(__UCLIBC__)
 #define uwsgi_versionsort versionsort

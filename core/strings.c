@@ -3,30 +3,30 @@
 char *uwsgi_str_split_nget(char *str, size_t len, char what, size_t pos, size_t *rlen) {
 	size_t i;
 	size_t current = 0;
-	char *choosen = str;
-	size_t choosen_len = 0;
+	char *chosen = str;
+	size_t chosen_len = 0;
 	*rlen = 0;
 	for(i=0;i<len;i++) {
-		if (!choosen) choosen = str + i;
+		if (!chosen) chosen = str + i;
 		if (str[i] == what) {
 			if (current == pos) {
-				if (choosen_len == 0) return NULL;
-				*rlen = choosen_len;
-				return choosen;
+				if (chosen_len == 0) return NULL;
+				*rlen = chosen_len;
+				return chosen;
 			}
 			current++;
-			choosen = NULL;
-			choosen_len = 0;
+			chosen = NULL;
+			chosen_len = 0;
 		}
 		else {
-			choosen_len ++;
+			chosen_len ++;
 		}
 	}
 
 	if (current == pos) {
-		if (choosen_len == 0) return NULL;
-		*rlen = choosen_len;
-		return choosen;
+		if (chosen_len == 0) return NULL;
+		*rlen = chosen_len;
+		return chosen;
 	}
 
 	return NULL;

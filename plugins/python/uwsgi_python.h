@@ -285,6 +285,8 @@ void init_uwsgi_module_cache(PyObject *);
 void init_uwsgi_module_queue(PyObject *);
 void init_uwsgi_module_snmp(PyObject *);
 
+PyObject *uwsgi_python_dict_from_spooler_content(char *, char *, uint16_t, char *, size_t);
+
 PyObject *uwsgi_pyimport_by_filename(char *, char *);
 
 void threaded_swap_ts(struct wsgi_request *, struct uwsgi_app *);
@@ -318,6 +320,8 @@ int uwsgi_python_send_body(struct wsgi_request *, PyObject *);
 int uwsgi_request_python_raw(struct wsgi_request *);
 
 void uwsgi_python_set_thread_name(int);
+
+void uwsgi_python_add_item(char *, uint16_t, char *, uint16_t, void *);
 
 #define py_current_wsgi_req() current_wsgi_req();\
 			if (!wsgi_req) {\
