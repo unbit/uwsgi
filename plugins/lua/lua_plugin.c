@@ -35,6 +35,7 @@ struct ulua_websocket_handler {
 #define ULUA_LOG_HEADER "[uwsgi-lua]"
 
 #define ULUA_MULE_MSG_GET_BUFFER_SIZE 65536
+#define ULUA_RECV_BUFFER_SIZE 4096
 
 #define ULUA_WSAPI_REF 1
 #define ULUA_SIGNAL_REF 2
@@ -87,20 +88,13 @@ static struct uwsgi_option uwsgi_lua_options[] = {
 
 };
 
+#define ULUA_TYPE_ISUTABLE(type) (type == LUA_TTABLE || type == LUA_TUSERDATA)
+
 static inline int uwsgi_lua_isutable(lua_State *L, int obj) {
 
 	int type = lua_type(L, obj);
-	return (type == LUA_TTABLE || type == LUA_TUSERDATA);
+	return ULUA_TYPE_ISUTABLE(type);
 }
-
-static inline int uwsgi_lua_isstring(lua_State *L, int obj) {
-
-	int type = lua_type(L, obj);
-	return (type == LUA_TSTRING || type == LUA_TNUMBER);
-}
-
-#define lua_isstring uwsgi_lua_isstring
-
 
 static int uwsgi_lua_metatable_tostring(lua_State *L, int obj) {
 
@@ -1184,7 +1178,7 @@ end:
 
 static int uwsgi_api_wait_fd_read(lua_State *L) {
         uint16_t argc = lua_gettop(L);
-        if (argc == 0) goto end;
+        if (!argc || !lua_tonumber(L, 1)) goto end;
 
         struct wsgi_request *wsgi_req = current_wsgi_req();
 
@@ -1205,7 +1199,7 @@ end:
 
 static int uwsgi_api_wait_fd_write(lua_State *L) {
         uint16_t argc = lua_gettop(L);
-        if (argc == 0) goto end;
+        if (!argc || !lua_isnumber(L, 1)) goto end;
 
         struct wsgi_request *wsgi_req = current_wsgi_req();
 
@@ -1225,39 +1219,114 @@ end:
 }
 
 static int uwsgi_api_async_connect(lua_State *L) {
-        uint16_t argc = lua_gettop(L);
-        if (argc == 0) goto end;
+
+    if (!lua_isstring(L, 1)) {
+		lua_pushnil(L);
+	    return 1;
+	}
 
 	int fd = uwsgi_connect((char *)lua_tostring(L, 1), 0, 1);
+
 	lua_pushnumber(L, fd);
 	return 1;
-end:
-        lua_pushnil(L);
-        return 1;
+}
+
+static int uwsgi_api_connect(lua_State *L) {
+	uint16_t argc = lua_gettop(L);
+
+    if (!argc || !lua_isstring(L, 1)) {
+		lua_pushnil(L);
+	    return 1;
+	}
+
+	int fd = uwsgi_connect((char *)lua_tostring(L, 1), (argc > 1) ? lua_tonumber(L, 2) : 0, 0);
+
+	lua_pushnumber(L, fd);
+	return 1;
+}
+
+static int uwsgi_api_send(lua_State *L) {
+
+	uint16_t argc = lua_gettop(L);
+
+	size_t len;
+	char *str;
+	int fd;
+
+	if (argc < 2) {
+		if (!argc) goto error;
+
+		struct wsgi_request *wsgi_req = current_wsgi_req();
+
+		fd = wsgi_req->fd;
+
+		if (uwsgi_lua_isutable(L, 1)) {
+			uwsgi_lua_metatable_tostring(L, -argc);
+		}
+
+		str = (char *)lua_tolstring(L, 1, &len);
+
+	} else {
+
+		if (!lua_isnumber(L, 1)) goto error;
+
+		fd = lua_tonumber(L, 1);
+
+		if (uwsgi_lua_isutable(L, 2)) {
+			uwsgi_lua_metatable_tostring(L, 1 - argc);
+		}
+
+		str = (char *)lua_tolstring(L, 2, &len);
+	}
+
+	if (write(fd, str, len) < 0) {
+		uwsgi_error("write()");
+		goto error;
+	}
+
+	lua_pushboolean(L, 1);
+	return 1;
+error:
+	lua_pushnil(L);
+	return 1;
+}
+
+static int uwsgi_api_recv(lua_State *L) {
+
+	char buf[ULUA_RECV_BUFFER_SIZE];
+	uint16_t argc = lua_gettop(L);
+
+	if (!argc || !lua_isnumber(L, 1)) goto error;
+
+	ssize_t rlen = read(lua_tonumber(L, 1), buf, (argc > 1) ? lua_tonumber(L, 2) : ULUA_RECV_BUFFER_SIZE);
+
+	if (rlen > 0) {
+		lua_pushlstring(L, buf, rlen);
+		return 1;
+	}
+error:
+	lua_pushnil(L);
+	return 1;
 }
 
 static int uwsgi_api_is_connected(lua_State *L) {
-        uint16_t argc = lua_gettop(L);
-        if (argc == 0) goto end;
-	int fd = lua_tonumber(L, 1);
-	if (uwsgi_is_connected(fd)) {
+
+	if (lua_isnumber(L, 1) && uwsgi_is_connected(lua_tonumber(L, 1))) {
 		lua_pushboolean(L, 1);
-		return 1;
+	} else {
+		lua_pushnil(L);
 	}
-	lua_pushboolean(L, 0);
-        return 1;
-end:
-        lua_pushnil(L);
-        return 1;
+
+	return 1;
 }
 
 static int uwsgi_api_close(lua_State *L) {
-        uint16_t argc = lua_gettop(L);
-        if (argc == 0) return 0;
-        int fd = lua_tonumber(L, 1);
-	close(fd);
 
-        return 0;
+	if (lua_isnumber(L, 1)) {
+		close(lua_tonumber(L, 1));
+	}
+
+    return 0;
 }
 
 
@@ -2633,6 +2702,12 @@ static const luaL_Reg uwsgi_api_base[] = {
 
   {"mule_msg", uwsgi_api_mule_msg},
 
+  {"is_connected", uwsgi_api_is_connected},
+  {"send", uwsgi_api_send},
+  {"recv", uwsgi_api_recv},
+  {"connect", uwsgi_api_connect},
+  {"close", uwsgi_api_close},
+
   {NULL, NULL}
 };
 
@@ -2655,7 +2730,6 @@ static const luaL_Reg uwsgi_api_worker[] = {
   {"async_sleep", uwsgi_api_async_sleep},
   {"async_connect", uwsgi_api_async_connect},
   {"async_id", uwsgi_api_async_id_get},
-  {"is_connected", uwsgi_api_is_connected},
   {"wait_fd_read", uwsgi_api_wait_fd_read},
   {"wait_fd_write", uwsgi_api_wait_fd_write},
 
@@ -2668,7 +2742,6 @@ static const luaL_Reg uwsgi_api_worker[] = {
   {"websocket_send_binary", uwsgi_api_websocket_send_binary},
   {"websocket_send_binary_from_sharedarea", uwsgi_api_websocket_send_binary_from_sharedarea},
 
-  {"close", uwsgi_api_close},
   {"ready_fd", uwsgi_api_ready_fd},
 
   {NULL, NULL}
@@ -2805,7 +2878,10 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 	lua_newtable(L);
 	uwsgi_lua_api_push(L, -1, uwsgi_api_websocket_handler_index);
 	lua_setfield(L, -2, "__index");
+	lua_pushvalue(L, -1);
+
 	luaL_ref(L, LUA_REGISTRYINDEX);
+	lua_setfield(L, -2, "websocket_handler_metatable_ref");
 
 	// end
 	lua_pop(L, 1);
@@ -3192,7 +3268,7 @@ static int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
 
 	type = lua_type(L, -1);
 
-	if (!(type == LUA_TFUNCTION) && !((type == LUA_TTABLE || type == LUA_TUSERDATA) && uwsgi_lua_metatable_call(L, -1))) {
+	if (!(type == LUA_TFUNCTION) && !(ULUA_TYPE_ISUTABLE(type) && uwsgi_lua_metatable_call(L, -1))) {
 		ulua_log("signal: attempt to call a %s value", lua_typename(L, type));
 		lua_pop(L, 2);
 		return -1;
@@ -3200,7 +3276,7 @@ static int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
 
 	lua_pushnumber(L, sig);
 
-	if (lua_pcall(L, 1 + (type == LUA_TTABLE), 0, 0)) {
+	if (lua_pcall(L, 1 + ULUA_TYPE_ISUTABLE(type), 0, 0)) {
 		ulua_log("signal: error running signal function: %s", lua_tostring(L, -1));
 		lua_pop(L, 2);
 		return -1;
@@ -3226,7 +3302,7 @@ static uint64_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t a
 
 	type = lua_type(L, -1);
 
-	if (!(type == LUA_TFUNCTION) && !((type == LUA_TTABLE || type == LUA_TUSERDATA) && uwsgi_lua_metatable_call(L, -1))) {
+	if (!(type == LUA_TFUNCTION) && !(ULUA_TYPE_ISUTABLE(type) && uwsgi_lua_metatable_call(L, -1))) {
 		ulua_log("rpc: attempt to call a %s value", lua_typename(L, type));
 		lua_pop(L, 2);
 		return 0;
@@ -3236,7 +3312,7 @@ static uint64_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t a
 		lua_pushlstring(L, argv[i], argvs[i]);
 	}
 
-	if (lua_pcall(L, argc + (type == LUA_TTABLE), 1, 0)) {
+	if (lua_pcall(L, argc + ULUA_TYPE_ISUTABLE(type), 1, 0)) {
 		ulua_log("rpc: error running rpc function: %s", lua_tostring(L, -1));
 		lua_pop(L, 2);
 		return 0;
@@ -3436,14 +3512,14 @@ static int uwsgi_lua_mule_msg(char *msg, size_t len) {
 
 	int type = lua_type(L, -1);
 
-	if (!(type == LUA_TFUNCTION) && !((type == LUA_TTABLE || type == LUA_TUSERDATA) && uwsgi_lua_metatable_call(L, -1))) {
+	if (!(type == LUA_TFUNCTION) && !(ULUA_TYPE_ISUTABLE(type) && uwsgi_lua_metatable_call(L, -1))) {
 		lua_pop(L, 1);
 		return 0;
 	}
 
 	lua_pushlstring(L, msg, len);
 
-	if (lua_pcall(L, 1 + (type == LUA_TTABLE), 0, 0)) {
+	if (lua_pcall(L, 1 + ULUA_TYPE_ISUTABLE(type), 0, 0)) {
 		ulua_log("mule%d: error running msg hook function: %s", uwsgi.muleid, lua_tostring(L, -1));
 		lua_pop(L, 1);
 	}
@@ -3512,12 +3588,12 @@ static int uwsgi_lua_mule(char *file) {
 	for (;;) {
 		type = lua_type(L, -1);
 
-		if (!(type == LUA_TFUNCTION) && !((type == LUA_TTABLE || type == LUA_TUSERDATA) && uwsgi_lua_metatable_call(L, -1))) {
+		if (!(type == LUA_TFUNCTION) && !(ULUA_TYPE_ISUTABLE(type) && uwsgi_lua_metatable_call(L, -1))) {
 			lua_pop(L, 1);
 			break;
 		}
 
-		if (lua_pcall(L, (type == LUA_TTABLE), 1, 0)) {
+		if (lua_pcall(L, ULUA_TYPE_ISUTABLE(type), 1, 0)) {
 			ulua_log("mule%d: error running loop function: %s", uwsgi.muleid, lua_tostring(L, -1));
 
 			// loop exeption close the state
