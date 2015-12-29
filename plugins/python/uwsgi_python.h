@@ -202,6 +202,7 @@ struct uwsgi_python {
 
 	int wsgi_disable_file_wrapper;
 
+	char *worker_override;
 };
 
 

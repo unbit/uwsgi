@@ -3372,6 +3372,25 @@ int uwsgi_run() {
                 exit(1);
         }
 
+	// must be run before running apps
+
+	// check for worker override
+        for (i = 0; i < 256; i++) {
+                if (uwsgi.p[i]->worker) {
+                        if (uwsgi.p[i]->worker()) {
+				_exit(0);
+			}
+                }
+        }
+
+        for (i = 0; i < uwsgi.gp_cnt; i++) {
+                if (uwsgi.gp[i]->worker) {
+                        if (uwsgi.gp[i]->worker()) {
+				_exit(0);
+			}
+                }
+        }
+
 	uwsgi_worker_run();
 	// never here
 	_exit(0);
