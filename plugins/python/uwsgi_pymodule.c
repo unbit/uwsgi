@@ -2111,7 +2111,7 @@ PyObject *py_uwsgi_spooler_get_task(PyObject * self, PyObject * args) {
 
 	uwsgi_protected_close(spool_fd);
 
-	PyObject *spool_dict = uwsgi_python_dict_from_spooler_content(task_path, spool_buf, uh._pktsize, body, body_len);
+	PyObject *spool_dict = uwsgi_python_dict_from_spooler_content(task_path, spool_buf, uh.pktsize, body, body_len);
 
 	if (!spool_dict) {
 		Py_INCREF(Py_None);
