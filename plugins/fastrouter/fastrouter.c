@@ -19,6 +19,9 @@ struct fastrouter_session {
 	int has_key;
 	uint64_t content_length;
 	uint64_t buffered;
+
+	char *path_info;
+        uint16_t path_info_len;
 };
 
 static struct uwsgi_option fastrouter_options[] = {
@@ -61,8 +64,43 @@ static struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter-fallback-on-no-key", no_argument, 0, "move to fallback node even if a subscription key is not found", uwsgi_opt_true, &ufr.cr.fallback_on_no_key, 0},
 
 	{"fastrouter-force-key", required_argument, 0, "skip uwsgi parsing and directly set a key", uwsgi_opt_set_str, &ufr.force_key, 0},
+
+	{"fastrouter-emperor-socket", required_argument, 0, "set the emperor command socket that will receive spawn commands", uwsgi_opt_set_str, &ufr.cr.emperor_socket, 0},
+	{"fastrouter-defer-connect-timeout", required_argument, 0, "set fastrouter defer connect timeout", uwsgi_opt_set_int, &ufr.cr.defer_connect_timeout, 0},
+	{"fastrouter-max-retries", required_argument, 0, "set fastrouter max retry attempts", uwsgi_opt_set_int, &ufr.cr.max_retries, 0},
 	UWSGI_END_OF_OPTIONS
 };
+
+static int rebuild_key_for_mountpoint(char *path_info, uint16_t path_info_len, struct corerouter_peer *peer) {
+        if (path_info_len == 0) return -1;
+        if (path_info[0] != '/') return -1;
+        uint16_t len = path_info_len -1;
+        // is it / ?
+        if (len == 0) return 0;
+        // now find the second slash occurrence (if any)
+	char *second_slash = NULL;
+	char *last_slash = path_info;
+	int i;
+	for(i=0;i<uwsgi.subscription_mountpoints;i++) {
+		if (len < 1) break;
+        	second_slash = memchr(last_slash+1, '/', len);
+		if (!second_slash) {
+			last_slash += 1+len;
+			break;
+		}
+		len -= second_slash - last_slash;
+		last_slash = second_slash;
+	}
+        char *new_key = uwsgi_concat2n(peer->key, peer->key_len, path_info, last_slash - path_info);
+        uint16_t new_key_len = peer->key_len + (last_slash - path_info);
+
+       	if (new_key_len <= 0xff) {
+        	memcpy(peer->key, new_key, new_key_len);
+                peer->key_len = new_key_len;
+       	}
+        free(new_key);
+        return 0;
+}
 
 static void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 
@@ -108,6 +146,14 @@ static void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vall
 		}
                 return;
         }
+
+	if (uwsgi.subscription_mountpoints) {
+		if (!uwsgi_strncmp("PATH_INFO", 9, key, keylen)) {
+			fr->path_info = val;
+			fr->path_info_len = vallen;
+                }
+	}
+
 
 	if (ufr.cr.post_buffering > 0) {
 		if (!uwsgi_strncmp("CONTENT_LENGTH", 14, key, keylen)) {
@@ -225,8 +271,8 @@ static ssize_t fr_instance_connected(struct corerouter_peer *peer) {
 	peer->can_retry = 0;
 
 	// fix modifiers
-	peer->in->buf[0] = peer->modifier1;
-	peer->in->buf[3] = peer->modifier2;
+	peer->session->main_peer->in->buf[0] = peer->modifier1;
+	peer->session->main_peer->in->buf[3] = peer->modifier2;
 
 	// prepare to write the uwsgi packet
 	peer->out = peer->session->main_peer->in;
@@ -235,6 +281,7 @@ static ssize_t fr_instance_connected(struct corerouter_peer *peer) {
 	peer->last_hook_write = fr_instance_send_request;
 	return fr_instance_send_request(peer);
 }
+
 
 // called after receaving the uwsgi header (read vars)
 static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
@@ -322,12 +369,24 @@ static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 		if (new_peer->key_len == 0)
 			return -1;
 
+		if (uwsgi.subscription_mountpoints) {
+                	if (rebuild_key_for_mountpoint(fr->path_info, fr->path_info_len, new_peer)) return -1;
+                }
+
 		// find an instance using the key
 		if (ucr->mapper(ucr, new_peer))
 			return -1;
 
 		// check instance
 		if (new_peer->instance_address_len == 0) {
+			// check if the connection was deferred
+			if (new_peer->defer_connect) {
+				new_peer->current_timeout = ufr.cr.defer_connect_timeout;
+                        	new_peer->timeout = corerouter_reset_timeout(&ufr.cr, new_peer);
+				// stop reading from the client
+				if (uwsgi_cr_set_hooks(main_peer, NULL, NULL)) return -1;
+				return len;
+			}
 			if (ufr.cr.fallback_on_no_key) {
 				new_peer->failed = 1;
 				new_peer->can_retry = 1;
@@ -386,6 +445,16 @@ static int fr_retry(struct corerouter_peer *peer) {
         }
 
         if (peer->instance_address_len == 0) {
+		// first retry is consumed for the first attempt
+		if (peer->defer_connect && (peer->retries+1) < ufr.cr.max_retries) {
+                	peer->current_timeout = ufr.cr.defer_connect_timeout;
+                        peer->timeout = corerouter_reset_timeout(&ufr.cr, peer);
+			// stop reading from the client
+			if (uwsgi_cr_set_hooks(peer->session->main_peer, NULL, NULL)) return -1;
+                        return 1;
+                }
+		// ensure deferred connect is disabled
+		peer->defer_connect = 0;
                 return -1;
         }
 

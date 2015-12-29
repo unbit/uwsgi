@@ -54,12 +54,21 @@ int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *ucr, struct coreroute
 	usc.cookie = NULL;
 
 	peer->un = uwsgi_get_subscribe_node(ucr->subscriptions, peer->key, peer->key_len, &usc);
-	if (peer->un && peer->un->len) {
-		peer->instance_address = peer->un->name;
-		peer->instance_address_len = peer->un->len;
+	// check if the node is ready or it requires a vassal spawn
+	if (peer->un && (peer->un->len || peer->un->vassal_len)) {
 		peer->modifier1 = peer->un->modifier1;
 		peer->modifier2 = peer->un->modifier2;
 		peer->proto = peer->un->proto;
+		if (peer->un->len) {
+			peer->instance_address = peer->un->name;
+			peer->instance_address_len = peer->un->len;
+		}
+		else if (peer->un->vassal_len) {
+			peer->vassal = peer->un->vassal;
+			peer->vassal_len = peer->un->vassal_len;
+			corerouter_spawn_vassal(ucr, peer->un, peer->retries+1);
+                        peer->defer_connect = 1;
+		}
 	}
 	else if (ucr->cheap && !ucr->i_am_cheap && uwsgi_no_subscriptions(ucr->subscriptions)) {
 		uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);

@@ -2816,6 +2816,13 @@ struct uwsgi_server {
 
 	// number of args to consider part of binary_path
 	int binary_argc;
+
+	char *emperor_command_socket;
+	int emperor_command_socket_fd;
+	int emperor_wait_for_command;
+	struct uwsgi_string_list *emperor_wait_for_command_ignore;
+	int subscription_vassal_required;
+	int subscription_clear_on_shutdown;
 };
 
 struct uwsgi_rpc {
@@ -3426,6 +3433,11 @@ struct uwsgi_subscribe_req {
 	uint16_t proto_len;
 
 	struct uwsgi_subscribe_node *(*algo) (struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *, struct uwsgi_subscription_client *);
+
+	char *vassal;
+	uint16_t vassal_len;
+
+	uint8_t clear;
 };
 
 void uwsgi_nuclear_blast();
@@ -3707,6 +3719,9 @@ struct uwsgi_subscribe_node {
 	uint64_t backup_level;
 	//here the solution is a bit hacky, we take the first letter of the proto ('u','\0' -> uwsgi, 'h' -> http, 'f' -> fastcgi, 's' -> scgi)
 	char proto;
+
+	char vassal[0xff];
+	uint16_t vassal_len;
 };
 
 struct uwsgi_subscribe_slot {
@@ -4214,6 +4229,9 @@ struct uwsgi_instance {
 
 	// uWSGI 2.1 (vassal's attributes)
 	struct uwsgi_dyn_dict *attrs;
+
+	// when 1 the instance must be manually activated
+	int suspended;
 };
 
 struct uwsgi_instance *emperor_get_by_fd(int);

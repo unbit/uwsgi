@@ -8,7 +8,8 @@ The uWSGI Emperor
 extern struct uwsgi_server uwsgi;
 extern char **environ;
 
-void emperor_send_stats(int);
+static void emperor_send_stats(int);
+static void emperor_manage_command(int);
 
 time_t emperor_throttle;
 int emperor_throttle_level;
@@ -996,6 +997,11 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 		return;
 	}
 
+	// check if we are in suspended mode
+	if (c_ui->pid == -1 && c_ui->suspended) {
+		return;
+	}
+
 	// check if we are in on_demand mode (the respawn will be ignored)
 	if (c_ui->pid == -1 && c_ui->on_demand_fd > -1) {
 		c_ui->last_mod = mod;
@@ -1136,6 +1142,7 @@ void emperor_add_with_attrs(struct uwsgi_emperor_scanner *ues, char *name, time_
 	// start without loyalty
 	n_ui->last_loyal = 0;
 	n_ui->loyal = 0;
+	n_ui->suspended = 0;
 
 	n_ui->attrs = attrs;
 
@@ -1152,6 +1159,15 @@ void emperor_add_with_attrs(struct uwsgi_emperor_scanner *ues, char *name, time_
 
 	n_ui->pipe_config[0] = -1;
 	n_ui->pipe_config[1] = -1;
+
+	// Check if the Emperor has to wait for a command before spawning a vassal
+	if (uwsgi.emperor_command_socket) {
+		if (uwsgi.emperor_wait_for_command && !uwsgi_string_list_has_item(uwsgi.emperor_wait_for_command_ignore, name, strlen(name))) {
+			n_ui->suspended = 1;
+			uwsgi_log("[uwsgi-emperor] %s -> \"wait-for-command\" instance detected, waiting for the spawn command ...\n", name);
+			return;
+		}
+	}
 
 	// ok here we check if we need to bind to the specified socket or continue with the activation
 	if (socket_name) {
@@ -1315,7 +1331,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 
 
 	if (uwsgi_hooks_run_and_return(uwsgi.hook_as_emperor_before_vassal, "as-emperor-before-vassal", NULL, 0)) {
-        	emperor_del(n_ui);
+		return -1;
         }
 
 	if (uwsgi.zeus) {
@@ -1445,6 +1461,8 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 #if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
 		uwsgi_hooks_setns_run(uwsgi.hook_as_emperor_setns, n_ui->pid, n_ui->uid, n_ui->gid);
 #endif
+		// ensure the instance is no more suspended
+		n_ui->suspended = 0;
 		return 0;
 	}
 	else {
@@ -2037,6 +2055,19 @@ void emperor_loop() {
                 uwsgi_log("*** Emperor trigger socket enabled on %s fd: %d ***\n", uwsgi.emperor_trigger_socket, uwsgi.emperor_trigger_socket_fd);
 	}
 
+	if (uwsgi.emperor_command_socket) {
+                char *udp_port = strchr(uwsgi.emperor_command_socket, ':');
+                if (udp_port) {
+                        uwsgi.emperor_command_socket_fd = bind_to_udp(uwsgi.emperor_command_socket, 0, 0);
+                }
+                else {
+                        uwsgi.emperor_command_socket_fd = bind_to_unix_dgram(uwsgi.emperor_command_socket);
+                }
+
+                event_queue_add_fd_read(uwsgi.emperor_queue, uwsgi.emperor_command_socket_fd);
+                uwsgi_log("*** Emperor command socket enabled on %s fd: %d ***\n", uwsgi.emperor_command_socket, uwsgi.emperor_command_socket_fd);
+        }
+
 	ui = &ui_base;
 
 	int freq = 0;
@@ -2099,6 +2130,11 @@ void emperor_loop() {
 
 			if (uwsgi.emperor_stats && uwsgi.emperor_stats_fd > -1 && interesting_fd == uwsgi.emperor_stats_fd) {
 				emperor_send_stats(uwsgi.emperor_stats_fd);
+				continue;
+			}
+
+			if (uwsgi.emperor_command_socket && uwsgi.emperor_command_socket_fd > -1 && interesting_fd == uwsgi.emperor_command_socket_fd) {
+				emperor_manage_command(uwsgi.emperor_command_socket_fd);
 				continue;
 			}
 
@@ -2339,7 +2375,142 @@ recheck:
 
 }
 
-void emperor_send_stats(int fd) {
+// manage commands sentto the dgram command socket
+struct emperor_command {
+	char *cmd;
+	uint16_t cmd_len;
+	char *vassal;
+	uint16_t vassal_len;
+	char *msg;
+	uint16_t msg_len;
+};
+static void emperor_manage_command_parser(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
+
+        struct emperor_command *ec = (struct emperor_command *) data;
+
+        if (!uwsgi_strncmp("cmd", 3, key, keylen)) {
+                ec->cmd = val;
+                ec->cmd_len = vallen;
+        }
+        else if (!uwsgi_strncmp("command", 7, key, keylen)) {
+                ec->cmd = val;
+                ec->cmd_len = vallen;
+        }
+        else if (!uwsgi_strncmp("vassal", 6, key, keylen)) {
+                ec->vassal = val;
+                ec->vassal_len = vallen;
+        }
+        else if (!uwsgi_strncmp("msg", 3, key, keylen)) {
+                ec->msg = val;
+                ec->msg_len = vallen;
+        }
+}
+
+static void emperor_command_spawn(struct emperor_command *ec) {
+	if (ec->vassal_len == 0) {
+		uwsgi_log("[uwsgi-emperor] ERROR: the \"spawn\" command requires a vassal name\n");
+		return;
+	}
+	char *name = uwsgi_concat2n(ec->vassal, ec->vassal_len, "", 0);
+	struct uwsgi_instance *vassal = emperor_get(name);
+	if (!vassal) {
+		uwsgi_log("[uwsgi-emperor] ERROR: unable to find vassal \"%s\"\n", name);
+		free(name);
+		return;
+	}
+	if (!vassal->suspended) {
+		uwsgi_log("[uwsgi-emperor] WARNING: the vassal \"%s\" is already active\n", name);
+		free(name);
+		return;
+	}
+	uwsgi_log("[uwsgi-emperor] INFO: requested the spawn of vassal \"%s\"\n", name);
+	free(name);
+	// start the vassal
+	if (uwsgi_emperor_vassal_start(vassal)) {
+                // clear the vassal
+                emperor_del(vassal);
+        }
+}
+
+static void emperor_command_respawn(struct emperor_command *ec) {
+        if (ec->vassal_len == 0) {
+                uwsgi_log("[uwsgi-emperor] ERROR: the \"respawn\" command requires a vassal name\n");
+                return;
+        }
+        char *name = uwsgi_concat2n(ec->vassal, ec->vassal_len, "", 0);
+        struct uwsgi_instance *vassal = emperor_get(name);
+        if (!vassal) {
+                uwsgi_log("[uwsgi-emperor] ERROR: unable to find vassal \"%s\"\n", name);
+                free(name);
+                return;
+        }
+        uwsgi_log("[uwsgi-emperor] INFO: requested the respawn of vassal \"%s\"\n", name);
+        free(name);
+        // restart the vassal
+	emperor_respawn(vassal, uwsgi_now());
+}
+
+static void emperor_command_stop(struct emperor_command *ec) {
+        if (ec->vassal_len == 0) {
+                uwsgi_log("[uwsgi-emperor] ERROR: the \"stop\" command requires a vassal name\n");
+                return;
+        }
+        char *name = uwsgi_concat2n(ec->vassal, ec->vassal_len, "", 0);
+        struct uwsgi_instance *vassal = emperor_get(name);
+        if (!vassal) {
+                uwsgi_log("[uwsgi-emperor] ERROR: unable to find vassal \"%s\"\n", name);
+                free(name);
+                return;
+        }
+        uwsgi_log("[uwsgi-emperor] INFO: requested the stop of vassal \"%s\"\n", name);
+        free(name);
+        // stop the vassal
+        emperor_stop(vassal);
+}
+
+static void emperor_command_log(struct emperor_command *ec) {
+        if (ec->msg_len == 0) {
+                uwsgi_log("[uwsgi-emperor] ERROR: the \"log\" command requires a message\n");
+                return;
+        }
+	uwsgi_log("%.*s\n", ec->msg_len, ec->msg);
+}
+
+static void emperor_manage_command(int fd) {
+	char buf[4096];
+        ssize_t len = recv(fd, buf, 4096, 0);
+	if (len <= 0) return;
+	struct emperor_command ec;
+	memset(&ec, 0, sizeof(struct emperor_command));
+	uwsgi_hooked_parse(buf + 4, len - 4, emperor_manage_command_parser, &ec);
+	if (ec.cmd_len == 0) return;
+
+	// spawn a suspended vassal
+	if (!uwsgi_strncmp(ec.cmd, ec.cmd_len, "spawn", 5)) {
+		emperor_command_spawn(&ec);
+		return;
+	}
+
+	// respawn a vassal
+	if (!uwsgi_strncmp(ec.cmd, ec.cmd_len, "respawn", 7)) {
+		emperor_command_respawn(&ec);
+		return;
+	}
+
+	// stop a vassal
+	if (!uwsgi_strncmp(ec.cmd, ec.cmd_len, "stop", 4)) {
+		emperor_command_stop(&ec);
+		return;
+	}
+
+	// log a message
+	if (!uwsgi_strncmp(ec.cmd, ec.cmd_len, "log", 3)) {
+		emperor_command_log(&ec);
+		return;
+	}
+}
+
+static void emperor_send_stats(int fd) {
 
 	struct sockaddr_un client_src;
 	socklen_t client_src_len = 0;
@@ -2443,6 +2614,9 @@ void emperor_send_stats(int fd) {
 			goto end0;
 
 		if (uwsgi_stats_keyval_comma(us, "on_demand", c_ui->socket_name ? c_ui->socket_name : ""))
+			goto end0;
+
+		if (uwsgi_stats_keylong_comma(us, "suspended", (unsigned long long) c_ui->suspended))
 			goto end0;
 
 		if (uwsgi_stats_keylong_comma(us, "adopted", (unsigned long long) c_ui->adopted))

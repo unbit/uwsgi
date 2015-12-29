@@ -316,22 +316,30 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
                 usr->proto = val;
                 usr->proto_len = vallen;
         }
+	else if (!uwsgi_strncmp("vassal", 6, key, keylen)) {
+                usr->vassal = val;
+                usr->vassal_len = vallen;
+        }
+	else if (!uwsgi_strncmp("clear", 5, key, keylen)) {
+		usr->clear = uwsgi_str_num(val, vallen);
+	}
 }
 
 void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
 	struct corerouter_session *cs = peer->session;
 
-	
 	// manage subscription reference count
 	if (ucr->subscriptions && peer->un && peer->un->len > 0) {
+
                 // decrease reference count
 #ifdef UWSGI_DEBUG
-               uwsgi_log("[1] node %.*s refcnt: %llu\n", peer->un->len, peer->un->name, peer->un->reference);
+		uwsgi_log("[1] node %.*s refcnt: %llu\n", peer->un->len, peer->un->name, peer->un->reference);
 #endif
-               peer->un->reference--;
+		peer->un->reference--;
 #ifdef UWSGI_DEBUG
-               uwsgi_log("[2] node %.*s refcnt: %llu\n", peer->un->len, peer->un->name, peer->un->reference);
+		uwsgi_log("[2] node %.*s refcnt: %llu\n", peer->un->len, peer->un->name, peer->un->reference);
 #endif
+		
         }
 
 	if (peer->failed) {
@@ -478,6 +486,24 @@ static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr, time_t now)
 
 		if (urbt->value <= current) {
 			peer = (struct corerouter_peer *) urbt->data;
+			// you can manage deferred connections upto X retry times
+			if (peer->defer_connect) {
+				peer->defer_connect = 0;
+				peer->retries++;
+				// ignore return value
+				if (peer->un) {
+					if (peer->un->reference == 0) {
+						uwsgi_log("[BUG] subscription reference counting is 0 !!!\n");
+						corerouter_close_peer(ucr, peer);
+						continue;
+					}
+					peer->un->reference--;
+				}
+				peer->session->retry(peer);
+				// increase timeout;
+				urbt->value += peer->current_timeout;
+				continue;
+			}
 			peer->timed_out = 1;
 			if (peer->connecting) {
 				peer->failed = 1;
@@ -488,6 +514,7 @@ static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr, time_t now)
 
 		break;
 	}
+
 }
 
 int uwsgi_cr_set_hooks(struct corerouter_peer *peer, ssize_t (*read_hook)(struct corerouter_peer *), ssize_t (*write_hook)(struct corerouter_peer *)) {
@@ -680,6 +707,9 @@ void uwsgi_corerouter_loop(int id, void *data) {
 	if (!ucr->socket_timeout)
 		ucr->socket_timeout = 60;
 
+	if (!ucr->defer_connect_timeout)
+		ucr->defer_connect_timeout = 5;
+
 	if (!ucr->static_node_gracetime)
 		ucr->static_node_gracetime = 30;
 
@@ -706,6 +736,23 @@ void uwsgi_corerouter_loop(int id, void *data) {
 
 		event_queue_add_fd_read(ucr->queue, ucr->cr_stats_server);
 		uwsgi_log("*** %s stats server enabled on %s fd: %d ***\n", ucr->short_name, ucr->stats_server, ucr->cr_stats_server);
+	}
+
+	if (ucr->emperor_socket) {
+		char *colon = strchr(ucr->emperor_socket, ':');
+		if (colon) {
+			ucr->emperor_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+                        ucr->emperor_socket_addr_len = socket_to_in_addr(ucr->emperor_socket, colon, 0, &ucr->emperor_socket_addr.sa_in);
+		}
+		else {
+			ucr->emperor_socket_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+	  		ucr->emperor_socket_addr_len = socket_to_un_addr(ucr->emperor_socket, &ucr->emperor_socket_addr.sa_un);
+		}
+		if (ucr->emperor_socket_fd < 0) {
+			uwsgi_error("error creating emperor socket client: socket()");
+			exit(1);
+		}
+		uwsgi_log("emperor socket mapped to: %s\n", ucr->emperor_socket);	
 	}
 
 
@@ -1086,6 +1133,7 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 					if (uwsgi_stats_object_open(us)) goto end0;
 
 					if (uwsgi_stats_keyvaln_comma(us, "name", s_node->name, s_node->len)) goto end0;
+					if (uwsgi_stats_keyvaln_comma(us, "vassal", s_node->vassal, s_node->vassal_len)) goto end0;
 
 					if (uwsgi_stats_keylong_comma(us, "modifier1", (unsigned long long) s_node->modifier1)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "modifier2", (unsigned long long) s_node->modifier2)) goto end0;
