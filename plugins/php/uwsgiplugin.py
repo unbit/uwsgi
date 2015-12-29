@@ -12,6 +12,8 @@ if phpdir:
 
 PHPPATH = os.environ.get('UWSGICONFIG_PHPPATH', PHPPATH)
 
+php_version = os.popen(PHPPATH + ' --version').read().rstrip().split('.')[0]
+
 CFLAGS = [os.popen(PHPPATH + ' --includes').read().rstrip(), '-Wno-sign-compare']
 LDFLAGS = os.popen(PHPPATH + ' --ldflags').read().rstrip().split()
 
@@ -19,7 +21,7 @@ if ld_run_path:
     LDFLAGS.append('-L%s' % ld_run_path)
     os.environ['LD_RUN_PATH'] = ld_run_path
 
-LIBS = [os.popen(PHPPATH + ' --libs').read().rstrip(), '-lphp5']
+LIBS = [os.popen(PHPPATH + ' --libs').read().rstrip(), '-lphp' + php_version]
 
 phplibdir = os.environ.get('UWSGICONFIG_PHPLIBDIR')
 if phplibdir:
