@@ -449,17 +449,16 @@ static int uwsgi_routing_func_rpc_var(struct wsgi_request *wsgi_req, struct uwsg
         uint64_t size;
         response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
         free(func);
-        if (!response) goto end;
 
         ret = UWSGI_ROUTE_BREAK;
-        if (size == 0) goto end;
 
 	if (!uwsgi_req_append(wsgi_req, ur->data4, ur->data4_len, response, size)) {
 		goto end;
 	}
 	ret = UWSGI_ROUTE_NEXT;
 end:
-	free(response);
+	if (response)
+		free(response);
         for(i=0;i<ur->custom;i++) {
                 if (ubs[i] != NULL) {
                         uwsgi_buffer_destroy(ubs[i]);
