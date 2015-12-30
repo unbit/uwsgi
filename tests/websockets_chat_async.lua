@@ -67,7 +67,7 @@ local loop = function(my_name)
     local wait_fd = uwsgi.connection_fd();
 
     while true do
-        uwsgi.wait_fd_read(wait_fd);
+        uwsgi.wait_fd_read(wait_fd, 30); -- 2th arg for ping/pong
         coroutine.yield();
         say(my_name, uwsgi.websocket_recv_nb());
     end
