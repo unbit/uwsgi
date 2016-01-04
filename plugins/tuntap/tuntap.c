@@ -189,7 +189,9 @@ static void uwsgi_tuntap_client() {
 			pthread_create(&t, NULL, uwsgi_tuntap_loop, uttr);
 		}
 		else {
-			uwsgi_tuntap_device(usl->value);
+			if (uwsgi_tuntap_device(usl->value) < 0) {
+				// foo
+			}
 		}
 	}
 }

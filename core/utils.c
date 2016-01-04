@@ -3549,7 +3549,6 @@ int uwsgi_tmpfd() {
 	// fallback to old style
 #endif
 	char *template = uwsgi_concat2(tmpdir, "/uwsgiXXXXXX");
-	umask(S_IRUSR | S_IWUSR | S_IRGRP);
 	fd = mkstemp(template);
 	unlink(template);
 	free(template);
