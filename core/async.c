@@ -550,7 +550,7 @@ void async_loop() {
 						uwsgi.async_proto_fd_table[interesting_fd] = NULL;
 						close(interesting_fd);
 						uwsgi.async_queue_unused_ptr++;
-+						uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
+						uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
 						continue;
 					}
 					// re-add timer
