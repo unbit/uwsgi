@@ -2009,6 +2009,7 @@ void emperor_loop() {
 	uwsgi.max_fd = rl.rlim_cur;
 
 	emperor_throttle_level = uwsgi.emperor_throttle;
+	emperor_throttle = 0;
 
 	// the queue must be initialized before adding scanners
 	uwsgi.emperor_queue = event_queue_init();
