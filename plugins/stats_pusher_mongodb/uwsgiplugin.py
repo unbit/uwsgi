@@ -1,8 +1,13 @@
 import os
 
-NAME='stats_pusher_mongodb'
+NAME = 'stats_pusher_mongodb'
 
-CFLAGS = ['-I/usr/include/mongo','-I/usr/local/include/mongo']
+CFLAGS = [
+    '-I/usr/include/mongo',
+    '-I/usr/local/include/mongo',
+    '-std=c++11',
+    '-Wno-error'
+]
 LDFLAGS = []
 
 LIBS = []
