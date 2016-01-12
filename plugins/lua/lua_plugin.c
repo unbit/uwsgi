@@ -11,11 +11,10 @@
 extern struct uwsgi_server uwsgi;
 
 struct uwsgi_lua {
-	struct lua_State ***state;
-	struct lua_State **mulestate;
+	struct lua_State **state;
 	struct uwsgi_string_list *load;
 	char *wsapi;
-	struct uwsgi_string_list *postload;
+	struct uwsgi_string_list *postfork;
 	int gc_freq;
 	uint8_t gc_perform;
 	uint8_t shell;
@@ -28,10 +27,9 @@ struct ulua_websocket_handler {
 	size_t key_len;
 };
 
-#define ULUA_MYWID (uwsgi.mywid-1)
-#define ULUA_MYMID (uwsgi.muleid-1)
-#define ULUA_WORKER_STATE ulua.state[ULUA_MYWID]
-#define ULUA_MULE_STATE ulua.mulestate[ULUA_MYMID]
+#define ULUA_STATE ulua.state
+#define ULUA_THREAD(i) (ULUA_STATE ? ULUA_STATE[i] : NULL)
+
 #define ULUA_LOG_HEADER "[uwsgi-lua]"
 
 #define ULUA_MULE_MSG_GET_BUFFER_SIZE 65536
@@ -41,9 +39,8 @@ struct ulua_websocket_handler {
 #define ULUA_SIGNAL_REF 2
 #define ULUA_RPC_REF 3
 #define ULUA_WEBSOCKET_META_REF 4
-
-#define ULUA_MULE_MSG_REF 1
-#define ULUA_MULE_SIGNAL_REF ULUA_SIGNAL_REF
+#define ULUA_MULE_MSG_REF 5
+#define ULUA_ASYNC_THREADS_REF 6
 
 #define ULUA_OPTDEF_GC_FREQ 1
 
@@ -53,11 +50,17 @@ struct ulua_websocket_handler {
 
 #define ulua_log(c, ar...) uwsgi_log(ULUA_LOG_HEADER" "c"\n", ##ar)
 
+#define ULUA_TYPE_ISUTABLE(type) (type == LUA_TTABLE || type == LUA_TUSERDATA)
+
 #define ULUA_WORKER_ANYAPP (ulua.wsapi ||\
 	ulua.load ||\
-	ulua.postload ||\
+	ulua.postfork ||\
 	ulua.shell ||\
 	ulua.shell_oneshot)
+
+#define ULUA_IS_MULE (uwsgi.muleid > 0)
+#define ULUA_IS_WORKER (uwsgi.mywid > 0)
+#define ULUA_IS_VALIDPOSTFORK (ULUA_IS_WORKER || ULUA_IS_MULE)
 
 struct uwsgi_plugin lua_plugin;
 
@@ -75,8 +78,8 @@ static void uwsgi_opt_luashell_oneshot(char *opt, char *value, void *foobar) {
 static struct uwsgi_option uwsgi_lua_options[] = {
 
 	{"lua", required_argument, 0, "load lua wsapi app", uwsgi_opt_set_str, &ulua.wsapi, 0},
-	{"lua-load", required_argument, 0, "load a lua file before wsapi app", uwsgi_opt_add_string_list, &ulua.load, 0},
-	{"lua-postload", required_argument, 0, "load a lua file after wsapi app", uwsgi_opt_add_string_list, &ulua.postload, 0},
+	{"lua-load", required_argument, 0, "load a lua file during the lua-state init", uwsgi_opt_add_string_list, &ulua.load, 0},
+	{"lua-postfork", required_argument, 0, "load a lua file after worker or mule fork()", uwsgi_opt_add_string_list, &ulua.postfork, 0},
 	{"lua-shell", no_argument, 0, "run the lua interactive shell (debug.debug())", uwsgi_opt_luashell, NULL, 0},
 	{"luashell", no_argument, 0, "run the lua interactive shell (debug.debug())", uwsgi_opt_luashell, NULL, 0},
 	{"lua-shell-oneshot", no_argument, 0, "run the lua interactive shell (debug.debug(), one-shot variant)", uwsgi_opt_luashell_oneshot, NULL, 0},
@@ -87,8 +90,6 @@ static struct uwsgi_option uwsgi_lua_options[] = {
 	{0, 0, 0, 0},
 
 };
-
-#define ULUA_TYPE_ISUTABLE(type) (type == LUA_TTABLE || type == LUA_TUSERDATA)
 
 static inline int uwsgi_lua_isutable(lua_State *L, int obj) {
 
@@ -1004,7 +1005,7 @@ static int uwsgi_api_register_signal(lua_State *L) {
 		}
 
 		// from non-lazy worker
-		if (uwsgi.mywid == 0 && uwsgi.muleid == 0) {
+		if (!ULUA_IS_WORKER) {
 			for(i = 1; i <= uwsgi.numproc; i++) {
 				use = &uwsgi.shared->signal_table[sig + i*256];
 				if (!(use->handler)) {
@@ -1018,7 +1019,7 @@ static int uwsgi_api_register_signal(lua_State *L) {
 	}
 
 	// lazy (or runtime) worker, just register handler and modifier1
-	if (uwsgi.mywid > 0) {
+	if (ULUA_IS_WORKER) {
 		use = &uwsgi.shared->signal_table[sig + uwsgi.mywid*256];
 
 		if (use->modifier1 != 6) {
@@ -2708,12 +2709,7 @@ static const luaL_Reg uwsgi_api_base[] = {
   {"connect", uwsgi_api_connect},
   {"close", uwsgi_api_close},
 
-  {NULL, NULL}
-};
-
-// worker only adds
-static const luaL_Reg uwsgi_api_worker[] = {
-
+  // worker only
   {"mywid", uwsgi_api_mywid},
   {"connection_fd", uwsgi_api_req_fd},
 
@@ -2744,18 +2740,14 @@ static const luaL_Reg uwsgi_api_worker[] = {
 
   {"ready_fd", uwsgi_api_ready_fd},
 
-  {NULL, NULL}
-};
-
-// mule only adds
-static const luaL_Reg uwsgi_api_mule[] = {
-
+  // mule only
   {"mymid", uwsgi_api_mymid},
   {"mule_msg_get", uwsgi_api_mule_msg_get},
   {"mule_msg_hook", uwsgi_api_mule_msg_hook},
 
   {NULL, NULL}
 };
+
 
 // websocket_handler
 static const luaL_Reg uwsgi_api_websocket_handler_index[] = {
@@ -2786,71 +2778,27 @@ static void uwsgi_lua_api_push(lua_State *L, int target, const luaL_Reg *api) {
 	}
 }
 
-static int uwsgi_lua_init() {
+static lua_State* uwsgi_lua_spawn_state() {
 
-	int i;
+	lua_State *L = luaL_newstate();
 
-	if(!(ulua.gc_perform)) {
-		ulua.gc_perform = LUA_GCSTEP;
-	} else {
-		ulua.gc_perform = LUA_GCCOLLECT;
+	if (!L) {
+		return NULL;
 	}
 
-	if (ULUA_WORKER_ANYAPP) {
-		uwsgi_log(ULUA_LOG_HEADER " Initializing Worker's Lua environment... ");
-
-		ulua.state = uwsgi_malloc(sizeof(lua_State**) * uwsgi.numproc);
-
-		for (i = 0; i<uwsgi.numproc; i++) {
-			ulua.state[i] = uwsgi_malloc(sizeof(lua_State*) * uwsgi.cores);
-		}
-
-		uwsgi_log("%d lua_State(s) (with %d lua_Thread(s))\n", uwsgi.numproc, uwsgi.cores);
-	}
-
-	if (uwsgi.mules_cnt > 0) {
-		uwsgi_log(ULUA_LOG_HEADER " Initializing Mule's Lua environment... ");
-
-		ulua.mulestate = uwsgi_malloc(sizeof(lua_State*) * uwsgi.mules_cnt);
-
-		for (i = 0; i<uwsgi.mules_cnt; i++) {
-			ulua.mulestate[i] = NULL;
-		}
-
-		uwsgi_log("%d lua_State(s) (for %d mule(s))\n", uwsgi.mules_cnt, uwsgi.mules_cnt);
-	}
-
-	// ok the lua engine is ready
-	return 0;
-}
-
-static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
-
-	if (!ULUA_WORKER_ANYAPP) {
-		return;
-	}
-
-	int i;
-	int uslnargs;
-	lua_State *L;
-
-	// spawn worker state
-	Ls[0] = luaL_newstate();
-	L = Ls[0];
-
-	// init worker state
 	luaL_openlibs(L);
 
+	// init api and handlers
 	uwsgi_lua_api_newglobaltable(L, "uwsgi");
 	uwsgi_lua_api_push(L, -1, uwsgi_api_base);
-	uwsgi_lua_api_push(L, -1, uwsgi_api_worker);
 
 	lua_pushstring(L, UWSGI_VERSION);
 	lua_setfield(L, -2, "version");
 
-	lua_pushnumber(L, sid);
-	lua_setfield(L, -2, "mysid");
+	lua_pushstring(L, "");
+	lua_setfield(L, -2, "mule_param");
 
+	// register or reserve refs
 	// reserve ref 1 for ws func
 	lua_pushboolean(L, 0);
 	luaL_ref(L, LUA_REGISTRYINDEX);
@@ -2883,93 +2831,198 @@ static void uwsgi_lua_init_state(lua_State **Ls, int wid, int sid, int cores) {
 	luaL_ref(L, LUA_REGISTRYINDEX);
 	lua_setfield(L, -2, "websocket_handler_metatable_ref");
 
+	// mule msg ref 5
+	lua_pushboolean(L, 0);
+	luaL_ref(L, LUA_REGISTRYINDEX);
+
+	// async threads ref 6
+	lua_pushboolean(L, 0);
+	luaL_ref(L, LUA_REGISTRYINDEX);
+
 	// end
 	lua_pop(L, 1);
 
-	//init additional threads for current worker
-	if (cores > 0) {
+	return L;
 
-		lua_createtable(L, cores - 1, 0);
+}
 
-		for(i = 1; i < cores; i++) {
+static void uwsgi_lua_spawn_async_threads(lua_State **Ls, int cores) {
 
-			// create thread and save it
-			Ls[i] = lua_newthread(L);
-			lua_rawseti(L, -2, i);
+	int i;
+	lua_State *L = Ls[0];
 
-		}
+	if (!L || cores < 2) return;
 
-		luaL_ref(L, LUA_REGISTRYINDEX); // ref for threads (not reserved!)
+	lua_createtable(L, cores - 1, 0);
+
+	for(i = 1; i < cores; ++i) {
+
+		// create thread and save it
+		Ls[i] = lua_newthread(L);
+		lua_rawseti(L, -2, i);
+
 	}
 
-	// init main app
-	uslnargs = lua_gettop(L);
+	lua_rawseti(L, LUA_REGISTRYINDEX, ULUA_ASYNC_THREADS_REF);
 
-	struct uwsgi_string_list *usl = ulua.load;
+}
+
+static void uwsgi_lua_remove_async_threads(lua_State **Ls) {
+
+	lua_State *L = Ls[0];
+
+	if (!L) return;
+
+	lua_pushboolean(L, 0);
+	lua_rawseti(L, LUA_REGISTRYINDEX, ULUA_ASYNC_THREADS_REF);
+
+}
+
+static int uwsgi_lua_load_from_usl(lua_State *L, struct uwsgi_string_list *usl) {
+
+	if (!L || !usl) return 0;
 
 	while(usl) {
-		if (luaL_dofile(L, usl->value)) {
-			ulua_log("unable to load Lua file %s: %s", usl->value, lua_tostring(L, -1));
-			lua_pop(L, 1);
+		if (usl->value[0]) {
+			if (luaL_loadfile(L, usl->value) || lua_pcall(L, 0, 0, 0)) {
+				ulua_log("ERROR: unable to load Lua file %s: %s", usl->value, lua_tostring(L, -1));
+				lua_pop(L, 1);
+				return -1;
+			}
 		}
 		usl = usl->next;
 	}
 
-	uslnargs = lua_gettop(L) - uslnargs;
+	lua_gc(L, LUA_GCCOLLECT, 0);
 
-	if (ulua.wsapi) {
-		if (luaL_loadfile(L, ulua.wsapi)) {
-			ulua_log("unable to load Lua file %s: %s", ulua.wsapi, lua_tostring(L, -1));
-			lua_pop(L, uslnargs + 1);
-			uslnargs = 0;
-		} else {
-			// put function before args
-			if (uslnargs > 0) {
-				lua_insert(L, -uslnargs - 1);
+	return 0;
+}
+
+static int uwsgi_lua_init() {
+
+	int i,j;
+
+	if(!(ulua.gc_perform)) {
+		ulua.gc_perform = LUA_GCSTEP;
+	} else {
+		ulua.gc_perform = LUA_GCCOLLECT;
+	}
+
+	if (ULUA_WORKER_ANYAPP) {
+		ulua_log("*** Initializing Lua Environment... ***");
+		ULUA_STATE = uwsgi_malloc(sizeof(lua_State*) * uwsgi.cores);
+
+		if (uwsgi.threads > 1) {
+			for (i = 0; i < uwsgi.threads; ++i) {
+				ULUA_STATE[i] = uwsgi_lua_spawn_state();
+
+				if (!ULUA_STATE[i] || uwsgi_lua_load_from_usl(ULUA_STATE[i], ulua.load)) {
+					for(j = 0; j <= i; ++j) {
+						if (ULUA_STATE[i]) lua_close(ULUA_STATE[i]);
+					}
+
+					ulua_log("*** Initialization FAILED ***");
+					free(ULUA_STATE);
+					ULUA_STATE = NULL;
+					return 0;
+				}
 			}
+		} else {
 
-			if (lua_pcall(L, uslnargs, 1, 0)) {
-				ulua_log("unable to load Lua file %s: %s", ulua.wsapi, lua_tostring(L, -1));
-				lua_pop(L, 1);
-				uslnargs = 0;
-			} else {
-				uslnargs = 1;
+			ULUA_STATE[0] = uwsgi_lua_spawn_state();
+			uwsgi_lua_spawn_async_threads(ULUA_STATE, uwsgi.cores);
+
+			if (!ULUA_STATE[0] || uwsgi_lua_load_from_usl(ULUA_STATE[0], ulua.load)) {
+				if (ULUA_STATE[0]) lua_close(ULUA_STATE[0]);
+				ulua_log("*** Initialization FAILED ***");
+				free(ULUA_STATE);
+				ULUA_STATE = NULL;
+				return 0;
 			}
 		}
-	} else {
-		lua_pop(L, uslnargs);
-		uslnargs = 0;
+
+		// ok the lua engine is ready
+		ulua_log("*** Initialization Complete ***");
+		return 0;
+	}
+
+	ULUA_STATE = NULL;
+	return 0;
+}
+
+static void uwsgi_lua_load_wsapi(lua_State *L) {
+
+	if (luaL_loadfile(L, ulua.wsapi) || lua_pcall(L, 0, 1, 0)) {
+		ulua_log("unable to load Lua file %s: %s", ulua.wsapi, lua_tostring(L, -1));
+		lua_pop(L, 1);
+		ulua.wsapi = NULL;
+		return;
 	}
 
 	// table ??
-	if (uslnargs > 0 && lua_istable(L, -1)) {
+	if (lua_istable(L, -1)) {
 		lua_pushstring(L, "run");
 		lua_gettable(L, -1);
 		lua_replace(L, -1);
 	}
 
 	// no app ???
-	if (!uslnargs || !lua_isfunction(L, -1)) {
-		lua_pop(L, uslnargs);
+	if (!lua_isfunction(L, -1)) {
+		lua_pop(L, 1);
 		ulua_log("Can't find WSAPI entry point (no function, nor a table with function'run').");
-		ulua.wsapi = 0;
+		ulua.wsapi = NULL;
 	} else {
 		lua_rawseti(L, LUA_REGISTRYINDEX, ULUA_WSAPI_REF);
 	}
 
-	// post load
-	usl = ulua.postload;
+	lua_gc(L, LUA_GCCOLLECT, 0);
 
-	while(usl) {
-		if (luaL_loadfile(L, usl->value) || lua_pcall(L, 0, 0, 0)) {
-			ulua_log("unable to load Lua file %s: %s", usl->value, lua_tostring(L, -1));
-			lua_pop(L, 1);
-		}
-		usl = usl->next;
+}
+
+static void uwsgi_lua_init_apps() {
+
+	int i;
+
+	if (!ULUA_STATE || !ulua.wsapi) {
+		return;
 	}
 
-	// and the worker is ready!
-	lua_gc(L, LUA_GCCOLLECT, 0);
+	if (uwsgi.threads > 1) {
+		for (i = 0; i < uwsgi.threads; ++i) {
+			uwsgi_lua_load_wsapi(ULUA_STATE[i]);
+		}
+	} else {
+		uwsgi_lua_load_wsapi(ULUA_THREAD(0));
+	}
+
+	if (ulua.wsapi) {
+		uwsgi_apps_cnt++;
+	}
+}
+
+static void uwsgi_lua_post_fork() {
+
+	int i;
+
+	if (!ULUA_STATE || !ULUA_IS_VALIDPOSTFORK) {
+		return;
+	}
+
+	if (ULUA_IS_WORKER && uwsgi.threads > 1) {
+		for (i = 0; i < uwsgi.threads; ++i) {
+			if (uwsgi_lua_load_from_usl(ULUA_THREAD(0), ulua.postfork)) {
+				return;
+			}
+		}
+	} else {
+		if (ULUA_IS_MULE && uwsgi.cores > 2 && uwsgi.threads < 2) {
+			// mule does need this, gonna slow gc
+			uwsgi_lua_remove_async_threads(ULUA_STATE);
+		}
+
+		uwsgi_lua_load_from_usl(ULUA_THREAD(0), ulua.postfork);
+	}
+
 }
 
 static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
@@ -2983,7 +3036,12 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
-	lua_State *L = ULUA_WORKER_STATE[wsgi_req->async_id];
+	lua_State *L = ULUA_THREAD(wsgi_req->async_id);
+
+	if(!L) {
+		ulua_log("worker%d[%d]: No lua_State. skip.", uwsgi.mywid, wsgi_req->async_id);
+		return -1;
+	}
 
 	/* Standard WSAPI request */
 	if (!wsgi_req->len) {
@@ -3232,12 +3290,9 @@ static int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
 
 	lua_State *L = NULL;
 
-	if (uwsgi.mywid == 0) {
-		if (!uwsgi.muleid) {
-			return -1;
-		}
+	if (ULUA_IS_MULE) {
 
-		L = ULUA_MULE_STATE;
+		L = ULUA_THREAD(0);
 
 		if (!L) { // mule without lua_State
 			ulua_log("signal: can't handle signal on mule%d without lua_State", uwsgi.muleid);
@@ -3246,14 +3301,14 @@ static int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
 
 	} else {
 
-		if (!ulua.state) {
+		struct wsgi_request *wsgi_req = current_wsgi_req();
+
+		L = ULUA_THREAD(wsgi_req->async_id);
+
+		if (!L) {
 			ulua_log("signal: can't handle signal on worker%d without lua_State(s)", uwsgi.mywid);
 			return -1;
 		}
-
-		struct wsgi_request *wsgi_req = current_wsgi_req();
-
-		L = ULUA_WORKER_STATE[wsgi_req->async_id];
 
 #ifdef UWSGI_DEBUG
 		ulua_log("managing signal handler on core %d", wsgi_req->async_id);
@@ -3295,7 +3350,13 @@ static uint64_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t a
 	int type;
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
-	lua_State *L = ULUA_WORKER_STATE[wsgi_req->async_id];
+	lua_State *L = ULUA_THREAD(wsgi_req->async_id);
+
+	if (!L) {
+		ulua_log("rpc: no lua_State");
+		return 0;
+	}
+
 	lua_rawgeti(L, LUA_REGISTRYINDEX, ULUA_RPC_REF);
 
 	lua_getfield(L, -1, (const char *) func);
@@ -3437,7 +3498,7 @@ static void uwsgi_lua_hijack(void) {
 		}
 
 		// run in the first state
-		lua_State *L = ULUA_WORKER_STATE[0];
+		lua_State *L = ULUA_THREAD(0);
 		lua_getglobal(L, "debug");
 		lua_getfield(L, -1, "debug");
 
@@ -3463,46 +3524,9 @@ static void uwsgi_lua_hijack(void) {
 	}
 }
 
-
-static void uwsgi_lua_init_apps() {
-
-	if (!ULUA_WORKER_ANYAPP) {
-		return;
-	}
-
-	int i,j,sid;
-
-	//cores per lua thread
-	int cores = uwsgi.threads > 1 ? 1 : uwsgi.cores;
-
-	if (uwsgi.mywid > 0) {	// lazy app
-		sid = ULUA_MYWID*uwsgi.threads;
-
-		for(i=0;i<uwsgi.threads;i++) {
-			uwsgi_lua_init_state(&(ULUA_WORKER_STATE[i]), uwsgi.mywid, sid + i + 1, cores);
-		}
-
-		ulua_log("inited %d lua_State(s) for worker %d", uwsgi.threads, uwsgi.mywid);
-	} else {
-		for(j=0;j<uwsgi.numproc;j++){
-			sid = j*uwsgi.threads;
-
-			for(i=0;i<uwsgi.threads;i++) {
-				uwsgi_lua_init_state(&(ulua.state[j][i]), j + 1, sid + i + 1, cores);
-			}
-
-			ulua_log("inited %d lua_State(s) for worker %d", uwsgi.threads, j + 1);
-		}
-	}
-
-	if (ulua.wsapi) {
-		uwsgi_apps_cnt++;
-	}
-}
-
 static int uwsgi_lua_mule_msg(char *msg, size_t len) {
 
-	lua_State *L = ULUA_MULE_STATE;
+	lua_State *L = ULUA_THREAD(0);
 
 	if (!L) {
 		return 0;
@@ -3530,8 +3554,8 @@ static int uwsgi_lua_mule_msg(char *msg, size_t len) {
 static int uwsgi_lua_mule(char *file) {
 
 	int type;
-	lua_State *L;
 	char *load;
+	lua_State *L = ULUA_THREAD(0);
 
 	if (!uwsgi_endswith(file, ".lua") && !uwsgi_endswith(file, ".luac")) {
 		return 0;
@@ -3545,40 +3569,22 @@ static int uwsgi_lua_mule(char *file) {
 		load = file;
 	}
 
-	ULUA_MULE_STATE = luaL_newstate();
-	L = ULUA_MULE_STATE;
+	if (!L) { // no lua env, spawn own
+		ULUA_STATE = uwsgi_malloc(sizeof(lua_State*));
+		ulua_log("mule%d: no Lua Env, spawn own lua_State", uwsgi.muleid);
+		ULUA_STATE[0] = uwsgi_lua_spawn_state();
+		L = ULUA_STATE[0];
+	}
 
-	luaL_openlibs(L);
-
-	uwsgi_lua_api_newglobaltable(L, "uwsgi");
-	uwsgi_lua_api_push(L, -1, uwsgi_api_base);
-	uwsgi_lua_api_push(L, -1, uwsgi_api_mule);
-
-	lua_pushstring(L, (file != load) ? file : "");
-	lua_setfield(L, -2, "mule_param");
-
-	lua_pushstring(L, UWSGI_VERSION);
-	lua_setfield(L, -2, "version");
-
-	// reserve ref 1 for mule_msg_hook func
-	lua_pushboolean(L, 0);
-	luaL_ref(L, LUA_REGISTRYINDEX);
-
-	// signal table ref 2
-	lua_newtable(L);
-	lua_pushvalue(L, -1);
-
-	luaL_ref(L, LUA_REGISTRYINDEX);
-	lua_setfield(L, -2, "signal_ref");
-
-	lua_pop(L, 1);
+	if (file != load) {
+		lua_getglobal(L, "uwsgi");
+		lua_pushstring(L,  file);
+		lua_setfield(L, -2, "mule_param");
+		lua_pop(L, 1);
+	}
 
 	if (luaL_loadfile(L, load) || lua_pcall(L, 0, 1, 0)) {
 		ulua_log("mule%d: unable to load Lua file %s: %s", uwsgi.muleid, load, lua_tostring(L, -1));
-
-		// init error close the state
-		lua_close(L);
-		ULUA_MULE_STATE = NULL;
 		return 0;
 	}
 
@@ -3596,9 +3602,7 @@ static int uwsgi_lua_mule(char *file) {
 		if (lua_pcall(L, ULUA_TYPE_ISUTABLE(type), 1, 0)) {
 			ulua_log("mule%d: error running loop function: %s", uwsgi.muleid, lua_tostring(L, -1));
 
-			// loop exeption close the state
-			lua_close(L);
-			ULUA_MULE_STATE = NULL;
+			// loop exeption
 			return 1; // respawn pls
 		}
 	}
@@ -3617,6 +3621,7 @@ struct uwsgi_plugin lua_plugin = {
 	.after_request = uwsgi_lua_after_request,
 
 	.init_apps = uwsgi_lua_init_apps,
+	.post_fork = uwsgi_lua_post_fork,
 
 	.mule = uwsgi_lua_mule,
 	.mule_msg = uwsgi_lua_mule_msg,
