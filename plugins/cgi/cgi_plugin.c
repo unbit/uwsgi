@@ -763,12 +763,11 @@ clear2:
 	}
 
 	// fill cgi env
-	for(i=0;i<wsgi_req->var_cnt;i++) {
+	for(i=0;i<wsgi_req->var_cnt;i+=2) {
 		// no need to free the putenv() memory
 		if (putenv(uwsgi_concat3n(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, "=", 1, wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len))) {
 			uwsgi_error("putenv()");
 		}
-		i++;
 	}
 
 

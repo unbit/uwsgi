@@ -233,9 +233,8 @@ static int uwsgi_gccgo_request(struct wsgi_request *wsgi_req) {
 
 	wsgi_req->async_environ = uwsgigo_env(wsgi_req);
 	int i;
-        for(i=0;i<wsgi_req->var_cnt;i++) {
+        for(i=0;i<wsgi_req->var_cnt;i+=2) {
                 uwsgigo_env_add(wsgi_req->async_environ, wsgi_req->hvec[i].iov_base,  wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len);
-                i++;
         }
 	uwsgigo_request(wsgi_req->async_environ, wsgi_req);
 end:
