@@ -1,4 +1,4 @@
-#!./uwsgi --http-socket :9090 --http-socket-modifier1 6 --http-raw-body --async 256 --ugreen --master --lua tests/websockets_chat_async.lua
+#!./uwsgi --http :9090 --http-modifier1 6 --http-raw-body --async 256 --ugreen --master --lua tests/websockets_chat_async.lua
 
 -- Same worker = Same luaState = Same chat room
 
@@ -78,7 +78,7 @@ local gogo_websockets = function(env)
     uwsgi.websocket_handshake(nil, nil, "chat");
 
     local handler = assert(uwsgi.websocket_handler(), "no handler");
-    local id = assert(handler:is_alive(), "handler is dead");
+    local id = assert(handler:async_id(), "handler is dead");
 
     subs[id] = handler; -- add to subs
 
