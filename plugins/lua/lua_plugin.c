@@ -499,17 +499,21 @@ static int uwsgi_lua_cache_magic_set_value(lua_State *L, uint16_t argc, uint8_t 
 			if (flag & UWSGI_CACHE_FLAG_MATH) {
 				valuenum = 1;
 			} else {
-				return 0; // skip
+				goto error; // skip
 			}
 		}
 
-		if (uwsgi_cache_magic_set(key, keylen, (char *) &valuenum, 8, expires, flag, cache)) return 0;
+		if (uwsgi_cache_magic_set(key, keylen, (char *) &valuenum, 8, expires, flag, cache)) goto error;
 	} else {
 		value = (char *) lua_tolstring(L, 2, &valuelen);
-		if (uwsgi_cache_magic_set(key, keylen, value, valuelen, expires, flag, cache)) return 0;
+		if (uwsgi_cache_magic_set(key, keylen, value, valuelen, expires, flag, cache)) goto error;
 	}
 
 	lua_pushboolean(L, 1);
+	return 1;
+
+error:
+	lua_pushnil(L);
 	return 1;
 }
 
@@ -727,10 +731,11 @@ static int uwsgi_api_cache_clear(lua_State *L) {
 
 	if (!uwsgi_cache_magic_clear(cache)) {
 		lua_pushboolean(L, 1);
-		return 1;
+	} else {
+		lua_pushnil(L);
 	}
 
-	return 0;
+	return 1;
 }
 
 static int uwsgi_api_cache_keys(lua_State *L) {
@@ -1685,12 +1690,31 @@ static int uwsgi_api_chunked_read_nb(lua_State *L) {
 	return 1;
 }
 
+static int uwsgi_lua_cache_magic_get_handler(void *L, char *value, uint64_t len, uint64_t exp) {
+
+	if (!len) {
+		return -1;
+	}
+
+	lua_pushlstring((lua_State *)L, value, len);
+
+	return 0;
+}
+
+static int uwsgi_lua_cache_magic_getnum_handler(void *L, char *value, uint64_t len, uint64_t exp) {
+
+	if (!len) {
+		return -1;
+	}
+
+	lua_pushnumber((lua_State *)L, *((int64_t *) value));
+
+	return 0;
+}
+
 static int uwsgi_lua_cache_magic_get(lua_State *L, uint8_t getnum) {
 
 	uint16_t argc = lua_gettop(L);
-
-	char *value;
-	uint64_t valsize;
 
 	char *key;
 	size_t keylen;
@@ -1720,21 +1744,15 @@ static int uwsgi_lua_cache_magic_get(lua_State *L, uint8_t getnum) {
 
 			key = (char *) lua_tolstring(L, -1, &keylen);
 
-			value = (keylen) ? uwsgi_cache_magic_get(key, keylen, &valsize, NULL, cache) : NULL;
-
-			if (value) {
-				if (getnum) {
-					lua_pushnumber(L, *((int64_t *) value));
-				} else {
-					lua_pushlstring(L, value, valsize);
-				}
-				free(value);
+			if (keylen && (
+				(getnum && !uwsgi_cache_magic_get_callback(key, keylen, cache, uwsgi_lua_cache_magic_getnum_handler, (void *) L)) || // getting number
+				!uwsgi_cache_magic_get_callback(key, keylen, cache, uwsgi_lua_cache_magic_get_handler, (void *) L)) // getting value
+			) {
 				lua_rawset(L, -3);
 			} else {
 				++error;
 				lua_pop(L, 1);
 			}
-
 		}
 
 		if (!error) {
@@ -1748,16 +1766,10 @@ static int uwsgi_lua_cache_magic_get(lua_State *L, uint8_t getnum) {
 
 	key = (char *) lua_tolstring(L, 1, &keylen);
 
-	value = (keylen) ? uwsgi_cache_magic_get(key, keylen, &valsize, NULL, cache) : NULL;
-
-	if (value) {
-		if (getnum) {
-			lua_pushnumber(L, *((int64_t *) value));
-		} else {
-			lua_pushlstring(L, value, valsize);
-		}
-		free(value);
-	} else {
+	if (!(keylen && (
+		(getnum && !uwsgi_cache_magic_get_callback(key, keylen, cache, uwsgi_lua_cache_magic_getnum_handler, (void *) L)) || // getting number
+		!uwsgi_cache_magic_get_callback(key, keylen, cache, uwsgi_lua_cache_magic_get_handler, (void *) L)) // getting value
+	)) {
 		lua_pushnil(L);
 	}
 
@@ -1774,9 +1786,6 @@ static int uwsgi_api_cache_getnum(lua_State *L) {
 }
 
 static int uwsgi_lua_cache_magic_get_multi(lua_State *L, uint8_t getnum) {
-
-	char *value ;
-	uint64_t valsize;
 
 	char *key;
 	size_t keylen;
@@ -1801,16 +1810,10 @@ static int uwsgi_lua_cache_magic_get_multi(lua_State *L, uint8_t getnum) {
 
 		key = (char *) lua_tolstring(L, i, &keylen);
 
-		value = (keylen) ? uwsgi_cache_magic_get(key, keylen, &valsize, NULL, cache) : NULL;
-
-		if (value) {
-			if (getnum) {
-				lua_pushnumber(L, *((int64_t *) value));
-			} else {
-				lua_pushlstring(L, value, valsize);
-			}
-			free(value);
-		} else {
+		if (!(keylen && (
+			(getnum && !uwsgi_cache_magic_get_callback(key, keylen, cache, uwsgi_lua_cache_magic_getnum_handler, (void *) L)) || // getting number
+			!uwsgi_cache_magic_get_callback(key, keylen, cache, uwsgi_lua_cache_magic_get_handler, (void *) L)) // getting value
+		)) {
 			lua_pushnil(L);
 		}
 	}
@@ -1827,9 +1830,6 @@ static int uwsgi_api_cache_getnum_multi(lua_State *L) {
 }
 
 static int uwsgi_lua_cache_magic_get_tmulti(lua_State *L, uint8_t getnum) {
-
-	char *value ;
-	uint64_t valsize;
 
 	char *key;
 	size_t keylen;
@@ -1852,17 +1852,18 @@ static int uwsgi_lua_cache_magic_get_tmulti(lua_State *L, uint8_t getnum) {
 
 		key = (char *) lua_tolstring(L, i, &keylen);
 
-		value = (keylen) ? uwsgi_cache_magic_get(key, keylen, &valsize, NULL, cache) : NULL;
+		if (!keylen) {
+			++error; continue; //skip
+		}
 
-		if (value) {
-			if (getnum) {
-				lua_pushnumber(L, *((int64_t *) value));
-			} else {
-				lua_pushlstring(L, value, valsize);
-			}
-			free(value);
-			lua_setfield(L, -2, key);
+		lua_pushvalue(L, i);
+
+		if ((getnum && !uwsgi_cache_magic_get_callback(key, keylen, cache, uwsgi_lua_cache_magic_getnum_handler, (void *) L)) || // getting number
+			!uwsgi_cache_magic_get_callback(key, keylen, cache, uwsgi_lua_cache_magic_get_handler, (void *) L) // getting value
+		) {
+			lua_rawset(L, -3);
 		} else {
+			lua_pop(L, 1);
 			++error;
 		}
 
