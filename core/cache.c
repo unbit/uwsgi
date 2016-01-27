@@ -1735,6 +1735,7 @@ char *uwsgi_cache_magic_get(char *key, uint16_t keylen, uint64_t *vallen, uint64
 		}
 
 		// now the magic, we dereference the internal buffer and return it to the caller
+		close(fd);
 		char *value = ub->buf;
 		ub->buf = NULL;
 		uwsgi_buffer_destroy(ub);
@@ -1811,6 +1812,8 @@ int uwsgi_cache_magic_exists(char *key, uint16_t keylen, char *cache) {
 			return 0;
                 }
 
+		close(fd);
+		uwsgi_buffer_destroy(ub);
 		return 1;
         }
 
@@ -1884,6 +1887,7 @@ int uwsgi_cache_magic_set(char *key, uint16_t keylen, char *value, uint64_t vall
                         return -1;
                 }
 
+		close(fd);
 		uwsgi_buffer_destroy(ub);
 		return 0;
 
@@ -1956,6 +1960,8 @@ int uwsgi_cache_magic_del(char *key, uint16_t keylen, char *cache) {
                         return -1;
                 }
 
+		close(fd);
+		uwsgi_buffer_destroy(ub);
                 return 0;
         }
 
@@ -2029,6 +2035,8 @@ int uwsgi_cache_magic_clear(char *cache) {
                         return -1;
                 }
 
+		close(fd);
+		uwsgi_buffer_destroy(ub);
                 return 0;
         }
 
