@@ -734,8 +734,8 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 			if (!uci->prev) {
 				// put value in hash_table
 				uc->hashtable[uci->hash % uc->hashsize] = i;
-				restored++;
 			}
+			restored++;
 		}
 		else {
 			// put this record in unused stack
