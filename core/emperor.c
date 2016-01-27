@@ -1948,6 +1948,7 @@ static void emperor_cleanup(int signum) {
 		free(uebi);
 		uebi = next;
 	}
+	emperor_blacklist = NULL;
 }
 
 void emperor_loop() {
