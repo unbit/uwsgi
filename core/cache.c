@@ -726,8 +726,8 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 			if (!uci->prev) {
 				// put value in hash_table
 				uc->hashtable[uci->hash % uc->hashsize] = i;
-				restored++;
 			}
+			restored++;
 		}
 		else {
 			// put this record in unused stack
@@ -1689,6 +1689,7 @@ static char *uwsgi_cache_magic_get_remote(char *cache_server, char *cache_name, 
 	}
 
 	// now the magic, we dereference the internal buffer and return it to the caller
+	close(fd);
 	char *value = ub->buf;
 	ub->buf = NULL;
 	uwsgi_buffer_destroy(ub);
@@ -1866,6 +1867,8 @@ int uwsgi_cache_magic_exists(char *key, uint16_t keylen, char *cache) {
 			return 0;
                 }
 
+		close(fd);
+		uwsgi_buffer_destroy(ub);
 		return 1;
         }
 
@@ -1939,6 +1942,7 @@ int uwsgi_cache_magic_set(char *key, uint16_t keylen, char *value, uint64_t vall
                         return -1;
                 }
 
+		close(fd);
 		uwsgi_buffer_destroy(ub);
 		return 0;
 
@@ -2011,6 +2015,8 @@ int uwsgi_cache_magic_del(char *key, uint16_t keylen, char *cache) {
                         return -1;
                 }
 
+				close(fd);
+				uwsgi_buffer_destroy(ub);
                 return 0;
         }
 
@@ -2084,6 +2090,8 @@ int uwsgi_cache_magic_clear(char *cache) {
                         return -1;
                 }
 
+				close(fd);
+				uwsgi_buffer_destroy(ub);
                 return 0;
         }
 
