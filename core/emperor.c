@@ -1941,12 +1941,14 @@ static void emperor_wakeup(int sn) {
 }
 
 static void emperor_cleanup(int signum) {
-	uwsgi_log_verbose("[uwsgi-emperor] cleaning up blacklist ...\n");
-	struct uwsgi_instance *ui_current = ui;
-	while (ui_current->ui_next) {
-		uwsgi_emperor_blacklist_remove(ui_current->name);
-		ui_current = ui_current->ui_next;
+	uwsgi_log_verbose("[emperor] cleaning up blacklist ...\n");
+	struct uwsgi_emperor_blacklist_item *uebi = emperor_blacklist;
+	while (uebi) {
+		struct uwsgi_emperor_blacklist_item *next = uebi->next;
+		free(uebi);
+		uebi = next;
 	}
+	emperor_blacklist = NULL;
 }
 
 void emperor_loop() {
