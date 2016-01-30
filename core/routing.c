@@ -808,6 +808,16 @@ static int uwsgi_router_donotlog(struct uwsgi_route *ur, char *arg) {
         return 0;
 }
 
+// do not offload !!!
+static int uwsgi_router_donotoffload_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	wsgi_req->socket->can_offload = 0;
+	return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_donotoffload(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_donotoffload_func;
+        return 0;
+}
+
 // logvar route
 static int uwsgi_router_logvar_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
@@ -1904,6 +1914,7 @@ void uwsgi_register_embedded_routers() {
 	uwsgi_register_router("break-with-status", uwsgi_router_return);
         uwsgi_register_router("log", uwsgi_router_log);
         uwsgi_register_router("donotlog", uwsgi_router_donotlog);
+        uwsgi_register_router("donotoffload", uwsgi_router_donotoffload);
         uwsgi_register_router("logvar", uwsgi_router_logvar);
         uwsgi_register_router("goto", uwsgi_router_goto);
         uwsgi_register_router("addvar", uwsgi_router_addvar);
