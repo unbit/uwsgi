@@ -226,6 +226,11 @@ extern "C" {
 
 
 #include <pwd.h>
+#ifdef __CYGWIN__
+#ifdef _POSIX_C_SOURCE
+#undef _POSIX_C_SOURCE
+#endif
+#endif
 #include <grp.h>
 
 
