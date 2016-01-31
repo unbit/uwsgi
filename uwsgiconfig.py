@@ -844,6 +844,7 @@ class uConf(object):
 
         if uwsgi_os.startswith('CYGWIN'):
             self.libs.remove('-rdynamic')
+            self.cflags.remove('-Werror')
 
         # compile extras
         extras = self.get('extras', None)
