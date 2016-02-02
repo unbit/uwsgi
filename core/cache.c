@@ -26,7 +26,7 @@ extern struct uwsgi_server uwsgi;
 
 static void cache_full(struct uwsgi_cache *uc) {
 	uint64_t i;
-	int force_clear = 0;
+	int force_clear;
 
 	if (!uc->ignore_full) {
         	if (uc->purge_lru)
@@ -42,25 +42,28 @@ static void cache_full(struct uwsgi_cache *uc) {
 
 	// we do not need locking here !
 	if (uc->sweep_on_full) {
+		force_clear = 0;
 		uint64_t removed = 0;
 		uint64_t now = (uint64_t) uwsgi_now();
 		if (uc->next_scan <= now) {
 			uc->next_scan = now + uc->sweep_on_full;
-                	for (i = 1; i < uc->max_items; i++) {
+			for (i = 1; i < uc->max_items; i++) {
 				struct uwsgi_cache_item *uci = cache_item(i);
 				if (uci->expires > 0 && uci->expires <= now) {
-                			if (!uwsgi_cache_del2(uc, NULL, 0, i, 0)) {
+					if (!uwsgi_cache_del2(uc, NULL, 0, i, 0)) {
 						removed++;
 					}
 				}
 			}
-			if (removed == 0) {
-				force_clear = 1;
-			}
-                }
+		}
+		if (removed == 0) {
+			force_clear = uc->clear_on_full;
+		}
+	} else {
+		force_clear = uc->clear_on_full;
 	}
 
-	if (uc->clear_on_full || force_clear) {
+	if (force_clear) {
                 for (i = 1; i < uc->max_items; i++) {
                 	uwsgi_cache_del2(uc, NULL, 0, i, 0);
                 }
@@ -344,6 +347,45 @@ next2:
 #endif
 }
 
+static void uwsgi_cache_sweep_on_init(struct uwsgi_cache *uc) {
+
+	if (!uc->sweep_on_init && (uc->no_expire || uc->purge_lru || uc->lazy_expire)) {
+		return;
+	}
+
+	uint64_t i;
+	uint64_t expired = 0;
+	uint64_t now = (uint64_t) uwsgi_now();
+
+	uwsgi_wlock(uc->lock);
+
+	if (!uc->next_scan || uc->next_scan > now) {
+		uwsgi_rwunlock(uc->lock);
+		return;
+	}
+
+	uc->next_scan = 0; // updating
+
+	for (i = 1; i < uc->max_items; ++i) {
+		struct uwsgi_cache_item *uci = cache_item(i);
+
+		if (uci->expires) {
+			if (uci->expires <= now) {
+				if (!uwsgi_cache_del2(uc, NULL, 0, i, 0)) {
+					++expired;
+				}
+			} else if (!uc->next_scan || uc->next_scan > uci->expires) {
+				uc->next_scan = uci->expires;
+			}
+		}
+	}
+
+	uwsgi_rwunlock(uc->lock);
+
+	if (expired) {
+		uwsgi_log("[cache-%s] items expired after init: %llu\n", uc->name ? uc->name : "default", expired);
+	}
+}
 
 
 void uwsgi_cache_init(struct uwsgi_cache *uc) {
@@ -456,6 +498,8 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 	uwsgi_socket_nb(uc->udp_node_socket);
 
 	uwsgi_cache_sync_from_nodes(uc);
+
+	uwsgi_cache_sweep_on_init(uc);
 
 	uwsgi_cache_load_files(uc);
 
@@ -723,6 +767,7 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 
 	uint64_t i;
 	unsigned long long restored = 0;
+	uint64_t next_scan = 0;
 
 	// reset unused blocks
 	uc->unused_blocks_stack_ptr = 0;
@@ -735,6 +780,9 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 				// put value in hash_table
 				uc->hashtable[uci->hash % uc->hashsize] = i;
 			}
+			if (uci->expires && (!next_scan || next_scan > uci->expires)) {
+				next_scan = uci->expires;
+			}
 			restored++;
 		}
 		else {
@@ -744,6 +792,7 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 		}
 	}
 
+	uc->next_scan = next_scan;
 	uc->n_items = restored;
 	uwsgi_log("[uwsgi-cache] restored %llu items\n", uc->n_items);
 }
@@ -1277,6 +1326,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		char *c_ignore_full = NULL;
 		char *c_purge_lru = NULL;
 		char *c_lazy_expire = NULL;
+		char *c_sweep_on_init = NULL;
 		char *c_sweep_on_full = NULL;
 		char *c_clear_on_full = NULL;
 		char *c_no_expire = NULL;
@@ -1315,6 +1365,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 			"lazy_expire", &c_lazy_expire,
 			"lazy", &c_lazy_expire,
 			"sweep_on_full", &c_sweep_on_full,
+			"sweep_on_init", &c_sweep_on_init,
 			"clear_on_full", &c_clear_on_full,
 			"no_expire", &c_no_expire,
                 	NULL)) {
@@ -1374,6 +1425,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		if (c_sweep_on_full) {
 			uc->sweep_on_full = uwsgi_n64(c_sweep_on_full);
 		}
+		if (c_sweep_on_init) uc->sweep_on_init = 1;
 		if (c_clear_on_full) uc->clear_on_full = 1;
 		if (c_no_expire) uc->no_expire = 1;
 
