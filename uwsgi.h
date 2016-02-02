@@ -233,6 +233,10 @@ extern "C" {
 #endif
 #include <grp.h>
 
+#ifdef __CYGWIN__
+int initgroups(const char *, gid_t);
+#endif
+
 
 #include <sys/utsname.h>
 
