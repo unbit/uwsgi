@@ -53,6 +53,11 @@ except KeyError:
     pass
 
 try:
+    JVM_INCPATH = [os.environ['UWSGICONFIG_JVM_INCLUDES']]
+except KeyError:
+    pass
+
+try:
     JVM_LIBPATH = ['-L' + os.environ['UWSGICONFIG_JVM_LIBPATH']]
 except KeyError:
     pass
