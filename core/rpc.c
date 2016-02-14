@@ -133,10 +133,15 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 	}
 
 	// prepare a uwsgi array
-	uint16_t buffer_size = 2 + strlen(func);
+	size_t buffer_size = 2 + strlen(func);
 
 	for (i = 0; i < argc; i++) {
 		buffer_size += 2 + argvs[i];
+	}
+
+	if (buffer_size > 0xffff) {
+		uwsgi_log("RPC packet length overflow!!! Must be less than or equal to 65535, have %llu\n", buffer_size);
+		return NULL;
 	}
 
 	// allocate the whole buffer
@@ -145,7 +150,7 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 	// set the uwsgi header
 	uh = (struct uwsgi_header *) buffer;
 	uh->modifier1 = 173;
-	uh->_pktsize = buffer_size;
+	uh->_pktsize = (uint16_t) buffer_size;
 	uh->modifier2 = 0;
 
 	// add func to the array
