@@ -76,7 +76,7 @@ if 'UWSGI_PYTHON_NOLIB' not in os.environ:
             libdir = "%s/lib" % sysconfig.PREFIX
 
         LDFLAGS.append("-L%s" % libdir)
-        LDFLAGS.append("-Wl,-rpath=%s" % libdir)
+        LDFLAGS.append("-Wl,-rpath,%s" % libdir)
 
         os.environ['LD_RUN_PATH'] = "%s" % libdir
 
