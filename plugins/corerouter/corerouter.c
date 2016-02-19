@@ -643,7 +643,7 @@ struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr
 	memcpy(&cs->client_sockaddr, cr_addr, cr_addr_len);
 	switch(cr_addr->sa_family) {
 		case AF_INET:
-			if (inet_ntop(AF_INET, &cs->client_sockaddr.sa_in.sin_addr, cs->client_address, cr_addr_len) == NULL) {
+			if (inet_ntop(AF_INET, &cs->client_sockaddr.sa_in.sin_addr, cs->client_address, sizeof(cs->client_address)) == NULL) {
 				uwsgi_error("corerouter_alloc_session/inet_ntop()");
 				memcpy(cs->client_address, "0.0.0.0", 7);
 				cs->client_port[0] = '0';
@@ -653,7 +653,7 @@ struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr
 			break;
 #ifdef AF_INET6
 		case AF_INET6:
-			if (inet_ntop(AF_INET6, &cs->client_sockaddr.sa_in6.sin6_addr, cs->client_address, cr_addr_len) == NULL) {
+			if (inet_ntop(AF_INET6, &cs->client_sockaddr.sa_in6.sin6_addr, cs->client_address, sizeof(cs->client_address)) == NULL) {
 				uwsgi_error("corerouter_alloc_session/inet_ntop()");
 				memcpy(cs->client_address, "0.0.0.0", 7);
 				cs->client_port[0] = '0';

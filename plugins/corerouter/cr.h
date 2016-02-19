@@ -330,7 +330,7 @@ struct corerouter_session {
 #ifdef AF_INET6
 	char client_address[INET6_ADDRSTRLEN];
 #else
-	char client_address[INET_ADDRLEN];
+	char client_address[INET_ADDRSTRLEN];
 #endif
 
 	// use 11 bytes to be snprintf friendly
