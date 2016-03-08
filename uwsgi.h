@@ -2834,6 +2834,8 @@ struct uwsgi_server {
 	struct uwsgi_string_list *emperor_wait_for_command_ignore;
 	int subscription_vassal_required;
 	int subscription_clear_on_shutdown;
+
+	int subscription_tolerance_inactive;
 };
 
 struct uwsgi_rpc {

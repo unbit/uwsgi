@@ -164,15 +164,18 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 	current_slot->hits++;
 	time_t now = uwsgi_now();
 	struct uwsgi_subscribe_node *node = current_slot->nodes;
+	int subscription_age;
+
 	while (node) {
+		subscription_age = now - node->last_check;
 		// is the node alive ?
-		if (now - node->last_check > uwsgi.subscription_tolerance) {
+		if ((node->len == 0 && (subscription_age > uwsgi.subscription_tolerance_inactive)) || (node->len > 0 && (subscription_age > uwsgi.subscription_tolerance))) {
 			if (node->death_mark == 0) {
 				if (node->len > 0) {
 					uwsgi_log("[uwsgi-subscription for pid %d] %.*s => marking %.*s as failed (no announce received in %d seconds)\n", (int) uwsgi.mypid, (int) keylen, key, (int) node->len, node->name, uwsgi.subscription_tolerance);
 				}
 				else if (node->vassal_len > 0) {
-					uwsgi_log("[uwsgi-subscription for pid %d] %.*s => marking vassal %.*s as failed (no announce received in %d seconds)\n", (int) uwsgi.mypid, (int) keylen, key, (int) node->vassal_len, node->vassal, uwsgi.subscription_tolerance);
+					uwsgi_log("[uwsgi-subscription for pid %d] %.*s => marking vassal %.*s as failed (no announce received in %d seconds)\n", (int) uwsgi.mypid, (int) keylen, key, (int) node->vassal_len, node->vassal, uwsgi.subscription_tolerance_inactive);
 				}
 			}
 			node->failcnt++;
