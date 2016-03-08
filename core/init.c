@@ -90,6 +90,7 @@ void uwsgi_init_default() {
 
 	uwsgi.subscribe_freq = 10;
 	uwsgi.subscription_tolerance = 17;
+	uwsgi.subscription_tolerance_inactive = 17;
 
 	uwsgi.cores = 1;
 	uwsgi.threads = 1;
