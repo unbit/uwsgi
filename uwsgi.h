@@ -875,6 +875,11 @@ struct uwsgi_opt {
 
 #ifdef __linux__
 #include <endian.h>
+#if defined(__BYTE_ORDER__)
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define __BIG_ENDIAN__ 1
+#endif
+#endif
 #elif defined(__sun__)
 #include <sys/byteorder.h>
 #ifdef _BIG_ENDIAN
