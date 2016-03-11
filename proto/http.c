@@ -207,8 +207,8 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	char *ptr = wsgi_req->proto_parser_buf;
 	char *base = ptr;
 	char *query_string = NULL;
-	char ip[INET_ADDRSTRLEN+1];
-	struct sockaddr_in *http_sin = (struct sockaddr_in *) &wsgi_req->c_addr;
+	char ip[INET6_ADDRSTRLEN+1];
+	struct sockaddr *http_sa = (struct sockaddr *) &wsgi_req->c_addr;
 	char *proxy_src = NULL;
 	char *proxy_dst = NULL;
 	char *proxy_src_port = NULL;
@@ -328,14 +328,35 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 		}
 	}
 	else {
-		// TODO add ipv6 support
-		memset(ip, 0, INET_ADDRSTRLEN+1);
-		if (inet_ntop(AF_INET, (void *) &http_sin->sin_addr.s_addr, ip, INET_ADDRSTRLEN)) {
-			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
-		}
-		else {
-			uwsgi_error("inet_ntop()");
-			return -1;
+		// TODO log something useful for AF_UNIX sockets
+		switch (http_sa->sa_family) {
+			case AF_INET6:
+				{
+					memset(ip, 0, INET6_ADDRSTRLEN+1);
+					struct sockaddr_in6* http_sin = (struct sockaddr_in6*)http_sa;
+					if (inet_ntop(AF_INET6, (void *) &http_sin->sin6_addr, ip, INET6_ADDRSTRLEN)) {
+						wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+					}
+					else {
+						uwsgi_error("inet_ntop()");
+						return -1;
+					}
+				}
+				break;
+			case AF_INET:
+			default:
+				{
+					struct sockaddr_in* http_sin = (struct sockaddr_in*)http_sa;
+					memset(ip, 0, INET_ADDRSTRLEN+1);
+					if (inet_ntop(AF_INET, (void *) &http_sin->sin_addr, ip, INET_ADDRSTRLEN)) {
+						wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+					}
+					else {
+						uwsgi_error("inet_ntop()");
+						return -1;
+					}
+				 }
+				break;
 		}
 	}
 

@@ -1375,8 +1375,11 @@ struct wsgi_request {
 	char *appid;
 	uint16_t appid_len;
 
-	//this is big enough to contain sockaddr_in
-	struct sockaddr_un c_addr;
+	union address {
+		struct sockaddr_in sin;
+		struct sockaddr_in6 sin6;
+		struct sockaddr_un sun;
+	} c_addr;
 	int c_len;
 
 	//iovec
