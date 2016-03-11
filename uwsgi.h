@@ -1362,7 +1362,8 @@ struct wsgi_request {
 	char *appid;
 	uint16_t appid_len;
 
-	//this is big enough to contain sockaddr_in
+	// This structure should not be used any more
+	// in favor of the union client_addr at the end
 	struct sockaddr_un c_addr;
 	int c_len;
 
@@ -1617,6 +1618,15 @@ struct wsgi_request {
 
 	char * if_range;
 	uint16_t if_range_len;
+
+	// client address in a type-safe fashion; always use this over
+	// c_addr (which only exists to maintain binary compatibility in this
+	// struct)
+	union address {
+		struct sockaddr_in sin;
+		struct sockaddr_in6 sin6;
+		struct sockaddr_un sun;
+	} client_addr;
 };
 
 

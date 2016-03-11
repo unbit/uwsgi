@@ -175,8 +175,8 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	char *ptr = wsgi_req->proto_parser_buf;
 	char *base = ptr;
 	char *query_string = NULL;
-	char ip[INET_ADDRSTRLEN+1];
-	struct sockaddr_in *http_sin = (struct sockaddr_in *) &wsgi_req->c_addr;
+	char ip[INET6_ADDRSTRLEN+1];
+	struct sockaddr *http_sa = (struct sockaddr *) &wsgi_req->client_addr;
 	char *proxy_src = NULL;
 	char *proxy_dst = NULL;
 	char *proxy_src_port = NULL;
@@ -293,14 +293,63 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 		}
 	}
 	else {
-		// TODO add ipv6 support
-		memset(ip, 0, INET_ADDRSTRLEN+1);
-		if (inet_ntop(AF_INET, (void *) &http_sin->sin_addr.s_addr, ip, INET_ADDRSTRLEN)) {
-			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
-		}
-		else {
-			uwsgi_error("inet_ntop()");
-			return -1;
+		// TODO log something useful for AF_UNIX sockets
+		switch (http_sa->sa_family) {
+			case AF_INET6:
+				{
+					memset(ip, 0, sizeof(ip));
+					struct sockaddr_in6* http_sin = &wsgi_req->client_addr.sin6;
+					/* check if it's an IPv6-mapped-IPv4 address and, if so,
+					 * represent it as an IPv4 address
+					 *
+					 * Note: This macro isn't in any version of the POSIX
+					 * spec that I've found, but it's implemented on BSD,
+					 * Linux, and OS X.
+					 */
+					if (IN6_IS_ADDR_V4MAPPED(&http_sin->sin6_addr)) {
+						/* just grab the last 4 bytes and pretend they're
+						 * IPv4. Linux has a convenience wrapped to get the
+						 * componenets word-wise, but OS X/BSD do not.
+						 */
+						union {
+							unsigned char s6[4];
+							uint32_t s4;
+						} addr_parts;
+						addr_parts.s6[0] = http_sin->sin6_addr.s6_addr[12];
+						addr_parts.s6[1] = http_sin->sin6_addr.s6_addr[13];
+						addr_parts.s6[2] = http_sin->sin6_addr.s6_addr[14];
+						addr_parts.s6[3] = http_sin->sin6_addr.s6_addr[15];
+						uint32_t in4_addr = addr_parts.s4;
+						if (inet_ntop(AF_INET, (void*)&in4_addr, ip, INET_ADDRSTRLEN)) {
+							wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+						} else {
+							uwsgi_error("inet_ntop()");
+							return -1;
+						}
+					} else {
+						if (inet_ntop(AF_INET6, (void *) &http_sin->sin6_addr, ip, INET6_ADDRSTRLEN)) {
+							wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+						} else {
+							uwsgi_error("inet_ntop()");
+							return -1;
+						}
+					}
+				}
+				break;
+			case AF_INET:
+			default:
+				{
+					struct sockaddr_in* http_sin = &wsgi_req->client_addr.sin;
+					memset(ip, 0, sizeof(ip));
+					if (inet_ntop(AF_INET, (void *) &http_sin->sin_addr, ip, INET_ADDRSTRLEN)) {
+						wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+					}
+					else {
+						uwsgi_error("inet_ntop()");
+						return -1;
+					}
+				 }
+				break;
 		}
 	}
 
