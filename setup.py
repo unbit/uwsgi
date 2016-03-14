@@ -107,4 +107,8 @@ setup(
     license='GPL2',
     py_modules=['uwsgidecorators'],
     distclass=uWSGIDistribution,
+    classifiers=[
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3'
+    ]
 )
