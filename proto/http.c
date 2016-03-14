@@ -334,12 +334,32 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 				{
 					memset(ip, 0, INET6_ADDRSTRLEN+1);
 					struct sockaddr_in6* http_sin = (struct sockaddr_in6*)http_sa;
-					if (inet_ntop(AF_INET6, (void *) &http_sin->sin6_addr, ip, INET6_ADDRSTRLEN)) {
-						wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
-					}
-					else {
-						uwsgi_error("inet_ntop()");
-						return -1;
+					/* check if it's an IPv6-mapped-IPv4 address and, if so,
+					 * represent it as an IPv4 address
+					 *
+					 * Note: This macro isn't in any version of the POSIX
+					 * spec that I've found, but it's implemented on BSD,
+					 * Linux, and OS X.
+					 */
+					if (IN6_IS_ADDR_V4MAPPED(&http_sin->sin6_addr)) {
+						/* just grab the last 4 bytes and pretend they're
+						 * IPv4. Linux has a convenience wrapped to get the
+						 * componenets word-wise, but OS X/BSD do not.
+						 */
+						uint32_t in4_addr = ((uint32_t*)http_sin->sin6_addr.s6_addr)[3];
+						if (inet_ntop(AF_INET, (void*)&in4_addr, ip, INET_ADDRSTRLEN)) {
+							wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+						} else {
+							uwsgi_error("inet_ntop()");
+							return -1;
+						}
+					} else {
+						if (inet_ntop(AF_INET6, (void *) &http_sin->sin6_addr, ip, INET6_ADDRSTRLEN)) {
+							wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+						} else {
+							uwsgi_error("inet_ntop()");
+							return -1;
+						}
 					}
 				}
 				break;
