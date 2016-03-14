@@ -337,14 +337,12 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 					/* check if it's an IPv6-mapped-IPv4 address and, if so,
 					 * represent it as an IPv4 address
 					 *
-					 * Note: This macro isn't in any version of the POSIX
-					 * spec that I've found, but it's implemented on BSD,
-					 * Linux, and OS X.
+					 * these IPv6 macros are defined in POSIX.1-2001.
 					 */
 					if (IN6_IS_ADDR_V4MAPPED(&http_sin->sin6_addr)) {
 						/* just grab the last 4 bytes and pretend they're
-						 * IPv4. Linux has a convenience wrapped to get the
-						 * componenets word-wise, but OS X/BSD do not.
+						 * IPv4. None of the word/half-word convenience
+						 * functions are in POSIX, so just stick to .s6_addr
 						 */
 						uint32_t in4_addr = ((uint32_t*)http_sin->sin6_addr.s6_addr)[3];
 						if (inet_ntop(AF_INET, (void*)&in4_addr, ip, INET_ADDRSTRLEN)) {
