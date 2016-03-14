@@ -332,7 +332,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 		switch (http_sa->sa_family) {
 			case AF_INET6:
 				{
-					memset(ip, 0, INET6_ADDRSTRLEN+1);
+					memset(ip, 0, sizeof(ip));
 					struct sockaddr_in6* http_sin = (struct sockaddr_in6*)http_sa;
 					/* check if it's an IPv6-mapped-IPv4 address and, if so,
 					 * represent it as an IPv4 address
@@ -367,7 +367,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 			default:
 				{
 					struct sockaddr_in* http_sin = (struct sockaddr_in*)http_sa;
-					memset(ip, 0, INET_ADDRSTRLEN+1);
+					memset(ip, 0, sizeof(ip));
 					if (inet_ntop(AF_INET, (void *) &http_sin->sin_addr, ip, INET_ADDRSTRLEN)) {
 						wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
 					}
