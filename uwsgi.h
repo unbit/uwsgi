@@ -820,6 +820,7 @@ struct uwsgi_cache {
 	void *data;
 
 	uint8_t no_expire;
+	uint8_t sweep_on_init;
 	uint64_t full;
 	uint64_t hits;
 	uint64_t miss;
@@ -4674,6 +4675,7 @@ struct uwsgi_cache_magic_context {
 };
 
 char *uwsgi_cache_magic_get(char *, uint16_t, uint64_t *, uint64_t *, char *);
+int uwsgi_cache_magic_get_callback(char *, uint16_t, char *, int(void *, char *, uint64_t, uint64_t), void *);
 int uwsgi_cache_magic_set(char *, uint16_t, char *, uint64_t, uint64_t, uint64_t, char *);
 int uwsgi_cache_magic_del(char *, uint16_t, char *);
 int uwsgi_cache_magic_exists(char *, uint16_t, char *);
