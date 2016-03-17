@@ -95,9 +95,19 @@ retry:
 #define PTHREAD_MUTEX_ROBUST PTHREAD_MUTEX_ROBUST_NP
 #endif
 	if (uwsgi_pthread_robust_mutexes_enabled) {
-		if (pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT)) {
-			uwsgi_log("unable to set PTHREAD_PRIO_INHERIT\n");
-			exit(1);
+		int ret;
+		if ((ret = pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT)) != 0) {
+			switch (ret) {
+			case ENOTSUP:
+				// PTHREAD_PRIO_INHERIT will only prevent
+				// priority inversion when SCHED_FIFO or
+				// SCHED_RR is used, so this is non-fatal and
+				// also currently unsupported on musl.
+				break;
+			default:
+				uwsgi_log("unable to set PTHREAD_PRIO_INHERIT\n");
+				exit(1);
+			}
 		}
 		if (pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) {
 			uwsgi_log("unable to make the mutex 'robust'\n");
