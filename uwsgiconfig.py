@@ -158,6 +158,15 @@ def spcall2(cmd):
     else:
         return None
 
+
+def test_snippet(snippet):
+    """Compile a C snippet to see if features are available at build / link time."""
+    cmd = "{} -xc - -o /dev/null".format(GCC)
+    p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    p.communicate(snippet)
+    return p.returncode == 0
+
+
 def spcall3(cmd):
     p = subprocess.Popen(cmd, shell=True, stdin=open('/dev/null'), stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
