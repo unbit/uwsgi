@@ -84,6 +84,7 @@ report = {
     'debug': False,
     'plugin_dir': False,
     'zlib': False,
+    'ucontext': False,
 }
 
 verbose_build = False
@@ -175,6 +176,25 @@ def test_snippet(snippet):
     p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
     p.communicate(snippet)
     return p.returncode == 0
+
+
+def has_usable_ucontext():
+    if uwsgi_os in ('OpenBSD', 'Haiku'):
+        return False
+    if uwsgi_os.startswith('CYGWIN'):
+        return False
+    if uwsgi_os == 'Darwin' and uwsgi_os_k.startswith('8'):
+        return False
+    if uwsgi_cpu[0:3] == 'arm':
+        return False
+    # check for ucontext.h functions definitions, musl has only declarations
+    return test_snippet("""#include <ucontext.h>
+int main()
+{
+	ucontext_t uc;
+	getcontext(&uc);
+	return 0;
+}""")
 
 
 def spcall3(cmd):
@@ -278,7 +298,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
             if not p or p == 'None':
                 continue
             if p == 'ugreen':
-                if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku' or uwsgi_os.startswith('CYGWIN') or (uwsgi_os == 'Darwin' and uwsgi_os_k.startswith('8')):
+                if not report['ucontext']:
                     continue
             epc += "UDEP(%s);" % p
             eplc += "ULEP(%s);" % p
@@ -412,7 +432,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                     continue
 
                 if p == 'ugreen':
-                    if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku' or uwsgi_os.startswith('CYGWIN') or (uwsgi_os == 'Darwin' and uwsgi_os_k.startswith('8')):
+                    if not report['ucontext']:
                         continue
 
                 path = path.rstrip('/')
@@ -858,6 +878,9 @@ class uConf(object):
         if extras:
             for extra in extras.split(','):
                 self.gcc_list.append(extra)
+
+        # check for usable ucontext
+        report['ucontext'] = has_usable_ucontext()
 
         # set locking subsystem
         locking_mode = self.get('locking', 'auto')
