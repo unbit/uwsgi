@@ -23,7 +23,8 @@ void uwsgi_opt_add_spooler(char *opt, char *directory, void *mode) {
 	int i;
 	struct uwsgi_spooler *us;
 
-	if (access(directory, R_OK | W_OK | X_OK)) {
+	if (access(directory, R_OK | W_OK | X_OK) &&
+	    mkdir(directory, S_IRWXU | S_IXGRP | S_IRGRP)) {
 		uwsgi_error("[spooler directory] access()");
 		exit(1);
 	}
