@@ -27,6 +27,9 @@ try:
 except:
     import configparser as ConfigParser
 
+
+PY3 = sys.version_info[0] == 3
+
 GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
 if not GCC:
     GCC = 'gcc'
@@ -162,6 +165,11 @@ def spcall2(cmd):
 
 def test_snippet(snippet):
     """Compile a C snippet to see if features are available at build / link time."""
+    if not isinstance(snippet, bytes):
+        if PY3:
+            snippet = bytes(snippet, sys.getdefaultencoding())
+        else:
+            snippet = bytes(snippet)
     cmd = "{} -xc - -o /dev/null".format(GCC)
     p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
     p.communicate(snippet)
