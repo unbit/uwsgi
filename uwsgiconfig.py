@@ -174,6 +174,11 @@ def test_snippet(snippet):
     """Compile a C snippet to see if features are available at build / link time."""
     cmd = "{} -xc - -o /dev/null".format(GCC)
     p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    if not isinstance(snippet, bytes):
+        if sys.version_info[0] >= 3:
+            snippet = bytes(snippet, sys.getdefaultencoding())
+        else:
+            snippet = bytes(snippet)
     p.communicate(snippet)
     return p.returncode == 0
 
