@@ -1424,7 +1424,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
         pass
 
     if uc:
-        plugin_dest = uc.get('plugin_dir') + '/' + name + '_plugin'
+        plugin_dest = uc.get('plugin_build_dir', uc.get('plugin_dir')) + '/' + name + '_plugin'
     else:
         plugin_dest = name + '_plugin'
 
