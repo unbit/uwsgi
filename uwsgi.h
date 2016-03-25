@@ -809,6 +809,7 @@ struct uwsgi_cache {
 	void *data;
 
 	uint8_t no_expire;
+	uint8_t sweep_on_init;
 	uint64_t full;
 	uint64_t hits;
 	uint64_t miss;
