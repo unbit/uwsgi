@@ -657,7 +657,6 @@ class uConf(object):
         self.cflags = [
             '-O2',
             '-I.',
-            '-Wall',
             '-Werror',
             '-D_LARGEFILE_SOURCE',
             '-D_FILE_OFFSET_BITS=64'
@@ -878,7 +877,7 @@ class uConf(object):
             if GCC in ('clang',):
                 self.libs.remove('-rdynamic')
 
-        if uwsgi_os.startswith('CYGWIN'):
+        if uwsgi_os.startswith('CYGWIN') or "alpine" in uwsgi_os.lower():
             self.libs.remove('-rdynamic')
 
         # compile extras
