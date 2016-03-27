@@ -8,6 +8,12 @@ from setuptools.command.install import install
 from setuptools.command.install_lib import install_lib
 from setuptools.command.build_ext import build_ext
 
+try:
+    from wheel.bdist_wheel import bdist_wheel
+    HAS_WHEEL = True
+except ImportError:
+    HAS_WHEEL = False
+
 """
 This is a hack allowing you installing
 uWSGI and uwsgidecorators via pip and easy_install
@@ -86,6 +92,13 @@ class uWSGIInstallLib(install_lib):
         install_lib.run(self)
 
 
+if HAS_WHEEL:
+    class uWSGIWheel(bdist_wheel):
+        def finalize_options(self):
+            bdist_wheel.finalize_options(self)
+            self.root_is_pure = False
+
+
 class uWSGIDistribution(Distribution):
 
     def __init__(self, *attrs):
@@ -93,6 +106,8 @@ class uWSGIDistribution(Distribution):
         self.cmdclass['install'] = uWSGIInstall
         self.cmdclass['install_lib'] = uWSGIInstallLib
         self.cmdclass['build_ext'] = uWSGIBuilder
+        if HAS_WHEEL:
+            self.cmdclass['bdist_wheel'] = uWSGIWheel
 
     def is_pure(self):
         return False
