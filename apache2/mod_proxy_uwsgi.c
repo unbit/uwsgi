@@ -326,27 +326,36 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 
 	backend->worker->s->read += len;
 
-	if (!(apr_date_checkmask(buffer, "HTTP/#.# ###*") ||
-	    apr_date_checkmask(buffer, "HTTP/# ###*")) ||
-	    len >= sizeof(buffer)-1) {
+	if (len >= sizeof(buffer)-1) {
 		// oops
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
+	/* Position of http status code */
+	int status_start;
+	if (apr_date_checkmask(buffer, "HTTP/#.# ###*")) {
+		status_start = 9;
+	} else if (apr_date_checkmask(buffer, "HTTP/# ###*")) {
+		status_start = 7;
+	} else {
+		// oops
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
+	int status_end = status_start + 3;
 
-	char keepchar = buffer[12];
-	buffer[12] = '\0';
-	r->status = atoi(&buffer[9]);
+	char keepchar = buffer[status_end];
+	buffer[status_end] = '\0';
+	r->status = atoi(&buffer[status_start]);
 
 	if (keepchar != '\0') {
-		buffer[12] = keepchar;
+		buffer[status_end] = keepchar;
 	} else {
 		/* 2616 requires the space in Status-Line; the origin
 		* server may have sent one but ap_rgetline_core will
 		* have stripped it. */
-		buffer[12] = ' ';
-		buffer[13] = '\0';
+		buffer[status_end] = ' ';
+		buffer[status_end+1] = '\0';
 	}
-	r->status_line = apr_pstrdup(r->pool, &buffer[9]);
+	r->status_line = apr_pstrdup(r->pool, &buffer[status_start]);
 
 	// start parsing headers;
 	while ((len = ap_getline(buffer, sizeof(buffer), rp, 1)) > 0) {
