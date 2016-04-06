@@ -344,7 +344,15 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 						 * IPv4. None of the word/half-word convenience
 						 * functions are in POSIX, so just stick to .s6_addr
 						 */
-						uint32_t in4_addr = ((uint32_t*)http_sin->sin6_addr.s6_addr)[3];
+						union {
+							unsigned char s6[4];
+							uint32_t s4;
+						} addr_parts;
+						addr_parts.s6[0] = http_sin->sin6_addr.s6_addr[12];
+						addr_parts.s6[1] = http_sin->sin6_addr.s6_addr[13];
+						addr_parts.s6[2] = http_sin->sin6_addr.s6_addr[14];
+						addr_parts.s6[3] = http_sin->sin6_addr.s6_addr[15];
+						uint32_t in4_addr = addr_parts.s4;
 						if (inet_ntop(AF_INET, (void*)&in4_addr, ip, INET_ADDRSTRLEN)) {
 							wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
 						} else {
