@@ -56,8 +56,7 @@ static struct uwsgi_option uwsgi_rados_options[] = {
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
-static int uwsgi_rados_read_sync(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, const char *key, size_t remains) {
-	uint64_t off = 0;
+static int uwsgi_rados_read_sync(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, const char *key, uint64_t off, uint64_t remains) {
 	while(remains > 0) {
 		char buf[8192];
 		int rlen = rados_read(ctx, key, buf, UMIN(remains, 8192), off);
@@ -253,8 +252,7 @@ end:
 	return ret;
 }
 
-static int uwsgi_rados_read_async(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, const char *key, size_t remains, int timeout) {
-	uint64_t off = 0;
+static int uwsgi_rados_read_async(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, const char *key, uint64_t off, uint64_t remains, int timeout) {
 	int ret = -1;
 	char buf[8192];
 
@@ -726,7 +724,27 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 		goto end;
 	}
 
-	if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto end;
+	uint64_t offset = 0;
+	uint64_t remains = stat_size;
+	uwsgi_request_fix_range_for_size(wsgi_req, remains);
+	switch (wsgi_req->range_parsed) {
+		case UWSGI_RANGE_INVALID:
+			if (uwsgi_response_prepare_headers(wsgi_req,
+						"416 Requested Range Not Satisfiable", 35))
+				goto end;
+			if (uwsgi_response_add_content_range(wsgi_req, -1, -1, stat_size))
+				goto end;
+			return 0;
+		case UWSGI_RANGE_VALID:
+			offset = wsgi_req->range_from;
+			remains = wsgi_req->range_to - wsgi_req->range_from + 1;
+			if (uwsgi_response_prepare_headers(wsgi_req, "206 Partial Content", 19))
+				goto end;
+			break;
+		default: /* UWSGI_RANGE_NOT_PARSED */
+			if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) return -1;
+	}
+
 	size_t mime_type_len = 0;
 	char *mime_type = uwsgi_get_mime_type(wsgi_req->path_info, wsgi_req->path_info_len, &mime_type_len);
 	if (mime_type) {
@@ -734,16 +752,21 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	}
 
 	if (uwsgi_response_add_last_modified(wsgi_req, (uint64_t) stat_mtime)) goto end;
-	if (uwsgi_response_add_content_length(wsgi_req, stat_size)) goto end;
+        // set Content-Length to actual result size
+	if (uwsgi_response_add_content_length(wsgi_req, remains)) goto end;
+        if (wsgi_req->range_parsed == UWSGI_RANGE_VALID) {
+                // here use the original size !!!
+                if (uwsgi_response_add_content_range(wsgi_req, wsgi_req->range_from, wsgi_req->range_to, stat_size))
+                        goto end;
+        }
 
 	// skip body on HEAD
 	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
-		size_t remains = stat_size;
 		if (uwsgi.async > 0) {
-			if (uwsgi_rados_read_async(wsgi_req, ctx, filename, remains, timeout)) goto end;
+			if (uwsgi_rados_read_async(wsgi_req, ctx, filename, offset, remains, timeout)) goto end;
 		}
 		else {
-			if (uwsgi_rados_read_sync(wsgi_req, ctx, filename, remains)) goto end;
+			if (uwsgi_rados_read_sync(wsgi_req, ctx, filename, offset, remains)) goto end;
 		}
 	}
 
