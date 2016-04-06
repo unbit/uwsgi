@@ -50,6 +50,8 @@ struct uwsgi_rados_mountpoint {
 	char *username;
 	char *str_buffer_size;
 	size_t buffer_size;
+	char *str_put_buffer_size;
+	size_t put_buffer_size;
 };
 
 #define MIN_BUF_SIZE (8*1024)
@@ -149,13 +151,13 @@ end:
       	return ret;
 }
 
-static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, char *key, int timeout) {
+static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, char *key, size_t buffer_size, int timeout) {
 	struct uwsgi_rados_io *urio = &urados.urio[wsgi_req->async_id];
 	size_t remains = wsgi_req->post_cl;
 	uint64_t off = 0;
         while(remains > 0) {
                 ssize_t body_len = 0;
-                char *body =  uwsgi_request_body_read(wsgi_req, UMIN(remains, 32768) , &body_len);
+                char *body =  uwsgi_request_body_read(wsgi_req, UMIN(remains, buffer_size) , &body_len);
                 if (!body || body == uwsgi.empty) goto error;
 		if (uwsgi.async < 1) {
 			if (rados_write_full(ctx, key, body, body_len) < 0) {
@@ -418,6 +420,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 			"allow_propfind", &urmp->allow_propfind,
 			"username", &urmp->username,
 			"buffer_size", &urmp->str_buffer_size,
+			"put_buffer_size", &urmp->str_put_buffer_size,
 			NULL)) {
 				uwsgi_log("unable to parse rados mountpoint definition\n");
 				exit(1);
@@ -443,6 +446,19 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 	}
 	else {
 		urmp->buffer_size = DEF_BUF_SIZE;
+	}
+
+	if (urmp->str_put_buffer_size) {
+		urmp->put_buffer_size = atoi(urmp->str_put_buffer_size);
+		if (urmp->put_buffer_size > MAX_BUF_SIZE) {
+			urmp->put_buffer_size = MAX_BUF_SIZE;
+		}
+		else if (urmp->put_buffer_size < MIN_BUF_SIZE) {
+			urmp->put_buffer_size = MIN_BUF_SIZE;
+		}
+	}
+	else {
+		urmp->put_buffer_size = urmp->buffer_size;
 	}
 
 	time_t now = uwsgi_now();
@@ -708,7 +724,7 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 				goto end;
 			}
 		}	
-		if (uwsgi_rados_put(wsgi_req, ctx, filename, timeout)) {
+		if (uwsgi_rados_put(wsgi_req, ctx, filename, urmp->put_buffer_size, timeout)) {
 			uwsgi_500(wsgi_req);
 			goto end;
 		}
