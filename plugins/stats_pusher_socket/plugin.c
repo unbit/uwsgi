@@ -39,7 +39,8 @@ static int socket_send_metric(struct uwsgi_buffer *ub, struct uwsgi_stats_pusher
 	if (uwsgi_buffer_append(ub, " ", 1)) return -1;
         if (uwsgi_buffer_num64(ub, *um->value)) return -1;
 
-        if (sendto(sn->fd, ub->buf, ub->pos, 0, (struct sockaddr *) &sn->addr.sa_in, sn->addr_len) < 0) {
+        if (sendto(sn->fd, ub->buf, ub->pos, 0, &sn->addr.sa, sn->addr_len) < 0) {
+			if (errno != EAGAIN)	// drop if we were to block
                 uwsgi_error("socket_send_metric()/sendto()");
         }
 
@@ -53,6 +54,7 @@ static void stats_pusher_socket(struct uwsgi_stats_pusher_instance *uspi, time_t
 	if (!uspi->configured) {
 		struct socket_node *sn = uwsgi_calloc(sizeof(struct socket_node));
 		char *comma = strchr(uspi->arg, ',');
+
 		if (comma) {
 			sn->prefix = comma+1;
 			sn->prefix_len = strlen(sn->prefix);
@@ -63,23 +65,15 @@ static void stats_pusher_socket(struct uwsgi_stats_pusher_instance *uspi, time_t
 			sn->prefix_len = 5;
 		}
 
-		char *colon = strchr(uspi->arg, ':');
-		if (!colon) {
-			uwsgi_log("invalid socket address %s\n", uspi->arg);
+		sn->fd = uwsgi_socket_from_addr(&sn->addr, &sn->addr_len, uspi->arg, SOCK_DGRAM);
+		if (sn->fd < -1) {
 			if (comma) *comma = ',';
 			free(sn);
 			return;
 		}
-		sn->addr_len = socket_to_in_addr(uspi->arg, colon, 0, &sn->addr.sa_in);
 
-		sn->fd = socket(AF_INET, SOCK_DGRAM, 0);
-		if (sn->fd < 0) {
-			uwsgi_error("stats_pusher_socket()/socket()");
-			if (comma) *comma = ',';
-                        free(sn);
-                        return;
-		}
-		uwsgi_socket_nb(sn->fd);
+        uwsgi_socket_nb(sn->fd);
+
 		if (comma) *comma = ',';
 		uspi->data = sn;
 		uspi->configured = 1;

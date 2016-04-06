@@ -5001,6 +5001,7 @@ int uwsgi_pass_cred2(int, char *, size_t, struct sockaddr *, size_t);
 int uwsgi_recv_cred(int, char *, size_t, pid_t *, uid_t *, gid_t *);
 ssize_t uwsgi_recv_cred2(int, char *, size_t, pid_t *, uid_t *, gid_t *);
 int uwsgi_socket_passcred(int);
+int uwsgi_socket_from_addr(union uwsgi_sockaddr *, socklen_t *, char *, int);
 
 void uwsgi_dump_worker(int, char *);
 mode_t uwsgi_mode_t(char *, int *);
