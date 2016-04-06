@@ -48,7 +48,14 @@ struct uwsgi_rados_mountpoint {
 	char *allow_mkcol;
 	char *allow_propfind;
 	char *username;
+	char *str_buffer_size;
+	size_t buffer_size;
 };
+
+#define MIN_BUF_SIZE (8*1024)
+/* chunking by 8kb is extra slow, so use more sane default */
+#define DEF_BUF_SIZE (128*1024)
+#define MAX_BUF_SIZE (16*1024*1024)
 
 static struct uwsgi_option uwsgi_rados_options[] = {
 	{"rados-mount", required_argument, 0, "virtual mount the specified rados volume in a uri", uwsgi_opt_add_string_list, &urados.mountpoints, UWSGI_OPT_MIME},
@@ -56,16 +63,20 @@ static struct uwsgi_option uwsgi_rados_options[] = {
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
-static int uwsgi_rados_read_sync(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, const char *key, uint64_t off, uint64_t remains) {
+static int uwsgi_rados_read_sync(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, const char *key, uint64_t off, uint64_t remains, size_t bufsize) {
+	char* buf = uwsgi_malloc(UMIN(remains, bufsize));
 	while(remains > 0) {
-		char buf[8192];
-		int rlen = rados_read(ctx, key, buf, UMIN(remains, 8192), off);
-		if (rlen <= 0) return -1;
-		if (uwsgi_response_write_body_do(wsgi_req, buf, rlen)) return -1;
+		int rlen = rados_read(ctx, key, buf, UMIN(remains, bufsize), off);
+		if (rlen <= 0) goto end;
+		if (uwsgi_response_write_body_do(wsgi_req, buf, rlen)) goto end;
 		remains -= rlen;
 		off += rlen;
 	}
+        free(buf);
 	return 0;
+end:
+        free(buf);
+        return -1;
 }
 
 // callback used to asynchronously signal the completion
@@ -252,9 +263,9 @@ end:
 	return ret;
 }
 
-static int uwsgi_rados_read_async(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, const char *key, uint64_t off, uint64_t remains, int timeout) {
+static int uwsgi_rados_read_async(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, const char *key, uint64_t off, uint64_t remains, size_t bufsize, int timeout) {
 	int ret = -1;
-	char buf[8192];
+	char *buf = uwsgi_malloc(UMIN(remains, bufsize));
 
 	struct uwsgi_rados_io *urio = &urados.urio[wsgi_req->async_id];
 	// increase request counter
@@ -276,7 +287,7 @@ static int uwsgi_rados_read_async(struct wsgi_request *wsgi_req, rados_ioctx_t c
 			break;
 		}
 		// trigger an async read
-		if (rados_aio_read(ctx, key, comp, buf, UMIN(remains, 8192), off) < 0) {
+		if (rados_aio_read(ctx, key, comp, buf, UMIN(remains, bufsize), off) < 0) {
 			free(urcb);
 			rados_aio_release(comp);
 			break;
@@ -303,6 +314,7 @@ static int uwsgi_rados_read_async(struct wsgi_request *wsgi_req, rados_ioctx_t c
 		off += rlen;
 	}
 
+	free(buf);
 	if (remains == 0) ret = 0;
 
 	pthread_mutex_lock(&urio->mutex);
@@ -405,6 +417,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 			"allow_mkcol", &urmp->allow_mkcol,
 			"allow_propfind", &urmp->allow_propfind,
 			"username", &urmp->username,
+			"buffer_size", &urmp->str_buffer_size,
 			NULL)) {
 				uwsgi_log("unable to parse rados mountpoint definition\n");
 				exit(1);
@@ -417,6 +430,19 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 
 	if (urmp->str_timeout) {
 		urmp->timeout = atoi(urmp->str_timeout);
+	}
+
+	if (urmp->str_buffer_size) {
+		urmp->buffer_size = atoi(urmp->str_buffer_size);
+		if (urmp->buffer_size > MAX_BUF_SIZE) {
+			urmp->buffer_size = MAX_BUF_SIZE;
+		}
+		else if (urmp->buffer_size < MIN_BUF_SIZE) {
+			urmp->buffer_size = MIN_BUF_SIZE;
+		}
+	}
+	else {
+		urmp->buffer_size = DEF_BUF_SIZE;
 	}
 
 	time_t now = uwsgi_now();
@@ -763,10 +789,10 @@ static int uwsgi_rados_request(struct wsgi_request *wsgi_req) {
 	// skip body on HEAD
 	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
 		if (uwsgi.async > 0) {
-			if (uwsgi_rados_read_async(wsgi_req, ctx, filename, offset, remains, timeout)) goto end;
+			if (uwsgi_rados_read_async(wsgi_req, ctx, filename, offset, remains, urmp->buffer_size, timeout)) goto end;
 		}
 		else {
-			if (uwsgi_rados_read_sync(wsgi_req, ctx, filename, offset, remains)) goto end;
+			if (uwsgi_rados_read_sync(wsgi_req, ctx, filename, offset, remains, urmp->buffer_size)) goto end;
 		}
 	}
 
