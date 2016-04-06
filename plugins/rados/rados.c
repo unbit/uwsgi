@@ -486,7 +486,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 	uwsgi_log("connected to Ceph pool: %s on cluster %.*s\n", urmp->pool, 37, fsid);
 	
 	int id = uwsgi_apps_cnt;
-	struct uwsgi_app *ua = uwsgi_add_app(id, rados_plugin.modifier1, urmp->mountpoint, strlen(urmp->mountpoint), NULL, NULL);
+	struct uwsgi_app *ua = uwsgi_add_app(id, rados_plugin.modifier1, urmp->mountpoint, strlen(urmp->mountpoint), NULL, (void*)1);
 	if (!ua) {
 		uwsgi_log("[rados] unable to mount %s\n", urmp->mountpoint);
 		rados_shutdown(cluster);
