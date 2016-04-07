@@ -157,6 +157,16 @@ static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, cha
 	uint64_t off = 0;
 	int ret;
 	const char* method;
+	if (rados_ioctx_pool_requires_alignment(ctx)) {
+		uint64_t alignment = rados_ioctx_pool_required_alignment(ctx);
+		if (buffer_size <= alignment) {
+			buffer_size = alignment;
+		} else if (buffer_size <= alignment * 2) {
+			buffer_size = alignment * 2;
+		} else if (alignment) {
+			buffer_size -= buffer_size % alignment;
+		}
+	}
         while(remains > 0) {
                 ssize_t body_len = 0;
                 char *body =  uwsgi_request_body_read(wsgi_req, UMIN(remains, buffer_size) , &body_len);
