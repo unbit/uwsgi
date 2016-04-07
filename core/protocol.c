@@ -280,6 +280,9 @@ static int uwsgi_proto_check_10(struct wsgi_request *wsgi_req, char *key, char *
 	if (uwsgi.honour_range && !uwsgi_proto_key("HTTP_RANGE", 10)) {
 		uwsgi_parse_http_range(buf, len, &wsgi_req->range_parsed,
 				&wsgi_req->range_from, &wsgi_req->range_to);
+		// set deprecated fields for binary compatibility
+		wsgi_req->__range_from = (size_t)wsgi_req->range_from;
+		wsgi_req->__range_to = (size_t)wsgi_req->range_to;
 		return 0;
 	}
 

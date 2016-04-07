@@ -1522,9 +1522,9 @@ struct wsgi_request {
 	// when set, do not send warnings about bad behaviours
 	int post_warning;
 
-	enum uwsgi_range range_parsed;
-	int64_t range_from;
-	int64_t range_to;
+	// deprecated fields: size_t is 32bit on 32bit platform
+	size_t __range_from;
+	size_t __range_to;
 
 	// current socket mapped to request
 	struct uwsgi_socket *socket;
@@ -1618,6 +1618,12 @@ struct wsgi_request {
 
 	// uWSGI 2.1
 	uint64_t len;
+
+	// 64bit range, deprecates size_t __range_from, __range_to
+	enum uwsgi_range range_parsed;
+	int64_t range_from;
+	int64_t range_to;
+
 };
 
 
