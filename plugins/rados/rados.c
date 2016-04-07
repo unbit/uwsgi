@@ -155,12 +155,22 @@ static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, cha
 	struct uwsgi_rados_io *urio = &urados.urio[wsgi_req->async_id];
 	size_t remains = wsgi_req->post_cl;
 	uint64_t off = 0;
+	int ret;
+	const char* method;
         while(remains > 0) {
                 ssize_t body_len = 0;
                 char *body =  uwsgi_request_body_read(wsgi_req, UMIN(remains, buffer_size) , &body_len);
                 if (!body || body == uwsgi.empty) goto error;
 		if (uwsgi.async < 1) {
-			if (rados_write(ctx, key, body, body_len, off) < 0) {
+			if (off == 0) {
+				ret = rados_write_full(ctx, key, body, body_len);
+				method = "rados_write_full()";
+			} else {
+				ret = rados_write(ctx, key, body, body_len, off);
+				method = "rados_write()";
+			}
+			if (ret < 0) {
+				uwsgi_log("uwsgi_rados_put():%s() %s\n", method, strerror(-ret));
 				return -1;
 			}
 		}
@@ -182,11 +192,19 @@ static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, cha
                 		free(urcb);
                 		goto error;
         		}
-        		if (rados_aio_write(ctx, key, comp, body, body_len, off) < 0) {
-                		free(urcb);
-                		rados_aio_release(comp);
-                		goto error;
-        		}
+			if (off == 0) {
+				ret = rados_aio_write_full(ctx, key, comp, body, body_len);
+				method = "rados_aio_write_full";
+			} else {
+				ret = rados_aio_write(ctx, key, comp, body, body_len, off);
+				method = "rados_aio_write";
+			}
+			if (ret < 0) {
+				uwsgi_log("uwsgi_rados_put():%s() %s\n", method, strerror(-ret));
+				free(urcb);
+				rados_aio_release(comp);
+				goto error;
+			}
 
         		// wait for the callback to be executed
         		if (uwsgi.wait_read_hook(urio->fds[0], timeout) <= 0) {
@@ -201,7 +219,9 @@ static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, cha
         		}
 
         		if (rados_aio_is_safe_and_cb(comp)) {
-                		if (rados_aio_get_return_value(comp) < 0) {
+				ret = rados_aio_get_return_value(comp);
+				if (ret < 0) {
+					uwsgi_log("uwsgi_rados_put():%s() %s\n", method, strerror(-ret));
                 			rados_aio_release(comp);
 					goto error;
 				}
