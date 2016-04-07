@@ -157,7 +157,8 @@ static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, cha
 	uint64_t off = 0;
 	int ret;
 	const char* method;
-	if (rados_ioctx_pool_requires_alignment(ctx)) {
+	int truncate = remains == 0;
+	if (!truncate && rados_ioctx_pool_requires_alignment(ctx)) {
 		uint64_t alignment = rados_ioctx_pool_required_alignment(ctx);
 		if (buffer_size <= alignment) {
 			buffer_size = alignment;
@@ -167,10 +168,15 @@ static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, cha
 			buffer_size -= buffer_size % alignment;
 		}
 	}
-        while(remains > 0) {
+        while(truncate || remains > 0) {
                 ssize_t body_len = 0;
-                char *body =  uwsgi_request_body_read(wsgi_req, UMIN(remains, buffer_size) , &body_len);
-                if (!body || body == uwsgi.empty) goto error;
+                char *body = "\x00";
+		if (!truncate) {
+			body = uwsgi_request_body_read(wsgi_req, UMIN(remains, buffer_size) , &body_len);
+			if (!body || body == uwsgi.empty) goto error;
+		} else {
+			truncate = 0;
+		}
 		if (uwsgi.async < 1) {
 			if (off == 0) {
 				ret = rados_write_full(ctx, key, body, body_len);
