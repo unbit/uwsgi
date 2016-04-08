@@ -2045,10 +2045,10 @@ int uwsgi_str4_num(char *str) {
 	return num;
 }
 
-size_t uwsgi_str_num(char *str, int len) {
+uint64_t uwsgi_str_num(char *str, int len) {
 
 	int i;
-	size_t num = 0;
+	uint64_t num = 0;
 
 	uint64_t delta = pow(10, len);
 
@@ -4627,3 +4627,27 @@ int uwsgi_versionsort(const struct dirent **da, const struct dirent **db) {
         }
 }
 #endif
+
+void uwsgi_fix_range_for_size(enum uwsgi_range* parsed, int64_t* from, int64_t* to, int64_t size) {
+        if (*parsed != UWSGI_RANGE_PARSED) {
+                return;
+        }
+        if (*from < 0) {
+                *from = size + *from;
+        }
+        if (*to > size-1) {
+                *to = size-1;
+        }
+        if (*from == 0 && *to == size-1) {
+                /* we have a right to reset to 200 OK answer */
+                *parsed = UWSGI_RANGE_NOT_PARSED;
+        }
+        else if (*to >= *from) {
+                *parsed = UWSGI_RANGE_VALID;
+        }
+        else { /* case *from > size-1 is also handled here */
+                *parsed = UWSGI_RANGE_INVALID;
+                *from = 0;
+                *to = 0;
+        }
+}
