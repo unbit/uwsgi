@@ -8,6 +8,7 @@ extern struct uwsgi_server uwsgi;
 	Author: Javier Guerra
 	Author: Marcin Deranek
 	Author: Roberto De Ioris
+	Author: Sokolov Yura aka funny_falcon
 
 	--rados-mount mountpoint=/foo,pool=unbit001,config=/etc/ceph.conf,timeout=30,allow_put=1,allow_delete=1
 
