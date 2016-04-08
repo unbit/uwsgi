@@ -39,6 +39,8 @@ struct ulua_websocket_handler {
 
 #define ULUA_MULE_MSG_GET_BUFFER_SIZE 65536
 #define ULUA_RECV_BUFFER_SIZE 4096
+#define ULUA_LOG_STACK_BUFFER_SIZE 2047 // plus 1 zero char for term
+#define ULUA_QUEUE_PUSH_STACK_SIZE 0x80
 
 #define ULUA_WSAPI_REF 1
 #define ULUA_SIGNAL_REF 2
@@ -314,7 +316,7 @@ static const char *uwsgi_lua_log_tostring(lua_State *L, int obj, size_t *len) {
 				lua_pushfstring(L, "<%s>", lua_typename(L, type));
 			}
 
-			lua_replace(L, obj-1);
+			lua_replace(L, obj < 0 ? (obj - 1) : obj);
 	}
 
 	return lua_tolstring(L, obj, len);
@@ -322,26 +324,44 @@ static const char *uwsgi_lua_log_tostring(lua_State *L, int obj, size_t *len) {
 
 static int uwsgi_api_log(lua_State *L) {
 
-	struct uwsgi_buffer *ub;
+	struct uwsgi_buffer *ub = NULL;
 	uint16_t argc = lua_gettop(L);
+
+	char buff[ULUA_LOG_STACK_BUFFER_SIZE + 1];
+	size_t buff_size = 0;
 
 	const char *str;
 	size_t len;
 	int i;
 
 	if (argc > 1) {
-		ub = uwsgi_buffer_new(0);
-
-		for (i = 1 - argc; i < 0; i++) {
+		for (i = 1; i <= argc; i++) {
 			str = uwsgi_lua_log_tostring(L, i, &len);
-			if (uwsgi_buffer_ensure(ub, len + 2)) break;
-			if (uwsgi_buffer_byte(ub, ' ')) break;
-			if (uwsgi_buffer_append(ub, (char *) str, len)) break;
+
+			if (!ub) {
+				if ((ULUA_LOG_STACK_BUFFER_SIZE - buff_size) < len) {
+					ub = uwsgi_buffer_new(0);
+					buff[buff_size] = 0;
+				} else {
+					memcpy(&buff[buff_size], str, len * sizeof(char));
+					buff_size+= len;
+				}
+			}
+
+			if (ub) {
+				if (uwsgi_buffer_ensure(ub, len + 2)) break;
+				if (uwsgi_buffer_byte(ub, ' ')) break;
+				if (uwsgi_buffer_append(ub, (char *) str, len)) break;
+			}
 		}
 
-		if (!uwsgi_buffer_byte(ub, 0))
-			ulua_log("%s%s", uwsgi_lua_log_tostring(L, -argc, NULL), ub->buf);
-		uwsgi_buffer_destroy(ub);
+		if (ub) {
+			if (!uwsgi_buffer_byte(ub, 0))
+				ulua_log("%s%s%s", uwsgi_lua_log_tostring(L, 1, NULL), buff, ub->buf);
+				uwsgi_buffer_destroy(ub);
+		} else {
+			ulua_log("%s%s", uwsgi_lua_log_tostring(L, 1, NULL), buff);
+		}
 
 	} else if (argc) {
 
@@ -359,36 +379,26 @@ static int uwsgi_api_rpc(lua_State *L) {
 	uint64_t len;
 
 	// take first 255
-	argnum = (argc <= 256) ? (argc - 2) : 255;
+	argnum = (argc < (0xff + 2)) ? (argc - 2) : 0xff;
 
-	char **argv = NULL;
-	uint16_t *argvs = NULL;
+	char *argv[0xff];
+	uint16_t argvs[0xff];
 	char *func = (char *) uwsgi_lua_checkstring(L, 2);
+	size_t alen;
 
-	if (argnum > 0) {
-
-		argv = (char **) uwsgi_malloc(sizeof(char *)*argnum);
-		argvs = (uint16_t *) uwsgi_malloc(sizeof(uint16_t)*argnum);
-
-		for(i = 0; i < argnum; i++) {
-			argv[i] = (char *) uwsgi_lua_tolstring(L, i + 3, (size_t *) &argvs[i]);
-		}
+	for(i = 0; i < argnum; i++) {
+		argv[i] = (char *) uwsgi_lua_tolstring(L, i + 3, &alen);
+		argvs[i] = alen < 0x10000 ? alen : 0;
 	}
 
 	char *str = uwsgi_do_rpc((char *) uwsgi_lua_tostring(L, 1), func, argnum, argv, argvs, &len);
 
-	if (!(len)) { // fail??
+	if (!str) { // fail??
 		lua_pushnil(L);
 	} else {
 		lua_pushlstring(L, str, len);
+		free(str);
 	}
-
-	if (argnum > 0) {
-		free(argv);
-		free(argvs);
-	}
-
-	free(str);
 
 	return 1;
 }
@@ -2137,9 +2147,6 @@ static int uwsgi_api_queue_push(lua_State *L) {
 
 	uint16_t argc = lua_gettop(L);
 	uint16_t error = 0;
-
-	char **list;
-	size_t *slen;
 	uint16_t i;
 
 
@@ -2165,8 +2172,19 @@ static int uwsgi_api_queue_push(lua_State *L) {
 
 	} else {
 
-		list = (char **) uwsgi_malloc(sizeof(char *) * argc);
-		slen = (size_t *) uwsgi_malloc(sizeof(size_t) * argc);
+		char *stlist[ULUA_QUEUE_PUSH_STACK_SIZE];
+		size_t stslen[ULUA_QUEUE_PUSH_STACK_SIZE];
+
+		char **list;
+		size_t *slen;
+
+		if (argc > ULUA_QUEUE_PUSH_STACK_SIZE) {
+			list = (char **) uwsgi_malloc(sizeof(char *) * argc);
+			slen = (size_t *) uwsgi_malloc(sizeof(size_t) * argc);
+		} else {
+			list = stlist;
+			slen = stslen;
+		}
 
 		for (i = 0; i < argc; ++i) {
 			list[i] = (char *) uwsgi_lua_tolstring(L, i + 1, &slen[i]);
@@ -2184,8 +2202,10 @@ static int uwsgi_api_queue_push(lua_State *L) {
 
 		uwsgi_rwunlock(uwsgi.queue_lock);
 
-		free(list);
-		free(slen);
+		if (argc > ULUA_QUEUE_PUSH_STACK_SIZE) {
+			free(list);
+			free(slen);
+		}
 
 	}
 
