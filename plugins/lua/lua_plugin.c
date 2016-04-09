@@ -120,26 +120,26 @@ static inline int uwsgi_lua_metatable_tostring(lua_State *L, int obj) {
 	return 0;
 }
 
-static int uwsgi_lua_metatable_tostring_protected(lua_State *L, int obj) {
+static inline int uwsgi_lua_metatable_tostring_protected(lua_State *L, int obj) {
 	// replace table with __tostring result, or do nothing in case of fail
 
-	if (!(luaL_getmetafield(L, obj, "__tostring"))) {
-		return 0;
+	if (luaL_getmetafield(L, obj, "__tostring")) {
+		lua_pushvalue(L, obj < 0 ? (obj - 1) : obj);
+
+		if (lua_pcall(L, 1, 1, 0)) {
+			ulua_log("%s", lua_tostring(L, -1));
+			lua_pop(L, 1);
+			return -1; // runtime error
+		}
+
+		lua_replace(L, obj < 0 ? (obj - 1) : obj);
+		return 1;
 	}
 
-	lua_pushvalue(L, --obj);
-
-	if (lua_pcall(L, 1, 1, 0)) {
-		ulua_log("%s", lua_tostring(L, -1));
-		lua_pop(L, 1);
-		return -1; // runtime error
-	}
-
-	lua_replace(L, obj);
 	return 0;
 }
 
-static inline const char *uwsgi_lua_tolstring(lua_State *L, int obj, size_t *len) {
+static inline const char *uwsgi_lua_tolstring(lua_State *L, int obj, size_t *len) { // unprotected !!
 
 	const char *str = lua_tolstring(L, obj, len);
 
@@ -150,7 +150,7 @@ static inline const char *uwsgi_lua_tolstring(lua_State *L, int obj, size_t *len
 	return str;
 }
 
-static inline const char *uwsgi_lua_checklstring(lua_State *L, int obj, size_t *len) {
+static inline const char *uwsgi_lua_checklstring(lua_State *L, int obj, size_t *len) { // unprotected !!
 
 	const char *str = lua_tolstring(L, obj, len);
 
@@ -164,23 +164,32 @@ static inline const char *uwsgi_lua_checklstring(lua_State *L, int obj, size_t *
 }
 
 
-static int uwsgi_lua_metatable_call(lua_State *L, int obj) {
+static inline int uwsgi_lua_metatable_call(lua_State *L, int obj) {
 	// get __call attr and place it before table, or do nothing in case of fail
 
-	if (!(luaL_getmetafield(L, obj, "__call"))) {
-		return 0;
+	if (luaL_getmetafield(L, obj, "__call")) {
+		lua_insert(L, obj < 0 ? (obj - 1) : obj);
+		return 1;
 	}
 
-	if (!(lua_isfunction(L, -1))) {
-		ulua_log("__call is not a function");
-		lua_pop(L, 1);
-		return 0;
-	}
-
-	lua_insert(L, obj-1);
-
-	return 1;
+	return 0;
 }
+
+static inline int uwsgi_lua_mptolstring(lua_State *L, int obj, const char **str, size_t *len) {
+
+	int e = uwsgi_lua_metatable_tostring_protected(L, obj);
+
+	if (e > 0) {
+		*str = lua_tolstring(L, obj, len);
+	} else {
+		*str = NULL;
+		if (len) *len = 0;
+	}
+
+	return e;
+}
+
+
 
 static int uwsgi_lua_killsig(lua_State *L, pid_t pid, uint8_t signal) {
 
@@ -304,9 +313,9 @@ static const char *uwsgi_lua_log_tostring(lua_State *L, int obj, size_t *len) {
 
 		case LUA_TSTRING:
 		case LUA_TNUMBER: break;
+		default:
 		case LUA_TUSERDATA:
 		case LUA_TTABLE: if (uwsgi_lua_metatable_tostring(L, obj)) break;
-		default:
 
 			point = lua_topointer(L, obj);
 
@@ -335,16 +344,16 @@ static int uwsgi_api_log(lua_State *L) {
 	int i;
 
 	if (argc > 1) {
-		for (i = 1; i <= argc; i++) {
+		for (i = 2; i <= argc; i++) {
 			str = uwsgi_lua_log_tostring(L, i, &len);
 
 			if (!ub) {
-				if ((ULUA_LOG_STACK_BUFFER_SIZE - buff_size) < len) {
+				if ((ULUA_LOG_STACK_BUFFER_SIZE - buff_size) < (len + 1)) {
 					ub = uwsgi_buffer_new(0);
-					buff[buff_size] = 0;
 				} else {
-					memcpy(&buff[buff_size], str, len * sizeof(char));
-					buff_size+= len;
+					buff[buff_size] = ' ';
+					memcpy(&buff[buff_size + 1], str, len * sizeof(char));
+					buff_size+= (len + 1);
 				}
 			}
 
@@ -354,6 +363,8 @@ static int uwsgi_api_log(lua_State *L) {
 				if (uwsgi_buffer_append(ub, (char *) str, len)) break;
 			}
 		}
+
+		buff[buff_size] = 0;
 
 		if (ub) {
 			if (!uwsgi_buffer_byte(ub, 0))
@@ -2521,6 +2532,39 @@ static void uwsgi_lua_headers_nested_tables(lua_State *L, int table, struct wsgi
 	}
 }
 
+static int uwsgi_lua_headers_nested_tables_protected(lua_State *L, int table, struct wsgi_request *wsgi_req, char *header, size_t len) {
+
+	size_t i, rlen;
+	const  char *rheader;
+
+	size_t tlen = lua_rawlen(L, table);
+
+	for (i = 1; i <= tlen; i++) {
+		lua_rawgeti(L, table, i);
+
+		if (lua_istable(L, -1)) {
+			if (!uwsgi_lua_headers_nested_tables_protected(L, -1, wsgi_req, header, len)) {
+				lua_pop(L, 1);
+				return 0;
+			}
+		} else {
+			rheader = lua_tolstring(L, -1, &rlen);
+
+			if (!rheader && uwsgi_lua_mptolstring(L, -1, &rheader, &rlen)) {
+				lua_pop(L, 1);
+				return 0;
+			}
+
+			uwsgi_response_add_header(wsgi_req, header, len, (char *)rheader, rlen);
+		}
+
+		lua_pop(L, 1);
+	}
+
+	return 1;
+}
+
+
 static void uwsgi_lua_headers_from_table(lua_State *L, int table, struct wsgi_request *wsgi_req) {
 
 	char *header;
@@ -3022,10 +3066,11 @@ static void uwsgi_lua_post_fork() {
 
 }
 
+
 static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 
-	const char *http;
-	size_t i, slen;
+	const char *http, *http2;
+	size_t i, slen, slen2;
 	int8_t t_err;
 
 	if(!ulua.wsapi) {
@@ -3117,10 +3162,14 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	ulua_log("%s %s %s %s", lua_typename(L, lua_type(L, -4)), lua_typename(L, lua_type(L, -3)), lua_typename(L, lua_type(L, -2)) ,  lua_typename(L, lua_type(L, -1)));
 #endif
 
-	// send status
-	if (lua_isstring(L, -4)) {
+// send status
+	if (!lua_isnil(L, -4)) {
 
 		http = lua_tolstring(L, -4, &slen);
+
+		if (!http && uwsgi_lua_mptolstring(L, -4, &http, &slen) < 0) {
+			goto clear;
+		}
 
 		if (!slen) {
 			ulua_log("worker%d[%d]: invalid response status!", uwsgi.mywid, wsgi_req->async_id);
@@ -3134,7 +3183,39 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 
 	// send headers
 	if (lua_istable(L, -3)) {
-		uwsgi_lua_headers_from_table(L, -3, wsgi_req);
+		//uwsgi_lua_headers_from_table(L, -3, wsgi_req); //unprotected
+
+		lua_pushnil(L);
+
+		while(lua_next(L, -4)) {
+
+			lua_pushvalue(L, -2);
+
+			http = (char *) lua_tolstring(L, -1, &slen);
+
+			if (!http && uwsgi_lua_mptolstring(L, -1, &http, &slen) < 0) {
+				lua_pop(L, 3);
+				goto clear;
+			}
+
+			if (lua_istable(L, -2)) {
+				if (!uwsgi_lua_headers_nested_tables_protected(L, -2, wsgi_req, (char *)http, slen)) {
+					lua_pop(L,3);
+					goto clear;
+				}
+			} else {
+				http2 = (char *) lua_tolstring(L, -2, &slen2);
+
+				if (!http2 && uwsgi_lua_mptolstring(L, -2, &http2, &slen2) < 0) {
+					lua_pop(L, 3);
+					goto clear;
+				}
+
+				uwsgi_response_add_header(wsgi_req, (char *)http, slen, (char *)http2, slen2);
+			}
+
+			lua_pop(L, 2);
+		}
 	}
 
 	// send body with coroutine or copy from string
