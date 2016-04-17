@@ -30,8 +30,10 @@ except ImportError:
 
 PY3 = sys.version_info[0] == 3
 
-GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
-if not GCC:
+c_compiler = os.environ.get('CC', sysconfig.get_config_var('CC'))
+if c_compiler:
+    GCC = c_compiler.split('-')[0]
+else:
     GCC = 'gcc'
 
 def get_preprocessor():
