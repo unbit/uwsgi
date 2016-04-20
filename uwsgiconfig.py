@@ -30,9 +30,12 @@ except ImportError:
 
 PY3 = sys.version_info[0] == 3
 
-GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
-if not GCC:
-    GCC = 'gcc'
+if uwsgi_os == 'Darwin':
+    GCC = os.environ.get('CC', 'clang')
+else:
+    GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
+    if not GCC:
+        GCC = 'gcc'
 
 def get_preprocessor():
     if 'clang' in GCC:
