@@ -1,13 +1,6 @@
-#include "../../uwsgi.h"
-
-#include <syslog.h>
+#include "./syslog_facility.h"
 
 extern struct uwsgi_server uwsgi;
-
-struct uwsgi_syslog_facility {
-	const char *name;
-	int facility;
-};
 
 struct uwsgi_syslog_facility usf[] = {
 
