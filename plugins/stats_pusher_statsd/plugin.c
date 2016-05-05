@@ -37,15 +37,16 @@ static int statsd_send_metric(struct uwsgi_buffer *ub, struct uwsgi_stats_pusher
 	struct statsd_node *sn = (struct statsd_node *) uspi->data;
 	// reset the buffer
         ub->pos = 0;
-	if (uwsgi_buffer_append(ub, sn->prefix, sn->prefix_len)) return -1;	
+	if (uwsgi_buffer_append(ub, sn->prefix, sn->prefix_len)) return -1;
 	if (uwsgi_buffer_append(ub, ".", 1)) return -1;
 	if (uwsgi_buffer_append(ub, metric, metric_len)) return -1;
 	if (uwsgi_buffer_append(ub, ":", 1)) return -1;
         if (uwsgi_buffer_num64(ub, value)) return -1;
 	if (uwsgi_buffer_append(ub, type, 2)) return -1;
 
-        if (sendto(sn->fd, ub->buf, ub->pos, 0, (struct sockaddr *) &sn->addr.sa_in, sn->addr_len) < 0) {
-                uwsgi_error("statsd_send_metric()/sendto()");
+        if (sendto(sn->fd, ub->buf, ub->pos, 0, (struct sockaddr *) &sn->addr.sa, sn->addr_len) < 0) {
+			if (errno != EAGAIN)	// drop if we were to block
+				uwsgi_error("statsd_send_metric()/sendto()");
         }
 
         return 0;
@@ -68,23 +69,15 @@ static void stats_pusher_statsd(struct uwsgi_stats_pusher_instance *uspi, time_t
 			sn->prefix_len = 5;
 		}
 
-		char *colon = strchr(uspi->arg, ':');
-		if (!colon) {
-			uwsgi_log("invalid statsd address %s\n", uspi->arg);
+		sn->fd = uwsgi_socket_from_addr(&sn->addr, &sn->addr_len, uspi->arg, SOCK_DGRAM);
+		if (sn->fd < -1) {
 			if (comma) *comma = ',';
 			free(sn);
 			return;
 		}
-		sn->addr_len = socket_to_in_addr(uspi->arg, colon, 0, &sn->addr.sa_in);
 
-		sn->fd = socket(AF_INET, SOCK_DGRAM, 0);
-		if (sn->fd < 0) {
-			uwsgi_error("stats_pusher_statsd()/socket()");
-			if (comma) *comma = ',';
-                        free(sn);
-                        return;
-		}
-		uwsgi_socket_nb(sn->fd);
+        uwsgi_socket_nb(sn->fd);
+
 		if (comma) *comma = ',';
 		uspi->data = sn;
 		uspi->configured = 1;

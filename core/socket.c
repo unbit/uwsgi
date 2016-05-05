@@ -1952,6 +1952,56 @@ int uwsgi_socket_passcred(int fd) {
 #endif
 }
 
+int uwsgi_socket_from_addr(union uwsgi_sockaddr *addr, socklen_t *len, char *addrtxt, int sock_type) {
+	int fd = -1;
+	int type;
+	char *colon = strchr(addrtxt, ':');
+
+	if (colon) {
+		type = AF_INET;
+	}
+#ifdef AF_INET6
+	else if (*addrtxt == '[' && colon && colon[-1] == ']') {
+		type = AF_INET6;
+	}
+#endif
+	else {
+		type = AF_UNIX;
+	}
+
+	if (type != AF_UNIX) {
+		if (!colon) {
+			uwsgi_log("invalid address %s\n", addrtxt);
+			return fd;
+		}
+	}
+
+	switch (type) {
+		case AF_INET:
+			*len = socket_to_in_addr(addrtxt, colon, 0, &addr->sa_in);
+			break;
+#ifdef AF_INET6
+		case AF_INET6:
+			*len = socket_to_in_addr6(addrtxt, colon, 0, &addr->sa_in6);
+			break;
+#endif
+		case AF_UNIX:
+			*len = socket_to_un_addr(addrtxt, &addr->sa_un);
+			break;
+		default:
+			uwsgi_log("unsupported socket type: %d\n", type);
+			return -1;
+	}
+
+	fd = socket(type, sock_type, 0);
+	if (fd < 0) {
+		uwsgi_error("uwsgi_socket_from_addr()");
+		return fd;
+	}
+
+	return fd;
+}
+
 void uwsgi_protocols_register() {
 	uwsgi_register_protocol("uwsgi", uwsgi_proto_uwsgi_setup);
 	uwsgi_register_protocol("puwsgi", uwsgi_proto_puwsgi_setup);
