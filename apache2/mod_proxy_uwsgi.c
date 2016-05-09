@@ -257,7 +257,7 @@ static request_rec *ap_proxy_make_fake_req(conn_rec *c, request_rec *r)
     return rp;
 }
 
-static apr_status_t ap_proxy_buckets_lifetime_transform(request_rec *r,
+apr_status_t ap_proxy_buckets_lifetime_transform(request_rec *r,
         apr_bucket_brigade *from, apr_bucket_brigade *to)
 {
     apr_bucket *e;
