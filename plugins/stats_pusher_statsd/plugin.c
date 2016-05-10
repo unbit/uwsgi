@@ -18,10 +18,12 @@ extern struct uwsgi_server uwsgi;
 
 struct uwsgi_stats_pusher_statsd {
     int no_workers;
+    int all_gauges;
 } u_stats_pusher_statsd;
 
 static struct uwsgi_option stats_pusher_statsd_options[] = {
-	{"statsd-no-workers", no_argument, 0, "disable generation of single worker metrics", uwsgi_opt_true, &u_stats_pusher_statsd.no_workers, 0}
+	{"statsd-no-workers", no_argument, 0, "disable generation of single worker metrics", uwsgi_opt_true, &u_stats_pusher_statsd.no_workers, 0},
+	{"statsd-all-gauges", no_argument, 0, "push all metrics to statsd as gauges", uwsgi_opt_true, &u_stats_pusher_statsd.all_gauges, 0}
 };
 
 // configuration of a statsd node
@@ -92,7 +94,7 @@ static void stats_pusher_statsd(struct uwsgi_stats_pusher_instance *uspi, time_t
 		}
 		uwsgi_rlock(uwsgi.metrics_lock);
 		// ignore return value
-		if (um->type == UWSGI_METRIC_GAUGE) {
+		if (u_stats_pusher_statsd.all_gauges || um->type == UWSGI_METRIC_GAUGE) {
 			statsd_send_metric(ub, uspi, um->name, um->name_len, *um->value, "|g");
 		}
 		else {
