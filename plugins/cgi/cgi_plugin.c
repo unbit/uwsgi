@@ -20,6 +20,7 @@ struct uwsgi_cgi {
 	int path_info;
 	int do_not_kill_on_error;
 	int async_max_attempts;
+	int close_stdin_on_eof;
 } uc ;
 
 static void uwsgi_opt_add_cgi(char *opt, char *value, void *foobar) {
@@ -68,6 +69,8 @@ struct uwsgi_option uwsgi_cgi_options[] = {
 
         {"cgi-do-not-kill-on-error", no_argument, 0, "do not send SIGKILL to cgi script on errors", uwsgi_opt_true, &uc.do_not_kill_on_error, 0},
         {"cgi-async-max-attempts", no_argument, 0, "max waitpid() attempts in cgi async mode (default 10)", uwsgi_opt_set_int, &uc.async_max_attempts, 0},
+
+        {"cgi-close-stdin-on-eof", no_argument, 0, "close STDIN on input EOF", uwsgi_opt_true, &uc.close_stdin_on_eof, 0},
 
         {0, 0, 0, 0, 0, 0, 0},
 
@@ -639,6 +642,7 @@ static int uwsgi_cgi_run(struct wsgi_request *wsgi_req, char *docroot, size_t do
 	char **argv;
 
 	char *command = full_path;
+	int stdin_closed = 0;
 
 	if (is_a_file) {
                 command = docroot;
@@ -691,6 +695,11 @@ static int uwsgi_cgi_run(struct wsgi_request *wsgi_req, char *docroot, size_t do
                 	remains -= rlen;
         	}
 
+		if (uc.close_stdin_on_eof) {
+			close(post_pipe[1]);
+			stdin_closed = 1;
+		}
+
 		// wait for data
 		char *buf = uwsgi_malloc(uc.buffer_size);
 
@@ -727,7 +736,8 @@ clear:
 		free(buf);
 clear2:
 		close(cgi_pipe[0]);
-		close(post_pipe[1]);
+		if (!stdin_closed)
+			close(post_pipe[1]);
 
 		// now wait for process exit/death
 		// in async mode we need a trick...
