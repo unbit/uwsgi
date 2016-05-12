@@ -178,12 +178,15 @@ def spcall2(cmd):
 
 def test_snippet(snippet):
     """Compile a C snippet to see if features are available at build / link time."""
-    if not isinstance(snippet, bytes):
-        if PY3:
-            snippet = bytes(snippet, sys.getdefaultencoding())
-        else:
-            snippet = bytes(snippet)
-    cmd = "{} -xc - -o /dev/null".format(GCC)
+    if sys.version_info[0] >= 3 or (sys.version_info[0] == 2 and sys.version_info[1] > 5):
+        if not isinstance(snippet, bytes):
+            if PY3:
+                snippet = bytes(snippet, sys.getdefaultencoding())
+            else:
+                snippet = bytes(snippet)
+        cmd = "{0} -xc - -o /dev/null".format(GCC)
+    else:
+        cmd = GCC + " -xc - -o /dev/null"
     p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
     p.communicate(snippet)
     return p.returncode == 0
@@ -346,8 +349,9 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         else:
             last_cflags_ts = os.stat('uwsgibuild.lastcflags')[8]
 
-    with open('uwsgibuild.lastcflags', 'w') as ulc:
-        ulc.write(uwsgi_cflags)
+    ulc = open('uwsgibuild.lastcflags', 'w')
+    ulc.write(uwsgi_cflags)
+    ulc.close()
 
     # embed uwsgi.h in the server binary. It increases the binary size, but will be very useful
     # for various tricks (like cffi integration)
@@ -622,8 +626,9 @@ class uConf(object):
             if last_profile != filename:
                 os.environ['UWSGI_FORCE_REBUILD'] = '1'
 
-        with open('uwsgibuild.lastprofile', 'w') as ulp:
-            ulp.write(filename)
+        ulp = open('uwsgibuild.lastprofile', 'w')
+        ulp.write(filename)
+        ulp.close()
 
         self.config.readfp(open_profile(filename))
         self.gcc_list = [
