@@ -1374,10 +1374,10 @@ void uwsgi_add_sockets_to_queue(int queue, int async_id) {
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while (uwsgi_sock) {
 		if (uwsgi_sock->fd_threads && async_id > -1 && uwsgi_sock->fd_threads[async_id] > -1) {
-			event_queue_add_fd_read(queue, uwsgi_sock->fd_threads[async_id]);
+			event_queue_add_fd_accept(queue, uwsgi_sock->fd_threads[async_id]);
 		}
 		else if (uwsgi_sock->fd > -1) {
-			event_queue_add_fd_read(queue, uwsgi_sock->fd);
+			event_queue_add_fd_accept(queue, uwsgi_sock->fd);
 		}
 		uwsgi_sock = uwsgi_sock->next;
 	}

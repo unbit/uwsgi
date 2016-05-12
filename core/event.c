@@ -520,7 +520,7 @@ int event_queue_add_fd_read(int eq, int fd) {
 	struct epoll_event ee;
 
 	memset(&ee, 0, sizeof(struct epoll_event));
-	ee.events = EPOLLIN | EPOLLEXCLUSIVE;
+	ee.events = EPOLLIN;
 	ee.data.fd = fd;
 
 	if (epoll_ctl(eq, EPOLL_CTL_ADD, fd, &ee)) {
@@ -530,6 +530,21 @@ int event_queue_add_fd_read(int eq, int fd) {
 
 	return 0;
 }
+
+// Same to event_queue_add_fd_read, but for server socket.
+// event_queue_fd_read_to_write() can't be used for server socket.
+int event_queue_add_fd_accept(int eq, int fd) {
+	struct epoll_event ee = {};
+	ee.events = EPOLLIN | EPOLLEXCLUSIVE;
+	ee.data.fd = fd;
+
+	if (epoll_ctl(eq, EPOLL_CTL_ADD, fd, &ee)) {
+		uwsgi_error("epoll_ctl()");
+		return -1;
+	}
+	return 0;
+}
+#define HAS_ADD_FD_ACCEPT
 
 int event_queue_fd_write_to_read(int eq, int fd) {
 
@@ -627,7 +642,6 @@ int event_queue_fd_write_to_readwrite(int eq, int fd) {
 
 	return 0;
 }
-
 
 
 int event_queue_del_fd(int eq, int fd, int event) {
@@ -1412,6 +1426,12 @@ struct uwsgi_timer *event_queue_ack_timer(int id) {
 
 	return ut;
 
+}
+#endif
+
+#if !defined(HAS_ADD_FD_ACCEPT)
+int event_queue_add_fd_accept(int eq, int fd) {
+	return event_queue_add_fd_read(eq, fd);
 }
 #endif
 
