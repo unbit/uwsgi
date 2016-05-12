@@ -493,13 +493,6 @@ int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 #define UWSGI_EVENT_IN EPOLLIN
 #define UWSGI_EVENT_OUT EPOLLOUT
 
-// EPOLLEXCLUSIVE is introduced in linux 4.5.
-// When using backported kernel, <sys/epoll.h> doesn't have this flag.  So we decrare it here.
-// Linux older than 4.5, this flag is just ignored.
-#ifndef EPOLLEXCLUSIVE
-#define EPOLLEXCLUSIVE  (1 << 28)
-#endif
-
 int event_queue_init() {
 
 	int epfd;
@@ -520,7 +513,7 @@ int event_queue_add_fd_read(int eq, int fd) {
 	struct epoll_event ee;
 
 	memset(&ee, 0, sizeof(struct epoll_event));
-	ee.events = EPOLLIN | EPOLLEXCLUSIVE;
+	ee.events = EPOLLIN;
 	ee.data.fd = fd;
 
 	if (epoll_ctl(eq, EPOLL_CTL_ADD, fd, &ee)) {
