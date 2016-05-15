@@ -848,9 +848,10 @@ class uConf(object):
 
         if uwsgi_os == 'OpenBSD':
             try:
-                obsd_major = int(uwsgi_os_k.split('.')[0])
-                obsd_minor = int(uwsgi_os_k.split('.')[1])
-                if obsd_major >= 5 and obsd_minor > 0:
+                obsd_major = uwsgi_os_k.split('.')[0]
+                obsd_minor = uwsgi_os_k.split('.')[1]
+                obsd_ver = int(obsd_major + obsd_minor)
+                if obsd_ver > 50:
                     self.cflags.append('-DUWSGI_NEW_OPENBSD')
                     report['kernel'] = 'New OpenBSD'
             except:
