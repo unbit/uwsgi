@@ -159,8 +159,16 @@ static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, cha
 	int ret;
 	const char* method;
 	int truncate = remains == 0;
+#ifdef HAS_RADOS_POOL_REQUIRES_ALIGNMENT2
+	if (!truncate && !rados_ioctx_pool_requires_alignment2(ctx, &ret) && ret) {
+		uint64_t alignment;
+		if (rados_ioctx_pool_required_alignment2(ctx, &alignment)) {
+			/* ignore error here */
+		} else
+#else
 	if (!truncate && rados_ioctx_pool_requires_alignment(ctx)) {
 		uint64_t alignment = rados_ioctx_pool_required_alignment(ctx);
+#endif
 		if (buffer_size <= alignment) {
 			buffer_size = alignment;
 		} else if (buffer_size <= alignment * 2) {
