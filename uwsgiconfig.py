@@ -176,17 +176,20 @@ def spcall2(cmd):
         return None
 
 
-def test_snippet(snippet):
+def test_snippet(snippet, CFLAGS=[], LDFLAGS=[], LIBS=[]):
     """Compile a C snippet to see if features are available at build / link time."""
+    cflags = " ".join(CFLAGS)
+    ldflags = " ".join(LDFLAGS)
+    libs = " ".join(LIBS)
     if sys.version_info[0] >= 3 or (sys.version_info[0] == 2 and sys.version_info[1] > 5):
         if not isinstance(snippet, bytes):
             if PY3:
                 snippet = bytes(snippet, sys.getdefaultencoding())
             else:
                 snippet = bytes(snippet)
-        cmd = "{0} -xc - -o /dev/null".format(GCC)
+        cmd = "{0} {1} -xc - {2} {3} -o /dev/null".format(GCC, cflags, ldflags, libs)
     else:
-        cmd = GCC + " -xc - -o /dev/null"
+        cmd = " ".join([GCC, cflags, "-xc -", ldflags, libs, "-o /dev/null"])
     p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
     p.communicate(snippet)
     return p.returncode == 0
