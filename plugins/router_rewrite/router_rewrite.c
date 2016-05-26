@@ -38,7 +38,10 @@ static int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsg
 		}
 	}
 
-	char *ptr = uwsgi_req_append(wsgi_req, "PATH_INFO", 9, ub->buf, path_info_len);
+	char *path_info = uwsgi_malloc(path_info_len);
+	http_url_decode(ub->buf, &path_info_len, path_info);
+
+	char *ptr = uwsgi_req_append(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
         if (!ptr) goto clear;
 
 	// set new path_info
