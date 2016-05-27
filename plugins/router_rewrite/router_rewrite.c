@@ -44,6 +44,8 @@ static int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsg
 	char *ptr = uwsgi_req_append(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
         if (!ptr) goto clear;
 
+	free(path_info);
+
 	// set new path_info
 	wsgi_req->path_info = ptr;
 	wsgi_req->path_info_len = path_info_len;
