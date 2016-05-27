@@ -1,8 +1,15 @@
 #include "../psgi/psgi.h"
 #include "CoroAPI.h"
 
+struct uwsgi_coroae {
+	SV *condvar;
+	AV *watchers;
+	int destroy;
+};
+
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_perl uperl;
+struct uwsgi_coroae ucoroae;
 
 MGVTBL uwsgi_coroae_vtbl = { 0,  0,  0,  0, 0 };
 
@@ -48,13 +55,14 @@ SV * coroae_coro_new(CV *block) {
         ENTER;
         SAVETMPS;
         PUSHMARK(SP);
-        XPUSHs(sv_2mortal(newSVpv( "Coro", 4)));
-        XPUSHs(newRV_inc((SV *)block));
+        mXPUSHs(newSVpvs("Coro"));
+        mXPUSHs(newRV_noinc((SV *)block));
         PUTBACK;
         call_method("new", G_SCALAR|G_EVAL);
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
                 uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
+                (void)POPs; // we must pop undef from the stack in G_SCALAR context
         }
         else {
                 newobj = SvREFCNT_inc(POPs);
@@ -80,13 +88,14 @@ static int coroae_wait_fd_read(int fd, int timeout) {
         ENTER;
         SAVETMPS;
         PUSHMARK(SP);
-        XPUSHs(newSViv(fd));
-        XPUSHs(newSViv(timeout));
+        mXPUSHs(newSViv(fd));
+        mXPUSHs(newSViv(timeout));
         PUTBACK;
         call_pv("Coro::AnyEvent::readable", G_SCALAR|G_EVAL);
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
                 uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
+                (void)POPs; // we must pop undef from the stack in G_SCALAR context
         }
 	else {
 		SV *p_ret = POPs;
@@ -114,6 +123,7 @@ static int coroae_wait_fd_write(int fd, int timeout) {
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
                 uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
+                (void)POPs; // we must pop undef from the stack in G_SCALAR context
         }
 	else {
 		SV *p_ret = POPs;	
@@ -237,6 +247,7 @@ edge:
 	SV *coro_req = coroae_coro_new(async_xs_call);
 	sv_magicext(SvRV(coro_req), 0, PERL_MAGIC_ext + 1, &uwsgi_coroae_vtbl, (const char *)wsgi_req, 0);
 	CORO_READY(coro_req);
+	SvREFCNT_dec(coro_req);
 
 	if (uwsgi_sock->edge_trigger) {
 #ifdef UWSGI_DEBUG
@@ -267,7 +278,7 @@ static CV *coroae_closure_sighandler(int sigfd) {
 
 
 
-static SV *coroae_add_watcher(int fd, SV *cb) {
+static SV *coroae_add_watcher(int fd, CV *cb) {
 
         SV *newobj;
 
@@ -276,13 +287,13 @@ static SV *coroae_add_watcher(int fd, SV *cb) {
         ENTER;
         SAVETMPS;
         PUSHMARK(SP);
-        XPUSHs(sv_2mortal(newSVpv( "AnyEvent", 8)));
-        XPUSHs(sv_2mortal(newSVpv( "fh", 2)));
-        XPUSHs(sv_2mortal(newSViv(fd)));
-        XPUSHs(sv_2mortal(newSVpv( "poll", 4)));
-        XPUSHs(sv_2mortal(newSVpv( "r", 1)));
-        XPUSHs(sv_2mortal(newSVpv( "cb", 2)));
-        XPUSHs(newRV_inc(cb));
+        mXPUSHs(newSVpvs("AnyEvent"));
+        mXPUSHs(newSVpvs("fh"));
+        mXPUSHs(newSViv(fd));
+        mXPUSHs(newSVpvs("poll"));
+        mXPUSHs(newSVpvs("r"));
+        mXPUSHs(newSVpvs("cb"));
+        mXPUSHs(newRV_noinc((SV *)cb));
         PUTBACK;
 
         call_method( "io", G_SCALAR|G_EVAL);
@@ -301,6 +312,42 @@ static SV *coroae_add_watcher(int fd, SV *cb) {
         LEAVE;
 
         return newobj;
+
+
+}
+
+static SV *coroae_add_signal_watcher(const char *signame, CV *cb) {
+
+	SV *newobj;
+
+	dSP;
+
+	ENTER;
+	SAVETMPS;
+	PUSHMARK(SP);
+	mXPUSHs(newSVpvs("AnyEvent"));
+	mXPUSHs(newSVpvs("signal"));
+	mXPUSHs(newSVpv(signame, 0));
+	mXPUSHs(newSVpvs("cb"));
+	mXPUSHs(newRV_noinc((SV *)cb));
+	PUTBACK;
+
+	call_method("signal", G_SCALAR|G_EVAL);
+
+	SPAGAIN;
+	if(SvTRUE(ERRSV)) {
+		// no need to continue...
+		uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
+		exit(1);
+	}
+	else {
+		newobj = SvREFCNT_inc(POPs);
+	}
+	PUTBACK;
+	FREETMPS;
+	LEAVE;
+
+	return newobj;
 
 }
 
@@ -321,6 +368,7 @@ static SV *coroae_condvar_new() {
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
                 uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
+                (void)POPs; // we must pop undef from the stack in G_SCALAR context
                 newobj = NULL;
         }
         else {
@@ -333,7 +381,7 @@ static SV *coroae_condvar_new() {
         return newobj;
 }
 
-static void coroae_wait_condvar(SV *cv) {
+static void coroae_condvar_call(SV *cv, const char *method) {
 	dSP;
 
         ENTER;
@@ -342,7 +390,7 @@ static void coroae_wait_condvar(SV *cv) {
         XPUSHs(cv);
         PUTBACK;
 
-        call_method( "recv", G_DISCARD|G_EVAL);
+        call_method(method, G_DISCARD|G_EVAL);
 
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
@@ -353,6 +401,72 @@ static void coroae_wait_condvar(SV *cv) {
         LEAVE;
 }
 
+
+XS(XS_coroae_graceful) {
+	int i;
+	int rounds;
+	int running_cores;
+	for (rounds = 0; ; rounds++) {
+		running_cores = 0;
+		for (i = 0; i < uwsgi.async; i++) {
+			if (uwsgi.workers[uwsgi.mywid].cores[i].in_request) {
+				struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[i].req;
+				if (!rounds) {
+					uwsgi_log_verbose("worker %d (pid: %d) core %d is managing \"%.*s %.*s\" for %.*s\n", uwsgi.mywid, uwsgi.mypid, i, 
+						wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri,
+						wsgi_req->remote_addr_len, wsgi_req->remote_addr);
+				}
+				running_cores++;
+			}
+		}
+
+		if (running_cores == 0) {
+			break;
+		}
+
+		uwsgi_log_verbose("waiting for %d running requests on worker %d (pid: %d)...\n", running_cores, uwsgi.mywid, uwsgi.mypid);
+		coroae_wait_milliseconds(100);
+	}
+
+	coroae_condvar_call(ucoroae.condvar, "send");
+}
+
+static void coroae_graceful(void) {
+	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
+	SvREFCNT_dec(ucoroae.watchers);
+
+	SV *coro_sv = coroae_coro_new(newXS(NULL, XS_coroae_graceful, "uwsgi::coroae"));
+	CORO_READY(coro_sv);
+	SvREFCNT_dec(coro_sv);
+}
+
+static void coroae_int(void) {
+	uwsgi_log("Brutally killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
+	SvREFCNT_dec(ucoroae.watchers);
+
+	coroae_condvar_call(ucoroae.condvar, "send");
+}
+
+XS(XS_coroae_hup_sighandler) {
+	coroae_graceful();
+}
+
+XS(XS_coroae_int_sighandler) {
+	coroae_int();
+}
+
+static void coroae_gbcw(void) {
+	if (ucoroae.destroy) return;
+	ucoroae.destroy = 1;
+
+	uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
+
+	uwsgi_time_bomb(uwsgi.worker_reload_mercy, 0);
+	
+	coroae_graceful();
+}
 
 static void coroae_loop() {
 
@@ -379,21 +493,30 @@ static void coroae_loop() {
 
 	I_CORO_API("uwsgi::coroae");
 
+	// patch goodbye_cruel_world
+	uwsgi.gbcw_hook = coroae_gbcw;
+	ucoroae.watchers = newAV();
+
+	av_push(ucoroae.watchers, coroae_add_signal_watcher("HUP", newXS(NULL, XS_coroae_hup_sighandler, "uwsgi::coroae")));
+	av_push(ucoroae.watchers, coroae_add_signal_watcher("INT", newXS(NULL, XS_coroae_int_sighandler, "uwsgi::coroae")));
+	av_push(ucoroae.watchers, coroae_add_signal_watcher("TERM", newXS(NULL, XS_coroae_int_sighandler, "uwsgi::coroae")));
+
 	// create signal watchers
 	if (uwsgi.signal_socket > -1) {
-		coroae_add_watcher(uwsgi.signal_socket, (SV *) coroae_closure_sighandler(uwsgi.signal_socket));
-		coroae_add_watcher(uwsgi.my_signal_socket, (SV *) coroae_closure_sighandler(uwsgi.my_signal_socket));
+		av_push(ucoroae.watchers, coroae_add_watcher(uwsgi.signal_socket, coroae_closure_sighandler(uwsgi.signal_socket)));
+		av_push(ucoroae.watchers, coroae_add_watcher(uwsgi.my_signal_socket, coroae_closure_sighandler(uwsgi.my_signal_socket)));
 	}
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while(uwsgi_sock) {
 		// check return value here
-		coroae_add_watcher(uwsgi_sock->fd, (SV *) coroae_closure_acceptor(uwsgi_sock));
+		av_push(ucoroae.watchers, coroae_add_watcher(uwsgi_sock->fd, coroae_closure_acceptor(uwsgi_sock)));
 		uwsgi_sock = uwsgi_sock->next;
 	};
 
-	SV *condvar = coroae_condvar_new();
-	coroae_wait_condvar(condvar);
+	ucoroae.condvar = coroae_condvar_new();
+	coroae_condvar_call(ucoroae.condvar, "recv");
+	SvREFCNT_dec(ucoroae.condvar);
 
 	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {
                 uwsgi_log("goodbye to the Coro::AnyEvent loop on worker %d (pid: %d)\n", uwsgi.mywid, uwsgi.mypid);
