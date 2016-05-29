@@ -30,7 +30,7 @@ ProxyPass / uwsgi://127.0.0.1:3031/
 
 Docs:
 
-http://uwsgi-docs.readthedocs.org/en/latest/Apache.html#mod-proxy-uwsgi
+https://uwsgi-docs.readthedocs.io/en/latest/Apache.html#mod-proxy-uwsgi
 
 */
 #define APR_WANT_MEMFUNC
