@@ -47,12 +47,17 @@ def patch_bin_path(cmd, conf):
     bin_name = conf.get('bin_name')
 
     if not os.path.isabs(bin_name):
-        print('Patching "bin_name" to properly install_scripts dir')
+        if conf.get('as_shared_library'):
+            print('Patching "bin_name" to properly install_platlib dir')
+            target_dir = cmd.install_platlib
+        else:
+            print('Patching "bin_name" to properly install_scripts dir')
+            target_dir = cmd.install_scripts
         try:
-            if not os.path.exists(cmd.install_scripts):
-                os.makedirs(cmd.install_scripts)
+            if not os.path.exists(target_dir):
+                os.makedirs(target_dir)
             conf.set('bin_name',
-                     os.path.join(cmd.install_scripts, conf.get('bin_name')))
+                     os.path.join(target_dir, conf.get('bin_name')))
         except Exception:
             conf.set('bin_name', sys.prefix + '/bin/' + bin_name)
 
