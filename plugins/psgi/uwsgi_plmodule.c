@@ -124,7 +124,7 @@ XS(XS_cache_set) {
 	if (items > 2) {
 		expires = SvIV(ST(2));
 		if (items > 3) {
-			cache = SvPV_nolen(ST(1));
+			cache = SvPV_nolen(ST(3));
 		}
 	}
 
