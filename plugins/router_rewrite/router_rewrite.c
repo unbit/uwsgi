@@ -1,3 +1,5 @@
+#include <uwsgi.h>
+#ifdef UWSGI_ROUTING
 
 extern struct uwsgi_server uwsgi;
 
@@ -64,7 +66,7 @@ static int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsg
 clear:
 	uwsgi_buffer_destroy(ub);
 	if (tmp_qs) free(tmp_qs);
-    if (path_info) free(path_info);
+	if (path_info) free(path_info);
 	return UWSGI_ROUTE_BREAK;
 }
 
