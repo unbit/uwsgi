@@ -211,7 +211,7 @@ XS(XS_cache_clear) {
         char *cache = NULL;
         psgi_check_args(1);
 
-        cache = SvPV_nolen(ST(1));
+        cache = SvPV_nolen(ST(0));
 
         if (!uwsgi_cache_magic_clear(cache)) {
                 XSRETURN_YES;
