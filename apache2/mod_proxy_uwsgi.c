@@ -303,7 +303,7 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 	const char *buf;
 	char *value, *end;
 	int len;
-	int backend_broke = 1;
+	int backend_broke = 0;
 	apr_status_t rc;
 	conn_rec *c = r->connection;
 	apr_off_t readbytes;
