@@ -190,9 +190,11 @@ safe:
 		time_t oldest_worker_spawn = INT_MAX;
 		for (i = 1; i <= uwsgi.numproc; i++) {
 			if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-				if (uwsgi.workers[i].last_spawn < oldest_worker_spawn) {
-					oldest_worker_spawn = uwsgi.workers[i].last_spawn;
-					oldest_worker = i;
+				if (uwsgi_worker_is_busy(i) == 0) {
+					if (uwsgi.workers[i].last_spawn < oldest_worker_spawn) {
+						oldest_worker_spawn = uwsgi.workers[i].last_spawn;
+						oldest_worker = i;
+					}
 				}
 			}
 		}
