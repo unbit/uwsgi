@@ -354,7 +354,7 @@ int uwsgi_master_check_daemons_death(int diedpid) {
 
 int uwsgi_worker_is_busy(int wid) {
 	int i;
-	if (uwsgi.workers[uwsgi.mywid].sig) return 1;
+	if (uwsgi.workers[wid].sig) return 1;
 	for(i=0;i<uwsgi.cores;i++) {
 		if (uwsgi.workers[wid].cores[i].in_request) {
 			return 1;
