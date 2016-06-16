@@ -372,7 +372,24 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 	if ((buf = apr_table_get(r->headers_out, "Content-Type"))) {
 		ap_set_content_type(r, apr_pstrdup(r->pool, buf));
 	}
-	
+
+	// honor ProxyErrorOverride and ErrorDocument
+#if AP_MODULE_MAGIC_AT_LEAST(20101106,0)
+	proxy_dir_conf *dconf = ap_get_module_config(r->per_dir_config, &proxy_module);
+	if (dconf->error_override && ap_is_HTTP_ERROR(r->status)) {
+#else
+	if (conf->error_override && ap_is_HTTP_ERROR(r->status)) {
+#endif
+		int status = r->status;
+		r->status = HTTP_OK;
+		r->status_line = NULL;
+
+		apr_brigade_cleanup(bb);
+		apr_brigade_cleanup(pass_bb);
+
+		return status;
+	}
+
 	int finish = 0;
 	while(!finish) {
 		rv = ap_get_brigade(rp->input_filters, bb,
