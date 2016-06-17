@@ -303,7 +303,7 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 	const char *buf;
 	char *value, *end;
 	int len;
-	int backend_broke = 1;
+	int backend_broke = 0;
 	apr_status_t rc;
 	conn_rec *c = r->connection;
 	apr_off_t readbytes;
@@ -372,7 +372,19 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 	if ((buf = apr_table_get(r->headers_out, "Content-Type"))) {
 		ap_set_content_type(r, apr_pstrdup(r->pool, buf));
 	}
-	
+
+    // honor ProxyErrorOverride and ErrorDocument
+    if (conf->error_override && ap_is_HTTP_ERROR(r->status)) {
+        int status = r->status;
+        r->status = HTTP_OK;
+        r->status_line = NULL;
+
+        apr_brigade_cleanup(bb);
+               apr_brigade_cleanup(pass_bb);
+
+        return status;
+    }
+
 	int finish = 0;
 	while(!finish) {
 		rv = ap_get_brigade(rp->input_filters, bb,
