@@ -2560,6 +2560,15 @@ PyObject *py_uwsgi_ready_fd(PyObject * self, PyObject * args) {
 	return PyInt_FromLong(uwsgi_ready_fd(wsgi_req));
 }
 
+PyObject *py_uwsgi_accepting(PyObject * self, PyObject * args) {
+	int accepting = 1;
+	if (!PyArg_ParseTuple(args, "|i", &accepting)) {
+		return NULL;
+	}
+	uwsgi.workers[uwsgi.mywid].accepting = !!accepting;
+	return Py_None;
+}
+
 PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 
 	char *filename;
@@ -2724,6 +2733,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"is_locked", py_uwsgi_is_locked, METH_VARARGS, ""},
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
 	{"cl", py_uwsgi_cl, METH_VARARGS, ""},
+	{"accepting", py_uwsgi_accepting, METH_VARARGS, ""},
 
 	{"setprocname", py_uwsgi_setprocname, METH_VARARGS, ""},
 
