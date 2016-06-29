@@ -53,7 +53,10 @@ void uwsgi_log(const char *fmt, ...) {
 			rlen = 24 + 3;
 		}
 	}
-
+        
+        ret = vsnprintf(logpkt + rlen, 4096 - rlen, "%d - ", (int) uwsgi.mypid);
+        rlen += ret;
+        
 	va_start(ap, fmt);
 	ret = vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
 	va_end(ap);
@@ -105,7 +108,8 @@ void uwsgi_log_verbose(const char *fmt, ...) {
 		rlen = 24 + 3;
 	}
 
-
+        ret = vsnprintf(logpkt + rlen, 4096 - rlen, "%d - ", (int) uwsgi.mypid);
+        rlen += ret;
 
 	va_start(ap, fmt);
 	rlen += vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
@@ -136,6 +140,9 @@ void uwsgi_logfile_write(const char *fmt, ...) {
         memcpy(logpkt + 24, " - ", 3);
 
         int rlen = 24 + 3;
+
+        ret = vsnprintf(logpkt + rlen, 4096 - rlen, "%d - ", (int) uwsgi.mypid);
+        rlen += ret;
 
         va_start(ap, fmt);
         rlen += vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
