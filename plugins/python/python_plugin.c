@@ -524,16 +524,24 @@ void init_uwsgi_vars() {
 	pysys_dict = PyModule_GetDict(pysys);
 
 #ifdef PYTHREE
-	// fix stdout and stderr
+	// In python3, stdout / stderr was changed to be buffered (a bug according
+	// to many):
+	// - https://bugs.python.org/issue13597
+	// - https://bugs.python.org/issue13601
+	// We'll fix this by manually restore the unbuffered behaviour.
+	// In the case of a tty, this fix breaks readline support in interactive
+	// debuggers so we'll only do this in the non-tty case.
+	if (!Py_FdIsInteractive(stdin, NULL)) {
 #ifdef HAS_NO_ERRORS_IN_PyFile_FromFd
-	PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, NULL, 0);
+		PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, NULL, 0);
 #else
-	PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, NULL, NULL, 0);
+		PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, NULL, NULL, 0);
 #endif
-	PyDict_SetItemString(pysys_dict, "stdout", new_stdprint);
-	PyDict_SetItemString(pysys_dict, "__stdout__", new_stdprint);
-	PyDict_SetItemString(pysys_dict, "stderr", new_stdprint);
-	PyDict_SetItemString(pysys_dict, "__stderr__", new_stdprint);
+		PyDict_SetItemString(pysys_dict, "stdout", new_stdprint);
+		PyDict_SetItemString(pysys_dict, "__stdout__", new_stdprint);
+		PyDict_SetItemString(pysys_dict, "stderr", new_stdprint);
+		PyDict_SetItemString(pysys_dict, "__stderr__", new_stdprint);
+	}
 #endif
 	pypath = PyDict_GetItemString(pysys_dict, "path");
 	if (!pypath) {
