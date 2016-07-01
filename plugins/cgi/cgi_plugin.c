@@ -13,6 +13,7 @@ struct uwsgi_cgi {
 	struct uwsgi_string_list *allowed_ext;
 	struct uwsgi_string_list *unset;
 	struct uwsgi_string_list *loadlib;
+	struct uwsgi_string_list *cgi_safe;
 	int optimize;
 	int from_docroot;
 	int has_mountpoints;
@@ -71,6 +72,8 @@ struct uwsgi_option uwsgi_cgi_options[] = {
         {"cgi-async-max-attempts", no_argument, 0, "max waitpid() attempts in cgi async mode (default 10)", uwsgi_opt_set_int, &uc.async_max_attempts, 0},
 
         {"cgi-close-stdin-on-eof", no_argument, 0, "close STDIN on input EOF", uwsgi_opt_true, &uc.close_stdin_on_eof, 0},
+
+        {"cgi-safe", required_argument, 0, "skip security checks if the cgi file is under the specified path", uwsgi_opt_add_string_list, &uc.cgi_safe, 0},
 
         {0, 0, 0, 0, 0, 0, 0},
 
@@ -535,12 +538,21 @@ static int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		// add +1 to copy the null byte
 		memcpy(full_path, tmp_path, full_path_len+1);
 
-		if (uwsgi_starts_with(full_path, full_path_len, docroot, docroot_len)) {
-                	uwsgi_log("CGI security error: %s is not under %s\n", full_path, docroot);
-			if (need_free)
-				free(docroot);
-                	return -1;
-        	}
+		struct uwsgi_string_list *safe = uc.cgi_safe;
+		while(safe) {
+			if (!uwsgi_starts_with(full_path, full_path_len, safe->value, safe->len))
+				break;
+			safe = safe->next;
+		}
+
+		if (!safe) {
+			if (uwsgi_starts_with(full_path, full_path_len, docroot, docroot_len)) {
+				uwsgi_log("CGI security error: %s is not under %s\n", full_path, docroot);
+				if (need_free)
+					free(docroot);
+				return -1;
+			}
+		}
 
 	}
 	else {
