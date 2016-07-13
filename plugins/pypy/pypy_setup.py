@@ -24,13 +24,13 @@ ssize_t read(int, void *, size_t);
 ssize_t write(int, const void *, size_t);
 int close(int);
 
-extern void (*uwsgi_pypy_hook_execute_source)(char *);
-extern void (*uwsgi_pypy_hook_loader)(char *);
-extern void (*uwsgi_pypy_hook_file_loader)(char *);
-extern void (*uwsgi_pypy_hook_paste_loader)(char *);
-extern void (*uwsgi_pypy_hook_pythonpath)(char *);
-extern void (*uwsgi_pypy_hook_request)(struct wsgi_request *);
-extern void (*uwsgi_pypy_post_fork_hook)(void);
+extern "C+Python" void uwsgi_pypy_execute_source(char *);
+extern "C+Python" void uwsgi_pypy_loader(char *);
+extern "C+Python" void uwsgi_pypy_file_loader(char *);
+extern "C+Python" void uwsgi_pypy_paste_loader(char *);
+extern "C+Python" void uwsgi_pypy_pythonpath(char *);
+extern "C+Python" void uwsgi_pypy_request(struct wsgi_request *);
+extern "C+Python" void uwsgi_pypy_post_fork_hook(void);
 '''
 
 # here we load CFLAGS and uwsgi.h from the binary
@@ -289,7 +289,7 @@ if len(sys.argv) == 0:
     sys.argv.insert(0, ffi.string(lib.uwsgi_binary_path()))
 
 
-@ffi.callback("void(char *)")
+@ffi.def_extern()
 def uwsgi_pypy_execute_source(s):
     """
     execute source, we expose it as cffi callback to avoid deadlocks
@@ -299,7 +299,7 @@ def uwsgi_pypy_execute_source(s):
     exec(source)
 
 
-@ffi.callback("void(char *)")
+@ffi.def_extern()
 def uwsgi_pypy_loader(module):
     """
     load a wsgi module
@@ -316,7 +316,7 @@ def uwsgi_pypy_loader(module):
     wsgi_application = getattr(mod, c)
 
 
-@ffi.callback("void(char *)")
+@ffi.def_extern()
 def uwsgi_pypy_file_loader(filename):
     """
     load a mod_wsgi compliant .wsgi file
@@ -328,7 +328,7 @@ def uwsgi_pypy_file_loader(filename):
     wsgi_application = getattr(mod, c)
 
 
-@ffi.callback("void(char *)")
+@ffi.def_extern()
 def uwsgi_pypy_paste_loader(config):
     """
     load a .ini paste app
@@ -348,7 +348,7 @@ def uwsgi_pypy_paste_loader(config):
     wsgi_application = loadapp('config:%s' % c)
 
 
-@ffi.callback("void()")
+@ffi.def_extern()
 def uwsgi_pypy_post_fork_hook():
     """
     .post_fork_hook
@@ -358,7 +358,7 @@ def uwsgi_pypy_post_fork_hook():
         uwsgi.post_fork_hook()
 
 
-@ffi.callback("void(char *)")
+@ffi.def_extern()
 def uwsgi_pypy_pythonpath(item):
     """
     add an item to the pythonpath
