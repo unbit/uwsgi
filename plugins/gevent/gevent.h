@@ -56,5 +56,6 @@ struct uwsgi_gevent {
 	int destroy;
 	int monkey;
 	int wait_for_hub;
+	int early_monkey;
 };
 
