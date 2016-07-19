@@ -585,3 +585,11 @@ int uwsgi_stats_dump_vars(struct uwsgi_stats *us, struct uwsgi_core *uc) {
 	if (uwsgi_stats_str(us, "")) return -1;
 	return 0;
 }
+
+int uwsgi_stats_dump_request(struct uwsgi_stats *us, struct uwsgi_core *uc) {
+	if (!uc->in_request) return 0;
+	struct wsgi_request req = uc->req;
+	uwsgi_stats_keylong(us, "request_start", req.start_of_request_in_sec);
+
+	return 0;
+}
