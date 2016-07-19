@@ -1272,6 +1272,20 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_list_close(us))
 				goto end;
 
+			if (uwsgi_stats_comma(us)) goto end;
+
+			if (uwsgi_stats_key(us, "req_info"))
+				goto end;
+
+			uwsgi_stats_symbol(us, '\n');
+
+			if (uwsgi_stats_object_open(us))
+				goto end;
+
+			if (uwsgi_stats_dump_request(us, uc)) goto end;
+
+			if (uwsgi_stats_object_close(us))
+				goto end;
 
 			if (uwsgi_stats_object_close(us))
 				goto end;

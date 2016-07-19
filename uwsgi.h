@@ -4600,6 +4600,7 @@ int uwsgi_response_add_date(struct wsgi_request *, char *, uint16_t, uint64_t);
 
 const char *uwsgi_http_status_msg(char *, uint16_t *);
 int uwsgi_stats_dump_vars(struct uwsgi_stats *, struct uwsgi_core *);
+int uwsgi_stats_dump_request(struct uwsgi_stats *, struct uwsgi_core *);
 
 int uwsgi_contains_n(char *, size_t, char *, size_t);
 
