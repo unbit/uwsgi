@@ -585,26 +585,10 @@ int uwsgi_stats_dump_vars(struct uwsgi_stats *us, struct uwsgi_core *uc) {
 	return 0;
 }
 
-#define Q(key) #key
-#define kvn_comma(key) uwsgi_stats_keyvaln_comma(us, Q(key), req.key, req.key ## _len)
-
 int uwsgi_stats_dump_request(struct uwsgi_stats *us, struct uwsgi_core *uc) {
 	if (!uc->in_request) return 0;
 	struct wsgi_request req = uc->req;
-	uwsgi_stats_keylong_comma(us, "request_start", req.start_of_request_in_sec);
-
-	kvn_comma(uri);
-	kvn_comma(remote_addr);
-	kvn_comma(remote_user);
-	kvn_comma(query_string);
-	kvn_comma(protocol);
-	kvn_comma(method);
-	kvn_comma(scheme);
-	kvn_comma(https);
-	kvn_comma(script_name);
-
-	// a trailing comma isn't valid json
-	uwsgi_stats_keyvaln(us, "host", req.host, req.host_len);
+	uwsgi_stats_keylong(us, "request_start", req.start_of_request_in_sec);
 
 	return 0;
 }
