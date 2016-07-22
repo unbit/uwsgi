@@ -940,7 +940,7 @@ secure3:
 		wsgi_req->script_name = "";
 		wsgi_req->script_name_len = 0;
 	}
-	else if (!uphp.fallback && !uphp.fallback2) {
+	else if (!uphp.fallback2) {
 		wsgi_req->script_name = orig_path_info;
 		if (path_info) {
 			wsgi_req->script_name_len = path_info - orig_path_info;
