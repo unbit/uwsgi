@@ -1693,7 +1693,8 @@ static int uwsgi_route_condition_startswith(struct wsgi_request *wsgi_req, struc
 }
 
 static int uwsgi_route_condition_ipin(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-	char ipbuf[sizeof("255.255.255.255")] = {}, maskbuf[sizeof("255.255.255.255")] = {}, pfxlen = 32;
+#define IP4_LEN (sizeof("255.255.255.255")-1)
+	char ipbuf[IP4_LEN+1] = {}, maskbuf[IP4_LEN+1] = {}, pfxlen = 32;
 	char *slash;
 	in_addr_t ip, net, mask;
 
@@ -1701,10 +1702,10 @@ static int uwsgi_route_condition_ipin(struct wsgi_request *wsgi_req, struct uwsg
         if (!semicolon) return 0;
 
         struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
-        if (!ub) return -1;
+        if (!ub || ub->pos > IP4_LEN) return -1;
 
         struct uwsgi_buffer *ub2 = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str));
-        if (!ub2) {
+        if (!ub2 || ub2->pos > IP4_LEN) {
                 uwsgi_buffer_destroy(ub);
                 return -1;
         }
@@ -1731,6 +1732,7 @@ static int uwsgi_route_condition_ipin(struct wsgi_request *wsgi_req, struct uwsg
 	mask = ~0UL << (32 - pfxlen);
 
 	return ((ip & mask) == (net & mask));
+#undef IP4_LEN
 }
 
 static int uwsgi_route_condition_contains(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
