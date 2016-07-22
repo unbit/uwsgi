@@ -1692,23 +1692,31 @@ static int uwsgi_route_condition_startswith(struct wsgi_request *wsgi_req, struc
         return 0;
 }
 
-static int uwsgi_route_condition_ipin(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-#define IP4_LEN (sizeof("255.255.255.255")-1)
-	char ipbuf[IP4_LEN+1] = {}, maskbuf[IP4_LEN+1] = {}, pfxlen = 32;
+static int uwsgi_route_condition_ipv4in(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+#define IP4_LEN		(sizeof("255.255.255.255")-1)
+#define IP4PFX_LEN	(sizeof("255.255.255.255/32")-1)
+	char ipbuf[IP4_LEN+1] = {}, maskbuf[IP4PFX_LEN+1] = {};
 	char *slash;
+	int pfxlen = 32;
 	in_addr_t ip, net, mask;
 
         char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
         if (!semicolon) return 0;
 
         struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
-        if (!ub || ub->pos > IP4_LEN) return -1;
+        if (!ub) return -1;
 
         struct uwsgi_buffer *ub2 = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str));
-        if (!ub2 || ub2->pos > IP4_LEN) {
+        if (!ub2) {
                 uwsgi_buffer_destroy(ub);
                 return -1;
         }
+
+	if (ub->pos > IP4_LEN || ub2->pos >= IP4PFX_LEN) {
+                uwsgi_buffer_destroy(ub);
+                uwsgi_buffer_destroy(ub2);
+		return -1;
+	}
 
 	memcpy(ipbuf, ub->buf, ub->pos);
 	memcpy(maskbuf, ub2->buf, ub2->pos);
@@ -1732,6 +1740,75 @@ static int uwsgi_route_condition_ipin(struct wsgi_request *wsgi_req, struct uwsg
 
 	return ((ip & mask) == (net & mask));
 #undef IP4_LEN
+#undef IP4PFX_LEN
+}
+
+static int uwsgi_route_condition_ipv6in(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+#define IP6_LEN 	(sizeof("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")-1)
+#define IP6PFX_LEN 	(sizeof("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128")-1)
+#define IP6_U32LEN	(128 / 8 / 4)
+	char ipbuf[IP6_LEN+1] = {}, maskbuf[IP6_LEN+1] = {};
+	char *slash;
+	int pfxlen = 128;
+	uint32_t ip[IP6_U32LEN], net[IP6_U32LEN], mask[IP6_U32LEN] = {};
+
+        char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
+        if (!semicolon) return 0;
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
+        if (!ub) return -1;
+
+        struct uwsgi_buffer *ub2 = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str));
+        if (!ub2) {
+                uwsgi_buffer_destroy(ub);
+                return -1;
+        }
+
+	if (ub->pos > IP6_LEN || ub2->pos >= IP6PFX_LEN) {
+                uwsgi_buffer_destroy(ub);
+                uwsgi_buffer_destroy(ub2);
+		return -1;
+	}
+
+	memcpy(ipbuf, ub->buf, ub->pos);
+	memcpy(maskbuf, ub2->buf, ub2->pos);
+
+	if ((slash = strchr(maskbuf, '/')) != NULL) {
+		*slash++ = 0;
+		pfxlen = atoi(slash);
+	}
+
+        uwsgi_buffer_destroy(ub);
+        uwsgi_buffer_destroy(ub2);
+
+	if (inet_pton(AF_INET6, ipbuf, ip) != 1)
+		return 0;
+	if (inet_pton(AF_INET6, maskbuf, net) != 1)
+		return 0;
+	if (pfxlen < 0 || pfxlen > 128)
+		return 0;
+
+	memset(mask, 0xFF, sizeof(mask));
+
+	int i = (pfxlen / 32);
+	switch (i) {
+	case 0: mask[0] = 0;
+	case 1: mask[1] = 0;
+	case 2: mask[2] = 0;
+	case 3: mask[3] = 0;
+	}
+
+	if (pfxlen % 32)
+		mask[i] = htonl(~(uint32_t)0 << (32 - (pfxlen % 32)));
+
+	for (i = 0; i < 4; i++)
+		if ((ip[i] & mask[i]) != (net[i] & mask[i]))
+			return 0;
+
+	return 1;
+#undef IP6_LEN
+#undef IP6PFX_LEN
+#undef IP6_U32LEN
 }
 
 static int uwsgi_route_condition_contains(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
@@ -2022,7 +2099,8 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_route_condition("<=", uwsgi_route_condition_lowerequal);
         uwsgi_register_route_condition("contains", uwsgi_route_condition_contains);
         uwsgi_register_route_condition("contain", uwsgi_route_condition_contains);
-        uwsgi_register_route_condition("ipin", uwsgi_route_condition_ipin);
+        uwsgi_register_route_condition("ipv4in", uwsgi_route_condition_ipv4in);
+        uwsgi_register_route_condition("ipv6in", uwsgi_route_condition_ipv6in);
 #ifdef UWSGI_SSL
         uwsgi_register_route_condition("lord", uwsgi_route_condition_lord);
 #endif
