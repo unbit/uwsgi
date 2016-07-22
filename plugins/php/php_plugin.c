@@ -19,6 +19,8 @@ struct uwsgi_php {
 	char *app;
 	char *app_qs;
 	char *fallback;
+	char *fallback2;
+	char *fallback_qs;
 	size_t ini_size;
 	int dump_config;
 	char *server_software;
@@ -50,7 +52,9 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-server-software", required_argument, 0, "force php SERVER_SOFTWARE", uwsgi_opt_set_str, &uphp.server_software, 0},
         {"php-app", required_argument, 0, "force the php file to run at each request", uwsgi_opt_set_str, &uphp.app, 0},
         {"php-app-qs", required_argument, 0, "when in app mode force QUERY_STRING to the specified value + REQUEST_URI", uwsgi_opt_set_str, &uphp.app_qs, 0},
-        {"php-fallback", required_argument, 0, "run the specified php script when the request one does not exist", uwsgi_opt_set_str, &uphp.fallback, 0},
+        {"php-fallback", required_argument, 0, "run the specified php script when the requested one does not exist", uwsgi_opt_set_str, &uphp.fallback, 0},
+        {"php-fallback2", required_argument, 0, "run the specified php script relative to the document root when the requested one does not exist", uwsgi_opt_set_str, &uphp.fallback2, 0},
+        {"php-fallback-qs", required_argument, 0, "php-fallback with QUERY_STRING set", uwsgi_opt_set_str, &uphp.fallback_qs, 0},
 #ifdef UWSGI_PCRE
         {"php-app-bypass", required_argument, 0, "if the regexp matches the uri the --php-app is bypassed", uwsgi_opt_add_regexp_list, &uphp.app_bypass, 0},
 #endif
@@ -668,6 +672,9 @@ int uwsgi_php_walk(struct wsgi_request *wsgi_req, char *full_path, char *docroot
         if (part < wsgi_req->path_info+wsgi_req->path_info_len) {
                 memcpy(dst, part, part_size-1);
                 *(dst+part_size-1) = 0;
+                if (stat(full_path, &st)) {
+                        return -1;
+                }
         }
 
         return 0;
@@ -768,8 +775,36 @@ oldstyle:
 
 	if (uwsgi_php_walk(wsgi_req, filename, wsgi_req->document_root, wsgi_req->document_root_len, &path_info)) {
 		free(filename);
-		if (uphp.fallback) {
-			filename = uwsgi_str(uphp.fallback);
+
+		if (uphp.fallback || uphp.fallback2) {
+			if (uphp.fallback) {
+				filename = uwsgi_str(uphp.fallback);
+			} else {
+				filename = uwsgi_concat2n(wsgi_req->document_root, strlen(wsgi_req->document_root),
+						uphp.fallback2, strlen(uphp.fallback2));
+				wsgi_req->script_name = uphp.fallback2;
+				wsgi_req->script_name_len = strlen(uphp.fallback2);
+			}
+
+			if (uphp.fallback_qs) {
+				size_t fqs_len = strlen(uphp.fallback_qs);
+				size_t new_qs_len = orig_path_info_len
+					+ fqs_len + 1
+					+ wsgi_req->query_string_len;
+				char *new_qs = ecalloc(1, new_qs_len + 1);
+
+				memcpy(new_qs, uphp.fallback_qs, fqs_len);
+				new_qs[fqs_len] = '=';
+				memcpy(new_qs + fqs_len + 1, orig_path_info, orig_path_info_len);
+				if (wsgi_req->query_string_len) {
+					new_qs[fqs_len + 1 + orig_path_info_len] = '&';
+					memcpy(new_qs + fqs_len + 2 + orig_path_info_len,
+						wsgi_req->query_string, wsgi_req->query_string_len);
+				}
+
+				wsgi_req->query_string = new_qs;
+				wsgi_req->query_string_len = new_qs_len;
+			}
 		}
 		else {
 			uwsgi_404(wsgi_req);
@@ -890,7 +925,7 @@ secure3:
 		wsgi_req->script_name = "";
 		wsgi_req->script_name_len = 0;
 	}
-	else {
+	else if (!uphp.fallback2) {
 		wsgi_req->script_name = orig_path_info;
 		if (path_info) {
 			wsgi_req->script_name_len = path_info - orig_path_info;
