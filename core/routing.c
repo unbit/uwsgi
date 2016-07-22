@@ -1711,12 +1711,11 @@ static int uwsgi_route_condition_ipin(struct wsgi_request *wsgi_req, struct uwsg
         }
 
 	memcpy(ipbuf, ub->buf, ub->pos);
-	if ((slash = memchr(ub2->buf, '/', ub2->pos)) != NULL) {
+	memcpy(maskbuf, ub2->buf, ub2->pos);
+
+	if ((slash = strchr(maskbuf, '/')) != NULL) {
 		*slash++ = 0;
 		pfxlen = atoi(slash);
-		strcpy(maskbuf, ub2->buf);
-	} else {
-		memcpy(maskbuf, ub2->buf, ub2->pos);
 	}
 
         uwsgi_buffer_destroy(ub);
