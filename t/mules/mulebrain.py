@@ -21,4 +21,4 @@ time.sleep(1)
 os.kill(uwsgi.masterpid(), int(sig_to_send))
 
 while True:
-    time.sleep(1)
+    uwsgi.farm_get_msg()
