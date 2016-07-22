@@ -11,6 +11,11 @@ void uwsgi_master_check_death() {
 				return;
 			}
 		}
+		for(i=0;i<uwsgi.mules_cnt;i++) {
+			if (uwsgi.mules[i].pid > 0) {
+				return;
+			}
+		}
 		uwsgi_log("goodbye to uWSGI.\n");
 		exit(0);
 	}
