@@ -4,7 +4,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-#define FCGI_END_REQUEST "\1\x06\0\1\0\0\0\0\1\3\0\1\0\x08\0\0\0\0\0\0\0\0\0\0"
+#define FCGI_END_REQUEST_BYTES "\1\x06\0\1\0\0\0\0\1\3\0\1\0\x08\0\0\0\0\0\0\0\0\0\0"
 
 struct fcgi_record {
 	uint8_t version;
@@ -68,6 +68,104 @@ int fastcgi_to_uwsgi(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 	return 0;
 }
 
+static int buf_append_fcgi_u32(struct uwsgi_buffer *ub, uint32_t n) {
+	unsigned char c[4];
+
+	c[0] = (n & 0xFF000000) >> 24;
+	c[1] = (n & 0x00FF0000) >> 16;
+	c[2] = (n & 0x0000FF00) >> 8;
+	c[3] = (n & 0x000000FF);
+
+	return uwsgi_buffer_append(ub, (char *)c, 4);
+}
+
+static int buf_append_fcgi_u16(struct uwsgi_buffer *ub, uint16_t n) {
+	unsigned char c[2];
+
+	c[0] = (n & 0xFF00) >> 8;
+	c[1] = (n & 0x00FF);
+
+	return uwsgi_buffer_append(ub, (char *)c, 2);
+}
+
+static int buf_append_fcgi_u8(struct uwsgi_buffer *ub, uint8_t n) {
+	unsigned char c;
+
+	c = (n & 0xFF);
+
+	return uwsgi_buffer_append(ub, (char *)&c, 1);
+}
+
+static int buf_append_fcgi_rec(struct uwsgi_buffer *ub, uint8_t type, uint16_t reqid, uint16_t dlen, char *data) {
+	static const unsigned char version = 1;
+	if (uwsgi_buffer_append(ub, (char *) &version, 1)) return -1;
+	if (uwsgi_buffer_append(ub, (char *) &type, 1)) return -1;
+	if (buf_append_fcgi_u16(ub, reqid)) return -1;
+	if (buf_append_fcgi_u16(ub, dlen)) return -1;
+	if (buf_append_fcgi_u8(ub, 0)) return -1; /* padding length */
+	if (buf_append_fcgi_u8(ub, 0)) return -1; /* reserved */
+	if (data)
+		if (uwsgi_buffer_append(ub, data, dlen)) return -1;
+	return 0;
+}
+
+static int buf_append_fcgi_nameval(struct uwsgi_buffer *ub, char *name, size_t namelen, char *value, size_t vlen) {
+	int i;
+
+	if (namelen < 128)
+		i = buf_append_fcgi_u8(ub, namelen);
+	else
+		i = buf_append_fcgi_u32(ub, namelen);
+	if (i) return -1;
+	
+	if (vlen < 128)
+		i = buf_append_fcgi_u8(ub, vlen);
+	else
+		i = buf_append_fcgi_u32(ub, vlen);
+	if (i) return -1;
+
+	if (uwsgi_buffer_append(ub, name, namelen)) return -1;
+	if (uwsgi_buffer_append(ub, value, vlen)) return -1;
+	return 0;
+}
+
+static int fastcgi_buf_begin_request(struct uwsgi_buffer *ub, int reqid, int role, int flags) {
+	if (buf_append_fcgi_rec(ub, FCGI_BEGIN_REQUEST, reqid, 8, NULL)) return -1;
+	if (buf_append_fcgi_u16(ub, role)) return -1;
+	if (buf_append_fcgi_u8(ub, flags)) return -1;
+	if (uwsgi_buffer_append(ub, "     ", 5)) return -1; /* reserved data */
+	return 0;
+}
+
+/* convert a uwsgi request into a fastcgi request */
+struct uwsgi_buffer *uwsgi_to_fastcgi(struct wsgi_request *wsgi_req, int role) {
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	int i;
+	size_t rlen = 0;
+
+	fastcgi_buf_begin_request(ub, 1, role, 0);
+
+#define FCGI_LEN_LEN(x) ((x) < 128 ? 1 : 4)
+        for(i = 0; i < wsgi_req->var_cnt; i += 2)
+		rlen += wsgi_req->hvec[i].iov_len + wsgi_req->hvec[i+1].iov_len
+			+ FCGI_LEN_LEN(wsgi_req->hvec[i].iov_len)
+			+ FCGI_LEN_LEN(wsgi_req->hvec[i+1].iov_len);
+
+	buf_append_fcgi_rec(ub, FCGI_PARAMS, 1, rlen, NULL);
+
+        for(i = 0; i < wsgi_req->var_cnt; i += 2) {
+		buf_append_fcgi_nameval(ub,
+			wsgi_req->hvec[i].iov_base,
+			wsgi_req->hvec[i].iov_len,
+			wsgi_req->hvec[i+1].iov_base,
+			wsgi_req->hvec[i+1].iov_len);
+	}
+
+	buf_append_fcgi_rec(ub, FCGI_PARAMS, 1, 0, NULL);
+	buf_append_fcgi_rec(ub, FCGI_STDIN, 1, 0, NULL);
+
+	return ub;
+}
 
 /*
 
@@ -299,7 +397,7 @@ void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
 	}
 	// special case here, we run in void context, so we need to wait directly here
 	char end_request[24];
-	memcpy(end_request, FCGI_END_REQUEST, 24);
+	memcpy(end_request, FCGI_END_REQUEST_BYTES, 24);
 	char *sid = (char *) &wsgi_req->stream_id;
 	// update with request id
 	end_request[2] = sid[1];
