@@ -1153,6 +1153,9 @@ struct uwsgi_spooler {
 	int signal_pipe[2];
 
 	struct uwsgi_spooler *next;
+
+	time_t cursed_at;
+	time_t no_mercy_at;
 };
 
 #ifdef UWSGI_ROUTING
@@ -2772,6 +2775,11 @@ struct uwsgi_server {
 	struct uwsgi_string_list *wait_for_socket;
 	int wait_for_socket_timeout;
 	int mem_collector_freq;
+
+	// uWSGI 2.0.14
+	struct uwsgi_string_list *touch_mules_reload;
+	struct uwsgi_string_list *touch_spoolers_reload;
+	int spooler_reload_mercy;
 };
 
 struct uwsgi_rpc {
@@ -4678,6 +4686,8 @@ void uwsgi_log_do_rotate(char *, char *, off_t, int);
 void uwsgi_log_rotate();
 void uwsgi_log_reopen();
 void uwsgi_reload_workers();
+void uwsgi_reload_mules();
+void uwsgi_reload_spoolers();
 void uwsgi_chain_reload();
 void uwsgi_refork_master();
 void uwsgi_update_pidfiles();
