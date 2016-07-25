@@ -861,6 +861,12 @@ int master_loop(char **argv, char **environ) {
 					uwsgi_reload_workers();
 					continue;
 				}
+				touched = uwsgi_check_touches(uwsgi.touch_mules_reload);
+				if (touched) {
+					uwsgi_log_verbose("*** %s has been touched... mules reload !!! ***\n", touched);
+					uwsgi_reload_mules();
+					continue;
+				}
 				touched = uwsgi_check_touches(uwsgi.touch_chain_reload);
 				if (touched) {
 					if (uwsgi.status.chain_reloading == 0) {
@@ -1103,6 +1109,18 @@ void uwsgi_reload_workers() {
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].pid > 0) {
 			uwsgi_curse(i, SIGHUP);
+		}
+	}
+	uwsgi_unblock_signal(SIGHUP);
+}
+
+void uwsgi_reload_mules() {
+	int i;
+
+	uwsgi_block_signal(SIGHUP);
+	for (i = 0; i <= uwsgi.mules_cnt; i++) {
+		if (uwsgi.mules[i].pid > 0) {
+			uwsgi_curse_mule(i, SIGHUP);
 		}
 	}
 	uwsgi_unblock_signal(SIGHUP);

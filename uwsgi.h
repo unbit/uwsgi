@@ -2361,6 +2361,7 @@ struct uwsgi_server {
 
 	struct uwsgi_string_list *touch_reload;
 	struct uwsgi_string_list *touch_chain_reload;
+	struct uwsgi_string_list *touch_mules_reload;
 	struct uwsgi_string_list *touch_workers_reload;
 	struct uwsgi_string_list *touch_gracefully_stop;
 	struct uwsgi_string_list *touch_logrotate;
@@ -4812,6 +4813,7 @@ void uwsgi_log_do_rotate(char *, char *, off_t, int);
 void uwsgi_log_rotate();
 void uwsgi_log_reopen();
 void uwsgi_reload_workers();
+void uwsgi_reload_mules();
 void uwsgi_chain_reload();
 void uwsgi_refork_master();
 void uwsgi_update_pidfiles();
