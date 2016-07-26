@@ -181,6 +181,15 @@ void uwsgi_master_check_mercy() {
 			}
 		}
 	}
+
+
+	struct uwsgi_spooler *us;
+	for (us = uwsgi.spoolers; us; us = us->next) {
+		if (us->pid > 0 && us->cursed_at && uwsgi_now() > us->no_mercy_at) {
+				uwsgi_log_verbose("spooler %d (pid: %d) is taking too much time to die...NO MERCY !!!\n", i + 1, us->pid);
+				kill(us->pid, SIGKILL);
+		}
+	}
 }
 
 
@@ -867,6 +876,12 @@ int master_loop(char **argv, char **environ) {
 					uwsgi_reload_mules();
 					continue;
 				}
+				touched = uwsgi_check_touches(uwsgi.touch_spoolers_reload);
+				if (touched) {
+					uwsgi_log_verbose("*** %s has been touched... spoolers reload !!! ***\n", touched);
+					uwsgi_reload_spoolers();
+					continue;
+				}
 				touched = uwsgi_check_touches(uwsgi.touch_chain_reload);
 				if (touched) {
 					if (uwsgi.status.chain_reloading == 0) {
@@ -1121,6 +1136,20 @@ void uwsgi_reload_mules() {
 	for (i = 0; i <= uwsgi.mules_cnt; i++) {
 		if (uwsgi.mules[i].pid > 0) {
 			uwsgi_curse_mule(i, SIGHUP);
+		}
+	}
+	uwsgi_unblock_signal(SIGHUP);
+}
+
+void uwsgi_reload_spoolers() {
+	struct uwsgi_spooler *us;
+
+	uwsgi_block_signal(SIGHUP);
+	for (us = uwsgi.spoolers; us; us = us->next) {
+		if (us->pid > 0) {
+			kill(us->pid, SIGHUP);
+			us->cursed_at = uwsgi_now();
+			us->no_mercy_at = us->cursed_at + uwsgi.spooler_reload_mercy;
 		}
 	}
 	uwsgi_unblock_signal(SIGHUP);
