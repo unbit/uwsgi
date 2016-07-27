@@ -4344,6 +4344,8 @@ ssize_t uwsgi_buffer_write_simple(struct wsgi_request *, struct uwsgi_buffer *);
 
 struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 struct uwsgi_buffer *uwsgi_to_http_dumb(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+struct uwsgi_buffer *uwsgi_to_fastcgi(struct wsgi_request *, int);
+int http_status_code(char *buf, int len);
 
 ssize_t uwsgi_pipe(int, int, int);
 ssize_t uwsgi_pipe_sized(int, int, size_t, int);
@@ -5046,6 +5048,29 @@ int uwsgi_zeus_spawn_instance(struct uwsgi_instance *);
 
 time_t uwsgi_parse_http_date(char *, uint16_t);
 void uwsgi_spooler_cheap_check(void);
+
+#define FCGI_BEGIN_REQUEST       1
+#define FCGI_ABORT_REQUEST       2
+#define FCGI_END_REQUEST         3
+#define FCGI_PARAMS              4
+#define FCGI_STDIN               5
+#define FCGI_STDOUT              6
+#define FCGI_STDERR              7
+#define FCGI_DATA                8
+#define FCGI_GET_VALUES          9
+#define FCGI_GET_VALUES_RESULT  10
+
+#define FCGI_KEEP_CONN  	 1
+
+#define FCGI_RESPONDER  	 1
+#define FCGI_AUTHORIZER 	 2
+#define FCGI_FILTER     	 3
+
+#define FCGI_REQUEST_COMPLETE 	 0
+#define FCGI_CANT_MPX_CONN    	 1
+#define FCGI_OVERLOADED       	 2
+#define FCGI_UNKNOWN_ROLE     	 3
+
 #ifdef __cplusplus
 }
 #endif

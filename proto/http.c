@@ -4,6 +4,33 @@
 
 extern struct uwsgi_server uwsgi;
 
+int http_status_code(char *buf, int len) {
+	char *p = buf;
+
+	for (;;) {
+		if (len < 11) return -1;
+		if (*p == '\r' && *p == '\n') return -1;
+		if (memcmp(p, "Status:", 7)) {
+			char *q;
+			if ((q = memchr(p, '\r', len)) == NULL)
+				return -1;
+			if ((q+1) > (p+len))
+				return -1;
+			if (q[1] != '\n')
+				return -1;
+			len -= (q - p) + 2;
+			p = q + 2;
+		}
+		p += 8;
+		len -= 8;
+		while (isspace(*p) && len)
+			p++, len--;
+		return atoi(p);
+	}
+
+	return -1;
+}
+
 static char * http_header_to_cgi(char *hh, size_t hhlen, size_t *keylen, size_t *vallen, int *has_prefix) {
 	size_t i;
 	char *val = hh;
