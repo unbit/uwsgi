@@ -1277,8 +1277,6 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_key(us, "req_info"))
 				goto end;
 
-			uwsgi_stats_symbol(us, '\n');
-
 			if (uwsgi_stats_object_open(us))
 				goto end;
 
