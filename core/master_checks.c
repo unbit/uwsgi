@@ -311,8 +311,14 @@ int uwsgi_master_check_spoolers_deadline() {
 int uwsgi_master_check_spoolers_death(int diedpid) {
 
 	struct uwsgi_spooler *uspool = uwsgi.spoolers;
+
 	while (uspool) {
 		if (uspool->pid > 0 && diedpid == uspool->pid) {
+			if (uspool->cursed_at) {
+				uspool->pid = 0;
+				uspool->cursed_at = 0;
+				uspool->no_mercy_at = 0;
+			}
 			if (uwsgi.spooler_cheap) {
 				uwsgi_log_verbose("spooler %s ended\n", uspool->dir);
 				uspool->pid = 0;
@@ -341,11 +347,14 @@ int uwsgi_master_check_emperor_death(int diedpid) {
 int uwsgi_master_check_mules_death(int diedpid) {
 	int i;
 	for (i = 0; i < uwsgi.mules_cnt; i++) {
-		if (uwsgi.mules[i].pid == diedpid) {
+		if (!(uwsgi.mules[i].pid == diedpid)) continue;
+		if (!uwsgi.mules[i].cursed_at) {
 			uwsgi_log("OOOPS mule %d (pid: %d) crippled...trying respawn...\n", i + 1, uwsgi.mules[i].pid);
-			uwsgi_mule(i + 1);
-			return -1;
 		}
+		uwsgi.mules[i].no_mercy_at = 0;
+		uwsgi.mules[i].cursed_at = 0;
+		uwsgi_mule(i + 1);
+		return -1;
 	}
 	return 0;
 }
