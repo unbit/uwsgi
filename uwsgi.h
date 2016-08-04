@@ -2364,8 +2364,6 @@ struct uwsgi_server {
 
 	struct uwsgi_string_list *touch_reload;
 	struct uwsgi_string_list *touch_chain_reload;
-	struct uwsgi_string_list *touch_mules_reload;
-	struct uwsgi_string_list *touch_spoolers_reload;
 	struct uwsgi_string_list *touch_workers_reload;
 	struct uwsgi_string_list *touch_gracefully_stop;
 	struct uwsgi_string_list *touch_logrotate;
@@ -2861,6 +2859,8 @@ struct uwsgi_server {
 
 	int subscription_tolerance_inactive;
 
+	struct uwsgi_string_list *touch_mules_reload;
+	struct uwsgi_string_list *touch_spoolers_reload;
 	int spooler_reload_mercy;
 };
 
