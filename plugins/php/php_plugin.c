@@ -15,6 +15,7 @@ struct uwsgi_php {
 	struct uwsgi_regexp_list *app_bypass;
 #endif
 	struct uwsgi_string_list *vars;
+	struct uwsgi_string_list *constants;
 	char *docroot;
 	char *app;
 	char *app_qs;
@@ -59,6 +60,7 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-app-bypass", required_argument, 0, "if the regexp matches the uri the --php-app is bypassed", uwsgi_opt_add_regexp_list, &uphp.app_bypass, 0},
 #endif
         {"php-var", required_argument, 0, "add/overwrite a CGI variable at each request", uwsgi_opt_add_string_list, &uphp.vars, 0},
+        {"php-constant", required_argument, 0, "define a php constant for each request", uwsgi_opt_add_string_list, &uphp.constants, 0},
         {"php-dump-config", no_argument, 0, "dump php config (if modified via --php-set or append options)", uwsgi_opt_true, &uphp.dump_config, 0},
         {"php-exec-before", required_argument, 0, "run specified php code before the requested script", uwsgi_opt_add_string_list, &uphp.exec_before, 0},
         {"php-exec-begin", required_argument, 0, "run specified php code before the requested script", uwsgi_opt_add_string_list, &uphp.exec_before, 0},
@@ -212,8 +214,17 @@ static void sapi_uwsgi_register_variables(zval *track_vars_array TSRMLS_DC)
 		}
 		usl = usl->next;
 	}
-
-
+	usl = uphp.constants;
+	while(usl) {
+		char *equal = strchr(usl->value, '=');
+		if (equal) {
+			size_t name_len = equal-usl->value;
+			char *name = estrndup(usl->value, name_len);
+			char *strval = equal+1;
+			zend_register_string_constant(name, name_len, strval, CONST_CS, 0);
+		}
+		usl = usl->next;
+	}
 }
 
 static sapi_module_struct uwsgi_sapi_module;
