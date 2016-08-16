@@ -53,6 +53,7 @@ struct uwsgi_rados_mountpoint {
 	size_t buffer_size;
 	char *str_put_buffer_size;
 	size_t put_buffer_size;
+	char *namespace;
 };
 
 #define MIN_BUF_SIZE (8*1024)
@@ -159,7 +160,7 @@ static int uwsgi_rados_put(struct wsgi_request *wsgi_req, rados_ioctx_t ctx, cha
 	int ret;
 	const char* method;
 	int truncate = remains == 0;
-#ifdef HAS_RADOS_POOL_REQUIRES_ALIGNMENT2
+#ifdef HAS_RADOS_IOCTX_POOL_REQUIRES_ALIGNMENT2
 	if (!truncate && !rados_ioctx_pool_requires_alignment2(ctx, &ret) && ret) {
 		uint64_t alignment;
 		if (rados_ioctx_pool_required_alignment2(ctx, &alignment)) {
@@ -466,6 +467,7 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 			"username", &urmp->username,
 			"buffer_size", &urmp->str_buffer_size,
 			"put_buffer_size", &urmp->str_put_buffer_size,
+			"namespace", &urmp->namespace,
 			NULL)) {
 				uwsgi_log("unable to parse rados mountpoint definition\n");
 				exit(1);
@@ -505,6 +507,13 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 	else {
 		urmp->put_buffer_size = urmp->buffer_size;
 	}
+
+#ifndef HAS_RADOS_IOCTX_SET_NAMESPACE
+	if (urmp->namespace && strlen(urmp->namespace) > 0) {
+		uwsgi_error("[rados] unfortunately, librados too old to support namespaces");
+		exit(1);
+	}
+#endif
 
 	time_t now = uwsgi_now();
 	uwsgi_log("[rados] mounting %s ...\n", urmp->mountpoint);
@@ -553,6 +562,11 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
                         	rados_shutdown(cluster);
                         	exit(1);
 			}
+#ifdef HAS_RADOS_IOCTX_SET_NAMESPACE
+			if (urmp->namespace) {
+				rados_ioctx_set_namespace(ctxes[i], urmp->namespace);
+			}
+#endif
                 }
 		ctx_ptr = ctxes;
 	}
@@ -563,6 +577,11 @@ static void uwsgi_rados_add_mountpoint(char *arg, size_t arg_len) {
 			rados_shutdown(cluster);
 			exit(1);
 		}
+#ifdef HAS_RADOS_IOCTX_SET_NAMESPACE
+		if (urmp->namespace) {
+			rados_ioctx_set_namespace(ctx, urmp->namespace);
+		}
+#endif
 		ctx_ptr = ctx;
 	}
 
