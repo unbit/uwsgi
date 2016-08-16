@@ -374,7 +374,12 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 	}
 
     // honor ProxyErrorOverride and ErrorDocument
+#if AP_MODULE_MAGIC_AT_LEAST(20101106,0)
+    proxy_dir_conf *dconf = ap_get_module_config(r->per_dir_config, &proxy_module);
+    if (dconf->error_override && ap_is_HTTP_ERROR(r->status)) {
+#else
     if (conf->error_override && ap_is_HTTP_ERROR(r->status)) {
+#endif
         int status = r->status;
         r->status = HTTP_OK;
         r->status_line = NULL;
