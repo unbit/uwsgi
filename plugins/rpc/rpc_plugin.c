@@ -479,8 +479,8 @@ static int uwsgi_routing_func_rpc_ret(struct wsgi_request *wsgi_req, struct uwsg
 	// this is a placeholder for tmp uwsgi_buffers
 	struct uwsgi_buffer *ubs[UMAX8];
 
-	uint64_t i;
-	if (!uwsgi_rpc_apply_translations(wsgi_req, ur, ubs, &i, argv, argvs))
+	uint64_t num_translated;
+	if (!uwsgi_rpc_apply_translations(wsgi_req, ur, ubs, &num_translated, argv, argvs))
 		goto end;
 
 	// ok we now need to check it it is a local call or a remote one
@@ -537,10 +537,8 @@ end0:
 	free(response);
 
 end:
-	for(i=0;i<ur->custom;i++) {
-		if (ubs[i] != NULL) {
-			uwsgi_buffer_destroy(ubs[i]);
-		}
+	for(uint64_t i=0; i < num_translated; i++) {
+		uwsgi_buffer_destroy(ubs[i]);
 	}
 	return ret;
 }
