@@ -294,12 +294,13 @@ static int uwsgi_routing_func_rpc(struct wsgi_request *wsgi_req, struct uwsgi_ro
 	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
 
-	uint64_t i;
+	uint64_t i, last_translated = 0;
 	for(i=0;i<ur->custom;i++) {
 		ubs[i] = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, r_argv[i], r_argvs[i]);
 		if (!ubs[i]) goto end;
 		argv[i] = ubs[i]->buf;
 		argvs[i] = ubs[i]->pos;
+		last_translated = i;
 	}
 
 	// ok we now need to check it it is a local call or a remote one
@@ -323,10 +324,8 @@ static int uwsgi_routing_func_rpc(struct wsgi_request *wsgi_req, struct uwsgi_ro
 	free(response);
 
 end:
-	for(i=0;i<ur->custom;i++) {
-		if (ubs[i] != NULL) {
-			uwsgi_buffer_destroy(ubs[i]);
-		}
+	for(i=0;i<last_translated;i++) {
+		uwsgi_buffer_destroy(ubs[i]);
 	}
 	return ret;
 }
@@ -346,12 +345,13 @@ static int uwsgi_routing_func_rpc_blob(struct wsgi_request *wsgi_req, struct uws
         char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
 
-        uint64_t i;
+        uint64_t i, last_translated = 0;
         for(i=0;i<ur->custom;i++) {
                 ubs[i] = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, r_argv[i], r_argvs[i]);
                 if (!ubs[i]) goto end;
                 argv[i] = ubs[i]->buf;
                 argvs[i] = ubs[i]->pos;
+                last_translated = i;
         }
 
         // ok we now need to check it it is a local call or a remote one
@@ -378,10 +378,8 @@ static int uwsgi_routing_func_rpc_blob(struct wsgi_request *wsgi_req, struct uws
         free(response);
 
 end:
-        for(i=0;i<ur->custom;i++) {
-                if (ubs[i] != NULL) {
-                        uwsgi_buffer_destroy(ubs[i]);
-                }
+        for(i=0;i<last_translated;i++) {
+                uwsgi_buffer_destroy(ubs[i]);
         }
         return ret;
 }
@@ -402,12 +400,13 @@ static int uwsgi_routing_func_rpc_raw(struct wsgi_request *wsgi_req, struct uwsg
         char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
 
-        uint64_t i;
+        uint64_t i, last_translated = 0;
         for(i=0;i<ur->custom;i++) {
                 ubs[i] = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, r_argv[i], r_argvs[i]);
                 if (!ubs[i]) goto end;
                 argv[i] = ubs[i]->buf;
                 argvs[i] = ubs[i]->pos;
+                last_translated = i;
         }
 
         // ok we now need to check it it is a local call or a remote one
@@ -434,12 +433,10 @@ static int uwsgi_routing_func_rpc_raw(struct wsgi_request *wsgi_req, struct uwsg
 end:
 	free(response);
 
-        for(i=0;i<ur->custom;i++) {
-                if (ubs[i] != NULL) {
-                        uwsgi_buffer_destroy(ubs[i]);
-                }
-        }
-        return ret;
+	for(i=0;i<last_translated;i++) {
+		uwsgi_buffer_destroy(ubs[i]);
+	}
+	return ret;
 }
 
 static int uwsgi_routing_func_rpc_var(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
@@ -458,12 +455,13 @@ static int uwsgi_routing_func_rpc_var(struct wsgi_request *wsgi_req, struct uwsg
         char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
 
-        uint64_t i;
+        uint64_t i, last_translated = 0;
         for(i=0;i<ur->custom;i++) {
                 ubs[i] = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, r_argv[i], r_argvs[i]);
                 if (!ubs[i]) goto end;
                 argv[i] = ubs[i]->buf;
                 argvs[i] = ubs[i]->pos;
+                last_translated = i;
         }
 
         // ok we now need to check it it is a local call or a remote one
@@ -488,10 +486,9 @@ static int uwsgi_routing_func_rpc_var(struct wsgi_request *wsgi_req, struct uwsg
 end:
 	if (response)
 		free(response);
-        for(i=0;i<ur->custom;i++) {
-                if (ubs[i] != NULL) {
-                        uwsgi_buffer_destroy(ubs[i]);
-                }
+
+        for(i=0;i<last_translated;i++) {
+                uwsgi_buffer_destroy(ubs[i]);
         }
         return ret;
 }
@@ -514,12 +511,13 @@ static int uwsgi_routing_func_rpc_ret(struct wsgi_request *wsgi_req, struct uwsg
         char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
 
-        uint64_t i;
+        uint64_t i, last_translated = 0;
         for(i=0;i<ur->custom;i++) {
                 ubs[i] = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, r_argv[i], r_argvs[i]);
                 if (!ubs[i]) goto end;
                 argv[i] = ubs[i]->buf;
                 argvs[i] = ubs[i]->pos;
+                last_translated = i;
         }
 
         // ok we now need to check it it is a local call or a remote one
@@ -581,10 +579,8 @@ end0:
         free(response);
 
 end:
-        for(i=0;i<ur->custom;i++) {
-                if (ubs[i] != NULL) {
-                        uwsgi_buffer_destroy(ubs[i]);
-                }
+        for(i=0;i<last_translated;i++) {
+                uwsgi_buffer_destroy(ubs[i]);
         }
         return ret;
 }
