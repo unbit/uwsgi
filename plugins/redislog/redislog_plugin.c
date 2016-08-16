@@ -62,7 +62,7 @@ ssize_t uwsgi_redis_logger(struct uwsgi_logger *ul, char *message, size_t len) {
 			uredislog = (struct uwsgi_redislog_state *) ul->data;
 		}
 
-        	if (ul->arg != NULL) {
+		if (ul->arg != NULL) {
 			char *logarg = uwsgi_str(ul->arg);
 			char *comma1 = strchr(logarg, ',');
 			if (!comma1) {
@@ -86,7 +86,6 @@ ssize_t uwsgi_redis_logger(struct uwsgi_logger *ul, char *message, size_t len) {
 			if (*comma2 == 0) goto done;
 
 			uredislog->prefix = comma2;
-			
 		}
 
 done:
