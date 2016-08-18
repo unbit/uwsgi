@@ -2361,6 +2361,8 @@ struct uwsgi_server {
 	int force_get_memusage;
 	rlim_t reload_on_as;
 	rlim_t reload_on_rss;
+	rlim_t reload_on_uss;
+	rlim_t reload_on_pss;
 	rlim_t evil_reload_on_as;
 	rlim_t evil_reload_on_rss;
 
@@ -3049,6 +3051,8 @@ struct uwsgi_worker {
 
 	uint64_t vsz_size;
 	uint64_t rss_size;
+	uint64_t uss_size;
+	uint64_t pss_size;
 
 	uint64_t running_time;
 
@@ -3156,6 +3160,7 @@ void logto(char *);
 
 void log_request(struct wsgi_request *);
 void get_memusage(uint64_t *, uint64_t *);
+void get_smaps_memusage(uint64_t *, uint64_t *);
 void harakiri(void);
 
 void stats(int);

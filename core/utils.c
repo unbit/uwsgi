@@ -1056,7 +1056,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 	int waitpid_status;
 	int tmp_id;
-	uint64_t tmp_rt, rss = 0, vsz = 0;
+	uint64_t tmp_rt, rss = 0, vsz = 0, uss = 0, pss = 0;
 
 	// apply transformations
 	if (wsgi_req->transformations) {
@@ -1090,6 +1090,12 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		get_memusage(&rss, &vsz);
 		uwsgi.workers[uwsgi.mywid].vsz_size = vsz;
 		uwsgi.workers[uwsgi.mywid].rss_size = rss;
+	}
+
+	if (uwsgi.reload_on_uss) {
+		get_smaps_memusage(&uss, &pss);
+		uwsgi.workers[uwsgi.mywid].uss_size = uss;
+		uwsgi.workers[uwsgi.mywid].pss_size = pss;
 	}
 
 	if (!wsgi_req->do_not_account) {
@@ -1221,6 +1227,19 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		);
 	}
 
+	if (uwsgi.reload_on_uss && (rlim_t) uss >= uwsgi.reload_on_uss && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
+		goodbye_cruel_world("reload-on-uss limit reached (%llu >= %llu)",
+			(unsigned long long) (rlim_t) uss,
+			(unsigned long long) uwsgi.reload_on_uss
+		);
+	}
+
+	if (uwsgi.reload_on_pss && (rlim_t) pss >= uwsgi.reload_on_pss && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
+		goodbye_cruel_world("reload-on-pss limit reached (%llu >= %llu)",
+			(unsigned long long) (rlim_t) pss,
+			(unsigned long long) uwsgi.reload_on_pss
+		);
+	}
 
 	// after the first request, if i am a vassal, signal Emperor about my loyalty
 	if (uwsgi.has_emperor && !uwsgi.loyal) {

@@ -864,6 +864,27 @@ void get_memusage(uint64_t * rss, uint64_t * vsz) {
 
 }
 
+//TODO: add non-linux uss and pss metrics
+void get_smaps_memusage(uint64_t * uss, uint64_t * pss) {
+#ifdef __linux__
+  FILE *file = fopen("/proc/self/smaps", "r");
+
+  char line [BUFSIZ];
+  while (fgets(line, sizeof line, file))
+    {
+      char substr[32];
+      int n;
+      if (sscanf(line, "%31[^:]: %d", substr, &n) == 2)
+        {
+	  if (strcmp(substr, "Private_Clean") == 0)  { *uss += n * 1024; }
+	  else if (strcmp(substr, "Private_Dirty") == 0)  { *uss += n * 1024; }
+	  else if (strcmp(substr, "Pss") == 0)            { *pss += n * 1024; }
+        }
+    }
+  fclose(file);
+#endif
+}
+
 void uwsgi_register_logger(char *name, ssize_t(*func) (struct uwsgi_logger *, char *, size_t)) {
 
 	struct uwsgi_logger *ul = uwsgi.loggers, *old_ul;
