@@ -60,7 +60,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 		return UWSGI_OK;
 	}
 
-	if (av_top_index(response) == -1) {
+	if (av_len(response) == -1) {
 		// deliberately empty response
 		wsgi_req->status = 101;
 		return UWSGI_OK;
