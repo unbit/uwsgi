@@ -60,6 +60,11 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 		return UWSGI_OK;
 	}
 
+	if (av_top_index(response) == -1) {
+		// deliberately empty response
+		return UWSGI_OK;
+	}
+
 	status_code = av_fetch(response, 0, 0);
 	if (!status_code) { uwsgi_log("invalid PSGI status code\n"); return UWSGI_OK;}
 
