@@ -3053,8 +3053,10 @@ struct uwsgi_worker {
 
 	uint64_t vsz_size;
 	uint64_t rss_size;
+#ifdef __linux__
 	uint64_t uss_size;
 	uint64_t pss_size;
+#endif
 
 	uint64_t running_time;
 
