@@ -3160,7 +3160,7 @@ void logto(char *);
 
 void log_request(struct wsgi_request *);
 void get_memusage(uint64_t *, uint64_t *);
-void get_smaps_memusage(uint64_t *, uint64_t *);
+void get_memusage_extra(uint64_t *, uint64_t *);
 void harakiri(void);
 
 void stats(int);

@@ -865,7 +865,7 @@ void get_memusage(uint64_t * rss, uint64_t * vsz) {
 }
 
 //TODO: add non-linux uss and pss metrics
-void get_smaps_memusage(uint64_t * uss, uint64_t * pss) {
+void get_memusage_extra(uint64_t * uss, uint64_t * pss) {
 #ifdef __linux__
   FILE *file = fopen("/proc/self/smaps", "r");
 

@@ -1093,7 +1093,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 	if (uwsgi.reload_on_uss) {
-		get_smaps_memusage(&uss, &pss);
+		get_memusage_extra(&uss, &pss);
 		uwsgi.workers[uwsgi.mywid].uss_size = uss;
 		uwsgi.workers[uwsgi.mywid].pss_size = pss;
 	}
