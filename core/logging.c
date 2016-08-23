@@ -864,9 +864,8 @@ void get_memusage(uint64_t * rss, uint64_t * vsz) {
 
 }
 
-//TODO: add non-linux uss and pss metrics
-void get_memusage_extra(uint64_t * uss, uint64_t * pss) {
 #ifdef __linux__
+void get_memusage_extra(uint64_t * uss, uint64_t * pss) {
   FILE *file = fopen("/proc/self/smaps", "r");
 
   char line [BUFSIZ];
@@ -882,8 +881,8 @@ void get_memusage_extra(uint64_t * uss, uint64_t * pss) {
         }
     }
   fclose(file);
-#endif
 }
+#endif
 
 void uwsgi_register_logger(char *name, ssize_t(*func) (struct uwsgi_logger *, char *, size_t)) {
 

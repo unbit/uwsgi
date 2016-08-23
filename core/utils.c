@@ -1092,11 +1092,13 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		uwsgi.workers[uwsgi.mywid].rss_size = rss;
 	}
 
-	if (uwsgi.reload_on_uss) {
+#ifdef __linux__
+	if (uwsgi.reload_on_uss || uwsgi.reload_on_pss) {
 		get_memusage_extra(&uss, &pss);
 		uwsgi.workers[uwsgi.mywid].uss_size = uss;
 		uwsgi.workers[uwsgi.mywid].pss_size = pss;
 	}
+#endif
 
 	if (!wsgi_req->do_not_account) {
 		uwsgi.workers[0].requests++;
@@ -1227,6 +1229,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		);
 	}
 
+#ifdef __linux__
 	if (uwsgi.reload_on_uss && (rlim_t) uss >= uwsgi.reload_on_uss && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
 		goodbye_cruel_world("reload-on-uss limit reached (%llu >= %llu)",
 			(unsigned long long) (rlim_t) uss,
@@ -1240,6 +1243,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 			(unsigned long long) uwsgi.reload_on_pss
 		);
 	}
+#endif
 
 	// after the first request, if i am a vassal, signal Emperor about my loyalty
 	if (uwsgi.has_emperor && !uwsgi.loyal) {
