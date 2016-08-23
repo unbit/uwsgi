@@ -1489,7 +1489,7 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwar
 }
 
 PyObject *py_uwsgi_mule_file(PyObject * self, PyObject * args) {
-	
+
 	int mule_id = uwsgi.muleid;
 
 	if (PyArg_ParseTuple(args, "|i", &mule_id) && mule_id == 0) {
@@ -1507,6 +1507,21 @@ PyObject *py_uwsgi_mule_file(PyObject * self, PyObject * args) {
 	}
 
 	return PyString_FromString(mule->patch);
+}
+
+PyObject *py_uwsgi_spooler_dir(PyObject * self, PyObject * args) {
+
+	struct uwsgi_spooler *spooler = uwsgi.spoolers;
+
+	for (;spooler;spooler=spooler->next) {
+		if (uwsgi.mypid == spooler->pid) {
+			if (spooler->dir) return PyString_FromString(spooler->dir);
+			Py_INCREF(Py_None);
+			return Py_None;
+		}
+	}
+
+	return PyErr_Format(PyExc_ValueError, "This process is not a spooler");
 }
 
 PyObject *py_uwsgi_farm_get_msg(PyObject * self, PyObject * args) {
@@ -2837,6 +2852,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"micros", py_uwsgi_micros, METH_VARARGS, ""},
 
 	{"mule_file", py_uwsgi_mule_file, METH_VARARGS, ""},
+	{"spooler_dir", py_uwsgi_spooler_dir, METH_VARARGS, ""},
 
 	{NULL, NULL},
 };
