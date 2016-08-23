@@ -63,6 +63,8 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 	if (av_len(response) == -1) {
 		// deliberately empty response
 		wsgi_req->status = 101;
+		// don't actually close socket, it must be closed by application itself
+		wsgi_req->fd_closed = 1;
 		return UWSGI_OK;
 	}
 
