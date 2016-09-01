@@ -1736,7 +1736,7 @@ static int uwsgi_route_condition_ipv4in(struct wsgi_request *wsgi_req, struct uw
 	if (pfxlen < 0 || pfxlen > 32)
 		return 0;
 
-	mask = ~0UL << (32 - pfxlen);
+	mask = (~0UL << (32 - pfxlen)) & ~0U;
 
 	return ((ip & mask) == (net & mask));
 #undef IP4_LEN
