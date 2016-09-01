@@ -141,6 +141,7 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 
 	if (buffer_size > 0xffff) {
 		uwsgi_log("RPC packet length overflow!!! Must be less than or equal to 65535, have %llu\n", buffer_size);
+		close(fd);
 		return NULL;
 	}
 
