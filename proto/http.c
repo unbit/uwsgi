@@ -9,7 +9,7 @@ int http_status_code(char *buf, int len) {
 
 	for (;;) {
 		if (len < 11) return -1;
-		if (*p == '\r' && *p == '\n') return -1;
+		if (*p == '\r' && *(p+1) == '\n') return -1;
 		if (memcmp(p, "Status:", 7)) {
 			char *q;
 			if ((q = memchr(p, '\r', len)) == NULL)
