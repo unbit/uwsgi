@@ -369,7 +369,7 @@ static int uwsgi_api_log(lua_State *L) {
 		if (ub) {
 			if (!uwsgi_buffer_byte(ub, 0))
 				ulua_log("%s%s%s", uwsgi_lua_log_tostring(L, 1, NULL), buff, ub->buf);
-				uwsgi_buffer_destroy(ub);
+			uwsgi_buffer_destroy(ub);
 		} else {
 			ulua_log("%s%s", uwsgi_lua_log_tostring(L, 1, NULL), buff);
 		}
