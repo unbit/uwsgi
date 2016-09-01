@@ -1957,14 +1957,15 @@ int uwsgi_socket_from_addr(union uwsgi_sockaddr *addr, socklen_t *len, char *add
 	int type;
 	char *colon = strchr(addrtxt, ':');
 
+#ifdef AF_INET6
+	if (*addrtxt == '[' && colon && colon[-1] == ']') {
+		type = AF_INET6;
+	}
+	else
+#endif
 	if (colon) {
 		type = AF_INET;
 	}
-#ifdef AF_INET6
-	else if (*addrtxt == '[' && colon && colon[-1] == ']') {
-		type = AF_INET6;
-	}
-#endif
 	else {
 		type = AF_UNIX;
 	}
