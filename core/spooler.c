@@ -627,6 +627,12 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			if (uwsgi_spooler_read_header(task, spool_fd, &uh))
 				return;
 
+			// access lstat second time after getting a lock
+			// first-time lstat could be dirty (for example between writes in master)
+			if (lstat(task, &sf_lstat)) {
+				return;
+			}
+
 			if (uwsgi_spooler_read_content(spool_fd, spool_buf, &body, &body_len, &uh, &sf_lstat)) {
 				destroy_spool(dir, task);
 				return;
