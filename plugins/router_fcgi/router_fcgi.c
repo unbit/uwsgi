@@ -229,7 +229,6 @@ static int uwsgi_routing_func_fcgi(struct wsgi_request *wsgi_req, struct uwsgi_r
 
 end:
 	if (fd) close(fd);
-	if (ub) uwsgi_buffer_destroy(ub);
 	if (ub_addr) uwsgi_buffer_destroy(ub_addr);
 	if (headers) uwsgi_buffer_destroy(headers);
 	return ret;

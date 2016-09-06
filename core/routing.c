@@ -1736,7 +1736,7 @@ static int uwsgi_route_condition_ipv4in(struct wsgi_request *wsgi_req, struct uw
 	if (pfxlen < 0 || pfxlen > 32)
 		return 0;
 
-	mask = ~0UL << (32 - pfxlen);
+	mask = (~0UL << (32 - pfxlen)) & ~0U;
 
 	return ((ip & mask) == (net & mask));
 #undef IP4_LEN
@@ -1747,7 +1747,7 @@ static int uwsgi_route_condition_ipv6in(struct wsgi_request *wsgi_req, struct uw
 #define IP6_LEN 	(sizeof("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")-1)
 #define IP6PFX_LEN 	(sizeof("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128")-1)
 #define IP6_U32LEN	(128 / 8 / 4)
-	char ipbuf[IP6_LEN+1] = {}, maskbuf[IP6_LEN+1] = {};
+	char ipbuf[IP6_LEN+1] = {}, maskbuf[IP6PFX_LEN+1] = {};
 	char *slash;
 	int pfxlen = 128;
 	uint32_t ip[IP6_U32LEN], net[IP6_U32LEN], mask[IP6_U32LEN] = {};
