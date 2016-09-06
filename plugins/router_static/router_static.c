@@ -32,6 +32,8 @@ int uwsgi_routing_func_static(struct wsgi_request *wsgi_req, struct uwsgi_route 
 
 	uwsgi_file_serve(wsgi_req, ub->buf, ub->pos, NULL, 0, 1);
 	uwsgi_buffer_destroy(ub);
+	if (ur->custom == 1)
+		return UWSGI_ROUTE_NEXT;
 	return UWSGI_ROUTE_BREAK;
 }
 
@@ -260,11 +262,15 @@ end:
 
 
 static int uwsgi_router_static(struct uwsgi_route *ur, char *args) {
-
 	ur->func = uwsgi_routing_func_static;
 	ur->data = args;
 	ur->data_len = strlen(args);
 	return 0;
+}
+
+static int uwsgi_router_static_next(struct uwsgi_route *ur, char *args) {
+	ur->custom = 1;
+	return uwsgi_router_static(ur, args);
 }
 
 static int uwsgi_router_file(struct uwsgi_route *ur, char *args) {
@@ -340,6 +346,7 @@ static int uwsgi_router_fastfile_next(struct uwsgi_route *ur, char *args) {
 static void router_static_register(void) {
 
 	uwsgi_register_router("static", uwsgi_router_static);
+	uwsgi_register_router("static-next", uwsgi_router_static_next);
 	uwsgi_register_router("file", uwsgi_router_file);
 	uwsgi_register_router("file-next", uwsgi_router_file_next);
 	uwsgi_register_router("sendfile", uwsgi_router_sendfile);
