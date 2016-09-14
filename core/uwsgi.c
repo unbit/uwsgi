@@ -1379,7 +1379,7 @@ void gracefully_kill_them_all(int signum) {
 
         int i;
         for (i = 1; i <= uwsgi.numproc; i++) {
-                if (uwsgi.workers[i].pid > 0) {
+                if (uwsgi.workers[i].pid > 0 && uwsgi.mypid != uwsgi.workers[i].pid) {
                         uwsgi_curse(i, SIGHUP);
                 }
         }
