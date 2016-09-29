@@ -1288,6 +1288,7 @@ void gracefully_kill(int signum) {
 		struct wsgi_request *wsgi_req = current_wsgi_req();
 		wait_for_threads();
 		if (!uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request) {
+			uwsgi_close_all_sockets();
 			exit(UWSGI_RELOAD_CODE);
 		}
 		return;
@@ -1296,10 +1297,12 @@ void gracefully_kill(int signum) {
 
 	// still not found a way to gracefully reload in async mode
 	if (uwsgi.async > 0) {
+		uwsgi_close_all_sockets();
 		exit(UWSGI_RELOAD_CODE);
 	}
 
 	if (!uwsgi.workers[uwsgi.mywid].cores[0].in_request) {
+		uwsgi_close_all_sockets();
 		exit(UWSGI_RELOAD_CODE);
 	}
 }
