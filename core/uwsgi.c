@@ -1288,7 +1288,8 @@ void gracefully_kill(int signum) {
 		struct wsgi_request *wsgi_req = current_wsgi_req();
 		wait_for_threads();
 		if (!uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request) {
-			uwsgi_close_all_sockets();
+			if (uwsgi.workers[uwsgi.mywid].close_sockets)
+				uwsgi_close_all_sockets();
 			exit(UWSGI_RELOAD_CODE);
 		}
 		return;
@@ -1297,12 +1298,14 @@ void gracefully_kill(int signum) {
 
 	// still not found a way to gracefully reload in async mode
 	if (uwsgi.async > 0) {
-		uwsgi_close_all_sockets();
+		if (uwsgi.workers[uwsgi.mywid].close_sockets)
+			uwsgi_close_all_sockets();
 		exit(UWSGI_RELOAD_CODE);
 	}
 
 	if (!uwsgi.workers[uwsgi.mywid].cores[0].in_request) {
-		uwsgi_close_all_sockets();
+		if (uwsgi.workers[uwsgi.mywid].close_sockets)
+			uwsgi_close_all_sockets();
 		exit(UWSGI_RELOAD_CODE);
 	}
 }
@@ -1383,6 +1386,7 @@ void gracefully_kill_them_all(int signum) {
         int i;
         for (i = 1; i <= uwsgi.numproc; i++) {
                 if (uwsgi.workers[i].pid > 0) {
+                        uwsgi.workers[i].close_sockets = 1;
                         uwsgi_curse(i, SIGHUP);
                 }
         }

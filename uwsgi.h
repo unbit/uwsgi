@@ -3048,6 +3048,7 @@ struct uwsgi_worker {
 	int manage_next_request;
 
 	int destroy;
+	int close_sockets;
 
 	int apps_cnt;
 	struct uwsgi_app *apps;
