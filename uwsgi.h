@@ -2361,10 +2361,6 @@ struct uwsgi_server {
 	int force_get_memusage;
 	rlim_t reload_on_as;
 	rlim_t reload_on_rss;
-#ifdef __linux__
-	rlim_t reload_on_uss;
-	rlim_t reload_on_pss;
-#endif
 	rlim_t evil_reload_on_as;
 	rlim_t evil_reload_on_rss;
 
@@ -2873,6 +2869,11 @@ struct uwsgi_server {
 	int spooler_reload_mercy;
 
 	int skip_atexit_teardown;
+
+#ifdef __linux__
+	rlim_t reload_on_uss;
+	rlim_t reload_on_pss;
+#endif
 };
 
 struct uwsgi_rpc {
@@ -3053,10 +3054,6 @@ struct uwsgi_worker {
 
 	uint64_t vsz_size;
 	uint64_t rss_size;
-#ifdef __linux__
-	uint64_t uss_size;
-	uint64_t pss_size;
-#endif
 
 	uint64_t running_time;
 
@@ -3093,6 +3090,11 @@ struct uwsgi_worker {
 	char name[0xff];
 
 	int shutdown_sockets;
+
+#ifdef __linux__
+	uint64_t uss_size;
+	uint64_t pss_size;
+#endif
 };
 
 
