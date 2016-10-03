@@ -60,6 +60,8 @@ void *uwsgi_get_loop(char *name) {
 
 void simple_loop() {
 	uwsgi_loop_cores_run(simple_loop_run);
+	if (uwsgi.workers[uwsgi.mywid].close_sockets)
+		uwsgi_close_all_sockets();
 }
 
 void uwsgi_loop_cores_run(void *(*func) (void *)) {
