@@ -866,21 +866,23 @@ void get_memusage(uint64_t * rss, uint64_t * vsz) {
 
 #ifdef __linux__
 void get_memusage_extra(uint64_t * uss, uint64_t * pss) {
-  FILE *file = fopen("/proc/self/smaps", "r");
+	FILE *file = fopen("/proc/self/smaps", "r");
 
-  char line [BUFSIZ];
-  while (fgets(line, sizeof line, file))
-    {
-      char substr[32];
-      int n;
-      if (sscanf(line, "%31[^:]: %d", substr, &n) == 2)
-        {
-	  if (strcmp(substr, "Private_Clean") == 0)  { *uss += n * 1024; }
-	  else if (strcmp(substr, "Private_Dirty") == 0)  { *uss += n * 1024; }
-	  else if (strcmp(substr, "Pss") == 0)            { *pss += n * 1024; }
-        }
-    }
-  fclose(file);
+	char line [BUFSIZ];
+	while (fgets(line, sizeof line, file)) {
+		char substr[32];
+		int n;
+		if (sscanf(line, "%31[^:]: %d", substr, &n) == 2)
+		{
+			if (strcmp(substr, "Private_Clean") == 0)
+				*uss += n * 1024;
+			else if (strcmp(substr, "Private_Dirty") == 0)
+				*uss += n * 1024;
+			else if (strcmp(substr, "Pss") == 0)
+				*pss += n * 1024;
+		}
+	}
+	fclose(file);
 }
 #endif
 
