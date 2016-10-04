@@ -717,8 +717,16 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 	}
 
 	if (uwsgi.logging_options.memory_report == 1) {
-		rlen = snprintf(mempkt, 4096, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size, (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024,
-			(unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size, (unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size / 1024 / 1024);
+		rlen = snprintf(mempkt, 4096, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} {uss usage: %llu bytes/%lluMB} {pss usage: %llu bytes/%lluMB} ",
+						(unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size,
+						(unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024,
+						(unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size,
+						(unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size / 1024 / 1024,
+						(unsigned long long) uwsgi.workers[uwsgi.mywid].uss_size,
+						(unsigned long long) uwsgi.workers[uwsgi.mywid].uss_size / 1024 / 1024,
+						(unsigned long long) uwsgi.workers[uwsgi.mywid].pss_size,
+						(unsigned long long) uwsgi.workers[uwsgi.mywid].pss_size / 1024 / 1024);
+
 		logvec[logvecpos].iov_base = mempkt;
 		logvec[logvecpos].iov_len = rlen;
 		logvecpos++;

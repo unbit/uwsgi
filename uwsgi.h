@@ -3091,10 +3091,8 @@ struct uwsgi_worker {
 
 	int shutdown_sockets;
 
-#ifdef __linux__
 	uint64_t uss_size;
 	uint64_t pss_size;
-#endif
 };
 
 
