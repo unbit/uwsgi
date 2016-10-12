@@ -232,7 +232,7 @@ static void sapi_uwsgi_register_variables(zval *track_vars_array TSRMLS_DC)
 			size_t name_len = equal-usl->value;
 			char *name = estrndup(usl->value, name_len);
 			char *strval = equal+1;
-			zend_register_string_constant(name, name_len, strval, CONST_CS, 0);
+			zend_register_string_constant(name, name_len, strval, CONST_CS, 0 TSRMLS_CC);
 		}
 		usl = usl->next;
 	}
