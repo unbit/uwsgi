@@ -855,6 +855,12 @@ realstuff:
 		uwsgi_perl_run_hook(uperl.atexit);
 	}
 
+	// For the reasons explained in
+	// https://github.com/unbit/uwsgi/issues/1384, tearing down
+	// the interpreter can be very expensive.
+	if (uwsgi.skip_atexit_teardown)
+		return;
+
 destroyperl:
 
         // We must free our perl context(s) so any DESTROY hooks
