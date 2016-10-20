@@ -95,6 +95,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"skip-zero", no_argument, 0, "skip check of file descriptor 0", uwsgi_opt_true, &uwsgi.skip_zero, 0},
 	{"skip-atexit", no_argument, 0, "skip atexit hooks (ignored by the master)", uwsgi_opt_true, &uwsgi.skip_atexit, 0},
+	{"skip-atexit-teardown", no_argument, 0, "skip atexit teardown (ignored by the master)", uwsgi_opt_true, &uwsgi.skip_atexit_teardown, 0},
 
 	{"set", required_argument, 'S', "set a placeholder or an option", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
 	{"set-placeholder", required_argument, 0, "set a placeholder", uwsgi_opt_set_placeholder, (void *) 1, UWSGI_OPT_IMMEDIATE},

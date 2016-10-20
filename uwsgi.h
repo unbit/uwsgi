@@ -2862,6 +2862,8 @@ struct uwsgi_server {
 	struct uwsgi_string_list *touch_mules_reload;
 	struct uwsgi_string_list *touch_spoolers_reload;
 	int spooler_reload_mercy;
+
+	int skip_atexit_teardown;
 };
 
 struct uwsgi_rpc {
