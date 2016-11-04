@@ -1697,6 +1697,7 @@ struct uwsgi_instance_status {
 	int workers_reloading;
 	int is_cheap;
 	int is_cleaning;
+	int dying_for_need_app;
 };
 
 struct uwsgi_configurator {

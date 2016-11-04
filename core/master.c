@@ -1025,6 +1025,21 @@ next:
 			uwsgi.workers[thewid].cores[i].harakiri = 0;
 		}
 
+
+		// first check failed app loading in need-app mode
+		if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_FAILED_APP_CODE) {
+			if (uwsgi.lazy_apps && uwsgi.need_app) {
+				uwsgi_log("OOPS ! failed loading app in worker %d (pid %d)\n", thewid, (int) diedpid);
+				uwsgi_log_verbose("need-app requested, destroying the instance...\n");
+				uwsgi.status.dying_for_need_app = 1;
+				kill_them_all(0);
+				continue;
+			}
+			else {
+				uwsgi_log("OOPS ! failed loading app in worker %d (pid %d) :( trying again...\n", thewid, (int) diedpid);
+			}
+		}
+
 		// ok, if we are reloading or dying, just continue the master loop
 		// as soon as all of the workers have pid == 0, the action (exit, or reload) is triggered
 		if (uwsgi_instance_is_reloading || uwsgi_instance_is_dying) {
@@ -1032,20 +1047,11 @@ next:
 				uwsgi.workers[thewid].cursed_at = uwsgi_now();
 			uwsgi_log("worker %d buried after %d seconds\n", thewid, (int) (uwsgi_now() - uwsgi.workers[thewid].cursed_at));
 			uwsgi.workers[thewid].cursed_at = 0;
+			// if we are stopping workers, just end here
 			continue;
 		}
 
-		// if we are stopping workers, just end here
-
-		if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_FAILED_APP_CODE) {
-			uwsgi_log("OOPS ! failed loading app in worker %d (pid %d) :( trying again...\n", thewid, (int) diedpid);
-			if (uwsgi.lazy_apps && uwsgi.need_app) {
-				uwsgi_log_verbose("need-app requested, destroying the instance...\n");
-				kill_them_all(0);
-				continue;
-			}
-		}
-		else if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_DE_HIJACKED_CODE) {
+		if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_DE_HIJACKED_CODE) {
 			uwsgi_log("...restoring worker %d (pid: %d)...\n", thewid, (int) diedpid);
 		}
 		else if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_EXCEPTION_CODE) {

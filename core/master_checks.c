@@ -17,7 +17,7 @@ void uwsgi_master_check_death() {
 			}
 		}
 		uwsgi_log("goodbye to uWSGI.\n");
-		exit(0);
+		exit(uwsgi.status.dying_for_need_app ? UWSGI_FAILED_APP_CODE : 0);
 	}
 }
 
