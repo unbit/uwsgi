@@ -840,9 +840,11 @@ void uwsgi_spdy_info_cb(SSL const *ssl, int where, int ret) {
 				//hr->spdy_hook = hr_recv_spdy_control_frame;
 			}
 		}
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
                 if (ssl->s3) {
                         ssl->s3->flags |= SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS;
                 }
+#endif
         }
 }
 

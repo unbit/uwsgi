@@ -353,9 +353,13 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #define UWSGI_CACHE_FLAG_FIXEXPIRE	1 << 9
 
 #ifdef UWSGI_SSL
-#include "openssl/conf.h"
-#include "openssl/ssl.h"
+#include <openssl/conf.h>
+#include <openssl/ssl.h>
 #include <openssl/err.h>
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#define UWSGI_SSL_SESSION_CACHE
+#endif
 #endif
 
 #include <glob.h>
