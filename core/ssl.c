@@ -14,20 +14,24 @@ set data in it with SSL_CTX_set_ex_data
 */
 
 void uwsgi_ssl_init(void) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
         OPENSSL_config(NULL);
+#endif
         SSL_library_init();
         SSL_load_error_strings();
         OpenSSL_add_all_algorithms();
         uwsgi.ssl_initialized = 1;
 }
 
-void uwsgi_ssl_info_cb(SSL const *ssl, int where, int ret) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+void uwsgi_ssl_info_cb(const SSL *ssl, int where, int ret) {
         if (where & SSL_CB_HANDSHAKE_DONE) {
                 if (ssl->s3) {
                         ssl->s3->flags |= SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS;
                 }
         }
 }
+#endif
 
 int uwsgi_ssl_verify_callback(int ok, X509_STORE_CTX * x509_store) {
         if (!ok && uwsgi.ssl_verbose) {
@@ -44,6 +48,7 @@ int uwsgi_ssl_verify_callback(int ok, X509_STORE_CTX * x509_store) {
         return ok;
 }
 
+#ifdef UWSGI_SSL_SESSION_CACHE
 int uwsgi_ssl_session_new_cb(SSL *ssl, SSL_SESSION *sess) {
         char session_blob[4096];
         int len = i2d_SSL_SESSION(sess, NULL);
@@ -68,7 +73,7 @@ int uwsgi_ssl_session_new_cb(SSL *ssl, SSL_SESSION *sess) {
         return 0;
 }
 
-SSL_SESSION *uwsgi_ssl_session_get_cb(SSL *ssl, unsigned char *key, int keylen, int *copy) {
+SSL_SESSION *uwsgi_ssl_session_get_cb(SSL *ssl, const unsigned char *key, int keylen, int *copy) {
 
         uint64_t valsize = 0;
 
@@ -100,6 +105,7 @@ void uwsgi_ssl_session_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
         }
         uwsgi_rwunlock(uwsgi.ssl_sessions_cache->lock);
 }
+#endif
 
 #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
 static int uwsgi_sni_cb(SSL *ssl, int *ad, void *arg) {
@@ -356,7 +362,9 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
         }
 
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
         SSL_CTX_set_info_callback(ctx, uwsgi_ssl_info_cb);
+#endif
 #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
         SSL_CTX_set_tlsext_servername_callback(ctx, uwsgi_sni_cb);
 #endif
@@ -364,6 +372,7 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
         // disable session caching by default
         SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
 
+#ifdef UWSGI_SSL_SESSION_CACHE
 	if (uwsgi.ssl_sessions_use_cache) {
 
 		// we need to early initialize locking and caching
@@ -408,6 +417,7 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
                 SSL_CTX_sess_set_get_cb(ctx, uwsgi_ssl_session_get_cb);
                 SSL_CTX_sess_set_remove_cb(ctx, uwsgi_ssl_session_remove_cb);
         }
+#endif
 
         SSL_CTX_set_timeout(ctx, uwsgi.ssl_sessions_timeout);
 

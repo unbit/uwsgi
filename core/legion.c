@@ -1074,8 +1074,12 @@ struct uwsgi_legion *uwsgi_legion_register(char *legion, char *addr, char *valor
 		uwsgi_ssl_init();
 	}
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 	EVP_CIPHER_CTX *ctx = uwsgi_malloc(sizeof(EVP_CIPHER_CTX));
 	EVP_CIPHER_CTX_init(ctx);
+#else
+	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+#endif
 
 	const EVP_CIPHER *cipher = EVP_get_cipherbyname(algo);
 	if (!cipher) {
@@ -1109,8 +1113,12 @@ struct uwsgi_legion *uwsgi_legion_register(char *legion, char *addr, char *valor
 		exit(1);
 	}
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 	EVP_CIPHER_CTX *ctx2 = uwsgi_malloc(sizeof(EVP_CIPHER_CTX));
 	EVP_CIPHER_CTX_init(ctx2);
+#else
+	EVP_CIPHER_CTX *ctx2 = EVP_CIPHER_CTX_new();
+#endif
 
 	if (EVP_DecryptInit_ex(ctx2, cipher, NULL, (const unsigned char *) secret, (const unsigned char *) iv) <= 0) {
 		uwsgi_error("EVP_DecryptInit_ex()");
