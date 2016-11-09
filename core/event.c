@@ -173,6 +173,9 @@ int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
                 int i;
                 for(i=0;i<upe->nevents;i++) {
                         if (upe->poll[i].revents) {
+				if (cnt >= nevents)
+					break;
+
 				struct pollfd *pevents = (struct pollfd *)events;	
 				struct pollfd *upoll = &pevents[cnt];
 				upoll->fd = upe->poll[i].fd;
