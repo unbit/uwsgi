@@ -3052,7 +3052,7 @@ unsafe:
 			uwsgi_error("getsockopt()");
 		}
 		else {
-			uwsgi_debug("uwsgi socket %d SO_RCVBUF size: %d\n", i, so_bufsize);
+			uwsgi_debug("uwsgi socket %d SO_RCVBUF size: %d\n", uwsgi_sock->fd, so_bufsize);
 		}
 
 		so_bufsize_len = sizeof(int);
@@ -3060,7 +3060,7 @@ unsafe:
 			uwsgi_error("getsockopt()");
 		}
 		else {
-			uwsgi_debug("uwsgi socket %d SO_SNDBUF size: %d\n", i, so_bufsize);
+			uwsgi_debug("uwsgi socket %d SO_SNDBUF size: %d\n", uwsgi_sock->fd, so_bufsize);
 		}
 		uwsgi_sock = uwsgi_sock->next;
 	}

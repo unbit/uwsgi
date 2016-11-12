@@ -98,13 +98,16 @@ static int create_server_socket(int domain, int type) {
 		}
 	}
 
-	if (type == SOCK_STREAM) {
+	if (type == SOCK_STREAM || type == SOCK_DGRAM) {
 		if (uwsgi.so_sndbuf) {
 			socklen_t sndbuf = (socklen_t) uwsgi.so_sndbuf;
 			if (setsockopt(serverfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(socklen_t)) < 0) {
 				uwsgi_error("SO_SNDBUF setsockopt()");
 				uwsgi_nuclear_blast();
 				return -1;
+			}
+			else {
+				uwsgi_log("successfully set SO_SNDBUF to %u for socket fd %d\n", sndbuf, serverfd);
 			}
 		}
 
@@ -114,6 +117,9 @@ static int create_server_socket(int domain, int type) {
 				uwsgi_error("SO_RCVBUF setsockopt()");
 				uwsgi_nuclear_blast();
 				return -1;
+			}
+			else {
+				uwsgi_log("successfully set SO_RCVBUF to %u for socket fd %d\n", rcvbuf, serverfd);
 			}
 		}
 
