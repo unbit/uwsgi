@@ -15,7 +15,7 @@
 */
 
 #ifdef __linux__
-#include <attr/xattr.h>
+#include <sys/xattr.h>
 #endif
 
 static char *uwsgi_route_var_xattr(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
