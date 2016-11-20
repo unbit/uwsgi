@@ -2,9 +2,7 @@
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 
-#if defined(__linux__)
-#include <attr/xattr.h>
-#elif defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__)
 #include <sys/xattr.h>
 #endif
 
