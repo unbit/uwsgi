@@ -362,7 +362,7 @@ end:
                             !PyInt_AsLong(py_watcher_active)) {
                             start_watcher(i, uwsgi_sock);
                         }
-                        Py_DECREF(py_watcher_active);
+                        Py_XDECREF(py_watcher_active);
                 }
         }
 
