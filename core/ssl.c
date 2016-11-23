@@ -73,7 +73,7 @@ int uwsgi_ssl_session_new_cb(SSL *ssl, SSL_SESSION *sess) {
         return 0;
 }
 
-SSL_SESSION *uwsgi_ssl_session_get_cb(SSL *ssl, const unsigned char *key, int keylen, int *copy) {
+SSL_SESSION *uwsgi_ssl_session_get_cb(SSL *ssl, unsigned char *key, int keylen, int *copy) {
 
         uint64_t valsize = 0;
 
