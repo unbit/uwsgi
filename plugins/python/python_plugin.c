@@ -1058,11 +1058,12 @@ void uwsgi_python_spooler_init(void) {
 
 }
 
-// this is the default (fake) allocator for WSGI's env
+// this is the OLD default (fake) allocator for WSGI's env
 // the dictionary is created on app loading (one for each async core/thread) and reused (clearing it after each request, constantly)
 //
 // from a python-programmer point of view it is a hack/cheat but it does not violate the WSGI standard
 // and it is a bit faster than the "holy" allocator
+// Starting from uWSGI 2.1 we changed the default to be the holy one in the process of having saner python defaults.
 void *uwsgi_python_create_env_cheat(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
         wsgi_req->async_args = wi->args[wsgi_req->async_id];
 	Py_INCREF((PyObject *)wi->environ[wsgi_req->async_id]);
@@ -1073,12 +1074,9 @@ void uwsgi_python_destroy_env_cheat(struct wsgi_request *wsgi_req) {
 	PyDict_Clear((PyObject *)wsgi_req->async_environ);
 }
 
-// this is the "holy" allocator for WSGI's env
+// this is the "holy" allocator for WSGI's env (now the default one)
 // Armin Ronacher told me this is what most of python programmers expect
 // I cannot speak for that as i am a perl guy, and i expect only black-magic things :P
-//
-// this should be the default one, but changing default behaviours (even if they are wrong)
-// always make my customers going berserk...
 //
 // it is only slightly (better: irrelevant) slower, so no fear in enabling it...
 
@@ -1137,8 +1135,8 @@ void uwsgi_python_preinit_apps() {
         }
 
 	if (!up.wsgi_env_behaviour) {
-		up.wsgi_env_create = uwsgi_python_create_env_cheat;
-		up.wsgi_env_destroy = uwsgi_python_destroy_env_cheat;
+		up.wsgi_env_create = uwsgi_python_create_env_holy;
+		up.wsgi_env_destroy = uwsgi_python_destroy_env_holy;
 	}
 	else if (!strcmp(up.wsgi_env_behaviour, "holy")) {
 		up.wsgi_env_create = uwsgi_python_create_env_holy;
