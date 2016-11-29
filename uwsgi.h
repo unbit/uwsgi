@@ -3084,7 +3084,7 @@ struct uwsgi_worker {
 
 	char name[0xff];
 
-	int close_sockets;
+	int shutdown_sockets;
 };
 
 
