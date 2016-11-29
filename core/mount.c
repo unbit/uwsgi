@@ -114,6 +114,8 @@ int uwsgi_mount(char *fs, char *what, char *where, char *flags, char *data) {
 	char *mflags = uwsgi_str(flags);
 	char *p, *ctx = NULL;
 	uwsgi_foreach_token(mflags, ",", p, ctx) {
+		if (strcmp(p, "defaults") == 0)
+			continue;
 		unsigned long flag = (unsigned long) uwsgi_mount_flag(p);
 		if (!flag) {
 			uwsgi_log("unknown mount flag \"%s\"\n", p);
@@ -121,6 +123,7 @@ int uwsgi_mount(char *fs, char *what, char *where, char *flags, char *data) {
 		}
 		mountflags |= flag;
 	}
+	if (!*fs) fs = NULL;
 	free(mflags);
 parsed:
 #ifdef __linux__
