@@ -103,7 +103,12 @@ void *uwsgi_request_subhandler_web3(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	// call
 
-	PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
+	if (PyTuple_GetItem(wsgi_req->async_args, 0) != wsgi_req->async_environ) {
+	    if (PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ)) {
+	        uwsgi_log_verbose("unable to set environ to the python application callable, consider using the holy env allocator\n");
+	        return NULL;
+	    }
+	}
 	return python_call(wsgi_req->async_app, wsgi_req->async_args, uwsgi.catch_exceptions, wsgi_req);
 }
 

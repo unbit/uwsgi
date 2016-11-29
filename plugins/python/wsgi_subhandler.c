@@ -233,21 +233,13 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.node", wi->uwsgi_node);
 
-	if (PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ)) {
-		// this is a hack cleaning up bad references when using the cheating allocator
-		// check https://github.com/unbit/uwsgi/issues/1408
-		PyObject *tmp_async_args = (PyObject *) wsgi_req->async_args;
-		if (tmp_async_args->ob_refcnt > 1) {
-			PyErr_Clear();
-			Py_DECREF(tmp_async_args);
-			if (PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ)) {
-				uwsgi_log_verbose("unable to set environ to the python application callable, consider using the holy env allocator\n");
-				return NULL;
-			}
-		}
-	}
-
 	// call
+	if (PyTuple_GetItem(wsgi_req->async_args, 0) != wsgi_req->async_environ) {
+	    if (PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ)) {
+	        uwsgi_log_verbose("unable to set environ to the python application callable, consider using the holy env allocator\n");
+	        return NULL;
+	    }
+	}
 	return python_call(wsgi_req->async_app, wsgi_req->async_args, uwsgi.catch_exceptions, wsgi_req);
 }
 
