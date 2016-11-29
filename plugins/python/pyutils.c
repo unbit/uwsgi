@@ -146,6 +146,7 @@ struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *wsgi_req) {
 		
 	}
 
+	uwsgi_log("OK\n");
 	Py_DECREF(result);
 	goto end;
 
