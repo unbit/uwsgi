@@ -4483,7 +4483,7 @@ int uwsgi_offload_run(struct wsgi_request *, struct uwsgi_offload_request *, int
 void uwsgi_offload_engines_register_all(void);
 
 struct uwsgi_thread *uwsgi_offload_thread_start(void);
-int uwsgi_offload_request_sendfile_do(struct wsgi_request *, int, size_t);
+int uwsgi_offload_request_sendfile_do(struct wsgi_request *, int, size_t, size_t);
 int uwsgi_offload_request_net_do(struct wsgi_request *, char *, struct uwsgi_buffer *);
 int uwsgi_offload_request_memory_do(struct wsgi_request *, char *, size_t);
 int uwsgi_offload_request_pipe_do(struct wsgi_request *, int, size_t);
