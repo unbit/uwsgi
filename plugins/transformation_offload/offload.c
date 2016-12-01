@@ -25,7 +25,7 @@ static int transform_offload(struct wsgi_request *wsgi_req, struct uwsgi_transfo
 		struct uwsgi_transformation *orig_ut = (struct uwsgi_transformation *) ut->data;
 		// sendfile offload
 		if (orig_ut->fd > -1) {
-			if (!uwsgi_offload_request_sendfile_do(wsgi_req, orig_ut->fd, orig_ut->len)) {
+			if (!uwsgi_offload_request_sendfile_do(wsgi_req, orig_ut->fd, 0, orig_ut->len)) {
 				// the fd will be closed by the offload engine
 				orig_ut->fd = -1;
                         	wsgi_req->via = UWSGI_VIA_OFFLOAD;

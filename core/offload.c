@@ -671,11 +671,12 @@ void uwsgi_offload_engines_register_all() {
 	uwsgi.offload_engine_pipe = uwsgi_offload_register_engine("pipe", u_offload_pipe_prepare, u_offload_pipe_do);
 }
 
-int uwsgi_offload_request_sendfile_do(struct wsgi_request *wsgi_req, int fd, size_t len) {
+int uwsgi_offload_request_sendfile_do(struct wsgi_request *wsgi_req, int fd, size_t pos, size_t len) {
 	struct uwsgi_offload_request uor;
 	uwsgi_offload_setup(uwsgi.offload_engine_sendfile, &uor, wsgi_req, 1);
 	uor.fd = fd;
 	uor.len = len;
+	uor.pos = pos;
 	return uwsgi_offload_run(wsgi_req, &uor, NULL);
 }
 

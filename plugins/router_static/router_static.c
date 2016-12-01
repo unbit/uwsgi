@@ -239,7 +239,7 @@ send:
         }
 
 	if (wsgi_req->socket->can_offload) {
-		if (!uwsgi_offload_request_sendfile_do(wsgi_req, fd, st.st_size)) {
+		if (!uwsgi_offload_request_sendfile_do(wsgi_req, fd, 0, st.st_size)) {
                         wsgi_req->via = UWSGI_VIA_OFFLOAD;
                         wsgi_req->response_size += st.st_size;
                 	// the fd will be closed by the offload engine

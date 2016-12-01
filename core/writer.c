@@ -634,7 +634,7 @@ sendfile:
 			fd = tmp_fd;
 			can_close = 1;
 		}
-       		if (!uwsgi_offload_request_sendfile_do(wsgi_req, fd, len)) {
+		if (!uwsgi_offload_request_sendfile_do(wsgi_req, fd, pos, len)) {
                 	wsgi_req->via = UWSGI_VIA_OFFLOAD;
 			wsgi_req->response_size += len;
                         return 0;
