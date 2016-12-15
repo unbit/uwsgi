@@ -1828,7 +1828,20 @@ int uwsgi_python_mule(char *opt) {
 		UWSGI_RELEASE_GIL;
 		return 1;
 	}
-	
+	else if (strchr(opt, ':')) {
+		UWSGI_GET_GIL;
+		PyObject *result = NULL;
+		PyObject *arglist = Py_BuildValue("()");
+		PyObject *callable = up.loaders[LOADER_MOUNT](opt);
+		if (callable) {
+			result = PyEval_CallObject(callable, arglist);
+		}
+		Py_XDECREF(result);
+		Py_XDECREF(arglist);
+		Py_XDECREF(callable);
+		UWSGI_RELEASE_GIL;
+		return 1;
+	}
 	return 0;
 	
 }
