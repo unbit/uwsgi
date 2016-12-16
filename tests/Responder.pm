@@ -27,7 +27,7 @@ sub getline {
 	}
 	elsif ($self->{_counter} == 4) {
 		$self->{_counter}++;
-		return "connected to http://projects.unbit.it<br/>";
+		return "connected to https://projects.unbit.it<br/>";
 	}
 	elsif ($self->{_counter} == 7) {
 		$self->{_counter}++;
