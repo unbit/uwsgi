@@ -122,4 +122,5 @@ setup(name='uWSGI',
       license='GPL2',
       py_modules=['uwsgidecorators'],
       distclass=uWSGIDistribution,
+      setup_requires=['setuptools-git'],
      )
