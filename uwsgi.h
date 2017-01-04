@@ -2786,6 +2786,10 @@ struct uwsgi_server {
 	int spooler_reload_mercy;
 
 	int skip_atexit_teardown;
+
+	// uWSGI 2.1 backport
+	int new_argc;
+	char **new_argv;
 };
 
 struct uwsgi_rpc {

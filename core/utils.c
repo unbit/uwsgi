@@ -3133,6 +3133,8 @@ pid_t uwsgi_fork(char *name) {
 #if defined(__linux__) || defined(__sun__)
 		int i;
 		for (i = 0; i < uwsgi.argc; i++) {
+			// stop fixing original argv if the new one is bigger
+			if (!uwsgi.orig_argv[i]) break;
 			strcpy(uwsgi.orig_argv[i], uwsgi.argv[i]);
 		}
 #endif

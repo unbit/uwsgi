@@ -23,3 +23,7 @@ core/dot_h.c
 +# coverity
 +/cov-int/
 +uwsgi.tar.xz
+
+/build/
+/dist/
+/uWSGI.egg-info/
