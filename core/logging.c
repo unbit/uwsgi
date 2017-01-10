@@ -716,6 +716,11 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 		logvecpos++;
 	}
 
+	if (!wsgi_req->remote_user) {
+		wsgi_req->remote_user = " ";
+		wsgi_req->remote_user_len = 0;
+	}
+
 	if (uwsgi.logging_options.memory_report == 1) {
 		rlen = snprintf(mempkt, 4096, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size, (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024,
 			(unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size, (unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size / 1024 / 1024);
