@@ -568,8 +568,11 @@ static int php_uwsgi_startup(sapi_module_struct *sapi_module)
 	}
 }
 
+#if ((PHP_MAJOR_VERSION >= 7) && (PHP_MINOR_VERSION >= 1))
+static void sapi_uwsgi_log_message(char *message, int syslog_type_int) {
+#else
 static void sapi_uwsgi_log_message(char *message TSRMLS_DC) {
-
+#endif
 	uwsgi_log("%s\n", message);
 }
 
