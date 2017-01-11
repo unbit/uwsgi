@@ -289,9 +289,9 @@ void uwsgi_commandline_config() {
 	uwsgi_log("optind:%d argc:%d\n", optind, uwsgi.argc);
 #endif
 
-	if (optind < uwsgi.argc) {
-		for (i = optind; i < uwsgi.argc; i++) {
-			char *lazy = uwsgi.argv[i];
+	if (optind < argc) {
+		for (i = optind; i < argc; i++) {
+			char *lazy = argv[i];
 			if (lazy[0] != '[') {
 				uwsgi_opt_load(NULL, lazy, NULL);
 				// manage magic mountpoint
