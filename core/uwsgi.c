@@ -1234,7 +1234,18 @@ void wait_for_threads() {
 	int i, ret;
 
 	// on some platform thread cancellation is REALLY flaky
-	if (uwsgi.no_threads_wait) return;
+	if (uwsgi.no_threads_wait){
+		int is_busy;
+		for(;;){
+			is_busy = uwsgi_worker_is_busy(uwsgi.mywid);
+			uwsgi_log("wait_for_threads worker_is_busy? %d mywid:%d mypid:%d\n", is_busy, uwsgi.mywid, uwsgi.mypid);
+			if (! is_busy){
+				break;
+			}
+			sleep(0.1);
+		}
+		return;
+	}
 
 	int sudden_death = 0;
 
