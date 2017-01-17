@@ -1238,7 +1238,6 @@ void wait_for_threads() {
 		int is_busy;
 		for(;;){
 			is_busy = uwsgi_worker_is_busy(uwsgi.mywid);
-			uwsgi_log("wait_for_threads worker_is_busy? %d mywid:%d mypid:%d\n", is_busy, uwsgi.mywid, uwsgi.mypid);
 			if (! is_busy){
 				break;
 			}
