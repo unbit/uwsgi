@@ -1242,7 +1242,7 @@ void wait_for_threads() {
 			if (! is_busy){
 				break;
 			}
-			sleep(0.1);
+			sleep(0.001);
 		}
 		return;
 	}
