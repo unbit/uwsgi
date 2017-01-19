@@ -716,9 +716,19 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 		logvecpos++;
 	}
 
-	if (uwsgi.logging_options.memory_report == 1) {
-		rlen = snprintf(mempkt, 4096, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size, (unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024,
-			(unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size, (unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size / 1024 / 1024);
+	if (uwsgi.logging_options.memory_report) {
+		rlen = snprintf(mempkt, 4096, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ",
+						(unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size,
+						(unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024,
+						(unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size,
+						(unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size / 1024 / 1024);
+		if (uwsgi.logging_options.memory_report == 2) {
+			rlen += snprintf(mempkt + rlen, 4096 - rlen, "{uss usage: %llu bytes/%lluMB} {pss usage: %llu bytes/%lluMB} ",
+							(unsigned long long) uwsgi.workers[uwsgi.mywid].uss_size,
+							(unsigned long long) uwsgi.workers[uwsgi.mywid].uss_size / 1024 / 1024,
+							(unsigned long long) uwsgi.workers[uwsgi.mywid].pss_size,
+							(unsigned long long) uwsgi.workers[uwsgi.mywid].pss_size / 1024 / 1024);
+		}
 		logvec[logvecpos].iov_base = mempkt;
 		logvec[logvecpos].iov_len = rlen;
 		logvecpos++;
@@ -863,6 +873,28 @@ void get_memusage(uint64_t * rss, uint64_t * vsz) {
 #endif
 
 }
+
+#ifdef __linux__
+void get_memusage_extra(uint64_t * uss, uint64_t * pss) {
+	FILE *file = fopen("/proc/self/smaps", "r");
+
+	char line [BUFSIZ];
+	while (fgets(line, sizeof line, file)) {
+		char substr[32];
+		int n;
+		if (sscanf(line, "%31[^:]: %d", substr, &n) == 2)
+		{
+			if (strcmp(substr, "Private_Clean") == 0)
+				*uss += n * 1024;
+			else if (strcmp(substr, "Private_Dirty") == 0)
+				*uss += n * 1024;
+			else if (strcmp(substr, "Pss") == 0)
+				*pss += n * 1024;
+		}
+	}
+	fclose(file);
+}
+#endif
 
 void uwsgi_register_logger(char *name, ssize_t(*func) (struct uwsgi_logger *, char *, size_t)) {
 

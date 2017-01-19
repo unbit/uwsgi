@@ -2869,6 +2869,11 @@ struct uwsgi_server {
 	int spooler_reload_mercy;
 
 	int skip_atexit_teardown;
+
+#ifdef __linux__
+	rlim_t reload_on_uss;
+	rlim_t reload_on_pss;
+#endif
 };
 
 struct uwsgi_rpc {
@@ -3085,6 +3090,9 @@ struct uwsgi_worker {
 	char name[0xff];
 
 	int shutdown_sockets;
+
+	uint64_t uss_size;
+	uint64_t pss_size;
 };
 
 
@@ -3156,6 +3164,9 @@ void logto(char *);
 
 void log_request(struct wsgi_request *);
 void get_memusage(uint64_t *, uint64_t *);
+#ifdef __linux__
+void get_memusage_extra(uint64_t *, uint64_t *);
+#endif
 void harakiri(void);
 
 void stats(int);
