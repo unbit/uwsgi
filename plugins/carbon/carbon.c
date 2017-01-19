@@ -293,7 +293,7 @@ static int carbon_push_stats(int retry_cycle, time_t now) {
 				total_busyness += worker_busyness;
 				u_carbon.was_busy[i-1] = 0;
 
-				if (uwsgi.logging_options.memory_report == 1 || uwsgi.force_get_memusage) {
+				if (uwsgi.logging_options.memory_report || uwsgi.force_get_memusage) {
 					// only running workers are counted in total memory stats and if memory-report option is enabled
 					total_rss += uwsgi.workers[i].rss_size;
 					total_vsz += uwsgi.workers[i].vsz_size;
@@ -306,7 +306,7 @@ static int carbon_push_stats(int retry_cycle, time_t now) {
 			wok = carbon_write(fd, "%s%s.%s.worker%d.requests %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, i, (unsigned long long) uwsgi.workers[i].requests, (unsigned long long) now);
 			if (!wok) goto clear;
 
-			if (uwsgi.logging_options.memory_report == 1 || uwsgi.force_get_memusage) {
+			if (uwsgi.logging_options.memory_report || uwsgi.force_get_memusage) {
 				wok = carbon_write(fd, "%s%s.%s.worker%d.rss_size %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, i, (unsigned long long) uwsgi.workers[i].rss_size, (unsigned long long) now);
 				if (!wok) goto clear;
 
@@ -345,7 +345,7 @@ static int carbon_push_stats(int retry_cycle, time_t now) {
 
 		}
 
-		if (uwsgi.logging_options.memory_report == 1 || uwsgi.force_get_memusage) {
+		if (uwsgi.logging_options.memory_report || uwsgi.force_get_memusage) {
 			wok = carbon_write(fd, "%s%s.%s.rss_size %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) total_rss, (unsigned long long) now);
 			if (!wok) goto clear;
 

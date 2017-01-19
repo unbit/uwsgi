@@ -1089,14 +1089,14 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// get memory usage
-	if (uwsgi.logging_options.memory_report == 1 || uwsgi.force_get_memusage) {
+	if (uwsgi.logging_options.memory_report || uwsgi.force_get_memusage) {
 		get_memusage(&rss, &vsz);
 		uwsgi.workers[uwsgi.mywid].vsz_size = vsz;
 		uwsgi.workers[uwsgi.mywid].rss_size = rss;
 	}
 
 #ifdef __linux__
-	if (uwsgi.reload_on_uss || uwsgi.reload_on_pss) {
+	if (uwsgi.logging_options.memory_report || uwsgi.reload_on_uss || uwsgi.reload_on_pss) {
 		get_memusage_extra(&uss, &pss);
 		uwsgi.workers[uwsgi.mywid].uss_size = uss;
 		uwsgi.workers[uwsgi.mywid].pss_size = pss;
