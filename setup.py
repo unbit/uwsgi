@@ -130,11 +130,12 @@ setup(
     description='The uWSGI server',
     author='Unbit',
     author_email='info@unbit.it',
-    license='GPL2',
+    license='GPLv2+',
     py_modules=['uwsgidecorators'],
     distclass=uWSGIDistribution,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
+        'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.6',
