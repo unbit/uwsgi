@@ -18,7 +18,7 @@ PS_READ_FUNC(uwsgi) {
 	char *value = uwsgi_cache_magic_get((char *)key, strlen((char *)key), &valsize, NULL, cache);
 #endif
 	if (!value) {
-		*val = ZSTR_EMPTY_ALLOC();
+		*val = STR_EMPTY_ALLOC();
 		return SUCCESS;
 	}
 #ifdef UWSGI_PHP7
