@@ -208,7 +208,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	char *base = ptr;
 	char *query_string = NULL;
 	char ip[INET6_ADDRSTRLEN+1];
-	struct sockaddr *http_sa = (struct sockaddr *) &wsgi_req->c_addr;
+	struct sockaddr *http_sa = (struct sockaddr *) &wsgi_req->client_addr;
 	char *proxy_src = NULL;
 	char *proxy_dst = NULL;
 	char *proxy_src_port = NULL;
@@ -329,7 +329,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	}
 	else {
 		// TODO log something useful for AF_UNIX sockets
-		switch (http_sa->sa_family) {
+		switch(http_sa->sa_family) {
 			case AF_INET6:
 				{
 					memset(ip, 0, sizeof(ip));
@@ -348,11 +348,9 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 							unsigned char s6[4];
 							uint32_t s4;
 						} addr_parts;
-						addr_parts.s6[0] = http_sin->sin6_addr.s6_addr[12];
-						addr_parts.s6[1] = http_sin->sin6_addr.s6_addr[13];
-						addr_parts.s6[2] = http_sin->sin6_addr.s6_addr[14];
-						addr_parts.s6[3] = http_sin->sin6_addr.s6_addr[15];
+						memcpy(addr_parts.s6, &http_sin->sin6_addr.s6_addr[12], 4);
 						uint32_t in4_addr = addr_parts.s4;
+						memset(ip, 0, sizeof(ip));
 						if (inet_ntop(AF_INET, (void*)&in4_addr, ip, INET_ADDRSTRLEN)) {
 							wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
 						} else {
@@ -381,7 +379,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 						uwsgi_error("inet_ntop()");
 						return -1;
 					}
-				 }
+				}
 				break;
 		}
 	}
@@ -829,7 +827,7 @@ int uwsgi_proto_http11_accept(struct wsgi_request *wsgi_req, int fd) {
         if (wsgi_req->socket->retry[wsgi_req->async_id]) {
                 wsgi_req->fd = wsgi_req->socket->fd_threads[wsgi_req->async_id];
 		wsgi_req->c_len = sizeof(struct sockaddr_un);
-		int ret = getsockname(wsgi_req->fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
+		int ret = getsockname(wsgi_req->fd, (struct sockaddr *) &wsgi_req->client_addr, (socklen_t *) &wsgi_req->c_len);
                 if (ret < 0)
 			goto error;
                 ret = uwsgi_wait_read_req(wsgi_req);
