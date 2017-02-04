@@ -330,57 +330,55 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	else {
 		// TODO log something useful for AF_UNIX sockets
 		switch(http_sa->sa_family) {
-			case AF_INET6:
-				{
-					memset(ip, 0, sizeof(ip));
-					struct sockaddr_in6* http_sin = (struct sockaddr_in6*)http_sa;
-					/* check if it's an IPv6-mapped-IPv4 address and, if so,
-					 * represent it as an IPv4 address
-					 *
-					 * these IPv6 macros are defined in POSIX.1-2001.
-					 */
-					if (IN6_IS_ADDR_V4MAPPED(&http_sin->sin6_addr)) {
-						/* just grab the last 4 bytes and pretend they're
-						 * IPv4. None of the word/half-word convenience
-						 * functions are in POSIX, so just stick to .s6_addr
-						 */
-						union {
-							unsigned char s6[4];
-							uint32_t s4;
-						} addr_parts;
-						memcpy(addr_parts.s6, &http_sin->sin6_addr.s6_addr[12], 4);
-						uint32_t in4_addr = addr_parts.s4;
-						memset(ip, 0, sizeof(ip));
-						if (inet_ntop(AF_INET, (void*)&in4_addr, ip, INET_ADDRSTRLEN)) {
-							wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
-						} else {
-							uwsgi_error("inet_ntop()");
-							return -1;
-						}
-					} else {
-						if (inet_ntop(AF_INET6, (void *) &http_sin->sin6_addr, ip, INET6_ADDRSTRLEN)) {
-							wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
-						} else {
-							uwsgi_error("inet_ntop()");
-							return -1;
-						}
-					}
+		case AF_INET6: {
+			memset(ip, 0, sizeof(ip));
+			struct sockaddr_in6* http_sin = (struct sockaddr_in6*)http_sa;
+			/* check if it's an IPv6-mapped-IPv4 address and, if so,
+			 * represent it as an IPv4 address
+			 *
+			 * these IPv6 macros are defined in POSIX.1-2001.
+			 */
+			if (IN6_IS_ADDR_V4MAPPED(&http_sin->sin6_addr)) {
+				/* just grab the last 4 bytes and pretend they're
+				 * IPv4. None of the word/half-word convenience
+				 * functions are in POSIX, so just stick to .s6_addr
+				 */
+				union {
+					unsigned char s6[4];
+					uint32_t s4;
+				} addr_parts;
+				memcpy(addr_parts.s6, &http_sin->sin6_addr.s6_addr[12], 4);
+				uint32_t in4_addr = addr_parts.s4;
+				memset(ip, 0, sizeof(ip));
+				if (inet_ntop(AF_INET, (void*)&in4_addr, ip, INET_ADDRSTRLEN)) {
+					wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+				} else {
+					uwsgi_error("inet_ntop()");
+					return -1;
 				}
-				break;
-			case AF_INET:
-			default:
-				{
-					struct sockaddr_in* http_sin = (struct sockaddr_in*)http_sa;
-					memset(ip, 0, sizeof(ip));
-					if (inet_ntop(AF_INET, (void *) &http_sin->sin_addr, ip, INET_ADDRSTRLEN)) {
-						wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
-					}
-					else {
-						uwsgi_error("inet_ntop()");
-						return -1;
-					}
+			} else {
+				if (inet_ntop(AF_INET6, (void *) &http_sin->sin6_addr, ip, INET6_ADDRSTRLEN)) {
+					wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+				} else {
+					uwsgi_error("inet_ntop()");
+					return -1;
 				}
-				break;
+			}
+			}
+			break;
+		case AF_INET:
+		default: {
+			struct sockaddr_in* http_sin = (struct sockaddr_in*)http_sa;
+			memset(ip, 0, sizeof(ip));
+			if (inet_ntop(AF_INET, (void *) &http_sin->sin_addr, ip, INET_ADDRSTRLEN)) {
+				wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+			}
+			else {
+				uwsgi_error("inet_ntop()");
+				return -1;
+			}
+			}
+			break;
 		}
 	}
 
