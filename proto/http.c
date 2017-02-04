@@ -822,17 +822,17 @@ void uwsgi_proto_http11_close(struct wsgi_request *wsgi_req) {
 }
 
 int uwsgi_proto_http11_accept(struct wsgi_request *wsgi_req, int fd) {
-        if (wsgi_req->socket->retry[wsgi_req->async_id]) {
-                wsgi_req->fd = wsgi_req->socket->fd_threads[wsgi_req->async_id];
+	if (wsgi_req->socket->retry[wsgi_req->async_id]) {
+		wsgi_req->fd = wsgi_req->socket->fd_threads[wsgi_req->async_id];
 		wsgi_req->c_len = sizeof(struct sockaddr_un);
 		int ret = getsockname(wsgi_req->fd, (struct sockaddr *) &wsgi_req->client_addr, (socklen_t *) &wsgi_req->c_len);
-                if (ret < 0)
+		if (ret < 0)
 			goto error;
-                ret = uwsgi_wait_read_req(wsgi_req);
-                if (ret <= 0)
+		ret = uwsgi_wait_read_req(wsgi_req);
+		if (ret <= 0)
 			goto error;
-                return wsgi_req->socket->fd_threads[wsgi_req->async_id];
-        }
+		return wsgi_req->socket->fd_threads[wsgi_req->async_id];
+	}
 	return uwsgi_proto_base_accept(wsgi_req, fd);
 
 error:
