@@ -1,3 +1,0 @@
-[submodule "externals/greenlet"]
-	path = externals/greenlet
-	url = https://github.com/python-greenlet/greenlet

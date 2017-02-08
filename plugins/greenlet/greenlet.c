@@ -1,5 +1,5 @@
 #include "../python/uwsgi_python.h"
-#include "../../externals/greenlet/greenlet.h"
+#include "greenlet.h"
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
