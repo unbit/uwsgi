@@ -113,6 +113,17 @@ class uWSGIDistribution(Distribution):
         return False
 
 
+def get_extra_require():
+    req = []
+    conf = uc.uConf(get_profile())
+    plugins = conf.get('main_plugin')
+    if plugins:
+        plugins = plugins.split(',')
+        if 'greenlet' in plugins:
+            req.append('greenlet')
+
+    return req
+
 setup(
     name='uWSGI',
     version=uc.uwsgi_version,
@@ -125,5 +136,6 @@ setup(
     classifiers=[
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3'
-    ]
+    ],
+    install_requires=get_extra_require()
 )

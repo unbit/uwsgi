@@ -674,6 +674,12 @@ class uConf(object):
             '-D_FILE_OFFSET_BITS=64'
         ] + os.environ.get("CFLAGS", "").split() + self.get('cflags', '').split()
 
+        python_venv_include = os.path.join(sys.prefix, 'include', 'site',
+                                           'python{0}.{1}'.format(*sys.version_info))
+
+        if os.path.isdir(python_venv_include):
+            self.cflags += ['-I' + python_venv_include]
+
         report['kernel'] = uwsgi_os
 
         if uwsgi_os == 'Linux':
