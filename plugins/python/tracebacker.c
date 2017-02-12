@@ -59,7 +59,7 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 
 	struct iovec iov[11];
 
-	PyObject *new_thread = uwsgi_python_setup_thread("uWSGITraceBacker");
+	PyObject *new_thread = uwsgi_python_setup_thread("uWSGITraceBacker", up.main_thread->interp);
 	if (!new_thread) return NULL;
 
 	struct sockaddr_un so_sun;

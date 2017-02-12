@@ -400,6 +400,13 @@ multiapp:
 	// emulate COW
 	uwsgi_emulate_cow_for_apps(id);
 
+	// spawn new auto-reloader thread, if an additional interpreter was started
+        if (up.auto_reload && interpreter == NULL && id) {
+                pthread_t par_tid;
+                pthread_create(&par_tid, NULL, uwsgi_python_autoreloader_thread,
+                        ((PyThreadState *) wi->interpreter)->interp);
+        }
+
 	return id;
 
 doh:

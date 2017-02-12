@@ -443,7 +443,7 @@ void uwsgi_python_post_fork() {
 		if (up.auto_reload) {
 			// spawn the reloader thread
 			pthread_t par_tid;
-			pthread_create(&par_tid, NULL, uwsgi_python_autoreloader_thread, NULL);
+			pthread_create(&par_tid, NULL, uwsgi_python_autoreloader_thread, up.main_thread->interp);
 		}
 		if (up.tracebacker) {
 			// spawn the tracebacker thread
@@ -1414,7 +1414,7 @@ int uwsgi_check_python_mtime(PyObject *times_dict, char *filename) {
 	return 0;
 }
 
-PyObject *uwsgi_python_setup_thread(char *name) {
+PyObject *uwsgi_python_setup_thread(char *name, PyInterpreterState *interpreter) {
 
 	// block signals on this thread
         sigset_t smask;
@@ -1424,7 +1424,7 @@ PyObject *uwsgi_python_setup_thread(char *name) {
 #endif
         pthread_sigmask(SIG_BLOCK, &smask, NULL);
 
-        PyThreadState *pts = PyThreadState_New(up.main_thread->interp);
+        PyThreadState *pts = PyThreadState_New(interpreter);
         pthread_setspecific(up.upt_save_key, (void *) pts);
         pthread_setspecific(up.upt_gil_key, (void *) pts);
 
@@ -1459,15 +1459,16 @@ PyObject *uwsgi_python_setup_thread(char *name) {
 }
 
 
-void *uwsgi_python_autoreloader_thread(void *foobar) {
+void *uwsgi_python_autoreloader_thread(void *interpreter) {
 
-	PyObject *new_thread = uwsgi_python_setup_thread("uWSGIAutoReloader");
+	PyObject *new_thread = uwsgi_python_setup_thread("uWSGIAutoReloader", interpreter);
 	if (!new_thread) return NULL;
 
 	PyObject *modules = PyImport_GetModuleDict();
 
 	if (uwsgi.mywid == 1) {
-		uwsgi_log("Python auto-reloader enabled\n");
+		uwsgi_log("Python auto-reloader enabled on interpreter %p (pid %d)\n",
+			interpreter, getpid());
 	}
 
 	PyObject *times_dict = PyDict_New();
@@ -1485,6 +1486,15 @@ void *uwsgi_python_autoreloader_thread(void *foobar) {
 #else
                 Py_ssize_t pos = 0;
 #endif
+		char *app_dir = NULL;
+                int i;
+                for (i = 0; i < uwsgi_apps_cnt; i++) {
+                        if (((PyThreadState *) uwsgi_apps[i].interpreter)->interp == interpreter &&
+				uwsgi_apps[i].chdir[0]) {
+                                app_dir = uwsgi_apps[i].chdir;
+                                break;
+                        }
+                }
 		PyObject *mod_name, *mod;
                 while (PyDict_Next(modules, &pos, &mod_name, &mod)) {
 			if (mod == NULL) continue;
@@ -1528,6 +1538,11 @@ void *uwsgi_python_autoreloader_thread(void *foobar) {
 			else {
 				filename = uwsgi_concat2(mod_filename, "");
 			}
+			if (filename[0] != '/' && app_dir) {
+                                char *tmp = uwsgi_concat3(app_dir, "/", filename);
+                                free(filename);
+                                filename = tmp;
+                        }
 			if (uwsgi_check_python_mtime(times_dict, filename)) {
 				UWSGI_RELEASE_GIL;
 				return NULL;
