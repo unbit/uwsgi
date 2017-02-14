@@ -1241,7 +1241,7 @@ void wait_for_threads() {
 			if (! is_busy){
 				break;
 			}
-			sleep(0.001);
+			sleep(1);
 		}
 		return;
 	}
