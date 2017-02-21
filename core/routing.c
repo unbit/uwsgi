@@ -535,6 +535,7 @@ int uwsgi_route_api_func(struct wsgi_request *wsgi_req, char *router, char *args
 	return -1;
 found:
 	ur = uwsgi_calloc(sizeof(struct uwsgi_route));
+	uwsgi_fixup_routes(ur);
 	// initialize the virtual route
 	if (r->func(ur, args)) {
 		free(ur);
