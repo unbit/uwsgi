@@ -1280,7 +1280,10 @@ void uwsgi_setup_schemes() {
 
 struct uwsgi_string_list *uwsgi_check_scheme(char *file) {
 	struct uwsgi_string_list *usl;
+	size_t len = strlen(file);
 	uwsgi_foreach(usl, uwsgi.schemes) {
+		if (len < usl->len+3)
+			continue;
 		char *url = uwsgi_concat2(usl->value, "://");
 		int ret = uwsgi_startswith(file, url, strlen(url));
 		free(url);
