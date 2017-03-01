@@ -144,7 +144,7 @@ int uwsgi_queue_push(char *message, uint64_t size) {
 	struct uwsgi_queue_item *uqi;
 	char *ptr = (char *) uwsgi.queue;
 
-	if (size > uwsgi.queue_blocksize + sizeof(struct uwsgi_queue_item))
+	if (size > uwsgi.queue_blocksize - sizeof(struct uwsgi_queue_item))
 		return 0;
 
 	if (!size)
