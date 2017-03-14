@@ -12,7 +12,7 @@ extern struct uwsgi_server uwsgi;
 
 void uwsgi_mule_handler(void);
 
-void mule_send_msg(int fd, char *message, size_t len) {
+int mule_send_msg(int fd, char *message, size_t len) {
 
 	socklen_t so_bufsize_len = sizeof(int);
 	int so_bufsize = 0;
@@ -27,7 +27,9 @@ void mule_send_msg(int fd, char *message, size_t len) {
 		else {
 			uwsgi_error("mule_send_msg()");
 		}
+		return -1;
 	}
+	return 0;
 }
 
 void uwsgi_mule(int id) {

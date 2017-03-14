@@ -3809,7 +3809,7 @@ struct uwsgi_subscribe_slot {
 
 };
 
-void mule_send_msg(int, char *, size_t);
+int mule_send_msg(int, char *, size_t);
 
 uint32_t djb33x_hash(char *, uint64_t);
 void create_signal_pipe(int *);
