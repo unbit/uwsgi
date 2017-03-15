@@ -2524,6 +2524,10 @@ PyObject *py_uwsgi_logsize(PyObject * self, PyObject * args) {
 	return PyLong_FromUnsignedLongLong(uwsgi.shared->logsize);
 }
 
+PyObject *py_uwsgi_mule_msg_recv_size(PyObject * self, PyObject *args) {
+	return PyLong_FromUnsignedLongLong(uwsgi.mule_msg_recv_size);
+}
+
 PyObject *py_uwsgi_mem(PyObject * self, PyObject * args) {
 
 	uint64_t rss=0, vsz = 0;
@@ -2724,6 +2728,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"request_id", py_uwsgi_request_id, METH_VARARGS, ""},
 	{"worker_id", py_uwsgi_worker_id, METH_VARARGS, ""},
 	{"mule_id", py_uwsgi_mule_id, METH_VARARGS, ""},
+	{"mule_msg_recv_size", py_uwsgi_mule_msg_recv_size, METH_VARARGS, ""},
 	{"log", py_uwsgi_log, METH_VARARGS, ""},
 	{"log_this_request", py_uwsgi_log_this, METH_VARARGS, ""},
 	{"set_logvar", py_uwsgi_set_logvar, METH_VARARGS, ""},

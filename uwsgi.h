@@ -2874,6 +2874,9 @@ struct uwsgi_server {
 	rlim_t reload_on_uss;
 	rlim_t reload_on_pss;
 #endif
+
+	int mule_msg_recv_size;
+	char *mule_msg_recv_buf;
 };
 
 struct uwsgi_rpc {
