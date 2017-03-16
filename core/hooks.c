@@ -591,6 +591,43 @@ static int uwsgi_hook_wait_for_socket(char *arg) {
 	return uwsgi_wait_for_socket(arg);
 }
 
+static int spinningfifo_hook(char *arg) {
+        int fd;
+        char *space = strchr(arg, ' ');
+        if (!space) {
+                uwsgi_log("invalid hook spinningfifo syntax, must be: <file> <string>\n");
+                return -1;
+        }
+        *space = 0;
+retry:
+        uwsgi_log("waiting for %s ...\n", arg);
+        fd = open(arg, O_WRONLY|O_NONBLOCK);
+        if (fd < 0) {
+                if (errno == ENODEV || errno == ENOENT) {
+                        sleep(1);
+                        goto retry;
+                }
+#ifdef ENXIO
+                if (errno == ENXIO) {
+                        sleep(1);
+                        goto retry;
+                }
+#endif
+                uwsgi_error_open(arg);
+                *space = ' ';
+                return -1;
+        }
+        *space = ' ';
+        size_t l = strlen(space+1);
+        if (write(fd, space+1, l) != (ssize_t) l) {
+                uwsgi_error("spinningfifo_hook()/write()");
+                close(fd);
+                return -1;
+        }
+        close(fd);
+        return 0;
+}
+
 void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("cd", uwsgi_hook_chdir);
 	uwsgi_register_hook("chdir", uwsgi_hook_chdir);
@@ -639,6 +676,8 @@ void uwsgi_register_base_hooks() {
 	uwsgi_register_hook("wait_for_socket", uwsgi_hook_wait_for_socket);
 
 	uwsgi_register_hook("unix_signal", uwsgi_hook_unix_signal);
+
+	uwsgi_register_hook("spinningfifo", spinningfifo_hook);
 
 	// for testing
 	uwsgi_register_hook("exit", uwsgi_hook_exit);
