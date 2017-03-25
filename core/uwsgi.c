@@ -150,6 +150,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"endif", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
 	{"end-if", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
 
+	{"else", required_argument, 0, "(opt logic) else after condition", uwsgi_opt_logic, (void *) uwsgi_logic_opt_else, UWSGI_OPT_IMMEDIATE},
+
 	{"blacklist", required_argument, 0, "set options blacklist context", uwsgi_opt_set_str, &uwsgi.blacklist_context, UWSGI_OPT_IMMEDIATE},
 	{"end-blacklist", no_argument, 0, "clear options blacklist context", uwsgi_opt_set_null, &uwsgi.blacklist_context, UWSGI_OPT_IMMEDIATE},
 

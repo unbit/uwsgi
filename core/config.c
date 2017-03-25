@@ -33,22 +33,22 @@ struct uwsgi_configurator *uwsgi_register_configurator(char *name, void (*func)(
 }
 
 int uwsgi_logic_opt_if_exists(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         if (uwsgi_file_exists(uwsgi.logic_opt_data)) {
                 add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
                 return 1;
         }
-
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
 }
 
 int uwsgi_logic_opt_if_not_exists(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         if (!uwsgi_file_exists(uwsgi.logic_opt_data)) {
                 add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
                 return 1;
         }
-
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
 }
 
@@ -117,7 +117,7 @@ int uwsgi_logic_opt_for_times(char *key, char *value) {
 
 
 int uwsgi_logic_opt_if_opt(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         // check for env-value syntax
         char *equal = strchr(uwsgi.logic_opt_data, '=');
         if (equal)
@@ -129,19 +129,29 @@ int uwsgi_logic_opt_if_opt(char *key, char *value) {
 
         if (p) {
                 if (equal) {
-                        if (strcmp(equal + 1, p))
+                        if (strcmp(equal + 1, p)) {
+				uwsgi.logic_opt_if_failed = 1;
                                 return 0;
+			}
                 }
                 add_exported_option(key, uwsgi_substitute(value, "%(_)", p), 0);
                 return 1;
         }
-
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
+}
+
+int uwsgi_logic_opt_else(char *key, char *value) {
+	if (uwsgi.logic_opt_if_failed) {
+		add_exported_option(key, value, 0);
+		return 1;
+	}
+	return 0;
 }
 
 
 int uwsgi_logic_opt_if_not_opt(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         // check for env-value syntax
         char *equal = strchr(uwsgi.logic_opt_data, '=');
         if (equal)
@@ -153,10 +163,13 @@ int uwsgi_logic_opt_if_not_opt(char *key, char *value) {
 
         if (p) {
                 if (equal) {
-                        if (!strcmp(equal + 1, p))
+                        if (!strcmp(equal + 1, p)) {
+				uwsgi.logic_opt_if_failed = 1;
                                 return 0;
+			}
                 }
                 else {
+			uwsgi.logic_opt_if_failed = 1;
                         return 0;
                 }
         }
@@ -168,7 +181,7 @@ int uwsgi_logic_opt_if_not_opt(char *key, char *value) {
 
 
 int uwsgi_logic_opt_if_env(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         // check for env-value syntax
         char *equal = strchr(uwsgi.logic_opt_data, '=');
         if (equal)
@@ -180,19 +193,21 @@ int uwsgi_logic_opt_if_env(char *key, char *value) {
 
         if (p) {
                 if (equal) {
-                        if (strcmp(equal + 1, p))
+                        if (strcmp(equal + 1, p)) {
+				uwsgi.logic_opt_if_failed = 1;
                                 return 0;
+			}
                 }
                 add_exported_option(key, uwsgi_substitute(value, "%(_)", p), 0);
                 return 1;
         }
-
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
 }
 
 
 int uwsgi_logic_opt_if_not_env(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         // check for env-value syntax
         char *equal = strchr(uwsgi.logic_opt_data, '=');
         if (equal)
@@ -204,10 +219,13 @@ int uwsgi_logic_opt_if_not_env(char *key, char *value) {
 
         if (p) {
                 if (equal) {
-                        if (!strcmp(equal + 1, p))
+                        if (!strcmp(equal + 1, p)) {
+				uwsgi.logic_opt_if_failed = 1;
                                 return 0;
+			}
                 }
                 else {
+			uwsgi.logic_opt_if_failed = 1;
                         return 0;
                 }
         }
@@ -217,117 +235,125 @@ int uwsgi_logic_opt_if_not_env(char *key, char *value) {
 }
 
 int uwsgi_logic_opt_if_reload(char *key, char *value) {
+	uwsgi.logic_opt_if_failed = 0;
         if (uwsgi.is_a_reload) {
                 add_exported_option(key, value, 0);
                 return 1;
         }
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
 }
 
 int uwsgi_logic_opt_if_not_reload(char *key, char *value) {
+	uwsgi.logic_opt_if_failed = 0;
         if (!uwsgi.is_a_reload) {
                 add_exported_option(key, value, 0);
                 return 1;
         }
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
 }
 
 int uwsgi_logic_opt_if_file(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         if (uwsgi_is_file(uwsgi.logic_opt_data)) {
                 add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
                 return 1;
         }
-
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
 }
 
 int uwsgi_logic_opt_if_not_file(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         if (!uwsgi_is_file(uwsgi.logic_opt_data)) {
                 add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
                 return 1;
         }
-
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
 }
 
 int uwsgi_logic_opt_if_dir(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         if (uwsgi_is_dir(uwsgi.logic_opt_data)) {
                 add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
                 return 1;
         }
-
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
 }
 
 int uwsgi_logic_opt_if_not_dir(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         if (!uwsgi_is_dir(uwsgi.logic_opt_data)) {
                 add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
                 return 1;
         }
-
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
 }
 
 
 
 int uwsgi_logic_opt_if_plugin(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         if (plugin_already_loaded(uwsgi.logic_opt_data)) {
                 add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
                 return 1;
         }
-
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
 }
 
 int uwsgi_logic_opt_if_not_plugin(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         if (!plugin_already_loaded(uwsgi.logic_opt_data)) {
                 add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
                 return 1;
         }
-
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
 }
 
 int uwsgi_logic_opt_if_hostname(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         if (!strcmp(uwsgi.hostname, uwsgi.logic_opt_data)) {
                 add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
                 return 1;
         }
-
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
 }
 
 int uwsgi_logic_opt_if_not_hostname(char *key, char *value) {
-
+	uwsgi.logic_opt_if_failed = 0;
         if (strcmp(uwsgi.hostname, uwsgi.logic_opt_data)) {
                 add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
                 return 1;
         }
-
+	uwsgi.logic_opt_if_failed = 1;
         return 0;
 }
 
 #ifdef UWSGI_PCRE
 int uwsgi_logic_opt_if_hostname_match(char *key, char *value) {
+	uwsgi.logic_opt_if_failed = 0;
 	if (uwsgi_regexp_match_pattern(uwsgi.logic_opt_data, uwsgi.hostname)) {
 		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
 		return 1;
 	}
+	uwsgi.logic_opt_if_failed = 1;
 	return 0;
 }
 
 int uwsgi_logic_opt_if_not_hostname_match(char *key, char *value) {
+	uwsgi.logic_opt_if_failed = 0;
 	if (!uwsgi_regexp_match_pattern(uwsgi.logic_opt_data, uwsgi.hostname)) {
 		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
 		return 1;
 	}
+	uwsgi.logic_opt_if_failed = 1;
 	return 0;
 }
 #endif
@@ -443,6 +469,15 @@ void add_exported_option_do(char *key, char *value, int configured, int placehol
 		if (uwsgi.logic_opt_data) {
 			free(uwsgi.logic_opt_data);
 		}
+		uwsgi.logic_opt = NULL;
+		uwsgi.logic_opt_arg = NULL;
+		uwsgi.logic_opt_cycles = 0;
+		uwsgi.logic_opt_data = NULL;
+		uwsgi.logic_opt_if_failed = 0;
+	}
+
+	// like endif but without resetting the failed state
+	if (!strcmp(key, "else")) {
 		uwsgi.logic_opt = NULL;
 		uwsgi.logic_opt_arg = NULL;
 		uwsgi.logic_opt_cycles = 0;

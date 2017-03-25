@@ -2832,6 +2832,8 @@ struct uwsgi_server {
 	// uWSGI 2.0.15
 	int new_argc;
 	char **new_argv;
+	// signal for else
+	int logic_opt_if_failed;
 	
 	// uWSGI 2.1
 	char *fork_socket;
@@ -4018,6 +4020,7 @@ int uwsgi_logic_opt_if_hostname(char *, char *);
 int uwsgi_logic_opt_if_not_hostname(char *, char *);
 int uwsgi_logic_opt_if_hostname_match(char *, char *);
 int uwsgi_logic_opt_if_not_hostname_match(char *, char *);
+int uwsgi_logic_opt_else(char *, char *);
 
 
 void uwsgi_opt_resolve(char *, char *, void *);
