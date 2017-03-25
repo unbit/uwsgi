@@ -191,6 +191,8 @@ void uwsgi_init_default() {
 	uwsgi_master_fifo_prepare();
 
 	uwsgi.notify_socket_fd = -1;
+
+	uwsgi.mule_msg_recv_size = 65536;
 }
 
 void uwsgi_setup_reload() {
