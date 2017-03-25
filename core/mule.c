@@ -185,10 +185,22 @@ void uwsgi_mule_handler() {
 
 	uwsgi_mule_add_farm_to_queue(mule_queue);
 
+	int fatal_errors_counter = 0;
+
 	for (;;) {
 		rlen = event_queue_wait(mule_queue, -1, &interesting_fd);
-		if (rlen <= 0) {
+		if (rlen == 0) {
 			continue;
+		}
+
+		if (rlen < 0) {
+			if (errno == EINVAL) {
+				fatal_errors_counter++;
+				if (fatal_errors_counter >= 3) {
+					uwsgi_log_verbose("invalid internal state, restarting mule %d...\n", uwsgi.muleid);
+					end_me(0);
+				}
+			}
 		}
 
 		if (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket || farm_has_signaled(interesting_fd)) {
