@@ -1072,23 +1072,6 @@ void emperor_add_with_attrs(struct uwsgi_emperor_scanner *ues, char *name, time_
 		}
 	}
 
-	if (now - emperor_throttle < 1) {
-		emperor_throttle_level = emperor_throttle_level * 2;
-	}
-	else {
-		if (emperor_throttle_level > uwsgi.emperor_throttle) {
-			emperor_throttle_level = emperor_throttle_level / 2;
-		}
-
-		if (emperor_throttle_level < uwsgi.emperor_throttle) {
-			emperor_throttle_level = uwsgi.emperor_throttle;
-		}
-	}
-
-	emperor_throttle = now;
-#ifdef UWSGI_DEBUG
-	uwsgi_log("emperor throttle = %d\n", emperor_throttle_level);
-#endif
 	if (emperor_warming_up) {
 		if (emperor_throttle_level > 0) {
 			// wait 10 milliseconds in case of fork-bombing
@@ -1097,6 +1080,24 @@ void emperor_add_with_attrs(struct uwsgi_emperor_scanner *ues, char *name, time_
 		}
 	}
 	else {
+		if (now - emperor_throttle < 1) {
+			emperor_throttle_level = emperor_throttle_level * 2;
+		}
+		else {
+			if (emperor_throttle_level > uwsgi.emperor_throttle) {
+				emperor_throttle_level = emperor_throttle_level / 2;
+			}
+
+			if (emperor_throttle_level < uwsgi.emperor_throttle) {
+				emperor_throttle_level = uwsgi.emperor_throttle;
+			}
+		}
+
+		emperor_throttle = now;
+#ifdef UWSGI_DEBUG
+		uwsgi_log("emperor throttle = %d\n", emperor_throttle_level);
+#endif
+
 		usleep(emperor_throttle_level);
 	}
 
