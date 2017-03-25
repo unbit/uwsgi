@@ -2823,10 +2823,18 @@ struct uwsgi_server {
 	int wait_for_socket_timeout;
 	int mem_collector_freq;
 
-	// uWSGI 2.1
-	char *fork_socket;
+	// uWSGI 2.0.14
+	struct uwsgi_string_list *touch_mules_reload;
+	struct uwsgi_string_list *touch_spoolers_reload;
+	int spooler_reload_mercy;
+	int skip_atexit_teardown;
+
+	// uWSGI 2.0.15
 	int new_argc;
 	char **new_argv;
+	
+	// uWSGI 2.1
+	char *fork_socket;
 	char *emperor_use_fork_server;
 	struct uwsgi_string_list *vassal_fork_base;
 	struct uwsgi_string_list *emperor_collect_attributes;
@@ -2872,12 +2880,6 @@ struct uwsgi_server {
 	int subscription_clear_on_shutdown;
 
 	int subscription_tolerance_inactive;
-
-	struct uwsgi_string_list *touch_mules_reload;
-	struct uwsgi_string_list *touch_spoolers_reload;
-	int spooler_reload_mercy;
-
-	int skip_atexit_teardown;
 
 #ifdef __linux__
 	rlim_t reload_on_uss;
