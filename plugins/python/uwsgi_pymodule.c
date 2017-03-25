@@ -311,6 +311,25 @@ static PyObject *py_uwsgi_add_timer(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+static PyObject *py_uwsgi_add_ms_timer(PyObject * self, PyObject * args) {
+
+	uint8_t uwsgi_signal;
+	long msecs;
+	int secs;
+
+	if (!PyArg_ParseTuple(args, "Bl:add_ms_timer", &uwsgi_signal, &msecs)) {
+		return NULL;
+	}
+
+	secs = msecs / 1000;
+	msecs = msecs - secs * 1000;
+	if (uwsgi_add_timer_hr(uwsgi_signal, secs, msecs * 1000000))
+		return PyErr_Format(PyExc_ValueError, "unable to add timer");
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyObject *py_uwsgi_add_rb_timer(PyObject * self, PyObject * args) {
 
         uint8_t uwsgi_signal;
@@ -2758,6 +2777,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"signal_received", py_uwsgi_signal_received, METH_VARARGS, ""},
 	{"add_file_monitor", py_uwsgi_add_file_monitor, METH_VARARGS, ""},
 	{"add_timer", py_uwsgi_add_timer, METH_VARARGS, ""},
+	{"add_ms_timer", py_uwsgi_add_ms_timer, METH_VARARGS, ""},
 	{"add_rb_timer", py_uwsgi_add_rb_timer, METH_VARARGS, ""},
 	{"add_cron", py_uwsgi_add_cron, METH_VARARGS, ""},
 

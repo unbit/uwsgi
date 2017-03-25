@@ -327,6 +327,19 @@ class timer(object):
         return f
 
 
+class mstimer(object):
+
+    def __init__(self, msecs, **kwargs):
+        self.num = kwargs.get('signum', get_free_signal())
+        self.msecs = msecs
+        self.target = kwargs.get('target', '')
+
+    def __call__(self, f):
+        uwsgi.register_signal(self.num, self.target, f)
+        uwsgi.add_ms_timer(self.num, self.msecs)
+        return f
+
+
 class cron(object):
 
     def __init__(self, minute, hour, day, month, dayweek, **kwargs):

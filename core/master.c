@@ -729,7 +729,7 @@ int master_loop(char **argv, char **environ) {
 			// locking is not needed as timers can only increase
 			for (i = 0; i < ushared->timers_cnt; i++) {
 				if (!ushared->timers[i].registered) {
-					ushared->timers[i].fd = event_queue_add_timer(uwsgi.master_queue, &ushared->timers[i].id, ushared->timers[i].value);
+					ushared->timers[i].fd = event_queue_add_timer_hr(uwsgi.master_queue, &ushared->timers[i].id, ushared->timers[i].value, ushared->timers[i].nsvalue);
 					ushared->timers[i].registered = 1;
 				}
 			}
