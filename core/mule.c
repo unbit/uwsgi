@@ -201,7 +201,10 @@ void uwsgi_mule_handler() {
 					end_me(0);
 				}
 			}
+			continue;
 		}
+
+		fatal_errors_counter = 0;
 
 		if (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket || farm_has_signaled(interesting_fd)) {
 			len = read(interesting_fd, &uwsgi_signal, 1);
