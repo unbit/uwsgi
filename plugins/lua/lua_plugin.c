@@ -3614,6 +3614,10 @@ static void uwsgi_lua_hijack(void) {
 		exit(UWSGI_QUIET_CODE);
 
 	}
+
+	if (ulua.wsapi) {
+		uwsgi_apps_cnt++;
+	}
 }
 
 static int uwsgi_lua_mule_msg(char *msg, size_t len) {
