@@ -1375,7 +1375,8 @@ struct wsgi_request {
 	char *appid;
 	uint16_t appid_len;
 
-	//this is big enough to contain sockaddr_in
+	// This structure should not be used any more
+	// in favor of the union client_addr at the end
 	struct sockaddr_un c_addr;
 	int c_len;
 
@@ -1630,6 +1631,13 @@ struct wsgi_request {
 	enum uwsgi_range range_parsed;
 	int64_t range_from;
 	int64_t range_to;
+
+	// source address union, deprecates c_addr
+	union address {
+		struct sockaddr_in sin;
+		struct sockaddr_in6 sin6;
+		struct sockaddr_un sun;
+	} client_addr;
 
 };
 
