@@ -1973,7 +1973,7 @@ static ssize_t uwsgi_python_logger(struct uwsgi_logger *ul, char *message, size_
 		PyObject *py_getLogger_args = NULL;
 		if (ul->arg) {
 			py_getLogger_args = PyTuple_New(1);
-			PyTuple_SetItem(py_getLogger_args, 0, PyString_FromString(ul->arg));
+			PyTuple_SetItem(py_getLogger_args, 0, UWSGI_PYFROMSTRING(ul->arg));
 		}
                 ul->data = (void *) PyEval_CallObject(py_getLogger, py_getLogger_args);
                 if (PyErr_Occurred()) {
