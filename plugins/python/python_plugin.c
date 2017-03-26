@@ -1087,17 +1087,16 @@ void *uwsgi_python_create_env_holy(struct wsgi_request *wsgi_req, struct uwsgi_a
 	Py_INCREF(up.wsgi_spitout);
 	PyTuple_SetItem((PyObject *)wsgi_req->async_args, 1, up.wsgi_spitout);
 	PyObject *env = PyDict_New();
-	Py_INCREF(env);
 	return env;
 }
 
 void uwsgi_python_destroy_env_holy(struct wsgi_request *wsgi_req) {
-	Py_DECREF((PyObject *)wsgi_req->async_environ);
-	Py_DECREF((PyObject *) wsgi_req->async_args);
 	// in non-multithread modes, we set uwsgi.env incrementing the refcount of the environ
 	if (uwsgi.threads < 2) {
 		Py_DECREF((PyObject *)wsgi_req->async_environ);
 	}
+	Py_DECREF((PyObject *) wsgi_req->async_args);
+	Py_DECREF((PyObject *)wsgi_req->async_environ);
 }
 
 
