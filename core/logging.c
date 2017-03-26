@@ -697,7 +697,10 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 	ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, time_request);
 #endif
 
-	uint64_t rt = wsgi_req->end_of_request - wsgi_req->start_of_request;
+	uint64_t rt = 0;
+	// avoid overflow on clock instability (#1489)
+	if (wsgi_req->end_of_request > wsgi_req->start_of_request)
+		rt = wsgi_req->end_of_request - wsgi_req->start_of_request;
 
 	if (uwsgi.log_micros) {
 		tsize = (char *) micros;
