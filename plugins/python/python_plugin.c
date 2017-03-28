@@ -1901,23 +1901,45 @@ int uwsgi_python_mule_msg(char *message, size_t len) {
 	UWSGI_GET_GIL;
 
 	PyObject *mule_msg_hook = PyDict_GetItemString(up.embedded_dict, "mule_msg_hook");
-        if (!mule_msg_hook) {
-                // ignore
-                UWSGI_RELEASE_GIL;
-                return 0;
-        }
-
-	PyObject *pyargs = PyTuple_New(1);
-        PyTuple_SetItem(pyargs, 0, PyString_FromStringAndSize(message, len));
-
-        PyObject *ret = python_call(mule_msg_hook, pyargs, 0, NULL);
-	Py_DECREF(pyargs);
-	if (ret) {
-		Py_DECREF(ret);
+	PyObject *mule_msg_extra_hooks = PyDict_GetItemString(up.embedded_dict, "mule_msg_extra_hooks");
+	if (!mule_msg_hook && !mule_msg_extra_hooks) {
+		// ignore
+		UWSGI_RELEASE_GIL;
+		return 0;
 	}
 
-	if (PyErr_Occurred())
-                PyErr_Print();
+	PyObject *pyargs = PyTuple_New(1);
+	PyTuple_SetItem(pyargs, 0, PyString_FromStringAndSize(message, len));
+
+	// Maintain compatibility with old hook plugin behavior
+	if (mule_msg_hook) {
+		PyObject *ret = python_call(mule_msg_hook, pyargs, 0, NULL);
+
+		if (ret) {
+			Py_DECREF(ret);
+		}
+
+		if (PyErr_Occurred())
+			PyErr_Print();
+	}
+
+	if (mule_msg_extra_hooks) {
+		Py_ssize_t listlen = PyList_Size(mule_msg_extra_hooks);
+		Py_ssize_t idx = 0;
+		for (; idx < listlen; idx++) {
+			PyObject *hook = PyList_GET_ITEM(mule_msg_extra_hooks, idx);
+			PyObject *ret = python_call(hook, pyargs, 0, NULL);
+
+			if (ret) {
+				Py_DECREF(ret);
+			}
+
+			if (PyErr_Occurred())
+				PyErr_Print();
+		}
+	}
+
+	Py_DECREF(pyargs);
 
 	UWSGI_RELEASE_GIL;
 	return 1;

@@ -1403,6 +1403,35 @@ PyObject *py_uwsgi_farm_msg(PyObject * self, PyObject * args) {
 
 }
 
+PyObject *py_uwsgi_install_mule_msg_hook(PyObject *self, PyObject *args) {
+	PyObject *msg_hook_list;
+	PyObject *func;
+
+	if (!PyArg_ParseTuple(args, "O:install_mule_msg_hook", &func)) {
+		return NULL;
+	}
+
+	msg_hook_list = PyDict_GetItemString(up.embedded_dict, "mule_msg_extra_hooks");
+
+	if(!msg_hook_list) {
+		if((msg_hook_list = PyList_New(0)) == NULL)
+			return NULL;
+
+		if(PyDict_SetItemString(up.embedded_dict, "mule_msg_extra_hooks", msg_hook_list) == -1) {
+			Py_DECREF(msg_hook_list);
+			return NULL;
+		}
+	}
+
+	Py_INCREF(func);
+	if(PyList_Append(msg_hook_list, func) == -1) {
+		Py_DECREF(func);
+		return NULL;
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
 
 PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 
@@ -2744,6 +2773,7 @@ PyObject *py_uwsgi_suspend(PyObject * self, PyObject * args) {
 
 }
 
+
 static PyMethodDef uwsgi_advanced_methods[] = {
 	{"reload", py_uwsgi_reload, METH_VARARGS, ""},
 	{"stop", py_uwsgi_stop, METH_VARARGS, ""},
@@ -2819,6 +2849,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"embedded_data", py_uwsgi_embedded_data, METH_VARARGS, ""},
 	{"extract", py_uwsgi_extract, METH_VARARGS, ""},
 
+	{"install_mule_msg_hook", py_uwsgi_install_mule_msg_hook, METH_VARARGS, ""},
 	{"mule_msg", py_uwsgi_mule_msg, METH_VARARGS, ""},
 	{"farm_msg", py_uwsgi_farm_msg, METH_VARARGS, ""},
 	{"mule_get_msg", (PyCFunction) py_uwsgi_mule_get_msg, METH_VARARGS|METH_KEYWORDS, ""},
