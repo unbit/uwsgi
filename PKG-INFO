@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: uWSGI
+Version: 2.0.15
+Summary: The uWSGI server
+Home-page: https://uwsgi-docs.readthedocs.io/en/latest/
+Author: Unbit
+Author-email: info@unbit.it
+License: GPL2
+Description: UNKNOWN
+Platform: UNKNOWN
