@@ -193,11 +193,15 @@ class mulefunc(object):
 
 
 def mule_msg_dispatcher(message):
-    msg = pickle.loads(message)
+    try:
+        msg = pickle.loads(message)
+    except pickle.UnpicklingError:
+        return
+
     if msg['service'] == 'uwsgi_mulefunc':
         return mule_functions[msg['func']](*msg['args'], **msg['kwargs'])
 
-uwsgi.mule_msg_hook = mule_msg_dispatcher
+uwsgi.install_mule_msg_hook(mule_msg_dispatcher)
 
 
 class rpc(object):
