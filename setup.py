@@ -120,6 +120,8 @@ setup(name='uWSGI',
       author='Unbit',
       author_email='info@unbit.it',
       license='GPL2',
+      descriptions='The uWSGI Platform',
+      url='https://uwsgi-docs.readthedocs.io/en/latest/',
       py_modules=['uwsgidecorators'],
       distclass=uWSGIDistribution,
      )
