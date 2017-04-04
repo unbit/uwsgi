@@ -2,7 +2,16 @@
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
-extern PyTypeObject uwsgi_InputType;
+
+
+/*
+
+TODO:
+
+define a new type ASGIReplyChannl exposing a send() method
+calling the write protocol hook
+
+*/
 
 
 void *uwsgi_request_subhandler_asgi(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
