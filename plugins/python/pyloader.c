@@ -275,6 +275,13 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		wi->request_subhandler = uwsgi_request_subhandler_pump;
 		wi->response_subhandler = uwsgi_response_subhandler_pump;
 	}
+	else if (app_type == PYTHON_APP_TYPE_ASGI) {
+#ifdef UWSGI_DEBUG
+		uwsgi_log("-- ASGI callable selected --\n");
+#endif
+		wi->request_subhandler = uwsgi_request_subhandler_asgi;
+		wi->response_subhandler = uwsgi_response_subhandler_asgi;
+	}
 
 	wi->args = malloc(sizeof(PyObject*)*uwsgi.cores);
 	if (!wi->args) {
@@ -365,6 +372,9 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	}
 	else if (app_type == PYTHON_APP_TYPE_PUMP) {
 		uwsgi_log( "Pump app %d (mountpoint='%.*s') ready in %d seconds on interpreter %p pid: %d%s\n", id, wi->mountpoint_len, wi->mountpoint, (int) wi->startup_time, wi->interpreter, (int) getpid(), default_app);
+	}
+	else if (app_type == PYTHON_APP_TYPE_ASGI) {
+		uwsgi_log( "ASGI app %d (mountpoint='%.*s') ready in %d seconds on interpreter %p pid: %d%s\n", id, wi->mountpoint_len, wi->mountpoint, (int) wi->startup_time, wi->interpreter, (int) getpid(), default_app);
 	}
 
 

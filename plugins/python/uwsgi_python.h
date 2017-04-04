@@ -8,6 +8,7 @@
 #define PYTHON_APP_TYPE_WSGI2		2
 #define PYTHON_APP_TYPE_PUMP		3
 #define PYTHON_APP_TYPE_WSGI_LITE	4
+#define PYTHON_APP_TYPE_ASGI		5
 
 #if PY_MINOR_VERSION == 4 && PY_MAJOR_VERSION == 2
 #define Py_ssize_t ssize_t
@@ -203,6 +204,8 @@ struct uwsgi_python {
 	int wsgi_disable_file_wrapper;
 
 	char *worker_override;
+
+	char *asgi_config;
 };
 
 
@@ -239,6 +242,9 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *);
 
 void *uwsgi_request_subhandler_pump(struct wsgi_request *, struct uwsgi_app *);
 int uwsgi_response_subhandler_pump(struct wsgi_request *);
+
+void *uwsgi_request_subhandler_asgi(struct wsgi_request *, struct uwsgi_app *);
+int uwsgi_response_subhandler_asgi(struct wsgi_request *);
 
 PyObject *uwsgi_uwsgi_loader(void *);
 PyObject *uwsgi_dyn_loader(void *);
