@@ -254,7 +254,6 @@ int uwsgi_cheaper_algo_manual(int can_spawn) {
 
 
 int uwsgi_cheaper_algo_spare(int can_spawn) {
-
 	int i;
 	static uint64_t overload_count = 0;
 	static uint64_t idle_count = 0;
@@ -302,37 +301,35 @@ healthy:
 	else if (overload_count == 0) {
 		// how many active workers ?
 		int active_workers = 0;
-		int busy_workers = 0;
+		int idle_workers = 0;
 		for (i = 1; i <= uwsgi.numproc; i++) {
 			if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
 				active_workers++;
-				if (uwsgi_worker_is_busy(i) == 1)
-					busy_workers++;
+				if (uwsgi_worker_is_busy(i) != 1)
+					idle_workers++;
 			}
 		}
 
 #ifdef UWSGI_DEBUG
-		uwsgi_log("active workers %d busy_workers %d\n", active_workers, busy_workers);
+		uwsgi_log("active workers %d idle_workers %d\n", active_workers, idle_workers);
 #endif
 
-		// special condition: uwsgi.cheaper running workers and 1 free
-		if (active_workers > busy_workers && active_workers - busy_workers == 1) {
+		// stable condition: idle workers <= cheaper count
+		if (idle_workers <= uwsgi.cheaper_count) {
 #ifdef UWSGI_DEBUG
-			uwsgi_log("stable status: 1 spare worker\n");
+			uwsgi_log("stable status: %d/%d spare workers\n", idle_workers, uwsgi.cheaper_count);
 #endif
 			return 0;
 		}
 
 		idle_count++;
-
-		if (active_workers > uwsgi.cheaper_count && idle_count % uwsgi.cheaper_overload == 0) {
+		if (idle_count % uwsgi.cheaper_overload == 0) {
 			// we are in "cheap them all"
 			return -1;
 		}
 	}
 
 	return 0;
-
 }
 
 /*
@@ -406,7 +403,7 @@ int uwsgi_cheaper_algo_spare2(int can_spawn) {
 
 	-- Cheaper,  backlog algorithm (supported only on Linux) --
 
-        increse the number of workers when the listen queue is higher than uwsgi.cheaper_overload.
+	increse the number of workers when the listen queue is higher than uwsgi.cheaper_overload.
 	Decrese when lower.
 
 */
