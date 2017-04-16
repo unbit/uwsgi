@@ -1,5 +1,8 @@
 #include <uwsgi.h>
 
+#ifdef __CYGWIN__
+int initgroups(const char *, gid_t);
+#endif
 
 extern struct uwsgi_server uwsgi;
 
