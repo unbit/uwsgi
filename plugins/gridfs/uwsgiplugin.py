@@ -2,7 +2,7 @@ import os
 
 NAME = 'gridfs'
 
-CFLAGS = ['-I/usr/include/mongo', '-I/usr/local/include/mongo', '-std=c++11', '-Wno-error']
+CFLAGS = ['-I/usr/include/mongo', '-I/usr/local/include/mongo']
 LDFLAGS = []
 
 LIBS = []
