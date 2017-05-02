@@ -2571,6 +2571,7 @@ int uwsgi_start(void *v_argv) {
 	uwsgi_file_write_do(uwsgi.file_write_list);
 
 	if (!uwsgi.master_as_root && !uwsgi.chown_socket && !uwsgi.drop_after_init && !uwsgi.drop_after_apps) {
+		uwsgi_log("dropping root privileges as early as possible\n");
 		uwsgi_as_root();
 	}
 
@@ -2808,6 +2809,11 @@ int uwsgi_start(void *v_argv) {
 		//now bind all the unbound sockets
 		uwsgi_bind_sockets();
 
+		if (!uwsgi.master_as_root && !uwsgi.drop_after_init && !uwsgi.drop_after_apps) {
+			uwsgi_log("dropping root privileges after socket binding\n");
+			uwsgi_as_root();
+		}
+
 		// put listening socket in non-blocking state and set the protocol
 		uwsgi_set_sockets_protocols();
 
@@ -2823,7 +2829,8 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 
-	if (uwsgi.drop_after_init) {
+	if (!uwsgi.master_as_root && !uwsgi.drop_after_apps) {
+		uwsgi_log("dropping root privileges after plugin initialization\n");
 		uwsgi_as_root();
 	}
 
@@ -3076,7 +3083,8 @@ next:
 		uwsgi_init_all_apps();
 	}
 
-	if (uwsgi.drop_after_apps) {
+	if (!uwsgi.master_as_root) {
+		uwsgi_log("dropping root privileges after application loading\n");
 		uwsgi_as_root();
 	}
 
@@ -3326,6 +3334,7 @@ int uwsgi_run() {
 	}
 
 	if (uwsgi.master_as_root) {
+		uwsgi_log("dropping root privileges after master thread creation\n");
 		uwsgi_as_root();
 	}
 
