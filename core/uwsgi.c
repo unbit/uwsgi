@@ -808,8 +808,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-x-forwarded-for", no_argument, 0, "use the ip from X-Forwarded-For header instead of REMOTE_ADDR", uwsgi_opt_true, &uwsgi.logging_options.log_x_forwarded_for, 0},
 	{"master-as-root", no_argument, 0, "leave master process running as root", uwsgi_opt_true, &uwsgi.master_as_root, 0},
 
-	{"drop-after-init", no_argument, 0, "run privileges drop after plugin initialization", uwsgi_opt_true, &uwsgi.drop_after_init, 0},
-	{"drop-after-apps", no_argument, 0, "run privileges drop after apps loading", uwsgi_opt_true, &uwsgi.drop_after_apps, 0},
+	{"drop-after-init", no_argument, 0, "run privileges drop after plugin initialization, superseded by drop-after-apps", uwsgi_opt_true, &uwsgi.drop_after_init, 0},
+	{"drop-after-apps", no_argument, 0, "run privileges drop after apps loading, superseded by master-as-root", uwsgi_opt_true, &uwsgi.drop_after_apps, 0},
 
 	{"force-cwd", required_argument, 0, "force the initial working directory to the specified value", uwsgi_opt_set_str, &uwsgi.force_cwd, 0},
 	{"binsh", required_argument, 0, "override /bin/sh (used by exec hooks, it always fallback to /bin/sh)", uwsgi_opt_add_string_list, &uwsgi.binsh, 0},
