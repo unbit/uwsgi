@@ -11,6 +11,6 @@ Gem::Specification.new do |s|
   s.files       = []
   s.require_paths = ['.']
   s.executables << 'uwsgi'
-  s.homepage    = 'http://projects.unbit.it/uwsgi'
+  s.homepage    = 'https://projects.unbit.it/uwsgi'
   s.add_runtime_dependency 'rack'
 end

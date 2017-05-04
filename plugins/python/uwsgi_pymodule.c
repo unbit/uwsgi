@@ -311,6 +311,25 @@ static PyObject *py_uwsgi_add_timer(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+static PyObject *py_uwsgi_add_ms_timer(PyObject * self, PyObject * args) {
+
+	uint8_t uwsgi_signal;
+	long msecs;
+	int secs;
+
+	if (!PyArg_ParseTuple(args, "Bl:add_ms_timer", &uwsgi_signal, &msecs)) {
+		return NULL;
+	}
+
+	secs = msecs / 1000;
+	msecs = msecs - secs * 1000;
+	if (uwsgi_add_timer_hr(uwsgi_signal, secs, msecs * 1000000))
+		return PyErr_Format(PyExc_ValueError, "unable to add timer");
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyObject *py_uwsgi_add_rb_timer(PyObject * self, PyObject * args) {
 
         uint8_t uwsgi_signal;
@@ -1384,6 +1403,35 @@ PyObject *py_uwsgi_farm_msg(PyObject * self, PyObject * args) {
 
 }
 
+PyObject *py_uwsgi_install_mule_msg_hook(PyObject *self, PyObject *args) {
+	PyObject *msg_hook_list;
+	PyObject *func;
+
+	if (!PyArg_ParseTuple(args, "O:install_mule_msg_hook", &func)) {
+		return NULL;
+	}
+
+	msg_hook_list = PyDict_GetItemString(up.embedded_dict, "mule_msg_extra_hooks");
+
+	if(!msg_hook_list) {
+		if((msg_hook_list = PyList_New(0)) == NULL)
+			return NULL;
+
+		if(PyDict_SetItemString(up.embedded_dict, "mule_msg_extra_hooks", msg_hook_list) == -1) {
+			Py_DECREF(msg_hook_list);
+			return NULL;
+		}
+	}
+
+	Py_INCREF(func);
+	if(PyList_Append(msg_hook_list, func) == -1) {
+		Py_DECREF(func);
+		return NULL;
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
 
 PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 
@@ -1392,6 +1440,7 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 	PyObject *mule_obj = NULL;
 	int fd = -1;
 	int mule_id = -1;
+	int resp = -1;
 
 	if (!PyArg_ParseTuple(args, "s#|O:mule_msg", &message, &message_len, &mule_obj)) {
                 return NULL;
@@ -1402,7 +1451,7 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 
 	if (mule_obj == NULL) {
 		UWSGI_RELEASE_GIL
-		mule_send_msg(uwsgi.shared->mule_queue_pipe[0], message, message_len);
+		resp = mule_send_msg(uwsgi.shared->mule_queue_pipe[0], message, message_len);
 		UWSGI_GET_GIL
 	}
 	else {
@@ -1431,14 +1480,19 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 
 		if (fd > -1) {
 			UWSGI_RELEASE_GIL
-			mule_send_msg(fd, message, message_len);
+			resp = mule_send_msg(fd, message, message_len);
 			UWSGI_GET_GIL
 		}
 	}
 
-	Py_INCREF(Py_None);
-	return Py_None;
-	
+	if(!resp) {
+		Py_INCREF(Py_True);
+		return Py_True;
+	}
+
+	Py_INCREF(Py_False);
+	return Py_False;
+
 }
 
 PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwargs) {
@@ -2524,6 +2578,10 @@ PyObject *py_uwsgi_logsize(PyObject * self, PyObject * args) {
 	return PyLong_FromUnsignedLongLong(uwsgi.shared->logsize);
 }
 
+PyObject *py_uwsgi_mule_msg_recv_size(PyObject * self, PyObject *args) {
+	return PyLong_FromUnsignedLongLong(uwsgi.mule_msg_recv_size);
+}
+
 PyObject *py_uwsgi_mem(PyObject * self, PyObject * args) {
 
 	uint64_t rss=0, vsz = 0;
@@ -2715,6 +2773,7 @@ PyObject *py_uwsgi_suspend(PyObject * self, PyObject * args) {
 
 }
 
+
 static PyMethodDef uwsgi_advanced_methods[] = {
 	{"reload", py_uwsgi_reload, METH_VARARGS, ""},
 	{"stop", py_uwsgi_stop, METH_VARARGS, ""},
@@ -2724,6 +2783,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"request_id", py_uwsgi_request_id, METH_VARARGS, ""},
 	{"worker_id", py_uwsgi_worker_id, METH_VARARGS, ""},
 	{"mule_id", py_uwsgi_mule_id, METH_VARARGS, ""},
+	{"mule_msg_recv_size", py_uwsgi_mule_msg_recv_size, METH_VARARGS, ""},
 	{"log", py_uwsgi_log, METH_VARARGS, ""},
 	{"log_this_request", py_uwsgi_log_this, METH_VARARGS, ""},
 	{"set_logvar", py_uwsgi_set_logvar, METH_VARARGS, ""},
@@ -2747,6 +2807,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"signal_received", py_uwsgi_signal_received, METH_VARARGS, ""},
 	{"add_file_monitor", py_uwsgi_add_file_monitor, METH_VARARGS, ""},
 	{"add_timer", py_uwsgi_add_timer, METH_VARARGS, ""},
+	{"add_ms_timer", py_uwsgi_add_ms_timer, METH_VARARGS, ""},
 	{"add_rb_timer", py_uwsgi_add_rb_timer, METH_VARARGS, ""},
 	{"add_cron", py_uwsgi_add_cron, METH_VARARGS, ""},
 
@@ -2788,6 +2849,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"embedded_data", py_uwsgi_embedded_data, METH_VARARGS, ""},
 	{"extract", py_uwsgi_extract, METH_VARARGS, ""},
 
+	{"install_mule_msg_hook", py_uwsgi_install_mule_msg_hook, METH_VARARGS, ""},
 	{"mule_msg", py_uwsgi_mule_msg, METH_VARARGS, ""},
 	{"farm_msg", py_uwsgi_farm_msg, METH_VARARGS, ""},
 	{"mule_get_msg", (PyCFunction) py_uwsgi_mule_get_msg, METH_VARARGS|METH_KEYWORDS, ""},

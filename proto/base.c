@@ -98,15 +98,15 @@ int uwsgi_proto_base_accept(struct wsgi_request *wsgi_req, int fd) {
 
 	wsgi_req->c_len = sizeof(struct sockaddr_un);
 #if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
-        return accept4(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) & wsgi_req->c_len, SOCK_NONBLOCK);
+        return accept4(fd, (struct sockaddr *) &wsgi_req->client_addr, (socklen_t *) & wsgi_req->c_len, SOCK_NONBLOCK);
 #elif defined(__linux__)
-	int client_fd = accept(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) & wsgi_req->c_len);
+	int client_fd = accept(fd, (struct sockaddr *) &wsgi_req->client_addr, (socklen_t *) & wsgi_req->c_len);
 	if (client_fd >= 0) {
 		uwsgi_socket_nb(client_fd);
 	}
 	return client_fd;
 #else
-	return accept(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) & wsgi_req->c_len);
+	return accept(fd, (struct sockaddr *) &wsgi_req->client_addr, (socklen_t *) & wsgi_req->c_len);
 #endif
 }
 
@@ -266,7 +266,7 @@ int uwsgi_proto_ssl_write(struct wsgi_request * wsgi_req, char *buf, size_t len)
 	int ret = -1;
 retry:
         ret = SSL_write(wsgi_req->ssl, buf, len);
-        if (ret >= 0) {
+        if (ret > 0) {
 		wsgi_req->write_pos += ret;
 		if (wsgi_req->write_pos == len) {
                         return UWSGI_OK;
@@ -277,7 +277,9 @@ retry:
         int err = SSL_get_error(wsgi_req->ssl, ret);
 
         if (err == SSL_ERROR_WANT_WRITE) {
-                return UWSGI_AGAIN;
+                ret = uwsgi_wait_write_req(wsgi_req);
+                if (ret <= 0) return -1;
+                goto retry;
         }
 
         else if (err == SSL_ERROR_WANT_READ) {
@@ -316,26 +318,33 @@ int uwsgi_proto_base_sendfile(struct wsgi_request * wsgi_req, int fd, size_t pos
 int uwsgi_proto_ssl_sendfile(struct wsgi_request *wsgi_req, int fd, size_t pos, size_t len) {
 	char buf[32768];
 
-	ssize_t rlen = read(fd, buf, UMIN(len, 32768));
+	if (lseek(fd, pos+wsgi_req->write_pos, SEEK_SET) < 0) {
+		uwsgi_error("lseek()");
+		return -1;
+	}
+	ssize_t rlen = read(fd, buf, UMIN(len-wsgi_req->write_pos, 32768));
 	if (rlen <= 0) return -1;
 
-	for(;;) {
-		int ret = uwsgi_proto_ssl_write(wsgi_req, buf, rlen);
+	char *rbuf = buf;
+
+	while(rlen > 0) {
+		size_t current_write_pos = wsgi_req->write_pos;
+		int ret = uwsgi_proto_ssl_write(wsgi_req, rbuf, rlen);
 		if (ret == UWSGI_OK) {
-			if (wsgi_req->write_pos >= len) {
-				return UWSGI_OK;
-			}
-                        return UWSGI_AGAIN;
+			break;
                 }
 		if (ret == UWSGI_AGAIN) {
-			ret = uwsgi_wait_write_req(wsgi_req);
-			if (ret <= 0 ) return -1;
+			rbuf += (wsgi_req->write_pos - current_write_pos);
+			rlen -= (wsgi_req->write_pos - current_write_pos);
 			continue;
 		}
 		return -1;
 	}
 
-	return -1;
+	if (wsgi_req->write_pos == len) {
+		return UWSGI_OK;
+	}
+	return UWSGI_AGAIN;
 }
 
 #endif
@@ -368,7 +377,7 @@ ssize_t uwsgi_proto_ssl_read_body(struct wsgi_request *wsgi_req, char *buf, size
 
 retry:
 	ret = SSL_read(wsgi_req->ssl, buf, len);
-        if (ret >= 0) return ret;
+        if (ret > 0) return ret;
 
         int err = SSL_get_error(wsgi_req->ssl, ret);
 

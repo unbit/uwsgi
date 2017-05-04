@@ -150,6 +150,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"endif", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
 	{"end-if", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
 
+	{"else", required_argument, 0, "(opt logic) else after condition", uwsgi_opt_logic, (void *) uwsgi_logic_opt_else, UWSGI_OPT_IMMEDIATE},
+
 	{"blacklist", required_argument, 0, "set options blacklist context", uwsgi_opt_set_str, &uwsgi.blacklist_context, UWSGI_OPT_IMMEDIATE},
 	{"end-blacklist", no_argument, 0, "clear options blacklist context", uwsgi_opt_set_null, &uwsgi.blacklist_context, UWSGI_OPT_IMMEDIATE},
 
@@ -181,7 +183,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"max-vars", required_argument, 'v', "set the amount of internal iovec/vars structures", uwsgi_opt_max_vars, NULL, 0},
 	{"max-apps", required_argument, 0, "set the maximum number of per-worker applications", uwsgi_opt_set_int, &uwsgi.max_apps, 0},
 	{"buffer-size", required_argument, 'b', "set internal buffer size", uwsgi_opt_set_64bit, &uwsgi.buffer_size, 0},
-	{"memory-report", no_argument, 'm', "enable memory report", uwsgi_opt_true, &uwsgi.logging_options.memory_report, 0},
+	{"memory-report", optional_argument, 'm', "enable memory report. 1 for basic (default), 2 for uss/pss (Linux only)", uwsgi_opt_set_int, &uwsgi.logging_options.memory_report, 0},
 	{"profiler", required_argument, 0, "enable the specified profiler", uwsgi_opt_set_str, &uwsgi.profiler, 0},
 	{"cgi-mode", no_argument, 'c', "force CGI-mode for plugins supporting it", uwsgi_opt_true, &uwsgi.cgi_mode, 0},
 	{"abstract-socket", no_argument, 'a', "force UNIX socket in abstract mode (Linux only)", uwsgi_opt_true, &uwsgi.abstract_socket, 0},
@@ -347,7 +349,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"mule", optional_argument, 0, "add a mule", uwsgi_opt_add_mule, NULL, UWSGI_OPT_MASTER},
 	{"mules", required_argument, 0, "add the specified number of mules", uwsgi_opt_add_mules, NULL, UWSGI_OPT_MASTER},
 	{"farm", required_argument, 0, "add a mule farm", uwsgi_opt_add_farm, NULL, UWSGI_OPT_MASTER},
-	{"mule-msg-size", optional_argument, 0, "set mule message buffer size", uwsgi_opt_set_int, &uwsgi.mule_msg_size, UWSGI_OPT_MASTER},
+	{"mule-msg-size", required_argument, 0, "set mule message buffer size", uwsgi_opt_set_int, &uwsgi.mule_msg_size, UWSGI_OPT_MASTER},
+	{"mule-msg-recv-size", required_argument, 0, "set mule message recv buffer size", uwsgi_opt_set_int, &uwsgi.mule_msg_recv_size, UWSGI_OPT_MASTER},
 
 	{"signal", required_argument, 0, "send a uwsgi signal to a server", uwsgi_opt_signal, NULL, UWSGI_OPT_IMMEDIATE},
 	{"signal-bufsize", required_argument, 0, "set buffer size for signal queue", uwsgi_opt_set_int, &uwsgi.signal_bufsize, 0},
@@ -560,6 +563,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"limit-nproc", required_argument, 0, "limit the number of spawnable processes", uwsgi_opt_set_int, &uwsgi.rl_nproc.rlim_max, 0},
 	{"reload-on-as", required_argument, 0, "reload if address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_as, UWSGI_OPT_MEMORY},
 	{"reload-on-rss", required_argument, 0, "reload if rss memory is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_rss, UWSGI_OPT_MEMORY},
+#ifdef __linux__
+	{"reload-on-uss", required_argument, 0, "reload if uss memory is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_uss, UWSGI_OPT_MEMORY},
+	{"reload-on-pss", required_argument, 0, "reload if pss memory is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_pss, UWSGI_OPT_MEMORY},
+#endif
 	{"evil-reload-on-as", required_argument, 0, "force the master to reload a worker if its address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.evil_reload_on_as, UWSGI_OPT_MASTER | UWSGI_OPT_MEMORY},
 	{"evil-reload-on-rss", required_argument, 0, "force the master to reload a worker if its rss memory is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.evil_reload_on_rss, UWSGI_OPT_MASTER | UWSGI_OPT_MEMORY},
 	{"mem-collector-freq", required_argument, 0, "set the memory collector frequency when evil reloads are in place", uwsgi_opt_set_int, &uwsgi.mem_collector_freq, 0},

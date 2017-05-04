@@ -191,6 +191,8 @@ void uwsgi_init_default() {
 	uwsgi_master_fifo_prepare();
 
 	uwsgi.notify_socket_fd = -1;
+
+	uwsgi.mule_msg_recv_size = 65536;
 }
 
 void uwsgi_setup_reload() {
@@ -499,7 +501,7 @@ void sanitize_args() {
 		exit(1);
 	}
 
-	if (uwsgi.cheaper_rss_limit_soft && uwsgi.logging_options.memory_report != 1 && uwsgi.force_get_memusage != 1) {
+	if (uwsgi.cheaper_rss_limit_soft && !uwsgi.logging_options.memory_report && uwsgi.force_get_memusage != 1) {
 		uwsgi_log("enabling cheaper-rss-limit-soft requires enabling also memory-report\n");
 		exit(1);
 	}

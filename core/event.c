@@ -1254,7 +1254,7 @@ static int timerfd_settime(int __ufd, int __flags, __const struct itimerspec *__
 }
 #endif
 
-int event_queue_add_timer(int eq, int *id, int sec) {
+int event_queue_add_timer_hr(int eq, int *id, int sec, long nsec) {
 
 	struct itimerspec it;
 	int tfd = timerfd_create(CLOCK_REALTIME, TFD_CLOEXEC);
@@ -1265,10 +1265,10 @@ int event_queue_add_timer(int eq, int *id, int sec) {
 	}
 
 	it.it_value.tv_sec = sec;
-	it.it_value.tv_nsec = 0;
+	it.it_value.tv_nsec = nsec;
 
 	it.it_interval.tv_sec = sec;
-	it.it_interval.tv_nsec = 0;
+	it.it_interval.tv_nsec = nsec;
 
 	if (timerfd_settime(tfd, 0, &it, NULL)) {
 		uwsgi_error("timerfd_settime()");
@@ -1309,7 +1309,7 @@ struct uwsgi_timer *event_queue_ack_timer(int id) {
 #endif
 
 #ifdef UWSGI_EVENT_TIMER_USE_NONE
-int event_queue_add_timer(int eq, int *id, int sec) {
+int event_queue_add_timer_hr(int eq, int *id, int sec, long nsec) {
 	return -1;
 }
 struct uwsgi_timer *event_queue_ack_timer(int id) {
@@ -1318,7 +1318,7 @@ struct uwsgi_timer *event_queue_ack_timer(int id) {
 #endif
 
 #ifdef UWSGI_EVENT_TIMER_USE_PORT
-int event_queue_add_timer(int eq, int *id, int sec) {
+int event_queue_add_timer_hr(int eq, int *id, int sec, long nsec) {
 
 	static int timer_id = 0xffffff00;
 	port_notify_t pnotif;
@@ -1341,10 +1341,10 @@ int event_queue_add_timer(int eq, int *id, int sec) {
 
 
 	it.it_value.tv_sec = sec;
-	it.it_value.tv_nsec = 0;
+	it.it_value.tv_nsec = nsec;
 
 	it.it_interval.tv_sec = sec;
-	it.it_interval.tv_nsec = 0;
+	it.it_interval.tv_nsec = nsec;
 
 	if (timer_settime(tid, 0, &it, NULL) < 0) {
 		uwsgi_error("timer_settime()");
@@ -1376,15 +1376,16 @@ struct uwsgi_timer *event_queue_ack_timer(int id) {
 
 
 #ifdef UWSGI_EVENT_TIMER_USE_KQUEUE
-int event_queue_add_timer(int eq, int *id, int sec) {
+int event_queue_add_timer_hr(int eq, int *id, int sec, long nsec) {
 
 	static int timer_id = 0xffffff00;
 	struct kevent kev;
+	int timeout_ms = sec * 1000 + (int)(nsec / 1000000);
 
 	*id = timer_id;
 	timer_id++;
 
-	EV_SET(&kev, *id, EVFILT_TIMER, EV_ADD, 0, sec * 1000, 0);
+	EV_SET(&kev, *id, EVFILT_TIMER, EV_ADD, 0, timeout_ms, 0);
 	if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
 		uwsgi_error("kevent()");
 		return -1;
@@ -1410,6 +1411,10 @@ struct uwsgi_timer *event_queue_ack_timer(int id) {
 
 }
 #endif
+
+int event_queue_add_timer(int eq, int *id, int sec) {
+	return event_queue_add_timer_hr(eq, id, sec, 0);
+}
 
 int event_queue_read() {
 	return UWSGI_EVENT_IN;

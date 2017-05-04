@@ -988,6 +988,44 @@ XS(XS_add_var) {
 	
 }
 
+XS(XS_set_logvar) {
+	dXSARGS;
+	psgi_check_args(2);
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	STRLEN keylen;
+	char *key = SvPV(ST(0), keylen);
+
+	STRLEN vallen;
+	char *val = SvPV(ST(1), vallen);
+
+	uwsgi_logvar_add(wsgi_req, key, keylen, val, vallen);
+
+	XSRETURN_UNDEF;
+}
+
+XS(XS_get_logvar) {
+	dXSARGS;
+	psgi_check_args(1);
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	STRLEN keylen;
+	char *key = SvPV(ST(0), keylen);
+
+	struct uwsgi_logvar *lv = uwsgi_logvar_get(wsgi_req, key, keylen);
+
+	if (lv) {
+		ST(0) = newSVpv(lv->val, lv->vallen);
+		sv_2mortal(ST(0));
+		XSRETURN(1);
+	}
+
+	XSRETURN_UNDEF;
+
+}
+
 void init_perl_embedded_module() {
 	psgi_xs(reload);
 
@@ -1053,4 +1091,6 @@ void init_perl_embedded_module() {
 	psgi_xs(add_var);
 	psgi_xs(worker_id);
 	
+	psgi_xs(set_logvar);
+	psgi_xs(get_logvar);
 }

@@ -12,7 +12,7 @@ extern struct uwsgi_server uwsgi;
 
 void uwsgi_mule_handler(void);
 
-void mule_send_msg(int fd, char *message, size_t len) {
+int mule_send_msg(int fd, char *message, size_t len) {
 
 	socklen_t so_bufsize_len = sizeof(int);
 	int so_bufsize = 0;
@@ -27,7 +27,9 @@ void mule_send_msg(int fd, char *message, size_t len) {
 		else {
 			uwsgi_error("mule_send_msg()");
 		}
+		return -1;
 	}
+	return 0;
 }
 
 void uwsgi_mule(int id) {
@@ -57,6 +59,8 @@ void uwsgi_mule(int id) {
 		uwsgi.mules[id - 1].id = id;
 		uwsgi.mules[id - 1].pid = getpid();
 		uwsgi.mypid = uwsgi.mules[id - 1].pid;
+
+		uwsgi.mule_msg_recv_buf = uwsgi_malloc(uwsgi.mule_msg_recv_size);
 
 		uwsgi_fixup_fds(0, id, NULL);
 
@@ -170,8 +174,7 @@ void uwsgi_mule_handler() {
 	int rlen;
 	int interesting_fd;
 
-	// this must be configurable
-	char message[65536];
+	char *message = uwsgi.mule_msg_recv_buf;
 
 	int mule_queue = event_queue_init();
 
@@ -182,11 +185,26 @@ void uwsgi_mule_handler() {
 
 	uwsgi_mule_add_farm_to_queue(mule_queue);
 
+	int fatal_errors_counter = 0;
+
 	for (;;) {
 		rlen = event_queue_wait(mule_queue, -1, &interesting_fd);
-		if (rlen <= 0) {
+		if (rlen == 0) {
 			continue;
 		}
+
+		if (rlen < 0) {
+			if (errno == EINVAL) {
+				fatal_errors_counter++;
+				if (fatal_errors_counter >= 3) {
+					uwsgi_log_verbose("invalid internal state, restarting mule %d...\n", uwsgi.muleid);
+					end_me(0);
+				}
+			}
+			continue;
+		}
+
+		fatal_errors_counter = 0;
 
 		if (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket || farm_has_signaled(interesting_fd)) {
 			len = read(interesting_fd, &uwsgi_signal, 1);
@@ -203,7 +221,11 @@ void uwsgi_mule_handler() {
 			}
 		}
 		else if (interesting_fd == uwsgi.mules[uwsgi.muleid - 1].queue_pipe[1] || interesting_fd == uwsgi.shared->mule_queue_pipe[1] || farm_has_msg(interesting_fd)) {
-			len = read(interesting_fd, message, 65536);
+			if(!message) {
+				uwsgi_log("*** MULE %d MESSAGE BUFFER IS NOT INITIALIZED ***\n", uwsgi.muleid);
+				continue;
+			}
+			len = read(interesting_fd, message, uwsgi.mule_msg_recv_size);
 			if (len < 0) {
 				if (errno != EAGAIN && errno != EINTR && errno != EWOULDBLOCK) {
 					uwsgi_error("uwsgi_mule_handler/read()");
