@@ -2890,6 +2890,8 @@ struct uwsgi_server {
 
 	int mule_msg_recv_size;
 	char *mule_msg_recv_buf;
+
+	int http_path_info_no_decode_slashes;
 };
 
 struct uwsgi_rpc {
@@ -3737,7 +3739,9 @@ void uwsgi_fixup_fds(int, int, struct uwsgi_gateway *);
 
 void uwsgi_set_processname(char *);
 
-void http_url_decode(char *, uint16_t *, char *);
+void http_url_decode4(char *, uint16_t *, char *, int);
+#define http_url_decode(x, y, z) http_url_decode4(x, y, z, 0)
+
 void http_url_encode(char *, uint16_t *, char *);
 
 pid_t uwsgi_fork(char *);

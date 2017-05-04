@@ -3255,7 +3255,7 @@ it manages:
 	stop at the first #
 
 */
-void http_url_decode(char *buf, uint16_t * len, char *dst) {
+void http_url_decode4(char *buf, uint16_t * len, char *dst, int no_slash_decode) {
 
 	enum {
 		zero = 0,
@@ -3312,8 +3312,15 @@ void http_url_decode(char *buf, uint16_t * len, char *dst) {
 			break;
 		case percent2:
 			value[1] = c;
-			*ptr++ = hex2num(value);
-			new_len++;
+			if (no_slash_decode && value[0] == '2' && (value[1] == 'F' || value[1] == 'f')) {
+				*ptr++ = '%';
+				*ptr++ = value[0];
+				*ptr++ = value[1];
+				new_len += 3;
+			} else {
+				*ptr++ = hex2num(value);
+				new_len++;
+			}
 			status = zero;
 			break;
 		case slash:
