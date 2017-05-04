@@ -814,9 +814,10 @@ oldstyle:
 
 			if (uphp.fallback_qs) {
 				size_t fqs_len = strlen(uphp.fallback_qs);
-				size_t new_qs_len = orig_path_info_len
-					+ fqs_len + 1
-					+ wsgi_req->query_string_len;
+				size_t new_qs_len =
+					+ fqs_len + 1				/* varname= */
+					+ orig_path_info_len			/* /foobar */
+					+ 1 + wsgi_req->query_string_len;	/* &oldqs */
 				char *new_qs = ecalloc(1, new_qs_len + 1);
 
 				memcpy(new_qs, uphp.fallback_qs, fqs_len);
