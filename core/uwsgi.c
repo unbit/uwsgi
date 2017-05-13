@@ -808,8 +808,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-x-forwarded-for", no_argument, 0, "use the ip from X-Forwarded-For header instead of REMOTE_ADDR", uwsgi_opt_true, &uwsgi.logging_options.log_x_forwarded_for, 0},
 	{"master-as-root", no_argument, 0, "leave master process running as root", uwsgi_opt_true, &uwsgi.master_as_root, 0},
 
-	{"drop-after-init", no_argument, 0, "run privileges drop after plugin initialization", uwsgi_opt_true, &uwsgi.drop_after_init, 0},
-	{"drop-after-apps", no_argument, 0, "run privileges drop after apps loading", uwsgi_opt_true, &uwsgi.drop_after_apps, 0},
+	{"drop-after-init", no_argument, 0, "run privileges drop after plugin initialization, superseded by drop-after-apps", uwsgi_opt_true, &uwsgi.drop_after_init, 0},
+	{"drop-after-apps", no_argument, 0, "run privileges drop after apps loading, superseded by master-as-root", uwsgi_opt_true, &uwsgi.drop_after_apps, 0},
 
 	{"force-cwd", required_argument, 0, "force the initial working directory to the specified value", uwsgi_opt_set_str, &uwsgi.force_cwd, 0},
 	{"binsh", required_argument, 0, "override /bin/sh (used by exec hooks, it always fallback to /bin/sh)", uwsgi_opt_add_string_list, &uwsgi.binsh, 0},
@@ -2695,6 +2695,7 @@ int uwsgi_start(void *v_argv) {
 	uwsgi_file_write_do(uwsgi.file_write_list);
 
 	if (!uwsgi.master_as_root && !uwsgi.chown_socket && !uwsgi.drop_after_init && !uwsgi.drop_after_apps) {
+		uwsgi_log("dropping root privileges as early as possible\n");
 		uwsgi_as_root();
 	}
 
@@ -2937,6 +2938,11 @@ int uwsgi_start(void *v_argv) {
 		//now bind all the unbound sockets
 		uwsgi_bind_sockets();
 
+		if (!uwsgi.master_as_root && !uwsgi.drop_after_init && !uwsgi.drop_after_apps) {
+			uwsgi_log("dropping root privileges after socket binding\n");
+			uwsgi_as_root();
+		}
+
 		// put listening socket in non-blocking state and set the protocol
 		uwsgi_set_sockets_protocols();
 
@@ -2952,7 +2958,8 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 
-	if (uwsgi.drop_after_init) {
+	if (!uwsgi.master_as_root && !uwsgi.drop_after_apps) {
+		uwsgi_log("dropping root privileges after plugin initialization\n");
 		uwsgi_as_root();
 	}
 
@@ -3220,7 +3227,8 @@ next:
 		uwsgi_init_all_apps();
 	}
 
-	if (uwsgi.drop_after_apps) {
+	if (!uwsgi.master_as_root) {
+		uwsgi_log("dropping root privileges after application loading\n");
 		uwsgi_as_root();
 	}
 
@@ -3475,6 +3483,7 @@ int uwsgi_run() {
 	}
 
 	if (uwsgi.master_as_root) {
+		uwsgi_log("dropping root privileges after master thread creation\n");
 		uwsgi_as_root();
 	}
 
