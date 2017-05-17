@@ -299,7 +299,7 @@ static int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, size_t 
 	}
 
 #ifdef UWSGI_ZLIB
-	else if (uhttp.auto_gzip && !uwsgi_strncmp("ACCEPT_ENCODING", 15, hh, keylen)) {
+	else if (uhttp.auto_gzip && !uwsgi_strnicmp("ACCEPT-ENCODING", 15, hh, keylen)) {
 		if ( uwsgi_contains_n(val, vallen, "gzip", 4) ) {
 			hr->can_gzip = 1;
 		}
