@@ -70,20 +70,10 @@ test_python() {
 test_rack() {
     date > reload.txt
     rm -f uwsgi.log
+    # the code assumes that ruby environment is activated by `rvm use`
     echo -e "${bldyel}================== TESTING $1 =====================${txtrst}"
-    case "$1" in
-    "rack187")
-        GEMS_BINARY="/usr/bin/gem1.8"
-        ;;
-    "rack191")
-        GEMS_BINARY="/usr/bin/gem1.9.1"
-        ;;
-    "rack193")
-        GEMS_BINARY="/usr/bin/gem1.9.3"
-        ;;
-    esac
-    echo -e "${bldyel}>>> Installing sinatra gem using ${GEMS_BINARY}${txtrst}"
-    $GEMS_BINARY install sinatra || die
+    echo -e "${bldyel}>>> Installing sinatra gem using gem${txtrst}"
+    gem install sinatra || die
     echo -e "${bldyel}>>> Spawning uWSGI rack app${txtrst}"
     echo -en "${bldred}"
     ./uwsgi --master --plugin 0:$1 --http :8080 --exit-on-reload --touch-reload reload.txt --rack examples/config2.ru --daemonize uwsgi.log
