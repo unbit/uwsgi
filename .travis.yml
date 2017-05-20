@@ -20,9 +20,10 @@ script:
   - echo -e "\n\n>>> Building python35 plugin"
   - /usr/bin/python3.5 -V
   - /usr/bin/python3.5 uwsgiconfig.py --plugin plugins/python base python35
-  - echo -e "\n\n>>> Building rack 1.9.1 plugin"
-  - /usr/bin/ruby1.9.1 -v
-  - UWSGICONFIG_RUBYPATH=/usr/bin/ruby1.9.1 /usr/bin/python uwsgiconfig.py --plugin plugins/rack base rack191
+  - echo -e "\n\n>>> Building rack plugin"
+  - rvm use 2.2.6
+  - ruby -v
+  - UWSGICONFIG_RUBYPATH=ruby /usr/bin/python uwsgiconfig.py --plugin plugins/rack base rack226
   - echo -e "\n\n>>> Building cgi plugin"
   - /usr/bin/python uwsgiconfig.py --plugin plugins/cgi base
   - echo -e "\n\n>>> Building dummy plugin"
@@ -35,7 +36,6 @@ before_install:
   - sudo add-apt-repository ppa:nathan-renniewaldock/ppa -y
   - sudo apt-get update -qq
   - sudo apt-get install -qqyf python2.6-dev python3.4-dev python3.5-dev
-  - sudo apt-get install -qqyf rubygems1.8 ruby1.9.1-dev
   - sudo apt-get install -qqyf libxml2-dev libpcre3-dev libcap2-dev
   - sudo apt-get install -qqyf php5-dev libphp5-embed liblua5.1-0-dev
   - sudo apt-get install -qqyf libjansson-dev libldap2-dev libpq-dev
