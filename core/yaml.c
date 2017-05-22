@@ -16,7 +16,7 @@ void yaml_rstrip(char *line) {
 	off_t i;
 
 	for (i = strlen(line) - 1; i >= 0; i--) {
-		if (line[i] == ' ' || line[i] == '\t') {
+		if (line[i] == ' ' || line[i] == '\t' || line[i] == '"') {
 			line[i] = 0;
 			continue;
 		}
@@ -30,7 +30,7 @@ char *yaml_lstrip(char *line) {
 	char *ptr = line;
 
 	for (i = 0; i < (int) strlen(line); i++) {
-		if (line[i] == ' ' || line[i] == '\t' || line[i] == '\r') {
+		if (line[i] == ' ' || line[i] == '\t' || line[i] == '\r' || line[i] == '"') {
 			ptr++;
 			continue;
 		}
