@@ -3274,6 +3274,7 @@ void *uwsgi_calloc(size_t);
 int event_queue_init(void);
 void *event_queue_alloc(int);
 int event_queue_add_fd_read(int, int);
+int event_queue_add_fd_accept(int, int);
 int event_queue_add_fd_write(int, int);
 int event_queue_del_fd(int, int, int);
 int event_queue_wait(int, int, int *);
