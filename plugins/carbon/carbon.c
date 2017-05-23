@@ -420,6 +420,12 @@ metrics_loop:
 			}
 		}
 
+		wok = carbon_write(fd, "%s%s.%s.listen_queue %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) uwsgi.shared->backlog, (unsigned long long) now);
+		if (!wok) goto clear;
+
+		wok = carbon_write(fd, "%s%s.%s.listen_queue_errors %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, (unsigned long long) uwsgi.shared->backlog_errors, (unsigned long long) now);
+		if (!wok) goto clear;
+
 		usl->healthy = 1;
 		usl->errors = 0;
 
