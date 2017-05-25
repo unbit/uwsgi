@@ -1962,6 +1962,7 @@ void uwsgi_unix_signal(int signum, void (*func) (int)) {
 	memset(&sa, 0, sizeof(struct sigaction));
 
 	sa.sa_handler = func;
+	sa.sa_flags = SA_RESTART;
 
 	sigemptyset(&sa.sa_mask);
 
