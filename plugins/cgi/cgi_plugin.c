@@ -797,9 +797,11 @@ clear2:
 		uwsgi_error("setenv()");
 	}
 
-	if (setenv("SERVER_SOFTWARE", uwsgi_concat2("uWSGI/", UWSGI_VERSION), 0)) {
+	char *uwsgi_version_env = uwsgi_concat2("uWSGI/", UWSGI_VERSION);
+	if (setenv("SERVER_SOFTWARE", uwsgi_version_env, 0)) {
 		uwsgi_error("setenv()");
 	}
+	free(uwsgi_version_env);
 
 	// for newer php
 	if (setenv("REDIRECT_STATUS", "200", 0)) {
@@ -812,19 +814,25 @@ clear2:
 
 		size_t pi_len = wsgi_req->path_info_len - (path_info - wsgi_req->path_info);
 
-		if (setenv("PATH_INFO", uwsgi_concat2n(path_info, pi_len, "", 0), 1)) {
+		char *path_info_env = uwsgi_concat2n(path_info, pi_len, "", 0);
+		if (setenv("PATH_INFO", path_info_env, 1)) {
 			uwsgi_error("setenv()");
 		}
+		free(path_info_env);
 
 		if (wsgi_req->document_root_len > 0) {
-			if (setenv("PATH_TRANSLATED", uwsgi_concat3n(wsgi_req->document_root, wsgi_req->document_root_len, path_info, pi_len, "", 0) , 1)) {
+			char *path_translated_env = uwsgi_concat3n(wsgi_req->document_root, wsgi_req->document_root_len, path_info, pi_len, "", 0);
+			if (setenv("PATH_TRANSLATED", path_translated_env, 1)) {
 				uwsgi_error("setenv()");
 			}
+			free(path_translated_env);
 		}
 		else {
-			if (setenv("PATH_TRANSLATED", uwsgi_concat3n(docroot, docroot_len, path_info, pi_len, "", 0) , 1)) {
+			char *path_translated_env = uwsgi_concat3n(docroot, docroot_len, path_info, pi_len, "", 0);
+			if (setenv("PATH_TRANSLATED", path_translated_env, 1)) {
 				uwsgi_error("setenv()");
 			}
+			free(path_translated_env);
 		}
 
 	}
@@ -843,9 +851,11 @@ clear2:
 		}
 
 		if (script_name && discard_base > 1) {
-			if (setenv("SCRIPT_NAME", uwsgi_concat2n(script_name, discard_base, "", 0), 1)) {
+			char *script_name_discard_base = uwsgi_concat2n(script_name, discard_base, "", 0);
+			if (setenv("SCRIPT_NAME", script_name_discard_base, 1)) {
 				uwsgi_error("setenv()");
 			}
+			free(script_name_discard_base);
 		}
 	}
 	else {
@@ -857,9 +867,11 @@ clear2:
 			uwsgi_error("setenv()");
 		}
 
-		if (setenv("SCRIPT_NAME", uwsgi_concat2n(wsgi_req->path_info, discard_base, full_path+docroot_len, strlen(full_path+docroot_len)), 1)) {
+		char *script_name_not_a_file = uwsgi_concat2n(wsgi_req->path_info, discard_base, full_path+docroot_len, strlen(full_path+docroot_len));
+		if (setenv("SCRIPT_NAME", script_name_not_a_file, 1)) {
 			uwsgi_error("setenv()");
 		}
+		free(script_name_not_a_file);
 
 		char *base = uwsgi_get_last_char(full_path, '/');
 		if (base) {
@@ -911,6 +923,7 @@ clear2:
 				argv[i] = uwsgi_malloc( (arg_copy_len * 2) +1);
 				escape_shell_arg(arg_copy, arg_copy_len, argv[i]);	
 				i++;
+				free(arg_copy);
 			}
 			free(qs);
 		}
