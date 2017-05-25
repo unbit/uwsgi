@@ -646,10 +646,10 @@ struct uwsgi_logger {
 struct uwsgi_legion_node {
 	char *name;
 	uint16_t name_len;
+	uint16_t scroll_len;
+	char *scroll;
 	uint64_t valor;
 	char uuid[37];
-	char *scroll;
-	uint16_t scroll_len;
 	uint64_t checksum;
 	uint64_t lord_valor;
 	char lord_uuid[36];
@@ -661,13 +661,16 @@ struct uwsgi_legion_node {
 struct uwsgi_legion {
 	char *legion;
 	uint16_t legion_len;
+	uint16_t name_len;
+	char *name;
 	uint64_t valor;
 	char *addr;
-	char *name;
-	uint16_t name_len;
 	pid_t pid;
-	char uuid[37];
 	int socket;
+	char uuid[37];
+
+	uint16_t scroll_len;
+	char *scroll;
 
 	int quorum;
 	int changed;
@@ -678,9 +681,6 @@ struct uwsgi_legion {
 	int joined;
 
 	uint64_t checksum;
-
-	char *scroll;
-	uint16_t scroll_len;
 
 	char *lord_scroll;
 	uint16_t lord_scroll_len;
@@ -1389,77 +1389,77 @@ struct wsgi_request {
 
 	char *uri;
 	uint16_t uri_len;
-	char *remote_addr;
 	uint16_t remote_addr_len;
+	char *remote_addr;
 	char *remote_user;
 	uint16_t remote_user_len;
-	char *query_string;
 	uint16_t query_string_len;
+	char *query_string;
 	char *protocol;
 	uint16_t protocol_len;
-	char *method;
 	uint16_t method_len;
+	char *method;
 	char *scheme;
 	uint16_t scheme_len;
-	char *https;
 	uint16_t https_len;
+	char *https;
+	int script_name_pos;
 	char *script_name;
 	uint16_t script_name_len;
-	int script_name_pos;
 
-	char *host;
 	uint16_t host_len;
+	char *host;
 
 	char *content_type;
 	uint16_t content_type_len;
 
-	char *document_root;
 	uint16_t document_root_len;
+	char *document_root;
 
 	char *user_agent;
 	uint16_t user_agent_len;
 
-	char *encoding;
 	uint16_t encoding_len;
+	char *encoding;
 
 	char *referer;
 	uint16_t referer_len;
 
-	char *cookie;
 	uint16_t cookie_len;
+	char *cookie;
 
+	int path_info_pos;
 	char *path_info;
 	uint16_t path_info_len;
-	int path_info_pos;
 
-	char *authorization;
 	uint16_t authorization_len;
+	char *authorization;
 
 	uint16_t via;
 
-	char *script;
 	uint16_t script_len;
+	char *script;
 	char *module;
 	uint16_t module_len;
-	char *callable;
 	uint16_t callable_len;
+	char *callable;
 	char *home;
 	uint16_t home_len;
 
-	char *file;
 	uint16_t file_len;
+	char *file;
 
 	char *paste;
 	uint16_t paste_len;
 
-	char *chdir;
 	uint16_t chdir_len;
+	char *chdir;
 
 	char *touch_reload;
 	uint16_t touch_reload_len;
 
-	char *cache_get;
 	uint16_t cache_get_len;
+	char *cache_get;
 
 	char *if_modified_since;
 	uint16_t if_modified_since_len;
@@ -1574,17 +1574,16 @@ struct wsgi_request {
 	// websocket specific headers
 	char *http_sec_websocket_key;
 	uint16_t http_sec_websocket_key_len;
-	char *http_origin;
 	uint16_t http_origin_len;
+	char *http_origin;
 	char *http_sec_websocket_protocol;
 	uint16_t http_sec_websocket_protocol_len;
-	
 
-	struct uwsgi_buffer *chunked_input_buf;
 	uint8_t chunked_input_parser_status;
+	uint8_t chunked_input_complete;
+	struct uwsgi_buffer *chunked_input_buf;
 	ssize_t chunked_input_chunk_len;
 	size_t chunked_input_need;
-	uint8_t chunked_input_complete;
         size_t chunked_input_decapitate;
 
 	uint64_t stream_id;
