@@ -22,7 +22,7 @@ int mule_send_msg(int fd, char *message, size_t len) {
 			if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &so_bufsize, &so_bufsize_len)) {
 				uwsgi_error("getsockopt()");
 			}
-			uwsgi_log("*** MULE MSG QUEUE IS FULL: buffer size %d bytes (you can tune it with --signal-bufsize) ***\n", so_bufsize);
+			uwsgi_log("*** MULE MSG QUEUE IS FULL: buffer size %d bytes (you can tune it with --mule-msg-size) ***\n", so_bufsize);
 		}
 		else {
 			uwsgi_error("mule_send_msg()");
