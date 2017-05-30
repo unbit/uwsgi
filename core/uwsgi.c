@@ -1336,7 +1336,11 @@ static void simple_goodbye_cruel_world(const char *reason) {
 
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 	uwsgi_log("...The work of process %d is done (%s). Seeya!\n", getpid(), (reason != NULL ? reason : "no reason given"));
-	exit(0);
+ 	if (getpid() != masterpid && uwsgi.skip_atexit) {
+		_exit(0);
+	} else {
+		exit(0);
+	}
 }
 
 void goodbye_cruel_world(const char *reason_fmt, ...) {
