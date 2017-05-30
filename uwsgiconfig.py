@@ -191,6 +191,11 @@ def test_snippet(snippet, CFLAGS=[], LDFLAGS=[], LIBS=[]):
     else:
         cmd = " ".join([GCC, cflags, "-xc -", ldflags, libs, "-o /dev/null"])
     p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    if not isinstance(snippet, bytes):
+        if sys.version_info[0] >= 3:
+            snippet = bytes(snippet, sys.getdefaultencoding())
+        else:
+            snippet = bytes(snippet)
     p.communicate(snippet)
     return p.returncode == 0
 
