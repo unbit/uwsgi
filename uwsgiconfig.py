@@ -6,7 +6,7 @@ import os
 import re
 import time
 uwsgi_os = os.uname()[0]
-uwsgi_os_k = re.split('[-+]', os.uname()[2])[0]
+uwsgi_os_k = re.split('[-+_]', os.uname()[2])[0]
 uwsgi_os_v = os.uname()[3]
 uwsgi_cpu = os.uname()[4]
 
