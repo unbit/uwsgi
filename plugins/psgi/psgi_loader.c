@@ -470,7 +470,8 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 			if (!uperl.no_plack) { 
 				uwsgi_log("Plack::Util is not installed, using \"do\" instead of \"load_psgi\"\n");
 			}
-			char *code = uwsgi_concat3("my $app = do '", app_name, "';  if ( !$app && ( my $error = $@ || $! )) { die $error; }; $app");
+			perl_eval_pv("use File::Spec;", 1);
+			char *code = uwsgi_concat3("my $app = do File::Spec->rel2abs('", app_name, "');  if ( !$app && ( my $error = $@ || $! )) { die $error; }; $app");
 			callables[i] = perl_eval_pv(code, 0);
 			free(code);
 		}
