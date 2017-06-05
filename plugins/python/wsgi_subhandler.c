@@ -122,7 +122,10 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	PyObject *zero;
 	int i;
 	PyObject *pydictkey, *pydictvalue;
+#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 3
+#else
 	char *path_info;
+#endif
 
         for (i = 0; i < wsgi_req->var_cnt; i += 2) {
 #ifdef UWSGI_DEBUG
@@ -148,6 +151,16 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
                 wsgi_req->uh->modifier1 = python_plugin.modifier1;
                 pydictkey = PyDict_GetItemString(wsgi_req->async_environ, "SCRIPT_NAME");
                 if (pydictkey) {
+#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 3
+                        if (PyUnicode_Check(pydictkey)) {
+                                pydictvalue = PyDict_GetItemString(wsgi_req->async_environ, "PATH_INFO");
+                                if (pydictvalue) {
+                                        if (PyUnicode_Check(pydictvalue)) {
+                                                PyDict_SetItemString(wsgi_req->async_environ, "PATH_INFO", PyUnicode_Substring(pydictvalue, PyUnicode_GetLength(pydictkey), PyUnicode_GetLength(pydictvalue)));
+                                        }
+                                }
+                        }
+#else
                         if (PyString_Check(pydictkey)) {
                                 pydictvalue = PyDict_GetItemString(wsgi_req->async_environ, "PATH_INFO");
                                 if (pydictvalue) {
@@ -157,6 +170,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
                                         }
                                 }
                         }
+#endif
                 }
         }
 
