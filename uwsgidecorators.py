@@ -158,6 +158,9 @@ def spool(f=None, pass_arguments=False):
     return spool_decorate(f, pass_arguments, _spool)
 
 
+task = partial(spool, pass_arguments=True)
+
+
 def spoolforever(f=None, pass_arguments=False):
     return spool_decorate(f, pass_arguments, _spoolforever)
 
