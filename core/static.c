@@ -52,7 +52,7 @@ gzip:
 	if(can_br) {
 		memcpy(filename + *filename_len, ".br\0", 4);
 		*filename_len += 3;
-		if (!stat(filename, st)) return 1;
+		if (!stat(filename, st)) return 2;
 		*filename_len -= 3;
 		filename[*filename_len] = 0;
 	}
@@ -466,7 +466,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	char *mime_type = uwsgi_get_mime_type(real_filename, real_filename_len, &mime_type_size);
 
 	// here we need to choose if we want the gzip variant;
-	if (uwsgi_static_want_gzip(wsgi_req, real_filename, &real_filename_len, st)) use_gzip = 1;
+	use_gzip = uwsgi_static_want_gzip(wsgi_req, real_filename, &real_filename_len, st);
 
 	if (wsgi_req->if_modified_since_len) {
 		time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);
@@ -506,9 +506,11 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	uwsgi_add_expires_uri(wsgi_req, st);
 #endif
 
-	if (use_gzip) {
+	if (use_gzip == 1) {
 		if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4)) return -1;
-	}
+	} else if (use_gzip == 2) {
+		if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "br", 2)) return -1;
+    }
 
 	// Content-Type (if available)
 	if (mime_type_size > 0 && mime_type) {
