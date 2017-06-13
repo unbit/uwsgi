@@ -3,10 +3,16 @@
 extern struct uwsgi_server uwsgi;
 
 int uwsgi_static_want_gzip(struct wsgi_request *wsgi_req, char *filename, size_t *filename_len, struct stat *st) {
+	char can_gzip = 0, can_br = 0;
+
 	// check for filename size
 	if (*filename_len + 4 > PATH_MAX) return 0;
 	// check for supported encodings
-	if (!uwsgi_contains_n(wsgi_req->encoding, wsgi_req->encoding_len, "gzip", 4) ) return 0;
+	can_br = !uwsgi_contains_n(wsgi_req->encoding, wsgi_req->encoding_len, "br", 2);
+	can_gzip = !uwsgi_contains_n(wsgi_req->encoding, wsgi_req->encoding_len, "gzip", 4);
+
+	if(!can_br || !can_gzip)
+		return 0;
 
 	// check for 'all'
 	if (uwsgi.static_gzip_all) goto gzip;
@@ -18,16 +24,16 @@ int uwsgi_static_want_gzip(struct wsgi_request *wsgi_req, char *filename, size_t
 			goto gzip;
 		}
 		usl = usl->next;
-	} 
+	}
 
 	// check for ext/suffix
 	usl = uwsgi.static_gzip_ext;
-        while(usl) {
+	while(usl) {
 		if (!uwsgi_strncmp(filename + (*filename_len - usl->len), usl->len, usl->value, usl->len)) {
 			goto gzip;
 		}
-                usl = usl->next;
-        }
+		usl = usl->next;
+	}
 
 #ifdef UWSGI_PCRE
 	// check for regexp
@@ -43,30 +49,37 @@ int uwsgi_static_want_gzip(struct wsgi_request *wsgi_req, char *filename, size_t
 
 gzip:
 
-	memcpy(filename + *filename_len, ".gz\0", 4);
-	*filename_len += 3;
-	
-	if (stat(filename, st)) {
+	if(can_br) {
+		memcpy(filename + *filename_len, ".br\0", 4);
+		*filename_len += 3;
+		if (!stat(filename, st)) return 1;
 		*filename_len -= 3;
 		filename[*filename_len] = 0;
-		return 0;
 	}
-	
-	return 1;
+
+	if(can_gzip) {
+		memcpy(filename + *filename_len, ".gz\0", 4);
+		*filename_len += 3;
+		if (!stat(filename, st)) return 1;
+		*filename_len -= 3;
+		filename[*filename_len] = 0;
+	}
+
+	return 0;
 }
 
 int uwsgi_http_date(time_t t, char *dst) {
 
-        static char *week[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-        static char *months[] = {
-                "Jan", "Feb", "Mar", "Apr",
-                "May", "Jun", "Jul", "Aug",
-                "Sep", "Oct", "Nov", "Dec"
-        };
+	static char *week[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+	static char *months[] = {
+		"Jan", "Feb", "Mar", "Apr",
+		"May", "Jun", "Jul", "Aug",
+		"Sep", "Oct", "Nov", "Dec"
+	};
 
-        struct tm *hdtm = gmtime(&t);
+	struct tm *hdtm = gmtime(&t);
 
-        int ret = snprintf(dst, 31, "%s, %02d %s %4d %02d:%02d:%02d GMT",
+	int ret = snprintf(dst, 31, "%s, %02d %s %4d %02d:%02d:%02d GMT",
 		week[hdtm->tm_wday], hdtm->tm_mday, months[hdtm->tm_mon], hdtm->tm_year + 1900, hdtm->tm_hour, hdtm->tm_min, hdtm->tm_sec);
 	if (ret <= 0 || ret > 31) {
 		return 0;
@@ -77,93 +90,93 @@ int uwsgi_http_date(time_t t, char *dst) {
 // only RFC 1123 is supported
 static time_t parse_http_date(char *date, uint16_t len) {
 
-        struct tm hdtm;
+	struct tm hdtm;
 
-        if (len != 29 && date[3] != ',')
-                return 0;
+	if (len != 29 && date[3] != ',')
+		return 0;
 
-        hdtm.tm_mday = uwsgi_str2_num(date + 5);
+	hdtm.tm_mday = uwsgi_str2_num(date + 5);
 
-        switch (date[8]) {
-        case 'J':
-                if (date[9] == 'a') {
-                        hdtm.tm_mon = 0;
-                        break;
-                }
+	switch (date[8]) {
+	case 'J':
+		if (date[9] == 'a') {
+			hdtm.tm_mon = 0;
+			break;
+		}
 
-                if (date[9] == 'u') {
-                        if (date[10] == 'n') {
-                                hdtm.tm_mon = 5;
-                                break;
-                        }
+		if (date[9] == 'u') {
+			if (date[10] == 'n') {
+				hdtm.tm_mon = 5;
+				break;
+			}
 
-                        if (date[10] == 'l') {
-                                hdtm.tm_mon = 6;
-                                break;
-                        }
+			if (date[10] == 'l') {
+				hdtm.tm_mon = 6;
+				break;
+			}
 
-                        return 0;
-                }
+			return 0;
+		}
 
-                return 0;
+		return 0;
 
-        case 'F':
-                hdtm.tm_mon = 1;
-                break;
-
-        case 'M':
-                if (date[9] != 'a')
-                        return 0;
-
-                if (date[10] == 'r') {
-                        hdtm.tm_mon = 2;
-                        break;
-                }
-
-                if (date[10] == 'y') {
-                        hdtm.tm_mon = 4;
-                        break;
-                }
-
-                return 0;
-
-        case 'A':
-                if (date[10] == 'r') {
-                        hdtm.tm_mon = 3;
-                        break;
-                }
-                if (date[10] == 'g') {
-                        hdtm.tm_mon = 7;
-                        break;
-                }
-                return 0;
-
-        case 'S':
-                hdtm.tm_mon = 8;
-                break;
-
-        case 'O':
-                hdtm.tm_mon = 9;
-                break;
-
-        case 'N':
-                hdtm.tm_mon = 10;
+	case 'F':
+		hdtm.tm_mon = 1;
 		break;
 
-        case 'D':
-                hdtm.tm_mon = 11;
-                break;
-        default:
-                return 0;
-        }
+	case 'M':
+		if (date[9] != 'a')
+			return 0;
 
-        hdtm.tm_year = uwsgi_str4_num(date + 12) - 1900;
+		if (date[10] == 'r') {
+			hdtm.tm_mon = 2;
+			break;
+		}
 
-        hdtm.tm_hour = uwsgi_str2_num(date + 17);
-        hdtm.tm_min = uwsgi_str2_num(date + 20);
-        hdtm.tm_sec = uwsgi_str2_num(date + 23);
+		if (date[10] == 'y') {
+			hdtm.tm_mon = 4;
+			break;
+		}
 
-        return timegm(&hdtm);
+		return 0;
+
+	case 'A':
+		if (date[10] == 'r') {
+			hdtm.tm_mon = 3;
+			break;
+		}
+		if (date[10] == 'g') {
+			hdtm.tm_mon = 7;
+			break;
+		}
+		return 0;
+
+	case 'S':
+		hdtm.tm_mon = 8;
+		break;
+
+	case 'O':
+		hdtm.tm_mon = 9;
+		break;
+
+	case 'N':
+		hdtm.tm_mon = 10;
+		break;
+
+	case 'D':
+		hdtm.tm_mon = 11;
+		break;
+	default:
+		return 0;
+	}
+
+	hdtm.tm_year = uwsgi_str4_num(date + 12) - 1900;
+
+	hdtm.tm_hour = uwsgi_str2_num(date + 17);
+	hdtm.tm_min = uwsgi_str2_num(date + 20);
+	hdtm.tm_sec = uwsgi_str2_num(date + 23);
+
+	return timegm(&hdtm);
 
 }
 
@@ -338,7 +351,7 @@ char *uwsgi_get_mime_type(char *name, int namelen, size_t *size) {
 
 
 	if (uwsgi.threads > 1)
-                pthread_mutex_lock(&uwsgi.lock_static);
+		pthread_mutex_lock(&uwsgi.lock_static);
 
 	struct uwsgi_dyn_dict *udd = uwsgi.mimetypes;
 	while (udd) {
@@ -369,14 +382,14 @@ char *uwsgi_get_mime_type(char *name, int namelen, size_t *size) {
 			}
 			*size = udd->vallen;
 			if (uwsgi.threads > 1)
-                		pthread_mutex_unlock(&uwsgi.lock_static);
+				pthread_mutex_unlock(&uwsgi.lock_static);
 			return udd->value;
 		}
 		udd = udd->next;
 	}
 
 	if (uwsgi.threads > 1)
-        	pthread_mutex_unlock(&uwsgi.lock_static);
+		pthread_mutex_unlock(&uwsgi.lock_static);
 
 	return NULL;
 }
@@ -611,7 +624,7 @@ found:
 		while(safe) {
 			if (!uwsgi_starts_with(real_filename, real_filename_len, safe->value, safe->len)) {
 				goto safe;
-			}		
+			}
 			safe = safe->next;
 		}
 		uwsgi_log("[uwsgi-fileserve] security error: %s is not under %.*s or a safe path\n", real_filename, document_root_len, document_root);
@@ -625,14 +638,14 @@ safe:
 		if (index) {
 			// if we are here the PATH_INFO need to be changed
 			if (uwsgi_req_append_path_info_with_index(wsgi_req, index->value, index->len)) {
-                        	return -1;
-                        }
+				return -1;
+			}
 		}
 
 		// skip methods other than GET and HEAD
-        	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "GET", 3) && uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
+		if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "GET", 3) && uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
 			return -1;
-        	}
+		}
 
 		// check for skippable ext
 		struct uwsgi_string_list *sse = uwsgi.static_skip_ext;
