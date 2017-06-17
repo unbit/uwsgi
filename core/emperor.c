@@ -872,11 +872,11 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 		if (emperor_throttle_level > 0) {
 			// wait 10 milliseconds in case of fork-bombing
 			// pretty random value, but should avoid the load average to increase
-			usleep(10);
+			usleep(10 * 1000);
 		}
 	}
 	else {
-		usleep(emperor_throttle_level);
+		usleep(emperor_throttle_level * 1000);
 	}
 
 	if (uwsgi.emperor_tyrant) {
