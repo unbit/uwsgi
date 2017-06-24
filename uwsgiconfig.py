@@ -390,7 +390,8 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         cflags.append('-DUWSGI_CFLAGS=\\"\\"')
     else:
         cflags.append('-DUWSGI_CFLAGS=\\"%s\\"' % uwsgi_cflags)
-    cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
+    build_date = int(os.environ.get('SOURCE_DATE_EPOCH', time.time()))
+    cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S", time.gmtime(build_date)))
 
     post_build = []
 
