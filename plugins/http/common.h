@@ -5,7 +5,7 @@ extern struct uwsgi_server uwsgi;
 #include "../corerouter/cr.h"
 
 #ifdef UWSGI_SSL
-#ifdef OPENSSL_NPN_UNSUPPORTED
+#if !defined(OPENSSL_NO_NEXTPROTONEG) && defined(OPENSSL_NPN_UNSUPPORTED)
 #ifdef UWSGI_ZLIB
 #define UWSGI_SPDY
 #endif
