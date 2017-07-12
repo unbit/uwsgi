@@ -1361,7 +1361,11 @@ void uwsgi_python_set_thread_name(int core_id) {
                                         PyErr_Clear();
                                 }
                                 else {
+#ifdef PYTHREE
+                                        PyObject_SetAttrString(current_thread, "name", PyUnicode_FromFormat("uWSGIWorker%dCore%d", uwsgi.mywid, core_id));
+#else
                                         PyObject_SetAttrString(current_thread, "name", PyString_FromFormat("uWSGIWorker%dCore%d", uwsgi.mywid, core_id));
+#endif
                                         Py_INCREF(current_thread);
                                 }
                         }
