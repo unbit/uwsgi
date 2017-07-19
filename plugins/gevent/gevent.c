@@ -57,9 +57,11 @@ PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
         uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 
-	uwsgi_log_verbose("stopping gevent signals watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
-	PyObject_CallMethod(ugevent.my_signal_watcher, "stop", NULL);
-	PyObject_CallMethod(ugevent.signal_watcher, "stop", NULL);
+	if (uwsgi.signal_socket > -1) {
+		uwsgi_log_verbose("stopping gevent signals watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+		PyObject_CallMethod(ugevent.my_signal_watcher, "stop", NULL);
+		PyObject_CallMethod(ugevent.signal_watcher, "stop", NULL);
+	}
 
 	uwsgi_log_verbose("stopping gevent sockets watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	int i,count = uwsgi_count_sockets(uwsgi.sockets);
@@ -106,9 +108,11 @@ PyObject *py_uwsgi_gevent_int(PyObject *self, PyObject *args) {
         uwsgi_log("Brutally killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
         uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 
-        uwsgi_log_verbose("stopping gevent signals watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
-        PyObject_CallMethod(ugevent.my_signal_watcher, "stop", NULL);
-        PyObject_CallMethod(ugevent.signal_watcher, "stop", NULL);
+        if (uwsgi.signal_socket > -1) {
+                uwsgi_log_verbose("stopping gevent signals watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+                PyObject_CallMethod(ugevent.my_signal_watcher, "stop", NULL);
+                PyObject_CallMethod(ugevent.signal_watcher, "stop", NULL);
+        }
 
         uwsgi_log_verbose("stopping gevent sockets watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
         int i,count = uwsgi_count_sockets(uwsgi.sockets);
