@@ -23,7 +23,8 @@ struct uwsgi_stats_pusher_statsd {
 
 static struct uwsgi_option stats_pusher_statsd_options[] = {
 	{"statsd-no-workers", no_argument, 0, "disable generation of single worker metrics", uwsgi_opt_true, &u_stats_pusher_statsd.no_workers, 0},
-	{"statsd-all-gauges", no_argument, 0, "push all metrics to statsd as gauges", uwsgi_opt_true, &u_stats_pusher_statsd.all_gauges, 0}
+	{"statsd-all-gauges", no_argument, 0, "push all metrics to statsd as gauges", uwsgi_opt_true, &u_stats_pusher_statsd.all_gauges, 0},
+	UWSGI_END_OF_OPTIONS
 };
 
 // configuration of a statsd node
