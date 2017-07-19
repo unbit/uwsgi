@@ -49,6 +49,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"http11-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using HTTP 1.1 (Keep-Alive) protocol", uwsgi_opt_add_socket, "http11", 0},
 
+	{"http-path-info-no-decode-slashes", required_argument, 0, "don't URL decode encoded slashes in PATH_INFO when using HTTP(S) protocol", uwsgi_opt_true, &uwsgi.http_path_info_no_decode_slashes, 0},
+
 #ifdef UWSGI_SSL
 	{"https-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using HTTPS protocol", uwsgi_opt_add_ssl_socket, "https", 0},
 	{"https-socket-modifier1", required_argument, 0, "force the specified modifier1 when using HTTPS protocol", uwsgi_opt_set_64bit, &uwsgi.https_modifier1, 0},

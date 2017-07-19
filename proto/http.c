@@ -241,7 +241,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 				if (ptr - base > 0xffff) return -1;
 				uint16_t path_info_len = ptr - base;
 				char *path_info = uwsgi_malloc(path_info_len);
-				http_url_decode(base, &path_info_len, path_info);
+				http_url_decode4(base, &path_info_len, path_info, uwsgi.http_path_info_no_decode_slashes);
 				wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
 				free(path_info);
 			}
@@ -259,7 +259,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 					if (ptr - base > 0xffff) return -1;
                                 	uint16_t path_info_len = ptr - base;
 					char *path_info = uwsgi_malloc(path_info_len);
-                                	http_url_decode(base, &path_info_len, path_info);
+					http_url_decode4(base, &path_info_len, path_info, uwsgi.http_path_info_no_decode_slashes);
                                 	wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
 					free(path_info);
                         	}
