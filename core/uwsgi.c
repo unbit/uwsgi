@@ -818,7 +818,6 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"binsh", required_argument, 0, "override /bin/sh (used by exec hooks, it always fallback to /bin/sh)", uwsgi_opt_add_string_list, &uwsgi.binsh, 0},
 	{"chdir", required_argument, 0, "chdir to specified directory before apps loading", uwsgi_opt_set_str, &uwsgi.chdir, 0},
 	{"chdir2", required_argument, 0, "chdir to specified directory after apps loading", uwsgi_opt_set_str, &uwsgi.chdir2, 0},
-	{"lazy", no_argument, 0, "set lazy mode (load apps in workers instead of master)", uwsgi_opt_true, &uwsgi.lazy, 0},
 	{"lazy-apps", no_argument, 0, "load apps in each worker instead of the master", uwsgi_opt_true, &uwsgi.lazy_apps, 0},
 	{"cheap", no_argument, 0, "set cheap mode (spawn workers only after the first request)", uwsgi_opt_true, &uwsgi.status.is_cheap, UWSGI_OPT_MASTER},
 	{"cheaper", required_argument, 0, "set cheaper mode (adaptive process spawning)", uwsgi_opt_set_int, &uwsgi.cheaper_count, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
@@ -1419,16 +1418,6 @@ void grace_them_all(int signum) {
 		return;
 
 	int i;
-
-	if (uwsgi.lazy) {
-		for (i = 1; i <= uwsgi.numproc; i++) {
-			if (uwsgi.workers[i].pid > 0) {
-				uwsgi_curse(i, SIGHUP);
-			}
-		}
-		return;
-	}
-	
 
 	uwsgi.status.gracefully_reloading = 1;
 
@@ -3226,7 +3215,7 @@ next:
 	}
 
 	//init apps hook (if not lazy)
-	if (!uwsgi.lazy && !uwsgi.lazy_apps) {
+	if (!uwsgi.lazy_apps) {
 		uwsgi_init_all_apps();
 	}
 
@@ -3572,7 +3561,7 @@ void uwsgi_worker_run() {
 
 	int i;
 
-	if (uwsgi.lazy || uwsgi.lazy_apps) {
+	if (uwsgi.lazy_apps) {
 		uwsgi_init_all_apps();
 	}
 
@@ -3972,8 +3961,6 @@ void uwsgi_init_all_apps() {
 	// no app initialized and virtualhosting enabled
 	if (uwsgi_apps_cnt == 0 && uwsgi.numproc > 0 && !uwsgi.command_mode) {
 		if (uwsgi.need_app) {
-			if (!uwsgi.lazy)
-				uwsgi_log("*** no app loaded. GAME OVER ***\n");
 			if (uwsgi.lazy_apps) {
 				if (uwsgi.master_process) {
 					if (kill(uwsgi.workers[0].pid, SIGINT)) {

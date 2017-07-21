@@ -1876,7 +1876,7 @@ struct uwsgi_server {
 	uint64_t raw_modifier1;
 	uint64_t raw_modifier2;
 
-	// enable lazy mode
+	// deprecated: enable lazy mode
 	int lazy;
 	// enable lazy-apps mode
 	int lazy_apps;

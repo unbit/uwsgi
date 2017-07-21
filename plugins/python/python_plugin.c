@@ -1480,7 +1480,7 @@ void *uwsgi_python_autoreloader_thread(void *interpreter) {
 		UWSGI_RELEASE_GIL;
 		sleep(up.auto_reload);
 		UWSGI_GET_GIL;
-		if (uwsgi.lazy || uwsgi.lazy_apps) {
+		if (uwsgi.lazy_apps) {
 			// do not start monitoring til the first app is loaded (required for lazy mode)
 			if (uwsgi_apps_cnt == 0) continue;
 		}

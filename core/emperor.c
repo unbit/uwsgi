@@ -2974,8 +2974,6 @@ void uwsgi_master_manage_emperor() {
 		// reload me
 		else if (byte == 1) {
 			uwsgi_hooks_run(uwsgi.hook_emperor_reload, "emperor-reload", 0);
-			// un-lazy the stack to trigger a real reload
-			uwsgi.lazy = 0;
 			uwsgi_block_signal(SIGHUP);
 			grace_them_all(0);
 			uwsgi_unblock_signal(SIGHUP);
