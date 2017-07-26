@@ -756,6 +756,7 @@ void uwsgi_setup_metrics() {
 	struct uwsgi_metric *total_rss = uwsgi_register_metric_do("core.total_rss", "5.101", UWSGI_METRIC_GAUGE, "sum", NULL, 0, NULL, 1);
 	struct uwsgi_metric *total_vsz = uwsgi_register_metric_do("core.total_vsz", "5.102", UWSGI_METRIC_GAUGE, "sum", NULL, 0, NULL, 1);
 	struct uwsgi_metric *total_avg_rt = uwsgi_register_metric_do("core.avg_response_time", "5.103", UWSGI_METRIC_GAUGE, "avg", NULL, 0, NULL, 1);
+	struct uwsgi_metric *total_running_time = uwsgi_register_metric_do("core.total_running_time", "5.104", UWSGI_METRIC_COUNTER, "sum", NULL, 0, NULL, 1);
 
 	int ret;
 
@@ -788,8 +789,12 @@ void uwsgi_setup_metrics() {
 		if (i > 0) uwsgi_metric_add_child(total_rss, rss);
 
 		uwsgi_metric_name("worker.%d.vsz_size", i) ; uwsgi_metric_oid("3.%d.12", i);
-                struct uwsgi_metric *vsz = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].vsz_size, 0, NULL);
-                if (i > 0) uwsgi_metric_add_child(total_vsz, vsz);
+		struct uwsgi_metric *vsz = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].vsz_size, 0, NULL);
+		if (i > 0) uwsgi_metric_add_child(total_vsz, vsz);
+
+		uwsgi_metric_name("worker.%d.running_time", i) ; uwsgi_metric_oid("3.%d.13", i);
+		struct uwsgi_metric *running_time = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].running_time, 0, NULL);
+		if (i > 0) uwsgi_metric_add_child(total_running_time, running_time);
 
 		// skip core metrics for worker 0
 		if (i == 0) continue;
@@ -827,6 +832,7 @@ void uwsgi_setup_metrics() {
 	uwsgi_metric_append(total_rss);
 	uwsgi_metric_append(total_vsz);
 	uwsgi_metric_append(total_avg_rt);
+	uwsgi_metric_append(total_running_time);
 
 	// sockets
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
