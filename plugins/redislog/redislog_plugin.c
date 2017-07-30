@@ -96,7 +96,7 @@ ssize_t uwsgi_redis_logger(struct uwsgi_logger *ul, char *message, size_t len) {
 				  *slash = 0;
 				  uredislog->id = slash + 1;
 				}
-				uredislog->address = logarg;
+				uredislog->address = uwsgi_resolve_ip(logarg);
 				goto done;
 			}
 			*comma1 = 0;
