@@ -177,8 +177,10 @@ safe:
 	if (needed_workers > 0) {
 		for (i = 1; i <= uwsgi.numproc; i++) {
 			if (uwsgi.workers[i].cheaped == 1 && uwsgi.workers[i].pid == 0) {
-				if (uwsgi_respawn_worker(i))
+				if (uwsgi_respawn_worker(i)) {
+					uwsgi.cheaper_fifo_delta += needed_workers;
 					return 0;
+				}
 				needed_workers--;
 			}
 			if (needed_workers == 0)
@@ -187,7 +189,6 @@ safe:
 	}
 	else if (needed_workers < 0) {
 		while (needed_workers < 0) {
-			needed_workers++;
 			int oldest_worker = 0;
 			time_t oldest_worker_spawn = INT_MAX;
 			for (i = 1; i <= uwsgi.numproc; i++) {
@@ -210,6 +211,11 @@ safe:
 				uwsgi.workers[oldest_worker].manage_next_request = 0;
 				uwsgi_curse(oldest_worker, SIGWINCH);
 			}
+			else {
+				// Return it to the pool
+				uwsgi.cheaper_fifo_delta--;
+			}
+			needed_workers++;
 		}
 	}
 
