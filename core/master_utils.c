@@ -186,27 +186,30 @@ safe:
 		}
 	}
 	else if (needed_workers < 0) {
-		int oldest_worker = 0;
-		time_t oldest_worker_spawn = INT_MAX;
-		for (i = 1; i <= uwsgi.numproc; i++) {
-			if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-				if (uwsgi_worker_is_busy(i) == 0) {
-					if (uwsgi.workers[i].last_spawn < oldest_worker_spawn) {
-						oldest_worker_spawn = uwsgi.workers[i].last_spawn;
-						oldest_worker = i;
+		while (needed_workers < 0) {
+			needed_workers++;
+			int oldest_worker = 0;
+			time_t oldest_worker_spawn = INT_MAX;
+			for (i = 1; i <= uwsgi.numproc; i++) {
+				if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+					if (uwsgi_worker_is_busy(i) == 0) {
+						if (uwsgi.workers[i].last_spawn < oldest_worker_spawn) {
+							oldest_worker_spawn = uwsgi.workers[i].last_spawn;
+							oldest_worker = i;
+						}
 					}
 				}
 			}
-		}
-		if (oldest_worker > 0) {
+			if (oldest_worker > 0) {
 #ifdef UWSGI_DEBUG
-			uwsgi_log("worker %d should die...\n", oldest_worker);
+				uwsgi_log("worker %d should die...\n", oldest_worker);
 #endif
-			uwsgi.workers[oldest_worker].cheaped = 1;
-			uwsgi.workers[oldest_worker].rss_size = 0;
-			uwsgi.workers[oldest_worker].vsz_size = 0;
-			uwsgi.workers[oldest_worker].manage_next_request = 0;
-			uwsgi_curse(oldest_worker, SIGWINCH);
+				uwsgi.workers[oldest_worker].cheaped = 1;
+				uwsgi.workers[oldest_worker].rss_size = 0;
+				uwsgi.workers[oldest_worker].vsz_size = 0;
+				uwsgi.workers[oldest_worker].manage_next_request = 0;
+				uwsgi_curse(oldest_worker, SIGWINCH);
+			}
 		}
 	}
 
