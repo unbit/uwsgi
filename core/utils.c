@@ -1527,6 +1527,16 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 	thunder_lock;
 
+	// Recheck the manage_next_request before going forward.
+	// This is because the worker might get cheaped while it's
+	// blocking on the thunder_lock, because thunder_lock is
+	// not interruptable, it'll slow down the cheaping process
+	// (the worker will handle the next request before shuts down).
+	if (!uwsgi.workers[uwsgi.mywid].manage_next_request) {
+		thunder_unlock;
+		return -1;
+	}
+
 	// heartbeat
 	// in multithreaded mode we are now locked
 	if (uwsgi.has_emperor && uwsgi.heartbeat) {
