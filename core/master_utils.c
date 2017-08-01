@@ -206,7 +206,12 @@ safe:
 			uwsgi.workers[oldest_worker].rss_size = 0;
 			uwsgi.workers[oldest_worker].vsz_size = 0;
 			uwsgi.workers[oldest_worker].manage_next_request = 0;
-			uwsgi_curse(oldest_worker, SIGWINCH);
+			// Send SIGHUP to shutdown the worker. SIGWINCH doesn't work
+			// with workers that block on thunder lock (either pthread
+			// mutex or ipcsem, which uWSGI retries after EINTR).
+			// Since we're only choosing idle workers, it's fine to
+			// immediately shutdown with SIGHUP (end_me).
+			uwsgi_curse(oldest_worker, SIGHUP);
 		}
 	}
 
