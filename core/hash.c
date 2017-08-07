@@ -42,11 +42,14 @@ static uint32_t murmur2_hash(char *key, uint64_t keylen) {
 	switch (keylen) {
 		case 3:
         		h ^= key[2] << 16;
+        		break;
     		case 2:
         		h ^= key[1] << 8;
+        		break;
     		case 1:
         		h ^= key[0];
         		h *= 0x5bd1e995;
+        		break;
     	}
 
 	h ^= h >> 13;
