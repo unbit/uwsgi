@@ -2791,6 +2791,11 @@ struct uwsgi_server {
 	// uWSGI 2.1 backport
 	int new_argc;
 	char **new_argv;
+
+	// uWSGI 2.0.16
+#ifdef UWSGI_SSL
+	int ssl_verify_depth;
+#endif
 };
 
 struct uwsgi_rpc {
