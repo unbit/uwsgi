@@ -2892,6 +2892,10 @@ struct uwsgi_server {
 	char *mule_msg_recv_buf;
 
 	int http_path_info_no_decode_slashes;
+
+#ifdef UWSGI_SSL
+	int ssl_verify_depth;
+#endif
 };
 
 struct uwsgi_rpc {

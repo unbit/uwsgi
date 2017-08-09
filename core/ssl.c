@@ -326,8 +326,7 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
                 else {
                         SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, uwsgi_ssl_verify_callback);
                 }
-                // in the future we should allow to set the verify depth
-                SSL_CTX_set_verify_depth(ctx, 1);
+                SSL_CTX_set_verify_depth(ctx, uwsgi.ssl_verify_depth);
 
 		if (uwsgi.ssl_tmp_dir && !uwsgi_starts_with(client_ca, strlen(client_ca), "-----BEGIN ", 11)) {
 			if (!name) {
