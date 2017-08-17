@@ -241,7 +241,8 @@ static void router_xmldir_register(void) {
 
 	setlocale(LC_ALL, "");
 
-	if ((codeset = nl_langinfo(CODESET)) == '\0') {
+	codeset = nl_langinfo(CODESET);
+	if (*codeset == '\0') {
 		codeset = "ASCII";
 	}
 
