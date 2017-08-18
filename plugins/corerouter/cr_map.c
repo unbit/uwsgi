@@ -51,6 +51,11 @@ int uwsgi_cr_map_use_pattern(struct uwsgi_corerouter *ucr, struct corerouter_pee
 int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
 
 	peer->un = uwsgi_get_subscribe_node(ucr->subscriptions, peer->key, peer->key_len);
+	if((peer->un == NULL) && (ucr->http_subscription_fallback_key != NULL)) {
+		peer->un = uwsgi_get_subscribe_node(ucr->subscriptions,
+			ucr->http_subscription_fallback_key,
+			strlen(ucr->http_subscription_fallback_key));
+	}
 	if (peer->un && peer->un->len) {
 		peer->instance_address = peer->un->name;
 		peer->instance_address_len = peer->un->len;

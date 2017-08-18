@@ -278,6 +278,8 @@ struct uwsgi_corerouter {
 
 	size_t buffer_size;
 	int fallback_on_no_key;
+
+    char *http_subscription_fallback_key;
 };
 
 // a session is started when a client connect to the router
