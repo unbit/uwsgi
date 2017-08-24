@@ -1347,8 +1347,8 @@ static int uwsgi_api_websocket_handshake(lua_State *L) {
 	size_t key_len = 0, origin_len = 0, proto_len = 0;
 
 	switch(argc <= 3 ? argc : 3) {
-		case 3: proto = uwsgi_lua_tolstring(L, 3, &proto_len);
-		case 2: origin = uwsgi_lua_tolstring(L, 2, &origin_len);
+		case 3: proto = uwsgi_lua_tolstring(L, 3, &proto_len); /* fall through */
+		case 2: origin = uwsgi_lua_tolstring(L, 2, &origin_len); /* fall through */
 		case 1: key = uwsgi_lua_tolstring(L, 1, &key_len);
 	}
 
@@ -2060,9 +2060,9 @@ static int uwsgi_api_mule_msg_get(lua_State *L) {
 	}
 
 	switch(argc <= 4 ? argc : 4) {
-		case 4: buffer_size = lua_tonumber(L, 4);
-		case 3: timeout = lua_tonumber(L, 3);
-		case 2: if (!lua_isnil(L, 2)) manage_farms = lua_toboolean(L, 2);
+		case 4: buffer_size = lua_tonumber(L, 4); /* fall through */
+		case 3: timeout = lua_tonumber(L, 3); /* fall through */
+		case 2: if (!lua_isnil(L, 2)) manage_farms = lua_toboolean(L, 2); /* fall through */
 		case 1: if (!lua_isnil(L, 1)) manage_signals = lua_toboolean(L, 1);
 	}
 
@@ -3094,24 +3094,19 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
 		while (!lua_pcall(L, 0, 1, 0)) {
 			switch(lua_type(L, -1)) {
-
 				case LUA_TNIL:
 				case LUA_TNONE:
 					break; // skip, don't try any metatables
-
 				default:
 				case LUA_TUSERDATA:
 				case LUA_TTABLE:
-
 					t_err = uwsgi_lua_metatable_tostring_protected(L, -1);
 					if (t_err <= 0) { if (!t_err) break; goto clear; } // tostring exception?
-
+				/* fall through */
 				case LUA_TSTRING:
 				case LUA_TNUMBER:
-
 					http = lua_tolstring(L, -1, &slen);
 					uwsgi_response_write_body_do(wsgi_req, (char *)http, slen);
-
 			}
 
 			lua_pop(L, 1);
@@ -3222,7 +3217,6 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 
 	switch(lua_type(L, -2)) {
 		case LUA_TFUNCTION:
-
 			// initing coroutine:
 			// pushing first argument of coroutine and call it fisrt time:
 
@@ -3231,23 +3225,19 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 
 			if(!lua_pcall(L, 1, 1, 0)) {
 				switch(lua_type(L, -1)) {
-
 					case LUA_TNIL:
 					case LUA_TNONE:
 						break; // skip it
-
 					default:
 					case LUA_TUSERDATA:
 					case LUA_TTABLE:
 						t_err = uwsgi_lua_metatable_tostring_protected(L, -1);
 						if (t_err <= 0) { if (!t_err) break; lua_pop(L, 1); goto clear; } // tostring exception?
-
+					/* fall through */
 					case LUA_TSTRING:
 					case LUA_TNUMBER:
-
 						http = lua_tolstring(L, -1, &slen);
 						uwsgi_response_write_body_do(wsgi_req, (char *) http, slen);
-
 				}
 			} else {
 				ulua_log("worker%d[%d]: init-coroutine: %s", uwsgi.mywid, wsgi_req->async_id, lua_tostring(L, -1));
@@ -3269,34 +3259,31 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 					case LUA_TNIL:
 					case LUA_TNONE:
 						break; // skip it
-
 					default:
 					case LUA_TUSERDATA:
 					case LUA_TTABLE:
 						t_err = uwsgi_lua_metatable_tostring_protected(L, -1);
 						if (t_err <= 0) { if (!t_err) break; goto clear; } // tostring exception?
-
+					/* fall through */
 					case LUA_TSTRING:
 					case LUA_TNUMBER:
-
 						http = lua_tolstring(L, -1, &slen);
 						uwsgi_response_write_body_do(wsgi_req, (char *) http, slen);
-
 				}
 
 				lua_pop(L, 1);
 				lua_pushvalue(L, -1);
 			}
-
+		/* fall through */
 		case LUA_TNIL:
 		case LUA_TNONE:
 			break; //skip it
-
 		case LUA_TUSERDATA:
-		case LUA_TTABLE: if(uwsgi_lua_metatable_tostring_protected(L, -2) <= 0) break;
+		case LUA_TTABLE:
+			if(uwsgi_lua_metatable_tostring_protected(L, -2) <= 0) break;
+		/* fall through */
 		case LUA_TSTRING:
 		case LUA_TNUMBER:
-
 			http = lua_tolstring(L, -2, &slen);
 			uwsgi_response_write_body_do(wsgi_req, (char *) http, slen);
 	}
