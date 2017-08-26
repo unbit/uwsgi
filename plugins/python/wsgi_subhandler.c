@@ -218,11 +218,6 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	wsgi_req->async_app = wi->callable;
 
-	// export .env only in non-threaded mode
-	if (uwsgi.threads < 2) {
-		PyDict_SetItemString(up.embedded_dict, "env", wsgi_req->async_environ);
-	}
-
 	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.version", wi->uwsgi_version);
 
 	if (uwsgi.cores > 1) {
