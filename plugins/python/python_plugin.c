@@ -1091,10 +1091,6 @@ void *uwsgi_python_create_env_holy(struct wsgi_request *wsgi_req, struct uwsgi_a
 }
 
 void uwsgi_python_destroy_env_holy(struct wsgi_request *wsgi_req) {
-	// in non-multithread modes, we set uwsgi.env incrementing the refcount of the environ
-	if (uwsgi.threads < 2) {
-		Py_DECREF((PyObject *)wsgi_req->async_environ);
-	}
 	Py_DECREF((PyObject *) wsgi_req->async_args);
 	Py_DECREF((PyObject *)wsgi_req->async_environ);
 }
