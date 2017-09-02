@@ -1792,10 +1792,10 @@ static int uwsgi_route_condition_ipv6in(struct wsgi_request *wsgi_req, struct uw
 
 	int i = (pfxlen / 32);
 	switch (i) {
-	case 0: mask[0] = 0; break;
-	case 1: mask[1] = 0; break;
-	case 2: mask[2] = 0; break;
-	case 3: mask[3] = 0; break;
+	case 0: mask[0] = 0; /* FALLTHRU */
+	case 1: mask[1] = 0; /* FALLTHRU */
+	case 2: mask[2] = 0; /* FALLTHRU */
+	case 3: mask[3] = 0; /* FALLTHRU */
 	}
 
 	if (pfxlen % 32)
