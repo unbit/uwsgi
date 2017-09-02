@@ -37,7 +37,7 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -qqyf python2.6-dev python3.4-dev python3.5-dev
   - sudo apt-get install -qqyf libxml2-dev libpcre3-dev libcap2-dev
-  - sudo apt-get install -qqyf php5-dev libphp5-embed liblua5.1-0-dev
+  - sudo apt-get install -qqyf php7-dev libphp7-embed liblua5.1-0-dev
   - sudo apt-get install -qqyf libjansson-dev libldap2-dev libpq-dev
   - sudo apt-get install -qqyf libpam0g-dev libsqlite3-dev libyaml-dev
   - sudo apt-get install -qqyf libzmq-dev libmatheval-dev libperl-dev
