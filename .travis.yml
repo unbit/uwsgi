@@ -22,7 +22,7 @@ script:
   - /usr/bin/python3.5 -V
   - /usr/bin/python3.5 uwsgiconfig.py --plugin plugins/python base python35
   - echo -e "\n\n>>> Building rack plugin"
-  - rvm use 2.2.6
+  - rvm use 2.4
   - ruby -v
   - UWSGICONFIG_RUBYPATH=ruby /usr/bin/python uwsgiconfig.py --plugin plugins/rack base rack226
   - echo -e "\n\n>>> Building cgi plugin"
