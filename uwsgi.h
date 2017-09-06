@@ -2493,6 +2493,7 @@ struct uwsgi_server {
 	pthread_mutex_t lock_static;
 
 	int use_thunder_lock;
+	int use_thunder_lock_watchdog;
 	struct uwsgi_lock_item *the_thunder_lock;
 
 	/* the list of workers */
