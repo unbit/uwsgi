@@ -1942,6 +1942,9 @@ static char *uwsgi_log_encoder_json(struct uwsgi_log_encoder *ule, char *msg, si
                         else if (!uwsgi_strncmp(usl->value, usl->len, "micros", 6)) {
                                 if (uwsgi_buffer_num64(ub, uwsgi_micros())) goto end;
                         }
+                        else if (!uwsgi_strncmp(usl->value, usl->len, "millis", 6)) {
+                                if (uwsgi_buffer_num64(ub, uwsgi_millis())) goto end;
+                        }
                         else if (!uwsgi_starts_with(usl->value, usl->len, "strftime:", 9)) {
                                 char sftime[64];
                                 time_t now = uwsgi_now();
