@@ -3959,6 +3959,7 @@ char *uwsgi_expand_path(char *, int, char *);
 int uwsgi_try_autoload(char *);
 
 uint64_t uwsgi_micros(void);
+uint64_t uwsgi_millis(void);
 int uwsgi_is_file(char *);
 int uwsgi_is_file2(char *, struct stat *);
 int uwsgi_is_dir(char *);

@@ -16,6 +16,10 @@ uint64_t uwsgi_micros() {
 	return uwsgi.clock->microseconds();
 }
 
+uint64_t uwsgi_millis() {
+	return uwsgi.clock->microseconds() / 1000;
+}
+
 
 void uwsgi_register_clock(struct uwsgi_clock *clock) {
 	struct uwsgi_clock *clocks = uwsgi.clocks;
