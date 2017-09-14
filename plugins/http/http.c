@@ -33,7 +33,7 @@ struct uwsgi_option http_options[] = {
 	{"http-subscription-server", required_argument, 0, "enable the subscription server", uwsgi_opt_corerouter_ss, &uhttp, 0},
 	{"http-timeout", required_argument, 0, "set internal http socket timeout", uwsgi_opt_set_int, &uhttp.cr.socket_timeout, 0},
 	{"http-manage-expect", optional_argument, 0, "manage the Expect HTTP request header (optionally checking for Content-Length)", uwsgi_opt_set_64bit, &uhttp.manage_expect, 0},
-	{"http-keepalive", optional_argument, 0, "HTTP 1.1 keepalive support (non-pipelined) requests", uwsgi_opt_set_int, &uhttp.keepalive, 0},
+	{"http-keepalive", required_argument, 0, "HTTP 1.1 keepalive timeout for (non-pipelined) requests", uwsgi_opt_set_int, &uhttp.keepalive, 0},
 	{"http-auto-chunked", no_argument, 0, "automatically transform output to chunked encoding during HTTP 1.1 keepalive (if needed)", uwsgi_opt_true, &uhttp.auto_chunked, 0},
 #ifdef UWSGI_ZLIB
 	{"http-auto-gzip", no_argument, 0, "automatically gzip content if uWSGI-Encoding header is set to gzip, but content size (Content-Length/Transfer-Encoding) and Content-Encoding are not specified", uwsgi_opt_true, &uhttp.auto_gzip, 0},
