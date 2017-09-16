@@ -1068,6 +1068,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"config-py", no_argument, 0, "dump the uwsgiconfig.py used for building the core  (useful for building external plugins)", uwsgi_opt_config_py, NULL, UWSGI_OPT_IMMEDIATE},
 	{"build-plugin", required_argument, 0, "build a uWSGI plugin for the current binary", uwsgi_opt_build_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"version", no_argument, 0, "print uWSGI version", uwsgi_opt_print, UWSGI_VERSION, 0},
+	{"response-headers-limit", required_argument, 0, "set response header maximum size (default: 64k)", uwsgi_opt_set_int, &uwsgi.response_header_limit, 0},
 	{0, 0, 0, 0, 0, 0, 0}
 };
 
@@ -2256,6 +2257,9 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 	uwsgi.page_size = getpagesize();
 #endif
 	uwsgi.binary_path = uwsgi_get_binary_path(argv[0]);
+
+	if(uwsgi.response_header_limit == 0)
+		uwsgi.response_header_limit = UMAX16;
 
 	// ok we can now safely play with argv and environ
 	fixup_argv_and_environ(argc, argv, environ, envp);

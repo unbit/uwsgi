@@ -2897,6 +2897,8 @@ struct uwsgi_server {
 #ifdef UWSGI_SSL
 	int ssl_verify_depth;
 #endif
+
+	size_t response_header_limit;
 };
 
 struct uwsgi_rpc {

@@ -81,7 +81,7 @@ int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, 
 
 	if (!wsgi_req->headers) {
 		wsgi_req->headers = uwsgi_buffer_new(uwsgi.page_size);
-		wsgi_req->headers->limit = UMAX16;
+		wsgi_req->headers->limit = uwsgi.response_header_limit;
 	}
 
 	// reset the buffer (could be useful for rollbacks...)
@@ -156,7 +156,7 @@ static int uwsgi_response_add_header_do(struct wsgi_request *wsgi_req, char *key
 
         if (!wsgi_req->headers) {
                 wsgi_req->headers = uwsgi_buffer_new(uwsgi.page_size);
-                wsgi_req->headers->limit = UMAX16;
+                wsgi_req->headers->limit = uwsgi.response_header_limit;
         }
 
         struct uwsgi_buffer *hh = wsgi_req->socket->proto_add_header(wsgi_req, key, key_len, value, value_len);
