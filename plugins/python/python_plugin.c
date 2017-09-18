@@ -242,6 +242,10 @@ int uwsgi_python_init() {
 	}
 
 	if (up.home != NULL) {
+		if(!uwsgi_is_dir(up.home)) {
+			uwsgi_log("PythonHome does not exist: %s\n", up.home);
+			goto homeerr;
+		}
 #ifdef PYTHREE
 		// check for PEP 405 virtualenv (starting from python 3.3)
 		char *pep405_env = uwsgi_concat2(up.home, "/pyvenv.cfg");
@@ -269,6 +273,7 @@ pep405:
 		Py_SetPythonHome(up.home);
 #endif
 		uwsgi_log("Set PythonHome to %s\n", up.home);
+homeerr:
 	}
 
 	char *program_name = up.programname;
