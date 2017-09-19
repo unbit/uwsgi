@@ -293,6 +293,9 @@ struct uwsgi_corerouter {
 	socklen_t emperor_socket_addr_len;
 
 	int defer_connect_timeout;
+
+	char *fallback_key;
+	int fallback_key_len;
 };
 
 // a session is started when a client connect to the router
@@ -345,6 +348,8 @@ void uwsgi_opt_corerouter_use_pattern(char *, char *, void *);
 void uwsgi_opt_corerouter_zerg(char *, char *, void *);
 void uwsgi_opt_corerouter_cs(char *, char *, void *);
 void uwsgi_opt_corerouter_ss(char *, char *, void *);
+void uwsgi_opt_corerouter_fallback_key(char *, char *, void *);
+
 
 void corerouter_manage_subscription(char *, uint16_t, char *, uint16_t, void *);
 

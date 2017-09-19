@@ -56,6 +56,9 @@ int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *ucr, struct coreroute
 	usc.cookie = NULL;
 
 	peer->un = uwsgi_get_subscribe_node(ucr->subscriptions, peer->key, peer->key_len, &usc);
+	if((peer->un == NULL) && (ucr->fallback_key != NULL)) {
+		peer->un = uwsgi_get_subscribe_node(ucr->subscriptions, ucr->fallback_key, ucr->fallback_key_len, &usc);
+	}
 	// check if the node is ready or it requires a vassal spawn
 	if (peer->un && (peer->un->len || peer->un->vassal_len)) {
 		peer->modifier1 = peer->un->modifier1;
