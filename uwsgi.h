@@ -2835,6 +2835,12 @@ struct uwsgi_server {
 	char **new_argv;
 	// signal for else
 	int logic_opt_if_failed;
+
+#ifdef UWSGI_SSL
+	int ssl_verify_depth;
+#endif
+
+	size_t response_header_limit;
 	
 	// uWSGI 2.1
 	char *fork_socket;
@@ -2894,11 +2900,6 @@ struct uwsgi_server {
 
 	int http_path_info_no_decode_slashes;
 
-#ifdef UWSGI_SSL
-	int ssl_verify_depth;
-#endif
-
-	size_t response_header_limit;
 };
 
 struct uwsgi_rpc {
