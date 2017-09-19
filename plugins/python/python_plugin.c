@@ -210,6 +210,9 @@ int uwsgi_python_init() {
 	}
 
 	if (up.home != NULL) {
+		if (!uwsgi_is_dir(up.home)) {
+			uwsgi_log("!!! Python Home is not a directory: %s !!!\n", up.home);
+		}
 #ifdef PYTHREE
 		// check for PEP 405 virtualenv (starting from python 3.3)
 		char *pep405_env = uwsgi_concat2(up.home, "/pyvenv.cfg");
