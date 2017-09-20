@@ -6,7 +6,7 @@
 
 set_error_handler(function() {
 	var_export(func_get_args());
-	echo 'FAIL';
+	echo "\nFAIL\n";
 	die;
 });
 
@@ -20,4 +20,4 @@ session_commit();
 
 session_start();
 session_destroy();
-echo 'PASS';
+echo "PASS\n";
