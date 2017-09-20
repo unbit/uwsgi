@@ -17,7 +17,10 @@ PS_READ_FUNC(uwsgi) {
 #else
 	char *value = uwsgi_cache_magic_get((char *)key, strlen((char *)key), &valsize, NULL, cache);
 #endif
-        if (!value) return FAILURE;
+	if (!value) {
+		*val = STR_EMPTY_ALLOC();
+		return SUCCESS;
+	}
 #ifdef UWSGI_PHP7
 	*val = zend_string_init(value, valsize, 0);
 #else
@@ -48,6 +51,9 @@ PS_WRITE_FUNC(uwsgi) {
 PS_DESTROY_FUNC(uwsgi) {
 	char *cache = PS_GET_MOD_DATA();
 #ifdef UWSGI_PHP7
+	if (!uwsgi_cache_magic_exists(key->val, key->len, cache))
+		return SUCCESS;
+
 	if (!uwsgi_cache_magic_del(key->val, key->len, cache)) {
 #else
 	if (!uwsgi_cache_magic_del((char *)key, strlen(key), cache)) {
