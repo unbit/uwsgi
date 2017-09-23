@@ -919,12 +919,6 @@ void init_uwsgi_embedded_module() {
 		}
 	}
 
-	up.embedded_args = PyTuple_New(2);
-	if (!up.embedded_args) {
-		PyErr_Print();
-		exit(1);
-	}
-
 	init_uwsgi_module_advanced(new_uwsgi_module);
 
 	if (uwsgi.spoolers) {
@@ -1088,7 +1082,9 @@ void uwsgi_python_destroy_env_cheat(struct wsgi_request *wsgi_req) {
 void *uwsgi_python_create_env_holy(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
 	wsgi_req->async_args = PyTuple_New(2);
 	// set start_response()
+	Py_INCREF(Py_None);
 	Py_INCREF(up.wsgi_spitout);
+	PyTuple_SetItem((PyObject *)wsgi_req->async_args, 0, Py_None);
 	PyTuple_SetItem((PyObject *)wsgi_req->async_args, 1, up.wsgi_spitout);
 	PyObject *env = PyDict_New();
 	return env;
