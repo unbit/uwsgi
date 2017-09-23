@@ -288,10 +288,12 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 			uwsgi_log("unable to allocate new tuple for app args\n");
 			exit(1);
 		}
+		Py_INCREF(Py_None);
+		PyTuple_SetItem(wi->args[i], 0, Py_None);
 
 		// add start_response on WSGI app
-		Py_INCREF((PyObject *)up.wsgi_spitout);
 		if (app_type == PYTHON_APP_TYPE_WSGI) {
+			Py_INCREF((PyObject *)up.wsgi_spitout);
 			if (PyTuple_SetItem(wi->args[i], 1, up.wsgi_spitout)) {
 				uwsgi_log("unable to set start_response in args tuple\n");
 				exit(1);
