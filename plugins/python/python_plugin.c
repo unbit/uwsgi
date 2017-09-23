@@ -886,12 +886,6 @@ void init_uwsgi_embedded_module() {
 		}
 	}
 
-	up.embedded_args = PyTuple_New(2);
-	if (!up.embedded_args) {
-		PyErr_Print();
-		exit(1);
-	}
-
 	init_uwsgi_module_advanced(new_uwsgi_module);
 
 	if (uwsgi.spoolers) {

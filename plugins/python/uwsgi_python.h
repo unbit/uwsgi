@@ -169,7 +169,6 @@ struct uwsgi_python {
 
 	PyObject *workers_tuple;
 	PyObject *embedded_dict;
-	PyObject *embedded_args;
 
 	char *wsgi_env_behaviour;
 
