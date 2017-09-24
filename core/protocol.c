@@ -277,6 +277,11 @@ static void uwsgi_parse_http_range(char *buf, uint16_t len, enum uwsgi_range *pa
 
 static int uwsgi_proto_check_10(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
 
+	if (uwsgi.honour_range && !uwsgi_proto_key("HTTP_IF_RANGE", 13)) {
+		wsgi_req->if_range = buf;
+		wsgi_req->if_range_len = len;
+	}
+
 	if (uwsgi.honour_range && !uwsgi_proto_key("HTTP_RANGE", 10)) {
 		uwsgi_parse_http_range(buf, len, &wsgi_req->range_parsed,
 				&wsgi_req->range_from, &wsgi_req->range_to);

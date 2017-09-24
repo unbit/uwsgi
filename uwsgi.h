@@ -1614,6 +1614,9 @@ struct wsgi_request {
 	enum uwsgi_range range_parsed;
 	int64_t range_from;
 	int64_t range_to;
+
+	char * if_range;
+	uint16_t if_range_len;
 };
 
 

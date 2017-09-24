@@ -489,9 +489,20 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 		if (uwsgi_response_add_content_range(wsgi_req, -1, -1, st->st_size)) return -1;
 		return 0;
 	case UWSGI_RANGE_VALID:
-		fsize = wsgi_req->range_to - wsgi_req->range_from + 1;
-		if (uwsgi_response_prepare_headers(wsgi_req, "206 Partial Content", 19)) return -1;
-		break;
+		{
+			time_t when = 0;
+			if (wsgi_req->if_range != NULL) {
+				when = parse_http_date(wsgi_req->if_range, wsgi_req->if_range_len);
+				// an ETag will result in when == 0
+			}
+
+			if (when < st->st_mtime) {
+				fsize = wsgi_req->range_to - wsgi_req->range_from + 1;
+				if (uwsgi_response_prepare_headers(wsgi_req, "206 Partial Content", 19)) return -1;
+				break;
+			}
+		}
+		/* fallthrough */
 	default: /* UWSGI_RANGE_NOT_PARSED */
 		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) return -1;
 	}
