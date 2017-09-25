@@ -1639,6 +1639,8 @@ struct wsgi_request {
 		struct sockaddr_un sun;
 	} client_addr;
 
+	char * if_range;
+	uint16_t if_range_len;
 };
 
 
