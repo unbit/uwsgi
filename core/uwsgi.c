@@ -1069,6 +1069,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"build-plugin", required_argument, 0, "build a uWSGI plugin for the current binary", uwsgi_opt_build_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"version", no_argument, 0, "print uWSGI version", uwsgi_opt_print, UWSGI_VERSION, 0},
 	{"response-headers-limit", required_argument, 0, "set response header maximum size (default: 64k)", uwsgi_opt_set_int, &uwsgi.response_header_limit, 0},
+	{"log-before", no_argument, 0, "Log request URI as early as possible.", uwsgi_opt_true, &uwsgi.log_before, 0},
 	{0, 0, 0, 0, 0, 0, 0}
 };
 

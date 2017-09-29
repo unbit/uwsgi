@@ -702,6 +702,14 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 	}
 
 next:
+	if (uwsgi.log_before) {
+		uwsgi_log("[pid: %d] %.*s %.*s %.*s\n",
+			uwsgi.mypid,
+			wsgi_req->remote_addr_len, wsgi_req->remote_addr,
+			wsgi_req->method_len, wsgi_req->method,
+			wsgi_req->uri_len, wsgi_req->uri
+		);
+	}
 
 	// manage post buffering (if needed as post_file could be created before)
 	if (uwsgi.post_buffering > 0 && !wsgi_req->post_file) {
