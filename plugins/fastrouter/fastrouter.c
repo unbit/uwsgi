@@ -58,7 +58,9 @@ static struct uwsgi_option fastrouter_options[] = {
 
 	{"fastrouter-buffer-size", required_argument, 0, "set internal buffer size (default: page size)", uwsgi_opt_set_64bit, &ufr.cr.buffer_size, 0},
 	{"fastrouter-fallback-on-no-key", no_argument, 0, "move to fallback node even if a subscription key is not found", uwsgi_opt_true, &ufr.cr.fallback_on_no_key, 0},
-	{0, 0, 0, 0, 0, 0, 0},
+	{"fastrouter-subscription-fallback-key", required_argument, 0, "key to use for fallback fastrouter", uwsgi_opt_corerouter_fallback_key, &ufr.cr, 0},
+
+	UWSGI_END_OF_OPTIONS
 };
 
 static void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
