@@ -257,7 +257,7 @@ void uwsgi_opt_corerouter_ss(char *opt, char *value, void *cr) {
 void uwsgi_opt_corerouter_fallback_key(char *opt, char *value, void *key) {
     struct uwsgi_corerouter *ptr = (struct uwsgi_corerouter *) key;
     if (!value) {
-        ptr->fallback_key = "";
+        ptr->fallback_key = NULL;
         ptr->fallback_key_len = 0;
         return;
     }
