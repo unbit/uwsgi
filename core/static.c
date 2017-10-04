@@ -496,7 +496,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 		{
 			time_t when = 0;
 			if (wsgi_req->if_range != NULL) {
-				when = uwsgi_parse_http_date(wsgi_req->if_range, wsgi_req->if_range_len);
+				when = parse_http_date(wsgi_req->if_range, wsgi_req->if_range_len);
 				// an ETag will result in when == 0
 			}
 		
