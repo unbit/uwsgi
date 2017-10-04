@@ -175,7 +175,9 @@ void daemonize(char *logfile) {
 
 // get current working directory
 char *uwsgi_get_cwd() {
-
+#if defined(__GLIBC__)
+	return getcwd(NULL, 0);
+#else
 	// set this to static to avoid useless reallocations in stats mode
 	static size_t newsize = 256;
 
@@ -193,6 +195,7 @@ char *uwsgi_get_cwd() {
 	}
 
 	return cwd;
+#endif
 
 }
 
