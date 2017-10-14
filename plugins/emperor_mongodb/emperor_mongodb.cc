@@ -67,7 +67,7 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 			mongo::BSONObj p = cursor->next();
 
 			// checking for an empty string is not required, but we reduce the load
-			// in case of badly strctured databases
+			// in case of badly structured databases
 			const char *name = p.getStringField("name");
 			if (strlen(name) == 0) continue;
 

@@ -66,7 +66,7 @@ EOF
 		# when defined there is a redis message available
 		my $redis_message = undef;
 
-		# do the hadnshake
+		# do the handshake
 		uwsgi::websocket_handshake($env->{'HTTP_SEC_WEBSOCKET_KEY'}, $env->{'HTTP_ORIGIN'});
         	print "websockets...\n" ;
 

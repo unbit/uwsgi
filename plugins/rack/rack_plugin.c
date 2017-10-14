@@ -994,7 +994,7 @@ clear:
 #ifdef UWSGI_DEBUG
 			uwsgi_log("calling ruby GC\n");
 #endif
-			// try to limit damanges if threads are enabled...
+			// try to limit damages if threads are enabled...
 			if (wsgi_req->async_id == 0) {
 				rb_gc();
 			}
@@ -1286,7 +1286,7 @@ void uwsgi_rack_postinit_apps(void) {
 }
 
 /*
-	If the ruby VM has rb_reserved_fd_p, we avoid closign the filedescriptor needed by
+	If the ruby VM has rb_reserved_fd_p, we avoid closing the file descriptor needed by
 	modern ruby (the Matz ones) releases.
 */
 static void uwsgi_ruby_cleanup() {

@@ -62,7 +62,7 @@ static int uwsgi_routing_func_gzip(struct wsgi_request *wsgi_req, struct uwsgi_r
 	}
 	struct uwsgi_transformation *ut = uwsgi_add_transformation(wsgi_req, transform_gzip, utgz);
 	ut->can_stream = 1;
-	// this is the trasformation clearing the memory
+	// this is the transformation clearing the memory
 	ut = uwsgi_add_transformation(wsgi_req, transform_gzip, utgz);
 	ut->is_final = 1;
 	return UWSGI_ROUTE_NEXT;

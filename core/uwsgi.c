@@ -107,7 +107,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"declare-option", required_argument, 0, "declare a new uWSGI custom option", uwsgi_opt_add_custom_option, NULL, UWSGI_OPT_IMMEDIATE},
 	{"declare-option2", required_argument, 0, "declare a new uWSGI custom option (non-immediate)", uwsgi_opt_add_custom_option, NULL, 0},
 
-	{"resolve", required_argument, 0, "place the result of a dns query in the specified placeholder, sytax: placeholder=name (immediate option)", uwsgi_opt_resolve, NULL, UWSGI_OPT_IMMEDIATE},
+	{"resolve", required_argument, 0, "place the result of a dns query in the specified placeholder, syntax: placeholder=name (immediate option)", uwsgi_opt_resolve, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{"for", required_argument, 0, "(opt logic) for cycle", uwsgi_opt_logic, (void *) uwsgi_logic_opt_for, UWSGI_OPT_IMMEDIATE},
 	{"for-glob", required_argument, 0, "(opt logic) for cycle (expand glob)", uwsgi_opt_logic, (void *) uwsgi_logic_opt_for_glob, UWSGI_OPT_IMMEDIATE},
@@ -235,7 +235,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-command-socket", required_argument, 0, "enable the Emperor command socket", uwsgi_opt_set_str, &uwsgi.emperor_command_socket, 0},
 	{"emperor-wait-for-command", no_argument, 0, "always wait for a 'spawn' Emperor command before starting a vassal", uwsgi_opt_true, &uwsgi.emperor_wait_for_command, 0},
 	{"emperor-wait-for-command-ignore", required_argument, 0, "ignore the emperor-wait-for-command directive for the specified vassal", uwsgi_opt_add_string_list, &uwsgi.emperor_wait_for_command_ignore, 0},
-	{"early-emperor", no_argument, 0, "spawn the emperor as soon as possibile", uwsgi_opt_true, &uwsgi.early_emperor, 0},
+	{"early-emperor", no_argument, 0, "spawn the emperor as soon as possible", uwsgi_opt_true, &uwsgi.early_emperor, 0},
 	{"emperor-broodlord", required_argument, 0, "run the emperor in BroodLord mode", uwsgi_opt_set_int, &uwsgi.emperor_broodlord, 0},
 	{"emperor-throttle", required_argument, 0, "set throttling level (in milliseconds) for bad behaving vassals (default 1000)", uwsgi_opt_set_int, &uwsgi.emperor_throttle, 0},
 	{"emperor-max-throttle", required_argument, 0, "set max throttling level (in milliseconds) for bad behaving vassals (default 3 minutes)", uwsgi_opt_set_int, &uwsgi.emperor_max_throttle, 0},
@@ -697,7 +697,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"start-unsubscribed", no_argument, 0, "configure subscriptions but do not send them (useful with master fifo)", uwsgi_opt_true, &uwsgi.subscriptions_blocked, 0},
 	{"subscription-clear-on-shutdown", no_argument, 0, "force clear instead of unsubscribe during shutdown", uwsgi_opt_true, &uwsgi.subscription_clear_on_shutdown, 0},
 
-	{"subscribe-with-modifier1", required_argument, 0, "force the specififed modifier1 when subscribing", uwsgi_opt_set_str, &uwsgi.subscribe_with_modifier1, UWSGI_OPT_MASTER},
+	{"subscribe-with-modifier1", required_argument, 0, "force the specified modifier1 when subscribing", uwsgi_opt_set_str, &uwsgi.subscribe_with_modifier1, UWSGI_OPT_MASTER},
 
 	{"snmp", optional_argument, 0, "enable the embedded snmp server", uwsgi_opt_snmp, NULL, 0},
 	{"snmp-community", required_argument, 0, "set the snmp community string", uwsgi_opt_snmp_community, NULL, 0},
@@ -805,7 +805,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-slow", required_argument, 0, "log requests slower than the specified number of milliseconds", uwsgi_opt_set_int, &uwsgi.logging_options.slow, 0},
 	{"log-4xx", no_argument, 0, "log requests with a 4xx response", uwsgi_opt_true, &uwsgi.logging_options._4xx, 0},
 	{"log-5xx", no_argument, 0, "log requests with a 5xx response", uwsgi_opt_true, &uwsgi.logging_options._5xx, 0},
-	{"log-big", required_argument, 0, "log requestes bigger than the specified size", uwsgi_opt_set_64bit,  &uwsgi.logging_options.big, 0},
+	{"log-big", required_argument, 0, "log requests bigger than the specified size", uwsgi_opt_set_64bit,  &uwsgi.logging_options.big, 0},
 	{"log-sendfile", required_argument, 0, "log sendfile requests", uwsgi_opt_true, &uwsgi.logging_options.sendfile, 0},
 	{"log-ioerror", required_argument, 0, "log requests with io errors", uwsgi_opt_true, &uwsgi.logging_options.ioerror, 0},
 	{"log-micros", no_argument, 0, "report response time in microseconds instead of milliseconds", uwsgi_opt_true, &uwsgi.log_micros, 0},
@@ -1479,7 +1479,7 @@ void uwsgi_nuclear_blast() {
 // brutally reload
 void reap_them_all(int signum) {
 
-	// avoid reace condition in lazy mode
+	// avoid race condition in lazy mode
 	if (uwsgi_instance_is_reloading)
 		return;
 
@@ -3468,7 +3468,7 @@ int uwsgi_run() {
 	// eventually maps (or disable) sockets for the  worker
 	uwsgi_map_sockets();
 
-	// eventually set cpu affinity poilicies (OS-dependent)
+	// eventually set cpu affinity policies (OS-dependent)
 	uwsgi_set_cpu_affinity();
 
 	if (uwsgi.worker_exec) {

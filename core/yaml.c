@@ -263,7 +263,7 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 				return;
 			// get the right key
 			val[0] = 0;
-			// yeah overengeneering....
+			// yeah overengineering....
 			yaml_rstrip(key);
 
 			val = yaml_lstrip(val + 2);

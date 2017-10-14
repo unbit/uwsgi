@@ -3218,7 +3218,7 @@ static int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	switch(lua_type(L, -2)) {
 		case LUA_TFUNCTION:
 			// initing coroutine:
-			// pushing first argument of coroutine and call it fisrt time:
+			// pushing first argument of coroutine and call it first time:
 
 			lua_pushvalue(L, -2);
 			lua_pushvalue(L, -2);
@@ -3687,7 +3687,7 @@ static int uwsgi_lua_mule(char *file) {
 		if (lua_pcall(L, ULUA_TYPE_ISUTABLE(type), 1, 0)) {
 			ulua_log("mule%d: error running loop function: %s", uwsgi.muleid, lua_tostring(L, -1));
 
-			// loop exeption
+			// loop exception
 			return 1; // respawn pls
 		}
 	}

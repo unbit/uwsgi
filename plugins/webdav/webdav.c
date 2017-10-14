@@ -988,7 +988,7 @@ next:
                 struct dirent de;
                 if (readdir_r(d, &de, &de_r)) goto end;
                 if (de_r == NULL) break;
-		// skip items startign with a dot
+		// skip items starting with a dot
 		if (de.d_name[0] == '.') continue;
 		if (uwsgi_webdav_dirlist_add_item(ub, de.d_name, strlen(de.d_name), de.d_type == DT_DIR ? 1 : 0)) goto end;
         }

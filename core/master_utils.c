@@ -237,7 +237,7 @@ int uwsgi_cheaper_algo_manual(int can_spawn) {
 
         when at least one worker is free, the overload_count is decremented and the idle_count is incremented.
         If overload_count reaches 0, the system will count active workers (the ones uncheaped) and busy workers (the ones running a request)
-	if there is exacly 1 free worker we are in "stable state" (1 spare worker available). no worker will be touched.
+	if there is exactly 1 free worker we are in "stable state" (1 spare worker available). no worker will be touched.
 	if the number of active workers is higher than uwsgi.cheaper_count and at least uwsgi.cheaper_overload cycles are passed from the last
         "cheap it" procedure, then cheap a worker.
 
@@ -351,7 +351,7 @@ healthy:
 
 	This algorithm increase workers *before* overloaded, and decrease workers slowly.
 
-	This algorithm uses these options: chaper, cheaper-initial, cheaper-step and cheaper-idle.
+	This algorithm uses these options: cheaper, cheaper-initial, cheaper-step and cheaper-idle.
 
 	* When number of idle workers is smaller than cheaper count, increase
 	  min(cheaper-step, cheaper - idle workers) workers.
@@ -506,7 +506,7 @@ void uwsgi_reload(char **argv) {
 		uwsgi_error("uwsgi_reload()/chdir()");
 	}
 
-	/* check fd table (a module can obviosly open some fd on initialization...) */
+	/* check fd table (a module can obviously open some fd on initialization...) */
 	uwsgi_log("closing all non-uwsgi socket fds > 2 (max_fd = %d)...\n", (int) uwsgi.max_fd);
 	for (i = 3; i < (int) uwsgi.max_fd; i++) {
 		if (uwsgi.close_on_exec2) fcntl(i, F_SETFD, 0);

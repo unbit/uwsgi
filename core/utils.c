@@ -4502,7 +4502,7 @@ void uwsgi_setns(char *path) {
 		exit(1);
 	}
 
-	// cound be overwritten
+	// count be overwritten
 	int count = 64;
 
 	uwsgi_log("joining namespaces from %s ...\n", path);

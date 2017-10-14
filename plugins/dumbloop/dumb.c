@@ -30,7 +30,7 @@ static void *dumb_loop_run(void *arg1) {
                 uwsgi_setup_thread_req(core_id, wsgi_req);
         }
 
-	// this strign will be passed to the code_string function
+	// this string will be passed to the code_string function
 	char *str_core = uwsgi_num2str(core_id);
         // ok we are ready, let's run custom code
         while (uwsgi.workers[uwsgi.mywid].manage_next_request) {

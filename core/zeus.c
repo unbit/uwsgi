@@ -68,7 +68,7 @@
 */
 
 /*
-	check how many nodes the instace needs (default 1)
+	check how many nodes the instance needs (default 1)
 */
 
 int uwsgi_zeus_spawn_instance(struct uwsgi_instance *ui) {

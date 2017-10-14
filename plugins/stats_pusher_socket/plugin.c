@@ -2,7 +2,7 @@
 
 /*
 
-this is a stats pusher plugin for sendign metrics over a udp socket
+this is a stats pusher plugin for sending metrics over a udp socket
 
 --stats-push socket:address[,prefix]
 

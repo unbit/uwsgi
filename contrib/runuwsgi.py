@@ -58,7 +58,7 @@ class Command(BaseCommand):
         # exec the uwsgi binary
         os.execvp('uwsgi', ('uwsgi',))
 
-    def usage(self, subcomand):
+    def usage(self, subcommand):
         return r"""
 run this project on the uWSGI server
 

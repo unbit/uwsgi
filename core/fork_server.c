@@ -103,7 +103,7 @@ void uwsgi_fork_server(char *socket) {
 		}
 		else if (pid > 0) {
 			free(body_argv);
-			// close inherited decriptors 
+			// close inherited descriptors 
 			int i;
 			for(i=0;i<fds_count;i++) close(fds[i]);
 			// wait for child death...
@@ -112,7 +112,7 @@ void uwsgi_fork_server(char *socket) {
 		}
 		else {
 			// close Emperor channels
-			// we do not close others file desctiptor as lot
+			// we do not close others file descriptor as lot
 			// of funny tricks could be accomplished with them
 			if (uwsgi.has_emperor) {
 				close(uwsgi.emperor_fd);

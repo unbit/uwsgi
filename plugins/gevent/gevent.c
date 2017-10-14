@@ -36,7 +36,7 @@ PyObject *py_uwsgi_gevent_ctrl_gl(PyObject *self, PyObject *args) {
                 PyObject *gswitch = PyEval_CallObject(ugevent.greenlet_switch, gevent_sleep_args);
 		// could be NULL on exception
 		if (!gswitch) {
-			// just for being paranid
+			// just for being paranoid
 			if (PyErr_Occurred()) {
 				PyErr_Clear();
 				break;

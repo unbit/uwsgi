@@ -13,7 +13,7 @@
 	the "rbthreads" loop engine must create pthreads with rb_thread_create()
 
 	The second reason is for how the GVL is managed.  We do not have
-	functions (like in CPython) to explicitely release and acquire it.
+	functions (like in CPython) to explicitly release and acquire it.
 	All happens via a function (rb_thread_call_without_gvl) calling the specified hook
 	whenever the code blocks.
 
@@ -57,7 +57,7 @@ struct uwsgi_rbthread {
 	int ret;
 	// fd to monitor
 	int fd;
-	// non-blockign timeout
+	// non-blocking timeout
 	int timeout;
 };
 

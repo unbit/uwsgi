@@ -167,7 +167,7 @@ void uwsgi_master_check_mercy() {
 		if (uwsgi.workers[i].pid > 0 && uwsgi.workers[i].cursed_at) {
 			if (uwsgi_now() > uwsgi.workers[i].no_mercy_at) {
 				uwsgi_log_verbose("worker %d (pid: %d) is taking too much time to die...NO MERCY !!!\n", i, uwsgi.workers[i].pid);
-				// yes that look strangem but we avoid callign it again if we skip waitpid() call below
+				// yes that looks strange but we avoid calling it again if we skip waitpid() call below
 				uwsgi_curse(i, SIGKILL);
 			}
 		}
@@ -659,7 +659,7 @@ int master_loop(char **argv, char **environ) {
 
 		// check for death (before reload !!!)
 		uwsgi_master_check_death();
-		// check for realod
+		// check for reload
 		if (uwsgi_master_check_reload(argv)) {
 			return -1;
 		}
@@ -1082,7 +1082,7 @@ next:
 		}
 		// manage_next_request is zero, but killed by signal...
 		else if (WIFSIGNALED(waitpid_status)) {
-			uwsgi_log("DAMN ! worker %d (pid: %d) MISTERIOUSLY killed by signal %d :( trying respawn ...\n", thewid, (int) diedpid, (int) WTERMSIG(waitpid_status));
+			uwsgi_log("DAMN ! worker %d (pid: %d) MYSTERIOUSLY killed by signal %d :( trying respawn ...\n", thewid, (int) diedpid, (int) WTERMSIG(waitpid_status));
 		}
 
 		if (uwsgi.workers[thewid].cheaped == 1) {
