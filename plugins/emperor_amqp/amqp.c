@@ -432,7 +432,7 @@ static int amqp_wait_connection_tune(int fd) {
         	ptr = amqp_get_long(ptr, watermark, &lv); if (!ptr) { free(frame); return -1; }
         	uwsgi_log("AMQP max frame size: %d\n", lv);
         	ptr = amqp_get_short(ptr, watermark, &sv); if (!ptr) { free(frame); return -1; }
-        	uwsgi_log("AMQP heartbeath: %d\n", sv);
+        	uwsgi_log("AMQP heartbeat: %d\n", sv);
 
 		free(frame);
 		return 0;

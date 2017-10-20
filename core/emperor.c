@@ -2905,8 +2905,8 @@ void uwsgi_emperor_simple_do_with_attrs(struct uwsgi_emperor_scanner *ues, char 
 		}
 		// check if mtime is changed and the uWSGI instance must be reloaded
 		if (ts > ui_current->last_mod) {
-			// now we neeed a special check for allowing an instance to move to "on_demand" mode (and back)
-			// allowing means "stoppping the instance"
+			// now we need a special check for allowing an instance to move to "on_demand" mode (and back)
+			// allowing means "stopping the instance"
 			if ((!ui_current->socket_name && ui_current->on_demand_fd == -1) && socket_name) {
 				uwsgi_log("[uwsgi-emperor] %s -> requested move to \"on demand\" mode for socket \"%s\" ...\n", name, socket_name);
 				emperor_stop(ui_current);

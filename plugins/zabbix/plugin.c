@@ -211,7 +211,7 @@ static void zabbix_template_print() {
 	if (uwsgi_buffer_append(ub,"</zabbix_export>\n", 17)) goto error;
 
 	if (write(fd, ub->buf, ub->pos) != (ssize_t) ub->pos) {
-		uwsgi_error("zabbix_template_print()/wrtie()");
+		uwsgi_error("zabbix_template_print()/write()");
 		exit(1);
 	}
 

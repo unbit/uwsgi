@@ -743,7 +743,7 @@ void uwsgi_spooler_cheap_check() {
 		// this trick for avoiding spawning multiple processes for the same dir
 		// in the same cycle
 		if (!last_managed || strcmp(last_managed, uspool->dir)) {
-			// unfortunately, reusing readdir/scandir of the spooler is too dungeorus
+			// unfortunately, reusing readdir/scandir of the spooler is too dangerous
 			// as the code is run in the master, let's do a simpler check
         		struct dirent *dp;
 			DIR *sdir = opendir(uspool->dir);

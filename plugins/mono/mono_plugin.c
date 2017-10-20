@@ -467,7 +467,7 @@ static int uwsgi_mono_create_app(char *key, uint16_t key_len, char *physicalDir,
 	struct uwsgi_app *app = uwsgi_add_app(id, mono_plugin.modifier1, key, key_len, uwsgi_concat2n(physicalDir, physicalDir_len, "", 0), appHost);
         app->started_at = now;
         app->startup_time = uwsgi_now() - now;
-	// get a handlet to appHost
+	// get a handler to appHost
 	mono_gchandle_new(app->callable, 1);
 	uwsgi_log("Mono asp.net app %d (%.*s) loaded in %d seconds at %p (worker %d)\n", id, key_len, key, (int) app->startup_time, appHost, uwsgi.mywid);
 

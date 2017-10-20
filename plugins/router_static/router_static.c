@@ -302,7 +302,7 @@ static int uwsgi_router_file(struct uwsgi_route *ur, char *args) {
 	}
 
 	if (!urfc->filename) {
-		uwsgi_log("you have to specifify a filename for the \"file\" router\n");
+		uwsgi_log("you have to specify a filename for the \"file\" router\n");
 		free(urfc);
 		return -1;
 	}

@@ -1238,7 +1238,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		uwsgi.caches = uc;
 	}
 
-	// default (old-stye) cache ?
+	// default (old-style) cache ?
 	if (!arg) {
 		uc->name = "default";
 		uc->name_len = strlen(uc->name);

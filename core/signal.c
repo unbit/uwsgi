@@ -336,7 +336,7 @@ void uwsgi_route_signal(uint8_t sig) {
 			}
 		}
 	}
-	// send to al lactive workers
+	// send to all active workers
 	else if (!strcmp(use->receiver, "active-workers")) {
                 for (i = 1; i <= uwsgi.numproc; i++) {
 			if (uwsgi.workers[i].pid > 0 && !uwsgi.workers[i].cheaped && !uwsgi.workers[i].suspended) {

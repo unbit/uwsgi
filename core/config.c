@@ -760,7 +760,7 @@ char *uwsgi_get_optname_by_index(int index) {
 
 	translate as:
 
-		step1 = proceses cpu_cores = 2 8 = 28 (string concatenation)
+		step1 = processes cpu_cores = 2 8 = 28 (string concatenation)
 
 		step1 + = step1_apply_func_plus (func token)
 

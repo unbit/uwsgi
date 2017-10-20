@@ -265,7 +265,7 @@ static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *
 		wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, "", 0);
 	}
 
-	// reject uncomplete upload
+	// reject incomplete upload
 	if (async_upload == 1) {
 		return -1;
 	}
