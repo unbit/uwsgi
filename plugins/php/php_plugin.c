@@ -563,9 +563,12 @@ typedef struct _user_config_cache_entry {
 	HashTable *user_config;
 } user_config_cache_entry;
 
-static void user_config_cache_entry_dtor(zval *el)
-{
+#if (PHP_MAJOR_VERSION >= 7)
+static void user_config_cache_entry_dtor(zval *el) {
 	user_config_cache_entry *entry = (user_config_cache_entry *)Z_PTR_P(el);
+#else
+static void user_config_cache_entry_dtor(user_config_cache_entry *entry) {
+#endif
 	zend_hash_destroy(entry->user_config);
 	free(entry->user_config);
 	free(entry);
@@ -573,7 +576,7 @@ static void user_config_cache_entry_dtor(zval *el)
 
 static void activate_user_config(const char *filename, const char *doc_root, size_t doc_root_len) {
 	char *ptr;
-	user_config_cache_entry *entry;
+	user_config_cache_entry *new_entry, *entry;
 
 	time_t request_time = (time_t)sapi_get_request_time();
 
@@ -584,14 +587,22 @@ static void activate_user_config(const char *filename, const char *doc_root, siz
 	path[path_len] = '\0';
 
 	// get or create entry from cache
+#if (PHP_MAJOR_VERSION >= 7)
 	if ((entry = zend_hash_str_find_ptr(&uphp.user_config_cache, path, path_len)) == NULL) {
-		entry = pemalloc(sizeof(user_config_cache_entry), 1);
-		entry->expires = 0;
-		entry->user_config = (HashTable *) pemalloc(sizeof(HashTable), 1);
+#else
+	if (zend_hash_find(&uphp.user_config_cache, path, path_len + 1, (void **) &entry) == FAILURE) {
+#endif
+		new_entry = pemalloc(sizeof(user_config_cache_entry), 1);
+		new_entry->expires = 0;
+		new_entry->user_config = (HashTable *) pemalloc(sizeof(HashTable), 1);
 
 		// make zend_hash to store all user.ini settings.
-		zend_hash_init(entry->user_config, 0, NULL, (dtor_func_t) config_zval_dtor, 1);
-		zend_hash_str_update_ptr(&uphp.user_config_cache, path, path_len, entry);
+		zend_hash_init(new_entry->user_config, 0, NULL, (dtor_func_t) config_zval_dtor, 1);
+#if (PHP_MAJOR_VERSION >= 7)
+		entry = zend_hash_str_update_ptr(&uphp.user_config_cache, path, path_len, new_entry);
+#else
+		zend_hash_update(&uphp.user_config_cache, path, path_len + 1, new_entry, sizeof(user_config_cache_entry), (void **) &entry);
+#endif
 	}
 
 	if (request_time > entry->expires) {
@@ -696,7 +707,7 @@ static int uwsgi_php_init(void) {
 		uwsgi_log("--- end of PHP custom config ---\n");
 	}
 
-	zend_hash_init(&uphp.user_config_cache, 0, NULL, user_config_cache_entry_dtor, 1);
+	zend_hash_init(&uphp.user_config_cache, 0, NULL, (dtor_func_t) user_config_cache_entry_dtor, 1);
 
 	// fix docroot
         if (uphp.docroot) {
