@@ -7,6 +7,7 @@ static sapi_module_struct uwsgi_sapi_module;
 static int uwsgi_php_init(void);
 
 struct uwsgi_php {
+	HashTable user_config_cache;
 	struct uwsgi_string_list *allowed_docroot;
 	struct uwsgi_string_list *allowed_ext;
 	struct uwsgi_string_list *allowed_scripts;
@@ -557,6 +558,65 @@ static zend_module_entry uwsgi_module_entry = {
         STANDARD_MODULE_PROPERTIES
 };
 
+typedef struct _user_config_cache_entry {
+	time_t expires;
+	HashTable *user_config;
+} user_config_cache_entry;
+
+static void user_config_cache_entry_dtor(zval *el)
+{
+	user_config_cache_entry *entry = (user_config_cache_entry *)Z_PTR_P(el);
+	zend_hash_destroy(entry->user_config);
+	free(entry->user_config);
+	free(entry);
+}
+
+static void activate_user_config(const char *filename, const char *doc_root, size_t doc_root_len) {
+	char *ptr;
+	user_config_cache_entry *entry;
+
+	time_t request_time = (time_t)sapi_get_request_time();
+
+	// get dirname (path) from filename
+	size_t path_len = (strrchr(filename, DEFAULT_SLASH) - filename) + 1;
+	char path[path_len];
+	memcpy(path, filename, path_len);
+	path[path_len] = '\0';
+
+	// get or create entry from cache
+	if ((entry = zend_hash_str_find_ptr(&uphp.user_config_cache, path, path_len)) == NULL) {
+		entry = pemalloc(sizeof(user_config_cache_entry), 1);
+		entry->expires = 0;
+		entry->user_config = (HashTable *) pemalloc(sizeof(HashTable), 1);
+
+		// make zend_hash to store all user.ini settings.
+		zend_hash_init(entry->user_config, 0, NULL, (dtor_func_t) config_zval_dtor, 1);
+		zend_hash_str_update_ptr(&uphp.user_config_cache, path, path_len, entry);
+	}
+
+	if (request_time > entry->expires) {
+
+		// clear the expired config
+		zend_hash_clean(entry->user_config);
+
+		// set pointer to end of docroot
+		ptr = path + (doc_root_len - 1);
+
+		// parse all user.ini files starting from docroot.
+		while ((ptr = strchr(ptr, DEFAULT_SLASH)) != NULL) {
+			*ptr = 0;
+			php_parse_user_ini_file(path, PG(user_ini_filename), entry->user_config);
+			*ptr = '/';
+			ptr++;
+		}
+
+		// set (new) expiry time
+		entry->expires = request_time + PG(user_ini_cache_ttl);
+	}
+
+	// activate all user.ini variables
+	php_ini_activate_config(entry->user_config, PHP_INI_PERDIR, PHP_INI_STAGE_HTACCESS);
+}
 
 static int php_uwsgi_startup(sapi_module_struct *sapi_module)
 {
@@ -635,6 +695,8 @@ static int uwsgi_php_init(void) {
 		uwsgi_log("%s\n", uwsgi_sapi_module.ini_entries);
 		uwsgi_log("--- end of PHP custom config ---\n");
 	}
+
+	zend_hash_init(&uphp.user_config_cache, 0, NULL, user_config_cache_entry_dtor, 1);
 
 	// fix docroot
         if (uphp.docroot) {
@@ -805,6 +867,7 @@ oldstyle:
 #endif
 
 	filename = uwsgi_concat4n(wsgi_req->document_root, wsgi_req->document_root_len, "/", 1, wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
+	activate_user_config(filename, wsgi_req->document_root, wsgi_req->document_root_len);
 
 	if (uwsgi_php_walk(wsgi_req, filename, wsgi_req->document_root, wsgi_req->document_root_len, &path_info)) {
 		free(filename);
