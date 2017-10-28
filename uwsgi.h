@@ -1344,6 +1344,13 @@ struct uwsgi_transformation {
 	struct uwsgi_transformation *next;
 };
 
+enum uwsgi_range {
+	UWSGI_RANGE_NOT_PARSED,
+	UWSGI_RANGE_PARSED,
+	UWSGI_RANGE_VALID,
+	UWSGI_RANGE_INVALID,
+};
+
 struct wsgi_request {
 	int fd;
 	struct uwsgi_header *uh;
@@ -1509,8 +1516,9 @@ struct wsgi_request {
 	// when set, do not send warnings about bad behaviours
 	int post_warning;
 
-	size_t range_from;
-	size_t range_to;
+	// deprecated fields: size_t is 32bit on 32bit platform
+	size_t __range_from;
+	size_t __range_to;
 
 	// current socket mapped to request
 	struct uwsgi_socket *socket;
@@ -1601,6 +1609,14 @@ struct wsgi_request {
 	int do_not_account_avg_rt;
 	// used for protocol parsers requiring EOF signaling
 	int proto_parser_eof;
+
+	// 64bit range, deprecates size_t __range_from, __range_to
+	enum uwsgi_range range_parsed;
+	int64_t range_from;
+	int64_t range_to;
+
+	char * if_range;
+	uint16_t if_range_len;
 };
 
 
@@ -3455,7 +3471,7 @@ int uwsgi_static_want_gzip(struct wsgi_request *, char *, size_t *, struct stat 
 time_t timegm(struct tm *);
 #endif
 
-size_t uwsgi_str_num(char *, int);
+uint64_t uwsgi_str_num(char *, int);
 size_t uwsgi_str_occurence(char *, size_t, char);
 
 int uwsgi_proto_base_write(struct wsgi_request *, char *, size_t);
@@ -4488,7 +4504,9 @@ int uwsgi_proto_ssl_sendfile(struct wsgi_request *, int, size_t, size_t);
 ssize_t uwsgi_sendfile_do(int, int, size_t, size_t);
 int uwsgi_proto_base_fix_headers(struct wsgi_request *);
 int uwsgi_response_add_content_length(struct wsgi_request *, uint64_t);
-int uwsgi_response_add_content_range(struct wsgi_request *, uint64_t, uint64_t, uint64_t);
+void uwsgi_fix_range_for_size(enum uwsgi_range*, int64_t*, int64_t*, int64_t);
+void uwsgi_request_fix_range_for_size(struct wsgi_request *, int64_t);
+int uwsgi_response_add_content_range(struct wsgi_request *, int64_t, int64_t, int64_t);
 int uwsgi_response_add_expires(struct wsgi_request *, uint64_t);
 int uwsgi_response_add_last_modified(struct wsgi_request *, uint64_t);
 int uwsgi_response_add_date(struct wsgi_request *, char *, uint16_t, uint64_t);

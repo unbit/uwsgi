@@ -228,7 +228,8 @@ static int uwsgi_proto_check_9(struct wsgi_request *wsgi_req, char *key, char *b
 	return 0;
 }
 
-static void uwsgi_parse_http_range(char *buf, uint16_t len, size_t *from, size_t *to) {
+static void uwsgi_parse_http_range(char *buf, uint16_t len, enum uwsgi_range *parsed, int64_t *from, int64_t *to) {
+	*parsed = UWSGI_RANGE_INVALID;
 	*from = 0;
 	*to = 0;
 	uint16_t rlen = 0;
@@ -248,18 +249,45 @@ static void uwsgi_parse_http_range(char *buf, uint16_t len, size_t *from, size_t
 	rlen -= 6;
 	char *dash = memchr(range, '-', rlen);
 	if (!dash) return;
-	*from = uwsgi_str_num(range, dash-range);
-	*to = uwsgi_str_num(dash+1, rlen - ((dash+1)-range));
-	if (*to > 0 && *from > *to) {
-		*from = 0;
-		*to = 0;
+	if (dash != range) {
+		*from = uwsgi_str_num(range, dash-range);
+		if (dash == range+(rlen-1)) {
+			/* RFC7233 prefix range
+			 * `bytes=start-` is a same as `byte=start-0x7ffffffffffffff`
+			 */
+			*to = INT64_MAX;
+		} else {
+			*to = uwsgi_str_num(dash+1, rlen - ((dash+1)-range));
+		}
+		if (*to >= *from) {
+			*parsed = UWSGI_RANGE_PARSED;
+		} else {
+			*from = 0;
+			*to = 0;
+		}
+	} else {
+		/* RFC7233 suffix-byte-range-spec: `bytes=-500` */
+		*from = -(int64_t)uwsgi_str_num(dash+1, rlen - ((dash+1)-range));
+		if (*from < 0) {
+			*to = INT64_MAX;
+			*parsed = UWSGI_RANGE_PARSED;
+		}
 	}
 }
 
 static int uwsgi_proto_check_10(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
 
+	if (uwsgi.honour_range && !uwsgi_proto_key("HTTP_IF_RANGE", 13)) {
+		wsgi_req->if_range = buf;
+		wsgi_req->if_range_len = len;
+	}
+
 	if (uwsgi.honour_range && !uwsgi_proto_key("HTTP_RANGE", 10)) {
-		uwsgi_parse_http_range(buf, len, &wsgi_req->range_from, &wsgi_req->range_to);
+		uwsgi_parse_http_range(buf, len, &wsgi_req->range_parsed,
+				&wsgi_req->range_from, &wsgi_req->range_to);
+		// set deprecated fields for binary compatibility
+		wsgi_req->__range_from = (size_t)wsgi_req->range_from;
+		wsgi_req->__range_to = (size_t)wsgi_req->range_to;
 		return 0;
 	}
 

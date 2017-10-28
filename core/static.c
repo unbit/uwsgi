@@ -448,6 +448,11 @@ static int uwsgi_static_stat(struct wsgi_request *wsgi_req, char *filename, size
 	return -1;
 }
 
+void uwsgi_request_fix_range_for_size(struct wsgi_request *wsgi_req, int64_t size) {
+	uwsgi_fix_range_for_size(&wsgi_req->range_parsed,
+			&wsgi_req->range_from, &wsgi_req->range_to, size);
+}
+
 int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, size_t real_filename_len, struct stat *st) {
 
 	size_t mime_type_size = 0;
@@ -474,28 +479,31 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	// static file - don't update avg_rt after request
 	wsgi_req->do_not_account_avg_rt = 1;
 
-	size_t fsize = st->st_size;
-	// security check
-        if (wsgi_req->range_from > fsize) {
-                wsgi_req->range_from = 0;
-                wsgi_req->range_to = 0;
-        }
-	else {
-		fsize -= wsgi_req->range_from;
-	}
+	int64_t fsize = (int64_t)st->st_size;
+	uwsgi_request_fix_range_for_size(wsgi_req, fsize);
+	switch (wsgi_req->range_parsed) {
+	case UWSGI_RANGE_INVALID:
+		if (uwsgi_response_prepare_headers(wsgi_req,
+					"416 Requested Range Not Satisfiable", 35))
+			return -1;
+		if (uwsgi_response_add_content_range(wsgi_req, -1, -1, st->st_size)) return -1;
+		return 0;
+	case UWSGI_RANGE_VALID:
+		{
+			time_t when = 0;
+			if (wsgi_req->if_range != NULL) {
+				when = parse_http_date(wsgi_req->if_range, wsgi_req->if_range_len);
+				// an ETag will result in when == 0
+			}
 
-        if (wsgi_req->range_to) {
-        	fsize = (wsgi_req->range_to - wsgi_req->range_from)+1;
-                if (fsize + wsgi_req->range_from > (size_t) (st->st_size)) {
-                	fsize = st->st_size - wsgi_req->range_from;
-                }
-        }
-
-	// HTTP status
-	if (fsize > 0 && (wsgi_req->range_from || wsgi_req->range_to)) {
-		if (uwsgi_response_prepare_headers(wsgi_req, "206 Partial Content", 19)) return -1;
-	}
-	else {
+			if (when < st->st_mtime) {
+				fsize = wsgi_req->range_to - wsgi_req->range_from + 1;
+				if (uwsgi_response_prepare_headers(wsgi_req, "206 Partial Content", 19)) return -1;
+				break;
+			}
+		}
+		/* fallthrough */
+	default: /* UWSGI_RANGE_NOT_PARSED */
 		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) return -1;
 	}
 
@@ -539,7 +547,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	else {
 		// set Content-Length (to fsize NOT st->st_size)
 		if (uwsgi_response_add_content_length(wsgi_req, fsize)) return -1;
-		if (fsize > 0 && (wsgi_req->range_from || wsgi_req->range_to)) {
+		if (wsgi_req->range_parsed == UWSGI_RANGE_VALID) {
 			// here use the original size !!!
 			if (uwsgi_response_add_content_range(wsgi_req, wsgi_req->range_from, wsgi_req->range_to, st->st_size)) return -1;
 		}
