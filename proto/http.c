@@ -328,8 +328,8 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 					return -1;
 				}
 			}
-			}
 			break;
+		}
 		case AF_INET:
 		default: {
 			struct sockaddr_in* http_sin = &wsgi_req->client_addr.sin;
