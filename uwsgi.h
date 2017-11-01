@@ -1778,6 +1778,7 @@ struct uwsgi_server {
 	char **orig_argv;
 	char **argv;
 	int argc;
+	// replaced by argv_len + environ_len, kept for ABI compatibility
 	int max_procname;
 	int auto_procname;
 	char **environ;
@@ -2905,6 +2906,8 @@ struct uwsgi_server {
 
 	int http_path_info_no_decode_slashes;
 
+	size_t argv_len;
+	size_t environ_len;
 };
 
 struct uwsgi_rpc {

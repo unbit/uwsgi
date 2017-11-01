@@ -3124,33 +3124,36 @@ void uwsgi_set_processname(char *name) {
 
 #if defined(__linux__) || defined(__sun__)
 	size_t amount = 0;
+	size_t max_procname = uwsgi.argv_len + uwsgi.environ_len;
 
 	// prepare for strncat
 	*uwsgi.orig_argv[0] = 0;
 
 	if (uwsgi.procname_prefix) {
 		amount += strlen(uwsgi.procname_prefix);
-		if ((int) amount > uwsgi.max_procname - 1)
+		if (amount >= max_procname)
 			return;
-		strncat(uwsgi.orig_argv[0], uwsgi.procname_prefix, uwsgi.max_procname - (amount + 1));
+		strncat(uwsgi.orig_argv[0], uwsgi.procname_prefix, max_procname - (amount + 1));
 	}
 
 	amount += strlen(name);
-	if ((int) amount > uwsgi.max_procname - 1)
+	if (amount >= max_procname)
 		return;
-	strncat(uwsgi.orig_argv[0], name, (uwsgi.max_procname - amount + 1));
+	strncat(uwsgi.orig_argv[0], name, max_procname - (amount + 1));
 
 	if (uwsgi.procname_append) {
 		amount += strlen(uwsgi.procname_append);
-		if ((int) amount > uwsgi.max_procname - 1)
+		if (amount >= max_procname)
 			return;
-		strncat(uwsgi.orig_argv[0], uwsgi.procname_append, uwsgi.max_procname - (amount + 1));
+		strncat(uwsgi.orig_argv[0], uwsgi.procname_append, max_procname - (amount + 1));
 	}
 
+	// if we fit into argv, only fill argv with spaces, otherwise use environ as well
+	if (amount < uwsgi.argv_len)  {
+		max_procname = uwsgi.argv_len;
+	}
 	// fill with spaces...
-	memset(uwsgi.orig_argv[0] + amount + 1, ' ', uwsgi.max_procname - (amount));
-	// end with \0
-	memset(uwsgi.orig_argv[0] + amount + 1 + (uwsgi.max_procname - (amount)), '\0', 1);
+	memset(uwsgi.orig_argv[0] + amount + 1, ' ', max_procname - (amount + 1));
 
 #elif defined(__FreeBSD__) || defined(__GNU_kFreeBSD__) || defined(__NetBSD__)
 	if (uwsgi.procname_prefix) {

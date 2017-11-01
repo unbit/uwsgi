@@ -1823,8 +1823,8 @@ static void fixup_argv_and_environ(int argc, char **argv, char **environ, char *
 	uwsgi.argv = uwsgi_malloc(sizeof(char *) * (argc + 1));
 
 	for (i = 0; i < argc; i++) {
-		if (i == 0 || argv[0] + uwsgi.max_procname + 1 == argv[i]) {
-			uwsgi.max_procname += strlen(argv[i]) + 1;
+		if (i == 0 || argv[0] + uwsgi.argv_len == argv[i]) {
+			uwsgi.argv_len += strlen(argv[i]) + 1;
 		}
 		uwsgi.argv[i] = strdup(argv[i]);
 	}
@@ -1832,13 +1832,10 @@ static void fixup_argv_and_environ(int argc, char **argv, char **environ, char *
 	// required by execve
 	uwsgi.argv[i] = NULL;
 
-	uwsgi.max_procname++;
-
 	for (i = 0; environ[i] != NULL; i++) {
-		// useless
-		//if ((environ[0] + uwsgi.max_procname + 1) == environ[i]) {
-		uwsgi.max_procname += strlen(environ[i]) + 1;
-		//}
+		if (environ[0] + uwsgi.environ_len == environ[i]) {
+			uwsgi.environ_len += strlen(environ[i]) + 1;
+		}
 		env_count++;
 	}
 
@@ -1853,7 +1850,8 @@ static void fixup_argv_and_environ(int argc, char **argv, char **environ, char *
 	uwsgi.environ[env_count] = NULL;
 
 #ifdef UWSGI_DEBUG
-	uwsgi_log("max space for custom process name = %d\n", uwsgi.max_procname);
+	uwsgi_log("total length of argv = %u\n", (unsigned int)uwsgi.argv_len);
+	uwsgi_log("total length of environ = %u\n", (unsigned int)uwsgi.environ_len);
 #endif
 	//environ = uwsgi.environ;
 
