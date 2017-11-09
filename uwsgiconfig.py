@@ -1300,7 +1300,7 @@ class uConf(object):
         if self.get('xml'):
             if self.get('xml') == 'auto':
                 xmlconf = spcall('xml2-config --libs')
-                if xmlconf:
+                if xmlconf and uwsgi_os != 'Darwin':
                     self.libs.append(xmlconf)
                     xmlconf = spcall("xml2-config --cflags")
                     self.cflags.append(xmlconf)
