@@ -3901,7 +3901,7 @@ struct uwsgi_thread *uwsgi_thread_new(void (*func) (struct uwsgi_thread *)) {
 	return uwsgi_thread_new_with_data(func, NULL);
 }
 
-int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, char kv_separator, ...) {
+int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, int kv_separator, ...) {
 	size_t i;
 	va_list ap;
 	struct uwsgi_string_list *itemlist = NULL;
