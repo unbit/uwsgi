@@ -203,6 +203,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"early-python-path", required_argument, 0, "add directory (or glob) to pythonpath (immediate version)", uwsgi_opt_pythonpath, NULL,  UWSGI_OPT_IMMEDIATE},
 	{"python-worker-override", required_argument, 0, "override worker with the specified python script", uwsgi_opt_set_str, &up.worker_override, 0},
 
+	{"wsgi-manage-chunked-input", no_argument, 0, "manage chunked input via the wsgi.input_terminated extension", uwsgi_opt_true, &up.wsgi_manage_chunked_input, 0},
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 

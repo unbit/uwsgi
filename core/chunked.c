@@ -83,6 +83,83 @@ static ssize_t uwsgi_chunked_readline(struct wsgi_request *wsgi_req) {
 
 */
 
+struct uwsgi_buffer *uwsgi_chunked_read_smart(struct wsgi_request *wsgi_req, size_t len, int timeout) {
+	// check for buffer
+	if (!wsgi_req->body_chunked_buf)
+		wsgi_req->body_chunked_buf = uwsgi_buffer_new(uwsgi.page_size);	
+	// first case: asking for all
+	if (!len) {
+		for(;;) {
+			size_t chunked_len = 0;
+			char *buf = uwsgi_chunked_read(wsgi_req, &chunked_len, timeout, 0);
+			if (chunked_len == 0) {
+				struct uwsgi_buffer *ret = uwsgi_buffer_new(wsgi_req->body_chunked_buf->pos);
+				if (uwsgi_buffer_append(ret, wsgi_req->body_chunked_buf->buf, wsgi_req->body_chunked_buf->pos)) {
+					uwsgi_buffer_destroy(ret);
+					return NULL;
+				}
+				uwsgi_buffer_decapitate(wsgi_req->body_chunked_buf, wsgi_req->body_chunked_buf->pos);
+				return ret;
+			}
+			if (uwsgi_buffer_append(wsgi_req->body_chunked_buf, buf, chunked_len)) {
+				return NULL;
+			}
+		}
+	} 
+
+	// asking for littler part
+	if (len <= wsgi_req->body_chunked_buf->pos) {
+		struct uwsgi_buffer *ret = uwsgi_buffer_new(len);
+		if (uwsgi_buffer_append(ret, wsgi_req->body_chunked_buf->buf, len)) {
+			uwsgi_buffer_destroy(ret);
+			return NULL;
+		}
+		uwsgi_buffer_decapitate(wsgi_req->body_chunked_buf, len);
+		return ret;
+	}
+
+	// more data required
+	size_t remains = len;
+	struct uwsgi_buffer *ret = uwsgi_buffer_new(remains);
+	if (wsgi_req->body_chunked_buf->pos > 0) {
+		if (uwsgi_buffer_append(ret, wsgi_req->body_chunked_buf->buf, wsgi_req->body_chunked_buf->pos)) {
+			uwsgi_buffer_destroy(ret);
+			return NULL;
+		}
+		remains -= wsgi_req->body_chunked_buf->pos;
+		uwsgi_buffer_decapitate(wsgi_req->body_chunked_buf, wsgi_req->body_chunked_buf->pos);
+	}
+
+	while(remains) {
+		size_t chunked_len = 0;
+                char *buf = uwsgi_chunked_read(wsgi_req, &chunked_len, timeout, 0);
+                if (chunked_len == 0) {
+			break;
+		}
+		if (uwsgi_buffer_append(wsgi_req->body_chunked_buf, buf, chunked_len)) {
+			uwsgi_buffer_destroy(ret);
+			return NULL;
+		}
+
+		if (chunked_len > remains) {
+			if (uwsgi_buffer_append(ret, wsgi_req->body_chunked_buf->buf, wsgi_req->body_chunked_buf->pos - (chunked_len - remains))) {
+                                uwsgi_buffer_destroy(ret);
+                                return NULL;
+                        }       
+                        uwsgi_buffer_decapitate(wsgi_req->body_chunked_buf, wsgi_req->body_chunked_buf->pos - (chunked_len - remains));
+                        return ret;
+		}
+		remains -= chunked_len;
+	}
+
+	if (uwsgi_buffer_append(ret, wsgi_req->body_chunked_buf->buf, wsgi_req->body_chunked_buf->pos)) {
+		uwsgi_buffer_destroy(ret);
+		return NULL;
+	}
+	uwsgi_buffer_decapitate(wsgi_req->body_chunked_buf, wsgi_req->body_chunked_buf->pos);
+	return ret;
+}
+
 char *uwsgi_chunked_read(struct wsgi_request *wsgi_req, size_t *len, int timeout, int nb) {
 
 	if (!wsgi_req->chunked_input_buf) {

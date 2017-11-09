@@ -1195,6 +1195,10 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		uwsgi_buffer_destroy(wsgi_req->chunked_input_buf);
 	}
 
+	if (wsgi_req->body_chunked_buf) {
+		uwsgi_buffer_destroy(wsgi_req->body_chunked_buf);
+	}
+
 	// free websocket engine
 	if (wsgi_req->websocket_buf) {
 		uwsgi_buffer_destroy(wsgi_req->websocket_buf);

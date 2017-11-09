@@ -168,6 +168,15 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
         PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_req->async_input);
 
+	if (up.wsgi_manage_chunked_input) {
+		if (wsgi_req->body_is_chunked) {
+			PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input_terminated", Py_True);
+		}
+		else {
+			PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input_terminated", Py_False);
+		}
+	}
+
 	if (!up.wsgi_disable_file_wrapper)
 		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.file_wrapper", wi->sendfile);
 

@@ -62,7 +62,19 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 	ssize_t rlen = 0;
 
 	UWSGI_RELEASE_GIL
-	char *buf = uwsgi_request_body_read(wsgi_req, arg_len, &rlen);
+	char *buf = NULL;
+	if (wsgi_req->body_is_chunked && up.wsgi_manage_chunked_input) {
+		struct uwsgi_buffer *ubuf = uwsgi_chunked_read_smart(wsgi_req, arg_len, uwsgi.socket_timeout);
+		if (!ubuf) {
+       			return PyErr_Format(PyExc_IOError, "error during chunked read(%ld) on wsgi.input", arg_len);
+		}
+		PyObject *ret = PyString_FromStringAndSize(ubuf->buf, ubuf->pos);
+		uwsgi_buffer_destroy(ubuf);
+		return ret;
+	}
+	else {
+		buf = uwsgi_request_body_read(wsgi_req, arg_len, &rlen);
+	}
 	UWSGI_GET_GIL
 	if (buf == uwsgi.empty) {
 		return PyString_FromString("");

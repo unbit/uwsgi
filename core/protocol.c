@@ -560,6 +560,12 @@ static int uwsgi_proto_check_22(struct wsgi_request *wsgi_req, char *key, char *
                 wsgi_req->scheme_len = len;
         }
 
+	if (!uwsgi_proto_key("HTTP_TRANSFER_ENCODING", 22)) {
+		if (!uwsgi_strnicmp(buf, len, "chunked", 7)) {
+                	wsgi_req->body_is_chunked = 1;
+		}
+	}
+
 	return 0;
 }
 

@@ -1624,6 +1624,9 @@ struct wsgi_request {
 	// used for protocol parsers requiring EOF signaling
 	int proto_parser_eof;
 
+	int body_is_chunked;
+	struct uwsgi_buffer *body_chunked_buf;
+
 	// uWSGI 2.1
 	uint64_t len;
 
@@ -4616,6 +4619,7 @@ struct uwsgi_buffer *uwsgi_websocket_recv(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_websocket_recv_nb(struct wsgi_request *);
 
 char *uwsgi_chunked_read(struct wsgi_request *, size_t *, int, int);
+struct uwsgi_buffer *uwsgi_chunked_read_smart(struct wsgi_request *, size_t, int);
 
 uint16_t uwsgi_be16(char *);
 uint32_t uwsgi_be32(char *);
