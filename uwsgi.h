@@ -4399,7 +4399,7 @@ void uwsgi_daemons_smart_check();
 void uwsgi_setup_thread_req(long, struct wsgi_request *);
 void uwsgi_loop_cores_run(void *(*)(void *));
 
-int uwsgi_kvlist_parse(char *, size_t, char, char, ...);
+int uwsgi_kvlist_parse(char *, size_t, char, int, ...);
 int uwsgi_send_http_stats(int);
 
 ssize_t uwsgi_simple_request_read(struct wsgi_request *, char *, size_t);
