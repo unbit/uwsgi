@@ -2905,6 +2905,7 @@ struct uwsgi_server {
 
 	int http_path_info_no_decode_slashes;
 
+	int format_dump_epoch;
 };
 
 struct uwsgi_rpc {
