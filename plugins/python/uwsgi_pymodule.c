@@ -2384,6 +2384,11 @@ PyObject *py_uwsgi_request_id(PyObject * self, PyObject * args) {
 	return PyLong_FromUnsignedLongLong(uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests);
 }
 
+PyObject *py_uwsgi_async_id(PyObject * self, PyObject * args) {
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
+	return PyInt_FromLong(wsgi_req->async_id);
+}
+
 PyObject *py_uwsgi_worker_id(PyObject * self, PyObject * args) {
 	return PyInt_FromLong(uwsgi.mywid);
 }
@@ -2594,6 +2599,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"masterpid", py_uwsgi_masterpid, METH_VARARGS, ""},
 	{"total_requests", py_uwsgi_total_requests, METH_VARARGS, ""},
 	{"request_id", py_uwsgi_request_id, METH_VARARGS, ""},
+	{"async_id", py_uwsgi_async_id, METH_VARARGS, ""},
 	{"worker_id", py_uwsgi_worker_id, METH_VARARGS, ""},
 	{"mule_id", py_uwsgi_mule_id, METH_VARARGS, ""},
 	{"log", py_uwsgi_log, METH_VARARGS, ""},
