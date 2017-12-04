@@ -3617,6 +3617,13 @@ void uwsgi_write_pidfile(char *pidfile_name) {
 	}
 }
 
+void uwsgi_write_pidfile_explicit(char *pidfile_name, pid_t pid) {
+	uwsgi_log("writing pidfile to %s\n", pidfile_name);
+	if (uwsgi_write_intfile(pidfile_name, (int) pid)) {
+		uwsgi_log("could not write pidfile.\n");
+	}
+}
+
 char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {
 	char src[PATH_MAX + 1];
 	memcpy(src, dir, dir_len);

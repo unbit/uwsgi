@@ -2814,6 +2814,8 @@ struct uwsgi_server {
 #endif
 
 	size_t response_header_limit;
+	char *safe_pidfile;
+	char *safe_pidfile2;
 };
 
 struct uwsgi_rpc {
@@ -3967,6 +3969,7 @@ void uwsgi_setup_post_buffering(void);
 struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *);
 
 void uwsgi_write_pidfile(char *);
+void uwsgi_write_pidfile_explicit(char *, pid_t);
 int uwsgi_write_intfile(char *, int);
 
 void uwsgi_protected_close(int);
