@@ -612,7 +612,7 @@ pid_t uwsgi_lock_ipcsem_check(struct uwsgi_lock_item *uli) {
 
 void uwsgi_ipcsem_clear(void) {
 
-	if (uwsgi.persistent_ipcsem && uwsgi.master_is_reforked) return;
+	if (uwsgi.persistent_ipcsem || uwsgi.master_is_reforked) return;
 
 	struct uwsgi_lock_item *uli = uwsgi.registered_locks;
 
