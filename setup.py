@@ -126,6 +126,7 @@ setup(
     py_modules=['uwsgidecorators'],
     distclass=uWSGIDistribution,
     classifiers=[
+        'Development Status :: 5 - Production/Stable',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.6',
