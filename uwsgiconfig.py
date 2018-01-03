@@ -344,7 +344,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
     last_cflags_ts = 0
 
     if os.path.exists('uwsgibuild.lastcflags'):
-        ulc = open('uwsgibuild.lastcflags', 'r')
+        ulc = open('uwsgibuild.lastcflags')
         last_cflags = ulc.read()
         ulc.close()
         if uwsgi_cflags != last_cflags:
@@ -624,7 +624,7 @@ class uConf(object):
             print("using profile: %s" % filename)
 
         if os.path.exists('uwsgibuild.lastprofile'):
-            ulp = open('uwsgibuild.lastprofile', 'r')
+            ulp = open('uwsgibuild.lastprofile')
             last_profile = ulp.read()
             ulp.close()
             if last_profile != filename:

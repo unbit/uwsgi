@@ -6,7 +6,7 @@ filename = sys.argv[1]
 
 size = os.path.getsize(filename)
 
-f = open(filename, 'r')
+f = open(filename)
 os.write(1, f.read())
 f.close()
 
