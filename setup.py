@@ -114,14 +114,25 @@ class uWSGIDistribution(Distribution):
         return False
 
 
-setup(name='uWSGI',
-      version=uc.uwsgi_version,
-      description='The uWSGI server',
-      author='Unbit',
-      author_email='info@unbit.it',
-      license='GPL2',
-      descriptions='The uWSGI Platform',
-      url='https://uwsgi-docs.readthedocs.io/en/latest/',
-      py_modules=['uwsgidecorators'],
-      distclass=uWSGIDistribution,
-     )
+setup(
+    name='uWSGI',
+    version=uc.uwsgi_version,
+    description='The uWSGI server',
+    author='Unbit',
+    author_email='info@unbit.it',
+    license='GPL2',
+    descriptions='The uWSGI Platform',
+    url='https://uwsgi-docs.readthedocs.io/en/latest/',
+    py_modules=['uwsgidecorators'],
+    distclass=uWSGIDistribution,
+    classifiers=[
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.6',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+    ],
+)
