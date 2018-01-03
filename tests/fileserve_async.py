@@ -13,5 +13,5 @@ def application(environ, start_response):
         content_type = 'text/plain'
 
     start_response('200 OK', [('Content-Type', content_type)])
-    fd = open(filename, 'r')
+    fd = open(filename)
     yield environ['wsgi.file_wrapper'](fd, 32*1024)
