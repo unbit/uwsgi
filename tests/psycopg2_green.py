@@ -27,26 +27,24 @@ def application(env, start_response):
 
     start_response('200 Ok', [('Content-type', 'text/html')])
 
-    conn = psycopg2.connect("dbname=template1 user=postgres", async=True)
+    with psycopg2.connect("dbname=template1 user=postgres", async=True) as conn:
 
-    # suspend until connection
-    async_wait(conn)
+        # suspend until connection
+        async_wait(conn)
 
-    curs = conn.cursor()
+        with conn.cursor() as curs:
 
-    yield "<table>"
+            yield "<table>"
 
-    curs.execute("SELECT * FROM tests")
+            curs.execute("SELECT * FROM tests")
 
-    # suspend until result
-    async_wait(curs)
+            # suspend until result
+            async_wait(curs)
 
-    while True:
-        row = curs.fetchone()
-        if not row:
-            break
-        yield "<tr><td>%s</td></tr>" % str(row)
+            while True:
+                row = curs.fetchone()
+                if not row:
+                    break
+                yield "<tr><td>%s</td></tr>" % str(row)
 
-    yield "</table>"
-
-    conn.close()
+            yield "</table>"

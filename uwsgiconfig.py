@@ -348,25 +348,25 @@ def build_uwsgi(uc, print_only=False, gcll=None):
     last_cflags_ts = 0
 
     if os.path.exists('uwsgibuild.lastcflags'):
-        ulc = open('uwsgibuild.lastcflags')
-        last_cflags = ulc.read()
-        ulc.close()
+        with open('uwsgibuild.lastcflags') as ulc:
+            last_cflags = ulc.read()
         if uwsgi_cflags != last_cflags:
             os.environ['UWSGI_FORCE_REBUILD'] = '1'
         else:
             last_cflags_ts = os.stat('uwsgibuild.lastcflags')[8]
 
-    ulc = open('uwsgibuild.lastcflags', 'w')
-    ulc.write(uwsgi_cflags)
-    ulc.close()
+    with open('uwsgibuild.lastcflags', 'w') as ulc:
+        ulc.write(uwsgi_cflags)
 
     # embed uwsgi.h in the server binary. It increases the binary size, but will be very useful
     # for various tricks (like cffi integration)
     # if possible, the blob is compressed
     if sys.version_info[0] >= 3:
-        uwsgi_dot_h_content = open('uwsgi.h', 'rb').read()
+        with open('uwsgi.h', 'rb') as f:
+            uwsgi_dot_h_content = f.read()
     else:
-        uwsgi_dot_h_content = open('uwsgi.h').read()
+        with open('uwsgi.h') as f:
+            uwsgi_dot_h_content = f.read()
     if report['zlib']:
         import zlib
         # maximum level of compression
@@ -376,15 +376,18 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         uwsgi_dot_h = binascii.b2a_hex(uwsgi_dot_h_content).decode('ascii')
     else:
         uwsgi_dot_h = uwsgi_dot_h_content.encode('hex')
-    open('core/dot_h.c', 'w').write('char *uwsgi_dot_h = "%s";\n' % uwsgi_dot_h)
+    with open('core/dot_h.c', 'w') as f:
+        f.write('char *uwsgi_dot_h = "%s";\n' % uwsgi_dot_h)
     gcc_list.append('core/dot_h')
 
     # embed uwsgiconfig.py in the server binary. It increases the binary size, but will be very useful
     # if possible, the blob is compressed
     if sys.version_info[0] >= 3:
-        uwsgi_config_py_content = open('uwsgiconfig.py', 'rb').read()
+        with open('uwsgiconfig.py', 'rb') as f:
+            uwsgi_config_py_content = f.read()
     else:
-        uwsgi_config_py_content = open('uwsgiconfig.py').read()
+        with open('uwsgiconfig.py') as f:
+            uwsgi_config_py_content = f.read()
     if report['zlib']:
         import zlib
         # maximum level of compression
@@ -394,7 +397,8 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         uwsgi_config_py = binascii.b2a_hex(uwsgi_config_py_content).decode('ascii')
     else:
         uwsgi_config_py = uwsgi_config_py_content.encode('hex')
-    open('core/config_py.c', 'w').write('char *uwsgi_config_py = "%s";\n' % uwsgi_config_py)
+    with open('core/config_py.c', 'w') as f:
+        f.write('char *uwsgi_config_py = "%s";\n' % uwsgi_config_py)
     gcc_list.append('core/config_py')
 
     additional_sources = os.environ.get('UWSGI_ADDITIONAL_SOURCES')
@@ -634,15 +638,13 @@ class uConf(object):
             print("using profile: %s" % filename)
 
         if os.path.exists('uwsgibuild.lastprofile'):
-            ulp = open('uwsgibuild.lastprofile')
-            last_profile = ulp.read()
-            ulp.close()
+            with open('uwsgibuild.lastprofile') as ulp:
+                last_profile = ulp.read()
             if last_profile != filename:
                 os.environ['UWSGI_FORCE_REBUILD'] = '1'
 
-        ulp = open('uwsgibuild.lastprofile', 'w')
-        ulp.write(filename)
-        ulp.close()
+        with open('uwsgibuild.lastprofile', 'w') as ulp:
+            ulp.write(filename)
 
         if hasattr(self.config, 'read_file'):
             self.config.read_file(open_profile(filename))
@@ -1404,9 +1406,8 @@ def get_plugin_up(path):
         try:
             execfile('%s/uwsgiplugin.py' % path, up)
         except Exception:
-            f = open('%s/uwsgiplugin.py' % path)
-            exec(f.read(), up)
-            f.close()
+            with open('%s/uwsgiplugin.py' % path) as f:
+                exec(f.read(), up)
     else:
         print("Error: unable to find directory '%s'" % path)
         sys.exit(1)
@@ -1569,10 +1570,9 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
 
     try:
         if requires:
-            f = open('.uwsgi_plugin_section', 'w')
-            for rp in requires:
-                f.write("requires=%s\n" % rp)
-            f.close()
+            with open('.uwsgi_plugin_section', 'w') as f:
+                for rp in requires:
+                    f.write("requires=%s\n" % rp)
             objline = "objcopy %s.so --add-section uwsgi=.uwsgi_plugin_section %s.so" % (plugin_dest, plugin_dest)
             print_compilation_output(None, objline)
             os.system(objline)

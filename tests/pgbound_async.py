@@ -18,22 +18,20 @@ def application(env, start_response):
 
     start_response('200 OK', [('Content-Type', 'text/html')])
 
-    connection = psycopg2.connect(database='uwsgi', user='uwsgi', password='uwsgi', host='192.168.173.100', async=1)
+    with psycopg2.connect(database='uwsgi', user='uwsgi', password='uwsgi', host='192.168.173.100', async=1) as connection:
 
-    for i in pg_wait(connection, env, 3):
-        yield i
+        for i in pg_wait(connection, env, 3):
+            yield i
 
-    print "connected"
-    cursor = connection.cursor()
+        print "connected"
+        with connection.cursor() as cursor:
 
-    cursor.execute("SELECT * FROM foo")
+            cursor.execute("SELECT * FROM foo")
 
-    for i in pg_wait(cursor.connection, env, 3):
-        yield i
+            for i in pg_wait(cursor.connection, env, 3):
+                yield i
 
-    print "query result available"
+            print "query result available"
 
-    for record in cursor:
-        yield str(record)
-
-    connection.close()
+            for record in cursor:
+                yield str(record)

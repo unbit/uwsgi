@@ -16,5 +16,5 @@ except IndexError:
 
 def application(environ, start_response):
     start_response('200 OK', [('Content-Type', content_type)])
-    fd = open(filename)
-    yield environ['wsgi.file_wrapper'](fd, 32*1024)
+    with open(filename) as fd:
+        yield environ['wsgi.file_wrapper'](fd, 32*1024)
