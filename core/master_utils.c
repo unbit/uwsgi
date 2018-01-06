@@ -1960,7 +1960,14 @@ void uwsgi_dump_worker(int wid, char *msg) {
 		struct uwsgi_core *uc = &uwsgi.workers[wid].cores[i];
 		struct wsgi_request *wsgi_req = &uc->req;
 		if (uc->in_request) {
-			uwsgi_log_verbose("%s [core %d] %.*s - %.*s %.*s since %llu\n", msg, i, wsgi_req->remote_addr_len, wsgi_req->remote_addr, wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, (unsigned long long) (wsgi_req->start_of_request/(1000*1000)));
+			if (uwsgi.format_dump_epoch) {
+				char buf[26];
+				time_t t = wsgi_req->start_of_request_in_sec;
+				ctime_r(&t, buf);
+				uwsgi_log_verbose("%s [core %d] %.*s - %.*s %.*s since %s\n", msg, i, wsgi_req->remote_addr_len, wsgi_req->remote_addr, wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, buf);
+			} else {
+				uwsgi_log_verbose("%s [core %d] %.*s - %.*s %.*s since %llu\n", msg, i, wsgi_req->remote_addr_len, wsgi_req->remote_addr, wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, wsgi_req->start_of_request_in_sec);
+			}
 		}
 	}
 	uwsgi_log_verbose("%s !!! end of worker %d status !!!\n",msg, wid);

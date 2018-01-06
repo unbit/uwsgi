@@ -749,6 +749,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"logger-list", no_argument, 0, "list enabled loggers", uwsgi_opt_true, &uwsgi.loggers_list, 0},
 	{"loggers-list", no_argument, 0, "list enabled loggers", uwsgi_opt_true, &uwsgi.loggers_list, 0},
 	{"threaded-logger", no_argument, 0, "offload log writing to a thread", uwsgi_opt_true, &uwsgi.threaded_logger, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+	{"format-dump-epoch", no_argument, 0, "format epoch time on uwsgi_dump_worker", uwsgi_opt_true, &uwsgi.format_dump_epoch, 0},
 
 
 	{"log-encoder", required_argument, 0, "add an item in the log encoder chain", uwsgi_opt_add_string_list, &uwsgi.requested_log_encoders, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
