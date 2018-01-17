@@ -71,19 +71,19 @@ void set_user_harakiri(struct wsgi_request *wsgi_req, int sec) {
 		uwsgi_log("!!! unable to set user harakiri without the master process !!!\n");
 		return;
 	}
-	
+
 	// a 0 seconds value, reset the timer
-	int set_sec = sec == 0 ? 0 : uwsgi_now() + sec;
+	time_t timeout = sec == 0 ? 0 : uwsgi_now() + sec;
 
 	if (uwsgi.muleid > 0) {
-	  uwsgi.mules[uwsgi.muleid - 1].user_harakiri = set_sec;
+	  uwsgi.mules[uwsgi.muleid - 1].user_harakiri = timeout;
 	}
 	else if (uwsgi.i_am_a_spooler) {
 	  struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
-	  uspool->user_harakiri = set_sec;
+	  uspool->user_harakiri = timeout;
 	}
 	else if (wsgi_req) {
-	  uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri = set_sec;
+	  uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri = timeout;
 	}
 }
 
