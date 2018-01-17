@@ -71,30 +71,19 @@ void set_user_harakiri(struct wsgi_request *wsgi_req, int sec) {
 		uwsgi_log("!!! unable to set user harakiri without the master process !!!\n");
 		return;
 	}
+	
 	// a 0 seconds value, reset the timer
-	if (sec == 0) {
-		if (uwsgi.muleid > 0) {
-			uwsgi.mules[uwsgi.muleid - 1].user_harakiri = 0;
-		}
-		else if (uwsgi.i_am_a_spooler) {
-			struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
-			uspool->user_harakiri = 0;
-		}
-		else if (wsgi_req) {
-			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri = 0;
-		}
+	int set_sec = sec == 0 ? 0 : uwsgi_now() + sec;
+
+	if (uwsgi.muleid > 0) {
+	  uwsgi.mules[uwsgi.muleid - 1].user_harakiri = set_sec;
 	}
-	else {
-		if (uwsgi.muleid > 0) {
-			uwsgi.mules[uwsgi.muleid - 1].user_harakiri = uwsgi_now() + sec;
-		}
-		else if (uwsgi.i_am_a_spooler) {
-			struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
-			uspool->user_harakiri = uwsgi_now() + sec;
-		}
-		else if (wsgi_req) {
-			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri = uwsgi_now() + sec;
-		}
+	else if (uwsgi.i_am_a_spooler) {
+	  struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
+	  uspool->user_harakiri = set_sec;
+	}
+	else if (wsgi_req) {
+	  uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri = set_sec;
 	}
 }
 
