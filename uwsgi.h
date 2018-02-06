@@ -1071,6 +1071,7 @@ struct uwsgi_plugin {
 	uint64_t(*rpc) (void *, uint8_t, char **, uint16_t *, char **);
 
 	void (*jail) (int (*)(void *), char **);
+	void (*early_post_jail) (void);
 	void (*post_jail) (void);
 	void (*before_privileges_drop) (void);
 

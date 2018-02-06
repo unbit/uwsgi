@@ -534,6 +534,6 @@ end:
 struct uwsgi_plugin tuntap_plugin = {
 	.name = "tuntap",
 	.options = uwsgi_tuntap_options,
-	.post_jail = uwsgi_tuntap_client,
+	.early_post_jail = uwsgi_tuntap_client,
 	.jail = uwsgi_tuntap_router,
 };
