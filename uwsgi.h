@@ -1078,6 +1078,8 @@ struct uwsgi_plugin {
 	void (*vassal_before_exec)(struct uwsgi_instance *);
 
 	int (*worker)(void);
+
+	void (*early_post_jail) (void);
 };
 
 #ifdef UWSGI_PCRE
