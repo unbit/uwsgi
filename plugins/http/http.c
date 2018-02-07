@@ -71,6 +71,8 @@ struct uwsgi_option http_options[] = {
 	{"http-backend-http", no_argument, 0, "use plain http protocol instead of uwsgi for backend nodes", uwsgi_opt_true, &uhttp.proto_http, 0},
 
 	{"http-manage-rtsp", no_argument, 0, "manage RTSP sessions", uwsgi_opt_true, &uhttp.manage_rtsp, 0},
+
+	{"http-post-buffering", required_argument, 0, "enable HTTP fastrouter post buffering", uwsgi_opt_set_64bit, &uhttp.cr.post_buffering, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
