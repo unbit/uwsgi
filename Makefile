@@ -14,7 +14,7 @@ plugin.%:
 
 tests:
 	$(PYTHON) uwsgiconfig.py --build unittest
-	cd check && make
+	cd check && make && make test
 
 %:
 	$(PYTHON) uwsgiconfig.py --build $@
