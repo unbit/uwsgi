@@ -8,10 +8,10 @@ int uwsgi_static_want_gzip(struct wsgi_request *wsgi_req, char *filename, size_t
 	// check for filename size
 	if (*filename_len + 4 > PATH_MAX) return 0;
 	// check for supported encodings
-	can_br = !uwsgi_contains_n(wsgi_req->encoding, wsgi_req->encoding_len, "br", 2);
-	can_gzip = !uwsgi_contains_n(wsgi_req->encoding, wsgi_req->encoding_len, "gzip", 4);
+	can_br = uwsgi_contains_n(wsgi_req->encoding, wsgi_req->encoding_len, "br", 2);
+	can_gzip = uwsgi_contains_n(wsgi_req->encoding, wsgi_req->encoding_len, "gzip", 4);
 
-	if (!can_br || !can_gzip)
+	if(!can_br && !can_gzip)
 		return 0;
 
 	// check for 'all'
