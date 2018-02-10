@@ -519,6 +519,12 @@ void uwsgi_as_root() {
 #endif
 
 	if (in_jail || uwsgi.jailed) {
+		int i;
+		for (i = 0; i < uwsgi.gp_cnt; i++) {
+			if (uwsgi.gp[i]->early_post_jail) {
+				uwsgi.gp[i]->early_post_jail();
+			}
+		}
 		uwsgi_hooks_run(uwsgi.hook_post_jail, "post-jail", 1);
 		struct uwsgi_string_list *usl = NULL;
 		uwsgi_foreach(usl, uwsgi.mount_post_jail) {
@@ -572,7 +578,6 @@ void uwsgi_as_root() {
 		}
 
 
-		int i;
 		for (i = 0; i < uwsgi.gp_cnt; i++) {
 			if (uwsgi.gp[i]->post_jail) {
 				uwsgi.gp[i]->post_jail();
