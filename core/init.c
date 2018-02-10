@@ -152,6 +152,7 @@ void uwsgi_init_default() {
 	// 1 day of tolerance
 	uwsgi.subscriptions_sign_check_tolerance = 3600 * 24;
 	uwsgi.ssl_sessions_timeout = 300;
+	uwsgi.ssl_verify_depth = 1;
 #endif
 
 	uwsgi.alarm_freq = 3;
