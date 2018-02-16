@@ -868,6 +868,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 #ifdef UWSGI_DEBUG
 	uwsgi_log("emperor throttle = %d\n", emperor_throttle_level);
 #endif
+	/*
 	if (emperor_warming_up) {
 		if (emperor_throttle_level > 0) {
 			// wait 10 milliseconds in case of fork-bombing
@@ -878,6 +879,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 	else {
 		usleep(emperor_throttle_level * 1000);
 	}
+	*/
 
 	if (uwsgi.emperor_tyrant) {
 		if (uid == 0 || gid == 0) {
