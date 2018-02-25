@@ -525,6 +525,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"socket-write-timeout", no_argument, 0, "set SO_SNDTIMEO", uwsgi_opt_set_int, &uwsgi.so_send_timeout, 0},
 	{"socket-sndbuf", required_argument, 0, "set SO_SNDBUF", uwsgi_opt_set_64bit, &uwsgi.so_sndbuf, 0},
 	{"socket-rcvbuf", required_argument, 0, "set SO_RCVBUF", uwsgi_opt_set_64bit, &uwsgi.so_rcvbuf, 0},
+	{"shutdown-sockets", no_argument, 0, "force calling shutdown() in addition to close() when sockets are destroyed", uwsgi_opt_true, &uwsgi.shutdown_sockets, 0},
 	{"limit-as", required_argument, 0, "limit processes address space/vsz", uwsgi_opt_set_megabytes, &uwsgi.rl.rlim_max, 0},
 	{"limit-nproc", required_argument, 0, "limit the number of spawnable processes", uwsgi_opt_set_int, &uwsgi.rl_nproc.rlim_max, 0},
 	{"reload-on-as", required_argument, 0, "reload if address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_as, UWSGI_OPT_MEMORY},
@@ -1248,6 +1249,8 @@ void gracefully_kill(int signum) {
 		struct wsgi_request *wsgi_req = current_wsgi_req();
 		wait_for_threads();
 		if (!uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request) {
+			if (uwsgi.workers[uwsgi.mywid].shutdown_sockets)
+				uwsgi_shutdown_all_sockets();
 			exit(UWSGI_RELOAD_CODE);
 		}
 		return;
@@ -1256,10 +1259,14 @@ void gracefully_kill(int signum) {
 
 	// still not found a way to gracefully reload in async mode
 	if (uwsgi.async > 1) {
+		if (uwsgi.workers[uwsgi.mywid].shutdown_sockets)
+			uwsgi_shutdown_all_sockets();
 		exit(UWSGI_RELOAD_CODE);
 	}
 
 	if (!uwsgi.workers[uwsgi.mywid].cores[0].in_request) {
+		if (uwsgi.workers[uwsgi.mywid].shutdown_sockets)
+			uwsgi_shutdown_all_sockets();
 		exit(UWSGI_RELOAD_CODE);
 	}
 }
@@ -1334,6 +1341,8 @@ void gracefully_kill_them_all(int signum) {
         int i;
         for (i = 1; i <= uwsgi.numproc; i++) {
                 if (uwsgi.workers[i].pid > 0) {
+			if (uwsgi.shutdown_sockets)
+				uwsgi.workers[i].shutdown_sockets = 1;
                         uwsgi_curse(i, SIGHUP);
                 }
         }
@@ -2600,7 +2609,6 @@ int uwsgi_start(void *v_argv) {
 	uwsgi_file_write_do(uwsgi.file_write_list);
 
 	if (!uwsgi.master_as_root && !uwsgi.chown_socket && !uwsgi.drop_after_init && !uwsgi.drop_after_apps) {
-		uwsgi_log("dropping root privileges as early as possible\n");
 		uwsgi_as_root();
 	}
 
@@ -2839,7 +2847,6 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_bind_sockets();
 
 		if (!uwsgi.master_as_root && !uwsgi.drop_after_init && !uwsgi.drop_after_apps) {
-			uwsgi_log("dropping root privileges after socket binding\n");
 			uwsgi_as_root();
 		}
 
@@ -2859,7 +2866,6 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	if (!uwsgi.master_as_root && !uwsgi.drop_after_apps) {
-		uwsgi_log("dropping root privileges after plugin initialization\n");
 		uwsgi_as_root();
 	}
 
@@ -3113,7 +3119,6 @@ next:
 	}
 
 	if (!uwsgi.master_as_root) {
-		uwsgi_log("dropping root privileges after application loading\n");
 		uwsgi_as_root();
 	}
 
@@ -3366,7 +3371,6 @@ int uwsgi_run() {
 	}
 
 	if (uwsgi.master_as_root) {
-		uwsgi_log("dropping root privileges after master thread creation\n");
 		uwsgi_as_root();
 	}
 

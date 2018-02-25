@@ -2828,6 +2828,9 @@ struct uwsgi_server {
 	size_t response_header_limit;
 	char *safe_pidfile;
 	char *safe_pidfile2;
+
+	// uWSGI 2.0.17
+	int shutdown_sockets;
 };
 
 struct uwsgi_rpc {
@@ -3037,6 +3040,8 @@ struct uwsgi_worker {
 	int accepting;
 
 	char name[0xff];
+
+	int shutdown_sockets;
 };
 
 
@@ -3547,6 +3552,7 @@ struct uwsgi_socket *uwsgi_new_shared_socket(char *);
 struct uwsgi_socket *uwsgi_del_socket(struct uwsgi_socket *);
 
 void uwsgi_close_all_sockets(void);
+void uwsgi_shutdown_all_sockets(void);
 void uwsgi_close_all_unshared_sockets(void);
 
 struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **, char *);

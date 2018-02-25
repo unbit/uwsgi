@@ -1263,6 +1263,19 @@ void uwsgi_close_all_sockets() {
         }
 }
 
+void uwsgi_shutdown_all_sockets() {
+	uwsgi_log_verbose("shutting down all sockets...\n");
+        struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+
+        while (uwsgi_sock) {
+                if (uwsgi_sock->bound) {
+                        shutdown(uwsgi_sock->fd, SHUT_RDWR);
+                        close(uwsgi_sock->fd);
+                }
+                uwsgi_sock = uwsgi_sock->next;
+        }
+}
+
 void uwsgi_close_all_unshared_sockets() {
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
