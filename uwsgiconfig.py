@@ -29,6 +29,7 @@ except:
 
 
 PY3 = sys.version_info[0] == 3
+is_64bits = sys.maxsize > 2**32
 
 if uwsgi_os == 'Darwin':
     GCC = os.environ.get('CC', 'clang')
@@ -677,7 +678,10 @@ class uConf(object):
             self.include_path += os.environ['UWSGI_INCLUDES'].split(',')
 
 
-        self.cflags = ['-O2', '-I.', '-Wall', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split() + self.get('cflags','').split()
+        self.cflags = ['-O2', '-I.', '-Wall', '-D_LARGEFILE_SOURCE'] + os.environ.get("CFLAGS", "").split() + self.get('cflags','').split()
+
+        if is_64bits:
+            self.cflags.append('-D_FILE_OFFSET_BITS=64')
 
         report['kernel'] = uwsgi_os
 
