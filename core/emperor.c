@@ -851,6 +851,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 		}
 	}
 
+	// TODO make it meaningful
 	if (now - emperor_throttle < 1) {
 		emperor_throttle_level = emperor_throttle_level * 2;
 	}
@@ -2079,7 +2080,8 @@ void emperor_send_stats(int fd) {
 	if (uwsgi_stats_keylong_comma(us, "emperor_tyrant", (unsigned long long) uwsgi.emperor_tyrant))
 		goto end0;
 
-	if (uwsgi_stats_keylong_comma(us, "throttle_level", (unsigned long long) emperor_throttle_level / 1000))
+	// will be zero for now
+	if (uwsgi_stats_keylong_comma(us, "throttle_level", (unsigned long long) 0))
 		goto end0;
 
 
