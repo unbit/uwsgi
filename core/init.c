@@ -95,6 +95,8 @@ void uwsgi_init_default() {
 	uwsgi.cores = 1;
 	uwsgi.threads = 1;
 
+	uwsgi.need_app = 1;
+
 	// default max number of rpc slot
 	uwsgi.rpc_max = 64;
 
