@@ -2910,6 +2910,8 @@ struct uwsgi_server {
 
 	size_t argv_len;
 	size_t environ_len;
+
+	int dynamic_apps;
 };
 
 struct uwsgi_rpc {
