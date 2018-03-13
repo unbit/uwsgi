@@ -2178,6 +2178,14 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 	// count/set the current reload status
 	uwsgi_setup_reload();
 
+#ifdef UWSGI_AS_SHARED_LIBRARY
+#ifdef __APPLE__
+	// environ is invalid after setenv()
+	envPtr = _NSGetEnviron();
+	environ = *envPtr;
+#endif
+#endif
+
 #ifdef __CYGWIN__
 	SYSTEM_INFO si;
 	GetSystemInfo(&si);
