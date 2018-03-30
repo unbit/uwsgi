@@ -2,7 +2,10 @@
 
 #ifdef UWSGI_ROUTING
 
-#if defined(__linux__) && defined(__GLIBC__)
+#if defined(__linux__) && (defined(__GLIBC__) && __GLIBC__ == 2) && \
+    (defined(__GLIBC_MINOR__) && __GLIBC_MINOR__ >= 2 && __GLIBC_MINOR__ < 4)
+    /* work around glibc-2.2.5 bug,
+     * has been fixed at some time in glibc-2.3.X */
 #include <crypt.h>
 #elif defined(__CYGWIN__)
 #include <crypt.h>
@@ -66,7 +69,10 @@ static uint16_t htpasswd_check(char *filename, char *auth) {
 
 		if (clen > 13) cpwd[13] = 0;
 
-#if defined(__linux__) && defined(__GLIBC__)
+#if defined(__linux__) && (defined(__GLIBC__) && __GLIBC__ == 2) && \
+    (defined(__GLIBC_MINOR__) && __GLIBC_MINOR__ >= 2 && __GLIBC_MINOR__ < 4)
+    /* work around glibc-2.2.5 bug,
+     * has been fixed at some time in glibc-2.3.X */
 		struct crypt_data cd;
 		cd.initialized = 0;
 		// we do as nginx here
