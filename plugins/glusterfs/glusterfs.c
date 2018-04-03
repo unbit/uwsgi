@@ -1,5 +1,5 @@
 #include <uwsgi.h>
-#include <api/glfs.h>
+#include <glusterfs/api/glfs.h>
 
 extern struct uwsgi_server uwsgi;
 
