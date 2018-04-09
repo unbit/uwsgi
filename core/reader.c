@@ -5,11 +5,17 @@ extern struct uwsgi_server uwsgi;
 int uwsgi_simple_wait_read_hook(int fd, int timeout) {
 	struct pollfd upoll;
 	timeout = timeout * 1000;
+	int ret;
 
         upoll.fd = fd;
         upoll.events = POLLIN;
         upoll.revents = 0;
-        int ret = poll(&upoll, 1, timeout);
+	for (;;) {
+		ret = poll(&upoll, 1, timeout);
+		if ((ret < 0) && (errno == EINTR))
+			continue;
+		break;
+        }
 
         if (ret > 0) {
                 if (upoll.revents & POLLIN) {
