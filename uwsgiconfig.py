@@ -564,13 +564,19 @@ def build_uwsgi(uc, print_only=False, gcll=None):
             t.join()
 
     print("*** uWSGI linking ***")
-    ldline = "%s -o %s %s %s %s" % (
-        GCC,
-        bin_name,
-        ' '.join(uniq_warnings(ldflags)),
-        ' '.join(map(add_o, gcc_list)),
-        ' '.join(uniq_warnings(libs))
-    )
+    if '--static' in ldflags:
+        ldline = 'ar cru %s %s' % (
+            bin_name,
+            ' '.join(map(add_o, gcc_list))
+        )
+    else:
+        ldline = "%s -o %s %s %s %s" % (
+            GCC,
+            bin_name,
+            ' '.join(uniq_warnings(ldflags)),
+            ' '.join(map(add_o, gcc_list)),
+            ' '.join(uniq_warnings(libs))
+        )
     print(ldline)
     ret = os.system(ldline)
     if ret != 0:
@@ -1053,7 +1059,10 @@ class uConf(object):
         report['malloc'] = self.get('malloc_implementation')
 
         if self.get('as_shared_library'):
-            self.ldflags.append('-shared')
+            if self.get('as_shared_library') == 'static':
+                self.ldflags.append('--static')
+            else:
+                self.ldflags.append('-shared')
             # on cygwin we do not need PIC (it is implicit)
             if not uwsgi_os.startswith('CYGWIN'):
                 self.ldflags.append('-fPIC')

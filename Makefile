@@ -12,5 +12,11 @@ check:
 plugin.%:
 	$(PYTHON) uwsgiconfig.py --plugin plugins/$* $(PROFILE)
 
+tests:
+	$(PYTHON) uwsgiconfig.py --build unittest
+	cd check && make && make test
+
 %:
 	$(PYTHON) uwsgiconfig.py --build $@
+
+.PHONY: tests
