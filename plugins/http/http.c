@@ -73,6 +73,8 @@ struct uwsgi_option http_options[] = {
 	{"http-manage-rtsp", no_argument, 0, "manage RTSP sessions", uwsgi_opt_true, &uhttp.manage_rtsp, 0},
 
 	{"http-post-buffering", required_argument, 0, "enable HTTP fastrouter post buffering", uwsgi_opt_set_64bit, &uhttp.cr.post_buffering, 0},
+        {"http-post-buffering-dir", required_argument, 0, "put fastrouter buffered files to the specified directory (noop, use TMPDIR env)", uwsgi_opt_set_str, &uhttp.cr.pb_base_dir, 0},
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
