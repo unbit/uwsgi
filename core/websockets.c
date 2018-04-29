@@ -62,7 +62,7 @@ static int uwsgi_websockets_check_pingpong(struct wsgi_request *wsgi_req) {
 	}
 	// pong not received ?
 	if (wsgi_req->websocket_last_pong < wsgi_req->websocket_last_ping) {
-		if (wsgi_req->websocket_last_ping - wsgi_req->websocket_last_pong > uwsgi.websockets_pong_tolerance) {
+		if (now - wsgi_req->websocket_last_ping > uwsgi.websockets_pong_tolerance) {
                                 uwsgi_log("[uwsgi-websocket] \"%.*s %.*s\" (%.*s) no PONG received in %d seconds !!!\n", REQ_DATA, uwsgi.websockets_pong_tolerance);
 				return -1;
 		}
