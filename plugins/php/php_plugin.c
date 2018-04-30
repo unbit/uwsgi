@@ -7,7 +7,6 @@ static sapi_module_struct uwsgi_sapi_module;
 static int uwsgi_php_init(void);
 
 struct uwsgi_php {
-	HashTable user_config_cache;
 	struct uwsgi_string_list *allowed_docroot;
 	struct uwsgi_string_list *allowed_ext;
 	struct uwsgi_string_list *allowed_scripts;
@@ -36,6 +35,7 @@ struct uwsgi_php {
 	char *sapi_name;
 
 	int sapi_initialized;
+	HashTable user_config_cache;
 } uphp;
 
 void uwsgi_opt_php_ini(char *opt, char *value, void *foobar) {
