@@ -408,13 +408,15 @@ class WSGIfilewrapper(object):
             if self.chunksize == 0:
                 chunk = self.f.read()
                 if len(chunk) > 0:
-                    lib.uwsgi_response_write_body_do(self.wsgi_req, ffi.new("char[]", maybeEncode(chunk)), len(chunk))
+                    chunkobj = maybeEncode(chunk)
+                    lib.uwsgi_response_write_body_do(self.wsgi_req, ffi.new("char[]", chunkobj), len(chunkobj))
                 return
             while True:
                 chunk = self.f.read(self.chunksize)
                 if chunk is None or len(chunk) == 0:
                     break
-                lib.uwsgi_response_write_body_do(self.wsgi_req, ffi.new("char[]", maybeEncode(chunk)), len(chunk))
+                chunkobj = maybeEncode(chunk)
+                lib.uwsgi_response_write_body_do(self.wsgi_req, ffi.new("char[]", chunkobj), len(chunkobj))
 
 
 class WSGIinput(object):
@@ -473,14 +475,18 @@ def uwsgi_pypy_wsgi_handler(wsgi_req):
     global wsgi_application
 
     def writer(data):
-        lib.uwsgi_response_write_body_do(wsgi_req, ffi.new("char[]", maybeEncode(data)), len(data))
+        dataobj = maybeEncode(data)
+        lib.uwsgi_response_write_body_do(wsgi_req, ffi.new("char[]", dataobj), len(dataobj))
 
     def start_response(status, headers, exc_info=None):
         if exc_info:
             traceback.print_exception(*exc_info)
-        lib.uwsgi_response_prepare_headers(wsgi_req, ffi.new("char[]", maybeEncode(status)), len(status))
+        statusobj = maybeEncode(status)
+        lib.uwsgi_response_prepare_headers(wsgi_req, ffi.new("char[]", statusobj), len(statusobj))
         for hh in headers:
-            lib.uwsgi_response_add_header(wsgi_req, ffi.new("char[]", maybeEncode(hh[0])), len(hh[0]), ffi.new("char[]", maybeEncode(hh[1])), len(hh[1]))
+            hh0obj = maybeEncode(hh[0])
+            hh1obj = maybeEncode(hh[1])
+            lib.uwsgi_response_add_header(wsgi_req, ffi.new("char[]", hh0obj), len(hh0obj), ffi.new("char[]", hh1obj), len(hh1obj))
         return writer
 
     environ = {}
@@ -586,8 +592,9 @@ def uwsgi_pypy_rpc(node, func, *args):
             raise Exception('invalid number of rpc arguments')
         if len(arg) >= 65535:
             raise Exception('invalid rpc argument size (must be < 65535)')
-        argv[argc] = ffi.new('char[]', maybeEncode(arg))
-        argvs[argc] = len(arg)
+        argobj = maybeEncode(arg)
+        argv[argc] = ffi.new('char[]', argobj)
+        argvs[argc] = len(argobj)
         argc += 1
 
     if node:
@@ -717,7 +724,8 @@ uwsgi.signal_registered = uwsgi_pypy_signal_registered
 
 
 def uwsgi_pypy_alarm(alarm, msg):
-    lib.uwsgi_alarm_trigger(ffi.new('char[]', maybeEncode(alarm)), ffi.new('char[]', maybeEncode(msg)), len(msg))
+    msgobj = maybeEncode(msg)
+    lib.uwsgi_alarm_trigger(ffi.new('char[]', maybeEncode(alarm)), ffi.new('char[]', msgobj), len(msgobj))
 uwsgi.alarm = uwsgi_pypy_alarm
 
 uwsgi.setprocname = lambda name: lib.uwsgi_set_processname(ffi.new('char[]', maybeEncode(name)))
@@ -936,10 +944,13 @@ def uwsgi_pypy_websocket_handshake(key='', origin='', proto=''):
     uwsgi.websocket_handshake(key, origin)
     """
     wsgi_req = uwsgi_pypy_current_wsgi_req()
-    c_key = ffi.new('char[]', maybeEncode(key))
-    c_origin = ffi.new('char[]', maybeEncode(origin))
-    c_proto = ffi.new('char[]', maybeEncode(proto))
-    if lib.uwsgi_websocket_handshake(wsgi_req, c_key, len(key), c_origin, len(origin), c_proto, len(proto)) < 0:
+    keyobj = maybeEncode(key)
+    originobj = maybeEncode(origin)
+    protoobj = maybeEncode(proto)
+    c_key = ffi.new('char[]', keyobj)
+    c_origin = ffi.new('char[]', originobj)
+    c_proto = ffi.new('char[]', protoobj)
+    if lib.uwsgi_websocket_handshake(wsgi_req, c_key, len(keyobj), c_origin, len(originobj), c_proto, len(protoobj)) < 0:
         raise IOError("unable to complete websocket handshake")
 uwsgi.websocket_handshake = uwsgi_pypy_websocket_handshake
 
@@ -949,7 +960,8 @@ def uwsgi_pypy_websocket_send(msg):
     uwsgi.websocket_send(msg)
     """
     wsgi_req = uwsgi_pypy_current_wsgi_req()
-    if lib.uwsgi_websocket_send(wsgi_req, ffi.new('char[]', maybeEncode(msg)), len(msg)) < 0:
+    msgobj = maybeEncode(msg)
+    if lib.uwsgi_websocket_send(wsgi_req, ffi.new('char[]', msgobj), len(msgobj)) < 0:
         raise IOError("unable to send websocket message")
 uwsgi.websocket_send = uwsgi_pypy_websocket_send
 
@@ -997,8 +1009,9 @@ def uwsgi_pypy_get_logvar(key):
     uwsgi.get_logvar(key)
     """
     wsgi_req = uwsgi_pypy_current_wsgi_req()
-    c_key = ffi.new('char[]', maybeEncode(key))
-    lv = lib.uwsgi_logvar_get(wsgi_req, c_key, len(key))
+    keyobj = maybeEncode(key)
+    c_key = ffi.new('char[]', keyobj)
+    lv = lib.uwsgi_logvar_get(wsgi_req, c_key, len(keyobj))
     if lv:
         return maybeDecode(ffi.string(lv.val[0:lv.vallen]))
     return None
@@ -1010,9 +1023,11 @@ def uwsgi_pypy_set_logvar(key, val):
     uwsgi.set_logvar(key, value)
     """
     wsgi_req = uwsgi_pypy_current_wsgi_req()
-    c_key = ffi.new('char[]', maybeEncode(key))
-    c_val = ffi.new('char[]', maybeEncode(val))
-    lib.uwsgi_logvar_add(wsgi_req, c_key, len(key), c_val, len(val))
+    keyobj = maybeEncode(key)
+    valobj = maybeEncode(val)
+    c_key = ffi.new('char[]', keyobj)
+    c_val = ffi.new('char[]', valobj)
+    lib.uwsgi_logvar_add(wsgi_req, c_key, len(keyobj), c_val, len(valobj))
 uwsgi.set_logvar = uwsgi_pypy_set_logvar
 
 
