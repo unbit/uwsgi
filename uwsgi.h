@@ -3466,6 +3466,7 @@ void uwsgi_detach_daemons();
 
 void emperor_loop(void);
 char *uwsgi_num2str(int);
+char *uwsgi_float2str(float);
 char *uwsgi_64bit2str(int64_t);
 
 char *magic_sub(char *, size_t, size_t *, char *[]);
