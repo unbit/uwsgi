@@ -1170,6 +1170,11 @@ static ssize_t uwsgi_lf_msecs(struct wsgi_request * wsgi_req, char **buf) {
 	return strlen(*buf);
 }
 
+static ssize_t uwsgi_lf_secs(struct wsgi_request * wsgi_req, char **buf) {
+	*buf = uwsgi_float2str((wsgi_req->end_of_request - wsgi_req->start_of_request) / 1000000.0);
+	return strlen(*buf);
+}
+
 static ssize_t uwsgi_lf_pid(struct wsgi_request * wsgi_req, char **buf) {
 	*buf = uwsgi_num2str(uwsgi.mypid);
 	return strlen(*buf);
@@ -1938,6 +1943,7 @@ void uwsgi_register_logchunks() {
 	r_logchunk(cl);
 	r_logchunk(micros);
 	r_logchunk(msecs);
+	r_logchunk(secs);
 	r_logchunk(tmsecs);
 	r_logchunk(tmicros);
 	r_logchunk(time);
