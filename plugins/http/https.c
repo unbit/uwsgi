@@ -183,7 +183,9 @@ int hr_https_add_vars(struct http_session *hr, struct corerouter_peer *peer, str
                         unsigned char *client_cert_der = NULL;
                         client_cert_len = i2d_X509(hr->ssl_client_cert, &client_cert_der);
                         if (client_cert_len < 0) return -1;
-                        if (uwsgi_buffer_append_keyval(out, "HTTPS_CLIENT_CERTIFICATE", 24, (char*)client_cert_der, client_cert_len)) return -1;
+			int ret = uwsgi_buffer_append_keyval(out, "HTTPS_CLIENT_CERTIFICATE", 24, (char*)client_cert_der, client_cert_len);
+			OPENSSL_free(client_cert_der);
+			if (ret) return -1;
 
                         X509_NAME *name = X509_get_subject_name(hr->ssl_client_cert);
                         if (name) {
