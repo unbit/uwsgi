@@ -271,6 +271,15 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 		ud->throttle = ud->respawns - (uwsgi.current_time - ud->last_spawn);
 		// if ud->respawns == 0 then we can end up with throttle < 0
 		if (ud->throttle <= 0) ud->throttle = 1;
+		if (ud->max_throttle > 0 ) {
+			if (ud->throttle > ud->max_throttle) {
+				ud->throttle = ud->max_throttle;
+			}
+		}
+		// use an arbitrary value (5 minutes to avoid endless sleeps...)
+		else if (ud->throttle > 300) {
+			ud->throttle = 300;
+		}
 	}
 
 	pid_t pid = uwsgi_fork("uWSGI external daemon");
@@ -510,6 +519,7 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 	char *d_gid = NULL;
 	char *d_ns_pid = NULL;
 	char *d_chdir = NULL;
+	char *d_max_throttle = NULL;
 
 	char *arg = uwsgi_str(value);
 
@@ -532,6 +542,7 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 		"gid", &d_gid,	
 		"ns_pid", &d_ns_pid,	
 		"chdir", &d_chdir,	
+		"max_throttle", &d_max_throttle,	
 	NULL)) {
 		uwsgi_log("invalid --%s keyval syntax\n", opt);
 		exit(1);
@@ -580,6 +591,8 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
         uwsgi_ud->ns_pid = d_ns_pid ? 1 : 0;
 
 	uwsgi_ud->chdir = d_chdir;
+
+	uwsgi_ud->max_throttle = d_max_throttle ? atoi(d_max_throttle) : 0;
 
 	if (d_touch) {
 		size_t i,rlen = 0;
