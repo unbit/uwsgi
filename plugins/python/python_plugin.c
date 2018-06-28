@@ -205,6 +205,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 
 	{"wsgi-manage-chunked-input", no_argument, 0, "manage chunked input via the wsgi.input_terminated extension", uwsgi_opt_true, &up.wsgi_manage_chunked_input, 0},
 
+	{"py-master-check-signals", no_argument, 0, "enable python signal handlers in master", uwsgi_opt_true, &up.master_check_signals, 0},
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -2044,6 +2046,23 @@ static int uwsgi_python_worker() {
 	return 1;
 }
 
+static void uwsgi_python_master_cycle() {
+	if (up.master_check_signals) {
+                UWSGI_GET_GIL;
+
+                // run python signal handlers if any scheduled
+                if (PyErr_CheckSignals()) {
+			uwsgi_log("exception in python signal handler\n");
+			PyErr_Print();
+			UWSGI_RELEASE_GIL;
+			exit(1);
+		}
+
+		UWSGI_RELEASE_GIL;
+	}
+}
+
+
 struct uwsgi_plugin python_plugin = {
 	.name = "python",
 	.alias = "python",
@@ -2059,6 +2078,7 @@ struct uwsgi_plugin python_plugin = {
 
 	.fixup = uwsgi_python_fixup,
 	.master_fixup = uwsgi_python_master_fixup,
+	.master_cycle = uwsgi_python_master_cycle,
 
 	.mount_app = uwsgi_python_mount_app,
 

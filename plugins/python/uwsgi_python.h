@@ -222,6 +222,8 @@ struct uwsgi_python {
 	char *worker_override;
 
 	int wsgi_manage_chunked_input;
+
+	int master_check_signals;
 };
 
 
