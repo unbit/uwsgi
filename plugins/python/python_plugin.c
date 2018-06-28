@@ -2047,11 +2047,18 @@ static int uwsgi_python_worker() {
 }
 
 static void uwsgi_python_master_cycle() {
-	// run python signal handlers if any scheduled
-	if (up.master_check_signals && PyErr_CheckSignals()) {
-		uwsgi_log("exception in python signal handler\n");
-		PyErr_Print();
-		exit(1);
+	if (up.master_check_signals) {
+                UWSGI_GET_GIL;
+
+                // run python signal handlers if any scheduled
+                if (PyErr_CheckSignals()) {
+			uwsgi_log("exception in python signal handler\n");
+			PyErr_Print();
+			UWSGI_RELEASE_GIL;
+			exit(1);
+		}
+
+		UWSGI_RELEASE_GIL;
 	}
 }
 
