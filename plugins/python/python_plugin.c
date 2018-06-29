@@ -431,7 +431,11 @@ void uwsgi_python_post_fork() {
 
 	// reset python signal flags so child processes can trap signals
 	if (up.call_osafterfork) {
+#ifdef HAS_NOT_PyOS_AfterFork_Child
 		PyOS_AfterFork();
+#else
+                PyOS_AfterFork_Child();
+#endif
 	}
 
 	uwsgi_python_reset_random_seed();
@@ -2036,7 +2040,11 @@ static int uwsgi_python_worker() {
 	UWSGI_GET_GIL;
 	// ensure signals can be used again from python
 	if (!up.call_osafterfork)
+#ifdef HAS_NOT_PyOS_AfterFork_Child
 		PyOS_AfterFork();
+#else
+                PyOS_AfterFork_Child();
+#endif
 	FILE *pyfile = fopen(up.worker_override, "r");
 	if (!pyfile) {
 		uwsgi_error_open(up.worker_override);
