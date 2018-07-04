@@ -2850,6 +2850,10 @@ struct uwsgi_server {
 	int ssl_verify_depth;
 #endif
 
+#ifdef UWSGI_SSL
+	int tlsv1;
+#endif
+
 	size_t response_header_limit;
 	
 	// uWSGI 2.1

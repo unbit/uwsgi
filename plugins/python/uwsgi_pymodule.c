@@ -1569,7 +1569,7 @@ PyObject *py_uwsgi_spooler_dir(PyObject * self, PyObject * args) {
 
 	for (;spooler;spooler=spooler->next) {
 		if (uwsgi.mypid == spooler->pid) {
-			if (spooler->dir) return PyString_FromString(spooler->dir);
+			if (spooler->dir > 0) return PyString_FromString(spooler->dir);
 			Py_INCREF(Py_None);
 			return Py_None;
 		}

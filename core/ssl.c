@@ -231,6 +231,10 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 		ssloptions |= SSL_OP_NO_SSLv3;
 	}
 
+	if (!uwsgi.tlsv1) {
+		ssloptions |= SSL_OP_NO_TLSv1;
+	}
+
 // release/reuse buffers as soon as possible
 #ifdef SSL_MODE_RELEASE_BUFFERS
         SSL_CTX_set_mode(ctx, SSL_MODE_RELEASE_BUFFERS);
