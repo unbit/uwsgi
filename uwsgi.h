@@ -2833,6 +2833,10 @@ struct uwsgi_server {
 
 	// uWSGI 2.0.17
 	int shutdown_sockets;
+
+#ifdef UWSGI_SSL
+	int tlsv1;
+#endif
 };
 
 struct uwsgi_rpc {
