@@ -655,7 +655,10 @@ class uConf(object):
         ulp.write(filename)
         ulp.close()
 
-        self.config.readfp(open_profile(filename))
+        if hasattr(self.config, 'read_file'):
+            self.config.read_file(open_profile(filename))
+        else:
+            self.config.readfp(open_profile(filename))
         self.gcc_list = ['core/utils', 'core/protocol', 'core/socket', 'core/logging', 'core/master', 'core/master_utils', 'core/emperor',
             'core/notify', 'core/mule', 'core/subscription', 'core/stats', 'core/sendfile', 'core/async', 'core/master_checks', 'core/fifo',
             'core/offload', 'core/io', 'core/static', 'core/websockets', 'core/spooler', 'core/snmp', 'core/exceptions', 'core/config',
@@ -774,7 +777,11 @@ class uConf(object):
             for option in self.config.options('uwsgi'):
                 interpolations[option] = self.get(option, default='')
             iconfig = ConfigParser.ConfigParser(interpolations)
-            iconfig.readfp(open_profile(inherit))
+            self.config.read_file(open_profile(filename))
+            if hasattr(self.config, 'read_file'):
+                iconfig.read_file(open_profile(inherit))
+            else:
+                iconfig.readfp(open_profile(inherit))
 
             for opt in iconfig.options('uwsgi'):
                 if not self.config.has_option('uwsgi', opt):
