@@ -777,7 +777,6 @@ class uConf(object):
             for option in self.config.options('uwsgi'):
                 interpolations[option] = self.get(option, default='')
             iconfig = ConfigParser.ConfigParser(interpolations)
-            self.config.read_file(open_profile(filename))
             if hasattr(self.config, 'read_file'):
                 iconfig.read_file(open_profile(inherit))
             else:
