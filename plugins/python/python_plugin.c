@@ -1531,6 +1531,7 @@ void *uwsgi_python_autoreloader_thread(void *interpreter) {
 			if (!PyObject_HasAttrString(mod, "__file__")) continue;
 			PyObject *mod_file = PyObject_GetAttrString(mod, "__file__");
 			if (!mod_file) continue;
+			if (mod_file == Py_None) continue;
 #ifdef PYTHREE
 			PyObject *zero = PyUnicode_AsUTF8String(mod_file);
 			char *mod_filename = PyString_AsString(zero);
