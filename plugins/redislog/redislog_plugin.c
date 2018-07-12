@@ -159,7 +159,7 @@ done:
 		uredislog->fd = uwsgi_connect(uredislog->address, uwsgi.socket_timeout, 0);
 		if (uredislog->password) {
 		  setup_iov.iov_len = snprintf(
-		    setup_buf, sizeof (setup_buf), "*2\r\n$4\r\nauth\r\n$%lu\r\n%*s\r\n",
+		    setup_buf, sizeof (setup_buf), "*2\r\n$4\r\nauth\r\n$%zu\r\n%*s\r\n",
 		    strlen(uredislog->password), (int)strlen(uredislog->password), uredislog->password);
 		  setup_iov.iov_base = setup_buf;
 		  ret = writev(uredislog->fd, &setup_iov, 1);
@@ -172,7 +172,7 @@ done:
 		}
 		if (uredislog->id) {
 		  setup_iov.iov_len = snprintf(
-		    setup_buf, sizeof (setup_buf), "*2\r\n$6\r\nselect\r\n$%lu\r\n%*s\r\n",
+		    setup_buf, sizeof (setup_buf), "*2\r\n$6\r\nselect\r\n$%zu\r\n%*s\r\n",
 	            strlen(uredislog->id), (int)strlen(uredislog->id), uredislog->id);
 		  setup_iov.iov_base = setup_buf;
 		  ret = writev(uredislog->fd, &setup_iov, 1);
