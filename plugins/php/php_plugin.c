@@ -36,6 +36,7 @@ struct uwsgi_php {
 
 	int sapi_initialized;
 	HashTable user_config_cache;
+	struct uwsgi_dyn_dict *mountpoint;
 } uphp;
 
 void uwsgi_opt_php_ini(char *opt, char *value, void *foobar) {
@@ -79,6 +80,7 @@ struct uwsgi_option uwsgi_php_options[] = {
 
         {"early-php", no_argument, 0, "initialize an early perl interpreter shared by all loaders", uwsgi_opt_early_php, NULL, UWSGI_OPT_IMMEDIATE},
         {"early-php-sapi-name", required_argument, 0, "hack the sapi name (required for enabling zend opcode cache)", uwsgi_opt_set_str, &uphp.sapi_name, UWSGI_OPT_IMMEDIATE},
+        {"php-mount", required_argument, 0, "add a php mountpoint", uwsgi_opt_add_dyn_dict, &uphp.mountpoint, 0},
 	UWSGI_END_OF_OPTIONS
 };
 
@@ -678,6 +680,20 @@ static sapi_module_struct uwsgi_sapi_module = {
 	STANDARD_SAPI_MODULE_PROPERTIES
 };
 
+static void uwsgi_php_init_mount(struct uwsgi_dyn_dict *mount_dict) {
+	struct uwsgi_dyn_dict *udd = mount_dict;
+	while (udd) {
+		char *orig_dest = udd->value;
+		udd->value = uwsgi_expand_path(udd->value, udd->vallen, NULL);
+		udd->vallen = strlen(udd->value);
+		if (!udd->value) {
+			uwsgi_log("Unable to expand php mountpoint to %s\n", orig_dest);
+			exit(1);
+		}
+		udd = udd->next;
+	}
+}
+
 static int uwsgi_php_init(void) {
 
 	struct uwsgi_string_list *pset = uphp.set;
@@ -718,6 +734,8 @@ static int uwsgi_php_init(void) {
 			exit(1);
 		}
 	}
+
+	uwsgi_php_init_mount(uphp.mountpoint);
 
 	if (uphp.sapi_name) {
 		uwsgi_sapi_module.name = uphp.sapi_name;
@@ -787,6 +805,33 @@ int uwsgi_php_walk(struct wsgi_request *wsgi_req, char *full_path, char *docroot
 
 }
 
+static char *uwsgi_php_get_mount(char *path_info, uint16_t path_info_len, struct uwsgi_dyn_dict *mount_dict, int *discard_base) {
+	int best_found = 0;
+	struct uwsgi_dyn_dict *udd = mount_dict, *chosen = NULL;
+
+	while (udd) {
+		if (mount_dict->vallen) {
+			if (!uwsgi_starts_with(path_info, path_info_len, udd->key, udd->keylen)) {
+				if (udd->keylen > best_found) {
+					best_found = udd->keylen;
+					chosen = udd;
+				}
+			}
+		}
+		udd = udd->next;
+	}
+
+	if (chosen) {
+		*discard_base = chosen->keylen;
+		if (chosen->key[chosen->keylen-1] == '/') {
+			*discard_base = *discard_base - 1;
+		}
+		return chosen->value;
+	} else {
+		return NULL;
+	}
+}
+
 
 int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 
@@ -812,7 +857,15 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 	char *orig_path_info = wsgi_req->path_info;
 	uint16_t orig_path_info_len = wsgi_req->path_info_len;
 
-	if (uphp.docroot) {
+	int discard_base = 0;
+
+	char *mount_docroot = uwsgi_php_get_mount(wsgi_req->path_info, wsgi_req->path_info_len, uphp.mountpoint, &discard_base);
+
+	if (mount_docroot) {
+		wsgi_req->document_root = mount_docroot;
+		wsgi_req->path_info = wsgi_req->path_info+discard_base;
+		wsgi_req->path_info_len = wsgi_req->path_info_len-discard_base;
+	} else if (uphp.docroot) {
 		wsgi_req->document_root = uphp.docroot;
 	}
 	// fallback to cwd
