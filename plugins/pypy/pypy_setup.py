@@ -382,6 +382,17 @@ class WSGIfilewrapper(object):
     def __iter__(self):
         return self
 
+    def __next__(self):
+        if self.chunksize:
+            data = self.f.read(self.chunksize)
+        else:
+            data = self.f.read()
+        if data:
+            return data
+        raise StopIteration()
+
+    next = __next__
+
     def sendfile(self):
         if hasattr(self.f, 'fileno'):
             lib.uwsgi_response_sendfile_do_can_close(self.wsgi_req, self.f.fileno(), 0, 0, 0)
