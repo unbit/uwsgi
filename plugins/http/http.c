@@ -144,9 +144,6 @@ static int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, size_t 
 	if (!uwsgi_strncmp("HOST", 4, hh, keylen)) {
 		if (vallen <= 0xff) {
 			memcpy(peer->key, val, vallen);
-			// hack, removes trailing :80 from Host
-			if (vallen > 3 && peer->key[vallen-3] == ':' && peer->key[vallen-2] == '8' && peer->key[vallen-1] == '0')
-				vallen -= 3;
 			peer->key_len = vallen;
 			if (uhttp.server_name_as_http_host && uwsgi_buffer_append_keyval(out, "SERVER_NAME", 11, peer->key, peer->key_len)) return -1;
 		}
