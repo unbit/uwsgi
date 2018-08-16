@@ -1569,6 +1569,7 @@ struct wsgi_request {
 	size_t websocket_need;
 	int websocket_phase;
 	uint8_t websocket_opcode;
+	uint8_t websocket_is_fin;
 	size_t websocket_has_mask;
 	size_t websocket_size;
 	size_t websocket_pktsize;
@@ -2765,6 +2766,7 @@ struct uwsgi_server {
 
 	struct uwsgi_buffer *websockets_ping;
 	struct uwsgi_buffer *websockets_pong;
+	struct uwsgi_buffer *websockets_continuation_buffer;
 	int websockets_ping_freq;
 	int websockets_pong_tolerance;
 	uint64_t websockets_max_size;
