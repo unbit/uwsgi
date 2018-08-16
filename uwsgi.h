@@ -1633,6 +1633,8 @@ struct wsgi_request {
 		struct sockaddr_in6 sin6;
 		struct sockaddr_un sun;
 	} client_addr;
+
+	uint8_t websocket_is_fin;
 };
 
 
@@ -2843,6 +2845,7 @@ struct uwsgi_server {
 	// uWSGI 2.0.19
 	int emperor_graceful_shutdown;
 	int is_chrooted;
+	struct uwsgi_buffer *websockets_continuation_buffer;
 };
 
 struct uwsgi_rpc {
