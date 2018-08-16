@@ -186,7 +186,7 @@ static struct uwsgi_buffer *uwsgi_websockets_parse(struct wsgi_request *wsgi_req
 	uwsgi.websockets_continuation_buffer = ub;
 	/// Message is not complete, send empty dummy buffer to signal waiting for full message
 	ub = uwsgi_buffer_new(1);
-        uwsgi_buffer_append(ub, "\0", 1);
+	uwsgi_buffer_append(ub, "\0", 1);
 	return ub;
 error:
 	uwsgi_buffer_destroy(ub);
