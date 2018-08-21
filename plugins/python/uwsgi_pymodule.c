@@ -2781,13 +2781,8 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 }
 
 static PyMethodDef uwsgi_spooler_methods[] = {
-#ifdef PYTHREE
-	{"send_to_spooler", (PyCFunction) py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
-	{"spool", (PyCFunction) py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
-#else
-	{"send_to_spooler", (PyCFunction) py_uwsgi_send_spool, METH_KEYWORDS, ""},
-	{"spool", (PyCFunction) py_uwsgi_send_spool, METH_KEYWORDS, ""},
-#endif
+	{"send_to_spooler", (PyCFunction)(void *)py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
+	{"spool", (PyCFunction)(void *)py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
 	{"set_spooler_frequency", py_uwsgi_spooler_freq, METH_VARARGS, ""},
 	{"spooler_jobs", py_uwsgi_spooler_jobs, METH_VARARGS, ""},
 	{"spooler_pid", py_uwsgi_spooler_pid, METH_VARARGS, ""},
@@ -2888,7 +2883,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"install_mule_msg_hook", py_uwsgi_install_mule_msg_hook, METH_VARARGS, ""},
 	{"mule_msg", py_uwsgi_mule_msg, METH_VARARGS, ""},
 	{"farm_msg", py_uwsgi_farm_msg, METH_VARARGS, ""},
-	{"mule_get_msg", (PyCFunction) py_uwsgi_mule_get_msg, METH_VARARGS|METH_KEYWORDS, ""},
+	{"mule_get_msg", (PyCFunction)(void *)py_uwsgi_mule_get_msg, METH_VARARGS|METH_KEYWORDS, ""},
 	{"farm_get_msg", py_uwsgi_farm_get_msg, METH_VARARGS, ""},
 	{"in_farm", py_uwsgi_in_farm, METH_VARARGS, ""},
 
@@ -2896,12 +2891,12 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 	{"set_user_harakiri", py_uwsgi_set_user_harakiri, METH_VARARGS, ""},
 
-    {"request_context", py_uwsgi_request_context, METH_VARARGS, ""},
+	{"request_context", py_uwsgi_request_context, METH_VARARGS, ""},
 
-    {"websocket_recv", (PyCFunction)py_uwsgi_websocket_recv, METH_VARARGS|METH_KEYWORDS, ""},
-	{"websocket_recv_nb", (PyCFunction)py_uwsgi_websocket_recv_nb, METH_VARARGS|METH_KEYWORDS, ""},
-	{"websocket_send", (PyCFunction)py_uwsgi_websocket_send, METH_VARARGS|METH_KEYWORDS|METH_KEYWORDS, ""},
-	{"websocket_send_binary", (PyCFunction)py_uwsgi_websocket_send_binary, METH_VARARGS|METH_KEYWORDS, ""},
+	{"websocket_recv", (PyCFunction)(void *)py_uwsgi_websocket_recv, METH_VARARGS|METH_KEYWORDS, ""},
+	{"websocket_recv_nb", (PyCFunction)(void *)py_uwsgi_websocket_recv_nb, METH_VARARGS|METH_KEYWORDS, ""},
+	{"websocket_send", (PyCFunction)(void *)py_uwsgi_websocket_send, METH_VARARGS|METH_KEYWORDS|METH_KEYWORDS, ""},
+	{"websocket_send_binary", (PyCFunction)(void *)py_uwsgi_websocket_send_binary, METH_VARARGS|METH_KEYWORDS, ""},
 	{"websocket_handshake", py_uwsgi_websocket_handshake, METH_VARARGS, ""},
 
 	{"chunked_read", py_uwsgi_chunked_read, METH_VARARGS, ""},
