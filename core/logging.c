@@ -502,6 +502,10 @@ void uwsgi_check_logrotate(void) {
 		return;
 	}
 
+	if (logstat.st_mode & S_IFSOCK) {
+		return;
+	}
+
 	logsize = lseek(logfd, 0, SEEK_CUR);
 	if (logsize < 0) {
 		uwsgi_error("uwsgi_check_logrotate()/lseek()");
