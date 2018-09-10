@@ -15,352 +15,306 @@ static char **orig_argv = NULL;
 static char *new_argv_buf = NULL;
 
 
-PyObject *
-pyuwsgi_setup(PyObject *self, PyObject *args, PyObject *kwds)
-{
-    if (new_argv) {
-        PyErr_SetString(
-            PyExc_RuntimeError,
-            "uWSGI already setup"
-            );
-        return NULL;
-    }
+PyObject *pyuwsgi_setup(PyObject * self, PyObject * args, PyObject * kwds) {
+	if (new_argv) {
+		PyErr_SetString(PyExc_RuntimeError, "uWSGI already setup");
+		return NULL;
+	}
 
-    if (uwsgi.mywid) {
-        PyErr_SetString(
-            PyExc_RuntimeError,
-            "uWSGI must be setup by master"
-            );
-        return NULL;
-    }
+	if (uwsgi.mywid) {
+		PyErr_SetString(PyExc_RuntimeError, "uWSGI must be setup by master");
+		return NULL;
+	}
 
-    PyObject *iterator;
+	PyObject *iterator;
 
-    if (args == NULL || PyObject_Size(args) == 0) {
-        PyObject *argv = PySys_GetObject("argv");
-        if (argv == NULL)
-            return NULL;
+	if (args == NULL || PyObject_Size(args) == 0) {
+		PyObject *argv = PySys_GetObject("argv");
+		if (argv == NULL)
+			return NULL;
 
-        // during site.py maybe
-        if (argv == Py_None) {
-            argv = PyTuple_New(0);
-            iterator = PyObject_GetIter(argv);
-            Py_DECREF(argv);
-        }
-        else {
-            iterator = PyObject_GetIter(argv);
-            if (PyObject_Size(argv) > 0) {
-                // forward past argv0
-                PyObject *item = PyIter_Next(iterator);
-                Py_DECREF(item);
-            }
-        }
-    }
-    else if (
-        PyObject_Size(args) == 1
-        && !PyString_Check(PyTuple_GetItem(args, 0))
-        ) {
-        iterator = PyObject_GetIter(PyTuple_GetItem(args, 0));
-    }
-    else {
-        iterator = PyObject_GetIter(args);
-    }
+		// during site.py maybe
+		if (argv == Py_None) {
+			argv = PyTuple_New(0);
+			iterator = PyObject_GetIter(argv);
+			Py_DECREF(argv);
+		}
+		else {
+			iterator = PyObject_GetIter(argv);
+			if (PyObject_Size(argv) > 0) {
+				// forward past argv0
+				PyObject *item = PyIter_Next(iterator);
+				Py_DECREF(item);
+			}
+		}
+	}
+	else if (PyObject_Size(args) == 1 && !PyString_Check(PyTuple_GetItem(args, 0))
+		) {
+		iterator = PyObject_GetIter(PyTuple_GetItem(args, 0));
+	}
+	else {
+		iterator = PyObject_GetIter(args);
+	}
 
-    if (iterator == NULL) {
-        return NULL;
-    }
+	if (iterator == NULL) {
+		return NULL;
+	}
 
-    size_t size = 1;
-    //FIXME: ARGS prior to and including -c/-m are REQUIRED!
+	size_t size = 1;
+	//FIXME: ARGS prior to and including -c/-m are REQUIRED!
 #ifdef PYTHREE
-    PyObject *item = PyUnicode_FromString(orig_argv[0]);
+	PyObject *item = PyUnicode_FromString(orig_argv[0]);
 #else
-    PyObject *item = PyString_FromString(orig_argv[0]);
+	PyObject *item = PyString_FromString(orig_argv[0]);
 #endif
-    PyObject *args_li = PyList_New(0);
-    PyList_Append(args_li, item);
-    size += strlen(orig_argv[0]) + 1;
-    Py_DECREF(item);
+	PyObject *args_li = PyList_New(0);
+	PyList_Append(args_li, item);
+	size += strlen(orig_argv[0]) + 1;
+	Py_DECREF(item);
 
-    while ((item = PyIter_Next(iterator))) {
-        PyObject *py_str = PyObject_Str(item);
-        PyList_Append(args_li, py_str);
+	while ((item = PyIter_Next(iterator))) {
+		PyObject *py_str = PyObject_Str(item);
+		PyList_Append(args_li, py_str);
 #ifdef PYTHREE
-	char *str = PyUnicode_AsUTF8(py_str);
-        size += strlen(str) + 1;
+		char *str = PyUnicode_AsUTF8(py_str);
+		size += strlen(str) + 1;
 #else
-        size += PyObject_Length(item) + 1;
+		size += PyObject_Length(item) + 1;
 #endif
-        Py_DECREF(item);
-	Py_DECREF(py_str);
-    }
+		Py_DECREF(item);
+		Py_DECREF(py_str);
+	}
 
-    Py_DECREF(iterator);
+	Py_DECREF(iterator);
 
-    new_argc = PyObject_Length(args_li);
-    new_argv = uwsgi_calloc(sizeof(char *) * (new_argc + 1));
-    new_argv_buf = uwsgi_calloc(size);
+	new_argc = PyObject_Length(args_li);
+	new_argv = uwsgi_calloc(sizeof(char *) * (new_argc + 1));
+	new_argv_buf = uwsgi_calloc(size);
 
-    int i = 0;
-    char *new_argv_ptr = new_argv_buf;
-    for(i=0; i < new_argc; i++) {
-        PyObject *arg = PyList_GetItem(args_li, i);
+	int i = 0;
+	char *new_argv_ptr = new_argv_buf;
+	for (i = 0; i < new_argc; i++) {
+		PyObject *arg = PyList_GetItem(args_li, i);
 #ifdef PYTHREE
-	char *arg_str = PyUnicode_AsUTF8(arg);
+		char *arg_str = PyUnicode_AsUTF8(arg);
 #else
-        char *arg_str = PyString_AsString(arg);
+		char *arg_str = PyString_AsString(arg);
 #endif
-        new_argv[i] = new_argv_ptr;
-        strcpy(new_argv_ptr, arg_str);
-        new_argv_ptr += strlen(arg_str) + 1;
-    }
+		new_argv[i] = new_argv_ptr;
+		strcpy(new_argv_ptr, arg_str);
+		new_argv_ptr += strlen(arg_str) + 1;
+	}
 
-    PyObject *args_tup = PyList_AsTuple(args_li);
-    PyObject_SetAttrString(self, "NEW_ARGV", args_tup);
-    Py_DECREF(args_tup);
-    Py_DECREF(args_li);
+	PyObject *args_tup = PyList_AsTuple(args_li);
+	PyObject_SetAttrString(self, "NEW_ARGV", args_tup);
+	Py_DECREF(args_tup);
+	Py_DECREF(args_li);
 
-    // TODO: convention here is a goto methinks?
-    if (PyErr_Occurred()) {
-        free(new_argv_buf);
-        free(new_argv);
-        new_argv = 0;
-        new_argc = 0;
-        return NULL;
-    }
+	// TODO: convention here is a goto methinks?
+	if (PyErr_Occurred()) {
+		free(new_argv_buf);
+		free(new_argv);
+		new_argv = 0;
+		new_argc = 0;
+		return NULL;
+	}
 
-    //TODO: ...???
-    // actually do the thing!
-    PyThreadState *_tstate = PyThreadState_Get();
-    uwsgi_setup(orig_argc, orig_argv, environ);
-    PyThreadState_Swap(_tstate);
+	//TODO: ...???
+	// actually do the thing!
+	PyThreadState *_tstate = PyThreadState_Get();
+	uwsgi_setup(orig_argc, orig_argv, environ);
+	PyThreadState_Swap(_tstate);
 
-    Py_INCREF(self);
-    return self;
+	Py_INCREF(self);
+	return self;
 }
 
 
-PyObject *
-pyuwsgi_init(PyObject *self, PyObject *args, PyObject *kwds)
-{
-    if (pyuwsgi_setup(self, args, kwds) == NULL) {
-        return NULL;
-    }
+PyObject *pyuwsgi_init(PyObject * self, PyObject * args, PyObject * kwds) {
+	if (pyuwsgi_setup(self, args, kwds) == NULL) {
+		return NULL;
+	}
 
-    int rc = uwsgi_run();
+	int rc = uwsgi_run();
 
-    // never(?) here
-    return Py_BuildValue("i", rc);
+	// never(?) here
+	return Py_BuildValue("i", rc);
 }
 
 
-PyObject *
-pyuwsgi_run(PyObject *self, PyObject *args, PyObject *kwds)
-{
-    // backcompat
-    if (new_argv == NULL &&
-        pyuwsgi_setup(self, args, kwds) == NULL) {
-        return NULL;
-    }
+PyObject *pyuwsgi_run(PyObject * self, PyObject * args, PyObject * kwds) {
+	// backcompat
+	if (new_argv == NULL && pyuwsgi_setup(self, args, kwds) == NULL) {
+		return NULL;
+	}
 
-    int rc = uwsgi_run();
+	int rc = uwsgi_run();
 
-    // never(?) here
-    return Py_BuildValue("i", rc);
+	// never(?) here
+	return Py_BuildValue("i", rc);
 }
 
 
 PyMethodDef methods[] = {
-    {"run",
-        (PyCFunction) pyuwsgi_run,
-        METH_VARARGS | METH_KEYWORDS,
-     "run(...)"
-     "\n>>> 0"
-     "\n"
-     "\n * Call setup(...) if not configured"
-     "\n * Begin uWSGI mainloop"
-     "\n   NOTE: will not return"
-     "\n"
-    },
-    {"init",
-        (PyCFunction) pyuwsgi_init,
-        METH_VARARGS | METH_KEYWORDS,
-     "init(...)"
-     "\n>>> 0"
-     "\n"
-     "\n * Call setup(...)"
-     "\n * Begin uWSGI mainloop"
-     "\n   NOTE: will not return"
-     "\n"
-    },
-    {"setup",
-        (PyCFunction) pyuwsgi_setup,
-        METH_VARARGS | METH_KEYWORDS,
-     "setup('--master', ...)"
-     "\n>>> <module 'uwsgi' from \"uwsgi.so\">"
-     "\n"
-     "\n * Initialize uWSGI core with (...)"
-     "\n   MUST only call once          [RuntimeException]"
-     "\n   MUST only call from master   [RuntimeException]"
-     "\n"
-    },
-    {NULL, NULL, 0, NULL}
+	{"run",
+	 (PyCFunction) pyuwsgi_run,
+	 METH_VARARGS | METH_KEYWORDS,
+	 "run(...)" "\n>>> 0" "\n" "\n * Call setup(...) if not configured" "\n * Begin uWSGI mainloop" "\n   NOTE: will not return" "\n"}
+	,
+	{"init",
+	 (PyCFunction) pyuwsgi_init,
+	 METH_VARARGS | METH_KEYWORDS,
+	 "init(...)" "\n>>> 0" "\n" "\n * Call setup(...)" "\n * Begin uWSGI mainloop" "\n   NOTE: will not return" "\n"}
+	,
+	{"setup",
+	 (PyCFunction) pyuwsgi_setup,
+	 METH_VARARGS | METH_KEYWORDS,
+	 "setup('--master', ...)" "\n>>> <module 'uwsgi' from \"uwsgi.so\">" "\n" "\n * Initialize uWSGI core with (...)" "\n   MUST only call once          [RuntimeException]" "\n   MUST only call from master   [RuntimeException]" "\n"}
+	,
+	{NULL, NULL, 0, NULL}
 };
 
 
-static void
-pyuwsgi_set_orig_argv(PyObject *self)
-{
+static void pyuwsgi_set_orig_argv(PyObject * self) {
 
-    //  ask python for the original argc/argv saved in Py_Main()
-    Py_GetArgcArgv(&orig_argc, &orig_argv);
+	//  ask python for the original argc/argv saved in Py_Main()
+	Py_GetArgcArgv(&orig_argc, &orig_argv);
 
-    //  [re?]export to uwsgi.orig_argv
-    PyObject *m_orig_argv;
-    m_orig_argv = PyTuple_New(orig_argc);
+	//  [re?]export to uwsgi.orig_argv
+	PyObject *m_orig_argv;
+	m_orig_argv = PyTuple_New(orig_argc);
 
-    int i = 0;
-    int i_cm = -1;
+	int i = 0;
+	int i_cm = -1;
 
-    for(i=0; i < orig_argc; i++) {
-        char *arg = orig_argv[i];
-        //XXX: _PyOS_optarg != 0 also indicates python quit early...
-        //FIXME: [upstream:python] orig_argv could be mangled; reset
-        // rel: http://bugs.python.org/issue8202
-        orig_argv[i + 1] = arg + strlen(arg) + 1;
+	for (i = 0; i < orig_argc; i++) {
+		char *arg = orig_argv[i];
+		//XXX: _PyOS_optarg != 0 also indicates python quit early...
+		//FIXME: [upstream:python] orig_argv could be mangled; reset
+		// rel: http://bugs.python.org/issue8202
+		orig_argv[i + 1] = arg + strlen(arg) + 1;
 
-        // look for -c or -m and record the offset
-        if (i_cm < 0) {
-            if (strcmp(arg, "-c") || strcmp(arg, "-m")) {
-                // python's getopt would've failed had + 1 not exist
-                i_cm = i + 1;
-            }
-            else if (!uwsgi_startswith(arg, "-c", 2) ||
-                     !uwsgi_startswith(arg, "-m", 2)) {
-                //FIXME: ARGS prior to and including -c/-m are REQUIRED,
-                // but NOT a part of the uWSGI argv! Needed to make
-                // exec*() self-referential: exec*(...) -> uwsgi
-                //
-                // want: uwsgi.binary_argv[:] + uwsgi.argv[:]!
-                //       binary_argv = [binary_path] + args
-                i_cm = i;
-            }
-        }
+		// look for -c or -m and record the offset
+		if (i_cm < 0) {
+			if (strcmp(arg, "-c") || strcmp(arg, "-m")) {
+				// python's getopt would've failed had + 1 not exist
+				i_cm = i + 1;
+			}
+			else if (!uwsgi_startswith(arg, "-c", 2) || !uwsgi_startswith(arg, "-m", 2)) {
+				//FIXME: ARGS prior to and including -c/-m are REQUIRED,
+				// but NOT a part of the uWSGI argv! Needed to make
+				// exec*() self-referential: exec*(...) -> uwsgi
+				//
+				// want: uwsgi.binary_argv[:] + uwsgi.argv[:]!
+				//       binary_argv = [binary_path] + args
+				i_cm = i;
+			}
+		}
 
-        PyTuple_SetItem(m_orig_argv, i, PyString_FromString(arg));
-    }
+		PyTuple_SetItem(m_orig_argv, i, PyString_FromString(arg));
+	}
 
-    //TODO: howto properly detect uwsgi already running...
-    // orig_argv == uwsgi.orig_argv (?)
-    // ^^^ but if Py_Main not called, python/main.c:orig_argv unset
-    // howto interact/detect things in general
-    PyObject *m_new_argv = PyTuple_New(0);
-    PyObject_SetAttrString(self, "NEW_ARGV", m_new_argv);
-    PyObject_SetAttrString(self, "ORIG_ARGV", m_orig_argv);
-    Py_DECREF(m_new_argv);
-    Py_DECREF(m_orig_argv);
+	//TODO: howto properly detect uwsgi already running...
+	// orig_argv == uwsgi.orig_argv (?)
+	// ^^^ but if Py_Main not called, python/main.c:orig_argv unset
+	// howto interact/detect things in general
+	PyObject *m_new_argv = PyTuple_New(0);
+	PyObject_SetAttrString(self, "NEW_ARGV", m_new_argv);
+	PyObject_SetAttrString(self, "ORIG_ARGV", m_orig_argv);
+	Py_DECREF(m_new_argv);
+	Py_DECREF(m_orig_argv);
 }
 
 
 #ifdef PYTHREE
 static struct PyModuleDef pyuwsgi_module = {
 	PyModuleDef_HEAD_INIT,
-        "pyuwsgi",      /* name of module */
-        NULL,           /* module documentation, may be NULL */
-        -1,             /* size of per-interpreter state of the
-                        * module, or -1 if the module keeps state in
-                        * global variables. */
-        methods
+	"pyuwsgi",		/* name of module */
+	NULL,			/* module documentation, may be NULL */
+	-1,			/* size of per-interpreter state of the
+				 * module, or -1 if the module keeps state in
+				 * global variables. */
+	methods
 };
 #endif
 
 
 #ifndef PYTHREE
-static PyObject *
-pyuwsgi_init_as(char *mod_name)
-{
+static PyObject *pyuwsgi_init_as(char *mod_name) {
 
-    PyObject *m;
+	PyObject *m;
 
-    m = PyImport_GetModuleDict();
-    if (m == NULL) {
-        return NULL;
-    }
-
-    m = PyDict_GetItemString(m, mod_name);
-    if (!m) {
-        m = Py_InitModule(mod_name, NULL);
+	m = PyImport_GetModuleDict();
+	if (m == NULL) {
+		return NULL;
 	}
 
-    if (orig_argc < 0) {
-        pyuwsgi_set_orig_argv(m);
-    }
+	m = PyDict_GetItemString(m, mod_name);
+	if (!m) {
+		m = Py_InitModule(mod_name, NULL);
+	}
 
-    int i;
-    for (i=0; methods[i].ml_name != NULL; i++) {
-        PyObject *fun = PyObject_GetAttrString(m, methods[i].ml_name);
-        if (fun != NULL) {
-            // already exists
-            Py_DECREF(fun);
-            continue;
-        }
+	if (orig_argc < 0) {
+		pyuwsgi_set_orig_argv(m);
+	}
 
-        PyErr_Clear();
+	int i;
+	for (i = 0; methods[i].ml_name != NULL; i++) {
+		PyObject *fun = PyObject_GetAttrString(m, methods[i].ml_name);
+		if (fun != NULL) {
+			// already exists
+			Py_DECREF(fun);
+			continue;
+		}
 
-        //  rel: Python/modsupport.c:Py_InitModule4
-        PyObject* name = PyString_FromString(methods[i].ml_name);
-        //  fun(self, ...)
-        fun = PyCFunction_NewEx(&methods[i], m, name);
-        Py_DECREF(name);
-        //  module.fun
-        PyObject_SetAttrString(m, methods[i].ml_name, fun);
-        Py_DECREF(fun);
-    }
+		PyErr_Clear();
 
-    return m;
+		//  rel: Python/modsupport.c:Py_InitModule4
+		PyObject *name = PyString_FromString(methods[i].ml_name);
+		//  fun(self, ...)
+		fun = PyCFunction_NewEx(&methods[i], m, name);
+		Py_DECREF(name);
+		//  module.fun
+		PyObject_SetAttrString(m, methods[i].ml_name, fun);
+		Py_DECREF(fun);
+	}
+
+	return m;
 }
 #endif
 
 
 #ifdef PYTHREE
-PyMODINIT_FUNC
-PyInit_pyuwsgi()
-{
-    PyObject *m = PyModule_Create(&pyuwsgi_module);
-    if (orig_argc < 0) {
-        pyuwsgi_set_orig_argv(m);
-    }
-    return m;
+PyMODINIT_FUNC PyInit_pyuwsgi() {
+	PyObject *m = PyModule_Create(&pyuwsgi_module);
+	if (orig_argc < 0) {
+		pyuwsgi_set_orig_argv(m);
+	}
+	return m;
 }
 #else
-PyMODINIT_FUNC
-initpyuwsgi()
-{
-    (void) pyuwsgi_init_as("pyuwsgi");
+PyMODINIT_FUNC initpyuwsgi() {
+	(void) pyuwsgi_init_as("pyuwsgi");
 }
 
 
 // allow the module to be called `uwsgi`
-PyMODINIT_FUNC
-inituwsgi()
-{
-    (void) pyuwsgi_init_as("uwsgi");
+PyMODINIT_FUNC inituwsgi() {
+	(void) pyuwsgi_init_as("uwsgi");
 }
 #endif
 
 
-void pyuwsgi_load()
-{
-    if (new_argc > -1) {
-        uwsgi.new_argc = new_argc;
-        uwsgi.new_argv = new_argv;
-    }
+void pyuwsgi_load() {
+	if (new_argc > -1) {
+		uwsgi.new_argc = new_argc;
+		uwsgi.new_argv = new_argv;
+	}
 }
 
 
 struct uwsgi_plugin pyuwsgi_plugin = {
 
-        .name = "pyuwsgi",
-        .on_load = pyuwsgi_load,
+	.name = "pyuwsgi",
+	.on_load = pyuwsgi_load,
 };
-
