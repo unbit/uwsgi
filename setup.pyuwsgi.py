@@ -97,7 +97,7 @@ class uWSGIBuildExt(build_ext):
 
 
 setup(
-    name='uWSGI',
+    name='pyuwsgi',
     license='GPL2',
     version=uwsgiconfig.uwsgi_version,
     author='Unbit',
@@ -110,7 +110,9 @@ setup(
         'uwsgidecorators',
         ],
     ext_modules=[
-        Extension(uWSGIBuildExt.UWSGI_NAME, sources=[]),
+        Extension('pyuwsgi', sources=[]),
         ],
-    scripts=['bin/pyuwsgi'],
+    entry_points={
+        'console_scripts': ['pyuwsgi=pyuwsgi:run'],
+        },
     )
