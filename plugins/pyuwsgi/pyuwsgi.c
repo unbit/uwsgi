@@ -72,17 +72,27 @@ pyuwsgi_setup(PyObject *self, PyObject *args, PyObject *kwds)
 
     size_t size = 1;
     //FIXME: ARGS prior to and including -c/-m are REQUIRED!
+#ifdef PYTHREE
+    PyObject *item = PyUnicode_FromString(orig_argv[0]);
+#else
     PyObject *item = PyString_FromString(orig_argv[0]);
+#endif
     PyObject *args_li = PyList_New(0);
     PyList_Append(args_li, item);
     size += strlen(orig_argv[0]) + 1;
     Py_DECREF(item);
 
     while ((item = PyIter_Next(iterator))) {
-        //TODO: call str(...) on everything
-        PyList_Append(args_li, item);
+        PyObject *py_str = PyObject_Str(item);
+        PyList_Append(args_li, py_str);
+#ifdef PYTHREE
+	char *str = PyUnicode_AsUTF8(py_str);
+        size += strlen(str) + 1;
+#else
         size += PyObject_Length(item) + 1;
+#endif
         Py_DECREF(item);
+	Py_DECREF(py_str);
     }
 
     Py_DECREF(iterator);
@@ -95,7 +105,11 @@ pyuwsgi_setup(PyObject *self, PyObject *args, PyObject *kwds)
     char *new_argv_ptr = new_argv_buf;
     for(i=0; i < new_argc; i++) {
         PyObject *arg = PyList_GetItem(args_li, i);
+#ifdef PYTHREE
+	char *arg_str = PyUnicode_AsUTF8(arg);
+#else
         char *arg_str = PyString_AsString(arg);
+#endif
         new_argv[i] = new_argv_ptr;
         strcpy(new_argv_ptr, arg_str);
         new_argv_ptr += strlen(arg_str) + 1;
@@ -248,6 +262,20 @@ pyuwsgi_set_orig_argv(PyObject *self)
 }
 
 
+#ifdef PYTHREE
+static struct PyModuleDef pyuwsgi_module = {
+	PyModuleDef_HEAD_INIT,
+        "pyuwsgi",      /* name of module */
+        NULL,           /* module documentation, may be NULL */
+        -1,             /* size of per-interpreter state of the
+                        * module, or -1 if the module keeps state in
+                        * global variables. */
+        methods
+};
+#endif
+
+
+#ifndef PYTHREE
 static PyObject *
 pyuwsgi_init_as(char *mod_name)
 {
@@ -291,8 +319,20 @@ pyuwsgi_init_as(char *mod_name)
 
     return m;
 }
+#endif
 
 
+#ifdef PYTHREE
+PyMODINIT_FUNC
+PyInit_pyuwsgi()
+{
+    PyObject *m = PyModule_Create(&pyuwsgi_module);
+    if (orig_argc < 0) {
+        pyuwsgi_set_orig_argv(m);
+    }
+    return m;
+}
+#else
 PyMODINIT_FUNC
 initpyuwsgi()
 {
@@ -306,6 +346,7 @@ inituwsgi()
 {
     (void) pyuwsgi_init_as("uwsgi");
 }
+#endif
 
 
 void pyuwsgi_load()
