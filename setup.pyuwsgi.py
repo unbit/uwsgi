@@ -21,6 +21,7 @@ class uWSGIBuildExt(build_ext):
 
     UWSGI_NAME = 'pyuwsgi'
     UWSGI_PLUGIN = 'pyuwsgi'
+    UWSGI_PROFILE = 'pyuwsgi'
 
     def build_extensions(self):
         self.uwsgi_setup()
@@ -42,8 +43,7 @@ class uWSGIBuildExt(build_ext):
         build_ext.build_extensions(self)
 
     def uwsgi_setup(self):
-        default = 'pypy' if '__pypy__' in sys.builtin_module_names else 'default'
-        profile = os.environ.get('UWSGI_PROFILE') or 'buildconf/%s.ini' % default
+        profile = os.environ.get('UWSGI_PROFILE') or 'buildconf/%s.ini' % self.UWSGI_PROFILE
 
         if not profile.endswith('.ini'):
             profile = profile + '.ini'
