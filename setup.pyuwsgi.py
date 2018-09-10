@@ -112,5 +112,7 @@ setup(
     ext_modules=[
         Extension(uWSGIBuildExt.UWSGI_NAME, sources=[]),
         ],
-    scripts=['bin/pyuwsgi'],
+    entry_points={
+        'console_scripts': ['pyuwsgi=%s:run' % uWSGIBuildExt.UWSGI_NAME],
+        },
     )
