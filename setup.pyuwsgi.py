@@ -97,7 +97,7 @@ class uWSGIBuildExt(build_ext):
 
 
 setup(
-    name='uWSGI',
+    name='pyuwsgi',
     license='GPL2',
     version=uwsgiconfig.uwsgi_version,
     author='Unbit',
