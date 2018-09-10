@@ -28,9 +28,10 @@ pid_t masterpid;
 
 #if defined(__APPLE__) && defined(UWSGI_AS_SHARED_LIBRARY)
 #include <crt_externs.h>
-char **environ;
+#define UWSGI_ENVIRON (*_NSGetEnviron())
 #else
 extern char **environ;
+#define UWSGI_ENVIRON environ
 #endif
 
 UWSGI_DECLARE_EMBEDDED_PLUGINS;
@@ -1740,7 +1741,7 @@ static void fixup_argv_and_environ(int argc, char **argv, char **environ, char *
 	uwsgi.orig_argv = argv;
 	uwsgi.argv = argv;
 	uwsgi.argc = argc;
-	uwsgi.environ = environ;
+	uwsgi.environ = UWSGI_ENVIRON;
 
 	// avoid messing with fake environ
 	if (envp && *environ != *envp) return;
@@ -2057,13 +2058,6 @@ static char *uwsgi_at_file_read(char *filename) {
 }
 
 void uwsgi_setup(int argc, char *argv[], char *envp[]) {
-#ifdef UWSGI_AS_SHARED_LIBRARY
-#ifdef __APPLE__
-	char ***envPtr = _NSGetEnviron();
-	environ = *envPtr;
-#endif
-#endif
-
 	int i;
 
 	struct utsname uuts;
@@ -2193,7 +2187,7 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 		uwsgi.response_header_limit = UMAX16;
 
 	// ok we can now safely play with argv and environ
-	fixup_argv_and_environ(argc, argv, environ, envp);
+	fixup_argv_and_environ(argc, argv, UWSGI_ENVIRON, envp);
 
 	if (gethostname(uwsgi.hostname, 255)) {
 		uwsgi_error("gethostname()");
@@ -2247,7 +2241,7 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 	build_options();
 #endif
 	//parse environ
-	parse_sys_envs(environ);
+	parse_sys_envs(UWSGI_ENVIRON);
 
 	// parse commandline options
 	uwsgi_commandline_config();
