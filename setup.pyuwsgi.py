@@ -110,9 +110,9 @@ setup(
         'uwsgidecorators',
         ],
     ext_modules=[
-        Extension(uWSGIBuildExt.UWSGI_NAME, sources=[]),
+        Extension('pyuwsgi', sources=[]),
         ],
     entry_points={
-        'console_scripts': ['pyuwsgi=%s:run' % uWSGIBuildExt.UWSGI_NAME],
+        'console_scripts': ['pyuwsgi=pyuwsgi:run'],
         },
     )
