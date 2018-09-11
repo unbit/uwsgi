@@ -96,6 +96,49 @@ class uWSGIBuildExt(build_ext):
                             ext.extra_compile_args.append(y)
 
 
+LONG_DESCRIPTION = """
+# The uWSGI server as a Python module
+
+## Install
+
+```
+pip install pyuwsgi
+```
+
+## Run
+
+The installed script, `pyuwsgi`, is a drop-in replacement for the `uwsgi` script.
+
+You can also call it directly in your Python code with a list of valid uWSGI options:
+
+```python
+import pyuwsgi
+pyuwsgi.run(["--help"])
+```
+
+## Differences from uWSGI
+
+This is built from uWSGI's source without any modifications.
+A different [`setup.py`](https://github.com/unbit/uwsgi/blob/uwsgi-2.0/setup.pyuwsgi.py)
+is used to make the project a friendlier part of the Python ecosystem. It allows it
+to be imported as a Python module and distributed using the
+[wheel format](https://www.python.org/dev/peps/pep-0427/).
+
+The full uWSGI documentation can be found at
+[https://uwsgi-docs.readthedocs.org](https://uwsgi-docs.readthedocs.org).
+
+---
+
+[![Lincoln Loop](https://cldup.com/gyNz5rfTkR.png)](https://lincolnloop.com)
+
+`pyuwsgi` is sponsored by [Lincoln Loop](https://lincolnloop.com).
+
+[![Unbit](https://cldup.com/TTNag1Zlcw.png)](http://unbit.com/)
+
+`uwsgi` is the creation of [Unbit](http://unbit.com/).
+
+"""
+
 setup(
     name='pyuwsgi',
     license='GPL2',
@@ -103,6 +146,8 @@ setup(
     author='Unbit',
     author_email='info@unbit.it',
     description='The uWSGI server',
+    long_description=LONG_DESCRIPTION,
+    long_description_content_type="text/markdown",
     cmdclass={
         'build_ext': uWSGIBuildExt,
         },
@@ -115,4 +160,21 @@ setup(
     entry_points={
         'console_scripts': ['pyuwsgi=pyuwsgi:run'],
         },
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Environment :: Web Environment",
+        "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: POSIX",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3.4",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Topic :: Internet :: WWW/HTTP",
+        "Topic :: Internet :: WWW/HTTP :: WSGI",
+        "Topic :: Internet :: WWW/HTTP :: WSGI :: Server",
+        "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+        ]
     )
