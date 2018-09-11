@@ -96,6 +96,21 @@ class uWSGIBuildExt(build_ext):
                             ext.extra_compile_args.append(y)
 
 
+class uWSGIPy2BuildExt(uWSGIBuildExt):
+    pass
+
+
+class uWSGIPy3BuildExt(uWSGIBuildExt):
+
+    UWSGI_NAME = 'pyuwsgi'
+
+
+if sys.version_info < (3,):
+    build_ext_class = uWSGIPy2BuildExt
+else:
+    build_ext_class = uWSGIPy3BuildExt
+
+
 setup(
     name='uWSGI',
     license='GPL2',
@@ -104,15 +119,15 @@ setup(
     author_email='info@unbit.it',
     description='The uWSGI server',
     cmdclass={
-        'build_ext': uWSGIBuildExt,
+        'build_ext': build_ext_class,
         },
     py_modules=[
         'uwsgidecorators',
         ],
     ext_modules=[
-        Extension(uWSGIBuildExt.UWSGI_NAME, sources=[]),
+        Extension(build_ext_class.UWSGI_NAME, sources=[]),
         ],
     entry_points={
-        'console_scripts': ['uwsgi=%s:run' % uWSGIBuildExt.UWSGI_NAME],
+        'console_scripts': ['uwsgi=%s:run' % build_ext_class.UWSGI_NAME],
         },
     )
