@@ -33,7 +33,7 @@ char *uwsgi_upload_progress_create(struct wsgi_request *wsgi_req, int *fd) {
 		}
 	}
 
-	// now check for valid uuid (from spec available at http://en.wikipedia.org/wiki/Universally_unique_identifier)
+	// now check for valid uuid (from spec available at https://en.wikipedia.org/wiki/Universally_unique_identifier)
 	if (!upload_progress_filename)
 		return NULL;
 
