@@ -1081,6 +1081,7 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 	union uwsgi_sockaddr usa;
 	int abstract = 0;
 
+	memset(&usa, 0, sizeof(usa));
 	socket_type_len = sizeof(struct sockaddr_un);
 	gsa.sa = &usa.sa;
 	if (!getsockname(fd, gsa.sa, &socket_type_len)) {
