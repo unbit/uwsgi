@@ -2160,10 +2160,7 @@ void emperor_loop() {
 						// temporarily set frequency to a low value , so we can eventually fast-restart the instance
 						freq = ui_current->status;
 					}
-					if (uwsgi.emperor_use_fork_server &&
-					    ui_current->last_mod - uwsgi_now() < 1) {
-						emperor_curse(ui_current);
-					}
+					emperor_curse(ui_current);
 				}
 				else {
 					if (byte == 17) {
