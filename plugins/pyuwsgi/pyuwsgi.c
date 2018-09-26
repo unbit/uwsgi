@@ -1,7 +1,11 @@
 #include "../python/uwsgi_python.h"
 
 //FIXME: [upstream:python] needs PyAPI_FUNC(void)
+#ifdef PYTHREE
+extern void Py_GetArgcArgv(int *, wchar_t ***);
+#else
 extern void Py_GetArgcArgv(int *, char ***);
+#endif
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
@@ -16,6 +20,7 @@ static char *new_argv_buf = NULL;
 
 
 PyObject *pyuwsgi_setup(PyObject * self, PyObject * args, PyObject * kwds) {
+
 	if (new_argv) {
 		PyErr_SetString(PyExc_RuntimeError, "uWSGI already setup");
 		return NULL;
@@ -72,6 +77,7 @@ PyObject *pyuwsgi_setup(PyObject * self, PyObject * args, PyObject * kwds) {
 	size += strlen(orig_argv[0]) + 1;
 	Py_DECREF(item);
 
+
 	while ((item = PyIter_Next(iterator))) {
 		PyObject *py_str = PyObject_Str(item);
 		PyList_Append(args_li, py_str);
@@ -110,6 +116,7 @@ PyObject *pyuwsgi_setup(PyObject * self, PyObject * args, PyObject * kwds) {
 	Py_DECREF(args_tup);
 	Py_DECREF(args_li);
 
+
 	// TODO: convention here is a goto methinks?
 	if (PyErr_Occurred()) {
 		free(new_argv_buf);
@@ -118,6 +125,7 @@ PyObject *pyuwsgi_setup(PyObject * self, PyObject * args, PyObject * kwds) {
 		new_argc = 0;
 		return NULL;
 	}
+
 
 	//TODO: ...???
 	// actually do the thing!
@@ -178,7 +186,35 @@ PyMethodDef methods[] = {
 static void pyuwsgi_set_orig_argv(PyObject * self) {
 
 	//  ask python for the original argc/argv saved in Py_Main()
+#ifdef PYTHREE
+	wchar_t ** tmp_orig_argv = NULL;
+	Py_GetArgcArgv(&orig_argc, &tmp_orig_argv);
+	int j;
+	orig_argv = uwsgi_calloc(sizeof(char *) * (orig_argc + 1));
+	size_t size = 0;
+	for (j=0;j<orig_argc;j++) {
+		size += (wcslen(tmp_orig_argv[j]) + 1) * sizeof(wchar_t);
+	}
+	// add environment to size
+	char **env = environ;
+	while(*env) {
+		size += strlen(*env) + 1;
+		env++;
+	}
+	// this contguous memory will remain allocated for the whole process lifetime
+	// TODO we need a trick for setproctitle() to get access to the original argv[0]
+	// check https://github.com/dvarrazzo/py-setproctitle/blob/master/src/spt_setup.c#L151
+	char *data = uwsgi_calloc(size);
+	for (j=0;j<orig_argc;j++) {
+		size_t strsize = (wcslen(tmp_orig_argv[j]) + 1) * sizeof(wchar_t);
+		orig_argv[j] = data;
+		wcstombs(orig_argv[j], tmp_orig_argv[j], strsize);
+		data += strlen(orig_argv[j]) + 1;
+	}
+
+#else
 	Py_GetArgcArgv(&orig_argc, &orig_argv);
+#endif
 
 	//  [re?]export to uwsgi.orig_argv
 	PyObject *m_orig_argv;
@@ -211,7 +247,11 @@ static void pyuwsgi_set_orig_argv(PyObject * self) {
 			}
 		}
 
+#ifdef PYTHREE
+		PyTuple_SetItem(m_orig_argv, i, PyUnicode_FromString(arg));
+#else
 		PyTuple_SetItem(m_orig_argv, i, PyString_FromString(arg));
+#endif
 	}
 
 	//TODO: howto properly detect uwsgi already running...
