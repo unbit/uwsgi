@@ -133,7 +133,7 @@ SSL is intentionally excluded for security reasons. If you need SSL support, you
 force a wheel to be built locally with the `pip` flag `--no-binary=pyuwsgi`.
 
 In addition to the default plugins, the [`stats_pusher_statsd`](https://uwsgi-docs.readthedocs.io/en/latest/Metrics.html#statsd)
-plugin is included by default `pyuwsgi` where it is typically optional for uWSGI.
+plugin is included by default in `pyuwsgi` where it is typically optional for uWSGI.
 
 The full uWSGI documentation can be found at
 [https://uwsgi-docs.readthedocs.org](https://uwsgi-docs.readthedocs.org).
