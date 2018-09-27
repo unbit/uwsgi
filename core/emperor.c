@@ -2191,10 +2191,8 @@ void emperor_loop() {
 						emperor_add(ui_current->scanner, zerg_name, uwsgi_now(), NULL, 0, ui_current->uid, ui_current->gid, NULL);
 						free(zerg_name);
 					}
-					else if (byte == 40) {
-							//uncurse request
+					else if (byte == 40) {				
 							event_queue_del_fd(uwsgi.emperor_queue, interesting_fd, event_queue_read());
-							//ui_current->cursed_at = 0;
 					}
 					else if (byte == 5) {
 						ui_current->accepting = 1;
