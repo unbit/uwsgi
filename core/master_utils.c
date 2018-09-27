@@ -481,6 +481,11 @@ void uwsgi_reload(char **argv) {
 
 		if (uwsgi.exit_on_reload) {
 			uwsgi_log("uWSGI: GAME OVER (insert coin)\n");
+			//uncurse command
+			char byte = 40;
+			if(write(uwsgi.emperor_fd,&byte,1)) {
+					uwsgi_error("uwsgi_reload()/write()");
+			}
 			exit(0);
 		}
 

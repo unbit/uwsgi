@@ -2191,6 +2191,11 @@ void emperor_loop() {
 						emperor_add(ui_current->scanner, zerg_name, uwsgi_now(), NULL, 0, ui_current->uid, ui_current->gid, NULL);
 						free(zerg_name);
 					}
+					else if (byte == 40) {
+							//uncurse request
+							event_queue_del_fd(uwsgi.emperor_queue, interesting_fd, event_queue_read());
+							//ui_current->cursed_at = 0;
+					}
 					else if (byte == 5) {
 						ui_current->accepting = 1;
 						ui_current->last_accepting = uwsgi_now();
@@ -2311,7 +2316,12 @@ recheck:
 						if (ui_current->socket_name) {
 							socket_name = uwsgi_str(ui_current->socket_name);
 						}
-						emperor_add(ui_current->scanner, ui_current->name, ui_current->last_mod, config, ui_current->config_len, ui_current->uid, ui_current->gid, socket_name);
+						struct uwsgi_dyn_dict *attrs = NULL;
+						if (uwsgi.emperor_use_fork_server) {
+								attrs = ui_current->attrs;
+								ui_current->attrs = NULL;
+						}
+						emperor_add_with_attrs(ui_current->scanner, ui_current->name, ui_current->last_mod, config, ui_current->config_len, ui_current->uid, ui_current->gid, socket_name, attrs);
 						emperor_del(ui_current);
 						// temporarily set frequency to 1, so we can eventually fast-restart the instance
 						freq = 1;
