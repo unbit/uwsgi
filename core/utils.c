@@ -1055,7 +1055,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	int tmp_id;
 	uint64_t tmp_rt, rss = 0, vsz = 0;
 	uint64_t tmp_avg_base, tmp_avg_weight;
-    double tmp_next_factor;
+	double tmp_next_factor;
 #ifdef __linux__
 	uint64_t uss = 0, pss = 0;
 #endif
