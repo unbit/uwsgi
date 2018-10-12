@@ -1054,6 +1054,8 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	int waitpid_status;
 	int tmp_id;
 	uint64_t tmp_rt, rss = 0, vsz = 0;
+	uint64_t tmp_avg_base, tmp_avg_weight;
+    double tmp_next_factor;
 #ifdef __linux__
 	uint64_t uss = 0, pss = 0;
 #endif
@@ -1082,7 +1084,13 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	if (!wsgi_req->do_not_account_avg_rt) {
 		tmp_rt = wsgi_req->end_of_request - wsgi_req->start_of_request;
 		uwsgi.workers[uwsgi.mywid].running_time += tmp_rt;
-		uwsgi.workers[uwsgi.mywid].avg_response_time = (uwsgi.workers[uwsgi.mywid].avg_response_time + tmp_rt) / 2;
+
+		// calculate streaming value average
+		// example: https://www.geeksforgeeks.org/average-of-a-stream-of-numbers/
+		tmp_next_factor = (double)uwsgi.workers[uwsgi.mywid].requests / (uwsgi.workers[uwsgi.mywid].requests + 1);
+		tmp_avg_base = (uint64_t)(uwsgi.workers[uwsgi.mywid].avg_response_time * tmp_next_factor);
+		tmp_avg_weight = tmp_rt / (uwsgi.workers[uwsgi.mywid].requests + 1);
+		uwsgi.workers[uwsgi.mywid].avg_response_time = tmp_avg_base + tmp_avg_weight;
 	}
 
 	// get memory usage
