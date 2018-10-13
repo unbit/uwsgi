@@ -87,7 +87,7 @@ def application(env, sr):
                     if sys.version_info[0] > 2:
                         t = b'message'
                     if msg[0] == t:
-                        uwsgi.websocket_send("[%s] %s" % (time.time(), msg))
+                        uwsgi.websocket_send("[{}] {}".format(time.time(), msg))
             else:
                 # on timeout call websocket_recv_nb again to manage ping/pong
                 msg = uwsgi.websocket_recv_nb()

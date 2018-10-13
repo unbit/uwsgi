@@ -60,4 +60,4 @@ else:
         CFLAGS.append('-DUWSGI_RUBY_HEROKU')
     CFLAGS.append('-DUWSGI_RUBY_LIBDIR="\\"%s\\""' % rubylibdir)
     CFLAGS.append('-DUWSGI_RUBY_ARCHDIR="\\"%s\\""' % rubyarchdir)
-    GCC_LIST.append("%s/%s" % (libpath, os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['LIBRUBY_A']\"" % rbconfig).read().rstrip()))
+    GCC_LIST.append("{}/{}".format(libpath, os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['LIBRUBY_A']\"" % rbconfig).read().rstrip()))

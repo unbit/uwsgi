@@ -34,11 +34,11 @@ def _decode1(val):
 
 
 def _encode_to_spooler(vars):
-    return dict((_encode1(K), _encode1(V)) for (K, V) in vars.items())
+    return {_encode1(K): _encode1(V) for (K, V) in vars.items()}
 
 
 def _decode_from_spooler(vars):
-    return dict((_decode1(K), _decode1(V)) for (K, V) in vars.items())
+    return {_decode1(K): _decode1(V) for (K, V) in vars.items()}
 
 
 def get_free_signal():
@@ -52,7 +52,7 @@ def get_free_signal():
 def manage_spool_request(vars):
     # To check whether 'args' is in vals or not - decode the keys first,
     # because in python3 all keys in 'vals' are have 'byte' types
-    vars = dict((_decode1(K), V) for (K, V) in vars.items())
+    vars = {_decode1(K): V for (K, V) in vars.items()}
     if 'args' in vars:
         for k in ('args', 'kwargs'):
             vars[k] = pickle.loads(vars.pop(k))

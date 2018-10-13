@@ -30,7 +30,7 @@ def hello_rpc(one, two, three):
     arg0 = one[::-1]
     arg1 = two[::-1]
     arg2 = three[::-1]
-    return "!%s-%s-%s!" % (arg1, arg2, arg0)
+    return "!{}-{}-{}!".format(arg1, arg2, arg0)
 
 
 @signal(17)
@@ -53,7 +53,7 @@ def serve_logo(e, sr):
 def serve_config(e, sr):
     sr('200 OK', [('Content-Type', 'text/html')])
     for opt in uwsgi.opt.keys():
-        yield "<b>%s</b> = %s<br/>" % (opt, uwsgi.opt[opt])
+        yield "<b>{}</b> = {}<br/>".format(opt, uwsgi.opt[opt])
 
 routes = {}
 routes['/xsendfile'] = xsendfile

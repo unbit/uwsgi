@@ -187,7 +187,7 @@ def test_snippet(snippet, CFLAGS=[], LDFLAGS=[], LIBS=[]):
                 snippet = bytes(snippet, sys.getdefaultencoding())
             else:
                 snippet = bytes(snippet)
-        cmd = "{0} {1} -xc - {2} {3} -o /dev/null".format(GCC, cflags, ldflags, libs)
+        cmd = "{} {} -xc - {} {} -o /dev/null".format(GCC, cflags, ldflags, libs)
     else:
         cmd = " ".join([GCC, cflags, "-xc -", ldflags, libs, "-o /dev/null"])
     p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -243,7 +243,7 @@ def push_print(msg):
 
 def push_command(objfile, cmdline):
     if not compile_queue:
-        print_compilation_output("[%s] %s" % (GCC, objfile), cmdline)
+        print_compilation_output("[{}] {}".format(GCC, objfile), cmdline)
         ret = os.system(cmdline)
         if ret != 0:
             sys.exit(1)
@@ -274,7 +274,7 @@ def compile(cflags, last_cflags_ts, objfile, srcfile):
         return
     except Exception:
         pass
-    cmdline = "%s -c %s -o %s %s" % (GCC, cflags, objfile, srcfile)
+    cmdline = "{} -c {} -o {} {}".format(GCC, cflags, objfile, srcfile)
     push_command(objfile, cmdline)
 
 
@@ -495,32 +495,32 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                     if cfile.endswith('.a'):
                         gcc_list.append(cfile)
                     elif cfile.endswith('.o'):
-                        gcc_list.append('%s/%s' % (path, cfile))
+                        gcc_list.append('{}/{}'.format(path, cfile))
                     elif not cfile.endswith('.c') and not cfile.endswith('.cc') and not cfile.endswith('.go') and not cfile.endswith('.m'):
                         compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
                                 path + '/' + cfile + '.o', path + '/' + cfile + '.c')
-                        gcc_list.append('%s/%s' % (path, cfile))
+                        gcc_list.append('{}/{}'.format(path, cfile))
                     else:
                         if cfile.endswith('.go'):
                             p_cflags.append('-Wno-error')
                         compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
                                 path + '/' + cfile + '.o', path + '/' + cfile)
-                        gcc_list.append('%s/%s' % (path, cfile))
+                        gcc_list.append('{}/{}'.format(path, cfile))
                 for bfile in up.get('BINARY_LIST', []):
                     try:
-                        binary_link_cmd = "ld -r -b binary -o %s/%s.o %s/%s" % (path, bfile[1], path, bfile[1])
+                        binary_link_cmd = "ld -r -b binary -o {}/{}.o {}/{}".format(path, bfile[1], path, bfile[1])
                         print(binary_link_cmd)
                         if os.system(binary_link_cmd) != 0:
                             raise Exception('unable to link binary file')
                         for kind in ('start', 'end'):
-                            objcopy_cmd = "objcopy --redefine-sym _binary_%s_%s=%s_%s %s/%s.o" % (binarize('%s/%s' % (path, bfile[1])), kind, bfile[0], kind, path, bfile[1])
+                            objcopy_cmd = "objcopy --redefine-sym _binary_{}_{}={}_{} {}/{}.o".format(binarize('{}/{}'.format(path, bfile[1])), kind, bfile[0], kind, path, bfile[1])
                             print(objcopy_cmd)
                             if os.system(objcopy_cmd) != 0:
                                 raise Exception('unable to link binary file')
-                        gcc_list.append('%s/%s.o' % (path, bfile[1]))
+                        gcc_list.append('{}/{}.o'.format(path, bfile[1]))
                     except Exception:
                         if uwsgi_os == 'Darwin':
-                            gcc_list.append('-sectcreate __DATA %s %s/%s' % (strip_prefix('_uwsgi_', bfile[0]), path, bfile[1]))
+                            gcc_list.append('-sectcreate __DATA {} {}/{}'.format(strip_prefix('_uwsgi_', bfile[0]), path, bfile[1]))
 
                 libs += up['LIBS']
 
@@ -565,12 +565,12 @@ def build_uwsgi(uc, print_only=False, gcll=None):
 
     print("*** uWSGI linking ***")
     if '--static' in ldflags:
-        ldline = 'ar cru %s %s' % (
+        ldline = 'ar cru {} {}'.format(
             bin_name,
             ' '.join(map(add_o, gcc_list))
         )
     else:
-        ldline = "%s -o %s %s %s %s" % (
+        ldline = "{} -o {} {} {} {}".format(
             GCC,
             bin_name,
             ' '.join(uniq_warnings(ldflags)),
@@ -586,7 +586,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
     print("################# uWSGI configuration #################")
     print("")
     for report_key in report:
-        print("%s = %s" % (report_key, report[report_key]))
+        print("{} = {}".format(report_key, report[report_key]))
     print("")
     print("############## end of uWSGI configuration #############")
 
@@ -685,7 +685,7 @@ class uConf(object):
         ] + os.environ.get("CFLAGS", "").split() + self.get('cflags', '').split()
 
         python_venv_include = os.path.join(sys.prefix, 'include', 'site',
-                                           'python{0}.{1}'.format(*sys.version_info))
+                                           'python{}.{}'.format(*sys.version_info))
 
         if os.path.isdir(python_venv_include):
             self.cflags += ['-I' + python_venv_include]
@@ -815,12 +815,12 @@ class uConf(object):
     def depends_on(self, what, dep):
         for d in dep:
             if not self.get(d):
-                print("%s needs %s support." % (what, d))
+                print("{} needs {} support.".format(what, d))
                 sys.exit(1)
 
     def has_include(self, what):
         for include in self.include_path:
-            if os.path.exists("%s/%s" % (include, what)):
+            if os.path.exists("{}/{}".format(include, what)):
                 return True
         return False
 
@@ -1151,7 +1151,7 @@ class uConf(object):
             if not self.embed_config:
                 self.embed_config = self.get('embed_config')
             if self.embed_config:
-                binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(self.embed_config), self.embed_config)
+                binary_link_cmd = "ld -r -b binary -o {}.o {}".format(binarize(self.embed_config), self.embed_config)
                 print(binary_link_cmd)
                 os.system(binary_link_cmd)
                 self.cflags.append("-DUWSGI_EMBED_CONFIG=_binary_%s_start" % binarize(self.embed_config))
@@ -1169,24 +1169,24 @@ class uConf(object):
                     if os.path.isdir(ef):
                         for directory, directories, files in os.walk(ef):
                             for f in files:
-                                fname = "%s/%s" % (directory, f)
-                                binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(fname), fname)
+                                fname = "{}/{}".format(directory, f)
+                                binary_link_cmd = "ld -r -b binary -o {}.o {}".format(binarize(fname), fname)
                                 print(binary_link_cmd)
                                 os.system(binary_link_cmd)
                                 if symbase:
                                     for kind in ('start', 'end'):
-                                        objcopy_cmd = "objcopy --redefine-sym _binary_%s_%s=_binary_%s%s_%s build/%s.o" % (binarize(fname), kind, binarize(symbase), binarize(fname[len(ef):]), kind, binarize(fname))
+                                        objcopy_cmd = "objcopy --redefine-sym _binary_{}_{}=_binary_{}{}_{} build/{}.o".format(binarize(fname), kind, binarize(symbase), binarize(fname[len(ef):]), kind, binarize(fname))
                                         print(objcopy_cmd)
                                         os.system(objcopy_cmd)
                                 binary_list.append(binarize(fname))
                     else:
-                        binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(ef), ef)
+                        binary_link_cmd = "ld -r -b binary -o {}.o {}".format(binarize(ef), ef)
                         print(binary_link_cmd)
                         os.system(binary_link_cmd)
                         binary_list.append(binarize(ef))
                         if symbase:
                             for kind in ('start', 'end'):
-                                objcopy_cmd = "objcopy --redefine-sym _binary_%s_%s=_binary_%s_%s build/%s.o" % (binarize(ef), kind, binarize(symbase), kind, binarize(ef))
+                                objcopy_cmd = "objcopy --redefine-sym _binary_{}_{}=_binary_{}_{} build/{}.o".format(binarize(ef), kind, binarize(symbase), kind, binarize(ef))
                                 print(objcopy_cmd)
                                 os.system(objcopy_cmd)
 
@@ -1449,11 +1449,11 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
     if name is None:
         name = up['NAME']
     else:
-        p_cflags.append("-D%s_plugin=%s_plugin" % (up['NAME'], name))
+        p_cflags.append("-D{}_plugin={}_plugin".format(up['NAME'], name))
 
     try:
         for opt in uc.config.options(name):
-            p_cflags.append('-DUWSGI_PLUGIN_%s_%s="%s"' % (name.upper(), opt.upper(), uc.config.get(name, opt, '1')))
+            p_cflags.append('-DUWSGI_PLUGIN_{}_{}="{}"'.format(name.upper(), opt.upper(), uc.config.get(name, opt, '1')))
     except Exception:
         pass
 
@@ -1480,13 +1480,13 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
             gcc_list.append(path + '/' + cfile)
     for bfile in up.get('BINARY_LIST', []):
         try:
-            binary_link_cmd = "ld -r -b binary -o %s/%s.o %s/%s" % (path, bfile[1], path, bfile[1])
+            binary_link_cmd = "ld -r -b binary -o {}/{}.o {}/{}".format(path, bfile[1], path, bfile[1])
             print(binary_link_cmd)
             if os.system(binary_link_cmd) != 0:
                 raise Exception('unable to link binary file')
             for kind in ('start', 'end'):
-                objcopy_cmd = "objcopy --redefine-sym _binary_%s_%s=%s_%s %s/%s.o" % (
-                    binarize('%s/%s' % (path, bfile[1])),
+                objcopy_cmd = "objcopy --redefine-sym _binary_{}_{}={}_{} {}/{}.o".format(
+                    binarize('{}/{}'.format(path, bfile[1])),
                     kind,
                     bfile[0],
                     kind,
@@ -1496,10 +1496,10 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
                 print(objcopy_cmd)
                 if os.system(objcopy_cmd) != 0:
                     raise Exception('unable to link binary file')
-            gcc_list.append('%s/%s.o' % (path, bfile[1]))
+            gcc_list.append('{}/{}.o'.format(path, bfile[1]))
         except Exception:
             if uwsgi_os == 'Darwin':
-                gcc_list.append('-sectcreate __DATA %s %s/%s' % (strip_prefix('_uwsgi_', bfile[0]), path, bfile[1]))
+                gcc_list.append('-sectcreate __DATA {} {}/{}'.format(strip_prefix('_uwsgi_', bfile[0]), path, bfile[1]))
 
     p_ldflags_blacklist = ('-Wl,--no-undefined',)
     for ldflag in p_ldflags_blacklist:
@@ -1541,7 +1541,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
     if uwsgi_os.startswith('CYGWIN'):
         need_pic = ' -L. -luwsgi'
 
-    gccline = "%s%s %s -o %s.so %s %s %s %s" % (
+    gccline = "{}{} {} -o {}.so {} {} {} {}".format(
         GCC,
         need_pic,
         shared_flag,
@@ -1551,7 +1551,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
         ' '.join(uniq_warnings(p_ldflags)),
         ' '.join(uniq_warnings(p_libs))
     )
-    print_compilation_output("[%s] %s.so" % (GCC, plugin_dest), gccline)
+    print_compilation_output("[{}] {}.so".format(GCC, plugin_dest), gccline)
 
     ret = os.system(gccline)
     if ret != 0:
@@ -1564,7 +1564,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
             for rp in requires:
                 f.write("requires=%s\n" % rp)
             f.close()
-            objline = "objcopy %s.so --add-section uwsgi=.uwsgi_plugin_section %s.so" % (plugin_dest, plugin_dest)
+            objline = "objcopy {}.so --add-section uwsgi=.uwsgi_plugin_section {}.so".format(plugin_dest, plugin_dest)
             print_compilation_output(None, objline)
             os.system(objline)
             os.unlink('.uwsgi_plugin_section')
@@ -1575,7 +1575,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
         post_build(uc)
 
     print("build time: %d seconds" % (time.time() - plugin_started_at))
-    print("*** %s plugin built and available in %s ***" % (name, plugin_dest + '.so'))
+    print("*** {} plugin built and available in {} ***".format(name, plugin_dest + '.so'))
 
 
 def vararg_callback(option, opt_str, value, parser):

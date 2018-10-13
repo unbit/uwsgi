@@ -66,7 +66,7 @@ def an_infinite_task(args):
 # spool a task after 5 seconds
 @spool
 def delayed_task(args):
-    print("*** I am a delayed spool job. It is %s [%s]***" % (time.asctime(), str(args)))
+    print("*** I am a delayed spool job. It is {} [{}]***".format(time.asctime(), str(args)))
     # send a signal to all workers
     uwsgi.signal(100)
 

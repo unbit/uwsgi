@@ -42,7 +42,7 @@ class Command(BaseCommand):
             os.environ['UWSGI_SOCKET'] = self.socket_addr
 
         # map admin static files
-        os.environ['UWSGI_STATIC_MAP'] = '%s=%s' % (settings.ADMIN_MEDIA_PREFIX, os.path.join(django.__path__[0], 'contrib', 'admin', 'media'))
+        os.environ['UWSGI_STATIC_MAP'] = '{}={}'.format(settings.ADMIN_MEDIA_PREFIX, os.path.join(django.__path__[0], 'contrib', 'admin', 'media'))
         # remove sockets/pidfile at exit
         os.environ['UWSGI_VACUUM'] = '1'
         # retrieve/set the PythonHome

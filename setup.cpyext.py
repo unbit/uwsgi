@@ -36,7 +36,7 @@ class uWSGIBuildExt(build_ext):
             os.unlink(self.uwsgi_config.get('bin_name'))
 
         # FIXME: else build fails :(
-        for baddie in set(self.compiler.compiler_so) & set(('-Wstrict-prototypes',)):
+        for baddie in set(self.compiler.compiler_so) & {'-Wstrict-prototypes'}:
             self.compiler.compiler_so.remove(baddie)
 
         build_ext.build_extensions(self)

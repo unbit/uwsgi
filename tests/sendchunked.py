@@ -11,4 +11,4 @@ s.send("Transfer-Encoding: chunked\r\n\r\n")
 
 while True:
     msg = raw_input("msg >> ")
-    s.send("%X\r\n%s\r\n" % (len(msg), msg))
+    s.send("{:X}\r\n{}\r\n".format(len(msg), msg))

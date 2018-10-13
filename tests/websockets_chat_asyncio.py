@@ -133,7 +133,7 @@ def application(env, sr):
             # any redis message in the queue ?
             if f.done():
                 msg = f.result()
-                uwsgi.websocket_send("[%s] %s" % (time.time(), msg))
+                uwsgi.websocket_send("[{}] {}".format(time.time(), msg))
                 # restart coroutine
                 f = GreenFuture()
                 asyncio.Task(redis_wait(subscriber, f))

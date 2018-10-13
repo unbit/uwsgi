@@ -44,27 +44,27 @@ if 'UWSGI_PYTHON_NOLIB' not in os.environ:
         # libdir does not exists, try to get it from the venv
         version = get_python_version()
         if not os.path.exists(libdir):
-            libdir = '%s/lib/python%s/config' % (sys.prefix, version)
+            libdir = '{}/lib/python{}/config'.format(sys.prefix, version)
         # try skipping abiflag
         if not os.path.exists(libdir) and version.endswith('m'):
             version = version[:-1]
-            libdir = '%s/lib/python%s/config' % (sys.prefix, version)
+            libdir = '{}/lib/python{}/config'.format(sys.prefix, version)
         # try 3.x style config dir
         if not os.path.exists(libdir):
-            libdir = '%s/lib/python%s/config-%s' % (sys.prefix, version, get_python_version())
+            libdir = '{}/lib/python{}/config-{}'.format(sys.prefix, version, get_python_version())
 
         # get cpu type
         uname = os.uname()
         if uname[4].startswith('arm'):
-            libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LIBRARY'))
+            libpath = '{}/{}'.format(libdir, sysconfig.get_config_var('LIBRARY'))
             if not os.path.exists(libpath):
-                libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LDLIBRARY'))
+                libpath = '{}/{}'.format(libdir, sysconfig.get_config_var('LDLIBRARY'))
         else:
-            libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LDLIBRARY'))
+            libpath = '{}/{}'.format(libdir, sysconfig.get_config_var('LDLIBRARY'))
             if not os.path.exists(libpath):
-                libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LIBRARY'))
+                libpath = '{}/{}'.format(libdir, sysconfig.get_config_var('LIBRARY'))
         if not os.path.exists(libpath):
-            libpath = '%s/libpython%s.a' % (libdir, version)
+            libpath = '{}/libpython{}.a'.format(libdir, version)
         LIBS.append(libpath)
         # hack for messy linkers/compilers
         if '-lutil' in LIBS:

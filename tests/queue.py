@@ -26,7 +26,7 @@ def push_item():
 
 @app.route('/get', methods=['POST'])
 def get_item():
-    flash("slot %s value = %s" % (request.form['slot'], uwsgi.queue_get(int(request.form['slot']))))
+    flash("slot {} value = {}".format(request.form['slot'], uwsgi.queue_get(int(request.form['slot']))))
     return redirect('/')
 
 

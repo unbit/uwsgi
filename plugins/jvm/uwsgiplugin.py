@@ -34,13 +34,13 @@ else:
     known_jvms = ('/usr/lib/jvm/java-7-openjdk', '/usr/local/openjdk7', '/usr/lib/jvm/java-6-openjdk', '/usr/local/openjdk', '/usr/java', '/usr/lib/jvm/java/', '/usr/lib/jvm/java-8-openjdk-%s' % arch)
     for jvm in known_jvms:
         if os.path.exists(jvm + '/include'):
-            JVM_INCPATH = ["-I%s/include/" % jvm, "-I%s/include/%s" % (jvm, operating_system)]
-            JVM_LIBPATH = ["-L%s/jre/lib/%s/server" % (jvm, arch)]
+            JVM_INCPATH = ["-I%s/include/" % jvm, "-I{}/include/{}".format(jvm, operating_system)]
+            JVM_LIBPATH = ["-L{}/jre/lib/{}/server".format(jvm, arch)]
             break
-        if os.path.exists("%s-%s/include" % (jvm, arch)):
-            jvm = "%s-%s" % (jvm, arch)
-            JVM_INCPATH = ["-I%s/include/" % jvm, "-I%s/include/%s" % (jvm, operating_system)]
-            JVM_LIBPATH = ["-L%s/jre/lib/%s/server" % (jvm, arch)]
+        if os.path.exists("{}-{}/include".format(jvm, arch)):
+            jvm = "{}-{}".format(jvm, arch)
+            JVM_INCPATH = ["-I%s/include/" % jvm, "-I{}/include/{}".format(jvm, operating_system)]
+            JVM_LIBPATH = ["-L{}/jre/lib/{}/server".format(jvm, arch)]
             break
 
 try:

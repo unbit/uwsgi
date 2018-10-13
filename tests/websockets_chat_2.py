@@ -22,7 +22,7 @@ class ClientManager(object):
 
     @classmethod
     def broadcast(cls, data):
-        data = "{0} {1}".format(time.time(), data)
+        data = "{} {}".format(time.time(), data)
         def do_broadcast():
             for c in cls.clients:
                 c.send(data)
@@ -57,7 +57,7 @@ class Client(object):
 
 
     def on_data(self, data):
-        print "GOT: {0}".format(data)
+        print "GOT: {}".format(data)
         ClientManager.broadcast(data)
 
 
