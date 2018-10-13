@@ -9,43 +9,17 @@
 #define PYTHON_APP_TYPE_PUMP		3
 #define PYTHON_APP_TYPE_WSGI_LITE	4
 
-#if PY_MINOR_VERSION == 4 && PY_MAJOR_VERSION == 2
-#define Py_ssize_t ssize_t
-#define UWSGI_PYTHON_OLD
-#endif
-
-#if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION < 7
-#define HAS_NOT_PyMemoryView_FromBuffer
-#endif
-
-#if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION < 7
-#define HAS_NOT_PyFrame_GetLineNumber 
-#endif
-
-#if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 2
-#define HAS_NOT_PyFrame_GetLineNumber 
-#endif
-
-#if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION == 0
-#define HAS_NO_ERRORS_IN_PyFile_FromFd
-#endif
-
 #if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 7
 #define HAS_NOT_PyOS_AfterFork_Child
 #endif
 
 #if PY_MAJOR_VERSION < 3
+#define HAS_NOT_PyFrame_GetLineNumber
 #define HAS_NOT_PyOS_AfterFork_Child
 #endif
 
 #if PY_MAJOR_VERSION > 2
 #define PYTHREE
-#endif
-
-#if (PY_VERSION_HEX < 0x02060000)
-#ifndef Py_SIZE
-#define Py_SIZE(ob)             (((PyVarObject*)(ob))->ob_size)
-#endif
 #endif
 
 #define UWSGI_GET_GIL up.gil_get();

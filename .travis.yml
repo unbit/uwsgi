@@ -8,9 +8,6 @@ script:
   - UWSGICONFIG_PHPPATH=php-config7.2 /usr/bin/python uwsgiconfig.py --build travis
   - echo -e "\n\n>>> Building uWSGI binary"
   - make
-  - echo -e "\n\n>>> Building python26 plugin"
-  - /usr/bin/python2.6 -V
-  - /usr/bin/python2.6 uwsgiconfig.py --plugin plugins/python base python26
   - echo -e "\n\n>>> Building python27 plugin"
   - /usr/bin/python2.7 -V
   - /usr/bin/python2.7 uwsgiconfig.py --plugin plugins/python base python27
@@ -38,7 +35,7 @@ before_install:
   - sudo add-apt-repository ppa:deadsnakes/ppa -y
   - sudo add-apt-repository ppa:ondrej/php -y
   - sudo apt-get update -qq
-  - sudo apt-get install -qqyf python2.6-dev python3.4-dev python3.5-dev python3.6-dev
+  - sudo apt-get install -qqyf python3.4-dev python3.5-dev python3.6-dev
   - sudo apt-get install -qqyf libxml2-dev libpcre3-dev libcap2-dev
   - sudo apt-get install -qqyf php7.2-dev libphp7.2-embed libargon2-0-dev libsodium-dev
   - sudo apt-get install -qqyf liblua5.1-0-dev
