@@ -905,7 +905,12 @@ class uConf(object):
                 self.cflags.append('-DNO_SENDFILE')
                 self.cflags.append('-DNO_EXECINFO')
                 self.cflags.append('-DOLD_REALPATH')
-            self.cflags.append('-mmacosx-version-min=10.5')
+            darwin_major = int(uwsgi_os_k.split('.')[0])
+            # MacOS High Sierra and above: since XCode 10 there's no libgcc_s.10.5
+            if darwin_major >= 17:
+                self.cflags.append('-mmacosx-version-min=10.9')
+            else:
+                self.cflags.append('-mmacosx-version-min=10.5')
             if GCC in ('clang',):
                 self.libs.remove('-rdynamic')
 
