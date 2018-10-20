@@ -94,7 +94,7 @@ PyObject *pyuwsgi_setup(PyObject * self, PyObject * args, PyObject * kwds) {
 	Py_DECREF(iterator);
 
 	new_argc = PyObject_Length(args_li);
-	new_argv = uwsgi_calloc(sizeof(char *) * (new_argc + 1));
+	new_argv = uwsgi_calloc(sizeof(char *) * (new_argc + 2));
 	new_argv_buf = uwsgi_calloc(size);
 
 	int i = 0;
@@ -190,7 +190,7 @@ static void pyuwsgi_set_orig_argv(PyObject * self) {
 	wchar_t ** tmp_orig_argv = NULL;
 	Py_GetArgcArgv(&orig_argc, &tmp_orig_argv);
 	int j;
-	orig_argv = uwsgi_calloc(sizeof(char *) * (orig_argc + 1));
+	orig_argv = uwsgi_calloc(sizeof(char *) * (orig_argc + 2));
 	size_t size = 0;
 	for (j=0;j<orig_argc;j++) {
 		size += (wcslen(tmp_orig_argv[j]) + 1) * sizeof(wchar_t);
