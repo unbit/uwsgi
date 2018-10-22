@@ -5131,6 +5131,7 @@ int uwsgi_zeus_spawn_instance(struct uwsgi_instance *);
 
 time_t uwsgi_parse_http_date(char *, uint16_t);
 void uwsgi_spooler_cheap_check(void);
+char* uwsgi_getenv_with_default(const char* key);
 
 #define FCGI_BEGIN_REQUEST       1
 #define FCGI_ABORT_REQUEST       2

@@ -2325,7 +2325,7 @@ configure:
 	uwsgi_commandline_config();
 
 	// second pass: ENVs
-	uwsgi_apply_config_pass('$', (char *(*)(char *)) getenv);
+	uwsgi_apply_config_pass('$', (char *(*)(char *)) uwsgi_getenv_with_default);
 
 	// third pass: FILEs
 	uwsgi_apply_config_pass('@', uwsgi_at_file_read);
