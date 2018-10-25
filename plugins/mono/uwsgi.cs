@@ -101,6 +101,14 @@ namespace uwsgi {
 		public override int GetLocalPort() {
 			return Convert.ToInt32(GetServerVariable("SERVER_PORT"));
 		}
+		
+		public override string GetServerName() {
+			return GetServerVariable("SERVER_NAME");
+		}
+		
+		public override string GetProtocol() {
+			return GetServerVariable("REQUEST_SCHEME");
+		}
 
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		extern public override string GetQueryString();
