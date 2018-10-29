@@ -631,7 +631,7 @@ static void uwsgi_mono_init_thread(int core_id) {
 	sigaddset(&smask, SIGQUIT);
 	sigaddset(&smask, SIGKILL);
 	if (sigprocmask(SIG_UNBLOCK, &smask, NULL)) {
-	        uwsgi_error("uwsgi_mono_init_thread()/sigprocmask()");
+		uwsgi_error("uwsgi_mono_init_thread()/sigprocmask()");
 	}
 }
 
