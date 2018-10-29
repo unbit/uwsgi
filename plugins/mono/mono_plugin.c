@@ -441,35 +441,47 @@ static void uwsgi_mono_create_jit() {
 
 }
 
-static int uwsgi_mono_create_app(char *key, uint16_t key_len, char *physicalDir, uint16_t physicalDir_len, int new_domain) {
+static int uwsgi_mono_start_app(struct uwsgi_app *app, int id, char *physicalDir, uint16_t physicalDir_len)
+{
 	void *params[3];
-        params[2] = NULL;
-
+	time_t now = uwsgi_now();
+    
+	params[2] = NULL;
 	params[0] = mono_string_new(mono_domain_get(), "/");
 	params[1] = mono_string_new_len(mono_domain_get(), physicalDir, physicalDir_len);
-
-	int id = uwsgi_apps_cnt;
-	time_t now = uwsgi_now();
-
+	
 	MonoObject *appHost = mono_object_new(mono_domain_get(), umono.application_class);
         if (!appHost) {
         	uwsgi_log("unable to initialize asp.net ApplicationHost\n");
 		return -1;
 	}
-
+	
 	MonoObject *exc = NULL;
 	mono_runtime_invoke(umono.create_application_host, appHost, params, &exc);
 	if (exc) {
                 mono_print_unhandled_exception(exc);
 		return -1;
-        }
+    }
 
-	struct uwsgi_app *app = uwsgi_add_app(id, mono_plugin.modifier1, key, key_len, uwsgi_concat2n(physicalDir, physicalDir_len, "", 0), appHost);
-        app->started_at = now;
-        app->startup_time = uwsgi_now() - now;
+	app->started_at = now;
+    app->startup_time = uwsgi_now() - now;
 	// get a handler to appHost
-	mono_gchandle_new(app->callable, 1);
-	uwsgi_log("Mono asp.net app %d (%.*s) loaded in %d seconds at %p (worker %d)\n", id, key_len, key, (int) app->startup_time, appHost, uwsgi.mywid);
+	uintptr_t appHostHandle = mono_gchandle_new(appHost, 1);
+    app->callable = (void *)appHostHandle;
+	uwsgi_log("Mono asp.net app %d (%.*s) loaded in %d seconds at %p (worker %d)\n", id, physicalDir_len, physicalDir, (int) app->startup_time, appHost, uwsgi.mywid);
+	
+	return 1;
+}
+
+static int uwsgi_mono_create_app(char *key, uint16_t key_len, char *physicalDir, uint16_t physicalDir_len, int new_domain) {
+
+	int id = uwsgi_apps_cnt;
+
+	struct uwsgi_app *app = uwsgi_add_app(id, mono_plugin.modifier1, key, key_len, uwsgi_concat2n(physicalDir, physicalDir_len, "", 0), NULL);
+	
+	if (uwsgi_mono_start_app(app, id, physicalDir, physicalDir_len) == -1) {
+		return -1;
+	}
 
 	// set it as default app if needed
 	if (uwsgi.default_app == -1) {
@@ -588,10 +600,35 @@ static int uwsgi_mono_request(struct wsgi_request *wsgi_req) {
 	free(path);
 
 	MonoException *exc = NULL;
+	
+	uintptr_t appHostHandle = (uintptr_t)(app->callable);
+	MonoObject* appHost = mono_gchandle_get_target(appHostHandle);
 
-	umono.process_request(app->callable, &exc);
+	umono.process_request(appHost, &exc);
 
 	if (exc) {
+		MonoClass *exceptionClass;
+        MonoType *exceptionType;
+		const char *typeName;
+		
+		exceptionClass = mono_object_get_class((MonoObject*)exc);
+        exceptionType = mono_class_get_type(exceptionClass);
+        typeName = mono_type_get_name(exceptionType);
+        if (strcmp(typeName, "System.AppDomainUnloadedException") == 0) {
+			uwsgi_log("Reloading unloaded mono application\n");
+			if (uwsgi_mono_start_app(app, wsgi_req->app_id, key, key_len) != -1)
+			{
+				mono_gchandle_free(appHostHandle);
+				// We're retrying the request bearing in mind that the request will be incremented back in the nested request
+				app->requests--;
+				return uwsgi_mono_request(wsgi_req);
+			}
+			else
+			{
+				uwsgi_log("Reloading mono application failed\n");
+				return -1;
+			}
+		}
 		mono_print_unhandled_exception((MonoObject *)exc);
 	}
 
