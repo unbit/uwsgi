@@ -322,6 +322,29 @@ static int uwsgi_mono_init() {
 		umono.gc_freq = 1;
 	}
 
+	// We need to unblock all the signal handlers for mono in the main thread too
+	sigset_t smask;
+	sigemptyset(&smask);
+#if defined(__APPLE__) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
+	sigaddset(&smask, SIGXFSZ);
+#else
+	sigaddset(&smask, SIGPWR);
+#endif
+	sigaddset(&smask, SIGXCPU);
+	sigaddset(&smask, SIGSEGV);
+	sigaddset(&smask, 33);
+	sigaddset(&smask, 35);
+	sigaddset(&smask, 36);
+	sigaddset(&smask, 37);
+	sigaddset(&smask, 38);
+	sigaddset(&smask, SIGFPE);
+	sigaddset(&smask, SIGCHLD);
+	sigaddset(&smask, SIGQUIT);
+	sigaddset(&smask, SIGKILL);
+	if (sigprocmask(SIG_UNBLOCK, &smask, NULL)) {
+		uwsgi_error("uwsgi_mono_init()/sigprocmask()");
+	}
+
 	return 0;
 }
 
@@ -656,6 +679,20 @@ static void uwsgi_mono_init_thread(int core_id) {
 	if (sigprocmask(SIG_UNBLOCK, &smask, NULL)) {
 		uwsgi_error("uwsgi_mono_init_thread()/sigprocmask()");
 	}
+	sigaddset(&smask, SIGXCPU);
+	sigaddset(&smask, SIGSEGV);
+	sigaddset(&smask, 33);
+	sigaddset(&smask, 35);
+	sigaddset(&smask, 36);
+	sigaddset(&smask, 37);
+	sigaddset(&smask, 38);
+	sigaddset(&smask, SIGFPE);
+	sigaddset(&smask, SIGCHLD);
+	sigaddset(&smask, SIGQUIT);
+	sigaddset(&smask, SIGKILL);
+	if (sigprocmask(SIG_UNBLOCK, &smask, NULL)) {
+		uwsgi_error("uwsgi_mono_init_thread()/sigprocmask()");
+}
 }
 
 static void uwsgi_mono_pthread_prepare(void) {
