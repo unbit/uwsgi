@@ -96,16 +96,21 @@ static void uwsgi_mono_set_signal_mask(sigset_t* smask) {
 	sigaddset(smask, SIGPWR);
 #endif
 	sigaddset(smask, SIGXCPU);
-	sigaddset(smask, SIGSEGV);
 	sigaddset(smask, 33);
 	sigaddset(smask, 35);
 	sigaddset(smask, 36);
 	sigaddset(smask, 37);
 	sigaddset(smask, 38);
+	sigaddset(smask, SIGSEGV);
 	sigaddset(smask, SIGFPE);
 	sigaddset(smask, SIGCHLD);
 	sigaddset(smask, SIGQUIT);
 	sigaddset(smask, SIGKILL);
+	sigaddset(smask, SIGILL);
+	sigaddset(smask, SIGBUS);
+	sigaddset(smask, SIGUSR2);
+	sigaddset(smask, SIGABRT);
+	sigaddset(smask, SIGINT);
 }
 
 static struct wsgi_request *uwsgi_mono_get_current_req(MonoObject *this) {
@@ -196,56 +201,31 @@ static void uwsgi_mono_method_SendStatus(MonoObject *this, int code, MonoString 
 	char status_code[4];
 	uwsgi_num2str2n(code, status_code, 4);
 	char *status_line = uwsgi_concat3n(status_code, 3, " ", 1, mono_string_to_utf8(msg), mono_string_length(msg));
-	sigset_t origmask;
-	sigset_t smask;
-	uwsgi_mono_set_signal_mask(&smask);
-	sigprocmask(SIG_BLOCK, &smask, &origmask);
 	uwsgi_response_prepare_headers(wsgi_req, status_line, 4 + mono_string_length(msg));
-	sigprocmask(SIG_SETMASK, &origmask, NULL);
 	free(status_line);
 }
 
 static void uwsgi_mono_method_SendUnknownResponseHeader(MonoObject *this, MonoString *key, MonoString *value) {
 	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
-	sigset_t origmask;
-	sigset_t smask;
-	uwsgi_mono_set_signal_mask(&smask);
-	sigprocmask(SIG_BLOCK, &smask, &origmask);
 	uwsgi_response_add_header(wsgi_req, mono_string_to_utf8(key), mono_string_length(key), mono_string_to_utf8(value), mono_string_length(value));
-	sigprocmask(SIG_SETMASK, &origmask, NULL);
 }
 
 static void uwsgi_mono_method_SendResponseFromMemory(MonoObject *this, MonoArray *byteArray, int len) {
 	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	char* array = mono_array_addr(byteArray, char, 0);
-	sigset_t origmask;
-	sigset_t smask;
-	uwsgi_mono_set_signal_mask(&smask);
-	sigprocmask(SIG_BLOCK, &smask, &origmask);
 	uwsgi_response_write_body_do(wsgi_req, array, len);
-	sigprocmask(SIG_SETMASK, &origmask, NULL);
 }
 
 static void uwsgi_mono_method_FlushResponse(MonoObject *this, int is_final) {
 	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
-	sigset_t origmask;
-	sigset_t smask;
-	uwsgi_mono_set_signal_mask(&smask);
-	sigprocmask(SIG_BLOCK, &smask, &origmask);
 	uwsgi_response_write_body_do(wsgi_req, "", 0);
-	sigprocmask(SIG_SETMASK, &origmask, NULL);
 }
 
 static void uwsgi_mono_method_SendResponseFromFd(MonoObject *this, int fd, long offset, long len) {
 	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	wsgi_req->sendfile_fd = fd;
 	if (fd >= 0) {
-		sigset_t origmask;
-		sigset_t smask;
-		uwsgi_mono_set_signal_mask(&smask);
-		sigprocmask(SIG_BLOCK, &smask, &origmask);
 		uwsgi_response_sendfile_do(wsgi_req, fd, offset, len);
-		sigprocmask(SIG_SETMASK, &origmask, NULL);
 	}
 	wsgi_req->sendfile_fd = -1;
 }
@@ -254,12 +234,7 @@ static void uwsgi_mono_method_SendResponseFromFile(MonoObject *this, MonoString 
 	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	int fd = open(mono_string_to_utf8(filename), O_RDONLY);
 	if (fd >= 0) {
-		sigset_t origmask;
-		sigset_t smask;
-		uwsgi_mono_set_signal_mask(&smask);
-		sigprocmask(SIG_BLOCK, &smask, &origmask);
 		uwsgi_response_sendfile_do(wsgi_req, fd, offset, len);
-		sigprocmask(SIG_SETMASK, &origmask, NULL);
 	}
 }
 
@@ -287,12 +262,7 @@ static int uwsgi_mono_method_ReadEntityBody(MonoObject *this, MonoArray *byteArr
 	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	char *buf = mono_array_addr(byteArray, char, 0);	
 	ssize_t rlen = 0;
-	sigset_t origmask;
-	sigset_t smask;
-	uwsgi_mono_set_signal_mask(&smask);
-	sigprocmask(SIG_BLOCK, &smask, &origmask);
 	char *chunk = uwsgi_request_body_read(wsgi_req, len, &rlen);
-	sigprocmask(SIG_SETMASK, &origmask, NULL);
 	if (chunk == uwsgi.empty) {
 		return 0;
 	}

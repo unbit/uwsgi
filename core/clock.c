@@ -3,7 +3,7 @@
 extern struct uwsgi_server uwsgi;
 
 int uwsgi_simple_wait_milliseconds_hook(int timeout) {
-        return poll(NULL, 0, timeout);
+        return uwsgi_poll(NULL, 0, timeout);
 }
 
 

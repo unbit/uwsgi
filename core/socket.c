@@ -888,7 +888,7 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 			if (timeout < 1)
 				timeout = 3;
 			fdpoll->events = POLLOUT;
-			cnt = poll(fdpoll, 1, timeout * 1000);
+			cnt = uwsgi_poll(fdpoll, 1, timeout * 1000);
 			/* check for errors */
 			if (cnt < 0 && errno != EINTR) {
 				uwsgi_error("poll()");
