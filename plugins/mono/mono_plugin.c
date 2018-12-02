@@ -55,6 +55,7 @@ struct uwsgi_mono {
 
 	// a lock for dynamic apps
 	pthread_mutex_t lock_loader;
+	pthread_mutex_t lock_app_load;
 
 	MonoDomain *main_domain;
 	MonoMethod *create_application_host;
@@ -321,6 +322,8 @@ static int uwsgi_mono_init() {
 	if (!umono.gc_freq) {
 		umono.gc_freq = 1;
 	}
+	
+	pthread_mutex_init(&umono.lock_app_load, NULL);
 
 	return 0;
 }
@@ -475,11 +478,18 @@ static int uwsgi_mono_start_app(struct uwsgi_app *app, int id, char *physicalDir
 
 static int uwsgi_mono_create_app(char *key, uint16_t key_len, char *physicalDir, uint16_t physicalDir_len, int new_domain) {
 
+	int app_start_result = 0;
 	int id = uwsgi_apps_cnt;
 
 	struct uwsgi_app *app = uwsgi_add_app(id, mono_plugin.modifier1, key, key_len, uwsgi_concat2n(physicalDir, physicalDir_len, "", 0), NULL);
-	
-	if (uwsgi_mono_start_app(app, id, physicalDir, physicalDir_len) == -1) {
+	if (uwsgi.threads > 1) {
+		pthread_mutex_lock(&umono.lock_app_load);
+	}
+	app_start_result = uwsgi_mono_start_app(app, id, physicalDir, physicalDir_len);
+	if (uwsgi.threads > 1) {
+		pthread_mutex_unlock(&umono.lock_app_load);
+	}
+	if (app_start_result == -1) {
 		return -1;
 	}
 
@@ -615,17 +625,43 @@ static int uwsgi_mono_request(struct wsgi_request *wsgi_req) {
 		exceptionType = mono_class_get_type(exceptionClass);
 		typeName = mono_type_get_name(exceptionType);
 		if (strcmp(typeName, "System.AppDomainUnloadedException") == 0) {
-			uwsgi_log("Reloading unloaded mono application\n");
-			if (uwsgi_mono_start_app(app, wsgi_req->app_id, key, key_len) != -1)
+			int app_start_result = 0;
+			uintptr_t appHostHandleCurrent;
+			
+			if (uwsgi.threads > 1) {
+				pthread_mutex_lock(&umono.lock_app_load);
+			}
+			appHostHandleCurrent = (uintptr_t)(app->callable);
+			if (appHostHandleCurrent == appHostHandle)
 			{
-				mono_gchandle_free(appHostHandle);
+				uwsgi_log("Reloading unloaded mono application\n");
+				app_start_result = uwsgi_mono_start_app(app, wsgi_req->app_id, key, key_len);
+				if (app_start_result != -1)
+				{
+					mono_gchandle_free(appHostHandle);
+				}
+				else
+				{
+					uwsgi_log("Reloading mono application failed\n");
+				}
+			}
+			else
+			{
+				uwsgi_log("Retrying request with reloaded mono application\n");
+			}
+			
+			if (uwsgi.threads > 1) {
+				pthread_mutex_unlock(&umono.lock_app_load);
+			}
+			
+			if (app_start_result != -1)
+			{
 				// We're retrying the request bearing in mind that the request will be incremented back in the nested request
 				app->requests--;
 				return uwsgi_mono_request(wsgi_req);
 			}
 			else
 			{
-				uwsgi_log("Reloading mono application failed\n");
 				return -1;
 			}
 		}
