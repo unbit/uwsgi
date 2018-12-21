@@ -1069,8 +1069,11 @@ void uwsgi_python_destroy_env_holy(struct wsgi_request *wsgi_req) {
 		// to equalise the refcount of the environ
 		PyDict_DelItemString(up.embedded_dict, "env");
 	}
+	// avoid to decref environ if it is mapped to the python callable
+	if (PyTuple_GetItem(wsgi_req->async_args, 0) != wsgi_req->async_environ) {
+		Py_DECREF((PyObject *)wsgi_req->async_environ);
+        }
 	Py_DECREF((PyObject *) wsgi_req->async_args);
-	Py_DECREF((PyObject *)wsgi_req->async_environ);
 }
 
 
