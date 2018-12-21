@@ -1092,15 +1092,21 @@ void uwsgi_python_preinit_apps() {
                 exit(1);
         }
 
-	if (!up.wsgi_env_behaviour) {
-		up.wsgi_env_create = uwsgi_python_create_env_cheat;
-		up.wsgi_env_destroy = uwsgi_python_destroy_env_cheat;
+	if (up.wsgi_env_behaviour) {
+		if (!strcmp(up.wsgi_env_behaviour, "holy")) {
+			up.wsgi_env_create = uwsgi_python_create_env_holy;
+			up.wsgi_env_destroy = uwsgi_python_destroy_env_holy;
+		}
+		else if (!strcmp(up.wsgi_env_behaviour, "cheat")) {
+			up.wsgi_env_create = uwsgi_python_create_env_cheat;
+			up.wsgi_env_destroy = uwsgi_python_destroy_env_cheat;
+		}
+		else {
+			uwsgi_log("invalid wsgi-env-behaviour value: %s\n", up.wsgi_env_behaviour);
+			exit(1);
+		}
 	}
-	else if (!strcmp(up.wsgi_env_behaviour, "holy")) {
-		up.wsgi_env_create = uwsgi_python_create_env_holy;
-		up.wsgi_env_destroy = uwsgi_python_destroy_env_holy;
-	}
-	else if (!strcmp(up.wsgi_env_behaviour, "cheat")) {
+	else {
 		up.wsgi_env_create = uwsgi_python_create_env_cheat;
 		up.wsgi_env_destroy = uwsgi_python_destroy_env_cheat;
 	}
