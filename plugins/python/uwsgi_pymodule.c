@@ -2895,7 +2895,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 	{"websocket_recv", (PyCFunction)(void *)py_uwsgi_websocket_recv, METH_VARARGS|METH_KEYWORDS, ""},
 	{"websocket_recv_nb", (PyCFunction)(void *)py_uwsgi_websocket_recv_nb, METH_VARARGS|METH_KEYWORDS, ""},
-	{"websocket_send", (PyCFunction)(void *)py_uwsgi_websocket_send, METH_VARARGS|METH_KEYWORDS|METH_KEYWORDS, ""},
+	{"websocket_send", (PyCFunction)(void *)py_uwsgi_websocket_send, METH_VARARGS|METH_KEYWORDS, ""},
 	{"websocket_send_binary", (PyCFunction)(void *)py_uwsgi_websocket_send_binary, METH_VARARGS|METH_KEYWORDS, ""},
 	{"websocket_handshake", py_uwsgi_websocket_handshake, METH_VARARGS, ""},
 
