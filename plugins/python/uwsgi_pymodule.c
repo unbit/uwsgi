@@ -2560,11 +2560,11 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 
 static PyMethodDef uwsgi_spooler_methods[] = {
 #ifdef PYTHREE
-	{"send_to_spooler", (PyCFunction) py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
-	{"spool", (PyCFunction) py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
+	{"send_to_spooler", (PyCFunction)(void *)py_uwsgi_send_spool, METH_VARARGS|METH_KEYWORDS, ""},
+	{"spool", (PyCFunction)(void *)py_uwsgi_send_spool, METH_VARARGS|METH_KEYWORDS, ""},
 #else
-	{"send_to_spooler", (PyCFunction) py_uwsgi_send_spool, METH_KEYWORDS, ""},
-	{"spool", (PyCFunction) py_uwsgi_send_spool, METH_KEYWORDS, ""},
+	{"send_to_spooler", (PyCFunction)(void *)py_uwsgi_send_spool, METH_KEYWORDS, ""},
+	{"spool", (PyCFunction)(void *)py_uwsgi_send_spool, METH_KEYWORDS, ""},
 #endif
 	{"set_spooler_frequency", py_uwsgi_spooler_freq, METH_VARARGS, ""},
 	{"spooler_jobs", py_uwsgi_spooler_jobs, METH_VARARGS, ""},
@@ -2662,7 +2662,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 	{"mule_msg", py_uwsgi_mule_msg, METH_VARARGS, ""},
 	{"farm_msg", py_uwsgi_farm_msg, METH_VARARGS, ""},
-	{"mule_get_msg", (PyCFunction) py_uwsgi_mule_get_msg, METH_VARARGS|METH_KEYWORDS, ""},
+	{"mule_get_msg", (PyCFunction)(void *)py_uwsgi_mule_get_msg, METH_VARARGS|METH_KEYWORDS, ""},
 	{"farm_get_msg", py_uwsgi_farm_get_msg, METH_VARARGS, ""},
 	{"in_farm", py_uwsgi_in_farm, METH_VARARGS, ""},
 
