@@ -1193,7 +1193,7 @@ void emperor_add_with_attrs(struct uwsgi_emperor_scanner *ues, char *name, time_
 	}
 }
 
-static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *);
+static int uwsgi_emperor_spawn_vassal(struct uwsgi_instance *);
 
 static void vassal_fork_server_parser_hook(char *key, uint16_t key_len, char *value, uint16_t value_len, void *data) {
 	pid_t *pid = (pid_t *) data;
@@ -1472,7 +1472,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 	return -1;
 }
 
-static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
+static int uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
 	int i;
 
 	// run plugin hooks for the vassal
@@ -1799,6 +1799,8 @@ static void uwsgi_emperor_spawn_vassal(struct uwsgi_instance *n_ui) {
         }
 	// never here
 	exit(UWSGI_EXILE_CODE);
+
+	return 0;
 }
 
 void uwsgi_imperial_monitor_glob_init(struct uwsgi_emperor_scanner *ues) {
