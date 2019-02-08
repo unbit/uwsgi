@@ -153,7 +153,7 @@ void uwsgi_emperor_blacklist_add(char *id) {
 		}
 	}
 
-	strncpy(uebi->id, id, 0xff);
+	snprintf(uebi->id, 0xff, "%s", id);
 	gettimeofday(&uebi->first_attempt, NULL);
 	memcpy(&uebi->last_attempt, &uebi->first_attempt, sizeof(struct timeval));
 	uebi->throttle_level = uwsgi.emperor_throttle;
