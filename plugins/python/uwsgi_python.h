@@ -14,7 +14,6 @@
 #endif
 
 #if PY_MAJOR_VERSION < 3
-#define HAS_NOT_PyFrame_GetLineNumber
 #define HAS_NOT_PyOS_AfterFork_Child
 #endif
 
