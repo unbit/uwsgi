@@ -2176,8 +2176,6 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 	atexit(vacuum);
 	// call user scripts
 	atexit(uwsgi_exec_atexit);
-	// call plugin specific exit hooks
-	atexit(uwsgi_plugins_atexit);
 #ifdef UWSGI_SSL
 	// call legions death hooks
 	atexit(uwsgi_legion_atexit);
@@ -3238,6 +3236,11 @@ next:
 	if (!uwsgi.lazy && !uwsgi.lazy_apps) {
 		uwsgi_init_all_apps();
 	}
+
+	// Register uwsgi atexit plugin callbacks after all applications have
+	// been loaded. This ensures plugin atexit callbacks are called prior
+	// to application registered atexit callbacks.
+	atexit(uwsgi_plugins_atexit);
 
 	if (!uwsgi.master_as_root) {
 		uwsgi_log("dropping root privileges after application loading\n");

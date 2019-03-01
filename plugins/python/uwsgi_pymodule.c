@@ -199,13 +199,11 @@ char *uwsgi_encode_pydict(PyObject * pydict, uint16_t * size) {
 
 		if (!PyTuple_Check(zero)) {
 			uwsgi_log("invalid python dictionary item\n");
-			Py_DECREF(zero);
 			continue;
 		}
 
 		if (PyTuple_Size(zero) < 2) {
 			uwsgi_log("invalid python dictionary item\n");
-			Py_DECREF(zero);
 			continue;
 		}
 		key = PyTuple_GetItem(zero, 0);
@@ -218,7 +216,6 @@ char *uwsgi_encode_pydict(PyObject * pydict, uint16_t * size) {
 		}
 
 		if (!PyString_Check(key) || !PyString_Check(val)) {
-			Py_DECREF(zero);
 			continue;
 		}
 
@@ -237,8 +234,6 @@ char *uwsgi_encode_pydict(PyObject * pydict, uint16_t * size) {
 			memcpy(bufptr, PyString_AsString(val), valsize);
 			bufptr += valsize;
 		}
-
-		Py_DECREF(zero);
 
 	}
 
@@ -1418,7 +1413,6 @@ PyObject *py_uwsgi_install_mule_msg_hook(PyObject *self, PyObject *args) {
 			return NULL;
 
 		if(PyDict_SetItemString(up.embedded_dict, "mule_msg_extra_hooks", msg_hook_list) == -1) {
-			Py_DECREF(msg_hook_list);
 			return NULL;
 		}
 	}
@@ -2204,7 +2198,6 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 					if (PyString_Check(val)) {
 						valsize = PyString_Size(val);
 						if (uwsgi_buffer_append_keyval(ub, PyString_AsString(key), keysize, PyString_AsString(val), valsize)) {
-							Py_DECREF(zero);
 							uwsgi_buffer_destroy(ub);
 							goto error;
 						}
@@ -2216,31 +2209,26 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 						PyObject *str = PyObject_Str(val);
 #endif
 						if (!str) {
-							Py_DECREF(zero);
 							uwsgi_buffer_destroy(ub);
 							goto error;
 						}
 						if (uwsgi_buffer_append_keyval(ub, PyString_AsString(key), keysize, PyString_AsString(str), PyString_Size(str))) {
-                                                        Py_DECREF(zero);
 							Py_DECREF(str);
-                                                        uwsgi_buffer_destroy(ub);
-                                                        goto error;
-                                                }
+							uwsgi_buffer_destroy(ub);
+							goto error;
+						}
 						Py_DECREF(str);
 					}
 				}
 				else {
-					Py_DECREF(zero);
 					uwsgi_buffer_destroy(ub);
                                         goto error;
 				}
 			}
 			else {
-				Py_DECREF(zero);
 				uwsgi_buffer_destroy(ub);
                                 goto error;
 			}
-			Py_DECREF(zero);
 		}
 		else {
 			uwsgi_buffer_destroy(ub);
@@ -2259,7 +2247,9 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 
 
 	if (pybody) {
-		Py_DECREF(pybody);
+		if (PyString_Check(pybody)) {
+			Py_DECREF(pybody);
+		}
 	}
 	
 	Py_DECREF(spool_vars);
@@ -2395,9 +2385,6 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		}
 
 		apps_tuple = PyDict_GetItemString(worker_dict, "apps");
-		if (apps_tuple) {
-			Py_DECREF(apps_tuple);
-		}	
 
 		PyDict_Clear(worker_dict);
 
@@ -2781,13 +2768,8 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 }
 
 static PyMethodDef uwsgi_spooler_methods[] = {
-#ifdef PYTHREE
-	{"send_to_spooler", (PyCFunction) py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
-	{"spool", (PyCFunction) py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
-#else
-	{"send_to_spooler", (PyCFunction) py_uwsgi_send_spool, METH_KEYWORDS, ""},
-	{"spool", (PyCFunction) py_uwsgi_send_spool, METH_KEYWORDS, ""},
-#endif
+	{"send_to_spooler", (PyCFunction)(void *)py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
+	{"spool", (PyCFunction)(void *)py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
 	{"set_spooler_frequency", py_uwsgi_spooler_freq, METH_VARARGS, ""},
 	{"spooler_jobs", py_uwsgi_spooler_jobs, METH_VARARGS, ""},
 	{"spooler_pid", py_uwsgi_spooler_pid, METH_VARARGS, ""},
@@ -2888,7 +2870,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"install_mule_msg_hook", py_uwsgi_install_mule_msg_hook, METH_VARARGS, ""},
 	{"mule_msg", py_uwsgi_mule_msg, METH_VARARGS, ""},
 	{"farm_msg", py_uwsgi_farm_msg, METH_VARARGS, ""},
-	{"mule_get_msg", (PyCFunction) py_uwsgi_mule_get_msg, METH_VARARGS|METH_KEYWORDS, ""},
+	{"mule_get_msg", (PyCFunction)(void *)py_uwsgi_mule_get_msg, METH_VARARGS|METH_KEYWORDS, ""},
 	{"farm_get_msg", py_uwsgi_farm_get_msg, METH_VARARGS, ""},
 	{"in_farm", py_uwsgi_in_farm, METH_VARARGS, ""},
 
@@ -2896,12 +2878,12 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 	{"set_user_harakiri", py_uwsgi_set_user_harakiri, METH_VARARGS, ""},
 
-    {"request_context", py_uwsgi_request_context, METH_VARARGS, ""},
+	{"request_context", py_uwsgi_request_context, METH_VARARGS, ""},
 
-    {"websocket_recv", (PyCFunction)py_uwsgi_websocket_recv, METH_VARARGS|METH_KEYWORDS, ""},
-	{"websocket_recv_nb", (PyCFunction)py_uwsgi_websocket_recv_nb, METH_VARARGS|METH_KEYWORDS, ""},
-	{"websocket_send", (PyCFunction)py_uwsgi_websocket_send, METH_VARARGS|METH_KEYWORDS|METH_KEYWORDS, ""},
-	{"websocket_send_binary", (PyCFunction)py_uwsgi_websocket_send_binary, METH_VARARGS|METH_KEYWORDS, ""},
+	{"websocket_recv", (PyCFunction)(void *)py_uwsgi_websocket_recv, METH_VARARGS|METH_KEYWORDS, ""},
+	{"websocket_recv_nb", (PyCFunction)(void *)py_uwsgi_websocket_recv_nb, METH_VARARGS|METH_KEYWORDS, ""},
+	{"websocket_send", (PyCFunction)(void *)py_uwsgi_websocket_send, METH_VARARGS|METH_KEYWORDS, ""},
+	{"websocket_send_binary", (PyCFunction)(void *)py_uwsgi_websocket_send_binary, METH_VARARGS|METH_KEYWORDS, ""},
 	{"websocket_handshake", py_uwsgi_websocket_handshake, METH_VARARGS, ""},
 
 	{"chunked_read", py_uwsgi_chunked_read, METH_VARARGS, ""},

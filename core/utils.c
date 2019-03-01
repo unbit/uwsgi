@@ -1772,16 +1772,19 @@ char *uwsgi_substitute(char *src, char *what, char *with) {
 
 	char *dst = uwsgi_calloc(len);
 	char *ptr = src;
+	char *dst_ptr = dst;
 
 	p = strstr(ptr, what);
 	while (p) {
-		strncat(dst, ptr, (p - ptr));
-		strncat(dst, with, with_len);
+		memcpy(dst_ptr, ptr, p - ptr);
+		dst_ptr += p - ptr;
+		memcpy(dst_ptr, with, with_len);
+		dst_ptr += with_len;
 		ptr = p + wlen;
 		p = strstr(ptr, what);
 	}
 
-	strncat(dst, ptr, strlen(ptr));
+	snprintf(dst_ptr, strlen(ptr) + 1, "%s", ptr);
 
 	return dst;
 }

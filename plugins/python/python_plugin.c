@@ -1008,20 +1008,20 @@ int uwsgi_python_mount_app(char *mountpoint, char *app) {
 
 char *uwsgi_pythonize(char *orig) {
 
-	char *name = uwsgi_concat2(orig, "");
-	size_t i;
-	size_t len = 0;
+	char *name;
+	size_t i, len, offset = 0;
 
-	if (!strncmp(name, "sym://", 6)) {
-		name+=6;
+	if (!strncmp(orig, "sym://", 6)) {
+		offset = 6;
 	}
-	else if (!strncmp(name, "http://", 7)) {
-		name+=7;
+	else if (!strncmp(orig, "http://", 7)) {
+		offset = 7;
 	}
-	else if (!strncmp(name, "data://", 7)) {
-		name+=7;
+	else if (!strncmp(orig, "data://", 7)) {
+		offset = 7;
 	}
 
+	name = uwsgi_concat2(orig+offset, "");
 	len = strlen(name);
 	for(i=0;i<len;i++) {
 		if (name[i] == '.') {
