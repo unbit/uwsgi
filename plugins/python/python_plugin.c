@@ -207,6 +207,9 @@ struct uwsgi_option uwsgi_python_options[] = {
 
 	{"py-master-check-signals", no_argument, 0, "enable python signal handlers in master", uwsgi_opt_true, &up.master_check_signals, 0},
 
+	{"py-executable", required_argument, 0, "override sys.executable value", uwsgi_opt_set_str, &up.executable, 0},
+	{"py-sys-executable", required_argument, 0, "override sys.executable value", uwsgi_opt_set_str, &up.executable, 0},
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
