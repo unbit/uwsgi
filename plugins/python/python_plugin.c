@@ -174,6 +174,9 @@ struct uwsgi_option uwsgi_python_options[] = {
 
 	{"python-worker-override", required_argument, 0, "override worker with the specified python script", uwsgi_opt_set_str, &up.worker_override, 0},
 
+	{"py-executable", required_argument, 0, "override sys.executable value", uwsgi_opt_set_str, &up.executable, 0},
+	{"py-sys-executable", required_argument, 0, "override sys.executable value", uwsgi_opt_set_str, &up.executable, 0},
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 

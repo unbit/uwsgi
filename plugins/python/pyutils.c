@@ -395,10 +395,12 @@ void init_pyargv() {
 		uwsgi_log("unable to load python sys module !!!\n");
 		exit(1);
 	}
+	if (!up.executable)
+		up.executable = uwsgi.binary_path;
 #ifdef PYTHREE
-	PyDict_SetItemString(sys_dict, "executable", PyUnicode_FromString(uwsgi.binary_path));
+	PyDict_SetItemString(sys_dict, "executable", PyUnicode_FromString(up.executable));
 #else
-	PyDict_SetItemString(sys_dict, "executable", PyString_FromString(uwsgi.binary_path));
+	PyDict_SetItemString(sys_dict, "executable", PyString_FromString(up.executable));
 #endif
 
 
