@@ -1093,6 +1093,8 @@ struct uwsgi_plugin {
 	int (*worker)(void);
 
 	void (*early_post_jail) (void);
+
+	void (*master_start) (void);
 };
 
 #ifdef UWSGI_PCRE

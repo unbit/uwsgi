@@ -639,6 +639,12 @@ int master_loop(char **argv, char **environ) {
 
 	}
 
+	for (i = 0; i < 256; i++) {
+		if (uwsgi.p[i]->master_start) {
+			uwsgi.p[i]->master_start();
+		}
+	}
+
 	// here really starts the master loop
 	uwsgi_hooks_run(uwsgi.hook_master_start, "master-start", 1);
 
