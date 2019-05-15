@@ -2846,6 +2846,8 @@ struct uwsgi_server {
 	int emperor_graceful_shutdown;
 	int is_chrooted;
 	struct uwsgi_buffer *websockets_continuation_buffer;
+
+	uint64_t max_worker_lifetime_delta;
 };
 
 struct uwsgi_rpc {
