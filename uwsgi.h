@@ -2931,6 +2931,8 @@ struct uwsgi_server {
 	int dynamic_apps;
 
 	struct uwsgi_buffer *websockets_continuation_buffer;
+
+	uint64_t max_worker_lifetime_delta;
 };
 
 struct uwsgi_rpc {
