@@ -1799,6 +1799,7 @@ struct uwsgi_server {
 	uint64_t max_requests;
 	uint64_t min_worker_lifetime;
 	uint64_t max_worker_lifetime;
+	uint64_t max_worker_lifetime_delta;
 
 	// daemontools-like envdir
 	struct uwsgi_string_list *envdirs;
