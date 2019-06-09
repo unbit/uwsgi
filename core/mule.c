@@ -35,9 +35,9 @@ int mule_send_msg(int fd, char *message, size_t len) {
 // Runs in a mule thread and periodically scans for memory usage.
 static void *mule_mem_collector(void *foobar) {
 	// block all signals
-        sigset_t smask;
-        sigfillset(&smask);
-        pthread_sigmask(SIG_BLOCK, &smask, NULL);
+	sigset_t smask;
+	sigfillset(&smask);
+	pthread_sigmask(SIG_BLOCK, &smask, NULL);
 	int id = uwsgi.muleid;
 	uwsgi_log_verbose("mem-collector thread started for mule %d\n", id);
 	for(;;) {
