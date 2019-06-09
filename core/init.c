@@ -517,7 +517,7 @@ void sanitize_args() {
 		exit(1);
 	}
 
-	if (uwsgi.logging_options.memory_report || uwsgi.evil_reload_on_rss || uwsgi.evil_reload_on_as) {
+	if (uwsgi.logging_options.memory_report || uwsgi.force_get_memusage || uwsgi.evil_reload_on_rss || uwsgi.evil_reload_on_as) {
 		if (!uwsgi.mem_collector_freq) uwsgi.mem_collector_freq = 3;
 	}
 
