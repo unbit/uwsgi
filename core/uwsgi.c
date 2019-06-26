@@ -4138,7 +4138,11 @@ void uwsgi_opt_safe_fd(char *opt, char *value, void *foobar) {
 void uwsgi_opt_set_int(char *opt, char *value, void *key) {
 	int *ptr = (int *) key;
 	if (value) {
-		*ptr = atoi((char *) value);
+		char *endptr;
+		*ptr = (int)strtol(value, &endptr, 10);
+		if (*endptr) {
+			uwsgi_log("[WARNING] non-numeric value \"%s\" for option \"%s\" - using %d !\n", value, opt, *ptr);
+		}
 	}
 	else {
 		*ptr = 1;

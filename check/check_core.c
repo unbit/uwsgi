@@ -46,6 +46,10 @@ START_TEST(test_uwsgi_opt_set_int)
 
 	uwsgi_opt_set_int("", "60", &result);
 	ck_assert(result == 60);
+
+	// When used with "optional_argument", value will be passed as NULL
+	uwsgi_opt_set_int("", NULL, &result);
+	ck_assert(result == 1);
 }
 END_TEST
 
