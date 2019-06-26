@@ -6,6 +6,8 @@ compiler:
   - gcc
 
 script:
+  - echo -e "\n\n>>> Running uWSGI unit tests"
+  - make tests
   - echo -e "\n\n>>> Building kitchensink uWSGI binary"
   - UWSGICONFIG_PHPPATH=php-config7.2 /usr/bin/python uwsgiconfig.py --build travis
   - echo -e "\n\n>>> Building uWSGI binary"
@@ -55,4 +57,4 @@ before_install:
   - sudo apt-get install -qqyf libssl-dev libacl1-dev python-greenlet-dev
   - sudo apt-get install -qqyf openjdk-8-jdk libgloox-dev gccgo
   - sudo apt-get install -qqyf cli-common-dev mono-devel mono-mcs uuid-dev
-  - sudo apt-get install -qqyf curl
+  - sudo apt-get install -qqyf curl check
