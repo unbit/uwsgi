@@ -5,6 +5,7 @@ LDFLAGS += -ldl -lz
 LDFLAGS += $(shell xml2-config --libs)
 LDFLAGS += $(shell pkg-config --libs openssl)
 LDFLAGS += $(shell pcre-config --libs)
+LDFLAGS += $(shell pkg-config --libs jansson)
 
 
 objects = check_core
