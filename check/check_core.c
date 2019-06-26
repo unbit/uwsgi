@@ -15,10 +15,10 @@ START_TEST(test_uwsgi_strncmp)
 	ck_assert(result == 1);
 
 	result = uwsgi_strncmp("aaa", 3, "bbb", 3);
-	ck_assert_msg(result == -1, "result: %d", result);
+	ck_assert_msg(result < 0, "result: %d", result);
 
 	result = uwsgi_strncmp("bbb", 3, "aaa", 3);
-	ck_assert_msg(result == 1, "result: %d", result);
+	ck_assert_msg(result > 0, "result: %d", result);
 }
 END_TEST
 
