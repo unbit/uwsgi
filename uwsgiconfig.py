@@ -1130,7 +1130,7 @@ class uConf(object):
                 self.cflags.append("-DUWSGI_ROUTING")
                 report['routing'] = True
 
-        if self.has_include('sys/capability.h') and uwsgi_os == 'Linux' and not self.get('check'):
+        if self.has_include('sys/capability.h') and uwsgi_os == 'Linux':
             self.cflags.append("-DUWSGI_CAP")
             self.libs.append('-lcap')
             report['capabilities'] = True
