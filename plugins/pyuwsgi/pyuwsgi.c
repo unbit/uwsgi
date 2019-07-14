@@ -82,7 +82,7 @@ PyObject *pyuwsgi_setup(PyObject * self, PyObject * args, PyObject * kwds) {
 		PyObject *py_str = PyObject_Str(item);
 		PyList_Append(args_li, py_str);
 #ifdef PYTHREE
-		char *str = PyUnicode_AsUTF8(py_str);
+		const char *str = PyUnicode_AsUTF8(py_str);
 		size += strlen(str) + 1;
 #else
 		size += PyObject_Length(item) + 1;
@@ -102,7 +102,7 @@ PyObject *pyuwsgi_setup(PyObject * self, PyObject * args, PyObject * kwds) {
 	for (i = 0; i < new_argc; i++) {
 		PyObject *arg = PyList_GetItem(args_li, i);
 #ifdef PYTHREE
-		char *arg_str = PyUnicode_AsUTF8(arg);
+		const char *arg_str = PyUnicode_AsUTF8(arg);
 #else
 		char *arg_str = PyString_AsString(arg);
 #endif
