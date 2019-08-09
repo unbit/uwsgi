@@ -20,8 +20,9 @@
 
 extern struct uwsgi_server uwsgi;
 
+
 //use this instead of fprintf to avoid buffering mess with udp logging
-void uwsgi_log(const char *fmt, ...) {
+void _uwsgi_report(const char *file, int line,int loglevel, const char *fmt, ...) {
 	va_list ap;
 	char logpkt[4096];
 	int rlen = 0;
@@ -32,13 +33,18 @@ void uwsgi_log(const char *fmt, ...) {
 	char ctime_storage[26];
 	time_t now;
 
+	if (uwsgi.loglevel & loglevel) {
+		return;
+	}
+
+
 	if (uwsgi.logdate) {
 		if (uwsgi.log_strftime) {
 			now = uwsgi_now();
 			rlen = strftime(sftime, 64, uwsgi.log_strftime, localtime(&now));
 			memcpy(logpkt, sftime, rlen);
-			memcpy(logpkt + rlen, " - ", 3);
-			rlen += 3;
+			memcpy(logpkt + rlen, " ", 1);
+			rlen += 1;
 		}
 		else {
 			gettimeofday(&tv, NULL);
@@ -48,12 +54,18 @@ void uwsgi_log(const char *fmt, ...) {
 			ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
 #endif
 			memcpy(logpkt, ctime_storage, 24);
-			memcpy(logpkt + 24, " - ", 3);
+			memcpy(logpkt + 24, " ", 1);
 
-			rlen = 24 + 3;
+			rlen = 24 + 1;
 		}
 	}
 
+	if (!uwsgi.logtrace) {
+		rlen += sprintf(logpkt + rlen,"%s:%d ",file,line);
+	}
+	if (!uwsgi.logpid) {
+		rlen += sprintf(logpkt + rlen,"%d ",getpid());
+	}
 	va_start(ap, fmt);
 	ret = vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
 	va_end(ap);
@@ -73,48 +85,6 @@ void uwsgi_log(const char *fmt, ...) {
 	// do not check for errors
 	rlen = write(2, logpkt, rlen);
 }
-
-void uwsgi_log_verbose(const char *fmt, ...) {
-
-	va_list ap;
-	char logpkt[4096];
-	int rlen = 0;
-
-	struct timeval tv;
-	char sftime[64];
-	time_t now;
-	char ctime_storage[26];
-
-	if (uwsgi.log_strftime) {
-		now = uwsgi_now();
-		rlen = strftime(sftime, 64, uwsgi.log_strftime, localtime(&now));
-		memcpy(logpkt, sftime, rlen);
-		memcpy(logpkt + rlen, " - ", 3);
-		rlen += 3;
-	}
-	else {
-		gettimeofday(&tv, NULL);
-#if defined(__sun__) && !defined(__clang__)
-		ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
-#else
-		ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
-#endif
-		memcpy(logpkt, ctime_storage, 24);
-		memcpy(logpkt + 24, " - ", 3);
-
-		rlen = 24 + 3;
-	}
-
-
-
-	va_start(ap, fmt);
-	rlen += vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
-	va_end(ap);
-
-	// do not check for errors
-	rlen = write(2, logpkt, rlen);
-}
-
 
 /*
 	commodity function mainly useful in log rotation

@@ -800,6 +800,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-maxsize", required_argument, 0, "set maximum logfile size", uwsgi_opt_set_64bit, &uwsgi.log_maxsize, UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
 	{"log-backupname", required_argument, 0, "set logfile name after rotation", uwsgi_opt_set_str, &uwsgi.log_backupname, 0},
 
+
+	{"logtrace", optional_argument, 0, "prefix logs with filename and line number", uwsgi_opt_false, &uwsgi.logtrace, 0},
+	{"logpid", optional_argument, 0, "prefix logs with pid", uwsgi_opt_false, &uwsgi.logpid, 0},
+	{"loglevel", optional_argument, 0, "Set at what level logs should be shown", uwsgi_opt_log_level, &uwsgi.loglevel, 0},
+
 	{"logdate", optional_argument, 0, "prefix logs with date or a strftime string", uwsgi_opt_log_date, NULL, 0},
 	{"log-date", optional_argument, 0, "prefix logs with date or a strftime string", uwsgi_opt_log_date, NULL, 0},
 	{"log-prefix", optional_argument, 0, "prefix logs with a string", uwsgi_opt_log_date, NULL, 0},
@@ -4719,6 +4724,27 @@ void uwsgi_opt_log_date(char *opt, char *value, void *foobar) {
 			uwsgi.log_strftime = value;
 		}
 	}
+}
+void uwsgi_opt_log_level(char *opt, char *value, void *key) {
+	int *ptr = (int *)key;
+	char *n = value;
+	*ptr = ERROR | DEBUG | INFO | ALARM | REQUEST;
+
+	do {
+		if(!strcasecmp(n,"error")){
+			*ptr ^= ERROR;
+		} else if (!strcasecmp(n,"debug")) {
+			*ptr ^= DEBUG;
+		} else if (!strcasecmp(n,"info")) {
+			*ptr ^= INFO;
+		} else if (!strcasecmp(n,"alarm")) {
+			*ptr ^= ALARM;
+		} else if (!strcasecmp(n,"request")) {
+			*ptr ^= REQUEST;
+		} else if (!strcasecmp(n,"all")) {
+			*ptr = 0;
+		}
+	} while((n = strchr(n,' ')) != NULL && n++);
 }
 
 void uwsgi_opt_chmod_socket(char *opt, char *value, void *foobar) {

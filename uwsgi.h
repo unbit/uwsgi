@@ -18,17 +18,32 @@ extern "C" {
 
 #define UWSGI_END_OF_OPTIONS { NULL, 0, 0, NULL, NULL, NULL, 0},
 
-#define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
+#define BIT(x) (1 << x)
+
+enum LOGFLAGS {
+	ERROR   = BIT(0),
+	DEBUG   = BIT(1),
+	INFO    = BIT(2),
+	ALARM   = BIT(3),
+	REQUEST = BIT(4)
+};
+
+#define uwsgi_report(loglevel,...) _uwsgi_report(__FILE__,__LINE__,loglevel,__VA_ARGS__)
+
+#define uwsgi_log(...) uwsgi_report(INFO,__VA_ARGS__)
+#define uwsgi_error(x) uwsgi_report(ERROR,x" %s(%d)", strerror(errno), errno)
+#define uwsgi_log_verbose(...) uwsgi_log(__VA_ARGS__)
+
 #define uwsgi_error_realpath(x)  uwsgi_log("realpath() of %s failed: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_log_safe(x)  if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log(x);
 #define uwsgi_error_safe(x)  if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_log_initial if (!uwsgi.no_initial_output) uwsgi_log
-#define uwsgi_log_alarm(x, ...) uwsgi_log("[uwsgi-alarm" x, __VA_ARGS__)
+#define uwsgi_log_alarm(x, ...) uwsgi_log("[uwsgi-alarm" x, __VA_ARGS__);
 #define uwsgi_fatal_error(x) uwsgi_error(x); exit(1);
 #define uwsgi_error_open(x)  uwsgi_log("open(\"%s\"): %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_req_error(x)  if (wsgi_req->uri_len > 0 && wsgi_req->method_len > 0 && wsgi_req->remote_addr_len > 0) uwsgi_log_verbose("%s: %s [%s line %d] during %.*s %.*s (%.*s)\n", x, strerror(errno), __FILE__, __LINE__,\
 		wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, wsgi_req->remote_addr_len, wsgi_req->remote_addr); else uwsgi_log_verbose("%s %s [%s line %d] \n",x, strerror(errno), __FILE__, __LINE__);
-#define uwsgi_debug(x, ...) uwsgi_log("[uWSGI DEBUG] " x, __VA_ARGS__);
+#define uwsgi_debug(fmt, ...) uwsgi_report(DEBUG,fmt, __VA_ARGS__)
 #define uwsgi_rawlog(x) if (write(2, x, strlen(x)) != strlen(x)) uwsgi_error("write()")
 #define uwsgi_str(x) uwsgi_concat2(x, (char *)"")
 
@@ -1194,7 +1209,7 @@ struct uwsgi_route {
 	pcre_extra *pattern_extra;
 
 	char *orig_route;
-	
+
 	// one for each core
 	int *ovn;
 	int **ovector;
@@ -2118,6 +2133,10 @@ struct uwsgi_server {
 	int forkbomb_delay;
 
 	int logdate;
+	int logtrace;
+	int logpid;
+	int logfunc;
+	int loglevel;
 	int log_micros;
 	char *log_strftime;
 
@@ -3306,8 +3325,10 @@ void sanitize_args(void);
 void env_to_arg(char *, char *);
 void parse_sys_envs(char **);
 
-void uwsgi_log(const char *, ...);
-void uwsgi_log_verbose(const char *, ...);
+//void uwsgi_log(const char *, ...);
+//
+void _uwsgi_report(const char *, int, int, const char *, ...);
+//void uwsgi_log_verbose(const char *, ...);
 void uwsgi_logfile_write(const char *, ...);
 
 
@@ -4022,6 +4043,9 @@ void uwsgi_opt_snmp(char *, char *, void *);
 void uwsgi_opt_snmp_community(char *, char *, void *);
 
 void uwsgi_opt_logfile_chmod(char *, char *, void *);
+
+
+void uwsgi_opt_log_level(char *, char *, void *);
 
 void uwsgi_opt_log_date(char *, char *, void *);
 void uwsgi_opt_chmod_socket(char *, char *, void *);
