@@ -1361,7 +1361,7 @@ int uwsgi_emperor_vassal_start(struct uwsgi_instance *n_ui) {
 	}
 
 	if (pid < 0) {
-		uwsgi_error("uwsgi_emperor_spawn_vassal()/fork()")
+		uwsgi_error("uwsgi_emperor_spawn_vassal()/fork()");
 	}
 	else if (pid > 0) {
 		n_ui->pid = pid;
