@@ -66,6 +66,30 @@ void _uwsgi_report(const char *file, int line,int loglevel, const char *fmt, ...
 	if (!uwsgi.logpid) {
 		rlen += sprintf(logpkt + rlen,"%d ",getpid());
 	}
+
+	if (!uwsgi.logflags) {
+		if(!uwsgi.logflagspretty) {
+			rlen += sprintf(logpkt +rlen, "[ ");
+			if(loglevel & ERROR) {
+				rlen += sprintf(logpkt + rlen,"ERROR ");
+			}
+			if(loglevel & DEBUG) {
+				rlen += sprintf(logpkt + rlen,"DEBUG ");
+			}
+			if(loglevel & INFO) {
+				rlen += sprintf(logpkt + rlen,"INFO ");
+			}
+			if(loglevel & ALARM) {
+				rlen += sprintf(logpkt + rlen,"ALARM ");
+			}
+			if(loglevel & DEBUG) {
+				rlen += sprintf(logpkt + rlen,"REQUEST ");
+			}
+			rlen += sprintf(logpkt +rlen, "] ");
+		} else {
+			rlen += sprintf(logpkt + rlen,"%d ",loglevel);
+		}
+	}
 	va_start(ap, fmt);
 	ret = vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
 	va_end(ap);

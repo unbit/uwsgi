@@ -1,5 +1,6 @@
 /* uWSGI */
 
+
 /* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs -npsl -di1 -il0 */
 
 #ifdef __cplusplus
@@ -2135,6 +2136,8 @@ struct uwsgi_server {
 	int logdate;
 	int logtrace;
 	int logpid;
+	int logflags;
+	int logflagspretty;
 	int logfunc;
 	int loglevel;
 	int log_micros;
