@@ -2135,6 +2135,7 @@ struct uwsgi_server {
 
 	int logdate;
 	int logtrace;
+	int logtraceshort;
 	int logpid;
 	int logflags;
 	int logflagspretty;

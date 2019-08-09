@@ -28,9 +28,7 @@ void _uwsgi_report(const char *file, int line,int loglevel, const char *fmt, ...
 	int rlen = 0;
 	int ret;
 
-	struct timeval tv;
 	char sftime[64];
-	char ctime_storage[26];
 	time_t now;
 
 	if (uwsgi.loglevel & loglevel) {
@@ -38,7 +36,7 @@ void _uwsgi_report(const char *file, int line,int loglevel, const char *fmt, ...
 	}
 
 
-	if (uwsgi.logdate) {
+	if (!uwsgi.logdate) {
 		if (uwsgi.log_strftime) {
 			now = uwsgi_now();
 			rlen = strftime(sftime, 64, uwsgi.log_strftime, localtime(&now));
@@ -47,21 +45,25 @@ void _uwsgi_report(const char *file, int line,int loglevel, const char *fmt, ...
 			rlen += 1;
 		}
 		else {
-			gettimeofday(&tv, NULL);
-#if defined(__sun__) && !defined(__clang__)
-			ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
-#else
-			ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
-#endif
-			memcpy(logpkt, ctime_storage, 24);
-			memcpy(logpkt + 24, " ", 1);
-
-			rlen = 24 + 1;
+			rlen += sprintf(logpkt + rlen ,"%ld ",uwsgi_millis());
+			//rlen = 24 + 1;
 		}
 	}
 
 	if (!uwsgi.logtrace) {
-		rlen += sprintf(logpkt + rlen,"%s:%d ",file,line);
+		if(!uwsgi.logtraceshort) {
+			char *ptr = strrchr(file,'/')+1;
+			char *end = strchr(ptr,'.');
+			int size;
+			if(end) {
+				size = end - ptr;
+			} else {
+				size = strlen(ptr);
+			}
+			rlen += sprintf(logpkt + rlen,"%.*s ",size,ptr);
+		} else {
+			rlen += sprintf(logpkt + rlen,"%s:%d ",file,line);
+		}
 	}
 	if (!uwsgi.logpid) {
 		rlen += sprintf(logpkt + rlen,"%d ",getpid());
@@ -69,23 +71,28 @@ void _uwsgi_report(const char *file, int line,int loglevel, const char *fmt, ...
 
 	if (!uwsgi.logflags) {
 		if(!uwsgi.logflagspretty) {
-			rlen += sprintf(logpkt +rlen, "[ ");
+			char sep[] = "\0\0";
 			if(loglevel & ERROR) {
-				rlen += sprintf(logpkt + rlen,"ERROR ");
+				rlen += sprintf(logpkt + rlen,"%sERROR",sep);
+				*sep = '|';
 			}
 			if(loglevel & DEBUG) {
-				rlen += sprintf(logpkt + rlen,"DEBUG ");
+				rlen += sprintf(logpkt + rlen,"%sDEBUG",sep);
+				*sep = '|';
 			}
 			if(loglevel & INFO) {
-				rlen += sprintf(logpkt + rlen,"INFO ");
+				rlen += sprintf(logpkt + rlen,"%sINFO",sep);
+				*sep = '|';
 			}
 			if(loglevel & ALARM) {
-				rlen += sprintf(logpkt + rlen,"ALARM ");
+				rlen += sprintf(logpkt + rlen,"%sALARM",sep);
+				*sep = '|';
 			}
 			if(loglevel & DEBUG) {
-				rlen += sprintf(logpkt + rlen,"REQUEST ");
+				rlen += sprintf(logpkt + rlen,"%sREQUEST",sep);
+				*sep = '|';
 			}
-			rlen += sprintf(logpkt +rlen, "] ");
+			rlen += sprintf(logpkt +rlen, " ");
 		} else {
 			rlen += sprintf(logpkt + rlen,"%d ",loglevel);
 		}

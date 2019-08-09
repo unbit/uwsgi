@@ -802,6 +802,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 
 	{"logtrace", optional_argument, 0, "prefix logs with filename and line number", uwsgi_opt_false, &uwsgi.logtrace, 0},
+	{"logtraceshort", optional_argument, 0, "Only show filename of file no extension or linenumber", uwsgi_opt_false, &uwsgi.logtraceshort, 0},
 	{"logflags", optional_argument, 0, "prefix logs with logflags", uwsgi_opt_false, &uwsgi.logflags, 0},
 	{"logflagspretty", optional_argument, 0, "print logflags with pretty", uwsgi_opt_false, &uwsgi.logflagspretty, 0},
 	{"logpid", optional_argument, 0, "prefix logs with pid", uwsgi_opt_false, &uwsgi.logpid, 0},
