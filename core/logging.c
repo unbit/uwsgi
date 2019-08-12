@@ -35,8 +35,7 @@ void _uwsgi_report(const char *file, int line,int loglevel, const char *fmt, ...
 		return;
 	}
 
-
-	if (!uwsgi.logdate) {
+	if (!uwsgi.logdate && uwsgi.clock) {
 		if (uwsgi.log_strftime) {
 			now = uwsgi_now();
 			rlen = strftime(sftime, 64, uwsgi.log_strftime, localtime(&now));
@@ -46,7 +45,6 @@ void _uwsgi_report(const char *file, int line,int loglevel, const char *fmt, ...
 		}
 		else {
 			rlen += sprintf(logpkt + rlen ,"%ld ",uwsgi_millis());
-			//rlen = 24 + 1;
 		}
 	}
 
@@ -115,6 +113,7 @@ void _uwsgi_report(const char *file, int line,int loglevel, const char *fmt, ...
 	rlen += ret;
 	// do not check for errors
 	rlen = write(2, logpkt, rlen);
+
 }
 
 /*
