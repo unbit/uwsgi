@@ -5,7 +5,7 @@ import uwsgi
 
 def mess():
     while True:
-        for i in xrange(0, 100):
+        for i in range(0, 100):
             if uwsgi.ready():
                 uwsgi.signal(17)
             print(i)

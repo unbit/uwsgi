@@ -1,3 +1,3 @@
 import uwsgi
 
-print uwsgi.extract("data://0")
+print(uwsgi.extract("data://0"))

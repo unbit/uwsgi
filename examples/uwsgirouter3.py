@@ -9,10 +9,10 @@ def application(e, s):
     global current_node
 
     nodes = uwsgi.cluster_nodes()
-    print nodes
+    print(nodes)
 
     if len(nodes) == 0:
-        print "no cluster node available"
+        print("no cluster node available")
         raise StopIteration
 
     if current_node >= len(nodes):
