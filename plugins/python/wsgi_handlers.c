@@ -461,31 +461,32 @@ void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
 }
 
 PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
-
+	int chunk_size;
+	PyObject *filelike;
 	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
-	if (!PyArg_ParseTuple(args, "O|i:uwsgi_sendfile", &wsgi_req->async_sendfile, &wsgi_req->sendfile_fd_chunk)) {
+	if (!PyArg_ParseTuple(args, "O|i:uwsgi_sendfile", &filelike, &chunk_size)) {
 		return NULL;
 	}
 
-#ifdef PYTHREE
-	wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(wsgi_req->async_sendfile);
-	if (wsgi_req->sendfile_fd >= 0) {
-		Py_INCREF((PyObject *)wsgi_req->async_sendfile);
+	if (!PyObject_HasAttrString(filelike, "read")) {
+		PyErr_SetString(PyExc_AttributeError, "object has no attribute 'read'");
+		return NULL;
 	}
-#else
-	if (PyFile_Check((PyObject *)wsgi_req->async_sendfile)) {
-		Py_INCREF((PyObject *)wsgi_req->async_sendfile);
-		wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(wsgi_req->async_sendfile);
+
+	// wsgi.file_wrapper called a second time? Forget the old reference.
+	if (wsgi_req->async_sendfile) {
+		Py_DECREF(wsgi_req->async_sendfile);
 	}
-#endif
 
-	// PEP 333 hack
-	wsgi_req->sendfile_obj = wsgi_req->async_sendfile;
-	//wsgi_req->sendfile_obj = (void *) PyTuple_New(0);
-
-	Py_INCREF((PyObject *) wsgi_req->sendfile_obj);
-	return (PyObject *) wsgi_req->sendfile_obj;
+	// XXX: Not 100% sure why twice.
+	//      Maybe: We keep one at async_sendfile and transfer
+	//      one to the caller (even though he gave it to us).
+	Py_INCREF(filelike);
+	Py_INCREF(filelike);
+	wsgi_req->async_sendfile = filelike;
+	wsgi_req->sendfile_fd_chunk = chunk_size;
+	return filelike;
 }
 
 void threaded_swap_ts(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
