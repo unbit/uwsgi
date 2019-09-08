@@ -4723,50 +4723,33 @@ void uwsgi_opt_log_date(char *opt, char *value, void *foobar) {
 
 void uwsgi_opt_chmod_socket(char *opt, char *value, void *foobar) {
 
-	int i;
-
 	uwsgi.chmod_socket = 1;
 	if (value) {
 		if (strlen(value) == 1 && *value == '1') {
 			return;
 		}
-		if (strlen(value) != 3) {
-			uwsgi_log("invalid chmod value: %s\n", value);
+
+                int error = 0;
+                mode_t permission = uwsgi_mode_t(value, &error);
+                if (error) {
+			uwsgi_log("invalid chmod value for chmod-socket: %s\n", value);
 			exit(1);
-		}
-		for (i = 0; i < 3; i++) {
-			if (value[i] < '0' || value[i] > '7') {
-				uwsgi_log("invalid chmod value: %s\n", value);
-				exit(1);
-			}
-		}
+                }
 
-		uwsgi.chmod_socket_value = (uwsgi.chmod_socket_value << 3) + (value[0] - '0');
-		uwsgi.chmod_socket_value = (uwsgi.chmod_socket_value << 3) + (value[1] - '0');
-		uwsgi.chmod_socket_value = (uwsgi.chmod_socket_value << 3) + (value[2] - '0');
+		uwsgi.chmod_socket_value = permission;
 	}
-
 }
 
 void uwsgi_opt_logfile_chmod(char *opt, char *value, void *foobar) {
 
-	int i;
+        int error = 0;
+        mode_t permission = uwsgi_mode_t(value, &error);
+        if (error) {
+                uwsgi_log("invalid chmod value for logfile-chmod: %s\n", value);
+                exit(1);
+        }
 
-	if (strlen(value) != 3) {
-		uwsgi_log("invalid chmod value: %s\n", value);
-		exit(1);
-	}
-	for (i = 0; i < 3; i++) {
-		if (value[i] < '0' || value[i] > '7') {
-			uwsgi_log("invalid chmod value: %s\n", value);
-			exit(1);
-		}
-	}
-
-	uwsgi.chmod_logfile_value = (uwsgi.chmod_logfile_value << 3) + (value[0] - '0');
-	uwsgi.chmod_logfile_value = (uwsgi.chmod_logfile_value << 3) + (value[1] - '0');
-	uwsgi.chmod_logfile_value = (uwsgi.chmod_logfile_value << 3) + (value[2] - '0');
-
+        uwsgi.chmod_logfile_value = permission;
 }
 
 void uwsgi_opt_max_vars(char *opt, char *value, void *foobar) {
