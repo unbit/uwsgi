@@ -580,6 +580,7 @@ PyObject *uwsgi_dyn_loader(void *arg1) {
 PyObject *uwsgi_file_loader(void *arg1) {
 
 	char *filename = (char *) arg1;
+	char tmp_filename[100] = {0};
 	PyObject *wsgi_file_module, *wsgi_file_dict;
 	PyObject *wsgi_file_callable;
 
@@ -590,7 +591,44 @@ PyObject *uwsgi_file_loader(void *arg1) {
 	char *py_filename = uwsgi_concat2("uwsgi_file_", pythonized_filename);
 	free(pythonized_filename);
 
+	/* Checking if the file is a compiled module .so.
+	 * If so, we cannot import it directly...
+	 * So we build a temporary .py file that will
+	 * be imported before beeing destroyed,
+	 * once loaded in memmory.
+	 */
+
+	if(uwsgi_endswith(filename, ".so")) {
+		char* temp_wrapper = "\
+#This file is a temporary file generated\n\
+#during uwsgi's runtime by the python plugin.\n\
+#Feel free to delete it!\n\
+#Even if it should be deleted automatically...\n\
+#However, it will be overwrited at the next run.\n\
+\n\
+from %s import *";
+		/* Now we extract the mofule name from the file name. */
+		char module_so_name[100] = {0};
+		char *ext;
+		strcpy (module_so_name, filename);
+		ext = strrchr (module_so_name, '.');
+		if (ext != NULL)
+			*ext = '\0';
+		/* Now we can write the file. */
+		sprintf(tmp_filename, "%s.pytmp.py", module_so_name);
+		FILE *tmp = fopen(tmp_filename, "w");
+		if (tmp == NULL) {
+			uwsgi_log("Error opening temp file while loading .so!\n");
+			free(py_filename);
+			return NULL;
+		}
+		fprintf(tmp, temp_wrapper, module_so_name);
+		fclose(tmp);
+		filename = tmp_filename;
+	}
+
 	wsgi_file_module = uwsgi_pyimport_by_filename(py_filename, filename);
+	remove(tmp_filename);
 	if (!wsgi_file_module) {
 		PyErr_Print();
 		free(py_filename);

@@ -105,7 +105,7 @@ void uwsgi_opt_ini_paste(char *opt, char *value, void *foobar) {
 }
 
 struct uwsgi_option uwsgi_python_options[] = {
-	{"wsgi-file", required_argument, 0, "load .wsgi file", uwsgi_opt_set_str, &up.file_config, 0},
+	{"wsgi-file", required_argument, 0, "load .py and .so files", uwsgi_opt_set_str, &up.file_config, 0},
 	{"file", required_argument, 0, "load .wsgi file", uwsgi_opt_set_str, &up.file_config, 0},
 	{"eval", required_argument, 0, "eval python code", uwsgi_opt_set_str, &up.eval, 0},
 	{"module", required_argument,'w', "load a WSGI module", uwsgi_opt_set_str, &up.wsgi_config, 0},
@@ -475,7 +475,7 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
 	FILE *pyfile;
 	struct _node *py_file_node = NULL;
-	PyObject *py_compiled_node, *py_file_module;
+	PyObject *py_compiled_node, *py_file_module = NULL;
 	int is_a_package = 0;
 	struct stat pystat;
 	char *real_filename = filename;
@@ -1197,7 +1197,7 @@ void uwsgi_python_init_apps() {
 
 	struct uwsgi_string_list *upli = up.import_list;
 	while(upli) {
-		if (strchr(upli->value, '/') || uwsgi_endswith(upli->value, ".py")) {
+		if (strchr(upli->value, '/') || uwsgi_endswith(upli->value, ".py") || uwsgi_endswith(upli->value, ".so")) {
 			uwsgi_pyimport_by_filename(uwsgi_pythonize(upli->value), upli->value);
 		}
 		else {
