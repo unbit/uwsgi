@@ -1368,6 +1368,9 @@ enum uwsgi_range {
 	UWSGI_RANGE_INVALID,
 };
 
+// avoid name clashes on solaris
+#undef sun
+
 struct wsgi_request {
 	int fd;
 	struct uwsgi_header *uh;

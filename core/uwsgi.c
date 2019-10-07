@@ -1889,7 +1889,7 @@ void uwsgi_plugins_atexit(void) {
 
 void uwsgi_backtrace(int depth) {
 
-#if defined(__GLIBC__) || (defined(__APPLE__) && !defined(NO_EXECINFO)) || defined(UWSGI_HAS_EXECINFO)
+#if (!defined(__UCLIBC__) && defined(__GLIBC__)) || (defined(__APPLE__) && !defined(NO_EXECINFO)) || defined(UWSGI_HAS_EXECINFO)
 
 #include <execinfo.h>
 
@@ -4138,7 +4138,11 @@ void uwsgi_opt_safe_fd(char *opt, char *value, void *foobar) {
 void uwsgi_opt_set_int(char *opt, char *value, void *key) {
 	int *ptr = (int *) key;
 	if (value) {
-		*ptr = atoi((char *) value);
+		char *endptr;
+		*ptr = (int)strtol(value, &endptr, 10);
+		if (*endptr) {
+			uwsgi_log("[WARNING] non-numeric value \"%s\" for option \"%s\" - using %d !\n", value, opt, *ptr);
+		}
 	}
 	else {
 		*ptr = 1;
