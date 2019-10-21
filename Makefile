@@ -16,7 +16,11 @@ tests:
 	$(PYTHON) uwsgiconfig.py --build unittest
 	cd check && make && make test
 
+docker-test:
+	docker build -t uwsgi-build -f docker/Dockerfile docker
+	docker run --rm -v $(PWD):/uwsgi:delegated -it --entrypoint /bin/bash uwsgi-build -c 'cd /uwsgi; make tests'
+
 %:
 	$(PYTHON) uwsgiconfig.py --build $@
 
-.PHONY: tests
+.PHONY: tests docker-test
