@@ -1515,7 +1515,7 @@ void reap_them_all(int signum) {
 
 void harakiri() {
 
-	uwsgi_log("\nF*CK !!! i must kill myself (pid: %d app_id: %d)...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id);
+	uwsgi_log("\nKilling the current process (pid: %d app_id: %d)...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id);
 
 	if (!uwsgi.master_process) {
 		uwsgi_log("*** if you want your workers to be automatically respawned consider enabling the uWSGI master process ***\n");
