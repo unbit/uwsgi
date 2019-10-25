@@ -12,6 +12,11 @@ int uwsgi_register_rpc(char *name, struct uwsgi_plugin *plugin, uint8_t args, vo
 		return -1;
 	}
 
+	if (strlen(name) >= UMAX8)  {
+	      uwsgi_log("the supplied RPC name string is too long, max size is %d\n", UMAX8-1);
+	      return -1;
+	}
+
 	uwsgi_lock(uwsgi.rpc_table_lock);
 
 	// first check if a function is already registered
