@@ -85,7 +85,7 @@ test_rack() {
 
 
 while read PV ; do
-    for WSGI_FILE in tests/staticfile.py tests/testworkers.py ; do
+    for WSGI_FILE in tests/staticfile.py tests/testworkers.py tests/testrpc.py ; do
         test_python $PV $WSGI_FILE
     done
 done < <(cat .travis.yml | grep "plugins/python base" | sed s_".*plugins/python base "_""_g)
