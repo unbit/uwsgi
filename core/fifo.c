@@ -104,7 +104,9 @@ int uwsgi_master_fifo() {
 
 	char *path = uwsgi_fifo_by_slot();
 
-	unlink(path);
+	if (unlink(path) != 0 && errno != ENOENT) {
+		uwsgi_error("uwsgi_master_fifo()/unlink()");
+	}
 
 	if (mkfifo(path, S_IRUSR|S_IWUSR)) {
 		uwsgi_error("uwsgi_master_fifo()/mkfifo()");
