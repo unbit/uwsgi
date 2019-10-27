@@ -27,6 +27,10 @@ try:
 except ImportError:
     import configparser as ConfigParser
 
+try:
+    from shlex import quote
+except ImportError:
+    from pipes import quote
 
 PY3 = sys.version_info[0] == 3
 
@@ -566,13 +570,13 @@ def build_uwsgi(uc, print_only=False, gcll=None):
     print("*** uWSGI linking ***")
     if '--static' in ldflags:
         ldline = 'ar cru %s %s' % (
-            bin_name,
+            quote(bin_name),
             ' '.join(map(add_o, gcc_list))
         )
     else:
         ldline = "%s -o %s %s %s %s" % (
             GCC,
-            bin_name,
+            quote(bin_name),
             ' '.join(uniq_warnings(ldflags)),
             ' '.join(map(add_o, gcc_list)),
             ' '.join(uniq_warnings(libs))
