@@ -1061,10 +1061,9 @@ secure3:
 
 	SG(request_info).path_translated = wsgi_req->file;
 
+        memset(&file_handle, 0, sizeof(zend_file_handle));
         file_handle.type = ZEND_HANDLE_FILENAME;
         file_handle.filename = real_filename;
-        file_handle.free_filename = 0;
-        file_handle.opened_path = NULL;
 
         if (php_request_startup(TSRMLS_C) == FAILURE) {
 		uwsgi_500(wsgi_req);
