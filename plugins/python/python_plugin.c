@@ -9,6 +9,7 @@
 */
 
 extern struct uwsgi_server uwsgi;
+extern pid_t masterpid;
 struct uwsgi_python up;
 
 #include <glob.h>
@@ -194,7 +195,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"py-sharedarea", required_argument, 0, "create a sharedarea from a python bytearray object of the specified size", uwsgi_opt_add_string_list, &up.sharedarea, 0},
 #endif
 
-	{"py-call-osafterfork", no_argument, 0, "enable child processes running cpython to trap OS signals", uwsgi_opt_true, &up.call_osafterfork, 0},
+	{"py-call-osafterfork", no_argument, 0, "enable child processes running cpython to trap OS signals (ignored in Python 3.7+, because PyOS_BeforeFork and PyOS_AfterFork_* are always called)", uwsgi_opt_true, &up.call_osafterfork, 0},
 
 	{"early-python", no_argument, 0, "load the python VM as soon as possible (useful for the fork server)", uwsgi_early_python, NULL, UWSGI_OPT_IMMEDIATE},
 	{"early-pyimport", required_argument, 0, "import a python module in the early phase", uwsgi_early_python_import, NULL, UWSGI_OPT_IMMEDIATE},
@@ -426,20 +427,42 @@ realstuff:
 	Py_Finalize();
 }
 
+void uwsgi_python_master_start() {
+#ifdef REQUIRES_PyOS_BeforeAndAfterFork_ParentAndChild
+	if (getpid() == masterpid) {
+		UWSGI_GET_GIL;
+#ifdef UWSGI_DEBUG
+		uwsgi_log("Running Python after-fork parent hook (pid: %d)\n", uwsgi.mypid);
+#endif
+		PyOS_AfterFork_Parent();
+		UWSGI_RELEASE_GIL;
+	} else {
+		uwsgi_log("*** WARNING: master_start called for worker process (pid: %d)! ***\n", uwsgi.mypid);
+	}
+#endif
+}
+
 void uwsgi_python_post_fork() {
 
 	if (uwsgi.i_am_a_spooler) {
 		UWSGI_GET_GIL
-	}	
+	}
 
+#ifdef REQUIRES_PyOS_BeforeAndAfterFork_ParentAndChild
+	if (getpid() == masterpid) {
+		uwsgi_log("*** WARNING: post_fork called for masterpid (pid: %d)! ***\n", uwsgi.mypid);
+	} else {
+#ifdef UWSGI_DEBUG
+		uwsgi_log("Running Python after-fork child hook (pid: %d)\n", uwsgi.mypid);
+#endif
+		PyOS_AfterFork_Child();
+	}
+#else
 	// reset python signal flags so child processes can trap signals
 	if (up.call_osafterfork) {
-#ifdef HAS_NOT_PyOS_AfterFork_Child
 		PyOS_AfterFork();
-#else
-                PyOS_AfterFork_Child();
-#endif
 	}
+#endif
 
 	uwsgi_python_reset_random_seed();
 
@@ -1308,6 +1331,15 @@ void uwsgi_python_master_fixup(int step) {
 	static int master_fixed = 0;
 	static int worker_fixed = 0;
 
+#ifdef REQUIRES_PyOS_BeforeAndAfterFork_ParentAndChild
+	if (getpid() == masterpid) {
+#ifdef UWSGI_DEBUG
+		uwsgi_log("Running Python before-fork hook (pid: %d)\n", uwsgi.mypid);
+#endif
+		PyOS_BeforeFork();
+	}
+#endif
+
 	if (!uwsgi.master_process) return;
 
 	if (uwsgi.has_threads) {
@@ -2047,13 +2079,14 @@ static int uwsgi_python_worker() {
 	if (!up.worker_override)
 		return 0;
 	UWSGI_GET_GIL;
+
+#ifndef REQUIRES_PyOS_BeforeAndAfterFork_ParentAndChild
 	// ensure signals can be used again from python
-	if (!up.call_osafterfork)
-#ifdef HAS_NOT_PyOS_AfterFork_Child
+	if (!up.call_osafterfork) {
 		PyOS_AfterFork();
-#else
-                PyOS_AfterFork_Child();
+	}
 #endif
+
 	FILE *pyfile = fopen(up.worker_override, "r");
 	if (!pyfile) {
 		uwsgi_error_open(up.worker_override);
@@ -2134,4 +2167,5 @@ struct uwsgi_plugin python_plugin = {
 
 	.worker = uwsgi_python_worker,
 
+	.master_start = uwsgi_python_master_start,
 };
