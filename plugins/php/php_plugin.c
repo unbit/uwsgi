@@ -275,9 +275,9 @@ PHP_FUNCTION(uwsgi_masterpid) {
 PHP_FUNCTION(uwsgi_cache_exists) {
 
         char *key = NULL;
-        int keylen = 0;
+        php_strlen_size keylen = 0;
         char *cache = NULL;
-        int cachelen = 0;
+        php_strlen_size cachelen = 0;
 
         if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|s", &key, &keylen, &cache, &cachelen) == FAILURE) {
                 RETURN_NULL();
@@ -293,7 +293,7 @@ PHP_FUNCTION(uwsgi_cache_exists) {
 PHP_FUNCTION(uwsgi_cache_clear) {
 
         char *cache = NULL;
-        int cachelen = 0;
+        php_strlen_size cachelen = 0;
 
         if (zend_parse_parameters(ZEND_NUM_ARGS(), "|s", &cache, &cachelen) == FAILURE) {
                 RETURN_NULL();
@@ -308,11 +308,11 @@ PHP_FUNCTION(uwsgi_cache_clear) {
 
 
 PHP_FUNCTION(uwsgi_cache_del) {
-	
+
 	char *key = NULL;
-        int keylen = 0;
+	php_strlen_size keylen = 0;
 	char *cache = NULL;
-	int cachelen = 0;
+	php_strlen_size cachelen = 0;
 
         if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|s", &key, &keylen, &cache, &cachelen) == FAILURE) {
                 RETURN_NULL();
@@ -328,9 +328,9 @@ PHP_FUNCTION(uwsgi_cache_del) {
 PHP_FUNCTION(uwsgi_cache_get) {
 
 	char *key = NULL;
-	int keylen = 0;
+	php_strlen_size keylen = 0;
 	char *cache = NULL;
-	int cachelen = 0;
+	php_strlen_size cachelen = 0;
 	uint64_t valsize;
 
 	if (!uwsgi.caches)
@@ -351,12 +351,12 @@ PHP_FUNCTION(uwsgi_cache_get) {
 
 PHP_FUNCTION(uwsgi_cache_set) {
 	char *key = NULL;	
-	int keylen;
+	php_strlen_size keylen = 0;
 	char *value = NULL;
-	int vallen;
-	uint64_t expires = 0;
+	php_strlen_size vallen = 0;
+	php_long_size expires = 0;
 	char *cache = NULL;
-	int cachelen = 0;
+	php_strlen_size cachelen = 0;
 
 	if (!uwsgi.caches)
 		RETURN_NULL();
@@ -374,12 +374,12 @@ PHP_FUNCTION(uwsgi_cache_set) {
 
 PHP_FUNCTION(uwsgi_cache_update) {
         char *key = NULL;
-        int keylen;
+        php_strlen_size keylen = 0;
         char *value = NULL;
-        int vallen;
-        uint64_t expires = 0;
+        php_strlen_size vallen = 0;
+        php_long_size expires = 0;
         char *cache = NULL;
-        int cachelen = 0;
+        php_strlen_size cachelen = 0;
 
         if (!uwsgi.caches)
                 RETURN_NULL();
