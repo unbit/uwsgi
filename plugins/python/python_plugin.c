@@ -207,6 +207,9 @@ struct uwsgi_option uwsgi_python_options[] = {
 
 	{"py-master-check-signals", no_argument, 0, "enable python signal handlers in master", uwsgi_opt_true, &up.master_check_signals, 0},
 
+	{"py-executable", required_argument, 0, "override sys.executable value", uwsgi_opt_set_str, &up.executable, 0},
+	{"py-sys-executable", required_argument, 0, "override sys.executable value", uwsgi_opt_set_str, &up.executable, 0},
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -816,8 +819,13 @@ void init_uwsgi_embedded_module() {
 
 	PyObject *py_opt_dict = PyDict_New();
 	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
-		if (PyDict_Contains(py_opt_dict, PyString_FromString(uwsgi.exported_opts[i]->key))) {
-			PyObject *py_opt_item = PyDict_GetItemString(py_opt_dict, uwsgi.exported_opts[i]->key);
+#ifdef PYTHREE
+		PyObject *key = PyUnicode_FromString(uwsgi.exported_opts[i]->key);
+#else
+		PyObject *key = PyString_FromString(uwsgi.exported_opts[i]->key);
+#endif
+		if (PyDict_Contains(py_opt_dict, key)) {
+			PyObject *py_opt_item = PyDict_GetItem(py_opt_dict, key);
 			if (PyList_Check(py_opt_item)) {
 				if (uwsgi.exported_opts[i]->value == NULL) {
 					PyList_Append(py_opt_item, Py_True);
@@ -836,15 +844,15 @@ void init_uwsgi_embedded_module() {
 					PyList_Append(py_opt_list, PyString_FromString(uwsgi.exported_opts[i]->value));
 				}
 
-				PyDict_SetItemString(py_opt_dict, uwsgi.exported_opts[i]->key, py_opt_list);
+				PyDict_SetItem(py_opt_dict, key, py_opt_list);
 			}
 		}
 		else {
 			if (uwsgi.exported_opts[i]->value == NULL) {
-				PyDict_SetItemString(py_opt_dict, uwsgi.exported_opts[i]->key, Py_True);
+				PyDict_SetItem(py_opt_dict, key, Py_True);
 			}
 			else {
-				PyDict_SetItemString(py_opt_dict, uwsgi.exported_opts[i]->key, PyString_FromString(uwsgi.exported_opts[i]->value));
+				PyDict_SetItem(py_opt_dict, key, PyString_FromString(uwsgi.exported_opts[i]->value));
 			}
 		}
 	}
@@ -1008,20 +1016,20 @@ int uwsgi_python_mount_app(char *mountpoint, char *app) {
 
 char *uwsgi_pythonize(char *orig) {
 
-	char *name = uwsgi_concat2(orig, "");
-	size_t i;
-	size_t len = 0;
+	char *name;
+	size_t i, len, offset = 0;
 
-	if (!strncmp(name, "sym://", 6)) {
-		name+=6;
+	if (!strncmp(orig, "sym://", 6)) {
+		offset = 6;
 	}
-	else if (!strncmp(name, "http://", 7)) {
-		name+=7;
+	else if (!strncmp(orig, "http://", 7)) {
+		offset = 7;
 	}
-	else if (!strncmp(name, "data://", 7)) {
-		name+=7;
+	else if (!strncmp(orig, "data://", 7)) {
+		offset = 7;
 	}
 
+	name = uwsgi_concat2(orig+offset, "");
 	len = strlen(name);
 	for(i=0;i<len;i++) {
 		if (name[i] == '.') {

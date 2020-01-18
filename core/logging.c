@@ -498,7 +498,7 @@ void uwsgi_check_logrotate(void) {
 		return;
 	}
 
-	if (logstat.st_mode & S_IFIFO) {
+	if (S_ISFIFO(logstat.st_mode) || S_ISSOCK(logstat.st_mode)) {
 		return;
 	}
 

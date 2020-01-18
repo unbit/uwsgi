@@ -205,6 +205,8 @@ struct uwsgi_python {
 	int wsgi_manage_chunked_input;
 
 	int master_check_signals;
+	
+	char *executable;
 };
 
 

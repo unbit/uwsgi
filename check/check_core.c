@@ -15,10 +15,10 @@ START_TEST(test_uwsgi_strncmp)
 	ck_assert(result == 1);
 
 	result = uwsgi_strncmp("aaa", 3, "bbb", 3);
-	ck_assert_msg(result == -1, "result: %d", result);
+	ck_assert_msg(result < 0, "result: %d", result);
 
 	result = uwsgi_strncmp("bbb", 3, "aaa", 3);
-	ck_assert_msg(result == 1, "result: %d", result);
+	ck_assert_msg(result > 0, "result: %d", result);
 }
 END_TEST
 
@@ -32,11 +32,42 @@ Suite *check_core_strings(void)
 	return s;
 }
 
+START_TEST(test_uwsgi_opt_set_int)
+{
+	int result;
+	uwsgi_opt_set_int("", "true", &result);
+	ck_assert(result == 0);
+
+	uwsgi_opt_set_int("", "false", &result);
+	ck_assert(result == 0);
+
+	uwsgi_opt_set_int("", "0", &result);
+	ck_assert(result == 0);
+
+	uwsgi_opt_set_int("", "60", &result);
+	ck_assert(result == 60);
+
+	// When used with "optional_argument", value will be passed as NULL
+	uwsgi_opt_set_int("", NULL, &result);
+	ck_assert(result == 1);
+}
+END_TEST
+
+Suite *check_core_opt_parsing(void)
+{
+	Suite *s = suite_create("uwsgi opt parsing");
+	TCase *tc = tcase_create("opt_parsing");
+
+	suite_add_tcase(s, tc);
+	tcase_add_test(tc, test_uwsgi_opt_set_int);
+	return s;
+}
+
 int main(void)
 {
 	int nf;
-	Suite *s = check_core_strings();
-	SRunner *r = srunner_create(s);
+	SRunner *r = srunner_create(check_core_strings());
+	srunner_add_suite(r, check_core_opt_parsing());
 	srunner_run_all(r, CK_NORMAL);
 	nf = srunner_ntests_failed(r);
 	srunner_free(r);

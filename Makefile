@@ -19,4 +19,4 @@ tests:
 %:
 	$(PYTHON) uwsgiconfig.py --build $@
 
-.PHONY: tests
+.PHONY: all clean check tests

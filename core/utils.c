@@ -1772,16 +1772,19 @@ char *uwsgi_substitute(char *src, char *what, char *with) {
 
 	char *dst = uwsgi_calloc(len);
 	char *ptr = src;
+	char *dst_ptr = dst;
 
 	p = strstr(ptr, what);
 	while (p) {
-		strncat(dst, ptr, (p - ptr));
-		strncat(dst, with, with_len);
+		memcpy(dst_ptr, ptr, p - ptr);
+		dst_ptr += p - ptr;
+		memcpy(dst_ptr, with, with_len);
+		dst_ptr += with_len;
 		ptr = p + wlen;
 		p = strstr(ptr, what);
 	}
 
-	strncat(dst, ptr, strlen(ptr));
+	snprintf(dst_ptr, strlen(ptr) + 1, "%s", ptr);
 
 	return dst;
 }
@@ -3064,6 +3067,7 @@ void uwsgi_apply_config_pass(char symbol, char *(*hook) (char *)) {
 		int depth = 0;
 		char *magic_key = NULL;
 		char *magic_val = NULL;
+
 		if (uwsgi.exported_opts[i]->value && !uwsgi.exported_opts[i]->configured) {
 			for (j = 0; j < (int) strlen(uwsgi.exported_opts[i]->value); j++) {
 				if (uwsgi.exported_opts[i]->value[j] == symbol) {
@@ -4710,4 +4714,35 @@ void uwsgi_fix_range_for_size(enum uwsgi_range* parsed, int64_t* from, int64_t* 
                 *from = 0;
                 *to = 0;
         }
+}
+
+char* uwsgi_getenv_with_default(const char* key) {
+    /* VARIABLE:-DEFAULT_VALUE: if VARIABLE is unset or empty returns DEFAULT_VALUE
+     * VARIABLE-DEFAULT_VALUE : if VARIABLE is unset returns DEFAULT_VALUE
+     */
+    if (strstr(key, ":-") != NULL) {
+        char* dup = strdup(key);
+        char* variable = strtok(dup, ":-");
+        char* defaultval = strtok(NULL, ":-");
+        char* value = getenv(variable);
+
+        if (!value || strcmp(value, "") == 0) {
+            value = strdup(defaultval);
+        }
+        free(dup);
+        return value;
+    }
+    else if (strstr(key, "-") != NULL) {
+        char* dup = strdup(key);
+        char* variable = strtok(dup, "-");
+        char* defaultval = strtok(NULL, "-");
+        char* value = getenv(variable);
+
+        if (!value) {
+            value = strdup(defaultval);
+        }
+        free(dup);
+        return value;
+    }
+    return getenv(key);
 }

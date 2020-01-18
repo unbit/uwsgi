@@ -27,6 +27,10 @@ try:
 except ImportError:
     import configparser as ConfigParser
 
+try:
+    from shlex import quote
+except ImportError:
+    from pipes import quote
 
 PY3 = sys.version_info[0] == 3
 
@@ -565,14 +569,14 @@ def build_uwsgi(uc, print_only=False, gcll=None):
 
     print("*** uWSGI linking ***")
     if '--static' in ldflags:
-        ldline = 'ar cru {} {}'.format(
-            bin_name,
+        ldline = 'ar cru %s %s' % (
+            quote(bin_name),
             ' '.join(map(add_o, gcc_list))
         )
     else:
         ldline = "{} -o {} {} {} {}".format(
             GCC,
-            bin_name,
+            quote(bin_name),
             ' '.join(uniq_warnings(ldflags)),
             ' '.join(map(add_o, gcc_list)),
             ' '.join(uniq_warnings(libs))
@@ -905,7 +909,12 @@ class uConf(object):
                 self.cflags.append('-DNO_SENDFILE')
                 self.cflags.append('-DNO_EXECINFO')
                 self.cflags.append('-DOLD_REALPATH')
-            self.cflags.append('-mmacosx-version-min=10.5')
+            darwin_major = int(uwsgi_os_k.split('.')[0])
+            # MacOS High Sierra and above: since XCode 10 there's no libgcc_s.10.5
+            if darwin_major >= 17:
+                self.cflags.append('-mmacosx-version-min=10.9')
+            else:
+                self.cflags.append('-mmacosx-version-min=10.5')
             if GCC in ('clang',):
                 self.libs.remove('-rdynamic')
 
@@ -1130,7 +1139,7 @@ class uConf(object):
             self.libs.append('-lcap')
             report['capabilities'] = True
 
-        if self.has_include('uuid/uuid.h'):
+        if self.has_include('uuid/uuid.h') and not self.get('check'):
             self.cflags.append("-DUWSGI_UUID")
             if uwsgi_os in ('Linux', 'GNU', 'GNU/kFreeBSD') or uwsgi_os.startswith('CYGWIN') or os.path.exists('/usr/lib/libuuid.so') or os.path.exists('/usr/local/lib/libuuid.so') or os.path.exists('/usr/lib64/libuuid.so') or os.path.exists('/usr/local/lib64/libuuid.so'):
                 self.libs.append('-luuid')

@@ -98,6 +98,7 @@ int uwsgi_signal_registered(uint8_t sig) {
 int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t modifier1) {
 
 	struct uwsgi_signal_entry *use = NULL;
+	size_t receiver_len;
 
 	if (!uwsgi.master_process) {
 		uwsgi_log("you cannot register signals without a master\n");
@@ -109,7 +110,8 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
                 return -1;
         }
 
-	if (strlen(receiver) > 63)
+	receiver_len = strlen(receiver);
+	if (receiver_len > 63)
 		return -1;
 
 	uwsgi_lock(uwsgi.signal_table_lock);
@@ -123,7 +125,7 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
 		return -1;
 	}
 
-	strncpy(use->receiver, receiver, strlen(receiver) + 1);
+	strncpy(use->receiver, receiver, receiver_len + 1);
 	use->handler = handler;
 	use->modifier1 = modifier1;
 	use->wid = uwsgi.mywid;
@@ -498,7 +500,7 @@ int uwsgi_receive_signal(struct wsgi_request *wsgi_req, int fd, char *name, int 
 
 destroy:
 	// better to kill the whole worker...
-	uwsgi_log_verbose("uWSGI %s %d screams: UAAAAAAH my master disconnected: I will kill myself!!!\n", name, id);
+	uwsgi_log_verbose("uWSGI %s %d error: the master disconnected from this worker. Shutting down the worker.\n", name, id);
 	end_me(0);
 	// never here
 	return 0;

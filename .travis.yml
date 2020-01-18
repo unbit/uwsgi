@@ -1,9 +1,13 @@
+dist: xenial
+
 language: c
 
 compiler:
   - gcc
 
 script:
+  - echo -e "\n\n>>> Running uWSGI unit tests"
+  - make tests
   - echo -e "\n\n>>> Building kitchensink uWSGI binary"
   - UWSGICONFIG_PHPPATH=php-config7.2 /usr/bin/python uwsgiconfig.py --build travis
   - echo -e "\n\n>>> Building uWSGI binary"
@@ -20,6 +24,12 @@ script:
   - echo -e "\n\n>>> Building python36 plugin"
   - /usr/bin/python3.6 -V
   - /usr/bin/python3.6 uwsgiconfig.py --plugin plugins/python base python36
+  - echo -e "\n\n>>> Building python37 plugin"
+  - /usr/bin/python3.7 -V
+  - /usr/bin/python3.7 uwsgiconfig.py --plugin plugins/python base python37
+  - echo -e "\n\n>>> Building python38 plugin"
+  - /usr/bin/python3.8 -V
+  - /usr/bin/python3.8 uwsgiconfig.py --plugin plugins/python base python38
   - echo -e "\n\n>>> Building rack plugin"
   - rvm use 2.4
   - ruby -v
@@ -32,10 +42,13 @@ script:
   - ./tests/travis.sh
 
 before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -qqyf software-properties-common
   - sudo add-apt-repository ppa:deadsnakes/ppa -y
   - sudo add-apt-repository ppa:ondrej/php -y
   - sudo apt-get update -qq
-  - sudo apt-get install -qqyf python3.4-dev python3.5-dev python3.6-dev
+  - sudo apt-get install -qqyf python{3.4,3.5,3.6,3.7,3.8}-dev
+  - sudo apt-get install -qqyf python3.8-distutils
   - sudo apt-get install -qqyf libxml2-dev libpcre3-dev libcap2-dev
   - sudo apt-get install -qqyf php7.2-dev libphp7.2-embed libargon2-0-dev libsodium-dev
   - sudo apt-get install -qqyf liblua5.1-0-dev
@@ -46,6 +59,6 @@ before_install:
   - sudo apt-get install -qqyf libwrap0-dev libgeoip-dev libv8-dev libxslt1-dev
   - sudo apt-get install -qqyf libboost-thread-dev libboost-filesystem-dev
   - sudo apt-get install -qqyf libssl-dev libacl1-dev python-greenlet-dev
-  - sudo apt-get install -qqyf openjdk-7-jdk libgloox-dev gccgo
+  - sudo apt-get install -qqyf openjdk-8-jdk libgloox-dev gccgo
   - sudo apt-get install -qqyf cli-common-dev mono-devel mono-mcs uuid-dev
-  - sudo apt-get install -qqyf curl
+  - sudo apt-get install -qqyf curl check
