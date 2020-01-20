@@ -614,6 +614,8 @@ struct uwsgi_daemon {
 	char *chdir;
 
 	int max_throttle;
+
+	int notifypid;
 };
 
 struct uwsgi_logger {
