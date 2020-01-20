@@ -254,6 +254,16 @@ void uwsgi_detach_daemons() {
 			// unregister daemon to prevent it from being respawned
 			ud->registered = 0;
 		}
+
+		// smart daemons that have to be notified when master is reloading or stopping
+		if (ud->notifypid && ud->pid > 0 && ud->pidfile) {
+			if (uwsgi_instance_is_reloading) {
+				kill(-(ud->pid), ud->reload_signal > 0 ? ud->reload_signal : SIGHUP);
+			}
+			else {
+				kill(-(ud->pid), ud->stop_signal);
+			}
+		}
 		ud = ud->next;
 	}
 }
@@ -520,6 +530,7 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 	char *d_ns_pid = NULL;
 	char *d_chdir = NULL;
 	char *d_max_throttle = NULL;
+	char *d_notifypid = NULL;
 
 	char *arg = uwsgi_str(value);
 
@@ -543,6 +554,7 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 		"ns_pid", &d_ns_pid,	
 		"chdir", &d_chdir,	
 		"max_throttle", &d_max_throttle,	
+		"notifypid", &d_notifypid,
 	NULL)) {
 		uwsgi_log("invalid --%s keyval syntax\n", opt);
 		exit(1);
@@ -593,6 +605,8 @@ void uwsgi_opt_add_daemon2(char *opt, char *value, void *none) {
 	uwsgi_ud->chdir = d_chdir;
 
 	uwsgi_ud->max_throttle = d_max_throttle ? atoi(d_max_throttle) : 0;
+
+	uwsgi_ud->notifypid = d_notifypid ? 1 : 0;
 
 	if (d_touch) {
 		size_t i,rlen = 0;
