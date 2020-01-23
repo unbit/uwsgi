@@ -1327,10 +1327,10 @@ class uConf(object):
 
         if self.get('xml'):
             if self.get('xml') == 'auto':
-                xmlconf = spcall('xml2-config --libs')
+                xmlconf = spcall('pkg-config --libs libxml-2.0')
                 if xmlconf and uwsgi_os != 'Darwin':
                     self.libs.append(xmlconf)
-                    xmlconf = spcall("xml2-config --cflags")
+                    xmlconf = spcall("pkg-config --cflags libxml-2.0")
                     self.cflags.append(xmlconf)
                     self.cflags.append("-DUWSGI_XML -DUWSGI_XML_LIBXML2")
                     self.gcc_list.append('core/xmlconf')
@@ -1341,13 +1341,13 @@ class uConf(object):
                     self.gcc_list.append('core/xmlconf')
                     report['xml'] = 'expat'
             elif self.get('xml') == 'libxml2':
-                xmlconf = spcall('xml2-config --libs')
+                xmlconf = spcall('pkg-config --libs libxml-2.0')
                 if xmlconf is None:
                     print("*** libxml2 headers unavailable. uWSGI build is interrupted. You have to install libxml2 development package or use libexpat or disable XML")
                     sys.exit(1)
                 else:
                     self.libs.append(xmlconf)
-                    xmlconf = spcall("xml2-config --cflags")
+                    xmlconf = spcall("pkg-config --cflags libxml-2.0")
                     if xmlconf is None:
                         print("*** libxml2 headers unavailable. uWSGI build is interrupted. You have to install libxml2 development package or use libexpat or disable XML")
                         sys.exit(1)
