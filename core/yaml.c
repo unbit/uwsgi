@@ -156,44 +156,49 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 			break;
 		case YAML_FLOW_SEQUENCE_START_TOKEN:
 		case YAML_BLOCK_SEQUENCE_START_TOKEN:
-			status = 3;
+			if (in_uwsgi_section)
+				in_uwsgi_section++;
+			// fallthrough
+		case YAML_FLOW_ENTRY_TOKEN:
+		case YAML_BLOCK_ENTRY_TOKEN:
+			status = 3;  // inside a sequence
 			break;
 		case YAML_BLOCK_MAPPING_START_TOKEN:
-			if (!in_uwsgi_section) {
-				if (key) {
-					if (!strcmp(section_asked, key)) {
-						in_uwsgi_section = 1;
-					}
+			if (in_uwsgi_section) {
+				in_uwsgi_section++;
+				break;
+			}
+			if (key) {
+				if (!strcmp(section_asked, key)) {
+					in_uwsgi_section = 1;
 				}
 			}
 			break;
 		case YAML_BLOCK_END_TOKEN:
-			if (in_uwsgi_section) {
-				parsing = 0;
-				break;
-			}
+		case YAML_FLOW_SEQUENCE_END_TOKEN:
+			if (in_uwsgi_section)
+				parsing = !!(--in_uwsgi_section);
+			key = NULL;
+			status = 0;
 			break;
 		case YAML_SCALAR_TOKEN:
-		case YAML_FLOW_ENTRY_TOKEN:
-		case YAML_BLOCK_ENTRY_TOKEN:
 			if (status == 1) {
 				key = (char *) token.data.scalar.value;
 			}
-			else if (status == 2) {
+			else if (status == 2 || status == 3) {
 				val = (char *) token.data.scalar.value;
 				if (key && val && in_uwsgi_section) {
 					add_exported_option(key, val, 0);
 				}
-				status = 0;
-			}
-			else if (status == 3) {
-				val = (char *) token.data.scalar.value;
-				if (key && val && in_uwsgi_section) {
-					add_exported_option(key, val, 0);
+
+				// If this was the scalar of a value token, forget the state.
+				if (status == 2) {
+					key = NULL;
+					status = 0;
 				}
 			}
 			else {
-				uwsgi_log("unsupported YAML token in %s block\n", section_asked);
+				uwsgi_log("unsupported YAML token %d in %s block\n", token.type, section_asked);
 				parsing = 0;
 				break;
 			}
