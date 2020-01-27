@@ -819,8 +819,13 @@ void init_uwsgi_embedded_module() {
 
 	PyObject *py_opt_dict = PyDict_New();
 	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
-		if (PyDict_Contains(py_opt_dict, PyString_FromString(uwsgi.exported_opts[i]->key))) {
-			PyObject *py_opt_item = PyDict_GetItemString(py_opt_dict, uwsgi.exported_opts[i]->key);
+#ifdef PYTHREE
+		PyObject *key = PyUnicode_FromString(uwsgi.exported_opts[i]->key);
+#else
+		PyObject *key = PyString_FromString(uwsgi.exported_opts[i]->key);
+#endif
+		if (PyDict_Contains(py_opt_dict, key)) {
+			PyObject *py_opt_item = PyDict_GetItem(py_opt_dict, key);
 			if (PyList_Check(py_opt_item)) {
 				if (uwsgi.exported_opts[i]->value == NULL) {
 					PyList_Append(py_opt_item, Py_True);
@@ -839,15 +844,15 @@ void init_uwsgi_embedded_module() {
 					PyList_Append(py_opt_list, PyString_FromString(uwsgi.exported_opts[i]->value));
 				}
 
-				PyDict_SetItemString(py_opt_dict, uwsgi.exported_opts[i]->key, py_opt_list);
+				PyDict_SetItem(py_opt_dict, key, py_opt_list);
 			}
 		}
 		else {
 			if (uwsgi.exported_opts[i]->value == NULL) {
-				PyDict_SetItemString(py_opt_dict, uwsgi.exported_opts[i]->key, Py_True);
+				PyDict_SetItem(py_opt_dict, key, Py_True);
 			}
 			else {
-				PyDict_SetItemString(py_opt_dict, uwsgi.exported_opts[i]->key, PyString_FromString(uwsgi.exported_opts[i]->value));
+				PyDict_SetItem(py_opt_dict, key, PyString_FromString(uwsgi.exported_opts[i]->value));
 			}
 		}
 	}

@@ -3,7 +3,7 @@
 #ifdef UWSGI_ROUTING
 
 // TODO: Add more crypt_r supported platfroms here
-#if defined(__linux__) && defined(__GLIBC__)
+#if defined(__linux__) && defined(__GLIBC__) && !defined(__UCLIBC__)
 #include <crypt.h>
 #elif defined(__CYGWIN__)
 #include <crypt.h>
@@ -67,7 +67,7 @@ static uint16_t htpasswd_check(char *filename, char *auth) {
 
 		if (clen > 13) cpwd[13] = 0;
 
-#if defined(__linux__) && defined(__GLIBC__)
+#if defined(__linux__) && defined(__GLIBC__) && !defined(__UCLIBC__)
 		struct crypt_data cd;
 		memset(&cd, 0, sizeof(struct crypt_data));
     /* work around glibc-2.2.5 bug,
