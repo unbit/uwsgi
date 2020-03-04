@@ -76,7 +76,18 @@ found:
 		return 1;
 	}
 	return 0;
-} 
+}
+
+/*
+ * attempt to make a fd from a file-like PyObject - returns -1 on error.
+ */
+static int uwsgi_python_try_filelike_as_fd(PyObject *filelike) {
+	int fd;
+	if ((fd = PyObject_AsFileDescriptor(filelike)) < 0) {
+		PyErr_Clear();
+	}
+	return fd;
+}
 
 /*
 this is a hack for supporting non-file object passed to wsgi.file_wrapper
@@ -262,7 +273,9 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 		if (uwsgi_python_send_body(wsgi_req, (PyObject *)wsgi_req->async_result)) goto clear;
 	}
 
-	if (wsgi_req->sendfile_obj == wsgi_req->async_result) {
+	// Check if wsgi.file_wrapper has been used.
+	if (wsgi_req->async_sendfile == wsgi_req->async_result) {
+		wsgi_req->sendfile_fd = uwsgi_python_try_filelike_as_fd((PyObject *)wsgi_req->async_sendfile);
 		if (wsgi_req->sendfile_fd >= 0) {
 			UWSGI_RELEASE_GIL
 			uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
@@ -308,8 +321,14 @@ exception:
 			Py_DECREF(pychunk);
 			goto clear;
 		}
-	}
-	else if (wsgi_req->sendfile_obj == pychunk) {
+	} else if (wsgi_req->async_sendfile == pychunk) {
+		//
+		// XXX: It's not clear whether this can ever be sensibly reached
+		//      based on PEP 333/3333 - it would mean the iterator yielded
+		//      the result of wsgi.file_wrapper. However, the iterator should
+		//      only ever yield `bytes`...
+		//
+		wsgi_req->sendfile_fd = uwsgi_python_try_filelike_as_fd((PyObject *)wsgi_req->async_sendfile);
 		if (wsgi_req->sendfile_fd >= 0) {
 			UWSGI_RELEASE_GIL
 			uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
@@ -319,22 +338,30 @@ exception:
 		else if (PyObject_HasAttrString(pychunk, "read")) {
 			uwsgi_python_consume_file_wrapper_read(wsgi_req, pychunk);
 		}
-
 		uwsgi_py_check_write_errors {
 			uwsgi_py_write_exception(wsgi_req);
 			Py_DECREF(pychunk);
 			goto clear;
 		}
+	} else {
+		// The iterator returned something that we were not able to handle.
+		PyObject *pystr = PyObject_Repr(pychunk);
+#ifdef PYTHREE
+		const char *cstr = PyUnicode_AsUTF8(pystr);
+#else
+		const char *cstr = PyString_AsString(pystr);
+#endif
+		uwsgi_log("[ERROR] Unhandled object from iterator: %s (%p)\n", cstr, pychunk);
+		Py_DECREF(pystr);
 	}
-
 
 	Py_DECREF(pychunk);
 	return UWSGI_AGAIN;
 
 clear:
-
-	if (wsgi_req->sendfile_fd != -1) {
-		Py_DECREF((PyObject *)wsgi_req->async_sendfile);
+	// Release the reference that we took in py_uwsgi_sendfile.
+	if (wsgi_req->async_sendfile != NULL) {
+		Py_DECREF((PyObject *) wsgi_req->async_sendfile);
 	}
 
 	if (wsgi_req->async_placeholder) {
