@@ -22,6 +22,7 @@ struct uwsgi_cgi {
 	int do_not_kill_on_error;
 	int async_max_attempts;
 	int close_stdin_on_eof;
+	int dontresolve;
 } uc ;
 
 static void uwsgi_opt_add_cgi(char *opt, char *value, void *foobar) {
@@ -74,6 +75,8 @@ struct uwsgi_option uwsgi_cgi_options[] = {
         {"cgi-close-stdin-on-eof", no_argument, 0, "close STDIN on input EOF", uwsgi_opt_true, &uc.close_stdin_on_eof, 0},
 
         {"cgi-safe", required_argument, 0, "skip security checks if the cgi file is under the specified path", uwsgi_opt_add_string_list, &uc.cgi_safe, 0},
+
+        {"cgi-dontresolve", no_argument, 0 , "call symbolic link directly instead of the real path", uwsgi_opt_true,&uc.dontresolve, 0},
 
         {0, 0, 0, 0, 0, 0, 0},
 
@@ -475,6 +478,7 @@ static int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 
 	char full_path[PATH_MAX];
 	char tmp_path[PATH_MAX];
+	char symbolic_path[PATH_MAX];
 	struct stat cgi_stat;
 	int need_free = 0;
 	int is_a_file = 0;
@@ -532,6 +536,10 @@ static int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 				free(docroot);
 			uwsgi_404(wsgi_req);
 			return UWSGI_OK;
+		}
+		if (uc.dontresolve) {
+			full_path_len = strlen(full_path);
+			memcpy(symbolic_path, full_path, full_path_len+1);
 		}
 
 		full_path_len = strlen(tmp_path);
@@ -637,6 +645,11 @@ static int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 				return UWSGI_OK;
 			}
 		}
+	}
+
+	if (uc.dontresolve) {
+		full_path_len = strlen(symbolic_path);
+		memcpy(full_path, symbolic_path, full_path_len+1);
 	}
 
 	int ret = uwsgi_cgi_run(wsgi_req, docroot, docroot_len, full_path, helper, path_info, script_name, is_a_file, discard_base);
