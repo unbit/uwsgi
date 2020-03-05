@@ -2859,6 +2859,9 @@ struct uwsgi_server {
 	int tlsv1;
 #endif
 
+	// uWSGI 2.0.19
+	int emperor_graceful_shutdown;
+
 	size_t response_header_limit;
 	
 	// uWSGI 2.1
