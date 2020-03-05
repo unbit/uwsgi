@@ -2837,6 +2837,9 @@ struct uwsgi_server {
 #ifdef UWSGI_SSL
 	int tlsv1;
 #endif
+
+	// uWSGI 2.0.19
+	int emperor_graceful_shutdown;
 };
 
 struct uwsgi_rpc {
