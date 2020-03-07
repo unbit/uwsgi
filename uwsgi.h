@@ -2842,6 +2842,7 @@ struct uwsgi_server {
 
 	// uWSGI 2.0.19
 	int emperor_graceful_shutdown;
+	int is_chrooted;
 };
 
 struct uwsgi_rpc {

@@ -585,13 +585,15 @@ void uwsgi_as_root() {
 		}
 	}
 
-	if (uwsgi.chroot && !uwsgi.reloads) {
+	if (uwsgi.chroot && !uwsgi.is_chrooted && !uwsgi.reloads) {
 		if (!uwsgi.master_as_root)
 			uwsgi_log("chroot() to %s\n", uwsgi.chroot);
+
 		if (chroot(uwsgi.chroot)) {
 			uwsgi_error("chroot()");
 			exit(1);
 		}
+		uwsgi.is_chrooted = 1;
 #ifdef __linux__
 		if (uwsgi.logging_options.memory_report) {
 			uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
@@ -989,7 +991,7 @@ void uwsgi_as_root() {
 	return;
 
 nonroot:
-	if (uwsgi.chroot && !uwsgi.is_a_reload) {
+	if (uwsgi.chroot && !uwsgi.is_chrooted && !uwsgi.is_a_reload) {
 		uwsgi_log("cannot chroot() as non-root user\n");
 		exit(1);
 	}
