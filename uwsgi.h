@@ -1653,6 +1653,8 @@ struct wsgi_request {
 
 	char * if_range;
 	uint16_t if_range_len;
+
+	uint8_t websocket_is_fin;
 };
 
 
@@ -2927,6 +2929,8 @@ struct uwsgi_server {
 	size_t environ_len;
 
 	int dynamic_apps;
+
+	struct uwsgi_buffer *websockets_continuation_buffer;
 };
 
 struct uwsgi_rpc {
