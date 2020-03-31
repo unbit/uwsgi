@@ -678,7 +678,7 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 	uwsgi_log( "Loading paste environment: %s\n", paste);
 
 	if (up.paste_logger) {
-		PyObject *paste_logger_dict = get_uwsgi_pydict("paste.script.util.logging_config");	
+		PyObject *paste_logger_dict = get_uwsgi_pydict("logging.config");
 		if (paste_logger_dict) {
 			PyObject *paste_logger_fileConfig = PyDict_GetItemString(paste_logger_dict, "fileConfig");
 			if (paste_logger_fileConfig) {
