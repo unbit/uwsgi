@@ -87,3 +87,5 @@ void uwsgi_perl_exec(char *);
 
 void uwsgi_perl_check_auto_reload(void);
 void uwsgi_psgi_preinit_apps(void);
+
+extern struct uwsgi_perl uperl;

@@ -1,7 +1,6 @@
 #include "psgi.h" 
 
 extern struct uwsgi_server uwsgi;
-struct uwsgi_perl uperl;
 
 extern struct uwsgi_plugin psgi_plugin;
 
