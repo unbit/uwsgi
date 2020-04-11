@@ -1,5 +1,5 @@
 NAME = "pyexample"
-import cffi
+
 import os.path
 orig = os.path.expanduser("~/opt/pypy3.6-7.1.1-beta-linux_x86_64-portable")
 venv = os.path.expanduser("~/prog/uwsgi/.venv")
@@ -9,6 +9,7 @@ CFLAGS = [
     "-DNDEBUG",
     f"-I{venv}/include",
     f"-I{orig}/include",
+    "-fvisibility=hidden"
 ]
 
 

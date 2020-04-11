@@ -29,9 +29,10 @@ ffibuilder.embedding_init_code(
 from pyexample_plugin import ffi
 from pyexample_plugin.lib import *
 
-print("example Python")
-print("dir()", dir())
+import sys
 
+print("Initialized PyPy with Python %s" % sys.version)
+print("PyPy Home: %s" % sys.prefix)
 
 @ffi.def_extern()
 def uwsgi_pyexample_init():
@@ -49,7 +50,7 @@ def uwsgi_pyexample_request(wsgi_req):
 
 @ffi.def_extern()
 def uwsgi_pyexample_after_request(wsgi_req):
-    print("i am the example plugin after request function\\n")
+    print("i am the example plugin after request function")
 
 """
 )
@@ -65,7 +66,7 @@ static int uwsgi_pyexample_init();
 static int uwsgi_pyexample_request(struct wsgi_request *wsgi_req);
 static void uwsgi_pyexample_after_request(struct wsgi_request *wsgi_req);
 
-struct uwsgi_plugin pyexample_plugin = {
+CFFI_DLLEXPORT struct uwsgi_plugin pyexample_plugin = {
     .name = "pyexample",
     .modifier1 = 250,
     .init = uwsgi_pyexample_init,
