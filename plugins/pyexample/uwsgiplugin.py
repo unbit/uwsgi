@@ -1,16 +1,20 @@
 NAME = "pyexample"
+import cffi
+import os.path
+orig = os.path.expanduser("~/opt/pypy3.6-7.1.1-beta-linux_x86_64-portable")
+venv = os.path.expanduser("~/prog/uwsgi/.venv")
 
 CFLAGS = [
     "-pthread",
     "-DNDEBUG",
-    "-I/home/vagrant/opt/pypy3/include",
-    "-I/home/vagrant/opt/pypy3.6-v7.3.0-linux64/include",
+    f"-I{venv}/include",
+    f"-I{orig}/include",
 ]
-LDFLAGS = [
-    "-L/home/vagrant/opt/pypy3/bin/",
-    "-Wl,-rpath=/home/vagrant/opt/pypy3/bin/",
-    "-lpypy3-c",
-    "-L/home/vagrant/opt/pypy3/bin/",
-]
+
+
+LDFLAGS = [f"-L{venv}/bin/", f"-Wl,-rpath={venv}/bin/", "-lpypy3-c"]
 LIBS = []
 GCC_LIST = ["pyexample_plugin"]
+
+import subprocess
+subprocess.check_call(['make'], cwd="plugins/pyexample")

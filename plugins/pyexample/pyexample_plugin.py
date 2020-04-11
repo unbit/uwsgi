@@ -7,6 +7,10 @@ ffibuilder = cffi.FFI()
 ffibuilder.cdef(
     """
 extern struct uwsgi_server uwsgi;
+
+int uwsgi_response_prepare_headers(struct wsgi_request *, char *, size_t);
+int uwsgi_response_add_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+int uwsgi_response_write_body_do(struct wsgi_request *, char *, size_t);
 """
 )
 
@@ -22,9 +26,11 @@ static void uwsgi_pyexample_after_request(struct wsgi_request *wsgi_req);
 
 ffibuilder.embedding_init_code(
     """
-from _pyexample_plugin import ffi
+from pyexample_plugin import ffi
+from pyexample_plugin.lib import *
 
 print("example Python")
+print("dir()", dir())
 
 
 @ffi.def_extern()
@@ -35,9 +41,9 @@ def uwsgi_pyexample_init():
 
 @ffi.def_extern()
 def uwsgi_pyexample_request(wsgi_req):
-    uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)
-    uwsgi_response_add_header(wsgi_req, "Content-type", 12, "text/html", 9)
-    uwsgi_response_write_body_do(wsgi_req, "<h1>Hello World</h1>", 20)
+    uwsgi_response_prepare_headers(wsgi_req, b"200 OK", 6)
+    uwsgi_response_add_header(wsgi_req, b"Content-type", 12, b"text/html", 9)
+    uwsgi_response_write_body_do(wsgi_req, b"<h1>Hello World</h1>", 20)
     return 0
 
 
@@ -49,7 +55,7 @@ def uwsgi_pyexample_after_request(wsgi_req):
 )
 
 ffibuilder.set_source(
-    "_pyexample_plugin",
+    "pyexample_plugin",
     """
 #include <uwsgi.h>
 
@@ -69,4 +75,6 @@ struct uwsgi_plugin pyexample_plugin = {
 """,
 )
 
+
 ffibuilder.emit_c_code("pyexample_plugin.c")
+
