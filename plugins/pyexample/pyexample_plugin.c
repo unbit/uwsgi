@@ -488,12 +488,12 @@ static void (*_cffi_call_python_org)(struct _cffi_externpy_s *, char *);
 }
 #endif
 
-#define _CFFI_MODULE_NAME  "pyexample_plugin"
+#define _CFFI_MODULE_NAME  "_pyexample_plugin"
 static const char _CFFI_PYTHON_STARTUP_CODE[] = {
 // # NB. this is not a string because of a size limit in MSVC
-// from _example_plugin import ffi
-102,114,111,109,32,95,101,120,97,109,112,108,101,95,112,108,117,103,105,110,
-32,105,109,112,111,114,116,32,102,102,105,10,
+// from _pyexample_plugin import ffi
+102,114,111,109,32,95,112,121,101,120,97,109,112,108,101,95,112,108,117,103,
+105,110,32,105,109,112,111,114,116,32,102,102,105,10,
 //
 10,
 // print("example Python")
@@ -505,9 +505,9 @@ static const char _CFFI_PYTHON_STARTUP_CODE[] = {
 10,
 // @ffi.def_extern()
 64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
-// def uwsgi_example_init():
-100,101,102,32,117,119,115,103,105,95,101,120,97,109,112,108,101,95,105,110,
-105,116,40,41,58,10,
+// def uwsgi_pyexample_init():
+100,101,102,32,117,119,115,103,105,95,112,121,101,120,97,109,112,108,101,95,
+105,110,105,116,40,41,58,10,
 //     print("init called")
 32,32,32,32,112,114,105,110,116,40,34,105,110,105,116,32,99,97,108,108,101,100,
 34,41,10,
@@ -519,9 +519,9 @@ static const char _CFFI_PYTHON_STARTUP_CODE[] = {
 10,
 // @ffi.def_extern()
 64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
-// def uwsgi_example_request(wsgi_req):
-100,101,102,32,117,119,115,103,105,95,101,120,97,109,112,108,101,95,114,101,
-113,117,101,115,116,40,119,115,103,105,95,114,101,113,41,58,10,
+// def uwsgi_pyexample_request(wsgi_req):
+100,101,102,32,117,119,115,103,105,95,112,121,101,120,97,109,112,108,101,95,
+114,101,113,117,101,115,116,40,119,115,103,105,95,114,101,113,41,58,10,
 //     uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)
 32,32,32,32,117,119,115,103,105,95,114,101,115,112,111,110,115,101,95,112,114,
 101,112,97,114,101,95,104,101,97,100,101,114,115,40,119,115,103,105,95,114,101,
@@ -536,29 +536,31 @@ static const char _CFFI_PYTHON_STARTUP_CODE[] = {
 105,116,101,95,98,111,100,121,95,100,111,40,119,115,103,105,95,114,101,113,44,
 32,34,60,104,49,62,72,101,108,108,111,32,87,111,114,108,100,60,47,104,49,62,
 34,44,32,50,48,41,10,
-//     return UWSGI_OK
-32,32,32,32,114,101,116,117,114,110,32,85,87,83,71,73,95,79,75,10,
+//     return 0
+32,32,32,32,114,101,116,117,114,110,32,48,10,
 //
 10,
 //
 10,
 // @ffi.def_extern()
 64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
-// def uwsgi_example_after_request(wsgi_req):
-100,101,102,32,117,119,115,103,105,95,101,120,97,109,112,108,101,95,97,102,116,
-101,114,95,114,101,113,117,101,115,116,40,119,115,103,105,95,114,101,113,41,
-58,10,
+// def uwsgi_pyexample_after_request(wsgi_req):
+100,101,102,32,117,119,115,103,105,95,112,121,101,120,97,109,112,108,101,95,
+97,102,116,101,114,95,114,101,113,117,101,115,116,40,119,115,103,105,95,114,
+101,113,41,58,10,
 //     print("i am the example plugin after request function\n")
 32,32,32,32,112,114,105,110,116,40,34,105,32,97,109,32,116,104,101,32,101,120,
 97,109,112,108,101,32,112,108,117,103,105,110,32,97,102,116,101,114,32,114,101,
 113,117,101,115,116,32,102,117,110,99,116,105,111,110,92,110,34,41,10,
+//
+10,
 0 };
 #ifdef PYPY_VERSION
-# define _CFFI_PYTHON_STARTUP_FUNC  _cffi_pypyinit_pyexample_plugin
+# define _CFFI_PYTHON_STARTUP_FUNC  _cffi_pypyinit__pyexample_plugin
 #elif PY_MAJOR_VERSION >= 3
-# define _CFFI_PYTHON_STARTUP_FUNC  PyInit_pyexample_plugin
+# define _CFFI_PYTHON_STARTUP_FUNC  PyInit__pyexample_plugin
 #else
-# define _CFFI_PYTHON_STARTUP_FUNC  initpyexample_plugin
+# define _CFFI_PYTHON_STARTUP_FUNC  init_pyexample_plugin
 #endif
 
 /***** Support code for embedding *****/
@@ -1214,16 +1216,16 @@ static int cffi_start_python(void) {
 
 extern struct uwsgi_server uwsgi;
 
-static int uwsgi_example_init();
-static int uwsgi_example_request(struct wsgi_request *wsgi_req);
-static void uwsgi_example_after_request(struct wsgi_request *wsgi_req);
+static int uwsgi_pyexample_init();
+static int uwsgi_pyexample_request(struct wsgi_request *wsgi_req);
+static void uwsgi_pyexample_after_request(struct wsgi_request *wsgi_req);
 
-struct uwsgi_plugin example_plugin = {
-    .name = "example",
+struct uwsgi_plugin pyexample_plugin = {
+    .name = "pyexample",
     .modifier1 = 250,
-    .init = uwsgi_example_init,
-    .request = uwsgi_example_request,
-    .after_request = uwsgi_example_after_request,
+    .init = uwsgi_pyexample_init,
+    .request = uwsgi_pyexample_request,
+    .after_request = uwsgi_pyexample_after_request,
 };
 
 
@@ -1247,37 +1249,37 @@ static void *_cffi_types[] = {
 /* 14 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 0), // void
 };
 
-static struct _cffi_externpy_s _cffi_externpy__uwsgi_example_after_request =
-  { "pyexample_plugin.uwsgi_example_after_request", 0 };
+static struct _cffi_externpy_s _cffi_externpy__uwsgi_pyexample_after_request =
+  { "_pyexample_plugin.uwsgi_pyexample_after_request", 0 };
 
-CFFI_DLLEXPORT void uwsgi_example_after_request(struct wsgi_request * a0)
+CFFI_DLLEXPORT void uwsgi_pyexample_after_request(struct wsgi_request * a0)
 {
   char a[8];
   char *p = a;
   *(struct wsgi_request * *)(p + 0) = a0;
-  _cffi_call_python(&_cffi_externpy__uwsgi_example_after_request, p);
+  _cffi_call_python(&_cffi_externpy__uwsgi_pyexample_after_request, p);
 }
 
-static struct _cffi_externpy_s _cffi_externpy__uwsgi_example_init =
-  { "pyexample_plugin.uwsgi_example_init", (int)sizeof(int) };
+static struct _cffi_externpy_s _cffi_externpy__uwsgi_pyexample_init =
+  { "_pyexample_plugin.uwsgi_pyexample_init", (int)sizeof(int) };
 
-CFFI_DLLEXPORT int uwsgi_example_init(void)
+CFFI_DLLEXPORT int uwsgi_pyexample_init(void)
 {
   char a[8];
   char *p = a;
-  _cffi_call_python(&_cffi_externpy__uwsgi_example_init, p);
+  _cffi_call_python(&_cffi_externpy__uwsgi_pyexample_init, p);
   return *(int *)p;
 }
 
-static struct _cffi_externpy_s _cffi_externpy__uwsgi_example_request =
-  { "pyexample_plugin.uwsgi_example_request", (int)sizeof(int) };
+static struct _cffi_externpy_s _cffi_externpy__uwsgi_pyexample_request =
+  { "_pyexample_plugin.uwsgi_pyexample_request", (int)sizeof(int) };
 
-CFFI_DLLEXPORT int uwsgi_example_request(struct wsgi_request * a0)
+CFFI_DLLEXPORT int uwsgi_pyexample_request(struct wsgi_request * a0)
 {
   char a[8];
   char *p = a;
   *(struct wsgi_request * *)(p + 0) = a0;
-  _cffi_call_python(&_cffi_externpy__uwsgi_example_request, p);
+  _cffi_call_python(&_cffi_externpy__uwsgi_pyexample_request, p);
   return *(int *)p;
 }
 
@@ -1288,9 +1290,9 @@ static struct uwsgi_server *_cffi_var_uwsgi(void)
 
 static const struct _cffi_global_s _cffi_globals[] = {
   { "uwsgi", (void *)_cffi_var_uwsgi, _CFFI_OP(_CFFI_OP_GLOBAL_VAR_F, 11), (void *)0 },
-  { "uwsgi_example_after_request", (void *)&_cffi_externpy__uwsgi_example_after_request, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 13), (void *)uwsgi_example_after_request },
-  { "uwsgi_example_init", (void *)&_cffi_externpy__uwsgi_example_init, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 9), (void *)uwsgi_example_init },
-  { "uwsgi_example_request", (void *)&_cffi_externpy__uwsgi_example_request, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 8), (void *)uwsgi_example_request },
+  { "uwsgi_pyexample_after_request", (void *)&_cffi_externpy__uwsgi_pyexample_after_request, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 13), (void *)uwsgi_pyexample_after_request },
+  { "uwsgi_pyexample_init", (void *)&_cffi_externpy__uwsgi_pyexample_init, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 9), (void *)uwsgi_pyexample_init },
+  { "uwsgi_pyexample_request", (void *)&_cffi_externpy__uwsgi_pyexample_request, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 8), (void *)uwsgi_pyexample_request },
 };
 
 static const struct _cffi_struct_union_s _cffi_struct_unions[] = {
@@ -1322,7 +1324,7 @@ static const struct _cffi_type_context_s _cffi_type_context = {
 
 #ifdef PYPY_VERSION
 PyMODINIT_FUNC
-_cffi_pypyinit_pyexample_plugin(const void *p[])
+_cffi_pypyinit__pyexample_plugin(const void *p[])
 {
     if (((intptr_t)p[0]) >= 0x0A03) {
         _cffi_call_python_org = (void(*)(struct _cffi_externpy_s *, char *))p[1];
@@ -1336,22 +1338,22 @@ _cffi_pypyinit_pyexample_plugin(const void *p[])
 #  ifdef _MSC_VER
      PyMODINIT_FUNC
 #  if PY_MAJOR_VERSION >= 3
-     PyInit_pyexample_plugin(void) { return NULL; }
+     PyInit__pyexample_plugin(void) { return NULL; }
 #  else
-     initpyexample_plugin(void) { }
+     init_pyexample_plugin(void) { }
 #  endif
 #  endif
 #elif PY_MAJOR_VERSION >= 3
 PyMODINIT_FUNC
-PyInit_pyexample_plugin(void)
+PyInit__pyexample_plugin(void)
 {
-  return _cffi_init("pyexample_plugin", 0x2701, &_cffi_type_context);
+  return _cffi_init("_pyexample_plugin", 0x2701, &_cffi_type_context);
 }
 #else
 PyMODINIT_FUNC
-initpyexample_plugin(void)
+init_pyexample_plugin(void)
 {
-  _cffi_init("pyexample_plugin", 0x2701, &_cffi_type_context);
+  _cffi_init("_pyexample_plugin", 0x2701, &_cffi_type_context);
 }
 #endif
 
