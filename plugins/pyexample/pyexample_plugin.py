@@ -8,6 +8,8 @@ ffibuilder.cdef(
     """
 extern struct uwsgi_server uwsgi;
 
+void uwsgi_pyexample_more_apps();
+
 int uwsgi_response_prepare_headers(struct wsgi_request *, char *, size_t);
 int uwsgi_response_add_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 int uwsgi_response_write_body_do(struct wsgi_request *, char *, size_t);
@@ -19,6 +21,7 @@ ffibuilder.embedding_api(
 extern struct uwsgi_server uwsgi;
 
 static int uwsgi_pyexample_init();
+static void uwsgi_pyexample_init_apps();
 static int uwsgi_pyexample_request(struct wsgi_request *wsgi_req);
 static void uwsgi_pyexample_after_request(struct wsgi_request *wsgi_req);
 """
@@ -38,6 +41,11 @@ print("PyPy Home: %s" % sys.prefix)
 def uwsgi_pyexample_init():
     print("init called")
     return 0
+
+
+@ffi.def_extern()
+def uwsgi_pyexample_init_apps():
+    uwsgi_pyexample_more_apps()
 
 
 @ffi.def_extern()
@@ -63,13 +71,19 @@ ffibuilder.set_source(
 extern struct uwsgi_server uwsgi;
 
 static int uwsgi_pyexample_init();
+static void uwsgi_pyexample_init_apps();
 static int uwsgi_pyexample_request(struct wsgi_request *wsgi_req);
 static void uwsgi_pyexample_after_request(struct wsgi_request *wsgi_req);
+
+extern void uwsgi_pyexample_more_apps() {
+    uwsgi_apps_cnt++;
+}
 
 CFFI_DLLEXPORT struct uwsgi_plugin pyexample_plugin = {
     .name = "pyexample",
     .modifier1 = 250,
     .init = uwsgi_pyexample_init,
+    .init_apps = uwsgi_pyexample_init_apps,
     .request = uwsgi_pyexample_request,
     .after_request = uwsgi_pyexample_after_request,
 };
