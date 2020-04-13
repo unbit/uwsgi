@@ -6,9 +6,8 @@ up = {}
 try:
     execfile('%s/uwsgiplugin.py' % jvm_path, up)
 except Exception:
-    f = open('%s/uwsgiplugin.py' % jvm_path)
-    exec(f.read(), up)
-    f.close()
+    with open('%s/uwsgiplugin.py' % jvm_path) as f:
+        exec(f.read(), up)
 
 CFLAGS = up['CFLAGS']
 CFLAGS.append('-I%s' % jvm_path)

@@ -6,8 +6,7 @@ filename = sys.argv[1]
 
 size = os.path.getsize(filename)
 
-f = open(filename)
-os.write(1, f.read())
-f.close()
+with open(filename) as f:
+    os.write(1, f.read())
 
 os.write(1, (struct.pack("<Q", size)))

@@ -25,21 +25,19 @@ def application(env, start_response):
     start_response('200 Ok', [('Content-type', 'text/html')])
 
     # connect
-    conn = psycopg2.connect("dbname=prova user=postgres")
-    # get cursor
-    curs = conn.cursor()
+    with psycopg2.connect("dbname=prova user=postgres") as conn:
+        # get cursor
+        with conn.cursor() as curs:
 
-    yield "<table>"
+            yield "<table>"
 
-    # run query
-    curs.execute("SELECT * FROM tests")
+            # run query
+            curs.execute("SELECT * FROM tests")
 
-    while True:
-        row = curs.fetchone()
-        if not row:
-            break
-        yield "<tr><td>%s</td></tr>" % str(row)
+            while True:
+                row = curs.fetchone()
+                if not row:
+                    break
+                yield "<tr><td>%s</td></tr>" % str(row)
 
-    yield "</table>"
-
-    conn.close()
+            yield "</table>"

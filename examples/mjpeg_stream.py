@@ -17,7 +17,7 @@ def application(env, start_response):
     while 1:
         yield "Content-Type: image/jpeg\r\n\r\n"
         print os.system('screencapture -t jpg -m -T 1 screenshot.jpg')
-        f = open('screenshot.jpg')
-        yield env['wsgi.file_wrapper'](f)
+        with open('screenshot.jpg') as f:
+            yield env['wsgi.file_wrapper'](f)
         yield "\r\n--%s\r\n" % boundary
         # os.system('./isightcapture -w 640 -h 480 screenshot.jpg')
