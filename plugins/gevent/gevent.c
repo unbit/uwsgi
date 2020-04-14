@@ -435,6 +435,9 @@ static void gevent_loop() {
 	PyObject *gevent_dict = get_uwsgi_pydict("gevent");
 	if (!gevent_dict) uwsgi_pyexit;
 
+        PyObject *gevent_signal_dict = get_uwsgi_pydict("gevent.signal");
+	if (!gevent_signal_dict) uwsgi_pyexit;
+
 	PyObject *gevent_version = PyDict_GetItemString(gevent_dict, "version_info");
 	if (!gevent_version) uwsgi_pyexit;
 
@@ -451,7 +454,7 @@ static void gevent_loop() {
 	ugevent.spawn = PyDict_GetItemString(gevent_dict, "spawn");
 	if (!ugevent.spawn) uwsgi_pyexit;
 
-	ugevent.signal = PyDict_GetItemString(gevent_dict, "signal");
+	ugevent.signal = PyDict_GetItemString(gevent_signal_dict, "signal");
 	if (!ugevent.signal) uwsgi_pyexit;
 
 	ugevent.greenlet_switch = PyDict_GetItemString(gevent_dict, "sleep");
