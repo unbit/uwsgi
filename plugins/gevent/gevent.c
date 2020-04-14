@@ -435,7 +435,7 @@ static void gevent_loop() {
 	PyObject *gevent_dict = get_uwsgi_pydict("gevent");
 	if (!gevent_dict) uwsgi_pyexit;
 
-        PyObject *gevent_signal_dict = get_uwsgi_pydict("gevent.signal");
+	PyObject *gevent_signal_dict = get_uwsgi_pydict("gevent.signal");
 	if (!gevent_signal_dict) uwsgi_pyexit;
 
 	PyObject *gevent_version = PyDict_GetItemString(gevent_dict, "version_info");
