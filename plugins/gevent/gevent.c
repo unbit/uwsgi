@@ -433,8 +433,13 @@ static void gevent_loop() {
 	ugevent.spawn = PyDict_GetItemString(gevent_dict, "spawn");
 	if (!ugevent.spawn) uwsgi_pyexit;
 
-	ugevent.signal = PyDict_GetItemString(gevent_dict, "signal");
-	if (!ugevent.signal) uwsgi_pyexit;
+	ugevent.signal = PyDict_GetItemString(gevent_dict, "signal_handler");
+	if (!ugevent.signal) {
+		// gevent.signal_handler appears in gevent 1.3.
+		// On older gevent, fall back to the deprecated gevent.signal.
+		ugevent.signal = PyDict_GetItemString(gevent_dict, "signal");
+		if (!ugevent.signal) uwsgi_pyexit;
+	}
 
 	ugevent.greenlet_switch = PyDict_GetItemString(gevent_dict, "sleep");
 	if (!ugevent.greenlet_switch) uwsgi_pyexit;
