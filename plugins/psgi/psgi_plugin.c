@@ -3,11 +3,7 @@
 extern char **environ;
 extern struct uwsgi_server uwsgi;
 
-#ifdef __APPLE__
-extern struct uwsgi_perl uperl;
-#else
 struct uwsgi_perl uperl;
-#endif
 
 struct uwsgi_plugin psgi_plugin;
 
