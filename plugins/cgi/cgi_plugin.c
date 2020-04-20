@@ -780,8 +780,21 @@ clear2:
 	close(cgi_pipe[1]);
 
 	// close all the fd > 2
-	for(i=3;i<(int)uwsgi.max_fd;i++) {
-		close(i);
+	DIR *dirp = opendir("/proc/self/fd");
+	if (dirp == NULL)
+		dirp = opendir("/dev/fd");
+	if (dirp != NULL) {
+		struct dirent *dent;
+		while ((dent = readdir(dirp)) != NULL) {
+			int fd = atoi(dent->d_name);
+			if ((fd > 2) && fd != dirfd(dirp))
+				close(fd);
+		}
+		closedir(dirp);
+	} else {
+		for(i=3;i<(int)uwsgi.max_fd;i++) {
+			close(i);
+		}
 	}
 
 	// fill cgi env
