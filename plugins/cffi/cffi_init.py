@@ -134,6 +134,10 @@ class WSGIinput(object):
         return chunk
 
 
+def to_network(native):
+    return native.encode("latin1")
+
+
 @ffi.def_extern()
 def uwsgi_cffi_request(wsgi_req):
     """
@@ -151,17 +155,18 @@ def uwsgi_cffi_request(wsgi_req):
             wsgi_req, ffi.new("char[]", status), len(status)
         )
         for hh in headers:
+            header, value = to_network(hh[0]), to_network(hh[1])
             lib.uwsgi_response_add_header(
                 wsgi_req,
-                ffi.new("char[]", hh[0]),
+                ffi.new("char[]", header),
                 len(hh[0]),
-                ffi.new("char[]", hh[1]),
+                ffi.new("char[]", value),
                 len(hh[1]),
             )
         return writer
 
     environ = {}
-    iov = wsgi_req.hvec
+    iov = wsgi_req.hveco
     for i in range(0, wsgi_req.var_cnt, 2):
         environ[
             ffi.string(ffi.cast("char*", iov[i].iov_base), iov[i].iov_len)

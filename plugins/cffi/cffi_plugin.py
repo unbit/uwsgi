@@ -215,35 +215,39 @@ int64_t uwsgi_metric_get(char *, char *);
 )
 
 # Python functions exposed to uwsgi
-ffibuilder.embedding_api(
-    """
+exposed_to_uwsgi = """
 extern struct uwsgi_server uwsgi;
 
 static int uwsgi_cffi_init();
+static void uwsgi_cffi_preinit_apps();
 static void uwsgi_cffi_init_apps();
 static int uwsgi_cffi_request(struct wsgi_request *wsgi_req);
 static void uwsgi_cffi_after_request(struct wsgi_request *wsgi_req);
+static void uwsgi_cffi_onload();
+
+static uint64_t uwsgi_cffi_rpc(void *, uint8_t,  char **, uint16_t *, char **);
+static void uwsgi_cffi_post_fork();
+static void uwsgi_cffi_enable_threads();
+static void uwsgi_cffi_init_thread();
+static int uwsgi_cffi_mule(char *opt);
+static int uwsgi_cffi_signal_handler(uint8_t sig, void *handler);
 """
-)
+ffibuilder.embedding_api(exposed_to_uwsgi)
 
 ffibuilder.embedding_init_code(open("cffi_init.py", "r").read())
-
 
 ffibuilder.set_source(
     "cffi_plugin",
     """
 #include <uwsgi.h>
 
-extern struct uwsgi_server uwsgi;
-
 struct uwsgi_cffi {
 	char *wsgi;
 } ucffi;
 
-static int uwsgi_cffi_init();
-static void uwsgi_cffi_init_apps();
-static int uwsgi_cffi_request(struct wsgi_request *wsgi_req);
-static void uwsgi_cffi_after_request(struct wsgi_request *wsgi_req);
+"""
+    + exposed_to_uwsgi
+    + """
 
 extern void uwsgi_cffi_more_apps() {
     uwsgi_apps_cnt++;
@@ -258,10 +262,17 @@ CFFI_DLLEXPORT struct uwsgi_plugin cffi_plugin = {
     .name = "cffi",
     .modifier1 = 0,
     .init = uwsgi_cffi_init,
-    .init_apps = uwsgi_cffi_init_apps,
-    .options = uwsgi_cffi_options,
     .request = uwsgi_cffi_request,
     .after_request = uwsgi_cffi_after_request,
+    .options = uwsgi_cffi_options,
+    .preinit_apps = uwsgi_cffi_preinit_apps,
+    .init_apps = uwsgi_cffi_init_apps,
+    .init_thread = uwsgi_cffi_init_thread,
+    .signal_handler = uwsgi_cffi_signal_handler,
+    .enable_threads = uwsgi_cffi_enable_threads,
+    .rpc = uwsgi_cffi_rpc,
+    .post_fork = uwsgi_cffi_post_fork,
+    .mule = uwsgi_cffi_mule
 };
 """,
 )
