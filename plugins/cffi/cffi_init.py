@@ -21,21 +21,8 @@ pprint.pprint(dir(ffi))
 pprint.pprint(dir(lib))
 
 
-@ffi.def_extern()
-def uwsgi_cffi_init():
-    print("init called")
-    # doesn't seem to use PYTHONPATH
-    sys.path[0:0] = ["."]
-    return lib.UWSGI_OK
-
-
-@ffi.def_extern()
-def uwsgi_cffi_init_apps():
-    # one app is required or uWSGI quits
-    uwsgi_cffi_more_apps()
-    if lib.ucffi.wsgi:
-        uwsgi_pypy_loader(ffi.string(lib.ucffi.wsgi).decode("utf-8"))
-    return lib.UWSGI_OK
+def to_network(native):
+    return native.encode("latin1")
 
 
 class WSGIfilewrapper(object):
@@ -134,8 +121,21 @@ class WSGIinput(object):
         return chunk
 
 
-def to_network(native):
-    return native.encode("latin1")
+@ffi.def_extern()
+def uwsgi_cffi_init():
+    print("init called")
+    # doesn't seem to use PYTHONPATH
+    # pypy will find environment from current working directory
+    sys.path[0:0] = ["."]
+    return lib.UWSGI_OK
+
+
+@ffi.def_extern()
+def uwsgi_cffi_init_apps():
+    # one app is required or uWSGI quits
+    uwsgi_cffi_more_apps()
+    if lib.ucffi.wsgi:
+        uwsgi_pypy_loader(ffi.string(lib.ucffi.wsgi).decode("utf-8"))
 
 
 @ffi.def_extern()
@@ -151,6 +151,7 @@ def uwsgi_cffi_request(wsgi_req):
     def start_response(status, headers, exc_info=None):
         if exc_info:
             traceback.print_exception(*exc_info)
+        status = to_network(status)
         lib.uwsgi_response_prepare_headers(
             wsgi_req, ffi.new("char[]", status), len(status)
         )
@@ -166,12 +167,13 @@ def uwsgi_cffi_request(wsgi_req):
         return writer
 
     environ = {}
-    iov = wsgi_req.hveco
+    iov = wsgi_req.hvec
     for i in range(0, wsgi_req.var_cnt, 2):
         environ[
             ffi.string(ffi.cast("char*", iov[i].iov_base), iov[i].iov_len)
         ] = ffi.string(ffi.cast("char*", iov[i + 1].iov_base), iov[i + 1].iov_len)
 
+    # check bytes on environ...
     environ["wsgi.version"] = (1, 0)
     scheme = "http"
     if "HTTPS" in environ:
@@ -216,6 +218,46 @@ def uwsgi_cffi_request(wsgi_req):
 @ffi.def_extern()
 def uwsgi_cffi_after_request(wsgi_req):
     lib.log_request(wsgi_req)
+
+
+@ffi.def_extern()
+def uwsgi_cffi_preinit_apps():
+    print("preinit_apps")
+    # load user code?
+    # option for user Python library...
+    # this module could import that library with a lib.<string of thing to import>
+
+
+@ffi.def_extern()
+def uwsgi_cffi_post_fork():
+    print("post_fork")
+
+
+@ffi.def_extern()
+def uwsgi_cffi_enable_threads():
+    print("enable_threads")
+
+
+@ffi.def_extern()
+def uwsgi_cffi_init_thread():
+    print("init_thread")
+
+
+@ffi.def_extern()
+def uwsgi_cffi_signal_handler(sig, handler):
+    ffi.from_handle(handler)(sig)
+    return 0
+
+
+@ffi.def_extern()
+def uwsgi_cffi_mule(opt):
+    opt = ffi.string(opt).decode("latin1")
+    print("cffi_mule", opt)
+
+
+@ffi.def_extern()
+def uwsgi_cffi_rpc(func, argc, argv, argvs, buffer):
+    return ffi.from_handle(func)(argc, argv, argvs, buffer)
 
 
 #
