@@ -521,19 +521,6 @@ static const char _CFFI_PYTHON_STARTUP_CODE[] = {
 105,109,112,111,114,116,32,115,121,115,10,
 //
 10,
-// # fix argv if needed (too late?)
-35,32,102,105,120,32,97,114,103,118,32,105,102,32,110,101,101,100,101,100,32,
-40,116,111,111,32,108,97,116,101,63,41,10,
-// if len(sys.argv) == 0:
-105,102,32,108,101,110,40,115,121,115,46,97,114,103,118,41,32,61,61,32,48,58,
-10,
-//     sys.argv.insert(0, ffi.string(lib.uwsgi_binary_path()).decode("utf-8"))
-32,32,32,32,115,121,115,46,97,114,103,118,46,105,110,115,101,114,116,40,48,44,
-32,102,102,105,46,115,116,114,105,110,103,40,108,105,98,46,117,119,115,103,105,
-95,98,105,110,97,114,121,95,112,97,116,104,40,41,41,46,100,101,99,111,100,101,
-40,34,117,116,102,45,56,34,41,41,10,
-//
-10,
 // print("Initialized with Python %s" % sys.version)
 112,114,105,110,116,40,34,73,110,105,116,105,97,108,105,122,101,100,32,119,105,
 116,104,32,80,121,116,104,111,110,32,37,115,34,32,37,32,115,121,115,46,118,101,
@@ -544,59 +531,37 @@ static const char _CFFI_PYTHON_STARTUP_CODE[] = {
 // pprint.pprint(sys.argv)
 112,112,114,105,110,116,46,112,112,114,105,110,116,40,115,121,115,46,97,114,
 103,118,41,10,
-// pprint.pprint(dir(ffi))
-112,112,114,105,110,116,46,112,112,114,105,110,116,40,100,105,114,40,102,102,
-105,41,41,10,
-// pprint.pprint(dir(lib))
-112,112,114,105,110,116,46,112,112,114,105,110,116,40,100,105,114,40,108,105,
-98,41,41,10,
+// pprint.pprint(sys.path)
+112,112,114,105,110,116,46,112,112,114,105,110,116,40,115,121,115,46,112,97,
+116,104,41,10,
+// # pprint.pprint(dir(ffi))
+35,32,112,112,114,105,110,116,46,112,112,114,105,110,116,40,100,105,114,40,102,
+102,105,41,41,10,
+// # pprint.pprint(dir(lib))
+35,32,112,112,114,105,110,116,46,112,112,114,105,110,116,40,100,105,114,40,108,
+105,98,41,41,10,
+//
+10,
+// # with open("somefile.py") as f:
+35,32,119,105,116,104,32,111,112,101,110,40,34,115,111,109,101,102,105,108,101,
+46,112,121,34,41,32,97,115,32,102,58,10,
+// #     code = compile(f.read(), "somefile.py", 'exec')
+35,32,32,32,32,32,99,111,100,101,32,61,32,99,111,109,112,105,108,101,40,102,
+46,114,101,97,100,40,41,44,32,34,115,111,109,101,102,105,108,101,46,112,121,
+34,44,32,39,101,120,101,99,39,41,10,
+// #     exec(code, global_vars, local_vars)
+35,32,32,32,32,32,101,120,101,99,40,99,111,100,101,44,32,103,108,111,98,97,108,
+95,118,97,114,115,44,32,108,111,99,97,108,95,118,97,114,115,41,10,
 //
 10,
 //
 10,
-// @ffi.def_extern()
-64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
-// def uwsgi_cffi_init():
-100,101,102,32,117,119,115,103,105,95,99,102,102,105,95,105,110,105,116,40,41,
-58,10,
-//     print("init called")
-32,32,32,32,112,114,105,110,116,40,34,105,110,105,116,32,99,97,108,108,101,100,
-34,41,10,
-//     # doesn't seem to use PYTHONPATH
-32,32,32,32,35,32,100,111,101,115,110,39,116,32,115,101,101,109,32,116,111,32,
-117,115,101,32,80,89,84,72,79,78,80,65,84,72,10,
-//     sys.path[0:0] = ["."]
-32,32,32,32,115,121,115,46,112,97,116,104,91,48,58,48,93,32,61,32,91,34,46,34,
-93,10,
-//     return lib.UWSGI_OK
-32,32,32,32,114,101,116,117,114,110,32,108,105,98,46,85,87,83,71,73,95,79,75,
-10,
-//
-10,
-//
-10,
-// @ffi.def_extern()
-64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
-// def uwsgi_cffi_init_apps():
-100,101,102,32,117,119,115,103,105,95,99,102,102,105,95,105,110,105,116,95,97,
-112,112,115,40,41,58,10,
-//     # one app is required or uWSGI quits
-32,32,32,32,35,32,111,110,101,32,97,112,112,32,105,115,32,114,101,113,117,105,
-114,101,100,32,111,114,32,117,87,83,71,73,32,113,117,105,116,115,10,
-//     uwsgi_cffi_more_apps()
-32,32,32,32,117,119,115,103,105,95,99,102,102,105,95,109,111,114,101,95,97,112,
-112,115,40,41,10,
-//     if lib.ucffi.wsgi:
-32,32,32,32,105,102,32,108,105,98,46,117,99,102,102,105,46,119,115,103,105,58,
-10,
-//         uwsgi_pypy_loader(ffi.string(lib.ucffi.wsgi).decode("utf-8"))
-32,32,32,32,32,32,32,32,117,119,115,103,105,95,112,121,112,121,95,108,111,97,
-100,101,114,40,102,102,105,46,115,116,114,105,110,103,40,108,105,98,46,117,99,
-102,102,105,46,119,115,103,105,41,46,100,101,99,111,100,101,40,34,117,116,102,
-45,56,34,41,41,10,
-//     return lib.UWSGI_OK
-32,32,32,32,114,101,116,117,114,110,32,108,105,98,46,85,87,83,71,73,95,79,75,
-10,
+// def to_network(native):
+100,101,102,32,116,111,95,110,101,116,119,111,114,107,40,110,97,116,105,118,
+101,41,58,10,
+//     return native.encode("latin1")
+32,32,32,32,114,101,116,117,114,110,32,110,97,116,105,118,101,46,101,110,99,
+111,100,101,40,34,108,97,116,105,110,49,34,41,10,
 //
 10,
 //
@@ -876,6 +841,55 @@ static const char _CFFI_PYTHON_STARTUP_CODE[] = {
 10,
 // @ffi.def_extern()
 64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
+// def uwsgi_cffi_init():
+100,101,102,32,117,119,115,103,105,95,99,102,102,105,95,105,110,105,116,40,41,
+58,10,
+//     print("init called")
+32,32,32,32,112,114,105,110,116,40,34,105,110,105,116,32,99,97,108,108,101,100,
+34,41,10,
+//     # doesn't seem to use PYTHONPATH
+32,32,32,32,35,32,100,111,101,115,110,39,116,32,115,101,101,109,32,116,111,32,
+117,115,101,32,80,89,84,72,79,78,80,65,84,72,10,
+//     # pypy will find environment from current working directory
+32,32,32,32,35,32,112,121,112,121,32,119,105,108,108,32,102,105,110,100,32,101,
+110,118,105,114,111,110,109,101,110,116,32,102,114,111,109,32,99,117,114,114,
+101,110,116,32,119,111,114,107,105,110,103,32,100,105,114,101,99,116,111,114,
+121,10,
+//     sys.path[0:0] = ["."]
+32,32,32,32,115,121,115,46,112,97,116,104,91,48,58,48,93,32,61,32,91,34,46,34,
+93,10,
+//     return lib.UWSGI_OK
+32,32,32,32,114,101,116,117,114,110,32,108,105,98,46,85,87,83,71,73,95,79,75,
+10,
+//
+10,
+//
+10,
+// @ffi.def_extern()
+64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
+// def uwsgi_cffi_init_apps():
+100,101,102,32,117,119,115,103,105,95,99,102,102,105,95,105,110,105,116,95,97,
+112,112,115,40,41,58,10,
+//     # one app is required or uWSGI quits
+32,32,32,32,35,32,111,110,101,32,97,112,112,32,105,115,32,114,101,113,117,105,
+114,101,100,32,111,114,32,117,87,83,71,73,32,113,117,105,116,115,10,
+//     uwsgi_cffi_more_apps()
+32,32,32,32,117,119,115,103,105,95,99,102,102,105,95,109,111,114,101,95,97,112,
+112,115,40,41,10,
+//     if lib.ucffi.wsgi:
+32,32,32,32,105,102,32,108,105,98,46,117,99,102,102,105,46,119,115,103,105,58,
+10,
+//         uwsgi_pypy_loader(ffi.string(lib.ucffi.wsgi).decode("utf-8"))
+32,32,32,32,32,32,32,32,117,119,115,103,105,95,112,121,112,121,95,108,111,97,
+100,101,114,40,102,102,105,46,115,116,114,105,110,103,40,108,105,98,46,117,99,
+102,102,105,46,119,115,103,105,41,46,100,101,99,111,100,101,40,34,117,116,102,
+45,56,34,41,41,10,
+//
+10,
+//
+10,
+// @ffi.def_extern()
+64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
 // def uwsgi_cffi_request(wsgi_req):
 100,101,102,32,117,119,115,103,105,95,99,102,102,105,95,114,101,113,117,101,
 115,116,40,119,115,103,105,95,114,101,113,41,58,10,
@@ -910,6 +924,9 @@ static const char _CFFI_PYTHON_STARTUP_CODE[] = {
 32,32,32,32,32,32,32,32,32,32,32,32,116,114,97,99,101,98,97,99,107,46,112,114,
 105,110,116,95,101,120,99,101,112,116,105,111,110,40,42,101,120,99,95,105,110,
 102,111,41,10,
+//         status = to_network(status)
+32,32,32,32,32,32,32,32,115,116,97,116,117,115,32,61,32,116,111,95,110,101,116,
+119,111,114,107,40,115,116,97,116,117,115,41,10,
 //         lib.uwsgi_response_prepare_headers(
 32,32,32,32,32,32,32,32,108,105,98,46,117,119,115,103,105,95,114,101,115,112,
 111,110,115,101,95,112,114,101,112,97,114,101,95,104,101,97,100,101,114,115,
@@ -923,21 +940,25 @@ static const char _CFFI_PYTHON_STARTUP_CODE[] = {
 //         for hh in headers:
 32,32,32,32,32,32,32,32,102,111,114,32,104,104,32,105,110,32,104,101,97,100,
 101,114,115,58,10,
+//             header, value = to_network(hh[0]), to_network(hh[1])
+32,32,32,32,32,32,32,32,32,32,32,32,104,101,97,100,101,114,44,32,118,97,108,
+117,101,32,61,32,116,111,95,110,101,116,119,111,114,107,40,104,104,91,48,93,
+41,44,32,116,111,95,110,101,116,119,111,114,107,40,104,104,91,49,93,41,10,
 //             lib.uwsgi_response_add_header(
 32,32,32,32,32,32,32,32,32,32,32,32,108,105,98,46,117,119,115,103,105,95,114,
 101,115,112,111,110,115,101,95,97,100,100,95,104,101,97,100,101,114,40,10,
 //                 wsgi_req,
 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,119,115,103,105,95,114,101,113,
 44,10,
-//                 ffi.new("char[]", hh[0]),
+//                 ffi.new("char[]", header),
 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,102,102,105,46,110,101,119,40,
-34,99,104,97,114,91,93,34,44,32,104,104,91,48,93,41,44,10,
+34,99,104,97,114,91,93,34,44,32,104,101,97,100,101,114,41,44,10,
 //                 len(hh[0]),
 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,108,101,110,40,104,104,91,48,
 93,41,44,10,
-//                 ffi.new("char[]", hh[1]),
+//                 ffi.new("char[]", value),
 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,102,102,105,46,110,101,119,40,
-34,99,104,97,114,91,93,34,44,32,104,104,91,49,93,41,44,10,
+34,99,104,97,114,91,93,34,44,32,118,97,108,117,101,41,44,10,
 //                 len(hh[1]),
 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,108,101,110,40,104,104,91,49,
 93,41,44,10,
@@ -969,6 +990,9 @@ static const char _CFFI_PYTHON_STARTUP_CODE[] = {
 32,43,32,49,93,46,105,111,118,95,108,101,110,41,10,
 //
 10,
+//     # check bytes on environ...
+32,32,32,32,35,32,99,104,101,99,107,32,98,121,116,101,115,32,111,110,32,101,
+110,118,105,114,111,110,46,46,46,10,
 //     environ["wsgi.version"] = (1, 0)
 32,32,32,32,101,110,118,105,114,111,110,91,34,119,115,103,105,46,118,101,114,
 115,105,111,110,34,93,32,61,32,40,49,44,32,48,41,10,
@@ -1102,6 +1126,108 @@ static const char _CFFI_PYTHON_STARTUP_CODE[] = {
 //     lib.log_request(wsgi_req)
 32,32,32,32,108,105,98,46,108,111,103,95,114,101,113,117,101,115,116,40,119,
 115,103,105,95,114,101,113,41,10,
+//
+10,
+//
+10,
+// @ffi.def_extern()
+64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
+// def uwsgi_cffi_preinit_apps():
+100,101,102,32,117,119,115,103,105,95,99,102,102,105,95,112,114,101,105,110,
+105,116,95,97,112,112,115,40,41,58,10,
+//     print("preinit_apps")
+32,32,32,32,112,114,105,110,116,40,34,112,114,101,105,110,105,116,95,97,112,
+112,115,34,41,10,
+//     # load user code?
+32,32,32,32,35,32,108,111,97,100,32,117,115,101,114,32,99,111,100,101,63,10,
+//     # option for user Python library...
+32,32,32,32,35,32,111,112,116,105,111,110,32,102,111,114,32,117,115,101,114,
+32,80,121,116,104,111,110,32,108,105,98,114,97,114,121,46,46,46,10,
+//     # this module could import that library with a lib.<string of thing to import>
+32,32,32,32,35,32,116,104,105,115,32,109,111,100,117,108,101,32,99,111,117,108,
+100,32,105,109,112,111,114,116,32,116,104,97,116,32,108,105,98,114,97,114,121,
+32,119,105,116,104,32,97,32,108,105,98,46,60,115,116,114,105,110,103,32,111,
+102,32,116,104,105,110,103,32,116,111,32,105,109,112,111,114,116,62,10,
+//
+10,
+//
+10,
+// @ffi.def_extern()
+64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
+// def uwsgi_cffi_post_fork():
+100,101,102,32,117,119,115,103,105,95,99,102,102,105,95,112,111,115,116,95,102,
+111,114,107,40,41,58,10,
+//     print("post_fork")
+32,32,32,32,112,114,105,110,116,40,34,112,111,115,116,95,102,111,114,107,34,
+41,10,
+//
+10,
+//
+10,
+// @ffi.def_extern()
+64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
+// def uwsgi_cffi_enable_threads():
+100,101,102,32,117,119,115,103,105,95,99,102,102,105,95,101,110,97,98,108,101,
+95,116,104,114,101,97,100,115,40,41,58,10,
+//     print("enable_threads")
+32,32,32,32,112,114,105,110,116,40,34,101,110,97,98,108,101,95,116,104,114,101,
+97,100,115,34,41,10,
+//
+10,
+//
+10,
+// @ffi.def_extern()
+64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
+// def uwsgi_cffi_init_thread():
+100,101,102,32,117,119,115,103,105,95,99,102,102,105,95,105,110,105,116,95,116,
+104,114,101,97,100,40,41,58,10,
+//     print("init_thread")
+32,32,32,32,112,114,105,110,116,40,34,105,110,105,116,95,116,104,114,101,97,
+100,34,41,10,
+//
+10,
+//
+10,
+// @ffi.def_extern()
+64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
+// def uwsgi_cffi_signal_handler(sig, handler):
+100,101,102,32,117,119,115,103,105,95,99,102,102,105,95,115,105,103,110,97,108,
+95,104,97,110,100,108,101,114,40,115,105,103,44,32,104,97,110,100,108,101,114,
+41,58,10,
+//     ffi.from_handle(handler)(sig)
+32,32,32,32,102,102,105,46,102,114,111,109,95,104,97,110,100,108,101,40,104,
+97,110,100,108,101,114,41,40,115,105,103,41,10,
+//     return 0
+32,32,32,32,114,101,116,117,114,110,32,48,10,
+//
+10,
+//
+10,
+// @ffi.def_extern()
+64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
+// def uwsgi_cffi_mule(opt):
+100,101,102,32,117,119,115,103,105,95,99,102,102,105,95,109,117,108,101,40,111,
+112,116,41,58,10,
+//     opt = ffi.string(opt).decode("latin1")
+32,32,32,32,111,112,116,32,61,32,102,102,105,46,115,116,114,105,110,103,40,111,
+112,116,41,46,100,101,99,111,100,101,40,34,108,97,116,105,110,49,34,41,10,
+//     print("cffi_mule", opt)
+32,32,32,32,112,114,105,110,116,40,34,99,102,102,105,95,109,117,108,101,34,44,
+32,111,112,116,41,10,
+//
+10,
+//
+10,
+// @ffi.def_extern()
+64,102,102,105,46,100,101,102,95,101,120,116,101,114,110,40,41,10,
+// def uwsgi_cffi_rpc(func, argc, argv, argvs, buffer):
+100,101,102,32,117,119,115,103,105,95,99,102,102,105,95,114,112,99,40,102,117,
+110,99,44,32,97,114,103,99,44,32,97,114,103,118,44,32,97,114,103,118,115,44,
+32,98,117,102,102,101,114,41,58,10,
+//     return ffi.from_handle(func)(argc, argv, argvs, buffer)
+32,32,32,32,114,101,116,117,114,110,32,102,102,105,46,102,114,111,109,95,104,
+97,110,100,108,101,40,102,117,110,99,41,40,97,114,103,99,44,32,97,114,103,118,
+44,32,97,114,103,118,115,44,32,98,117,102,102,101,114,41,10,
 //
 10,
 //
@@ -1832,16 +1958,27 @@ static int cffi_start_python(void)
 
 #include <uwsgi.h>
 
-extern struct uwsgi_server uwsgi;
-
 struct uwsgi_cffi {
 	char *wsgi;
 } ucffi;
 
+
+extern struct uwsgi_server uwsgi;
+
 static int uwsgi_cffi_init();
+static void uwsgi_cffi_preinit_apps();
 static void uwsgi_cffi_init_apps();
 static int uwsgi_cffi_request(struct wsgi_request *wsgi_req);
 static void uwsgi_cffi_after_request(struct wsgi_request *wsgi_req);
+static void uwsgi_cffi_onload();
+
+static uint64_t uwsgi_cffi_rpc(void *, uint8_t,  char **, uint16_t *, char **);
+static void uwsgi_cffi_post_fork();
+static void uwsgi_cffi_enable_threads();
+static void uwsgi_cffi_init_thread();
+static int uwsgi_cffi_mule(char *opt);
+static int uwsgi_cffi_signal_handler(uint8_t sig, void *handler);
+
 
 extern void uwsgi_cffi_more_apps() {
     uwsgi_apps_cnt++;
@@ -1856,10 +1993,17 @@ CFFI_DLLEXPORT struct uwsgi_plugin cffi_plugin = {
     .name = "cffi",
     .modifier1 = 0,
     .init = uwsgi_cffi_init,
-    .init_apps = uwsgi_cffi_init_apps,
-    .options = uwsgi_cffi_options,
     .request = uwsgi_cffi_request,
     .after_request = uwsgi_cffi_after_request,
+    .options = uwsgi_cffi_options,
+    .preinit_apps = uwsgi_cffi_preinit_apps,
+    .init_apps = uwsgi_cffi_init_apps,
+    .init_thread = uwsgi_cffi_init_thread,
+    .signal_handler = uwsgi_cffi_signal_handler,
+    .enable_threads = uwsgi_cffi_enable_threads,
+    .rpc = uwsgi_cffi_rpc,
+    .post_fork = uwsgi_cffi_post_fork,
+    .mule = uwsgi_cffi_mule
 };
 
 
@@ -1867,7 +2011,7 @@ CFFI_DLLEXPORT struct uwsgi_plugin cffi_plugin = {
 
 static void *_cffi_types[] = {
 /*  0 */ _CFFI_OP(_CFFI_OP_FUNCTION, 1), // char *()(char *, char *, uint8_t, char * *, uint16_t *, uint64_t *)
-/*  1 */ _CFFI_OP(_CFFI_OP_POINTER, 197), // char *
+/*  1 */ _CFFI_OP(_CFFI_OP_POINTER, 208), // char *
 /*  2 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
 /*  3 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 18), // uint8_t
 /*  4 */ _CFFI_OP(_CFFI_OP_POINTER, 1), // char * *
@@ -1882,10 +2026,10 @@ static void *_cffi_types[] = {
 /* 13 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
 /* 14 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
 /* 15 */ _CFFI_OP(_CFFI_OP_FUNCTION, 1), // char *()(struct uwsgi_cache_item *)
-/* 16 */ _CFFI_OP(_CFFI_OP_POINTER, 207), // struct uwsgi_cache_item *
+/* 16 */ _CFFI_OP(_CFFI_OP_POINTER, 220), // struct uwsgi_cache_item *
 /* 17 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
 /* 18 */ _CFFI_OP(_CFFI_OP_FUNCTION, 1), // char *()(struct wsgi_request *, size_t *, int, int)
-/* 19 */ _CFFI_OP(_CFFI_OP_POINTER, 224), // struct wsgi_request *
+/* 19 */ _CFFI_OP(_CFFI_OP_POINTER, 237), // struct wsgi_request *
 /* 20 */ _CFFI_OP(_CFFI_OP_POINTER, 77), // size_t *
 /* 21 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7), // int
 /* 22 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7),
@@ -1912,9 +2056,9 @@ static void *_cffi_types[] = {
 /* 43 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
 /* 44 */ _CFFI_OP(_CFFI_OP_FUNCTION, 21), // int()(char *, struct uwsgi_plugin *, uint8_t, void *)
 /* 45 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
-/* 46 */ _CFFI_OP(_CFFI_OP_POINTER, 219), // struct uwsgi_plugin *
+/* 46 */ _CFFI_OP(_CFFI_OP_POINTER, 232), // struct uwsgi_plugin *
 /* 47 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 18),
-/* 48 */ _CFFI_OP(_CFFI_OP_POINTER, 227), // void *
+/* 48 */ _CFFI_OP(_CFFI_OP_POINTER, 241), // void *
 /* 49 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
 /* 50 */ _CFFI_OP(_CFFI_OP_FUNCTION, 21), // int()(char *, uint16_t, char *)
 /* 51 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
@@ -2003,97 +2147,111 @@ static void *_cffi_types[] = {
 /* 134 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7),
 /* 135 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7),
 /* 136 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 137 */ _CFFI_OP(_CFFI_OP_FUNCTION, 21), // int()(void)
-/* 138 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 139 */ _CFFI_OP(_CFFI_OP_FUNCTION, 37), // int64_t()(char *, char *)
-/* 140 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
-/* 141 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
+/* 137 */ _CFFI_OP(_CFFI_OP_FUNCTION, 21), // int()(uint8_t, void *)
+/* 138 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 18),
+/* 139 */ _CFFI_OP(_CFFI_OP_NOOP, 48),
+/* 140 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 141 */ _CFFI_OP(_CFFI_OP_FUNCTION, 21), // int()(void)
 /* 142 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 143 */ _CFFI_OP(_CFFI_OP_FUNCTION, 176), // struct uwsgi_buffer *()(struct wsgi_request *)
-/* 144 */ _CFFI_OP(_CFFI_OP_NOOP, 19),
-/* 145 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 146 */ _CFFI_OP(_CFFI_OP_FUNCTION, 150), // struct uwsgi_cache *()(char *)
-/* 147 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
-/* 148 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 149 */ _CFFI_OP(_CFFI_OP_FUNCTION, 16), // struct uwsgi_cache_item *()(struct uwsgi_cache *, uint64_t *, struct uwsgi_cache_item * *)
-/* 150 */ _CFFI_OP(_CFFI_OP_POINTER, 206), // struct uwsgi_cache *
-/* 151 */ _CFFI_OP(_CFFI_OP_NOOP, 6),
-/* 152 */ _CFFI_OP(_CFFI_OP_POINTER, 16), // struct uwsgi_cache_item * *
-/* 153 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 154 */ _CFFI_OP(_CFFI_OP_FUNCTION, 213), // struct uwsgi_logvar *()(struct wsgi_request *, char *, uint8_t)
-/* 155 */ _CFFI_OP(_CFFI_OP_NOOP, 19),
-/* 156 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
-/* 157 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 18),
-/* 158 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 159 */ _CFFI_OP(_CFFI_OP_FUNCTION, 19), // struct wsgi_request *()(void)
-/* 160 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 161 */ _CFFI_OP(_CFFI_OP_FUNCTION, 59), // uint64_t()(int)
-/* 162 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7),
-/* 163 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 164 */ _CFFI_OP(_CFFI_OP_FUNCTION, 48), // void *()(size_t)
-/* 165 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 28),
-/* 166 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 167 */ _CFFI_OP(_CFFI_OP_FUNCTION, 227), // void()(char *)
-/* 168 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
-/* 169 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 170 */ _CFFI_OP(_CFFI_OP_FUNCTION, 227), // void()(char *, char *, size_t)
-/* 171 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
-/* 172 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
-/* 173 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 28),
+/* 143 */ _CFFI_OP(_CFFI_OP_FUNCTION, 37), // int64_t()(char *, char *)
+/* 144 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
+/* 145 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
+/* 146 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 147 */ _CFFI_OP(_CFFI_OP_FUNCTION, 187), // struct uwsgi_buffer *()(struct wsgi_request *)
+/* 148 */ _CFFI_OP(_CFFI_OP_NOOP, 19),
+/* 149 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 150 */ _CFFI_OP(_CFFI_OP_FUNCTION, 154), // struct uwsgi_cache *()(char *)
+/* 151 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
+/* 152 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 153 */ _CFFI_OP(_CFFI_OP_FUNCTION, 16), // struct uwsgi_cache_item *()(struct uwsgi_cache *, uint64_t *, struct uwsgi_cache_item * *)
+/* 154 */ _CFFI_OP(_CFFI_OP_POINTER, 219), // struct uwsgi_cache *
+/* 155 */ _CFFI_OP(_CFFI_OP_NOOP, 6),
+/* 156 */ _CFFI_OP(_CFFI_OP_POINTER, 16), // struct uwsgi_cache_item * *
+/* 157 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 158 */ _CFFI_OP(_CFFI_OP_FUNCTION, 226), // struct uwsgi_logvar *()(struct wsgi_request *, char *, uint8_t)
+/* 159 */ _CFFI_OP(_CFFI_OP_NOOP, 19),
+/* 160 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
+/* 161 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 18),
+/* 162 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 163 */ _CFFI_OP(_CFFI_OP_FUNCTION, 19), // struct wsgi_request *()(void)
+/* 164 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 165 */ _CFFI_OP(_CFFI_OP_FUNCTION, 59), // uint64_t()(int)
+/* 166 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7),
+/* 167 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 168 */ _CFFI_OP(_CFFI_OP_FUNCTION, 59), // uint64_t()(void *, uint8_t, char * *, uint16_t *, char * *)
+/* 169 */ _CFFI_OP(_CFFI_OP_NOOP, 48),
+/* 170 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 18),
+/* 171 */ _CFFI_OP(_CFFI_OP_NOOP, 4),
+/* 172 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
+/* 173 */ _CFFI_OP(_CFFI_OP_NOOP, 4),
 /* 174 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 175 */ _CFFI_OP(_CFFI_OP_FUNCTION, 227), // void()(struct uwsgi_buffer *)
-/* 176 */ _CFFI_OP(_CFFI_OP_POINTER, 205), // struct uwsgi_buffer *
+/* 175 */ _CFFI_OP(_CFFI_OP_FUNCTION, 48), // void *()(size_t)
+/* 176 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 28),
 /* 177 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 178 */ _CFFI_OP(_CFFI_OP_FUNCTION, 227), // void()(struct uwsgi_cache *)
-/* 179 */ _CFFI_OP(_CFFI_OP_NOOP, 150),
+/* 178 */ _CFFI_OP(_CFFI_OP_FUNCTION, 241), // void()(char *)
+/* 179 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
 /* 180 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 181 */ _CFFI_OP(_CFFI_OP_FUNCTION, 227), // void()(struct wsgi_request *)
-/* 182 */ _CFFI_OP(_CFFI_OP_NOOP, 19),
-/* 183 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 184 */ _CFFI_OP(_CFFI_OP_FUNCTION, 227), // void()(struct wsgi_request *, char *, uint8_t, char *, uint8_t)
-/* 185 */ _CFFI_OP(_CFFI_OP_NOOP, 19),
-/* 186 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
-/* 187 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 18),
-/* 188 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
-/* 189 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 18),
-/* 190 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 191 */ _CFFI_OP(_CFFI_OP_FUNCTION, 227), // void()(struct wsgi_request *, int)
-/* 192 */ _CFFI_OP(_CFFI_OP_NOOP, 19),
-/* 193 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7),
+/* 181 */ _CFFI_OP(_CFFI_OP_FUNCTION, 241), // void()(char *, char *, size_t)
+/* 182 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
+/* 183 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
+/* 184 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 28),
+/* 185 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 186 */ _CFFI_OP(_CFFI_OP_FUNCTION, 241), // void()(struct uwsgi_buffer *)
+/* 187 */ _CFFI_OP(_CFFI_OP_POINTER, 218), // struct uwsgi_buffer *
+/* 188 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 189 */ _CFFI_OP(_CFFI_OP_FUNCTION, 241), // void()(struct uwsgi_cache *)
+/* 190 */ _CFFI_OP(_CFFI_OP_NOOP, 154),
+/* 191 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 192 */ _CFFI_OP(_CFFI_OP_FUNCTION, 241), // void()(struct wsgi_request *)
+/* 193 */ _CFFI_OP(_CFFI_OP_NOOP, 19),
 /* 194 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 195 */ _CFFI_OP(_CFFI_OP_FUNCTION, 227), // void()(void)
-/* 196 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 197 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 2), // char
-/* 198 */ _CFFI_OP(_CFFI_OP_ARRAY, 197), // char[256]
-/* 199 */ (_cffi_opcode_t)(256),
-/* 200 */ _CFFI_OP(_CFFI_OP_OPEN_ARRAY, 197), // char[]
-/* 201 */ _CFFI_OP(_CFFI_OP_POINTER, 71), // int(*)(struct wsgi_request *)
-/* 202 */ _CFFI_OP(_CFFI_OP_POINTER, 137), // int(*)(void)
-/* 203 */ _CFFI_OP(_CFFI_OP_POINTER, 204), // struct iovec *
-/* 204 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 0), // struct iovec
-/* 205 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 1), // struct uwsgi_buffer
-/* 206 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 2), // struct uwsgi_cache
-/* 207 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 3), // struct uwsgi_cache_item
-/* 208 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 4), // struct uwsgi_cffi
-/* 209 */ _CFFI_OP(_CFFI_OP_POINTER, 210), // struct uwsgi_header *
-/* 210 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 5), // struct uwsgi_header
-/* 211 */ _CFFI_OP(_CFFI_OP_POINTER, 212), // struct uwsgi_lock_item *
-/* 212 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 6), // struct uwsgi_lock_item
-/* 213 */ _CFFI_OP(_CFFI_OP_POINTER, 214), // struct uwsgi_logvar *
-/* 214 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 7), // struct uwsgi_logvar
-/* 215 */ _CFFI_OP(_CFFI_OP_POINTER, 216), // struct uwsgi_opt * *
-/* 216 */ _CFFI_OP(_CFFI_OP_POINTER, 217), // struct uwsgi_opt *
-/* 217 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 8), // struct uwsgi_opt
-/* 218 */ _CFFI_OP(_CFFI_OP_OPEN_ARRAY, 46), // struct uwsgi_plugin *[]
-/* 219 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 9), // struct uwsgi_plugin
-/* 220 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 10), // struct uwsgi_server
-/* 221 */ _CFFI_OP(_CFFI_OP_POINTER, 222), // struct uwsgi_worker *
-/* 222 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 11), // struct uwsgi_worker
-/* 223 */ _CFFI_OP(_CFFI_OP_POINTER, 159), // struct wsgi_request *(*)(void)
-/* 224 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 12), // struct wsgi_request
-/* 225 */ _CFFI_OP(_CFFI_OP_POINTER, 181), // void(*)(struct wsgi_request *)
-/* 226 */ _CFFI_OP(_CFFI_OP_POINTER, 195), // void(*)(void)
-/* 227 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 0), // void
+/* 195 */ _CFFI_OP(_CFFI_OP_FUNCTION, 241), // void()(struct wsgi_request *, char *, uint8_t, char *, uint8_t)
+/* 196 */ _CFFI_OP(_CFFI_OP_NOOP, 19),
+/* 197 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
+/* 198 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 18),
+/* 199 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
+/* 200 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 18),
+/* 201 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 202 */ _CFFI_OP(_CFFI_OP_FUNCTION, 241), // void()(struct wsgi_request *, int)
+/* 203 */ _CFFI_OP(_CFFI_OP_NOOP, 19),
+/* 204 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7),
+/* 205 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 206 */ _CFFI_OP(_CFFI_OP_FUNCTION, 241), // void()(void)
+/* 207 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 208 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 2), // char
+/* 209 */ _CFFI_OP(_CFFI_OP_ARRAY, 208), // char[256]
+/* 210 */ (_cffi_opcode_t)(256),
+/* 211 */ _CFFI_OP(_CFFI_OP_OPEN_ARRAY, 208), // char[]
+/* 212 */ _CFFI_OP(_CFFI_OP_POINTER, 31), // int(*)(char *)
+/* 213 */ _CFFI_OP(_CFFI_OP_POINTER, 71), // int(*)(struct wsgi_request *)
+/* 214 */ _CFFI_OP(_CFFI_OP_POINTER, 137), // int(*)(uint8_t, void *)
+/* 215 */ _CFFI_OP(_CFFI_OP_POINTER, 141), // int(*)(void)
+/* 216 */ _CFFI_OP(_CFFI_OP_POINTER, 217), // struct iovec *
+/* 217 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 0), // struct iovec
+/* 218 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 1), // struct uwsgi_buffer
+/* 219 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 2), // struct uwsgi_cache
+/* 220 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 3), // struct uwsgi_cache_item
+/* 221 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 4), // struct uwsgi_cffi
+/* 222 */ _CFFI_OP(_CFFI_OP_POINTER, 223), // struct uwsgi_header *
+/* 223 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 5), // struct uwsgi_header
+/* 224 */ _CFFI_OP(_CFFI_OP_POINTER, 225), // struct uwsgi_lock_item *
+/* 225 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 6), // struct uwsgi_lock_item
+/* 226 */ _CFFI_OP(_CFFI_OP_POINTER, 227), // struct uwsgi_logvar *
+/* 227 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 7), // struct uwsgi_logvar
+/* 228 */ _CFFI_OP(_CFFI_OP_POINTER, 229), // struct uwsgi_opt * *
+/* 229 */ _CFFI_OP(_CFFI_OP_POINTER, 230), // struct uwsgi_opt *
+/* 230 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 8), // struct uwsgi_opt
+/* 231 */ _CFFI_OP(_CFFI_OP_OPEN_ARRAY, 46), // struct uwsgi_plugin *[]
+/* 232 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 9), // struct uwsgi_plugin
+/* 233 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 10), // struct uwsgi_server
+/* 234 */ _CFFI_OP(_CFFI_OP_POINTER, 235), // struct uwsgi_worker *
+/* 235 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 11), // struct uwsgi_worker
+/* 236 */ _CFFI_OP(_CFFI_OP_POINTER, 163), // struct wsgi_request *(*)(void)
+/* 237 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 12), // struct wsgi_request
+/* 238 */ _CFFI_OP(_CFFI_OP_POINTER, 168), // uint64_t(*)(void *, uint8_t, char * *, uint16_t *, char * *)
+/* 239 */ _CFFI_OP(_CFFI_OP_POINTER, 192), // void(*)(struct wsgi_request *)
+/* 240 */ _CFFI_OP(_CFFI_OP_POINTER, 206), // void(*)(void)
+/* 241 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 0), // void
 };
 
 static struct _cffi_externpy_s _cffi_externpy__uwsgi_cffi_after_request =
@@ -2105,6 +2263,16 @@ CFFI_DLLEXPORT void uwsgi_cffi_after_request(struct wsgi_request * a0)
   char *p = a;
   *(struct wsgi_request * *)(p + 0) = a0;
   _cffi_call_python(&_cffi_externpy__uwsgi_cffi_after_request, p);
+}
+
+static struct _cffi_externpy_s _cffi_externpy__uwsgi_cffi_enable_threads =
+  { "cffi_plugin.uwsgi_cffi_enable_threads", 0 };
+
+CFFI_DLLEXPORT void uwsgi_cffi_enable_threads(void)
+{
+  char a[8];
+  char *p = a;
+  _cffi_call_python(&_cffi_externpy__uwsgi_cffi_enable_threads, p);
 }
 
 static struct _cffi_externpy_s _cffi_externpy__uwsgi_cffi_init =
@@ -2128,6 +2296,58 @@ CFFI_DLLEXPORT void uwsgi_cffi_init_apps(void)
   _cffi_call_python(&_cffi_externpy__uwsgi_cffi_init_apps, p);
 }
 
+static struct _cffi_externpy_s _cffi_externpy__uwsgi_cffi_init_thread =
+  { "cffi_plugin.uwsgi_cffi_init_thread", 0 };
+
+CFFI_DLLEXPORT void uwsgi_cffi_init_thread(void)
+{
+  char a[8];
+  char *p = a;
+  _cffi_call_python(&_cffi_externpy__uwsgi_cffi_init_thread, p);
+}
+
+static struct _cffi_externpy_s _cffi_externpy__uwsgi_cffi_mule =
+  { "cffi_plugin.uwsgi_cffi_mule", (int)sizeof(int) };
+
+CFFI_DLLEXPORT int uwsgi_cffi_mule(char * a0)
+{
+  char a[8];
+  char *p = a;
+  *(char * *)(p + 0) = a0;
+  _cffi_call_python(&_cffi_externpy__uwsgi_cffi_mule, p);
+  return *(int *)p;
+}
+
+static struct _cffi_externpy_s _cffi_externpy__uwsgi_cffi_onload =
+  { "cffi_plugin.uwsgi_cffi_onload", 0 };
+
+CFFI_DLLEXPORT void uwsgi_cffi_onload(void)
+{
+  char a[8];
+  char *p = a;
+  _cffi_call_python(&_cffi_externpy__uwsgi_cffi_onload, p);
+}
+
+static struct _cffi_externpy_s _cffi_externpy__uwsgi_cffi_post_fork =
+  { "cffi_plugin.uwsgi_cffi_post_fork", 0 };
+
+CFFI_DLLEXPORT void uwsgi_cffi_post_fork(void)
+{
+  char a[8];
+  char *p = a;
+  _cffi_call_python(&_cffi_externpy__uwsgi_cffi_post_fork, p);
+}
+
+static struct _cffi_externpy_s _cffi_externpy__uwsgi_cffi_preinit_apps =
+  { "cffi_plugin.uwsgi_cffi_preinit_apps", 0 };
+
+CFFI_DLLEXPORT void uwsgi_cffi_preinit_apps(void)
+{
+  char a[8];
+  char *p = a;
+  _cffi_call_python(&_cffi_externpy__uwsgi_cffi_preinit_apps, p);
+}
+
 static struct _cffi_externpy_s _cffi_externpy__uwsgi_cffi_request =
   { "cffi_plugin.uwsgi_cffi_request", (int)sizeof(int) };
 
@@ -2137,6 +2357,35 @@ CFFI_DLLEXPORT int uwsgi_cffi_request(struct wsgi_request * a0)
   char *p = a;
   *(struct wsgi_request * *)(p + 0) = a0;
   _cffi_call_python(&_cffi_externpy__uwsgi_cffi_request, p);
+  return *(int *)p;
+}
+
+static struct _cffi_externpy_s _cffi_externpy__uwsgi_cffi_rpc =
+  { "cffi_plugin.uwsgi_cffi_rpc", (int)sizeof(uint64_t) };
+
+CFFI_DLLEXPORT uint64_t uwsgi_cffi_rpc(void * a0, uint8_t a1, char * * a2, uint16_t * a3, char * * a4)
+{
+  char a[40];
+  char *p = a;
+  *(void * *)(p + 0) = a0;
+  *(uint8_t *)(p + 8) = a1;
+  *(char * * *)(p + 16) = a2;
+  *(uint16_t * *)(p + 24) = a3;
+  *(char * * *)(p + 32) = a4;
+  _cffi_call_python(&_cffi_externpy__uwsgi_cffi_rpc, p);
+  return *(uint64_t *)p;
+}
+
+static struct _cffi_externpy_s _cffi_externpy__uwsgi_cffi_signal_handler =
+  { "cffi_plugin.uwsgi_cffi_signal_handler", (int)sizeof(int) };
+
+CFFI_DLLEXPORT int uwsgi_cffi_signal_handler(uint8_t a0, void * a1)
+{
+  char a[16];
+  char *p = a;
+  *(uint8_t *)(p + 0) = a0;
+  *(void * *)(p + 8) = a1;
+  _cffi_call_python(&_cffi_externpy__uwsgi_cffi_signal_handler, p);
   return *(int *)p;
 }
 
@@ -2575,13 +2824,13 @@ _cffi_f_uwsgi_buffer_destroy(PyObject *self, PyObject *arg0)
   Py_ssize_t datasize;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(176), arg0, (char **)&x0);
+      _cffi_type(187), arg0, (char **)&x0);
   if (datasize != 0) {
     if (datasize < 0)
       return NULL;
     x0 = (struct uwsgi_buffer *)alloca((size_t)datasize);
     memset((void *)x0, 0, (size_t)datasize);
-    if (_cffi_convert_array_from_object((char *)x0, _cffi_type(176), arg0) < 0)
+    if (_cffi_convert_array_from_object((char *)x0, _cffi_type(187), arg0) < 0)
       return NULL;
   }
 
@@ -2629,7 +2878,7 @@ _cffi_f_uwsgi_cache_by_name(PyObject *self, PyObject *arg0)
   Py_END_ALLOW_THREADS
 
   (void)self; /* unused */
-  return _cffi_from_c_pointer((char *)result, _cffi_type(150));
+  return _cffi_from_c_pointer((char *)result, _cffi_type(154));
 }
 #else
 #  define _cffi_f_uwsgi_cache_by_name _cffi_d_uwsgi_cache_by_name
@@ -2692,13 +2941,13 @@ _cffi_f_uwsgi_cache_keys(PyObject *self, PyObject *args)
     return NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(150), arg0, (char **)&x0);
+      _cffi_type(154), arg0, (char **)&x0);
   if (datasize != 0) {
     if (datasize < 0)
       return NULL;
     x0 = (struct uwsgi_cache *)alloca((size_t)datasize);
     memset((void *)x0, 0, (size_t)datasize);
-    if (_cffi_convert_array_from_object((char *)x0, _cffi_type(150), arg0) < 0)
+    if (_cffi_convert_array_from_object((char *)x0, _cffi_type(154), arg0) < 0)
       return NULL;
   }
 
@@ -2714,13 +2963,13 @@ _cffi_f_uwsgi_cache_keys(PyObject *self, PyObject *args)
   }
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(152), arg2, (char **)&x2);
+      _cffi_type(156), arg2, (char **)&x2);
   if (datasize != 0) {
     if (datasize < 0)
       return NULL;
     x2 = (struct uwsgi_cache_item * *)alloca((size_t)datasize);
     memset((void *)x2, 0, (size_t)datasize);
-    if (_cffi_convert_array_from_object((char *)x2, _cffi_type(152), arg2) < 0)
+    if (_cffi_convert_array_from_object((char *)x2, _cffi_type(156), arg2) < 0)
       return NULL;
   }
 
@@ -3078,13 +3327,13 @@ _cffi_f_uwsgi_cache_rlock(PyObject *self, PyObject *arg0)
   Py_ssize_t datasize;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(150), arg0, (char **)&x0);
+      _cffi_type(154), arg0, (char **)&x0);
   if (datasize != 0) {
     if (datasize < 0)
       return NULL;
     x0 = (struct uwsgi_cache *)alloca((size_t)datasize);
     memset((void *)x0, 0, (size_t)datasize);
-    if (_cffi_convert_array_from_object((char *)x0, _cffi_type(150), arg0) < 0)
+    if (_cffi_convert_array_from_object((char *)x0, _cffi_type(154), arg0) < 0)
       return NULL;
   }
 
@@ -3114,13 +3363,13 @@ _cffi_f_uwsgi_cache_rwunlock(PyObject *self, PyObject *arg0)
   Py_ssize_t datasize;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(150), arg0, (char **)&x0);
+      _cffi_type(154), arg0, (char **)&x0);
   if (datasize != 0) {
     if (datasize < 0)
       return NULL;
     x0 = (struct uwsgi_cache *)alloca((size_t)datasize);
     memset((void *)x0, 0, (size_t)datasize);
-    if (_cffi_convert_array_from_object((char *)x0, _cffi_type(150), arg0) < 0)
+    if (_cffi_convert_array_from_object((char *)x0, _cffi_type(154), arg0) < 0)
       return NULL;
   }
 
@@ -3568,7 +3817,7 @@ _cffi_f_uwsgi_logvar_get(PyObject *self, PyObject *args)
   Py_END_ALLOW_THREADS
 
   (void)self; /* unused */
-  return _cffi_from_c_pointer((char *)result, _cffi_type(213));
+  return _cffi_from_c_pointer((char *)result, _cffi_type(226));
 }
 #else
 #  define _cffi_f_uwsgi_logvar_get _cffi_d_uwsgi_logvar_get
@@ -4892,7 +5141,7 @@ _cffi_f_uwsgi_websocket_recv(PyObject *self, PyObject *arg0)
   Py_END_ALLOW_THREADS
 
   (void)self; /* unused */
-  return _cffi_from_c_pointer((char *)result, _cffi_type(176));
+  return _cffi_from_c_pointer((char *)result, _cffi_type(187));
 }
 #else
 #  define _cffi_f_uwsgi_websocket_recv _cffi_d_uwsgi_websocket_recv
@@ -4928,7 +5177,7 @@ _cffi_f_uwsgi_websocket_recv_nb(PyObject *self, PyObject *arg0)
   Py_END_ALLOW_THREADS
 
   (void)self; /* unused */
-  return _cffi_from_c_pointer((char *)result, _cffi_type(176));
+  return _cffi_from_c_pointer((char *)result, _cffi_type(187));
 }
 #else
 #  define _cffi_f_uwsgi_websocket_recv_nb _cffi_d_uwsgi_websocket_recv_nb
@@ -5963,43 +6212,51 @@ static const struct _cffi_global_s _cffi_globals[] = {
   { "_LARGEFILE_SOURCE", (void *)_cffi_const__LARGEFILE_SOURCE, _CFFI_OP(_CFFI_OP_CONSTANT_INT, -1), (void *)0 },
   { "async_add_fd_read", (void *)_cffi_f_async_add_fd_read, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 95), (void *)_cffi_d_async_add_fd_read },
   { "async_add_fd_write", (void *)_cffi_f_async_add_fd_write, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 95), (void *)_cffi_d_async_add_fd_write },
-  { "async_add_timeout", (void *)_cffi_f_async_add_timeout, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 191), (void *)_cffi_d_async_add_timeout },
-  { "async_schedule_to_req_green", (void *)_cffi_f_async_schedule_to_req_green, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_N, 195), (void *)_cffi_d_async_schedule_to_req_green },
-  { "log_request", (void *)_cffi_f_log_request, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 181), (void *)_cffi_d_log_request },
-  { "set_user_harakiri", (void *)_cffi_f_set_user_harakiri, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 191), (void *)_cffi_d_set_user_harakiri },
-  { "ucffi", (void *)_cffi_var_ucffi, _CFFI_OP(_CFFI_OP_GLOBAL_VAR_F, 208), (void *)0 },
-  { "uwsgi", (void *)_cffi_var_uwsgi, _CFFI_OP(_CFFI_OP_GLOBAL_VAR_F, 220), (void *)0 },
+  { "async_add_timeout", (void *)_cffi_f_async_add_timeout, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 202), (void *)_cffi_d_async_add_timeout },
+  { "async_schedule_to_req_green", (void *)_cffi_f_async_schedule_to_req_green, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_N, 206), (void *)_cffi_d_async_schedule_to_req_green },
+  { "log_request", (void *)_cffi_f_log_request, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 192), (void *)_cffi_d_log_request },
+  { "set_user_harakiri", (void *)_cffi_f_set_user_harakiri, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 202), (void *)_cffi_d_set_user_harakiri },
+  { "ucffi", (void *)_cffi_var_ucffi, _CFFI_OP(_CFFI_OP_GLOBAL_VAR_F, 221), (void *)0 },
+  { "uwsgi", (void *)_cffi_var_uwsgi, _CFFI_OP(_CFFI_OP_GLOBAL_VAR_F, 233), (void *)0 },
   { "uwsgi_add_file_monitor", (void *)_cffi_f_uwsgi_add_file_monitor, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 110), (void *)_cffi_d_uwsgi_add_file_monitor },
   { "uwsgi_add_timer", (void *)_cffi_f_uwsgi_add_timer, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 120), (void *)_cffi_d_uwsgi_add_timer },
-  { "uwsgi_alarm_trigger", (void *)_cffi_f_uwsgi_alarm_trigger, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 170), (void *)_cffi_d_uwsgi_alarm_trigger },
+  { "uwsgi_alarm_trigger", (void *)_cffi_f_uwsgi_alarm_trigger, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 181), (void *)_cffi_d_uwsgi_alarm_trigger },
   { "uwsgi_binary_path", (void *)_cffi_f_uwsgi_binary_path, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_N, 29), (void *)_cffi_d_uwsgi_binary_path },
-  { "uwsgi_buffer_destroy", (void *)_cffi_f_uwsgi_buffer_destroy, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 175), (void *)_cffi_d_uwsgi_buffer_destroy },
-  { "uwsgi_cache_by_name", (void *)_cffi_f_uwsgi_cache_by_name, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 146), (void *)_cffi_d_uwsgi_cache_by_name },
+  { "uwsgi_buffer_destroy", (void *)_cffi_f_uwsgi_buffer_destroy, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 186), (void *)_cffi_d_uwsgi_buffer_destroy },
+  { "uwsgi_cache_by_name", (void *)_cffi_f_uwsgi_cache_by_name, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 150), (void *)_cffi_d_uwsgi_cache_by_name },
   { "uwsgi_cache_item_key", (void *)_cffi_f_uwsgi_cache_item_key, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 15), (void *)_cffi_d_uwsgi_cache_item_key },
-  { "uwsgi_cache_keys", (void *)_cffi_f_uwsgi_cache_keys, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 149), (void *)_cffi_d_uwsgi_cache_keys },
+  { "uwsgi_cache_keys", (void *)_cffi_f_uwsgi_cache_keys, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 153), (void *)_cffi_d_uwsgi_cache_keys },
   { "uwsgi_cache_magic_clear", (void *)_cffi_f_uwsgi_cache_magic_clear, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 31), (void *)_cffi_d_uwsgi_cache_magic_clear },
   { "uwsgi_cache_magic_del", (void *)_cffi_f_uwsgi_cache_magic_del, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 50), (void *)_cffi_d_uwsgi_cache_magic_del },
   { "uwsgi_cache_magic_exists", (void *)_cffi_f_uwsgi_cache_magic_exists, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 50), (void *)_cffi_d_uwsgi_cache_magic_exists },
   { "uwsgi_cache_magic_get", (void *)_cffi_f_uwsgi_cache_magic_get, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 8), (void *)_cffi_d_uwsgi_cache_magic_get },
   { "uwsgi_cache_magic_set", (void *)_cffi_f_uwsgi_cache_magic_set, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 55), (void *)_cffi_d_uwsgi_cache_magic_set },
-  { "uwsgi_cache_rlock", (void *)_cffi_f_uwsgi_cache_rlock, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 178), (void *)_cffi_d_uwsgi_cache_rlock },
-  { "uwsgi_cache_rwunlock", (void *)_cffi_f_uwsgi_cache_rwunlock, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 178), (void *)_cffi_d_uwsgi_cache_rwunlock },
-  { "uwsgi_cffi_after_request", (void *)&_cffi_externpy__uwsgi_cffi_after_request, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 225), (void *)uwsgi_cffi_after_request },
-  { "uwsgi_cffi_init", (void *)&_cffi_externpy__uwsgi_cffi_init, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 202), (void *)uwsgi_cffi_init },
-  { "uwsgi_cffi_init_apps", (void *)&_cffi_externpy__uwsgi_cffi_init_apps, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 226), (void *)uwsgi_cffi_init_apps },
-  { "uwsgi_cffi_more_apps", (void *)_cffi_f_uwsgi_cffi_more_apps, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_N, 195), (void *)_cffi_d_uwsgi_cffi_more_apps },
-  { "uwsgi_cffi_request", (void *)&_cffi_externpy__uwsgi_cffi_request, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 201), (void *)uwsgi_cffi_request },
+  { "uwsgi_cache_rlock", (void *)_cffi_f_uwsgi_cache_rlock, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 189), (void *)_cffi_d_uwsgi_cache_rlock },
+  { "uwsgi_cache_rwunlock", (void *)_cffi_f_uwsgi_cache_rwunlock, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 189), (void *)_cffi_d_uwsgi_cache_rwunlock },
+  { "uwsgi_cffi_after_request", (void *)&_cffi_externpy__uwsgi_cffi_after_request, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 239), (void *)uwsgi_cffi_after_request },
+  { "uwsgi_cffi_enable_threads", (void *)&_cffi_externpy__uwsgi_cffi_enable_threads, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 240), (void *)uwsgi_cffi_enable_threads },
+  { "uwsgi_cffi_init", (void *)&_cffi_externpy__uwsgi_cffi_init, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 215), (void *)uwsgi_cffi_init },
+  { "uwsgi_cffi_init_apps", (void *)&_cffi_externpy__uwsgi_cffi_init_apps, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 240), (void *)uwsgi_cffi_init_apps },
+  { "uwsgi_cffi_init_thread", (void *)&_cffi_externpy__uwsgi_cffi_init_thread, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 240), (void *)uwsgi_cffi_init_thread },
+  { "uwsgi_cffi_more_apps", (void *)_cffi_f_uwsgi_cffi_more_apps, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_N, 206), (void *)_cffi_d_uwsgi_cffi_more_apps },
+  { "uwsgi_cffi_mule", (void *)&_cffi_externpy__uwsgi_cffi_mule, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 212), (void *)uwsgi_cffi_mule },
+  { "uwsgi_cffi_onload", (void *)&_cffi_externpy__uwsgi_cffi_onload, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 240), (void *)uwsgi_cffi_onload },
+  { "uwsgi_cffi_post_fork", (void *)&_cffi_externpy__uwsgi_cffi_post_fork, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 240), (void *)uwsgi_cffi_post_fork },
+  { "uwsgi_cffi_preinit_apps", (void *)&_cffi_externpy__uwsgi_cffi_preinit_apps, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 240), (void *)uwsgi_cffi_preinit_apps },
+  { "uwsgi_cffi_request", (void *)&_cffi_externpy__uwsgi_cffi_request, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 213), (void *)uwsgi_cffi_request },
+  { "uwsgi_cffi_rpc", (void *)&_cffi_externpy__uwsgi_cffi_rpc, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 238), (void *)uwsgi_cffi_rpc },
+  { "uwsgi_cffi_signal_handler", (void *)&_cffi_externpy__uwsgi_cffi_signal_handler, _CFFI_OP(_CFFI_OP_EXTERN_PYTHON, 214), (void *)uwsgi_cffi_signal_handler },
   { "uwsgi_chunked_read", (void *)_cffi_f_uwsgi_chunked_read, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 18), (void *)_cffi_d_uwsgi_chunked_read },
   { "uwsgi_connect", (void *)_cffi_f_uwsgi_connect, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 39), (void *)_cffi_d_uwsgi_connect },
-  { "uwsgi_disconnect", (void *)_cffi_f_uwsgi_disconnect, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 181), (void *)_cffi_d_uwsgi_disconnect },
+  { "uwsgi_disconnect", (void *)_cffi_f_uwsgi_disconnect, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 192), (void *)_cffi_d_uwsgi_disconnect },
   { "uwsgi_do_rpc", (void *)_cffi_f_uwsgi_do_rpc, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 0), (void *)_cffi_d_uwsgi_do_rpc },
-  { "uwsgi_is_again", (void *)_cffi_f_uwsgi_is_again, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_N, 137), (void *)_cffi_d_uwsgi_is_again },
-  { "uwsgi_logvar_add", (void *)_cffi_f_uwsgi_logvar_add, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 184), (void *)_cffi_d_uwsgi_logvar_add },
-  { "uwsgi_logvar_get", (void *)_cffi_f_uwsgi_logvar_get, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 154), (void *)_cffi_d_uwsgi_logvar_get },
-  { "uwsgi_malloc", (void *)_cffi_f_uwsgi_malloc, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 164), (void *)_cffi_d_uwsgi_malloc },
+  { "uwsgi_is_again", (void *)_cffi_f_uwsgi_is_again, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_N, 141), (void *)_cffi_d_uwsgi_is_again },
+  { "uwsgi_logvar_add", (void *)_cffi_f_uwsgi_logvar_add, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 195), (void *)_cffi_d_uwsgi_logvar_add },
+  { "uwsgi_logvar_get", (void *)_cffi_f_uwsgi_logvar_get, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 158), (void *)_cffi_d_uwsgi_logvar_get },
+  { "uwsgi_malloc", (void *)_cffi_f_uwsgi_malloc, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 175), (void *)_cffi_d_uwsgi_malloc },
   { "uwsgi_metric_dec", (void *)_cffi_f_uwsgi_metric_dec, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 34), (void *)_cffi_d_uwsgi_metric_dec },
   { "uwsgi_metric_div", (void *)_cffi_f_uwsgi_metric_div, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 34), (void *)_cffi_d_uwsgi_metric_div },
-  { "uwsgi_metric_get", (void *)_cffi_f_uwsgi_metric_get, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 139), (void *)_cffi_d_uwsgi_metric_get },
+  { "uwsgi_metric_get", (void *)_cffi_f_uwsgi_metric_get, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 143), (void *)_cffi_d_uwsgi_metric_get },
   { "uwsgi_metric_inc", (void *)_cffi_f_uwsgi_metric_inc, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 34), (void *)_cffi_d_uwsgi_metric_inc },
   { "uwsgi_metric_mul", (void *)_cffi_f_uwsgi_metric_mul, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 34), (void *)_cffi_d_uwsgi_metric_mul },
   { "uwsgi_metric_set", (void *)_cffi_f_uwsgi_metric_set, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 34), (void *)_cffi_d_uwsgi_metric_set },
@@ -6012,7 +6269,7 @@ static const struct _cffi_global_s _cffi_globals[] = {
   { "uwsgi_response_prepare_headers", (void *)_cffi_f_uwsgi_response_prepare_headers, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 74), (void *)_cffi_d_uwsgi_response_prepare_headers },
   { "uwsgi_response_sendfile_do_can_close", (void *)_cffi_f_uwsgi_response_sendfile_do_can_close, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 100), (void *)_cffi_d_uwsgi_response_sendfile_do_can_close },
   { "uwsgi_response_write_body_do", (void *)_cffi_f_uwsgi_response_write_body_do, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 74), (void *)_cffi_d_uwsgi_response_write_body_do },
-  { "uwsgi_set_processname", (void *)_cffi_f_uwsgi_set_processname, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 167), (void *)_cffi_d_uwsgi_set_processname },
+  { "uwsgi_set_processname", (void *)_cffi_f_uwsgi_set_processname, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 178), (void *)_cffi_d_uwsgi_set_processname },
   { "uwsgi_signal_add_cron", (void *)_cffi_f_uwsgi_signal_add_cron, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 129), (void *)_cffi_d_uwsgi_signal_add_cron },
   { "uwsgi_signal_add_rb_timer", (void *)_cffi_f_uwsgi_signal_add_rb_timer, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 124), (void *)_cffi_d_uwsgi_signal_add_rb_timer },
   { "uwsgi_signal_registered", (void *)_cffi_f_uwsgi_signal_registered, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 107), (void *)_cffi_d_uwsgi_signal_registered },
@@ -6020,10 +6277,10 @@ static const struct _cffi_global_s _cffi_globals[] = {
   { "uwsgi_user_lock", (void *)_cffi_f_uwsgi_user_lock, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 64), (void *)_cffi_d_uwsgi_user_lock },
   { "uwsgi_user_unlock", (void *)_cffi_f_uwsgi_user_unlock, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 64), (void *)_cffi_d_uwsgi_user_unlock },
   { "uwsgi_websocket_handshake", (void *)_cffi_f_uwsgi_websocket_handshake, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 86), (void *)_cffi_d_uwsgi_websocket_handshake },
-  { "uwsgi_websocket_recv", (void *)_cffi_f_uwsgi_websocket_recv, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 143), (void *)_cffi_d_uwsgi_websocket_recv },
-  { "uwsgi_websocket_recv_nb", (void *)_cffi_f_uwsgi_websocket_recv_nb, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 143), (void *)_cffi_d_uwsgi_websocket_recv_nb },
+  { "uwsgi_websocket_recv", (void *)_cffi_f_uwsgi_websocket_recv, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 147), (void *)_cffi_d_uwsgi_websocket_recv },
+  { "uwsgi_websocket_recv_nb", (void *)_cffi_f_uwsgi_websocket_recv_nb, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 147), (void *)_cffi_d_uwsgi_websocket_recv_nb },
   { "uwsgi_websocket_send", (void *)_cffi_f_uwsgi_websocket_send, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 74), (void *)_cffi_d_uwsgi_websocket_send },
-  { "uwsgi_worker_exceptions", (void *)_cffi_f_uwsgi_worker_exceptions, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 161), (void *)_cffi_d_uwsgi_worker_exceptions },
+  { "uwsgi_worker_exceptions", (void *)_cffi_f_uwsgi_worker_exceptions, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 165), (void *)_cffi_d_uwsgi_worker_exceptions },
   { "uwsgi_worker_is_busy", (void *)_cffi_f_uwsgi_worker_is_busy, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 64), (void *)_cffi_d_uwsgi_worker_is_busy },
 };
 
@@ -6042,7 +6299,7 @@ static const struct _cffi_field_s _cffi_fields[] = {
            _CFFI_OP(_CFFI_OP_NOOP, 77) },
   { "lock", offsetof(struct uwsgi_cache, lock),
             sizeof(((struct uwsgi_cache *)0)->lock),
-            _CFFI_OP(_CFFI_OP_NOOP, 211) },
+            _CFFI_OP(_CFFI_OP_NOOP, 224) },
   { "keysize", offsetof(struct uwsgi_cache_item, keysize),
                sizeof(((struct uwsgi_cache_item *)0)->keysize),
                _CFFI_OP(_CFFI_OP_NOOP, 59) },
@@ -6054,19 +6311,19 @@ static const struct _cffi_field_s _cffi_fields[] = {
                  _CFFI_OP(_CFFI_OP_NOOP, 3) },
   { "key", offsetof(struct uwsgi_logvar, key),
            sizeof(((struct uwsgi_logvar *)0)->key),
-           _CFFI_OP(_CFFI_OP_NOOP, 198) },
+           _CFFI_OP(_CFFI_OP_NOOP, 209) },
   { "keylen", offsetof(struct uwsgi_logvar, keylen),
               sizeof(((struct uwsgi_logvar *)0)->keylen),
               _CFFI_OP(_CFFI_OP_NOOP, 3) },
   { "val", offsetof(struct uwsgi_logvar, val),
            sizeof(((struct uwsgi_logvar *)0)->val),
-           _CFFI_OP(_CFFI_OP_NOOP, 198) },
+           _CFFI_OP(_CFFI_OP_NOOP, 209) },
   { "vallen", offsetof(struct uwsgi_logvar, vallen),
               sizeof(((struct uwsgi_logvar *)0)->vallen),
               _CFFI_OP(_CFFI_OP_NOOP, 3) },
   { "next", offsetof(struct uwsgi_logvar, next),
             sizeof(((struct uwsgi_logvar *)0)->next),
-            _CFFI_OP(_CFFI_OP_NOOP, 213) },
+            _CFFI_OP(_CFFI_OP_NOOP, 226) },
   { "key", offsetof(struct uwsgi_opt, key),
            sizeof(((struct uwsgi_opt *)0)->key),
            _CFFI_OP(_CFFI_OP_NOOP, 1) },
@@ -6078,13 +6335,13 @@ static const struct _cffi_field_s _cffi_fields[] = {
                  _CFFI_OP(_CFFI_OP_NOOP, 3) },
   { "suspend", offsetof(struct uwsgi_plugin, suspend),
                sizeof(((struct uwsgi_plugin *)0)->suspend),
-               _CFFI_OP(_CFFI_OP_NOOP, 225) },
+               _CFFI_OP(_CFFI_OP_NOOP, 239) },
   { "resume", offsetof(struct uwsgi_plugin, resume),
               sizeof(((struct uwsgi_plugin *)0)->resume),
-              _CFFI_OP(_CFFI_OP_NOOP, 225) },
+              _CFFI_OP(_CFFI_OP_NOOP, 239) },
   { "hostname", offsetof(struct uwsgi_server, hostname),
                 (size_t)-1,
-                _CFFI_OP(_CFFI_OP_NOOP, 200) },
+                _CFFI_OP(_CFFI_OP_NOOP, 211) },
   { "mywid", offsetof(struct uwsgi_server, mywid),
              sizeof(((struct uwsgi_server *)0)->mywid),
              _CFFI_OP(_CFFI_OP_NOOP, 21) },
@@ -6096,13 +6353,13 @@ static const struct _cffi_field_s _cffi_fields[] = {
                       _CFFI_OP(_CFFI_OP_NOOP, 21) },
   { "exported_opts", offsetof(struct uwsgi_server, exported_opts),
                      sizeof(((struct uwsgi_server *)0)->exported_opts),
-                     _CFFI_OP(_CFFI_OP_NOOP, 215) },
+                     _CFFI_OP(_CFFI_OP_NOOP, 228) },
   { "exported_opts_cnt", offsetof(struct uwsgi_server, exported_opts_cnt),
                          sizeof(((struct uwsgi_server *)0)->exported_opts_cnt),
                          _CFFI_OP(_CFFI_OP_NOOP, 21) },
   { "workers", offsetof(struct uwsgi_server, workers),
                sizeof(((struct uwsgi_server *)0)->workers),
-               _CFFI_OP(_CFFI_OP_NOOP, 221) },
+               _CFFI_OP(_CFFI_OP_NOOP, 234) },
   { "signal_socket", offsetof(struct uwsgi_server, signal_socket),
                      sizeof(((struct uwsgi_server *)0)->signal_socket),
                      _CFFI_OP(_CFFI_OP_NOOP, 21) },
@@ -6114,19 +6371,19 @@ static const struct _cffi_field_s _cffi_fields[] = {
              _CFFI_OP(_CFFI_OP_NOOP, 21) },
   { "schedule_to_main", offsetof(struct uwsgi_server, schedule_to_main),
                         sizeof(((struct uwsgi_server *)0)->schedule_to_main),
-                        _CFFI_OP(_CFFI_OP_NOOP, 225) },
+                        _CFFI_OP(_CFFI_OP_NOOP, 239) },
   { "schedule_to_req", offsetof(struct uwsgi_server, schedule_to_req),
                        sizeof(((struct uwsgi_server *)0)->schedule_to_req),
-                       _CFFI_OP(_CFFI_OP_NOOP, 226) },
+                       _CFFI_OP(_CFFI_OP_NOOP, 240) },
   { "current_wsgi_req", offsetof(struct uwsgi_server, current_wsgi_req),
                         sizeof(((struct uwsgi_server *)0)->current_wsgi_req),
-                        _CFFI_OP(_CFFI_OP_NOOP, 223) },
+                        _CFFI_OP(_CFFI_OP_NOOP, 236) },
   { "wsgi_req", offsetof(struct uwsgi_server, wsgi_req),
                 sizeof(((struct uwsgi_server *)0)->wsgi_req),
                 _CFFI_OP(_CFFI_OP_NOOP, 19) },
   { "p", offsetof(struct uwsgi_server, p),
          (size_t)-1,
-         _CFFI_OP(_CFFI_OP_NOOP, 218) },
+         _CFFI_OP(_CFFI_OP_NOOP, 231) },
   { "id", offsetof(struct uwsgi_worker, id),
           sizeof(((struct uwsgi_worker *)0)->id),
           _CFFI_OP(_CFFI_OP_NOOP, 21) },
@@ -6174,7 +6431,7 @@ static const struct _cffi_field_s _cffi_fields[] = {
                _CFFI_OP(_CFFI_OP_NOOP, 10) },
   { "hvec", offsetof(struct wsgi_request, hvec),
             sizeof(((struct wsgi_request *)0)->hvec),
-            _CFFI_OP(_CFFI_OP_NOOP, 203) },
+            _CFFI_OP(_CFFI_OP_NOOP, 216) },
   { "async_ready_fd", offsetof(struct wsgi_request, async_ready_fd),
                       sizeof(((struct wsgi_request *)0)->async_ready_fd),
                       _CFFI_OP(_CFFI_OP_NOOP, 21) },
@@ -6186,35 +6443,35 @@ static const struct _cffi_field_s _cffi_fields[] = {
                  _CFFI_OP(_CFFI_OP_NOOP, 21) },
   { "uh", offsetof(struct wsgi_request, uh),
           sizeof(((struct wsgi_request *)0)->uh),
-          _CFFI_OP(_CFFI_OP_NOOP, 209) },
+          _CFFI_OP(_CFFI_OP_NOOP, 222) },
 };
 
 static const struct _cffi_struct_union_s _cffi_struct_unions[] = {
-  { "iovec", 204, 0,
+  { "iovec", 217, 0,
     sizeof(struct iovec), offsetof(struct _cffi_align_struct_iovec, y), 0, 2 },
-  { "uwsgi_buffer", 205, 0,
+  { "uwsgi_buffer", 218, 0,
     sizeof(struct uwsgi_buffer), offsetof(struct _cffi_align_struct_uwsgi_buffer, y), 2, 2 },
-  { "uwsgi_cache", 206, 0,
+  { "uwsgi_cache", 219, 0,
     sizeof(struct uwsgi_cache), offsetof(struct _cffi_align_struct_uwsgi_cache, y), 4, 1 },
-  { "uwsgi_cache_item", 207, 0,
+  { "uwsgi_cache_item", 220, 0,
     sizeof(struct uwsgi_cache_item), offsetof(struct _cffi_align_struct_uwsgi_cache_item, y), 5, 1 },
-  { "uwsgi_cffi", 208, _CFFI_F_CHECK_FIELDS,
+  { "uwsgi_cffi", 221, _CFFI_F_CHECK_FIELDS,
     sizeof(struct uwsgi_cffi), offsetof(struct _cffi_align_struct_uwsgi_cffi, y), 6, 1 },
-  { "uwsgi_header", 210, 0,
+  { "uwsgi_header", 223, 0,
     sizeof(struct uwsgi_header), offsetof(struct _cffi_align_struct_uwsgi_header, y), 7, 1 },
-  { "uwsgi_lock_item", 212, 0,
+  { "uwsgi_lock_item", 225, 0,
     sizeof(struct uwsgi_lock_item), offsetof(struct _cffi_align_struct_uwsgi_lock_item, y), 8, 0 },
-  { "uwsgi_logvar", 214, _CFFI_F_CHECK_FIELDS,
+  { "uwsgi_logvar", 227, _CFFI_F_CHECK_FIELDS,
     sizeof(struct uwsgi_logvar), offsetof(struct _cffi_align_struct_uwsgi_logvar, y), 8, 5 },
-  { "uwsgi_opt", 217, 0,
+  { "uwsgi_opt", 230, 0,
     sizeof(struct uwsgi_opt), offsetof(struct _cffi_align_struct_uwsgi_opt, y), 13, 2 },
-  { "uwsgi_plugin", 219, 0,
+  { "uwsgi_plugin", 232, 0,
     sizeof(struct uwsgi_plugin), offsetof(struct _cffi_align_struct_uwsgi_plugin, y), 15, 3 },
-  { "uwsgi_server", 220, 0,
+  { "uwsgi_server", 233, 0,
     sizeof(struct uwsgi_server), offsetof(struct _cffi_align_struct_uwsgi_server, y), 18, 15 },
-  { "uwsgi_worker", 222, 0,
+  { "uwsgi_worker", 235, 0,
     sizeof(struct uwsgi_worker), offsetof(struct _cffi_align_struct_uwsgi_worker, y), 33, 12 },
-  { "wsgi_request", 224, 0,
+  { "wsgi_request", 237, 0,
     sizeof(struct wsgi_request), offsetof(struct _cffi_align_struct_wsgi_request, y), 45, 8 },
 };
 
@@ -6225,12 +6482,12 @@ static const struct _cffi_type_context_s _cffi_type_context = {
   _cffi_struct_unions,
   NULL,  /* no enums */
   NULL,  /* no typenames */
-  157,  /* num_globals */
+  165,  /* num_globals */
   13,  /* num_struct_unions */
   0,  /* num_enums */
   0,  /* num_typenames */
   NULL,  /* no includes */
-  228,  /* num_types */
+  242,  /* num_types */
   1,  /* flags */
 };
 

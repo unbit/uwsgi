@@ -17,8 +17,13 @@ if len(sys.argv) == 0:
 print("Initialized with Python %s" % sys.version)
 print("Home: %s" % sys.prefix)
 pprint.pprint(sys.argv)
-pprint.pprint(dir(ffi))
-pprint.pprint(dir(lib))
+pprint.pprint(sys.path)
+# pprint.pprint(dir(ffi))
+# pprint.pprint(dir(lib))
+
+# with open("somefile.py") as f:
+#     code = compile(f.read(), "somefile.py", 'exec')
+#     exec(code, global_vars, local_vars)
 
 
 def to_network(native):
