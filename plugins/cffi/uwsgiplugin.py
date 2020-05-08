@@ -11,8 +11,10 @@ CFLAGS = [
     "-fvisibility=hidden",
 ]
 
-
-LDFLAGS = [f"-L{sys.prefix}/bin/", f"-Wl,-rpath={sys.prefix}/bin/", "-lpypy3-c"]
+if sys.platform == 'linux':
+    LDFLAGS = [f"-L{sys.prefix}/bin/", f"-Wl,-rpath={sys.prefix}/bin/", "-lpypy3-c"]
+else:
+    LDFLAGS = [f"-L{sys.prefix}/bin/", "-lpypy3-c"]
 LIBS = []
 GCC_LIST = ["cffi_plugin"]
 
