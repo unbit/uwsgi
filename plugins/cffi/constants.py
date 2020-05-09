@@ -5,6 +5,9 @@ Process uwsgi cflags, dot-h into something cffi can use.
 import re
 import subprocess
 
+# could run the preprocessor again
+skip = set(("MSG_FASTOPEN"))
+
 define_re = re.compile(".*#define\s+(\w+)\s+\d+")
 
 uwsgi_cflags = subprocess.check_output(["../../uwsgi", "--cflags"]).decode("utf-8")
@@ -25,10 +28,10 @@ uwsgi_dot_h = dot_h = subprocess.check_output(["../../uwsgi", "--dot-h"]).decode
     "utf-8"
 )
 
-with open("defines.h", "w+") as defines:
+with open("constants.h", "w+") as defines:
     defines.write("\n".join(uwsgi_cdef))
     defines.write("\n\n")
     for line in uwsgi_dot_h.splitlines():
         match = define_re.match(line)
-        if match and not match.group(1).startswith("__"):
+        if match and not match.group(1).startswith("__") and not match.group(1) in skip:
             defines.write("#define %s ...\n" % match.group(1))
