@@ -93,3 +93,5 @@ void uwsgi_perl_check_auto_reload(void);
 void uwsgi_psgi_preinit_apps(void);
 
 int uwsgi_perl_add_app(struct wsgi_request *, char *, PerlInterpreter **, SV **, time_t);
+
+extern struct uwsgi_perl uperl;
