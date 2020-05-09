@@ -1,3 +1,5 @@
 _*.c
 _*.h
 __pycache__
+cffi_plugin.c
+constants.h

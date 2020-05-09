@@ -5,8 +5,8 @@ Process uwsgi cflags, dot-h into something cffi can use.
 import re
 import subprocess
 
-# could run the preprocessor again
-skip = set(("MSG_FASTOPEN"))
+# or could run the preprocessor to omit this on unsupported platforms
+skip = set(("MSG_FASTOPEN",))
 
 define_re = re.compile(".*#define\s+(\w+)\s+\d+")
 
