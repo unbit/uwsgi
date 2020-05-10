@@ -1390,6 +1390,15 @@ def get_remote_plugin(path):
     return git_dir
 
 
+try:
+    execfile
+except NameError:
+    def execfile(path, up):
+        with open(path) as py:
+            code = __builtins__.compile(py.read(), path, 'exec')
+        exec(code, up)
+
+
 def get_plugin_up(path):
     up = {}
     if os.path.isfile(path):
@@ -1401,12 +1410,7 @@ def get_plugin_up(path):
         if not path:
             path = '.'
     elif os.path.isdir(path):
-        try:
-            execfile('%s/uwsgiplugin.py' % path, up)
-        except Exception:
-            f = open('%s/uwsgiplugin.py' % path)
-            exec(f.read(), up)
-            f.close()
+        execfile('%s/uwsgiplugin.py' % path, up)
     else:
         print("Error: unable to find directory '%s'" % path)
         sys.exit(1)
