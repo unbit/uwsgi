@@ -4,8 +4,8 @@ import os.path
 import sys
 
 CFLAGS = [
-    "-pthread",
-    "-DNDEBUG",
+    # "-pthread",
+    # "-DNDEBUG",
     f"-I{sys.base_exec_prefix}/include",
     f"-I{sys.prefix}/include",
     "-fvisibility=hidden",
