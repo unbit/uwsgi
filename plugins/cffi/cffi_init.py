@@ -9,21 +9,11 @@ from cffi_plugin.lib import *
 
 import pprint
 import sys
-
-# fix argv if needed (too late?)
-if len(sys.argv) == 0:
-    sys.argv.insert(0, ffi.string(lib.uwsgi_binary_path()).decode("utf-8"))
+import os
 
 print("Initialized with Python %s" % sys.version)
 print("Home: %s" % sys.prefix)
 pprint.pprint(sys.argv)
-pprint.pprint(sys.path)
-# pprint.pprint(dir(ffi))
-# pprint.pprint(dir(lib))
-
-# with open("somefile.py") as f:
-#     code = compile(f.read(), "somefile.py", 'exec')
-#     exec(code, global_vars, local_vars)
 
 
 def to_network(native):
@@ -129,9 +119,18 @@ class WSGIinput(object):
 @ffi.def_extern()
 def uwsgi_cffi_init():
     print("init called")
-    # doesn't seem to use PYTHONPATH
+    # doesn't seem to use PYTHONPATH automatically
     # pypy will find environment from current working directory
-    sys.path[0:0] = ["."]
+    # (uwsgi --chdir $VIRTUAL_ENV/bin)
+    if 'PYTHONPATH' in os.environ:
+        sys.path[0:0] = os.environ['PYTHONPATH'].split(os.pathsep)
+
+    pprint.pprint(sys.path)
+
+    # define or override callbacks
+    if lib.ucffi.init:
+        __import__(ffi.string(lib.ucffi.init).decode("utf-8"))
+
     return lib.UWSGI_OK
 
 

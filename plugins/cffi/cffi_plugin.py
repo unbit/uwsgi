@@ -9,13 +9,17 @@ ffibuilder.cdef(open("types.h").read())
 ffibuilder.cdef(open("constants.h").read())
 ffibuilder.cdef(open("_uwsgi.h").read())
 
-# defined by our plugin
-ffibuilder.cdef(
-    """
+plugin_data = """
 struct uwsgi_cffi {
 	char *wsgi;
+    char *init;
 } ucffi;
+"""
 
+# defined by our plugin
+ffibuilder.cdef(
+    plugin_data
+    + """
 void uwsgi_cffi_more_apps();
 """
 )
@@ -46,12 +50,8 @@ ffibuilder.set_source(
     "cffi_plugin",
     """
 #include <uwsgi.h>
-
-struct uwsgi_cffi {
-	char *wsgi;
-} ucffi;
-
 """
+    + plugin_data
     + exposed_to_uwsgi
     + """
 
@@ -61,6 +61,7 @@ extern void uwsgi_cffi_more_apps() {
 
 static struct uwsgi_option uwsgi_cffi_options[] = {
 	{"cffi-wsgi", required_argument, 0, "load a WSGI module", uwsgi_opt_set_str, &ucffi.wsgi, 0},
+    {"cffi-init", required_argument, 0, "full path to Python init code (define callbacks)", uwsgi_opt_set_str, &ucffi.init, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 

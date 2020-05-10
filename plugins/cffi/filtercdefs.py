@@ -2,7 +2,7 @@
 # Filter out only matching files from preprocessor output
 # Omit blank lines
 
-DEBUG=False
+DEBUG = False
 
 import re, sys
 
