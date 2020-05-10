@@ -60,8 +60,8 @@ extern void uwsgi_cffi_more_apps() {
 }
 
 static struct uwsgi_option uwsgi_cffi_options[] = {
-	{"cffi-wsgi", required_argument, 0, "load a WSGI module", uwsgi_opt_set_str, &ucffi.wsgi, 0},
-    {"cffi-init", required_argument, 0, "full path to Python init code (define callbacks)", uwsgi_opt_set_str, &ucffi.init, 0},
+    {"cffi-wsgi", required_argument, 0, "load a WSGI module", uwsgi_opt_set_str, &ucffi.wsgi, 0},
+    {"cffi-init", required_argument, 0, "load a module during init (define or override callbacks)", uwsgi_opt_set_str, &ucffi.init, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
