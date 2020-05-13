@@ -18,6 +18,9 @@ import cffi_asyncio
 Continulets support
 """
 
+# see also very similar uwsgi_pypy_greenlets.py
+# which has the advantage of being able to run on CPython
+
 # this is the dictionary of continulets (one per-core)
 uwsgi_pypy_continulets = {}
 

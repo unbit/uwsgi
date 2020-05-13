@@ -122,8 +122,8 @@ def uwsgi_cffi_init():
     # doesn't seem to use PYTHONPATH automatically
     # pypy will find environment from current working directory
     # (uwsgi --chdir $VIRTUAL_ENV/bin)
-    if 'PYTHONPATH' in os.environ:
-        sys.path[0:0] = os.environ['PYTHONPATH'].split(os.pathsep)
+    if "PYTHONPATH" in os.environ:
+        sys.path[0:0] = os.environ["PYTHONPATH"].split(os.pathsep)
 
     pprint.pprint(sys.path)
 
@@ -170,12 +170,25 @@ def uwsgi_cffi_request(wsgi_req):
             )
         return writer
 
+    if lib.uwsgi_parse_vars(wsgi_req):
+        return -1
+
+    # check dynamic
+    # check app_id
+    # (see python wsgi_handlers.c)
+
     environ = {}
     iov = wsgi_req.hvec
     for i in range(0, wsgi_req.var_cnt, 2):
         environ[
-            ffi.string(ffi.cast("char*", iov[i].iov_base), iov[i].iov_len)
-        ] = ffi.string(ffi.cast("char*", iov[i + 1].iov_base), iov[i + 1].iov_len)
+            ffi.string(ffi.cast("char*", iov[i].iov_base), iov[i].iov_len).decode(
+                "latin1"
+            )
+        ] = ffi.string(
+            ffi.cast("char*", iov[i + 1].iov_base), iov[i + 1].iov_len
+        ).decode(
+            "latin1"
+        )
 
     # check bytes on environ...
     environ["wsgi.version"] = (1, 0)
