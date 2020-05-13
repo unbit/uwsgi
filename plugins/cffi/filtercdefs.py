@@ -60,36 +60,16 @@ avoid_types = set(
 )
 
 # skip lines containing these strings:
-avoid_names = set(("mode_t", "uwsgi_recv_cred", "void manage_opt"))
+avoid_names = set(("mode_t", "uwsgi_recv_cred"))
 
 # declared in uwsgi.h but not implemented:
 avoid_names.update(
     (
-        "find_first_accepting_wsgi_req",
-        "find_wsgi_req_by_id",
-        "next_wsgi_req",
-        "snmp_init",
         "uwsgi_amqp_consume",
-        "uwsgi_amqp_consume_queue",
-        "uwsgi_cheaper_algo_backlog2",
-        "uwsgi_enqueue_message",
-        "uwsgi_get_dgram",
-        "uwsgi_hooked_parse_dict_dgram",
         "uwsgi_hooks_setns_run",
         "uwsgi_legion_i_am_the_lord",
         "uwsgi_legion_lord_scroll",
         "uwsgi_legion_scrolls",
-        "uwsgi_logit_lf_strftime",
-        "uwsgi_opt_set_dyn",
-        "uwsgi_parse_request",
-        "uwsgi_ping_node",
-        "uwsgi_proto_base_write_header",
-        "uwsgi_response_commit_headers",
-        "uwsgi_send_empty_pkt",
-        "uwsgi_send_message",
-        "uwsgi_simple_request_read",
-        "uwsgi_stdin_sendto",
-        "uwsgi_string_sendto",
     )
 )
 

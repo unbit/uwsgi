@@ -4,8 +4,8 @@ cffi_plugin.c: cffi_plugin.py cffi_init.py uwsgiplugin.py constants.h _uwsgi.h t
 constants.h: ../../uwsgi constants.py
 	python constants.py
 
-_uwsgi_preprocessed.h: ../../uwsgi
-	../../uwsgi --dot-h | gcc -E - -D "__attribute__(x)"= > _uwsgi_preprocessed.h
+_uwsgi_preprocessed.h: ../../uwsgi.h
+	cat ../../uwsgi.h | gcc -E - -D "__attribute__(x)"= > _uwsgi_preprocessed.h
 
 _uwsgi.h: _uwsgi_preprocessed.h filtercdefs.py
 	 python filtercdefs.py _uwsgi_preprocessed.h > _uwsgi.h
