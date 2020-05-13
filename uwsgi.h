@@ -3239,7 +3239,6 @@ void uwsgi_405(struct wsgi_request *);
 void uwsgi_redirect_to_slash(struct wsgi_request *);
 
 void manage_snmp(int, uint8_t *, int, struct sockaddr_in *);
-void snmp_init(void);
 
 void uwsgi_master_manage_snmp(int);
 
@@ -3272,30 +3271,18 @@ uint32_t uwsgi_swap32(uint32_t);
 uint64_t uwsgi_swap64(uint64_t);
 #endif
 
-int uwsgi_parse_request(int, struct wsgi_request *, int);
 int uwsgi_parse_vars(struct wsgi_request *);
-
-int uwsgi_enqueue_message(char *, int, uint8_t, uint8_t, char *, int, int);
-
-void manage_opt(int, char *);
-
-int uwsgi_ping_node(int, struct wsgi_request *);
 
 void uwsgi_async_init(void);
 void async_loop();
 struct wsgi_request *find_first_available_wsgi_req(void);
-struct wsgi_request *find_first_accepting_wsgi_req(void);
 struct wsgi_request *find_wsgi_req_by_fd(int);
-struct wsgi_request *find_wsgi_req_by_id(int);
 void async_schedule_to_req_green(void);
 void async_schedule_to_req(void);
 
 int async_add_fd_write(struct wsgi_request *, int, int);
 int async_add_fd_read(struct wsgi_request *, int, int);
 void async_reset_request(struct wsgi_request *);
-
-struct wsgi_request *next_wsgi_req(struct wsgi_request *);
-
 
 void async_add_timeout(struct wsgi_request *, int);
 
@@ -3378,28 +3365,17 @@ void *uwsgi_get_loop(char *);
 void add_exported_option(char *, char *, int);
 void add_exported_option_do(char *, char *, int, int);
 
-ssize_t uwsgi_send_empty_pkt(int, char *, uint8_t, uint8_t);
-
 int uwsgi_waitfd_event(int, int, int);
 #define uwsgi_waitfd(a, b) uwsgi_waitfd_event(a, b, POLLIN)
 #define uwsgi_waitfd_write(a, b) uwsgi_waitfd_event(a, b, POLLOUT)
 
-int uwsgi_hooked_parse_dict_dgram(int, char *, size_t, uint8_t, uint8_t, void (*)(char *, uint16_t, char *, uint16_t, void *), void *);
 int uwsgi_hooked_parse(char *, size_t, void (*)(char *, uint16_t, char *, uint16_t, void *), void *);
 int uwsgi_hooked_parse_array(char *, size_t, void (*) (uint16_t, char *, uint16_t, void *), void *);
-
-int uwsgi_get_dgram(int, struct wsgi_request *);
-
-int uwsgi_string_sendto(int, uint8_t, uint8_t, struct sockaddr *, socklen_t, char *, size_t);
-
-void uwsgi_stdin_sendto(char *, uint8_t, uint8_t);
 
 char *generate_socket_name(char *);
 
 #define UMIN(a,b) ((a)>(b)?(b):(a))
 #define UMAX(a,b) ((a)<(b)?(b):(a))
-
-ssize_t uwsgi_send_message(int, uint8_t, uint8_t, char *, uint16_t, int, ssize_t, int);
 
 int uwsgi_cache_set2(struct uwsgi_cache *, char *, uint16_t, char *, uint64_t, uint64_t, uint64_t);
 int uwsgi_cache_del2(struct uwsgi_cache *, char *, uint16_t, uint64_t, uint16_t);
@@ -3624,7 +3600,6 @@ int uwsgi_proto_base_writev(struct wsgi_request *, struct iovec *, size_t *);
 #ifdef UWSGI_SSL
 int uwsgi_proto_ssl_write(struct wsgi_request *, char *, size_t);
 #endif
-int uwsgi_proto_base_write_header(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_base_read_body(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_noop_read_body(struct wsgi_request *, char *, size_t);
 #ifdef UWSGI_SSL
@@ -3969,7 +3944,6 @@ void uwsgi_opt_set_rawint(char *, char *, void *);
 void uwsgi_opt_set_16bit(char *, char *, void *);
 void uwsgi_opt_set_64bit(char *, char *, void *);
 void uwsgi_opt_set_megabytes(char *, char *, void *);
-void uwsgi_opt_set_dyn(char *, char *, void *);
 void uwsgi_opt_set_placeholder(char *, char *, void *);
 void uwsgi_opt_add_shared_socket(char *, char *, void *);
 void uwsgi_opt_add_socket(char *, char *, void *);
@@ -4113,7 +4087,6 @@ int uwsgi_calc_cheaper(void);
 int uwsgi_cheaper_algo_spare(int);
 int uwsgi_cheaper_algo_spare2(int);
 int uwsgi_cheaper_algo_backlog(int);
-int uwsgi_cheaper_algo_backlog2(int);
 int uwsgi_cheaper_algo_manual(int);
 
 int uwsgi_master_log(void);
@@ -4284,7 +4257,6 @@ struct uwsgi_logchunk *uwsgi_register_logchunk(char *, ssize_t (*)(struct wsgi_r
 
 void uwsgi_logit_simple(struct wsgi_request *);
 void uwsgi_logit_lf(struct wsgi_request *);
-void uwsgi_logit_lf_strftime(struct wsgi_request *);
 
 struct uwsgi_logvar *uwsgi_logvar_get(struct wsgi_request *, char *, uint8_t);
 void uwsgi_logvar_add(struct wsgi_request *, char *, uint8_t, char *, uint8_t);
@@ -4583,7 +4555,6 @@ void uwsgi_loop_cores_run(void *(*)(void *));
 int uwsgi_kvlist_parse(char *, size_t, char, int, ...);
 int uwsgi_send_http_stats(int);
 
-ssize_t uwsgi_simple_request_read(struct wsgi_request *, char *, size_t);
 int uwsgi_plugin_modifier1(char *);
 
 void *cache_udp_server_loop(void *);
@@ -4658,7 +4629,6 @@ int uwsgi_response_prepare_headers(struct wsgi_request *, char *, uint16_t);
 int uwsgi_response_prepare_headers_int(struct wsgi_request *, int);
 int uwsgi_response_add_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 int uwsgi_response_add_header_force(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
-int uwsgi_response_commit_headers(struct wsgi_request *);
 int uwsgi_response_sendfile_do(struct wsgi_request *, int, size_t, size_t);
 int uwsgi_response_sendfile_do_can_close(struct wsgi_request *, int, size_t, size_t, int);
 
