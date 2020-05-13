@@ -22,9 +22,21 @@ ffibuilder.cdef(
     + """
 void uwsgi_cffi_more_apps();
 """
+    # For cffi_asyncio.
+    # Bound to Python code with @ffi.def_extern().
+    # Also OK to leave unbound & uncalled.
+    + """
+extern "Python" static int uwsgi_asyncio_wait_read_hook(int fd, int timeout);
+extern "Python" static int uwsgi_asyncio_wait_write_hook(int fd, int timeout);
+extern "Python" static void uwsgi_pypy_continulet_schedule(void);
+extern "Python" static void uwsgi_pypy_continulet_switch(struct wsgi_request *);
+extern "Python" static void asyncio_loop(void);
+"""
 )
 
-# embedding_api() exposes Python functions to uwsgi
+# embedding_api() exposes Python functions to uwsgi.
+# Similar to extern "Python", but referenced by our own C set_source()
+# as well as our Python code:
 exposed_to_uwsgi = """
 extern struct uwsgi_server uwsgi;
 
