@@ -62,7 +62,7 @@ avoid_types = set(
 # skip lines containing these strings:
 avoid_names = set(("mode_t", "uwsgi_recv_cred"))
 
-# declared in uwsgi.h but not implemented:
+# declared in uwsgi.h but not included in the base profile:
 avoid_names.update(
     (
         "uwsgi_amqp_consume",
