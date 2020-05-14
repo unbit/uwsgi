@@ -75,6 +75,6 @@ def uwsgi_pypy_continulet_switch(wsgi_req):
 def uwsgi_pypy_setup_continulets():
     if getattr(lib.uwsgi, "async") < 1:  # keyword
         raise Exception("pypy continulets require async mode !!!")
-    lib.uwsgi.schedule_to_main = uwsgi_pypy_continulet_switch
-    lib.uwsgi.schedule_to_req = uwsgi_pypy_continulet_schedule
+    lib.uwsgi.schedule_to_main = lib.uwsgi_pypy_continulet_switch
+    lib.uwsgi.schedule_to_req = lib.uwsgi_pypy_continulet_schedule
     print("*** PyPy Continulets engine loaded ***")

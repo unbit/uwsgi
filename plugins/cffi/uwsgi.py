@@ -39,6 +39,49 @@ def request_id():
     return lib.uwsgi.workers[lib.uwsgi.mywid].cores[wsgi_req.async_id].requests
 
 
+def connection_fd():
+    return lib.uwsgi.current_wsgi_req().fd
+
+
+def uwsgi_pypy_current_wsgi_req():
+    return lib.uwsgi.current_wsgi_req()
+
+
+def suspend():
+    """
+    uwsgi.suspend()
+    """
+    wsgi_req = uwsgi_pypy_current_wsgi_req()
+    if lib.uwsgi.schedule_to_main:
+        lib.uwsgi.schedule_to_main(wsgi_req)
+
+
+def wait_fd_read(fd, timeout=0):
+    """
+    uwsgi.wait_fd_read(fd, timeout=0)
+    """
+    wsgi_req = uwsgi_pypy_current_wsgi_req()
+    if lib.async_add_fd_read(wsgi_req, fd, timeout) < 0:
+        raise Exception("unable to add fd %d to the event queue" % fd)
+
+
+def wait_fd_write(fd, timeout=0):
+    """
+    uwsgi.wait_fd_write(fd, timeout=0)
+    """
+    wsgi_req = uwsgi_pypy_current_wsgi_req()
+    if lib.async_add_fd_write(wsgi_req, fd, timeout) < 0:
+        raise Exception("unable to add fd %d to the event queue" % fd)
+
+
+def ready_fd():
+    """
+    uwsgi.ready_fd()
+    """
+    wsgi_req = uwsgi_pypy_current_wsgi_req()
+    return lib.uwsgi_ready_fd(wsgi_req)
+
+
 def websocket_recv():
     """
     uwsgi.websocket_recv()
@@ -70,9 +113,9 @@ def websocket_handshake(key="", origin="", proto=""):
     uwsgi.websocket_handshake(key, origin)
     """
     wsgi_req = lib.uwsgi.current_wsgi_req()
-    c_key = ffi.new("char[]", key)
-    c_origin = ffi.new("char[]", origin)
-    c_proto = ffi.new("char[]", proto)
+    c_key = ffi.new("char[]", key.encode("latin1"))  # correct encoding?
+    c_origin = ffi.new("char[]", origin.encode("latin1"))
+    c_proto = ffi.new("char[]", proto.encode("latin1"))
     if (
         lib.uwsgi_websocket_handshake(
             wsgi_req, c_key, len(key), c_origin, len(origin), c_proto, len(proto)
