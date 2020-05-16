@@ -19,7 +19,7 @@ uwsgi_cflags = uwsgi_cflags.split()
 for cflag in uwsgi_cflags:
     if cflag.startswith("-D"):
         line = cflag[2:]
-        if "=" in line:
+        if "=" in line or line in skip:
             continue
         else:
             uwsgi_cdef.append("#define %s ..." % line)
