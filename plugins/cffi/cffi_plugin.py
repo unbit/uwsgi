@@ -30,6 +30,8 @@ extern "Python" static int uwsgi_asyncio_wait_read_hook(int fd, int timeout);
 extern "Python" static int uwsgi_asyncio_wait_write_hook(int fd, int timeout);
 extern "Python" static void uwsgi_pypy_continulet_schedule(void);
 extern "Python" static void uwsgi_pypy_continulet_switch(struct wsgi_request *);
+extern "Python" static void uwsgi_pypy_greenlet_schedule(void);
+extern "Python" static void uwsgi_pypy_greenlet_switch(struct wsgi_request *);
 extern "Python" static void asyncio_loop(void);
 """
 )
