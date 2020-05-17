@@ -11,9 +11,6 @@ def uwsgi_cffi_after_request(wsgi_req):
     lib.log_request(wsgi_req)
 
 
-import cffi_asyncio
-
-
 # Continulets support
 # see also very similar uwsgi_pypy_greenlets.py
 # which has the advantage of being able to run on CPython
@@ -139,3 +136,10 @@ def uwsgi_cffi_setup_greenlets():
     lib.uwsgi.schedule_to_main = lib.uwsgi_pypy_greenlet_switch
     lib.uwsgi.schedule_to_req = lib.uwsgi_pypy_greenlet_schedule
     uwsgi_pypy_main_greenlet = greenlet.getcurrent()
+
+
+import cffi_asyncio
+
+uwsgi_cffi_setup_greenlets()
+cffi_asyncio.async_init()
+cffi_asyncio.setup_asyncio(64)

@@ -32,6 +32,7 @@ extern "Python" static void uwsgi_pypy_continulet_schedule(void);
 extern "Python" static void uwsgi_pypy_continulet_switch(struct wsgi_request *);
 extern "Python" static void uwsgi_pypy_greenlet_schedule(void);
 extern "Python" static void uwsgi_pypy_greenlet_switch(struct wsgi_request *);
+extern "Python" static void uwsgi_asyncio_schedule_fix(struct wsgi_request *);
 extern "Python" static void asyncio_loop(void);
 """
 )

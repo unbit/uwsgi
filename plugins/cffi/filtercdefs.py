@@ -49,7 +49,6 @@ avoid_types = set(
         "pthread_t",
         "ino_t",
         "off_t",
-        "rlim_t",
         "mode_t",
         "struct msghdr",
         "struct termios",

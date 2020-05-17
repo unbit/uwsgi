@@ -10,10 +10,6 @@ import pprint
 
 from cffi_plugin import ffi, lib
 
-import cffi_dyn_init
-
-cffi_dyn_init.uwsgi_pypy_setup_continulets()
-
 
 def application(env, sr):
     pprint.pprint(env)
@@ -71,7 +67,7 @@ def application(env, sr):
             return [output.encode("latin1")]
         return [output]
     elif env["PATH_INFO"] == "/favicon.ico":
-        return ""
+        return b[""]
     elif env["PATH_INFO"] == "/foobar/":
         uwsgi.websocket_handshake(
             env["HTTP_SEC_WEBSOCKET_KEY"], env.get("HTTP_ORIGIN", "")
