@@ -115,7 +115,7 @@ def find_first_available_wsgi_req():
     return wsgi_req
 
 
-def uwsgi_asyncio_request(wsgi_req, timed_out):
+def uwsgi_asyncio_request(wsgi_req, timed_out=False):
     try:
         uwsgi.wsgi_req = wsgi_req
         loop = get_loop()
@@ -193,18 +193,19 @@ def uwsgi_asyncio_accept(uwsgi_sock):
 
     # add callback for protocol
     try:
-        loop.add_reader(wsgi_req.id, uwsgi_asyncio_request, wsgi_req)
+        loop.add_reader(wsgi_req.fd, uwsgi_asyncio_request, wsgi_req)
         ob_timeout = loop.call_later(
             uwsgi.socket_timeout, uwsgi_asyncio_request, wsgi_req, 1
         )
+
+        # TODO keepalive
+        ob_timeout_handle = ffi.new_handle(ob_timeout)
+        wsgi_req.async_timeout = ffi.cast("struct uwsgi_rb_timer *", ob_timeout_handle)
+
     except:
         loop.remove_reader(wsgi_req.fd)
         free_req_queue(wsgi_req)
-        print_exce()
-
-    # TODO keepalive
-    ob_timeout_handle = ffi.new_handle(ob_timeout)
-    wsgi_req.async_timeout = ffi.cast("struct uwsgi_rb_timer *", ob_timeout_handle)
+        print_exc()
 
 
 def uwsgi_asyncio_hook_fd(wsgi_req):
@@ -279,7 +280,7 @@ def asyncio_loop():
     loop = get_loop()
     uwsgi_sock = uwsgi.sockets[0]
     while uwsgi_sock != ffi.NULL:
-        loop.add_reader(uwsgi_sock.fd, uwsgi_asyncio_accept, uwsgi_sock)
+        loop.add_reader(uwsgi_sock.fd, uwsgi_asyncio_accept, ffi.addressof(uwsgi_sock))
         uwsgi_sock = uwsgi_sock.next
 
     loop.run_forever()
