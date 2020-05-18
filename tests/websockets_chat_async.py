@@ -67,7 +67,8 @@ def application(env, sr):
             return [output.encode("latin1")]
         return [output]
     elif env["PATH_INFO"] == "/favicon.ico":
-        return b[""]
+        sr("200 OK", [("Content-Type", "image/x-icon")])
+        return [b""]
     elif env["PATH_INFO"] == "/foobar/":
         uwsgi.websocket_handshake(
             env["HTTP_SEC_WEBSOCKET_KEY"], env.get("HTTP_ORIGIN", "")

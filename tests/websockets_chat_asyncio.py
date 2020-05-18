@@ -21,16 +21,16 @@ class GreenFuture(asyncio.Future):
 
 @asyncio.coroutine
 def redis_open(f):
-    connection = yield from asyncio_redis.Connection.create(host='localhost', port=6379)
+    connection = yield from asyncio_redis.Connection.create(host="localhost", port=6379)
     f.set_result(connection)
     f.greenlet.switch()
 
 
 @asyncio.coroutine
 def redis_subscribe(f):
-    connection = yield from asyncio_redis.Connection.create(host='localhost', port=6379)
+    connection = yield from asyncio_redis.Connection.create(host="localhost", port=6379)
     subscriber = yield from connection.start_subscribe()
-    yield from subscriber.subscribe(['foobar'])
+    yield from subscriber.subscribe(["foobar"])
     f.set_result(subscriber)
     f.greenlet.switch()
 
@@ -49,18 +49,17 @@ def redis_wait(subscriber, f):
 
 @asyncio.coroutine
 def redis_publish(connection, msg):
-    yield from connection.publish('foobar', msg.decode('utf-8'))
+    yield from connection.publish("foobar", msg.decode("utf-8"))
 
 
 def application(env, sr):
+    ws_scheme = "ws"
+    if "HTTPS" in env or env["wsgi.url_scheme"] == "https":
+        ws_scheme = "wss"
 
-    ws_scheme = 'ws'
-    if 'HTTPS' in env or env['wsgi.url_scheme'] == 'https':
-        ws_scheme = 'wss'
-
-    if env['PATH_INFO'] == '/':
-        sr('200 OK', [('Content-Type', 'text/html')])
-        return ("""
+    if env["PATH_INFO"] == "/":
+        sr("200 OK", [("Content-Type", "text/html; charset=UTF-8")])
+        output = """
     <html>
       <head>
           <script language="Javascript">
@@ -97,11 +96,20 @@ def application(env, sr):
         </div>
     </body>
     </html>
-        """ % (ws_scheme, env['HTTP_HOST'])).encode()
-    elif env['PATH_INFO'] == '/favicon.ico':
-        return b""
-    elif env['PATH_INFO'] == '/foobar/':
-        uwsgi.websocket_handshake()
+        """ % (
+            ws_scheme,
+            env["HTTP_HOST"],
+        )
+
+        return [output.encode("utf-8")]
+    elif env["PATH_INFO"] == "/favicon.ico":
+        sr("200 OK", [("Content-Type", "image/x-icon")])
+        return [b""]
+
+    elif env["PATH_INFO"] == "/foobar/":
+        uwsgi.websocket_handshake(
+            env["HTTP_SEC_WEBSOCKET_KEY"], env.get("HTTP_ORIGIN", "")
+        )
         print("websockets...")
         # a future for waiting for redis connection
         f = GreenFuture()
@@ -133,7 +141,11 @@ def application(env, sr):
             # any redis message in the queue ?
             if f.done():
                 msg = f.result()
-                uwsgi.websocket_send("[%s] %s" % (time.time(), msg))
+                uwsgi.websocket_send(
+                    (
+                        "[%s] %s" % (time.time(), [m.decode("utf-8") for m in msg])
+                    ).encode("utf-8")
+                )
                 # restart coroutine
                 f = GreenFuture()
                 asyncio.Task(redis_wait(subscriber, f))
@@ -141,6 +153,6 @@ def application(env, sr):
                 myself.has_ws_msg = False
                 msg = uwsgi.websocket_recv_nb()
                 if msg:
-                    asyncio.Task(redis_publish(connection, msg))
+                    asyncio.Task(redis_publish(connection, msg.decode("utf-8")))
             # switch again
             f.greenlet.parent.switch()

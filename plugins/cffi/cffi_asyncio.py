@@ -14,8 +14,24 @@ def get_loop():
     return asyncio.get_event_loop()
 
 
+# testing
+def request_id():
+    wsgi_req = lib.uwsgi.current_wsgi_req()
+    return lib.uwsgi.workers[lib.uwsgi.mywid].cores[wsgi_req.async_id].requests
+
+
 # keep alive
 _ASYNCIO = ffi.new("char[]", "asyncio".encode("utf-8"))
+
+timeout_handles = {}  # or array with # of cores?
+
+
+def store_ob_timeout(wsgi_req, ob_timeout):
+    timeout_handles[wsgi_req.async_id] = ob_timeout
+
+
+def get_ob_timeout(wsgi_req):
+    return timeout_handles.pop(wsgi_req.async_id)
 
 
 def print_exc():
@@ -110,7 +126,6 @@ def find_first_available_wsgi_req():
         return None
 
     wsgi_req = uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr]
-    print("wsgi_req", wsgi_req)
     uwsgi.async_queue_unused_ptr -= 1
     return wsgi_req
 
@@ -122,12 +137,8 @@ def uwsgi_asyncio_request(wsgi_req, timed_out=False):
 
         # original casts timeout to spare uwsgi_rb_timer*
         # maybe we could do a dict with the request or core id.
-        handle = ffi.cast("void *", wsgi_req.async_timeout)
-        ob_timeout = ffi.from_handle(handle)
-
+        ob_timeout = get_ob_timeout(wsgi_req)
         ob_timeout.cancel()
-
-        wsgi_req.async_timeout = ffi.NULL
 
         if timed_out > 0:
             loop.remove_reader(wsgi_req.fd)
@@ -138,11 +149,10 @@ def uwsgi_asyncio_request(wsgi_req, timed_out=False):
             ob_timeout = loop.call_later(
                 uwsgi.socket_timeout, uwsgi_asyncio_request, wsgi_req, 1
             )
-            ob_timeout_handle = ffi.new_handle(ob_timeout)
-            wsgi_req.async_timeout = ffi.cast(
-                "struct uwsgi_rb_timer *", ob_timeout_handle
-            )
+            store_ob_timeout(wsgi_req, ob_timeout)
             # goto again
+            print("again", request_id())
+            return None
 
         else:
             loop.remove_reader(wsgi_req.fd)
@@ -152,16 +162,18 @@ def uwsgi_asyncio_request(wsgi_req, timed_out=False):
                 uwsgi.async_proto_fd_table[wsgi_req.fd] = ffi.NULL
                 uwsgi.schedule_to_req()
                 # goto again
+                print("again", request_id())
+                return None
 
-        # again
-        return None
-
-    except:
-        uwsgi.async_proto_fd_table[wsgi_req.fd] = ffi.NULL
-        uwsgi_close_request(uwsgi.wsgi_req)
-        free_req_queue(wsgi_req)
+    except IOError:
         print_exc()
-        raise
+
+    # end
+    print("normal request end {", request_id())
+    uwsgi.async_proto_fd_table[wsgi_req.fd] = ffi.NULL
+    lib.uwsgi_close_request(uwsgi.wsgi_req)
+    free_req_queue(wsgi_req)
+    print("} normal request end", request_id())
 
 
 def uwsgi_asyncio_accept(uwsgi_sock):
@@ -169,7 +181,7 @@ def uwsgi_asyncio_accept(uwsgi_sock):
     wsgi_req = find_first_available_wsgi_req()
     if wsgi_req == ffi.NULL:
         lib.uwsgi_async_queue_is_full(lib.uwsgi_now())
-        raise IOError("no available wsgi req")
+        return None
 
     uwsgi.wsgi_req = wsgi_req
     lib.wsgi_req_setup(wsgi_req, wsgi_req.async_id, uwsgi_sock)
@@ -178,7 +190,7 @@ def uwsgi_asyncio_accept(uwsgi_sock):
     if lib.wsgi_req_simple_accept(wsgi_req, uwsgi_sock.fd):
         uwsgi.workers[uwsgi.mywid].cores[wsgi_req.async_id].in_request = 0
         free_req_queue(wsgi_req)
-        raise IOError("simple_accept failed")
+        return None
 
     wsgi_req.start_of_request = lib.uwsgi_micros()
     wsgi_req.start_of_request_in_sec = wsgi_req.start_of_request // 1000000
@@ -197,10 +209,7 @@ def uwsgi_asyncio_accept(uwsgi_sock):
         ob_timeout = loop.call_later(
             uwsgi.socket_timeout, uwsgi_asyncio_request, wsgi_req, 1
         )
-
-        # TODO keepalive
-        ob_timeout_handle = ffi.new_handle(ob_timeout)
-        wsgi_req.async_timeout = ffi.cast("struct uwsgi_rb_timer *", ob_timeout_handle)
+        store_ob_timeout(wsgi_req, ob_timeout)
 
     except:
         loop.remove_reader(wsgi_req.fd)
@@ -278,9 +287,11 @@ def asyncio_loop():
         uwsgi.schedule_fix = lib.uwsgi_asyncio_schedule_fix
 
     loop = get_loop()
-    uwsgi_sock = uwsgi.sockets[0]
+    uwsgi_sock = uwsgi.sockets
     while uwsgi_sock != ffi.NULL:
-        loop.add_reader(uwsgi_sock.fd, uwsgi_asyncio_accept, ffi.addressof(uwsgi_sock))
+        sockname = ffi.string(uwsgi_sock.name, uwsgi_sock.name_len).decode("utf-8")
+        print(f"sock {sockname} fd {uwsgi_sock.fd}")
+        loop.add_reader(uwsgi_sock.fd, uwsgi_asyncio_accept, uwsgi_sock)
         uwsgi_sock = uwsgi_sock.next
 
     loop.run_forever()

@@ -34,13 +34,22 @@ def mule_msg_recv_size():
     return lib.uwsgi.mule_msg_recv_size
 
 
-def request_id():
+def _current_wsgi_req():
     wsgi_req = lib.uwsgi.current_wsgi_req()
+    if wsgi_req == ffi.NULL:
+        raise SystemError("you can call uwsgi api function only from the main callable")
+    return wsgi_req
+
+
+def request_id():
+    wsgi_req = _current_wsgi_req()
     return lib.uwsgi.workers[lib.uwsgi.mywid].cores[wsgi_req.async_id].requests
 
 
 def connection_fd():
-    return lib.uwsgi.current_wsgi_req().fd
+    fd = _current_wsgi_req().fd
+    print("request_id", request_id(), "connection_fd", fd)
+    return fd
 
 
 def uwsgi_pypy_current_wsgi_req():
