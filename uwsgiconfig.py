@@ -220,11 +220,12 @@ int main()
 
 def spcall3(cmd):
     p = subprocess.Popen(cmd, shell=True, stdin=open('/dev/null'), stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    (out, err) = p.communicate()
 
-    if p.wait() == 0:
+    if p.returncode == 0:
         if sys.version_info[0] > 2:
-            return p.stderr.read().rstrip().decode()
-        return p.stderr.read().rstrip()
+            return err.rstrip().decode()
+        return err.rstrip()
     else:
         return None
 
