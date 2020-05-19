@@ -3389,6 +3389,7 @@ void emperor_loop(void);
 char *uwsgi_num2str(int);
 char *uwsgi_float2str(float);
 char *uwsgi_64bit2str(int64_t);
+char *uwsgi_size2str(size_t);
 
 char *magic_sub(char *, size_t, size_t *, char *[]);
 void init_magic_table(char *[]);
