@@ -58,21 +58,20 @@ def free_req_queue(wsgi_req):
 
 @ffi.def_extern()
 def uwsgi_asyncio_wait_read_hook(fd, timeout):
+    wsgi_req = uwsgi.current_wsgi_req()
+    loop = get_loop()
+    loop.add_reader(fd, uwsgi_asyncio_hook_fd, wsgi_req)
     try:
-        uwsgi = lib.uwsgi
-        wsgi_req = uwsgi.current_wsgi_req()
-        loop = get_loop()
-        loop.add_reader(fd, uwsgi_asyncio_hook_fd, wsgi_req)
-
         ob_timeout = loop.call_later(timeout, hook_timeout, wsgi_req)
+        try:
 
-        # to loop
-        if uwsgi.schedule_to_main:
-            uwsgi.schedule_to_main(wsgi_req)
-        # from loop
-
-        loop.remove_reader(fd)
-        ob_timeout.cancel()
+            # to loop
+            if uwsgi.schedule_to_main:
+                print("wait_read_hook", fd)
+                uwsgi.schedule_to_main(wsgi_req)
+            # from loop
+        finally:
+            ob_timeout.cancel()
 
         if wsgi_req.async_timed_out:
             return 0
@@ -85,25 +84,25 @@ def uwsgi_asyncio_wait_read_hook(fd, timeout):
 
     finally:
         # returns False if not added
-        loop.remove_writer(fd)
+        loop.remove_reader(fd)
 
 
 @ffi.def_extern()
 def uwsgi_asyncio_wait_write_hook(fd, timeout):
+    wsgi_req = uwsgi.current_wsgi_req()
+    loop = get_loop()
+    loop.add_writer(fd, uwsgi_asyncio_hook_fd, wsgi_req)
     try:
-        wsgi_req = uwsgi.current_wsgi_req()
-        loop = get_loop()
-        loop.add_writer(fd, uwsgi_asyncio_hook_fd, wsgi_req)
-
         ob_timeout = loop.call_later(timeout, hook_timeout, wsgi_req)
+        try:
+            # to loop
+            if uwsgi.schedule_to_main:
+                print("wait_write_hook", fd)
+                uwsgi.schedule_to_main(wsgi_req)
+            # from loop
 
-        # to loop
-        if uwsgi.schedule_to_main:
-            uwsgi.schedule_to_main(wsgi_req)
-        # from loop
-
-        loop.remove_writer(fd)
-        ob_timeout.cancel()
+        finally:
+            ob_timeout.cancel()
 
         if wsgi_req.async_timed_out:
             return 0
@@ -130,13 +129,11 @@ def find_first_available_wsgi_req():
     return wsgi_req
 
 
-def uwsgi_asyncio_request(wsgi_req, timed_out=False):
+def uwsgi_asyncio_request(wsgi_req, timed_out):
     try:
-        uwsgi.wsgi_req = wsgi_req
         loop = get_loop()
+        uwsgi.wsgi_req = wsgi_req
 
-        # original casts timeout to spare uwsgi_rb_timer*
-        # maybe we could do a dict with the request or core id.
         ob_timeout = get_ob_timeout(wsgi_req)
         ob_timeout.cancel()
 
@@ -147,11 +144,11 @@ def uwsgi_asyncio_request(wsgi_req, timed_out=False):
         status = wsgi_req.socket.proto(wsgi_req)
         if status > 0:
             ob_timeout = loop.call_later(
-                uwsgi.socket_timeout, uwsgi_asyncio_request, wsgi_req, 1
+                uwsgi.socket_timeout, uwsgi_asyncio_request, wsgi_req, True
             )
             store_ob_timeout(wsgi_req, ob_timeout)
             # goto again
-            print("again", request_id())
+            print("again a", request_id())
             return None
 
         else:
@@ -162,18 +159,24 @@ def uwsgi_asyncio_request(wsgi_req, timed_out=False):
                 uwsgi.async_proto_fd_table[wsgi_req.fd] = ffi.NULL
                 uwsgi.schedule_to_req()
                 # goto again
-                print("again", request_id())
+                print("again b", request_id())
                 return None
 
     except IOError:
+        loop.remove_reader(wsgi_req.fd)
+        print_exc()
+
+    except:
+        print("other exception")
         print_exc()
 
     # end
-    print("normal request end {", request_id())
+    r_id = request_id()
+    print("normal request end {", r_id)
     uwsgi.async_proto_fd_table[wsgi_req.fd] = ffi.NULL
     lib.uwsgi_close_request(uwsgi.wsgi_req)
     free_req_queue(wsgi_req)
-    print("} normal request end", request_id())
+    print("} normal request end", r_id)
 
 
 def uwsgi_asyncio_accept(uwsgi_sock):
@@ -181,6 +184,7 @@ def uwsgi_asyncio_accept(uwsgi_sock):
     wsgi_req = find_first_available_wsgi_req()
     if wsgi_req == ffi.NULL:
         lib.uwsgi_async_queue_is_full(lib.uwsgi_now())
+        print("queue is full")
         return None
 
     uwsgi.wsgi_req = wsgi_req
@@ -190,6 +194,7 @@ def uwsgi_asyncio_accept(uwsgi_sock):
     if lib.wsgi_req_simple_accept(wsgi_req, uwsgi_sock.fd):
         uwsgi.workers[uwsgi.mywid].cores[wsgi_req.async_id].in_request = 0
         free_req_queue(wsgi_req)
+        print("no accept")
         return None
 
     wsgi_req.start_of_request = lib.uwsgi_micros()
@@ -205,9 +210,9 @@ def uwsgi_asyncio_accept(uwsgi_sock):
 
     # add callback for protocol
     try:
-        loop.add_reader(wsgi_req.fd, uwsgi_asyncio_request, wsgi_req)
+        loop.add_reader(wsgi_req.fd, uwsgi_asyncio_request, wsgi_req, False)
         ob_timeout = loop.call_later(
-            uwsgi.socket_timeout, uwsgi_asyncio_request, wsgi_req, 1
+            uwsgi.socket_timeout, uwsgi_asyncio_request, wsgi_req, True
         )
         store_ob_timeout(wsgi_req, ob_timeout)
 
@@ -215,28 +220,33 @@ def uwsgi_asyncio_accept(uwsgi_sock):
         loop.remove_reader(wsgi_req.fd)
         free_req_queue(wsgi_req)
         print_exc()
+        raise
 
 
 def uwsgi_asyncio_hook_fd(wsgi_req):
     uwsgi = lib.uwsgi
+    print("hook fd", wsgi_req.fd)
     uwsgi.wsgi_req = wsgi_req
     uwsgi.schedule_to_req()
 
 
 def uwsgi_asyncio_hook_timeout(wsgi_req):
     uwsgi = lib.uwsgi
+    print("timeout hook", wsgi_req.fd)
     uwssgi.wsgi_req = wsgi_req
     uwsgi.wsgi_req.async_timed_out = 1
     uwsgi.schedule_to_req()
 
 
 def uwssgi_asyncio_hook_fix(wsgi_req):
+    print("fix hook", wsgi_req.fd)
     uwsgi.wsgi_req = wsgi_req
     uwsgi.schedule_to_req()
 
 
 @ffi.def_extern()
 def uwsgi_asyncio_schedule_fix(wsgi_req):
+    print("fix schedule", wsgi_req.fd)
     loop = get_loop()
     loop.call_soon(uwsgi_asyncio_hook_fix, wsgi_req)
 
@@ -282,8 +292,10 @@ def asyncio_loop():
 
     # call uwsgi_cffi_setup_greenlets() first:
     if not uwsgi.schedule_to_req:
+        print("set schedule_to_req")
         uwsgi.schedule_to_req = lib.async_schedule_to_req
     else:
+        print("set schedule_fix")
         uwsgi.schedule_fix = lib.uwsgi_asyncio_schedule_fix
 
     loop = get_loop()

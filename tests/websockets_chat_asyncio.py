@@ -21,21 +21,32 @@ class GreenFuture(asyncio.Future):
 
 @asyncio.coroutine
 def redis_open(f):
+    print("ro a")
     connection = yield from asyncio_redis.Connection.create(host="localhost", port=6379)
+    print("ro b")
     f.set_result(connection)
+    print("ro c")
     f.greenlet.switch()
+    print("ro d")
 
 
 @asyncio.coroutine
 def redis_subscribe(f):
+    print("rs a")
     connection = yield from asyncio_redis.Connection.create(host="localhost", port=6379)
+    print("rs b")
     subscriber = yield from connection.start_subscribe()
+    print("rs c")
     yield from subscriber.subscribe(["foobar"])
+    print("rs d")
     f.set_result(subscriber)
+    print("rs e")
     f.greenlet.switch()
+    print("rs f")
 
 
 def ws_recv_msg(g):
+    print("ws_recv_msg")
     g.has_ws_msg = True
     g.switch()
 
@@ -49,7 +60,7 @@ def redis_wait(subscriber, f):
 
 @asyncio.coroutine
 def redis_publish(connection, msg):
-    yield from connection.publish("foobar", msg.decode("utf-8"))
+    yield from connection.publish("foobar", msg)
 
 
 def application(env, sr):
@@ -125,7 +136,9 @@ def application(env, sr):
         myself = greenlet.getcurrent()
         myself.has_ws_msg = False
         # start monitoring websocket events
-        asyncio.get_event_loop().add_reader(uwsgi.connection_fd(), ws_recv_msg, myself)
+        fd = uwsgi.connection_fd()
+        print("add reader", fd)
+        asyncio.get_event_loop().add_reader(fd, ws_recv_msg, myself)
 
         # add a 4 seconds timer to manage ping/pong
         asyncio.get_event_loop().call_later(4, ws_recv_msg, myself)
@@ -137,21 +150,35 @@ def application(env, sr):
         # switch again
         f.greenlet.parent.switch()
 
+        msgs = []
+
+        def circuitbreaker(msg):
+            """
+            Stop if the last n messages are ''
+            """
+            msgs[0:0] = [msg]
+            if len(msgs) > 5:
+                msgs.pop()
+            print(msgs)
+            if all(m == b"" for m in msgs):
+                raise SystemExit(1)
+
         while True:
             # any redis message in the queue ?
+            print("chat loop")
             if f.done():
+                print("f.done")
                 msg = f.result()
-                uwsgi.websocket_send(
-                    (
-                        "[%s] %s" % (time.time(), [m.decode("utf-8") for m in msg])
-                    ).encode("utf-8")
-                )
+                uwsgi.websocket_send(("[%s] %s" % (time.time(), msg)).encode("utf-8"))
                 # restart coroutine
                 f = GreenFuture()
                 asyncio.Task(redis_wait(subscriber, f))
             if myself.has_ws_msg:
+                print("has_ws_msg")
                 myself.has_ws_msg = False
                 msg = uwsgi.websocket_recv_nb()
+                print("msg is", msg)
+                circuitbreaker(msg)
                 if msg:
                     asyncio.Task(redis_publish(connection, msg.decode("utf-8")))
             # switch again

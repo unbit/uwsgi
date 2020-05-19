@@ -121,7 +121,7 @@ def websocket_handshake(key="", origin="", proto=""):
     """
     uwsgi.websocket_handshake(key, origin)
     """
-    wsgi_req = lib.uwsgi.current_wsgi_req()
+    wsgi_req = _current_wsgi_req()
     c_key = ffi.new("char[]", key.encode("latin1"))  # correct encoding?
     c_origin = ffi.new("char[]", origin.encode("latin1"))
     c_proto = ffi.new("char[]", proto.encode("latin1"))
