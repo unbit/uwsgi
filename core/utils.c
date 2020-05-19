@@ -1948,6 +1948,12 @@ char *uwsgi_64bit2str(int64_t num) {
 	return str;
 }
 
+char *uwsgi_size2str(size_t num) {
+	char *str = uwsgi_malloc(sizeof(UMAX64_STR) + 1);
+	snprintf(str, sizeof(UMAX64_STR) + 1, "%llu", (unsigned long long) num);
+	return str;	
+}
+
 int uwsgi_num2str2(int num, char *ptr) {
 
 	return snprintf(ptr, 11, "%d", num);

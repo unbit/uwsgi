@@ -1128,19 +1128,18 @@ static ssize_t uwsgi_lf_status(struct wsgi_request *wsgi_req, char **buf) {
 	return strlen(*buf);
 }
 
-
 static ssize_t uwsgi_lf_rsize(struct wsgi_request *wsgi_req, char **buf) {
-	*buf = uwsgi_num2str(wsgi_req->response_size);
+	*buf = uwsgi_size2str(wsgi_req->response_size);
 	return strlen(*buf);
 }
 
 static ssize_t uwsgi_lf_hsize(struct wsgi_request *wsgi_req, char **buf) {
-	*buf = uwsgi_num2str(wsgi_req->headers_size);
+	*buf = uwsgi_size2str(wsgi_req->headers_size);
 	return strlen(*buf);
 }
 
 static ssize_t uwsgi_lf_size(struct wsgi_request *wsgi_req, char **buf) {
-	*buf = uwsgi_num2str(wsgi_req->headers_size+wsgi_req->response_size);
+	*buf = uwsgi_size2str(wsgi_req->headers_size+wsgi_req->response_size);
 	return strlen(*buf);
 }
 
