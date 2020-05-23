@@ -3193,10 +3193,6 @@ unsafe:
 	if (uwsgi.logformat) {
 		uwsgi_build_log_format(uwsgi.logformat);
 		uwsgi.logit = uwsgi_logit_lf;
-		// TODO check it
-		//if (uwsgi.logformat_strftime) {
-			//uwsgi.logit = uwsgi_logit_lf_strftime;
-		//}
 		uwsgi.logvectors = uwsgi_malloc(sizeof(struct iovec *) * uwsgi.cores);
 		for (j = 0; j < uwsgi.cores; j++) {
 			uwsgi.logvectors[j] = uwsgi_malloc(sizeof(struct iovec) * uwsgi.logformat_vectors);
