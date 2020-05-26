@@ -4,6 +4,7 @@ cffi embedding API based Python plugin, based on pypy plugin.
 Should work with both CPython and PyPy in theory.
 """
 
+import imp
 import importlib
 import sys
 import os
@@ -15,6 +16,12 @@ from cffi_plugin.lib import *
 
 # predictable name
 sys.modules["_uwsgi"] = cffi_plugin
+
+
+def print_exc():
+    import traceback
+
+    traceback.print_exc()
 
 
 def to_network(native):
@@ -136,9 +143,9 @@ def uwsgi_cffi_init():
 @ffi.def_extern()
 def uwsgi_cffi_init_apps():
     # one app is required or uWSGI quits
-    uwsgi_cffi_more_apps()
     if lib.ucffi.wsgi:
-        uwsgi_pypy_loader(ffi.string(lib.ucffi.wsgi).decode("utf-8"))
+        wsgi_apps[0] = uwsgi_pypy_loader(ffi.string(lib.ucffi.wsgi).decode("utf-8"))
+        uwsgi_cffi_more_apps()
 
 
 @ffi.def_extern()
@@ -146,7 +153,6 @@ def uwsgi_cffi_request(wsgi_req):
     """
     the WSGI request handler
     """
-    global wsgi_application
 
     def writer(data):
         lib.uwsgi_response_write_body_do(wsgi_req, ffi.new("char[]", data), len(data))
@@ -174,6 +180,19 @@ def uwsgi_cffi_request(wsgi_req):
 
     # check dynamic
     # check app_id
+    app_id = lib.uwsgi_get_app_id(
+        wsgi_req, wsgi_req.appid, wsgi_req.appid_len, lib.cffi_plugin.modifier1
+    )
+    if app_id == -1 and not lib.uwsgi.no_default_app and lib.uwsgi.default_app > -1:
+        # and default app modifier1 == our modifier1
+        app_id = lib.uwsgi.default_app
+    wsgi_req.app_id = app_id
+    app_mount = ""
+    # app_mount can be something while app_id is -1
+    if wsgi_req.appid != ffi.NULL:
+        app_mount = ffi.string(wsgi_req.appid).decode("utf-8")
+    app = wsgi_apps.get(app_id)
+
     # (see python wsgi_handlers.c)
 
     environ = {}
@@ -208,7 +227,7 @@ def uwsgi_cffi_request(wsgi_req):
     environ["uwsgi.core"] = wsgi_req.async_id
     environ["uwsgi.node"] = ffi.string(lib.uwsgi.hostname).decode("latin1")
 
-    response = wsgi_application(environ, start_response)
+    response = app(environ, start_response)
     if type(response) is str:
         writer(response)
     else:
@@ -243,7 +262,80 @@ def uwsgi_cffi_preinit_apps():
 
 @ffi.def_extern()
 def uwsgi_cffi_post_fork():
-    pass
+    """
+    .post_fork_hook
+    """
+    import uwsgi
+
+    if hasattr(uwsgi, "post_fork_hook"):
+        uwsgi.post_fork_hook()
+
+
+def uwsgi_apps_cnt():
+    # we init in worker 0 and then serve in worker n
+    return lib.uwsgi.workers[lib.uwsgi.mywid].apps_cnt
+
+
+def uwsgi_apps():
+    return lib.uwsgi.workers[lib.uwsgi.mywid].apps
+
+
+wsgi_apps = {}
+
+
+def init_app(app, mountpoint):
+    # based on pyloader.c's init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThreadState *interpreter, int app_type)
+
+    now = lib.uwsgi_now()
+
+    id = uwsgi_apps_cnt()
+    if lib.uwsgi.default_app == -1 and not lib.uwsgi.no_default_app:
+        lib.uwsgi.default_app = id
+
+    # uwsgi_get_app_id(ffi.NULL, mountpoint, len(mountpoint), -1)
+    # "already configured"
+
+    wi = uwsgi_apps()[id]  # zero out wi?
+
+    wi.modifier1 = lib.cffi_plugin.modifier1
+    wi.mountpoint_len = len(mountpoint)  # TODO clamp to 0xff-1
+    ffi.memmove(wi.mountpoint, mountpoint, len(mountpoint))
+
+    # original does dynamic chdir
+    # cffi always in "single interpreter" mode
+    application = app.decode("utf-8")
+
+    if ":" in application:
+        # importable:callable syntax
+        wsgi_apps[id] = uwsgi_pypy_loader(application)
+    else:
+        # application.py / application.wsgi
+        wsgi_apps[id] = uwsgi_file_loader(application)
+
+    # callable has to be not NULL for uwsgi_get_app_id:
+    wi.callable = ffi.cast("void *", 1)
+    wi.started_at = now
+    wi.startup_time = lib.uwsgi_now() - now
+
+    # log if error
+    lib.uwsgi_cffi_more_apps()
+
+    # TODO if uwsgi_apps[id] is a dict, deal with multiple applications...
+
+    # copies wi to other workers if wid = 0
+    lib.uwsgi_emulate_cow_for_apps(id)
+
+    return id
+
+
+@ffi.def_extern()
+def uwsgi_cffi_mount_app(mountpoint, app):
+    try:
+        app_id = init_app(ffi.string(app), ffi.string(mountpoint))
+        return app_id
+    except:
+        print_exc()
+    return -1
 
 
 @ffi.def_extern()
@@ -276,16 +368,22 @@ def uwsgi_cffi_rpc(func, argc, argv, argvs, buffer):
 # Non-callback section
 #
 
-wsgi_application = None
-
 
 def uwsgi_pypy_loader(m):
     """
     load a wsgi module
     """
-    global wsgi_application
     c = "application"
     if ":" in m:
         m, c = m.split(":")
     mod = importlib.import_module(m)
-    wsgi_application = getattr(mod, c)
+    return getattr(mod, c)
+
+
+def uwsgi_file_loader(path):
+    """
+    load a .wsgi or .py file from path
+    """
+    c = "application"
+    mod = imp.load_source("uwsgi_file_wsgi", path)
+    return getattr(mod, c)

@@ -10,7 +10,7 @@ ffibuilder.cdef(open("constants.h").read())
 ffibuilder.cdef(open("_uwsgi.h").read())
 
 plugin_data = """
-struct uwsgi_cffi {
+static struct uwsgi_cffi {
 	char *wsgi;
     char *init;
 } ucffi;
@@ -43,6 +43,7 @@ extern "Python" static void asyncio_loop(void);
 # as well as our Python code:
 exposed_to_uwsgi = """
 extern struct uwsgi_server uwsgi;
+extern struct uwsgi_plugin cffi_plugin;
 
 static int uwsgi_cffi_init();
 static void uwsgi_cffi_preinit_apps();
@@ -57,6 +58,8 @@ static void uwsgi_cffi_enable_threads();
 static void uwsgi_cffi_init_thread();
 static int uwsgi_cffi_mule(char *opt);
 static int uwsgi_cffi_signal_handler(uint8_t sig, void *handler);
+
+static int uwsgi_cffi_mount_app(char *, char *);
 """
 ffibuilder.embedding_api(exposed_to_uwsgi)
 
@@ -92,10 +95,11 @@ CFFI_DLLEXPORT struct uwsgi_plugin cffi_plugin = {
     .init_apps = uwsgi_cffi_init_apps,
     .init_thread = uwsgi_cffi_init_thread,
     .signal_handler = uwsgi_cffi_signal_handler,
+    .mount_app = uwsgi_cffi_mount_app,
     .enable_threads = uwsgi_cffi_enable_threads,
     .rpc = uwsgi_cffi_rpc,
     .post_fork = uwsgi_cffi_post_fork,
-    .mule = uwsgi_cffi_mule
+    .mule = uwsgi_cffi_mule,
 };
 """,
 )

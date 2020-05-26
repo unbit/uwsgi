@@ -22,8 +22,6 @@ for _flag in ffi.string(lib.uwsgi_get_cflags()).decode("utf-8").split():
         _k, _v = _flag.split("=", 1)
         _version[_k] = _v.replace('"', "").replace("\\", "")
 
-print(_version)
-
 version = _version["-DUWSGI_VERSION"]
 version_info = tuple(
     int(_version["-DUWSGI_VERSION_" + _k])
