@@ -8,6 +8,7 @@ python ./uwsgiconfig.py -p plugins/cffi nolang
     --single-interpreter \
     --env=PYTHONPATH=$HOME/prog/uwsgi:$HOME/prog/uwsgi/plugins/cffi \
     --cffi-init=cffi_dyn_init \
+    --cffi-wsgi=$PWD/helloworld.py \
     --manage-script-name \
     --mount=/app=helloworld:application \
     --mount=/app2=$PWD/helloworld.py \

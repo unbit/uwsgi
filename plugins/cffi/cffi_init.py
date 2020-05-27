@@ -142,10 +142,11 @@ def uwsgi_cffi_init():
 
 @ffi.def_extern()
 def uwsgi_cffi_init_apps():
-    # one app is required or uWSGI quits
-    if lib.ucffi.wsgi:
-        wsgi_apps[0] = uwsgi_pypy_loader(ffi.string(lib.ucffi.wsgi).decode("utf-8"))
-        uwsgi_cffi_more_apps()
+    try:
+        if lib.ucffi.wsgi:
+            init_app(ffi.string(lib.ucffi.wsgi), b"")
+    except:
+        print_exc()
 
 
 @ffi.def_extern()
@@ -305,17 +306,24 @@ def init_app(app, mountpoint):
     # cffi always in "single interpreter" mode
     application = app.decode("utf-8")
 
-    if ":" in application:
-        # importable:callable syntax
-        wsgi_apps[id] = uwsgi_pypy_loader(application)
-    else:
+    if application.endswith((".wsgi", ".py")):
         # application.py / application.wsgi
         wsgi_apps[id] = uwsgi_file_loader(application)
+    else:
+        # importable:callable syntax
+        wsgi_apps[id] = uwsgi_pypy_loader(application)
 
     # callable has to be not NULL for uwsgi_get_app_id:
     wi.callable = ffi.cast("void *", 1)
     wi.started_at = now
     wi.startup_time = lib.uwsgi_now() - now
+
+    lib.uwsgi_log(
+        (
+            "WSGI app %d (mountpoint='%s') ready in %d seconds\n"
+            % (id, mountpoint.decode("utf-8"), wi.startup_time)
+        ).encode("utf-8")
+    )
 
     # log if error
     lib.uwsgi_cffi_more_apps()
