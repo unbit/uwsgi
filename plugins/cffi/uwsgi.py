@@ -6,6 +6,9 @@ Based on plugins/pypy/pypy_setup.py
 
 from _uwsgi import ffi, lib
 
+# this is a list holding object we do not want to be freed (like callback and handlers)
+uwsgi_gc = []
+
 # latin1 might be better
 hostname = ffi.string(lib.uwsgi.hostname, lib.uwsgi.hostname_len).decode("utf-8")
 numproc = lib.uwsgi.numproc
@@ -36,6 +39,12 @@ def _current_wsgi_req():
     return wsgi_req
 
 
+def _print_exc():
+    import traceback
+
+    traceback.print_exc()
+
+
 def request_id():
     wsgi_req = _current_wsgi_req()
     return lib.uwsgi.workers[lib.uwsgi.mywid].cores[wsgi_req.async_id].requests
@@ -51,7 +60,7 @@ def register_signal(signum, kind, handler):
     uwsgi_gc.append(cb)
     if (
         lib.uwsgi_register_signal(
-            signum, ffi.new("char[]", kind), cb, lib.pypy_plugin.modifier1
+            signum, ffi.new("char[]", kind), cb, lib.cffi_plugin.modifier1,
         )
         < 0
     ):
@@ -80,7 +89,10 @@ def register_rpc(name, func, argc=0):
     uwsgi_gc.append(cb)
     if (
         lib.uwsgi_register_rpc(
-            ffi.new("char[]", name), ffi.addressof(lib.pypy_plugin), argc, cb
+            ffi.new("char[]", name.encode("utf-8")),
+            ffi.addressof(lib.cffi_plugin),
+            argc,
+            cb,
         )
         < 0
     ):
@@ -140,7 +152,7 @@ def cache_get(key, cache=ffi.NULL):
     if value == ffi.NULL:
         return None
     ret = ffi.buffer(value, vallen[0])[:]
-    libc.free(value)
+    lib.free(value)
     return ret
 
 
@@ -225,6 +237,28 @@ def mule_id():
 
 def mule_msg_recv_size():
     return lib.uwsgi.mule_msg_recv_size
+
+
+mule_msg_extra_hooks = []
+
+
+def install_mule_msg_hook(mule_msg_dispatcher):
+    mule_msg_extra_hooks.append(mule_msg_dispatcher)
+
+
+# plugin callback defined outside cffi_init.py
+@ffi.def_extern
+def uwsgi_cffi_mule_msg(message, len):
+    msg = ffi.string(message, len)
+    if not mule_msg_extra_hooks:
+        return 0
+    for hook in mule_msg_extra_hooks:
+        try:
+            hook(msg)
+        except:
+            _print_exc()
+
+    return 1
 
 
 def logsize():
@@ -352,7 +386,7 @@ def send(*args):
     else:
         fd = args[0]
         data = args[1]
-    rlen = libc.write(fd, data, len(data))
+    rlen = lib.write(fd, data, len(data))
     if rlen <= 0:
         raise IOError("unable to send data")
     return rlen
@@ -372,7 +406,7 @@ def recv(*args):
         fd = args[0]
         l = args[1]
     data = ffi.new("char[%d]" % l)
-    rlen = libc.read(fd, data, l)
+    rlen = lib.read(fd, data, l)
     if rlen <= 0:
         raise IOError("unable to receive data")
     return ffi.string(data[0:rlen])

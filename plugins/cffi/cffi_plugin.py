@@ -21,6 +21,11 @@ ffibuilder.cdef(
     plugin_data
     + """
 void uwsgi_cffi_more_apps();
+
+// libc functions
+ssize_t read (int, void *, size_t);
+ssize_t write (int, const void *, size_t);
+void free(void *);
 """
     # For cffi_asyncio.
     # Bound to Python code with @ffi.def_extern().
@@ -57,6 +62,7 @@ static void uwsgi_cffi_post_fork();
 static void uwsgi_cffi_enable_threads();
 static void uwsgi_cffi_init_thread();
 static int uwsgi_cffi_mule(char *opt);
+static int uwsgi_cffi_mule_msg(char *message, size_t len);
 static int uwsgi_cffi_signal_handler(uint8_t sig, void *handler);
 
 static int uwsgi_cffi_mount_app(char *, char *);
@@ -100,6 +106,7 @@ CFFI_DLLEXPORT struct uwsgi_plugin cffi_plugin = {
     .rpc = uwsgi_cffi_rpc,
     .post_fork = uwsgi_cffi_post_fork,
     .mule = uwsgi_cffi_mule,
+    .mule_msg = uwsgi_cffi_mule_msg,
 };
 """,
 )
