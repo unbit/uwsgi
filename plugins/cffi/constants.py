@@ -29,7 +29,7 @@ for cflag in uwsgi_cflags:
 
 uwsgi_dot_h = open("../../uwsgi.h").read()
 
-with open("constants.h", "w+") as defines:
+with open("_constants.h", "w+") as defines:
     defines.write("\n".join(uwsgi_cdef))
     defines.write("\n\n")
     for line in uwsgi_dot_h.splitlines():

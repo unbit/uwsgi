@@ -1,7 +1,7 @@
-cffi_plugin.c: cffi_plugin.py cffi_init.py uwsgiplugin.py constants.h _uwsgi.h types.h
+cffi_plugin.c: cffi_plugin.py cffi_init.py uwsgiplugin.py _constants.h _uwsgi.h types.h
 	python cffi_plugin.py
 
-constants.h: ../../uwsgi.h constants.py
+_constants.h: ../../uwsgi.h constants.py
 	python constants.py
 
 _uwsgi_preprocessed.h: ../../uwsgi.h

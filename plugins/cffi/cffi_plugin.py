@@ -6,7 +6,7 @@ ffibuilder = cffi.FFI()
 
 # cdef() exposes uwsgi functions to Python
 ffibuilder.cdef(open("types.h").read())
-ffibuilder.cdef(open("constants.h").read())
+ffibuilder.cdef(open("_constants.h").read())
 ffibuilder.cdef(open("_uwsgi.h").read())
 
 plugin_data = """
