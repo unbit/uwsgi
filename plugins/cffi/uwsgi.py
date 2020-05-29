@@ -4,6 +4,7 @@ Implement the uwsgi module.
 Based on plugins/pypy/pypy_setup.py
 """
 
+import os
 from _uwsgi import ffi, lib
 
 # this is a list holding object we do not want to be freed (like callback and handlers)
@@ -406,6 +407,7 @@ def recv(*args):
         fd = args[0]
         l = args[1]
     data = ffi.new("char[%d]" % l)
+    # why not os.read()?
     rlen = lib.read(fd, data, l)
     if rlen <= 0:
         raise IOError("unable to receive data")
@@ -421,6 +423,17 @@ close = lambda fd: lib.close(fd)
 uwsgi.disconnect()
 """
 disconnect = lambda: lib.uwsgi_disconnect(_current_wsgi_req())
+
+
+def sendfile(filename):
+    # TODO support all argument types from uwsgi_pymodule.c
+
+    fd = os.open(filename, os.O_RDONLY)
+    pos = 0
+    filesize = 0
+    lib.uwsgi_response_sendfile_do(_current_wsgi_req(), fd, pos, filesize)
+    # uwsgi check write errors?
+    return []
 
 
 def websocket_recv():
