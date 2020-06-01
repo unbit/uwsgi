@@ -276,7 +276,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
                 }
 	}
 	else {
-		char *server_port = strchr(wsgi_req->socket->name, ':');
+		char *server_port = strrchr(wsgi_req->socket->name, ':');
 		if (server_port) {
 			wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, server_port+1, strlen(server_port+1));
 		}
