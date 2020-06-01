@@ -11,4 +11,4 @@ _uwsgi.h: _uwsgi_preprocessed.h filtercdefs.py
 	 python filtercdefs.py _uwsgi_preprocessed.h > _uwsgi.h
 
 clean:
-	rm _uwsgi.h _uwsgi_preprocessed.h constants.h cffi_plugin.c
+	rm _uwsgi.h _uwsgi_preprocessed.h _constants.h cffi_plugin.c

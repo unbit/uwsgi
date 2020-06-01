@@ -61,7 +61,7 @@ def register_signal(signum, kind, handler):
     uwsgi_gc.append(cb)
     if (
         lib.uwsgi_register_signal(
-            signum, ffi.new("char[]", kind), cb, lib.cffi_plugin.modifier1,
+            signum, ffi.new("char[]", kind), cb, lib.cffi_plugin.modifier1
         )
         < 0
     ):
@@ -486,6 +486,15 @@ def websocket_send(msg):
     wsgi_req = lib.uwsgi.current_wsgi_req()
     if lib.uwsgi_websocket_send(wsgi_req, ffi.new("char[]", msg), len(msg)) < 0:
         raise IOError("unable to send websocket message")
+
+
+def websocket_send_binary(msg):
+    """
+    uwsgi.websocket_send_binary(msg)
+    """
+    wsgi_req = lib.uwsgi.current_wsgi_req()
+    if lib.uwsgi_websocket_send_binary(wsgi_req, ffi.new("char[]", msg), len(msg)) < 0:
+        raise IOError("unable to send binary websocket message")
 
 
 def chunked_read(timeout=0):

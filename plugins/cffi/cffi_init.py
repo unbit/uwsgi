@@ -17,6 +17,8 @@ from cffi_plugin.lib import *
 # predictable name
 sys.modules["_uwsgi"] = cffi_plugin
 
+print("cffi_init", __name__)
+
 
 def print_exc():
     import traceback
@@ -26,6 +28,30 @@ def print_exc():
 
 def to_network(native):
     return native.encode("latin1")
+
+
+@ffi.def_extern()
+def uwsgi_cffi_init():
+    # pypy will find environment from current working directory
+    # (uwsgi --chdir $VIRTUAL_ENV/bin)
+    if "PYTHONPATH" in os.environ:
+        sys.path[0:0] = os.environ["PYTHONPATH"].split(os.pathsep)
+
+    # define or override callbacks
+    if lib.ucffi.init:
+        init_name = ffi.string(lib.ucffi.init).decode("utf-8")
+        importlib.import_module(init_name)
+
+    return lib.UWSGI_OK
+
+
+@ffi.def_extern()
+def uwsgi_cffi_init_apps():
+    try:
+        if lib.ucffi.wsgi:
+            init_app(ffi.string(lib.ucffi.wsgi), b"")
+    except:
+        print_exc()
 
 
 class WSGIfilewrapper(object):
@@ -125,35 +151,45 @@ class WSGIinput(object):
 
 
 @ffi.def_extern()
-def uwsgi_cffi_init():
-    # doesn't seem to use PYTHONPATH automatically
-    # pypy will find environment from current working directory
-    # (uwsgi --chdir $VIRTUAL_ENV/bin)
-    if "PYTHONPATH" in os.environ:
-        sys.path[0:0] = os.environ["PYTHONPATH"].split(os.pathsep)
-
-    # define or override callbacks
-    if lib.ucffi.init:
-        init_name = ffi.string(lib.ucffi.init).decode("utf-8")
-        importlib.import_module(init_name)
-
-    return lib.UWSGI_OK
-
-
-@ffi.def_extern()
-def uwsgi_cffi_init_apps():
-    try:
-        if lib.ucffi.wsgi:
-            init_app(ffi.string(lib.ucffi.wsgi), b"")
-    except:
-        print_exc()
-
-
-@ffi.def_extern()
 def uwsgi_cffi_request(wsgi_req):
     """
     the WSGI request handler
     """
+
+    # if (wsgi_req->async_force_again) {
+    # 	wi = &uwsgi_apps[wsgi_req->app_id];
+    # 	wsgi_req->async_force_again = 0;
+    # 	UWSGI_GET_GIL
+    # 	// get rid of timeout
+    # 	if (wsgi_req->async_timed_out) {
+    # 		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_True);
+    # 		wsgi_req->async_timed_out = 0;
+    # 	}
+    # 	else {
+    # 		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_None);
+    # 	}
+
+    # 	if (wsgi_req->async_ready_fd) {
+    # 		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.ready_fd", PyInt_FromLong(wsgi_req->async_last_ready_fd));
+    # 		wsgi_req->async_ready_fd = 0;
+    # 	}
+    # 	else {
+    # 		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.ready_fd", Py_None);
+    # 	}
+    # 	int ret = manage_python_response(wsgi_req);
+    # 	if (ret == UWSGI_OK) goto end;
+    # 	UWSGI_RELEASE_GIL
+    # 	if (ret == UWSGI_AGAIN) {
+    # 		wsgi_req->async_force_again = 1;
+    # 	}
+    # 	return ret;
+    # }
+
+    if wsgi_req.async_force_again:
+        print("force again")
+        wsgi_req.async_force_again = 0
+        # just close it
+        return lib.UWSGI_OK
 
     def writer(data):
         lib.uwsgi_response_write_body_do(wsgi_req, ffi.new("char[]", data), len(data))
@@ -228,8 +264,14 @@ def uwsgi_cffi_request(wsgi_req):
     environ["uwsgi.core"] = wsgi_req.async_id
     environ["uwsgi.node"] = ffi.string(lib.uwsgi.hostname).decode("latin1")
 
-    response = app(environ, start_response)
-    if type(response) is str:
+    try:
+        response = app(environ, start_response)
+    except:
+        print("app exception")
+        wsgi_req.async_force_again = 1
+        return lib.UWSGI_AGAIN
+
+    if type(response) is bytes:
         writer(response)
     else:
         try:
@@ -395,3 +437,6 @@ def uwsgi_file_loader(path):
     c = "application"
     mod = imp.load_source("uwsgi_file_wsgi", path)
     return getattr(mod, c)
+
+
+sys.modules["wsgi_apps"] = wsgi_apps

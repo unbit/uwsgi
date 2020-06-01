@@ -4,8 +4,13 @@ import asyncio
 import asyncio_redis
 import time
 import greenlet
+import os, sys
+import pprint
 
-import cffi_setup_asyncio
+try:
+    import cffi_setup_asyncio
+except ImportError:
+    pass
 
 
 class GreenFuture(asyncio.Future):
@@ -52,6 +57,23 @@ def redis_wait(subscriber, f):
 @asyncio.coroutine
 def redis_publish(connection, msg):
     yield from connection.publish("foobar", msg)
+
+
+async def async_wait(delay, gl):
+    await asyncio.sleep(delay)
+    gl.switch()
+
+
+def trickle(env, sr):
+    sr("200 OK", [("Content-Type", "text/html; charset=UTF-8")])
+
+    gl = greenlet.getcurrent()
+
+    for i in range(32):
+        yield f"<p>Hello {i}</p>\n".encode("utf-8")
+        # or asyncio.get_event_loop().create_task()
+        asyncio.Task(async_wait(1, gl))
+        gl.parent.switch()
 
 
 def application(env, sr):
@@ -110,6 +132,9 @@ def application(env, sr):
         sr("200 OK", [("Content-Type", "image/x-icon")])
         return [b""]
 
+    elif env["PATH_INFO"] == "/trickle/":
+        return trickle(env, sr)
+
     elif env["PATH_INFO"] == "/foobar/":
         uwsgi.websocket_handshake(
             env["HTTP_SEC_WEBSOCKET_KEY"], env.get("HTTP_ORIGIN", "")
@@ -157,3 +182,24 @@ def application(env, sr):
                     asyncio.Task(redis_publish(connection, msg.decode("utf-8")))
             # switch again
             f.greenlet.parent.switch()
+
+
+def trace_calls_and_returns(frame, event, arg):
+    co = frame.f_code
+    func_name = co.co_name
+    if func_name == "write":
+        # Ignore write() calls from print statements
+        return
+    line_no = frame.f_lineno
+    filename = co.co_filename
+    if event == "call":
+        print("Call to %s on line %s of %s" % (func_name, line_no, filename))
+        return trace_calls_and_returns
+    elif event == "return":
+        print("%s => %s" % (func_name, arg))
+    # else:
+    #     print(event)
+    return
+
+
+# sys.settrace(trace_calls_and_returns)
