@@ -11,6 +11,7 @@ python ./uwsgiconfig.py -p plugins/cffi nolang
   --cffi-init=cffi_setup_asyncio \
   --async=32 \
   --http-socket=:8080 \
+  --manage-script-name \
   --mount=/wsgi=helloworld \
   --mount=/=starlettetest:app \
   --chdir=$VIRTUAL_ENV/bin \
