@@ -5,6 +5,8 @@ Direct port of plugins/asyncio.c
 import os
 import sys
 import asyncio
+import inspect
+import greenlet
 
 from _uwsgi import ffi, lib
 
@@ -142,12 +144,10 @@ def uwsgi_asyncio_wait_write_hook(fd, timeout):
 def find_first_available_wsgi_req():
     uwsgi = lib.uwsgi
     wsgi_req = lib.find_first_available_wsgi_req()
-    print("accept wsgi_req", uwsgi.async_queue_unused_ptr, wsgi_req)
     return wsgi_req
 
 
 def uwsgi_asyncio_request(wsgi_req, timed_out):
-    print("uwsgi_asyncio_request")
     try:
         loop = get_loop()
         uwsgi.wsgi_req = wsgi_req
@@ -160,9 +160,6 @@ def uwsgi_asyncio_request(wsgi_req, timed_out):
             raise IOError("timed out")  # goto end
 
         status = wsgi_req.socket.proto(wsgi_req)
-        print("status", status)
-
-        print("edge trigger", wsgi_req.socket.edge_trigger)
 
         if status > 0:
             ob_timeout = loop.call_later(
@@ -432,12 +429,178 @@ class WSGIinput(object):
         return chunk
 
 
+def asgi_start_response(wsgi_req, status, headers):
+    print(wsgi_req, status, headers)
+
+    status = b"%d" % status
+    lib.uwsgi_response_prepare_headers(wsgi_req, ffi.new("char[]", status), len(status))
+    for (header, value) in headers:
+        lib.uwsgi_response_add_header(
+            wsgi_req,
+            ffi.new("char[]", header),
+            len(header),
+            ffi.new("char[]", value),
+            len(value),
+        )
+
+
+def asgi_scope_http(wsgi_req):
+    """
+    Create the ASGI scope for a http or websockets connection.
+    """
+    environ = {}
+    headers = []
+    iov = wsgi_req.hvec
+    for i in range(0, wsgi_req.var_cnt, 2):
+        key, value = (
+            ffi.string(ffi.cast("char*", iov[i].iov_base), iov[i].iov_len),
+            ffi.string(ffi.cast("char*", iov[i + 1].iov_base), iov[i + 1].iov_len),
+        )
+        if key.startswith(b"HTTP_"):
+            headers.append((key[5:].lower(), value))
+        else:
+            environ[key.decode("ascii")] = value
+
+    scope = {
+        "type": "http",
+        "asgi": {"spec_version": "2.1"},
+        "http_version": environ["SERVER_PROTOCOL"][len("HTTP/") :].decode("utf-8"),
+        "method": environ["REQUEST_METHOD"].decode("utf-8"),
+        "scheme": environ.get("UWSGI_SCHEME", "http"),
+        "path": environ["PATH_INFO"].decode("utf-8"),
+        "raw_path": environ["REQUEST_URI"],
+        "query_string": environ["QUERY_STRING"],
+        "root_path": environ["SCRIPT_NAME"].decode("utf-8"),
+        "headers": headers,
+        # some references to REMOTE_PORT but not always in environ
+        "client": (environ["REMOTE_ADDR"].decode("utf-8"), 0),
+        "server": (environ["SERVER_NAME"].decode("utf-8"), environ["SERVER_PORT"]),
+    }
+
+    if wsgi_req.http_sec_websocket_key != ffi.NULL:
+        scope["type"] = "websocket"
+
+    return scope
+
+
+def websocket_recv_nb(wsgi_req):
+    """
+    uwsgi.websocket_recv_nb()
+    """
+    ub = lib.uwsgi_websocket_recv_nb(wsgi_req)
+    if ub == ffi.NULL:
+        raise IOError("unable to receive websocket message")
+    ret = ffi.buffer(ub.buf, ub.pos)[:]
+    lib.uwsgi_buffer_destroy(ub)
+    return ret
+
+
+def handle_asgi_request(wsgi_req, app):
+    scope = asgi_scope_http(wsgi_req)
+    loop = asyncio.get_event_loop()
+    gc = greenlet.getcurrent()
+
+    async def send(event):
+        gc.switch(event)
+
+    if scope["type"] == "websocket":
+        # recv_nb for nonblocking.
+        # wait for fd readable...
+        event = asyncio.Event()
+        loop.add_reader(wsgi_req.fd, event.set)
+
+        # do websocket
+        async def receive():
+            yield {"type": "websocket.connect"}
+            while True:
+                await event.wait()
+                event.clear()
+                msg = websocket_recv_nb(wsgi_req)
+                if msg:
+                    # check wsgi_req->websocket_opcode for text / binary
+                    value = {"type": "websocket.receive"}
+                    # *  %x0 denotes a continuation frame
+                    # *  %x1 denotes a text frame
+                    # *  %x2 denotes a binary frame
+                    opcode = wsgi_req.websocket_opcode
+                    if opcode == 1:
+                        value["text"] = msg.decode("utf-8")
+                    elif opcode == 2:
+                        value["bytes"] = msg
+                    else:
+                        print("surprise opcode", opcode)
+                    yield value
+                else:
+                    print("no msg", wsgi_req.websocket_opcode)
+
+        async def send(event):
+            if event["type"] == "websocket.accept":
+                if (
+                    lib.uwsgi_websocket_handshake(
+                        wsgi_req, ffi.NULL, 0, ffi.NULL, 0, ffi.NULL, 0
+                    )
+                    < 0
+                ):
+                    raise IOError("unable to send websocket handshake")
+            elif event["type"] == "websocket.send":
+                # ok to call during any part of app?
+                if (
+                    lib.uwsgi_websocket_send(wsgi_req, ffi.new("char[]", msg), len(msg))
+                    < 0
+                ):
+                    raise IOError("unable to send websocket message")
+
+    elif scope["type"] == "http":
+
+        async def receive():
+            return {"type": "http.request"}
+
+    app_task = asyncio.get_event_loop().create_task(app(scope, receive, send))
+
+    while True:
+        event = gc.parent.switch()
+        print("got", event, "in adapter")
+        if event["type"] == "http.response.start":
+            # raw uwsgi function accepts bytes
+            asgi_start_response(wsgi_req, event["status"], event["headers"])
+        elif event["type"] == "http.response.body":
+            data = event["body"]
+            print(
+                "write_body_do",
+                lib.uwsgi_response_write_body_do(
+                    wsgi_req, ffi.new("char[]", data), len(data)
+                ),
+            )
+            if not event.get("more_body"):
+                break
+
+    return lib.UWSGI_OK
+
+
 def to_network(native):
     return native.encode("latin1")
 
 
+def iscoroutine(app):
+    """
+    Could app be ASGI?
+    """
+    return inspect.iscoroutinefunction(app) or inspect.iscoroutinefunction(app.__call__)
+
+
+ASGI_CALLABLE = ffi.cast("void *", 2)
+
+
 @ffi.def_extern()
 def uwsgi_cffi_request(wsgi_req):
+    try:
+        return _uwsgi_cffi_request(wsgi_req)
+    except:
+        print_exc()
+    return lib.UWSGI_OK
+
+
+def _uwsgi_cffi_request(wsgi_req):
     """
     the WSGI request handler
     """
@@ -516,13 +679,26 @@ def uwsgi_cffi_request(wsgi_req):
         # and default app modifier1 == our modifier1
         app_id = lib.uwsgi.default_app
     wsgi_req.app_id = app_id
+
     app_mount = ""
     # app_mount can be something while app_id is -1
     if wsgi_req.appid != ffi.NULL:
         app_mount = ffi.string(wsgi_req.appid).decode("utf-8")
+
+    # uwsgi app struct
+    wi = lib.uwsgi.workers[lib.uwsgi.mywid].apps[app_id]
+    wi.requests += 1  # we might wind up here more often than expected
     app = wsgi_apps.get(app_id)
 
     # (see python wsgi_handlers.c)
+
+    if wi.callable == ASGI_CALLABLE:
+        try:
+            handle_asgi_request(wsgi_req, app)
+        except:
+            print_exc()
+        finally:
+            return lib.UWSGI_OK
 
     environ = {}
     iov = wsgi_req.hvec
@@ -560,6 +736,8 @@ def uwsgi_cffi_request(wsgi_req):
         response = app(environ, start_response)
     except:
         print("app exception")
+        # can I get a 500?
+        # will also get here when a websocket closes
         wsgi_req.async_force_again = 1
         return lib.UWSGI_AGAIN
 

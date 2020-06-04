@@ -54,8 +54,6 @@ def trace_calls_and_returns(frame, event, arg):
     return
 
 
-# sys.settrace(trace_calls_and_returns)
-
 from starlettetest import app
 
 
@@ -92,7 +90,7 @@ def application(env, sr):
         "asgi": {"spec_version": "2.1"},
         "http_version": environ["SERVER_PROTOCOL"][len("HTTP/") :].decode("utf-8"),
         "method": environ["REQUEST_METHOD"].decode("utf-8"),
-        "scheme": env["wsgi.url_scheme"],  #
+        "scheme": environ.get("UWSGI_SCHEME", "http"),
         "path": environ["PATH_INFO"].decode("utf-8"),
         "raw_path": environ["REQUEST_URI"],
         "query_string": environ["QUERY_STRING"],
@@ -134,5 +132,3 @@ def application(env, sr):
             if not event.get("more_body"):
                 break
 
-
-# if inspect.iscoroutinefunction(foo) or inspect.iscoroutinefunction(foo.__call__) assume asgi

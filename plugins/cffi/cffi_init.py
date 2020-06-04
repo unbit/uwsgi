@@ -8,6 +8,7 @@ import imp
 import importlib
 import sys
 import os
+import inspect
 
 import cffi_plugin
 
@@ -156,35 +157,6 @@ def uwsgi_cffi_request(wsgi_req):
     the WSGI request handler
     """
 
-    # if (wsgi_req->async_force_again) {
-    # 	wi = &uwsgi_apps[wsgi_req->app_id];
-    # 	wsgi_req->async_force_again = 0;
-    # 	UWSGI_GET_GIL
-    # 	// get rid of timeout
-    # 	if (wsgi_req->async_timed_out) {
-    # 		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_True);
-    # 		wsgi_req->async_timed_out = 0;
-    # 	}
-    # 	else {
-    # 		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_None);
-    # 	}
-
-    # 	if (wsgi_req->async_ready_fd) {
-    # 		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.ready_fd", PyInt_FromLong(wsgi_req->async_last_ready_fd));
-    # 		wsgi_req->async_ready_fd = 0;
-    # 	}
-    # 	else {
-    # 		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.ready_fd", Py_None);
-    # 	}
-    # 	int ret = manage_python_response(wsgi_req);
-    # 	if (ret == UWSGI_OK) goto end;
-    # 	UWSGI_RELEASE_GIL
-    # 	if (ret == UWSGI_AGAIN) {
-    # 		wsgi_req->async_force_again = 1;
-    # 	}
-    # 	return ret;
-    # }
-
     if wsgi_req.async_force_again:
         print("force again")
         wsgi_req.async_force_again = 0
@@ -326,6 +298,15 @@ def uwsgi_apps():
 wsgi_apps = {}
 
 
+def iscoroutine(app):
+    """
+    Could app be ASGI?
+    """
+    return inspect.iscoroutinefunction(app) or inspect.iscoroutinefunction(
+        getattr(app, "__call__")
+    )
+
+
 def init_app(app, mountpoint):
     # based on pyloader.c's init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThreadState *interpreter, int app_type)
 
@@ -357,6 +338,9 @@ def init_app(app, mountpoint):
 
     # callable has to be not NULL for uwsgi_get_app_id:
     wi.callable = ffi.cast("void *", 1)
+    if iscoroutine(wsgi_apps[id]):
+        print(f"{application} is ASGI")
+        wi.callable = ffi.cast("void *", 2)
     wi.started_at = now
     wi.startup_time = lib.uwsgi_now() - now
 
