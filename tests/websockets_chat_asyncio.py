@@ -113,7 +113,7 @@ def application(env, sr):
           </script>
      </head>
     <body>
-        <h1>WebSocket</h1>
+        <h1>WebSocket (asyncio)</h1>
         <form onsubmit="event.preventDefault(); return false;">
         <input type="text" id="testo"/>
         <input type="submit" value="invia" onclick="invia();" />

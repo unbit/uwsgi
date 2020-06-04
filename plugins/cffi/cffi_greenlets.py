@@ -87,6 +87,8 @@ def uwsgi_pypy_greenlet_current_wsgi_req():
 def not_cffi(modifier1):
     """
     Is the request related to our plugin?
+
+    Used in some versions of the uwsgi loop. Not sure why.
     """
     return ffi.string(lib.uwsgi.p[modifier1].name) != b"cffi"
 

@@ -12,8 +12,8 @@ python ./uwsgiconfig.py -p plugins/cffi nolang
   --async=32 \
   --http-socket=:8080 \
   --manage-script-name \
-  --mount=/wsgi=helloworld \
   --mount=/=starlettetest:app \
+  --mount=/wsgi=$PWD/examples/welcome3.py \
   --chdir=$VIRTUAL_ENV/bin \
   --touch-reload $PWD/starlettetest.py \
   --touch-reload $PWD/plugins/cffi/cffi_asyncio.py

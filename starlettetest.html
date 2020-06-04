@@ -1,0 +1,45 @@
+<html>
+
+<head>
+  <script>
+    function post(data) {
+      var bb = document.getElementById('blackboard')
+      var html = bb.innerHTML;
+      bb.innerHTML = html + '<br/>' + data;
+    }
+    var s = new WebSocket("%s://%s/foobar/");
+    s.onopen = function () {
+      post("connected !!!");
+      s.send("ciao");
+    };
+    s.onmessage = function (e) {
+      post(e.data);
+    };
+
+    s.onerror = function (e) {
+      post(e.toString());
+    }
+
+    s.onclose = function (e) {
+      post("connection closed");
+    }
+
+    function invia() {
+      var value = document.getElementById('testo').value;
+      s.send(value);
+    }
+  </script>
+</head>
+
+<body>
+  <h1>WebSocket (asgi)</h1>
+  <form onsubmit="event.preventDefault(); return false;">
+    <input type="text" id="testo" />
+    <input type="submit" value="invia" onclick="invia();" />
+  </form>
+  <div id="blackboard"
+    style="width:640px;height:480px;background-color:black;color:white;border: solid 2px red;overflow:auto">
+  </div>
+</body>
+
+</html>

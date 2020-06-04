@@ -15,10 +15,6 @@ uwsgi = lib.uwsgi
 wsgi_apps = sys.modules["wsgi_apps"]  # hack
 
 
-def print(*values):
-    lib.uwsgi_log(" ".join(str(v) for v in values).encode("utf-8") + b"\n")
-
-
 def get_loop():
     return asyncio.get_event_loop()
 
@@ -504,17 +500,12 @@ def handle_asgi_request(wsgi_req, app):
         gc.switch(event)
 
     if scope["type"] == "websocket":
-        # recv_nb for nonblocking.
-        # wait for fd readable...
         event = asyncio.Event()
         loop.add_reader(wsgi_req.fd, event.set)
 
-        # do websocket
-        async def receive():
+        async def receiver():
             yield {"type": "websocket.connect"}
             while True:
-                await event.wait()
-                event.clear()
                 msg = websocket_recv_nb(wsgi_req)
                 if msg:
                     # check wsgi_req->websocket_opcode for text / binary
@@ -532,8 +523,13 @@ def handle_asgi_request(wsgi_req, app):
                     yield value
                 else:
                     print("no msg", wsgi_req.websocket_opcode)
+                    await event.wait()
+                    event.clear()
+
+        receive = receiver().__anext__
 
         async def send(event):
+            print("ws send", event)
             if event["type"] == "websocket.accept":
                 if (
                     lib.uwsgi_websocket_handshake(
@@ -544,11 +540,17 @@ def handle_asgi_request(wsgi_req, app):
                     raise IOError("unable to send websocket handshake")
             elif event["type"] == "websocket.send":
                 # ok to call during any part of app?
+                try:
+                    msg = event["bytes"]
+                except KeyError:
+                    msg = event["text"].encode("utf-8")
                 if (
                     lib.uwsgi_websocket_send(wsgi_req, ffi.new("char[]", msg), len(msg))
                     < 0
                 ):
                     raise IOError("unable to send websocket message")
+            elif event["type"] == "websocket.close":
+                gc.switch(event)
 
     elif scope["type"] == "http":
 
@@ -559,7 +561,6 @@ def handle_asgi_request(wsgi_req, app):
 
     while True:
         event = gc.parent.switch()
-        print("got", event, "in adapter")
         if event["type"] == "http.response.start":
             # raw uwsgi function accepts bytes
             asgi_start_response(wsgi_req, event["status"], event["headers"])
@@ -573,6 +574,10 @@ def handle_asgi_request(wsgi_req, app):
             )
             if not event.get("more_body"):
                 break
+        elif event["type"] == "websocket.close":
+            break
+        else:
+            print("loop event", event)
 
     return lib.UWSGI_OK
 
@@ -593,6 +598,7 @@ ASGI_CALLABLE = ffi.cast("void *", 2)
 
 @ffi.def_extern()
 def uwsgi_cffi_request(wsgi_req):
+    print("request", wsgi_req)
     try:
         return _uwsgi_cffi_request(wsgi_req)
     except:
