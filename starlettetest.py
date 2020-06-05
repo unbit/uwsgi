@@ -7,8 +7,11 @@ import os
 import asyncio
 import asyncio_redis
 
-with open(os.path.join(os.path.dirname(__file__), "starlettetest.html")) as tf:
-    template = tf.read()
+
+def get_template():
+    with open(os.path.join(os.path.dirname(__file__), "starlettetest.html")) as tf:
+        template = tf.read()
+    return template
 
 
 REDIS_CHANNEL = "foobar"
@@ -18,7 +21,7 @@ async def homepage(request):
     ws_scheme = "wss"
     if request["scheme"] == "http":
         ws_scheme = "ws"
-    return HTMLResponse(template % (ws_scheme, request.headers["host"]))
+    return HTMLResponse(get_template() % (ws_scheme, request.headers["host"]))
 
 
 async def websocket_endpoint(websocket: WebSocket):

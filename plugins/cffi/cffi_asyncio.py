@@ -491,6 +491,79 @@ def websocket_recv_nb(wsgi_req):
     return ret
 
 
+async def sender(wsgi_req):
+    """
+    Alternative async generator state management.
+
+    Not working.
+    """
+    loop = asyncio.get_event_loop()
+    event = yield
+    print("got an event", event)
+    if event["type"] == "websocket.accept":
+        if (
+            lib.uwsgi_websocket_handshake(
+                wsgi_req, ffi.NULL, 0, ffi.NULL, 0, ffi.NULL, 0
+            )
+            < 0
+        ):
+            raise IOError("unable to send websocket handshake")
+
+    elif event["type"] == "websocket.close":
+        # TODO send a 403
+        gc.switch(event)
+        return  # or accept further sends() without complaining
+
+    else:
+        raise ValueError("Unexpected event", event["type"])
+
+    while True:
+        event = yield
+
+        if event["type"] == "websocket.send":
+            # ok to call during any part of app?
+            try:
+                msg = event["bytes"]
+                if (
+                    lib.uwsgi_websocket_send_binary(
+                        wsgi_req, ffi.new("char[]", msg), len(msg)
+                    )
+                    < 0
+                ):
+                    raise IOError("unable to send websocket message")
+            except KeyError:
+                msg = event["text"].encode("utf-8")
+                if (
+                    lib.uwsgi_websocket_send(wsgi_req, ffi.new("char[]", msg), len(msg))
+                    < 0
+                ):
+                    raise IOError("unable to send websocket message")
+
+        elif event["type"] == "websocket.close":
+            gc.switch(event)
+            break
+
+        else:
+            raise ValueError("Unexpected event", event["type"])
+
+
+# try:
+
+#     async def prime():
+#         _sender = sender(wsgi_req)
+#         print("made sender")
+#         print("priming sender")
+#         await _sender.__anext__()  # has to be called once before send()
+#         loop.create_task(app(scope, receive, _sender.asend))
+
+#     print("creating task")
+#     loop.create_task(prime())
+#     print("created task")
+# except:
+#     import traceback
+#     traceback.print_exc()
+
+
 def handle_asgi_request(wsgi_req, app):
     scope = asgi_scope_http(wsgi_req)
     loop = asyncio.get_event_loop()
@@ -525,6 +598,8 @@ def handle_asgi_request(wsgi_req, app):
                     print("no msg", wsgi_req.websocket_opcode)
                     await event.wait()
                     event.clear()
+
+            # { "type": "websocket.disconnect", "code": int }
 
         receive = receiver().__anext__
 
@@ -568,7 +643,7 @@ def handle_asgi_request(wsgi_req, app):
         async def receive():
             return {"type": "http.request"}
 
-    app_task = asyncio.get_event_loop().create_task(app(scope, receive, send))
+    app_task = loop.create_task(app(scope, receive, send))
 
     while True:
         event = gc.parent.switch()
@@ -710,6 +785,7 @@ def _uwsgi_cffi_request(wsgi_req):
 
     if wi.callable == ASGI_CALLABLE:
         handle_asgi_request(wsgi_req, app)
+        return lib.UWSGI_OK
 
     environ = {}
     iov = wsgi_req.hvec
