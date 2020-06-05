@@ -538,17 +538,28 @@ def handle_asgi_request(wsgi_req, app):
                     < 0
                 ):
                     raise IOError("unable to send websocket handshake")
+
             elif event["type"] == "websocket.send":
                 # ok to call during any part of app?
                 try:
                     msg = event["bytes"]
+                    if (
+                        lib.uwsgi_websocket_send_binary(
+                            wsgi_req, ffi.new("char[]", msg), len(msg)
+                        )
+                        < 0
+                    ):
+                        raise IOError("unable to send websocket message")
                 except KeyError:
                     msg = event["text"].encode("utf-8")
-                if (
-                    lib.uwsgi_websocket_send(wsgi_req, ffi.new("char[]", msg), len(msg))
-                    < 0
-                ):
-                    raise IOError("unable to send websocket message")
+                    if (
+                        lib.uwsgi_websocket_send(
+                            wsgi_req, ffi.new("char[]", msg), len(msg)
+                        )
+                        < 0
+                    ):
+                        raise IOError("unable to send websocket message")
+
             elif event["type"] == "websocket.close":
                 gc.switch(event)
 
@@ -598,7 +609,6 @@ ASGI_CALLABLE = ffi.cast("void *", 2)
 
 @ffi.def_extern()
 def uwsgi_cffi_request(wsgi_req):
-    print("request", wsgi_req)
     try:
         return _uwsgi_cffi_request(wsgi_req)
     except:
@@ -699,12 +709,7 @@ def _uwsgi_cffi_request(wsgi_req):
     # (see python wsgi_handlers.c)
 
     if wi.callable == ASGI_CALLABLE:
-        try:
-            handle_asgi_request(wsgi_req, app)
-        except:
-            print_exc()
-        finally:
-            return lib.UWSGI_OK
+        handle_asgi_request(wsgi_req, app)
 
     environ = {}
     iov = wsgi_req.hvec
