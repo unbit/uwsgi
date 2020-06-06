@@ -10,7 +10,7 @@ python ./uwsgiconfig.py -p plugins/cffi nolang
   --plugin=cffi \
   --cffi-init=cffi_setup_asyncio \
   --async=32 \
-  --http-socket=:8080 \
+  --http-socket=[::]:8080 \
   --manage-script-name \
   --mount=/=starlettetest:app \
   --mount=/wsgi=$PWD/examples/welcome3.py \

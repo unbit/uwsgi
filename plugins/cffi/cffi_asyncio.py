@@ -491,60 +491,61 @@ def websocket_recv_nb(wsgi_req):
     return ret
 
 
-async def sender(wsgi_req):
-    """
-    Alternative async generator state management.
+# async def sender(wsgi_req):
+#     """
+#     Alternative async generator state management.
 
-    Not working.
-    """
-    loop = asyncio.get_event_loop()
-    event = yield
-    print("got an event", event)
-    if event["type"] == "websocket.accept":
-        if (
-            lib.uwsgi_websocket_handshake(
-                wsgi_req, ffi.NULL, 0, ffi.NULL, 0, ffi.NULL, 0
-            )
-            < 0
-        ):
-            raise IOError("unable to send websocket handshake")
+#     Not working.
+#     """
+#     loop = asyncio.get_event_loop()
+#     event = yield
+#     print("got an event", event)
+#     if event["type"] == "websocket.accept":
+#         if (
+#             lib.uwsgi_websocket_handshake(
+#                 wsgi_req, ffi.NULL, 0, ffi.NULL, 0, ffi.NULL, 0
+#             )
+#             < 0
+#         ):
+#             raise IOError("unable to send websocket handshake")
 
-    elif event["type"] == "websocket.close":
-        # TODO send a 403
-        gc.switch(event)
-        return  # or accept further sends() without complaining
+#     elif event["type"] == "websocket.close":
+#         # TODO send a 403
+#         gc.switch(event)
+#         return  # or accept further sends() without complaining
 
-    else:
-        raise ValueError("Unexpected event", event["type"])
+#     else:
+#         raise ValueError("Unexpected event", event["type"])
 
-    while True:
-        event = yield
+#     while True:
+#         event = yield
 
-        if event["type"] == "websocket.send":
-            # ok to call during any part of app?
-            try:
-                msg = event["bytes"]
-                if (
-                    lib.uwsgi_websocket_send_binary(
-                        wsgi_req, ffi.new("char[]", msg), len(msg)
-                    )
-                    < 0
-                ):
-                    raise IOError("unable to send websocket message")
-            except KeyError:
-                msg = event["text"].encode("utf-8")
-                if (
-                    lib.uwsgi_websocket_send(wsgi_req, ffi.new("char[]", msg), len(msg))
-                    < 0
-                ):
-                    raise IOError("unable to send websocket message")
+#         if event["type"] == "websocket.send":
+#             # ok to call during any part of app?
+#             if "bytes" in event:
+#                 msg = event["bytes"]
+#                 if (
+#                     lib.uwsgi_websocket_send_binary(
+#                         wsgi_req, ffi.new("char[]", msg), len(msg)
+#                     )
+#                     < 0
+#                 ):
+#                     raise IOError("unable to send websocket message")
+#             elif "text" in event:
+#                 msg = event["text"].encode("utf-8")
+#                 if (
+#                     lib.uwsgi_websocket_send(wsgi_req, ffi.new("char[]", msg), len(msg))
+#                     < 0
+#                 ):
+#                     raise IOError("unable to send websocket message")
+#             # bad event?
 
-        elif event["type"] == "websocket.close":
-            gc.switch(event)
-            break
+#         elif event["type"] == "websocket.close":
+#             gc.switch(event)
+#             break
 
-        else:
-            raise ValueError("Unexpected event", event["type"])
+#         else:
+#             raise ValueError("Unexpected event", event["type"])
 
 
 # try:
@@ -573,13 +574,27 @@ def handle_asgi_request(wsgi_req, app):
         gc.switch(event)
 
     if scope["type"] == "websocket":
-        event = asyncio.Event()
-        loop.add_reader(wsgi_req.fd, event.set)
+        ws_event = asyncio.Event()
+        loop.add_reader(wsgi_req.fd, ws_event.set)
+
+        closed = False
 
         async def receiver():
+            nonlocal closed
+
             yield {"type": "websocket.connect"}
             while True:
-                msg = websocket_recv_nb(wsgi_req)
+                try:
+                    print("rx, closed=", closed)
+                    msg = websocket_recv_nb(wsgi_req)
+                except IOError:
+                    closed = True
+                    gc.switch({"type": "websocket.close"})
+                    yield {
+                        "type": "websocket.disconnect",
+                        "code": 1000,
+                    }  # todo lookup code
+                    # don't raise, keep receivin' ?
                 if msg:
                     # check wsgi_req->websocket_opcode for text / binary
                     value = {"type": "websocket.receive"}
@@ -596,22 +611,28 @@ def handle_asgi_request(wsgi_req, app):
                     yield value
                 else:
                     print("no msg", wsgi_req.websocket_opcode)
-                    await event.wait()
-                    event.clear()
-
+                    await ws_event.wait()
+                    ws_event.clear()
+            # send this if connection is closed:
             # { "type": "websocket.disconnect", "code": int }
 
         receive = receiver().__anext__
 
         async def send(event):
+            nonlocal closed
             print("ws send", event)
-            if event["type"] == "websocket.accept":
+            if closed:
+                print("ignore send on closed ws")
+                ws_event.set()  # propagate disconnect to rx
+            elif event["type"] == "websocket.accept":
                 if (
                     lib.uwsgi_websocket_handshake(
                         wsgi_req, ffi.NULL, 0, ffi.NULL, 0, ffi.NULL, 0
                     )
                     < 0
                 ):
+                    closed = True
+                    gc.switch({"type": "websocket.close"})
                     raise IOError("unable to send websocket handshake")
 
             elif event["type"] == "websocket.send":
@@ -624,6 +645,8 @@ def handle_asgi_request(wsgi_req, app):
                         )
                         < 0
                     ):
+                        closed = True
+                        gc.switch({"type": "websocket.close"})
                         raise IOError("unable to send websocket message")
                 except KeyError:
                     msg = event["text"].encode("utf-8")
@@ -633,9 +656,13 @@ def handle_asgi_request(wsgi_req, app):
                         )
                         < 0
                     ):
+                        closed = True
+                        gc.switch({"type": "websocket.close"})
                         raise IOError("unable to send websocket message")
 
             elif event["type"] == "websocket.close":
+                print("asked to close in send")
+                closed = True
                 gc.switch(event)
 
     elif scope["type"] == "http":
@@ -661,6 +688,8 @@ def handle_asgi_request(wsgi_req, app):
             if not event.get("more_body"):
                 break
         elif event["type"] == "websocket.close":
+            loop.remove_reader(wsgi_req.fd)  # otherwise the connection times out
+            ws_event.set()  # unclear if this helps receive() to see the close
             break
         else:
             print("loop event", event)

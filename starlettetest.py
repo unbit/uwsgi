@@ -24,23 +24,6 @@ async def homepage(request):
     return HTMLResponse(get_template() % (ws_scheme, request.headers["host"]))
 
 
-async def websocket_endpoint(websocket: WebSocket):
-    print("websocket_endpoint")
-    try:
-        await websocket.accept()
-        while True:
-            event = await websocket.receive()
-            msg = event["text"]
-            await websocket.send_text(msg.upper())
-            if msg == "bye":
-                break
-        await websocket.close()
-    except:
-        import traceback
-
-        traceback.print_exc()
-
-
 async def chat_endpoint(websocket: WebSocket):
     """
     Relay websocket messages to redis channel and vice versa.
@@ -54,8 +37,13 @@ async def chat_endpoint(websocket: WebSocket):
     async def left():
         while True:
             event = await websocket.receive()
+            if event["type"] != "websocket.receive":  # disconnect?
+                print("done receiving", event)
+                break
+            msg = event["text"]
             msg = event["text"]
             await connection.publish(REDIS_CHANNEL, msg)
+        raise StopIteration()  # to cancel the wait
 
     async def right():
         while True:
@@ -65,13 +53,21 @@ async def chat_endpoint(websocket: WebSocket):
             if msg:
                 await websocket.send_text(msg.value)
 
+    loop = asyncio.get_event_loop()
+
     try:
-        await asyncio.gather(right(), left())
+        # no default Starlette exception printing?
+        tasks = loop.create_task(right()), loop.create_task(left())
+        print("tasking", tasks)
+        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
     except:
         import traceback
 
         traceback.print_exc()
-        # cancel other task...
+    finally:
+        for task in tasks:
+            print("cancel", task)
+            task.cancel()
 
 
 async def redis_connect():
