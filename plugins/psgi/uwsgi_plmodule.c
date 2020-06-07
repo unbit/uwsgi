@@ -885,7 +885,7 @@ XS(XS_chunked_read) {
 		XSRETURN_UNDEF;
         }
 
-	ST(0) = newSVpv(chunk, len);
+	ST(0) = newSVpvn(chunk, len);
         sv_2mortal(ST(0));
         XSRETURN(1);
 }
@@ -904,7 +904,7 @@ XS(XS_chunked_read_nb) {
                 XSRETURN_UNDEF;
         }
 
-        ST(0) = newSVpv(chunk, len);
+        ST(0) = newSVpvn(chunk, len);
         sv_2mortal(ST(0));
         XSRETURN(1);
 }
