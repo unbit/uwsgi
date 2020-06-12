@@ -704,23 +704,50 @@ static int uwsgi_cgi_run(struct wsgi_request *wsgi_req, char *docroot, size_t do
 		uwsgi_socket_nb(cgi_pipe[0]);
 		uwsgi_socket_nb(post_pipe[1]);
 
-		// ok start sending post data...
-		size_t remains = wsgi_req->post_cl;
-		while(remains > 0) {
-                	ssize_t rlen = 0;
-                	char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
-                	if (!buf) {
-				goto clear2;
-                	}
-                	if (buf == uwsgi.empty) break;
-                	// write data to the node
-                	if (uwsgi_write_true_nb(post_pipe[1], buf, rlen, uc.timeout)) {
-				goto clear2;
-                	}
-                	remains -= rlen;
-        	}
+		// Start sending request body
+		if (wsgi_req->body_is_chunked) {
+			// Write through to process chunk by chunk
+			while (1) {
+				struct uwsgi_buffer *ubuf = uwsgi_chunked_read_smart(wsgi_req, 8192, uwsgi.socket_timeout);
+				if (!ubuf) {
+					uwsgi_log("error reading chunk from CGI request !!!\n");
+					kill_on_error
+						goto clear2;
+				}
+				if (!ubuf->pos) {
+					// Last chunk received, go and close process's stdin
+					uwsgi_buffer_destroy(ubuf);
+					break;
+				}
+				// Write chunk to process's stdin
+				int err = uwsgi_write_true_nb(post_pipe[1], ubuf->buf, ubuf->pos, uc.timeout);
+				uwsgi_buffer_destroy(ubuf);
+				if (err) {
+					uwsgi_log("error writing chunk to CGI process !!!\n");
+					kill_on_error
+						goto clear2;
+				}
+			}
+		} else {
+			// Normal request with content length set
+			size_t remains = wsgi_req->post_cl;
+			while(remains > 0) {
+				ssize_t rlen = 0;
+				char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
+				if (!buf) {
+					goto clear2;
+				}
+				if (buf == uwsgi.empty) break;
+				// write data to the node
+				if (uwsgi_write_true_nb(post_pipe[1], buf, rlen, uc.timeout)) {
+					goto clear2;
+				}
+				remains -= rlen;
+			}
+		}
 
-		if (uc.close_stdin_on_eof) {
+		// For chunked requests, close stdin to tell the script body has ended
+		if (uc.close_stdin_on_eof || wsgi_req->body_is_chunked) {
 			close(post_pipe[1]);
 			stdin_closed = 1;
 		}
