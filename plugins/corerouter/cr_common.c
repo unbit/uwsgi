@@ -62,7 +62,7 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 
 				// fix SERVER_PORT
 				if (!ugs->port || !ugs->port_len) {
-					ugs->port = strchr(ugs->name, ':');
+					ugs->port = strrchr(ugs->name, ':');
 					if (ugs->port) {
 						ugs->port++;
 						ugs->port_len = strlen(ugs->port);
