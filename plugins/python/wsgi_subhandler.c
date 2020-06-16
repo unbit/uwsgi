@@ -334,7 +334,7 @@ exception:
 			Py_DECREF(pychunk);
 			goto clear;
 		}
-	} else {
+	} else if (pychunk != Py_None) {
 		// The iterator returned something that we were not able to handle.
 		PyObject *pystr = PyObject_Repr(pychunk);
 #ifdef PYTHREE
