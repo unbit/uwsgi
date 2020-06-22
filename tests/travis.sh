@@ -44,10 +44,17 @@ http_test() {
         if [ $RET != 0 ]; then
             die "${bldred}>>> Error during curl run${txtrst}"
             ERROR=$((ERROR+1))
+        elif fgrep '[ERROR]' uwsgi.log > /dev/null ; then
+            # Blindly report any [ERROR] string in the log file as failure.
+            # This obviously won't work when for tests purposely generating
+            # [ERROR] messages.
+            die "${bldred}>>> ERROR in uwsgi.log!${txtrst}"
+            ERROR=$((ERROR+1))
         else
+            die "${bldyel}>>> SUCCESS: Done${txtrst}"
             SUCCESS=$((SUCCESS+1))
         fi
-        die "${bldyel}>>> SUCCESS: Done${txtrst}"
+
     else
         die "${bldred}>>> ERROR: uWSGI did not start${txtrst}"
         ERROR=$((ERROR+1))
@@ -85,7 +92,7 @@ test_rack() {
 
 
 while read PV ; do
-    for WSGI_FILE in tests/staticfile.py tests/testworkers.py tests/testrpc.py ; do
+    for WSGI_FILE in tests/staticfile.py tests/testworkers.py tests/testrpc.py tests/testyieldnone.py ; do
         test_python $PV $WSGI_FILE
     done
 done < <(cat .travis.yml | grep "plugins/python base" | sed s_".*plugins/python base "_""_g)
