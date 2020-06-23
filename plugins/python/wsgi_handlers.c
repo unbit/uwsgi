@@ -65,6 +65,7 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 	char *buf = NULL;
 	if (wsgi_req->body_is_chunked && up.wsgi_manage_chunked_input) {
 		struct uwsgi_buffer *ubuf = uwsgi_chunked_read_smart(wsgi_req, arg_len, uwsgi.socket_timeout);
+		UWSGI_GET_GIL
 		if (!ubuf) {
        			return PyErr_Format(PyExc_IOError, "error during chunked read(%ld) on wsgi.input", arg_len);
 		}
