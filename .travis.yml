@@ -40,7 +40,7 @@ script:
   - echo -e "\n\n>>> Building dummy plugin"
   - /usr/bin/python uwsgiconfig.py --plugin plugins/dummy base
   - echo -e "\n\n>>> Building done, starting tests"
-  - ./tests/travis.sh
+  - ./tests/travis.sh .travis.yml
 
 before_install:
   - sudo apt-get update -qq
