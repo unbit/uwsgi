@@ -1,0 +1,44 @@
+name: Compile test
+
+on:
+  push:
+    branches: [ master, uwsgi-2.0 ]
+  pull_request:
+    branches: [ master, uwsgi-2.0 ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-18.04
+
+    steps:
+    - name: Install dependencies
+      run: |
+        sudo apt update -qq
+        sudo apt install --no-install-recommends -qqyf python3.6-dev \
+          libxml2-dev libpcre3-dev libcap2-dev \
+          php7.2-dev libphp7.2-embed libargon2-0-dev libsodium-dev \
+          liblua5.1-0-dev ruby2.5-dev \
+          libjansson-dev libldap2-dev libpq-dev \
+          libpam0g-dev libsqlite3-dev libyaml-dev \
+          libzmq3-dev libmatheval-dev libperl-dev \
+          libonig-dev libdb-dev libqdbm-dev libbz2-dev \
+          libwrap0-dev libgeoip-dev libv8-dev libxslt1-dev \
+          libboost-thread-dev libboost-filesystem-dev \
+          libssl-dev libacl1-dev python-greenlet-dev \
+          libcurl4-openssl-dev \
+          openjdk-8-jdk libgloox-dev gccgo \
+          cli-common-dev mono-devel mono-mcs uuid-dev \
+          curl check
+    - uses: actions/checkout@v2
+    - name: Build kitchensink uWSGI binary
+      run: UWSGICONFIG_PHPPATH=php-config7.2 /usr/bin/python3 uwsgiconfig.py --build travis
+    - name: Build uWSGI binary
+      run: |
+        /usr/bin/python3 uwsgiconfig.py --build base
+    - name: Build cgi plugin
+      run: |
+        /usr/bin/python3 uwsgiconfig.py --plugin plugins/cgi base
+    - name: Build dummy plugin
+      run: |
+        /usr/bin/python3 uwsgiconfig.py --plugin plugins/dummy base
