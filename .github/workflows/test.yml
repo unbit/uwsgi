@@ -1,0 +1,80 @@
+name: Test
+
+on:
+  push:
+    branches: [ master, uwsgi-2.0 ]
+  pull_request:
+    branches: [ master, uwsgi-2.0 ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-18.04
+
+    steps:
+    - name: add deadnakes ppa
+      run:
+        - sudo apt-get install software-properties-common
+        - sudo add-apt-repository ppa:deadsnakes/ppa -y
+    - name: install dependencies
+      run:
+        - sudo apt update -qq
+        - sudo apt-get install -qqyf python{2.6,3.5,3.6,3.7,3.8}-dev
+        - sudo apt-get install -qqyf python3.8-distutils
+        - sudo apt-get install -qqyf libxml2-dev libpcre3-dev libcap2-dev
+        - sudo apt-get install -qqyf php7.2-dev libphp7.2-embed libargon2-0-dev libsodium-dev
+        - sudo apt-get install -qqyf liblua5.1-0-dev ruby2.5-dev
+        - sudo apt-get install -qqyf libjansson-dev libldap2-dev libpq-dev
+        - sudo apt-get install -qqyf libpam0g-dev libsqlite3-dev libyaml-dev
+        - sudo apt-get install -qqyf libzmq-dev libmatheval-dev libperl-dev
+        - sudo apt-get install -qqyf libonig-dev libdb-dev libqdbm-dev libbz2-dev
+        - sudo apt-get install -qqyf libwrap0-dev libgeoip-dev libv8-dev libxslt1-dev
+        - sudo apt-get install -qqyf libboost-thread-dev libboost-filesystem-dev
+        - sudo apt-get install -qqyf libssl-dev libacl1-dev python-greenlet-dev
+        - sudo apt-get install -qqyf openjdk-8-jdk libgloox-dev gccgo
+        - sudo apt-get install -qqyf cli-common-dev mono-devel mono-mcs uuid-dev
+        - sudo apt-get install -qqyf curl check
+    - uses: actions/checkout@v2
+    - name: run uwsgi unit tests
+      run: make tests
+    - name: Build kitchensink uWSGI binary
+      run: UWSGICONFIG_PHPPATH=php-config7.2 /usr/bin/python uwsgiconfig.py --build travis
+    - name: Build uWSGI binary
+      run: make
+    - name: build python2.6 plugin
+      run:
+        - /usr/bin/python2.6 -V
+        - /usr/bin/python2.6 uwsgiconfig.py --plugin plugins/python base python26
+    - name: build python2.7 plugin
+      run:
+        - /usr/bin/python2.7 -V
+        - /usr/bin/python2.7 uwsgiconfig.py --plugin plugins/python base python27
+    - name: build python3.5 plugin
+      run:
+        - /usr/bin/python3.5 -V
+        - /usr/bin/python3.5 uwsgiconfig.py --plugin plugins/python base python35
+    - name: build python3.6 plugin
+      run:
+        - /usr/bin/python3.6 -V
+        - /usr/bin/python3.6 uwsgiconfig.py --plugin plugins/python base python36
+    - name: build python3.7 plugin
+      run:
+        - /usr/bin/python3.7 -V
+        - /usr/bin/python3.7 uwsgiconfig.py --plugin plugins/python base python37
+    - name: build python3.8 plugin
+      run:
+        - /usr/bin/python3.8 -V
+        - /usr/bin/python3.8 uwsgiconfig.py --plugin plugins/python base python38
+    - name: build rack plugin
+      run:
+        - ruby -v
+        - UWSGICONFIG_RUBYPATH=ruby /usr/bin/python uwsgiconfig.py --plugin plugins/rack base rack251
+    - name: build cgi plugin
+      run:
+        - /usr/bin/python uwsgiconfig.py --plugin plugins/cgi base
+    - name: build dummy plugin
+      run:
+        - /usr/bin/python uwsgiconfig.py --plugin plugins/dummy base
+    - name: building done, run tests
+      run:
+        - ./tests/travis.sh
