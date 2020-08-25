@@ -54,7 +54,7 @@ static int uwsgi_websockets_pong(struct wsgi_request *wsgi_req) {
         return uwsgi_response_write_body_do(wsgi_req, uwsgi.websockets_pong->buf, uwsgi.websockets_pong->pos);
 }
 
-static int uwsgi_websockets_close(struct wsgi_request, *wsgi_req) {
+static int uwsgi_websockets_close(struct wsgi_request *wsgi_req) {
     return uwsgi_response_write_body_do(wsgi_req, uwsgi.websockets_close->buf, uwsgi.websockets_close->pos);
 }
 
