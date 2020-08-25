@@ -55,7 +55,7 @@ static int uwsgi_websockets_pong(struct wsgi_request *wsgi_req) {
 }
 
 static int uwsgi_websockets_close(struct wsgi_request *wsgi_req) {
-    return uwsgi_response_write_body_do(wsgi_req, uwsgi.websockets_close->buf, uwsgi.websockets_close->pos);
+	return uwsgi_response_write_body_do(wsgi_req, uwsgi.websockets_close->buf, uwsgi.websockets_close->pos);
 }
 
 static int uwsgi_websockets_check_pingpong(struct wsgi_request *wsgi_req) {
@@ -322,7 +322,7 @@ static struct uwsgi_buffer *uwsgi_websocket_recv_do(struct wsgi_request *wsgi_re
 							return uwsgi_websockets_parse(wsgi_req);
 						// close
 						case 0x8:
-						    uwsgi_websockets_close(wsgi_req);
+							uwsgi_websockets_close(wsgi_req);
 							return NULL;
 						// ping
 						case 0x9:
