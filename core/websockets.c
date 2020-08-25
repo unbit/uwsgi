@@ -54,6 +54,10 @@ static int uwsgi_websockets_pong(struct wsgi_request *wsgi_req) {
         return uwsgi_response_write_body_do(wsgi_req, uwsgi.websockets_pong->buf, uwsgi.websockets_pong->pos);
 }
 
+static int uwsgi_websockets_close(struct wsgi_request, *wsgi_req) {
+    return uwsgi_response_write_body_do(wsgi_req, uwsgi.websockets_close->buf, uwsgi.websockets_close->pos);
+}
+
 static int uwsgi_websockets_check_pingpong(struct wsgi_request *wsgi_req) {
 	time_t now = uwsgi_now();
 	// first round
@@ -318,6 +322,7 @@ static struct uwsgi_buffer *uwsgi_websocket_recv_do(struct wsgi_request *wsgi_re
 							return uwsgi_websockets_parse(wsgi_req);
 						// close
 						case 0x8:
+						    uwsgi_websockets_close(wsgi_req);
 							return NULL;
 						// ping
 						case 0x9:
@@ -463,6 +468,8 @@ void uwsgi_websockets_init() {
         uwsgi_buffer_append(uwsgi.websockets_pong, "\x8A\0", 2);
         uwsgi.websockets_ping = uwsgi_buffer_new(2);
         uwsgi_buffer_append(uwsgi.websockets_ping, "\x89\0", 2);
+        uwsgi.websockets_close = uwsgi_buffer_new(2);
+        uwsgi_buffer_append(uwsgi.websockets_close, "\x88\0", 2);
 	uwsgi.websockets_ping_freq = 30;
 	uwsgi.websockets_pong_tolerance = 3;
 	uwsgi.websockets_max_size = 1024;
