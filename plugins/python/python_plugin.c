@@ -586,14 +586,16 @@ void init_uwsgi_vars() {
 	// debuggers so we'll only do this in the non-tty case.
 	if (!Py_FdIsInteractive(stdin, NULL)) {
 #ifdef HAS_NO_ERRORS_IN_PyFile_FromFd
-		PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, NULL, 0);
+		PyObject *new_stdout = PyFile_FromFd(1, NULL, "w", _IOLBF, NULL, NULL, 0);
+		PyObject *new_stderr = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, NULL, 0);
 #else
-		PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, NULL, NULL, 0);
+		PyObject *new_stdout = PyFile_FromFd(1, NULL, "w", _IOLBF, NULL, NULL, NULL, 0);
+		PyObject *new_stderr = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, NULL, NULL, 0);
 #endif
-		PyDict_SetItemString(pysys_dict, "stdout", new_stdprint);
-		PyDict_SetItemString(pysys_dict, "__stdout__", new_stdprint);
-		PyDict_SetItemString(pysys_dict, "stderr", new_stdprint);
-		PyDict_SetItemString(pysys_dict, "__stderr__", new_stdprint);
+		PyDict_SetItemString(pysys_dict, "stdout", new_stdout);
+		PyDict_SetItemString(pysys_dict, "__stdout__", new_stdout);
+		PyDict_SetItemString(pysys_dict, "stderr", new_stderr);
+		PyDict_SetItemString(pysys_dict, "__stderr__", new_stderr);
 	}
 #endif
 	pypath = PyDict_GetItemString(pysys_dict, "path");
