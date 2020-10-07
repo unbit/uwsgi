@@ -1822,7 +1822,7 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
         }
 
 	// HACK: we are safe as rlen can only be lower or equal to len
-	Py_SIZE(ret) = rlen;
+	Py_SET_SIZE((PyVarObject *) ret, rlen);
 
 	return ret;
 }
