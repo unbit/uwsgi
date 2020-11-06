@@ -549,13 +549,23 @@ void uwsgi_log_do_rotate(char *logfile, char *rotatedfile, off_t logsize, int lo
 			uwsgi_error_open(logfile);
 			exit(1);
 		}
-		else {
-			if (dup2(fd, log_fd) < 0) {
-				// this could be lost :(
-				uwsgi_error("uwsgi_log_do_rotate()/dup2()");
-				exit(1);
-			}
+		if (dup2(fd, log_fd) < 0) {
+			// this could be lost :(
+			uwsgi_error("uwsgi_log_do_rotate()/dup2()");
 			close(fd);
+			exit(1);
+		}
+		close(fd);
+
+		if (uwsgi.chmod_logfile_value) {
+			if (fchmod(log_fd, uwsgi.chmod_logfile_value)) {
+				uwsgi_error("fchmod()");
+			}
+		}
+		if (uwsgi.logfile_chown) {
+			if (fchown(log_fd, uwsgi.uid, uwsgi.gid)) {
+				uwsgi_error("fchown()");
+			}
 		}
 	}
 	else {
