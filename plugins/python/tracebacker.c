@@ -69,7 +69,7 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 	char *sock_path = NULL;
 	if (uwsgi.muleid > 0) {
 		str_wid = uwsgi_num2str(uwsgi.muleid);
-		sock_path = uwsgi_concat3(up.tracebacker, "-mule-", str_wid);
+		sock_path = uwsgi_concat2(up.mule_tracebacker, str_wid);
 	}
 	else {
 		str_wid = uwsgi_num2str(uwsgi.mywid);
@@ -103,10 +103,10 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 	PyObject *_current_frames = PyDict_GetItemString(sys_dict, "_current_frames");
 
 	if (uwsgi.muleid > 0) {
-		uwsgi_log("python tracebacker for mule %d available on %s\n", uwsgi.mywid, sock_path);
+		uwsgi_log("python tracebacker for mule %d available on %s\n", uwsgi.muleid, sock_path);
 	}
 	else {
-		uwsgi_log("python tracebacker for worker %d available on %s\n", uwsgi.muleid, sock_path);
+		uwsgi_log("python tracebacker for worker %d available on %s\n", uwsgi.mywid, sock_path);
 	}
 
 	for(;;) {
