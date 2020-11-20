@@ -466,6 +466,13 @@ void uwsgi_python_post_fork() {
 			pthread_create(&ptb_tid, NULL, uwsgi_python_tracebacker_thread, NULL);
 		}
 	}
+	if (uwsgi.muleid > 0) {
+		if (up.tracebacker) {
+			// spawn the tracebacker thread
+			pthread_t ptb_tid;
+			pthread_create(&ptb_tid, NULL, uwsgi_python_tracebacker_thread, NULL);
+		}
+	}
 
 UWSGI_RELEASE_GIL
 
