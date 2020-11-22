@@ -667,7 +667,7 @@ PyObject *uwsgi_pecan_loader(void *arg1) {
 		exit(UWSGI_FAILED_APP_CODE);
 	}
 
-	pecan_app = PyEval_CallObject(pecan_deploy, pecan_arg);
+	pecan_app = PyObject_CallObject(pecan_deploy, pecan_arg);
 	if (!pecan_app) {
 		PyErr_Print();
 		exit(UWSGI_FAILED_APP_CODE);
@@ -742,7 +742,7 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 		}
 	}
 
-	paste_app = PyEval_CallObject(paste_loadapp, paste_arg);
+	paste_app = PyObject_CallObject(paste_loadapp, paste_arg);
 	if (!paste_app) {
 		PyErr_Print();
 		exit(UWSGI_FAILED_APP_CODE);

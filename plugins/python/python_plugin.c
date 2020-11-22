@@ -356,7 +356,7 @@ void uwsgi_python_reset_random_seed() {
                                 PyObject *random_args = PyTuple_New(1);
                                 // pass no args
                                 PyTuple_SetItem(random_args, 0, Py_None);
-                                PyEval_CallObject(random_seed, random_args);
+                                PyObject_CallObject(random_seed, random_args);
                                 if (PyErr_Occurred()) {
                                         PyErr_Print();
                                 }
@@ -1372,7 +1372,7 @@ void uwsgi_python_set_thread_name(int core_id) {
                         PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "currentThread");
 #endif
                         if (threading_current) {
-                                PyObject *current_thread = PyEval_CallObject(threading_current, (PyObject *)NULL);
+                                PyObject *current_thread = PyObject_CallObject(threading_current, (PyObject *)NULL);
                                 if (!current_thread) {
                                         // ignore the error
                                         PyErr_Clear();
@@ -1460,7 +1460,7 @@ PyObject *uwsgi_python_setup_thread(char *name, PyInterpreterState *interpreter)
                         PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "currentThread");
 #endif
                         if (threading_current) {
-                                PyObject *current_thread = PyEval_CallObject(threading_current, (PyObject *)NULL);
+                                PyObject *current_thread = PyObject_CallObject(threading_current, (PyObject *)NULL);
                                 if (!current_thread) {
                                         // ignore the error
                                         PyErr_Clear();
@@ -1905,7 +1905,7 @@ int uwsgi_python_mule(char *opt) {
         PyObject *arglist = Py_BuildValue("()");
         PyObject *callable = up.loaders[LOADER_MOUNT](opt);
         if (callable) {
-            result = PyEval_CallObject(callable, arglist);
+            result = PyObject_CallObject(callable, arglist);
         }
         Py_XDECREF(result);
         Py_XDECREF(arglist);
@@ -2018,7 +2018,7 @@ static ssize_t uwsgi_python_logger(struct uwsgi_logger *ul, char *message, size_
 			py_getLogger_args = PyTuple_New(1);
 			PyTuple_SetItem(py_getLogger_args, 0, UWSGI_PYFROMSTRING(ul->arg));
 		}
-                ul->data = (void *) PyEval_CallObject(py_getLogger, py_getLogger_args);
+                ul->data = (void *) PyObject_CallObject(py_getLogger, py_getLogger_args);
                 if (PyErr_Occurred()) {
                 	PyErr_Clear();
                 }
