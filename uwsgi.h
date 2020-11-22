@@ -2745,6 +2745,7 @@ struct uwsgi_server {
 
 	struct uwsgi_buffer *websockets_ping;
 	struct uwsgi_buffer *websockets_pong;
+	struct uwsgi_buffer *websockets_close;
 	int websockets_ping_freq;
 	int websockets_pong_tolerance;
 	uint64_t websockets_max_size;

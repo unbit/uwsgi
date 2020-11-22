@@ -42,9 +42,9 @@
 #define PYTHREE
 #endif
 
-#if (PY_VERSION_HEX < 0x02060000)
-#ifndef Py_SIZE
-#define Py_SIZE(ob)             (((PyVarObject*)(ob))->ob_size)
+#if (PY_VERSION_HEX < 0x03090000)
+#ifndef Py_SET_SIZE
+#define Py_SET_SIZE(o, size) ((o)->ob_size = (size))
 #endif
 #endif
 
