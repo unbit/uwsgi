@@ -757,24 +757,14 @@ PyObject *uwsgi_eval_loader(void *arg1) {
 
 	PyObject *wsgi_eval_module, *wsgi_eval_callable = NULL;
 
-	struct _node *wsgi_eval_node = NULL;
 	PyObject *wsgi_compiled_node;
 
-	wsgi_eval_node = PyParser_SimpleParseString(code, Py_file_input);
-	if (!wsgi_eval_node) {
-		PyErr_Print();
-		uwsgi_log( "failed to parse <eval> code\n");
-		exit(UWSGI_FAILED_APP_CODE);
-	}
-
-	wsgi_compiled_node = (PyObject *) PyNode_Compile(wsgi_eval_node, "uwsgi_eval_config");
-
+	wsgi_compiled_node = Py_CompileString(code, "uwsgi_eval_config", Py_file_input);
 	if (!wsgi_compiled_node) {
 		PyErr_Print();
 		uwsgi_log( "failed to compile eval code\n");
 		exit(UWSGI_FAILED_APP_CODE);
 	}
-
 
 	wsgi_eval_module = PyImport_ExecCodeModule("uwsgi_eval_config", wsgi_compiled_node);
 	if (!wsgi_eval_module) {
