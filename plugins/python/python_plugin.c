@@ -433,8 +433,7 @@ UWSGI_RELEASE_GIL
 
 PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
-	FILE *pyfile;
-	struct _node *py_file_node = NULL;
+	char *pycontent;
 	PyObject *py_compiled_node, *py_file_module;
 	int is_a_package = 0;
 	struct stat pystat;
@@ -443,7 +442,7 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
 	if (!uwsgi_check_scheme(filename)) {
 
-		pyfile = fopen(filename, "r");
+		FILE *pyfile = fopen(filename, "r");
 		if (!pyfile) {
 			uwsgi_log("failed to open python file %s\n", filename);
 			return NULL;
@@ -467,37 +466,32 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 			}
 		}
 
-		py_file_node = PyParser_SimpleParseFile(pyfile, real_filename, Py_file_input);
-		if (!py_file_node) {
-			PyErr_Print();
-			uwsgi_log("failed to parse file %s\n", real_filename);
-			if (is_a_package)
+		fclose(pyfile);
+		pycontent = uwsgi_simple_file_read(real_filename);
+
+		if (!pycontent) {
+			if (is_a_package) {
 				free(real_filename);
-			fclose(pyfile);
+			}
+			uwsgi_log("no data read from file %s\n", real_filename);
 			return NULL;
 		}
 
-		fclose(pyfile);
 	}
 	else {
 		size_t pycontent_size = 0;
-		char *pycontent = uwsgi_open_and_read(filename, &pycontent_size, 1, NULL);
+		pycontent = uwsgi_open_and_read(filename, &pycontent_size, 1, NULL);
 
-		if (pycontent) {
-			py_file_node = PyParser_SimpleParseString(pycontent, Py_file_input);
-			if (!py_file_node) {
-				PyErr_Print();
-				uwsgi_log("failed to parse url %s\n", real_filename);
-				return NULL;
-			}
+		if (!pycontent) {
+			uwsgi_log("no data read from url %s\n", real_filename);
+			return NULL;
 		}
 	}
 
-	py_compiled_node = (PyObject *) PyNode_Compile(py_file_node, real_filename);
-
+	py_compiled_node = Py_CompileString(pycontent, real_filename, Py_file_input);
 	if (!py_compiled_node) {
 		PyErr_Print();
-		uwsgi_log("failed to compile python file %s\n", real_filename);
+		uwsgi_log("failed to compile %s\n", real_filename);
 		return NULL;
 	}
 
