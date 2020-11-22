@@ -2,6 +2,7 @@
 set -u
 
 
+CI_CONFIG="$1"
 txtund=$(tput sgr 0 1)          # underline
 txtbld=$(tput bold)             # bold
 bldred=${txtbld}$(tput setaf 1) # red
@@ -74,7 +75,7 @@ test_rack() {
     # the code assumes that ruby environment is activated by `rvm use`
     echo -e "${bldyel}================== TESTING $1 $2 =====================${txtrst}"
     echo -e "${bldyel}>>> Installing sinatra gem using gem${txtrst}"
-    gem install sinatra || die
+    sudo gem install sinatra || die
     echo -e "${bldyel}>>> Spawning uWSGI rack app${txtrst}"
     echo -en "${bldred}"
     ./uwsgi --master --plugin 0:$1 --http :8080 --exit-on-reload --touch-reload reload.txt --rack $2 --daemonize uwsgi.log
@@ -88,14 +89,14 @@ while read PV ; do
     for WSGI_FILE in tests/staticfile.py tests/testworkers.py tests/testrpc.py ; do
         test_python $PV $WSGI_FILE
     done
-done < <(cat .travis.yml | grep "plugins/python base" | sed s_".*plugins/python base "_""_g)
+done < <(cat "$CI_CONFIG" | grep "plugins/python base" | sed s_".*plugins/python base "_""_g)
 
 
 while read RV ; do
     for RACK in examples/config2.ru ; do
         test_rack $RV $RACK
     done
-done < <(cat .travis.yml | grep "plugins/rack base" | sed s_".*plugins/rack base "_""_g)
+done < <(cat "$CI_CONFIG" | grep "plugins/rack base" | sed s_".*plugins/rack base "_""_g)
 
 
 echo "${bldgre}>>> $SUCCESS SUCCESSFUL TEST(S)${txtrst}"
