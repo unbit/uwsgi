@@ -33,7 +33,7 @@ PyObject *py_uwsgi_gevent_ctrl_gl(PyObject *self, PyObject *args) {
 	for(;;) {
 		PyObject *gevent_sleep_args = PyTuple_New(1);
                 PyTuple_SetItem(gevent_sleep_args, 0, PyInt_FromLong(60));
-                PyObject *gswitch = PyEval_CallObject(ugevent.greenlet_switch, gevent_sleep_args);
+                PyObject *gswitch = PyObject_CallObject(ugevent.greenlet_switch, gevent_sleep_args);
 		// could be NULL on exception
 		if (!gswitch) {
 			// just for being paranid

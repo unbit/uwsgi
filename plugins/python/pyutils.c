@@ -75,7 +75,7 @@ struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *wsgi_req) {
 	PyObject *args = PyTuple_New(1);
 	Py_INCREF(traceback);
 	PyTuple_SetItem(args, 0, traceback);
-	PyObject *result = PyEval_CallObject(extract_tb, args);
+	PyObject *result = PyObject_CallObject(extract_tb, args);
 	Py_DECREF(args);
 
 	if (!result) goto end;
@@ -276,7 +276,7 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi
 
 	//uwsgi_log("ready to call %p %p\n", callable, args);
 
-	PyObject *pyret = PyEval_CallObject(callable, args);
+	PyObject *pyret = PyObject_CallObject(callable, args);
 
 	//uwsgi_log("called\n");
 

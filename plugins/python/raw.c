@@ -64,7 +64,7 @@ int uwsgi_request_python_raw(struct wsgi_request *wsgi_req) {
 
 	UWSGI_GET_GIL PyObject * args = PyTuple_New(1);
 	PyTuple_SetItem(args, 0, PyInt_FromLong(wsgi_req->fd));
-	wsgi_req->async_result = PyEval_CallObject(up.raw_callable, args);
+	wsgi_req->async_result = PyObject_CallObject(up.raw_callable, args);
 	Py_DECREF(args);
 	if (wsgi_req->async_result) {
 		for (;;) {

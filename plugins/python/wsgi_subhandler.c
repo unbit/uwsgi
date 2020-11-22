@@ -103,7 +103,7 @@ static void uwsgi_python_consume_file_wrapper_read(struct wsgi_request *wsgi_req
         	read_method_args = PyTuple_New(0);
 	}
 	for(;;) {
-        	PyObject *read_method_output = PyEval_CallObject(read_method, read_method_args);
+		PyObject *read_method_output = PyObject_CallObject(read_method, read_method_args);
                 if (PyErr_Occurred()) {
                 	uwsgi_manage_exception(wsgi_req, 0);
 			break;
@@ -364,7 +364,7 @@ clear:
 #ifdef UWSGI_DEBUG
                         uwsgi_log("calling close() for %.*s %p %p\n", wsgi_req->uri_len, wsgi_req->uri, close_method, close_method_args);
 #endif
-                        PyObject *close_method_output = PyEval_CallObject(close_method, close_method_args);
+                        PyObject *close_method_output = PyObject_CallObject(close_method, close_method_args);
                         if (PyErr_Occurred()) {
                                 uwsgi_manage_exception(wsgi_req, 0);
                         }
