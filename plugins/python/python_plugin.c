@@ -1328,7 +1328,9 @@ void uwsgi_python_master_fixup(int step) {
 
 void uwsgi_python_enable_threads() {
 
+#ifdef UWSGI_SHOULD_CALL_PYEVAL_INITTHREADS
 	PyEval_InitThreads();
+#endif
 	if (pthread_key_create(&up.upt_save_key, NULL)) {
 		uwsgi_error("pthread_key_create()");
 		exit(1);
