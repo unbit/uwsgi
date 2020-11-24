@@ -186,7 +186,7 @@ static int on_demand_bind(char *socket_name) {
 	char *is_tcp = strchr(socket_name, ':');
 	int af_family = is_tcp ? AF_INET : AF_UNIX;
 	int fd = socket(af_family, SOCK_STREAM, 0);
-	int is_abstract = (socket_name[0] == '@');
+	int is_abstract = (socket_name[0] == '@') || (socket_name[0] == '\\' && socket_name[1] == '0' && socket_name++);
 	if (fd < 0)
 		return -1;
 
