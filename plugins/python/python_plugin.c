@@ -356,7 +356,7 @@ void uwsgi_python_reset_random_seed() {
                                 PyObject *random_args = PyTuple_New(1);
                                 // pass no args
                                 PyTuple_SetItem(random_args, 0, Py_None);
-                                PyEval_CallObject(random_seed, random_args);
+                                PyObject_CallObject(random_seed, random_args);
                                 if (PyErr_Occurred()) {
                                         PyErr_Print();
                                 }
@@ -473,8 +473,7 @@ UWSGI_RELEASE_GIL
 
 PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
-	FILE *pyfile;
-	struct _node *py_file_node = NULL;
+	char *pycontent;
 	PyObject *py_compiled_node, *py_file_module;
 	int is_a_package = 0;
 	struct stat pystat;
@@ -483,7 +482,7 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
 	if (!uwsgi_check_scheme(filename)) {
 
-		pyfile = fopen(filename, "r");
+		FILE *pyfile = fopen(filename, "r");
 		if (!pyfile) {
 			uwsgi_log("failed to open python file %s\n", filename);
 			return NULL;
@@ -507,37 +506,32 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 			}
 		}
 
-		py_file_node = PyParser_SimpleParseFile(pyfile, real_filename, Py_file_input);
-		if (!py_file_node) {
-			PyErr_Print();
-			uwsgi_log("failed to parse file %s\n", real_filename);
-			if (is_a_package)
+		fclose(pyfile);
+		pycontent = uwsgi_simple_file_read(real_filename);
+
+		if (!pycontent) {
+			if (is_a_package) {
 				free(real_filename);
-			fclose(pyfile);
+			}
+			uwsgi_log("no data read from file %s\n", real_filename);
 			return NULL;
 		}
 
-		fclose(pyfile);
 	}
 	else {
 		size_t pycontent_size = 0;
-		char *pycontent = uwsgi_open_and_read(filename, &pycontent_size, 1, NULL);
+		pycontent = uwsgi_open_and_read(filename, &pycontent_size, 1, NULL);
 
-		if (pycontent) {
-			py_file_node = PyParser_SimpleParseString(pycontent, Py_file_input);
-			if (!py_file_node) {
-				PyErr_Print();
-				uwsgi_log("failed to parse url %s\n", real_filename);
-				return NULL;
-			}
+		if (!pycontent) {
+			uwsgi_log("no data read from url %s\n", real_filename);
+			return NULL;
 		}
 	}
 
-	py_compiled_node = (PyObject *) PyNode_Compile(py_file_node, real_filename);
-
+	py_compiled_node = Py_CompileString(pycontent, real_filename, Py_file_input);
 	if (!py_compiled_node) {
 		PyErr_Print();
-		uwsgi_log("failed to compile python file %s\n", real_filename);
+		uwsgi_log("failed to compile %s\n", real_filename);
 		return NULL;
 	}
 
@@ -1328,7 +1322,9 @@ void uwsgi_python_master_fixup(int step) {
 
 void uwsgi_python_enable_threads() {
 
+#ifdef UWSGI_SHOULD_CALL_PYEVAL_INITTHREADS
 	PyEval_InitThreads();
+#endif
 	if (pthread_key_create(&up.upt_save_key, NULL)) {
 		uwsgi_error("pthread_key_create()");
 		exit(1);
@@ -1372,7 +1368,7 @@ void uwsgi_python_set_thread_name(int core_id) {
                         PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "currentThread");
 #endif
                         if (threading_current) {
-                                PyObject *current_thread = PyEval_CallObject(threading_current, (PyObject *)NULL);
+                                PyObject *current_thread = PyObject_CallObject(threading_current, (PyObject *)NULL);
                                 if (!current_thread) {
                                         // ignore the error
                                         PyErr_Clear();
@@ -1460,7 +1456,7 @@ PyObject *uwsgi_python_setup_thread(char *name, PyInterpreterState *interpreter)
                         PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "currentThread");
 #endif
                         if (threading_current) {
-                                PyObject *current_thread = PyEval_CallObject(threading_current, (PyObject *)NULL);
+                                PyObject *current_thread = PyObject_CallObject(threading_current, (PyObject *)NULL);
                                 if (!current_thread) {
                                         // ignore the error
                                         PyErr_Clear();
@@ -1905,7 +1901,7 @@ int uwsgi_python_mule(char *opt) {
         PyObject *arglist = Py_BuildValue("()");
         PyObject *callable = up.loaders[LOADER_MOUNT](opt);
         if (callable) {
-            result = PyEval_CallObject(callable, arglist);
+            result = PyObject_CallObject(callable, arglist);
         }
         Py_XDECREF(result);
         Py_XDECREF(arglist);
@@ -2018,7 +2014,7 @@ static ssize_t uwsgi_python_logger(struct uwsgi_logger *ul, char *message, size_
 			py_getLogger_args = PyTuple_New(1);
 			PyTuple_SetItem(py_getLogger_args, 0, UWSGI_PYFROMSTRING(ul->arg));
 		}
-                ul->data = (void *) PyEval_CallObject(py_getLogger, py_getLogger_args);
+                ul->data = (void *) PyObject_CallObject(py_getLogger, py_getLogger_args);
                 if (PyErr_Occurred()) {
                 	PyErr_Clear();
                 }
