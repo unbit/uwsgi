@@ -551,10 +551,7 @@ def handle_asgi_request(wsgi_req, app):
         async def _ready():
             await trio.lowlevel.wait_readable(wsgi_req.fd)
 
-        try:
-            send, receive = websocket_handler(wsgi_req, _send, _ready)
-        except:
-            print("WHOOPS")
+        send, receive = websocket_handler(wsgi_req, _send, _ready)
 
     elif scope["type"] == "http":
         send = _send
