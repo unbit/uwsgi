@@ -555,15 +555,8 @@ def handle_asgi_request(wsgi_req, app):
     scope = asgi_scope_http(wsgi_req)
     gc = greenlet.getcurrent()
 
-    channel_tx, channel_rx = trio.open_memory_channel(1)
-
-    async def send_task():
-        async for event in channel_rx:
-            gc.switch(event)
-
     async def _send(event):
         gc.switch(event)
-        # await channel_tx.send(event)
 
     if scope["type"] == "websocket":
 
@@ -573,7 +566,7 @@ def handle_asgi_request(wsgi_req, app):
             nonlocal closed
 
             yield {"type": "websocket.connect"}
-            
+
             msg = None
             while True:
                 try:
@@ -581,7 +574,7 @@ def handle_asgi_request(wsgi_req, app):
                     msg = websocket_recv_nb(wsgi_req)
                 except IOError:
                     closed = True
-                    await channel_tx.send({"type": "websocket.close"})
+                    await _send({"type": "websocket.close"})
                     yield {
                         "type": "websocket.disconnect",
                         "code": 1000,
