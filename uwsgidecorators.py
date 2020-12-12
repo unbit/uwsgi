@@ -303,7 +303,7 @@ class mulemsg(object):
 class signal(object):
     def __init__(self, num, **kwargs):
         self.num = num
-        self.target = kwargs.get("target", "")
+        self.target = kwargs.get("target", b"")
 
     def __call__(self, f):
         uwsgi.register_signal(self.num, self.target, f)
@@ -314,7 +314,7 @@ class timer(object):
     def __init__(self, secs, **kwargs):
         self.num = kwargs.get("signum", get_free_signal())
         self.secs = secs
-        self.target = kwargs.get("target", "")
+        self.target = kwargs.get("target", b"")
 
     def __call__(self, f):
         uwsgi.register_signal(self.num, self.target, f)
@@ -326,7 +326,7 @@ class mstimer(object):
     def __init__(self, msecs, **kwargs):
         self.num = kwargs.get("signum", get_free_signal())
         self.msecs = msecs
-        self.target = kwargs.get("target", "")
+        self.target = kwargs.get("target", b"")
 
     def __call__(self, f):
         uwsgi.register_signal(self.num, self.target, f)
@@ -342,7 +342,7 @@ class cron(object):
         self.day = day
         self.month = month
         self.dayweek = dayweek
-        self.target = kwargs.get("target", "")
+        self.target = kwargs.get("target", b"")
 
     def __call__(self, f):
         uwsgi.register_signal(self.num, self.target, f)
@@ -356,7 +356,7 @@ class rbtimer(object):
     def __init__(self, secs, **kwargs):
         self.num = kwargs.get("signum", get_free_signal())
         self.secs = secs
-        self.target = kwargs.get("target", "")
+        self.target = kwargs.get("target", b"")
 
     def __call__(self, f):
         uwsgi.register_signal(self.num, self.target, f)
@@ -368,7 +368,7 @@ class filemon(object):
     def __init__(self, fsobj, **kwargs):
         self.num = kwargs.get("signum", get_free_signal())
         self.fsobj = fsobj
-        self.target = kwargs.get("target", "")
+        self.target = kwargs.get("target", b"")
 
     def __call__(self, f):
         uwsgi.register_signal(self.num, self.target, f)
