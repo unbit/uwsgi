@@ -71,3 +71,103 @@ def asgi_scope_http(wsgi_req):
             scope["scheme"] = "ws"
 
     return scope
+
+
+def websocket_recv_nb(wsgi_req):
+    """
+    uwsgi.websocket_recv_nb()
+    """
+    ub = lib.uwsgi_websocket_recv_nb(wsgi_req)
+    if ub == ffi.NULL:
+        raise IOError("unable to receive websocket message")
+    ret = ffi.buffer(ub.buf, ub.pos)[:]
+    lib.uwsgi_buffer_destroy(ub)
+    return ret
+
+
+def websocket_handler(wsgi_req, _send, _ready):
+    """
+    Return (send, receive) for ASGI websocket.
+
+    wsgi_req: the request
+    _send: await _send(event)
+    _ready: await next message
+    """
+
+    closed = False
+
+    async def receiver():
+        nonlocal closed
+
+        yield {"type": "websocket.connect"}
+
+        msg = None
+        while True:
+            try:
+                print("rx, closed=", closed)
+                msg = websocket_recv_nb(wsgi_req)
+            except IOError:
+                closed = True
+                await _send({"type": "websocket.close"})
+                yield {
+                    "type": "websocket.disconnect",
+                    "code": 1000,
+                }  # todo lookup code
+                # don't raise, keep receivin' ?
+                continue  # or return?
+            if msg:
+                # check wsgi_req->websocket_opcode for text / binary
+                value = {"type": "websocket.receive"}
+                # *  %x0 denotes a continuation frame
+                # *  %x1 denotes a text frame
+                # *  %x2 denotes a binary frame
+                opcode = wsgi_req.websocket_opcode
+                if opcode == 1:
+                    value["text"] = msg.decode("utf-8")
+                elif opcode == 2:
+                    value["bytes"] = msg
+                else:
+                    print("surprise opcode", opcode)
+                yield value
+            else:
+                print("no msg", wsgi_req.websocket_opcode)
+                await _ready()
+
+    receive = receiver().__anext__
+
+    async def send(event):
+        nonlocal closed
+        print("ws send", event)
+        if closed:
+            print("ignore send on closed ws")
+
+        elif event["type"] == "websocket.accept":
+            if (
+                lib.uwsgi_websocket_handshake(
+                    wsgi_req, ffi.NULL, 0, ffi.NULL, 0, ffi.NULL, 0
+                )
+                < 0
+            ):
+                closed = True
+                await _send({"type": "websocket.close"})
+                raise IOError("unable to send websocket handshake")
+
+        elif event["type"] == "websocket.send":
+            # ok to call during any part of app?
+            if "bytes" in event:
+                msg = event["bytes"]
+                websocket_send = lib.uwsgi_websocket_send_binary
+            else:
+                msg = event["text"].encode("utf-8")
+                websocket_send = lib.uwsgi_websocket_send
+            if websocket_send(wsgi_req, ffi.new("char[]", msg), len(msg)) < 0:
+                closed = True
+                await _send({"type": "websocket.close"})
+                raise IOError("unable to send websocket message")
+
+        elif event["type"] == "websocket.close":
+            print("asked to close in send")
+            closed = True
+            await _send(event)
+
+    return (send, receive)
