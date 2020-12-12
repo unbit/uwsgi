@@ -130,6 +130,9 @@ class WSGIfilewrapper(object):
                 )
 
 
+_uwsgi.WSGIfilewrapper = WSGIfilewrapper
+
+
 class WSGIinput(object):
     """
     class implementing wsgi.input
@@ -176,6 +179,9 @@ class WSGIinput(object):
         if len(chunk) == 0:
             raise StopIteration
         return chunk
+
+
+_uwsgi.WSGIinput = WSGIinput
 
 
 @ffi.def_extern()

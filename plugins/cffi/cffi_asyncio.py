@@ -9,7 +9,7 @@ import inspect
 import greenlet
 
 from cffi_asgi import asgi_scope_http, asgi_start_response, websocket_handler
-from _uwsgi import ffi, lib, _applications
+from _uwsgi import ffi, lib, _applications, WSGIfilewrapper, WSGIinput
 
 uwsgi = lib.uwsgi
 
@@ -297,102 +297,6 @@ def asyncio_loop():
         uwsgi_sock = uwsgi_sock.next
 
     loop.run_forever()
-
-
-class WSGIfilewrapper(object):
-    """
-    class implementing wsgi.file_wrapper
-    """
-
-    def __init__(self, wsgi_req, f, chunksize=0):
-        self.wsgi_req = wsgi_req
-        self.f = f
-        self.chunksize = chunksize
-        if hasattr(f, "close"):
-            self.close = f.close
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if self.chunksize:
-            data = self.f.read(self.chunksize)
-        else:
-            data = self.f.read()
-        if data:
-            return data
-        raise StopIteration()
-
-    next = __next__
-
-    def sendfile(self):
-        if hasattr(self.f, "fileno"):
-            lib.uwsgi_response_sendfile_do_can_close(
-                self.wsgi_req, self.f.fileno(), 0, 0, 0
-            )
-        elif hasattr(self.f, "read"):
-            if self.chunksize == 0:
-                chunk = self.f.read()
-                if len(chunk) > 0:
-                    lib.uwsgi_response_write_body_do(
-                        self.wsgi_req, ffi.new("char[]", chunk), len(chunk)
-                    )
-                return
-            while True:
-                chunk = self.f.read(self.chunksize)
-                if chunk is None or len(chunk) == 0:
-                    break
-                lib.uwsgi_response_write_body_do(
-                    self.wsgi_req, ffi.new("char[]", chunk), len(chunk)
-                )
-
-
-class WSGIinput(object):
-    """
-    class implementing wsgi.input
-    """
-
-    def __init__(self, wsgi_req):
-        self.wsgi_req = wsgi_req
-
-    def read(self, size=0):
-        rlen = ffi.new("ssize_t*")
-        chunk = lib.uwsgi_request_body_read(self.wsgi_req, size, rlen)
-        if chunk != ffi.NULL:
-            return ffi.buffer(chunk, rlen[0])[:]
-        if rlen[0] < 0:
-            raise IOError("error reading wsgi.input")
-        raise IOError("error waiting for wsgi.input")
-
-    def getline(self, hint=0):
-        rlen = ffi.new("ssize_t*")
-        chunk = lib.uwsgi_request_body_readline(self.wsgi_req, hint, rlen)
-        if chunk != ffi.NULL:
-            return ffi.buffer(chunk, rlen[0])[:]
-        if rlen[0] < 0:
-            raise IOError("error reading line from wsgi.input")
-        raise IOError("error waiting for line on wsgi.input")
-
-    def readline(self, hint=0):
-        return self.getline(hint)
-
-    def readlines(self, hint=0):
-        lines = []
-        while True:
-            chunk = self.getline(hint)
-            if len(chunk) == 0:
-                break
-            lines.append(chunk)
-        return lines
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        chunk = self.getline()
-        if len(chunk) == 0:
-            raise StopIteration
-        return chunk
 
 
 def handle_asgi_request(wsgi_req, app):
