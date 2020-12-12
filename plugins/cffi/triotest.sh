@@ -10,6 +10,7 @@ authbind --deep ./uwsgi \
   --listen 64 \
   --plugin=cffi \
   --cffi-init=cffi_setup_trio \
+  --socket-timeout=60 \
   --async=64 \
   --http=[::]:80 \
   --http-websockets \

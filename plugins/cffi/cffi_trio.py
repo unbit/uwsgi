@@ -453,7 +453,9 @@ def handle_asgi_request(wsgi_req, app):
     if scope["type"] == "websocket":
 
         async def _ready():
-            await trio.lowlevel.wait_readable(wsgi_req.fd)
+            # send ping / pong (keepalive) by reading even though it isn't readable
+            with trio.move_on_after(lib.uwsgi.socket_timeout - 5):
+                await trio.lowlevel.wait_readable(wsgi_req.fd)
 
         send, receive = websocket_handler(wsgi_req, _send, _ready)
 
