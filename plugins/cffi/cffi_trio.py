@@ -423,23 +423,6 @@ def asyncio_loop():  # name defined in cffi C header
     trio.run(server, sockets)
 
 
-async def race(*async_fns):
-    if not async_fns:
-        raise ValueError("must pass at least one argument")
-
-    send_channel, receive_channel = trio.open_memory_channel(0)
-
-    async def jockey(async_fn):
-        await send_channel.send(await async_fn())
-
-    async with trio.open_nursery() as nursery:
-        for async_fn in async_fns:
-            nursery.start_soon(jockey, async_fn)
-        winner = await receive_channel.receive()
-        nursery.cancel_scope.cancel()
-        return winner
-
-
 def handle_asgi_request(wsgi_req, app):
     """
     Handle asgi request, with synchronous code, in the per-request greenlet.
