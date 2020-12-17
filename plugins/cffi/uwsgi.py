@@ -579,9 +579,17 @@ def set_logvar(key, val):
     lib.uwsgi_logvar_add(wsgi_req, c_key, len(key), c_val, len(val))
 
 
+SPOOL_OK = -2
+SPOOL_RETRY = -1
+SPOOL_IGNORE = 0
+
+
 def _init():
     """
-    Create uwsgi module, with properties.
+    Create uwsgi module.
+
+    This is a heavy-handed way to control what we export and is not strictly
+    necessary.
     """
     import sys
     import types
