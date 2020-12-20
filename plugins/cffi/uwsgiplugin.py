@@ -5,6 +5,28 @@ import sys
 from distutils import sysconfig
 import subprocess
 
+# Our modified uwsgiconfig.py passes its config to us as a global
+UWSGI_CFLAGS = UWSGICONFIG.cflags[:]
+
+# These flags expose features we don't want to wrap in the Python API.
+# Our generated code will be complied with all the cflags.
+avoid_flags = ["-DUWSGI_PCRE", "-DUWSGI_SSL", "-DUWSGI_ZLIB"]
+UWSGI_CFLAGS = [flag for flag in UWSGI_CFLAGS if flag not in avoid_flags]
+
+command = [
+    "gcc",
+    "./uwsgi.h",
+    "-E",
+    '-D"__attribute__(x)"=',
+] + UWSGI_CFLAGS
+
+# cffi requires a preprocessed uwsgi.h
+with open("plugins/cffi/_uwsgi_preprocessed.h", "w+") as output:
+    subprocess.run(
+        " ".join(command), encoding="utf-8", check=True, shell=True, stdout=output
+    )
+
+# other build steps that don't require cflags
 subprocess.check_call(["make", "PYTHON=%s" % sys.executable], cwd="plugins/cffi")
 
 

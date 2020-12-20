@@ -26,7 +26,7 @@ pymodule = [
 ][0]
 
 cffi_api = set(json.loads(cffi))
-pymodule_api = set(json.loads(pymodule))
+pymodule_api = set(x for x in json.loads(pymodule) if not "Importer" in x)
 
 print("Missing functions:")
 print("\n".join(sorted(pymodule_api - cffi_api)))

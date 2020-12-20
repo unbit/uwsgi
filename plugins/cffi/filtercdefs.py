@@ -30,7 +30,7 @@ def filter_by_file(input):
 
 
 struct = re.compile(r"\s*(?P<kind>\w+)\s+(?P<name>\w+)\s*{")
-declaration = re.compile(r"\s*(?P<kind>(struct )?\w+)\s+(?P<name>\w+)\s*")
+declaration = re.compile(r"\s*(?P<kind>(struct )?\w+)\s+\*?\s*(?P<name>\w+)\s*")
 matchers = {
     None: struct,
     "struct": declaration,
@@ -55,6 +55,8 @@ avoid_types = set(
         "struct rlimit",
         "struct timeval",
         "struct sockaddr_un",
+        "pcre",
+        "pcre_extra",
     )
 )
 

@@ -35,6 +35,13 @@ version_info = tuple(
 ) + (_version["-DUWSGI_VERSION_CUSTOM"],)
 
 
+def _encode_or_null(*args):
+    """
+    Convert strings to utf-8 preserving ffi.NULL
+    """
+    return (arg if arg == ffi.NULL else arg.encode("utf-8") for arg in args)
+
+
 def _current_wsgi_req():
     wsgi_req = lib.uwsgi.current_wsgi_req()
     if wsgi_req == ffi.NULL:
@@ -146,7 +153,38 @@ metric_mul = lambda x, y=1: lib.uwsgi_metric_mul(x, ffi.NULL, y)
 metric_div = lambda x, y=1: lib.uwsgi_metric_div(x, ffi.NULL, y)
 
 
+def metric_set_max(name, value):
+    """
+    only set the metric name if the give value is greater than the one currently stored
+    """
+    (name,) = _encode_or_null(name)
+    if lib.uwsgi_metric_set_max(name, ffi.NULL, value):
+        return None
+    return True
+
+
+def metric_set_min(name, value):
+    """
+    only set the metric name if the give value is lower than the one currently stored
+    """
+    (name,) = _encode_or_null(name)
+    if lib.uwsgi_metric_set_min(name, ffi.NULL, value):
+        return None
+    return True
+
+
+def cache_clear(cache=ffi.NULL):
+    """
+    The cache argument is the so called "magic identifier". Its syntax is cache[@node].
+    """
+    (cache,) = _encode_or_null(cache)
+    if not lib.uwsgi_cache_magic_clear(cache):
+        return True
+    return None
+
+
 def cache_get(key, cache=ffi.NULL):
+    key, cache = _encode_or_null(key, cache)
     vallen = ffi.new("uint64_t*")
     value = lib.uwsgi_cache_magic_get(key, len(key), vallen, ffi.NULL, cache)
     if value == ffi.NULL:
@@ -157,6 +195,7 @@ def cache_get(key, cache=ffi.NULL):
 
 
 def cache_set(key, value, expires=0, cache=ffi.NULL):
+    key, cache = _encode_or_null(key, cache)
     if (
         lib.uwsgi_cache_magic_set(key, len(key), value, len(value), expires, 0, cache)
         < 0
@@ -165,6 +204,7 @@ def cache_set(key, value, expires=0, cache=ffi.NULL):
 
 
 def cache_update(key, value, expires=0, cache=ffi.NULL):
+    key, cache = _encode_or_null(key, cache)
     if (
         lib.uwsgi_cache_magic_set(
             key, len(key), value, len(value), expires, 1 << 1, cache
@@ -175,11 +215,13 @@ def cache_update(key, value, expires=0, cache=ffi.NULL):
 
 
 def cache_del(key, cache=ffi.NULL):
+    key, cache = _encode_or_null(key, cache)
     if lib.uwsgi_cache_magic_del(key, len(key), cache) < 0:
         raise Exception("unable to delete item from the cache")
 
 
 def cache_keys(cache=ffi.NULL):
+    (cache,) = _encode_or_null(cache)
     uc = lib.uwsgi_cache_by_name(cache)
     if uc == ffi.NULL:
         raise Exception("no local uWSGI cache available")
@@ -194,6 +236,13 @@ def cache_keys(cache=ffi.NULL):
         l.append(ffi.buffer(lib.uwsgi_cache_item_key(uci[0]), uci[0].keysize)[:])
     lib.uwsgi_cache_rwunlock(uc)
     return l
+
+
+def cache_exists(key, cache=ffi.NULL):
+    key, cache = _encode_or_null(key, cache)
+    if lib.uwsgi_cache_magic_exists(key, len(key), cache):
+        return True
+    return None
 
 
 def add_timer(signum, secs):
@@ -438,6 +487,19 @@ uwsgi.disconnect()
 disconnect = lambda: lib.uwsgi_disconnect(_current_wsgi_req())
 
 
+def route(router, args):
+    """
+    Route request to another uWSGI instance.
+    Like proxy_pass, but with the uWSGI protocol or whatever the named router supports.
+
+    See https://uwsgi-docs.readthedocs.io/en/latest/articles/OffloadingWebsocketsAndSSE.html#simplifying-things-using-the-uwsgi-api-uwsgi-2-0-3
+    """
+    wsgi_req = _current_wsgi_req()
+    router, args = _encode_or_null(router, args)
+    c_args = lib.uwsgi_concat2(args, b"")  # freed by route_api_func
+    return lib.uwsgi_route_api_func(wsgi_req, router, c_args)
+
+
 def sendfile(filename):
     # TODO support all argument types from uwsgi_pymodule.c
 
@@ -549,6 +611,15 @@ def chunked_read_nb():
     return ffi.buffer(chunk, rlen[0])[:]
 
 
+def set_warning_message(message):
+    message = message.encode("utf-8")
+    if len(message) > 80:
+        lib.uwsgi_log(b"- warning message must be max 80 chars, it will be truncated -")
+        message = message[:80]
+    lib.uwsgi.shared.warning_message[0 : len(message)] = message + b"\0"
+    return True
+
+
 def set_user_harakiri(x):
     """
     uwsgi.set_user_harakiri(sec)
@@ -588,8 +659,7 @@ def _init():
     """
     Create uwsgi module.
 
-    This is a heavy-handed way to control what we export and is not strictly
-    necessary.
+    This is a way to control what we export.
     """
     import sys
     import types
