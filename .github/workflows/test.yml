@@ -19,7 +19,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update -qq
-        sudo apt install --no-install-recommends -qqyf python{2.6,2.7,3.5,3.6,3.7,3.8}-dev \
+        sudo apt install --no-install-recommends -qqyf python{2.7,3.5,3.6,3.7,3.8}-dev \
           python3.8-distutils \
           libpcre3-dev libjansson-dev libcap2-dev \
           curl check
@@ -28,10 +28,6 @@ jobs:
       run: make tests
     - name: Build uWSGI binary
       run: make
-    - name: Build python2.6 plugin
-      run: |
-        /usr/bin/python2.6 -V
-        /usr/bin/python2.6 uwsgiconfig.py --plugin plugins/python base python26
     - name: Build python2.7 plugin
       run: |
         /usr/bin/python2.7 -V
