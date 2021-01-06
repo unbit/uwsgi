@@ -1,4 +1,4 @@
-PYTHON := python
+PYTHON := python3
 
 all:
 	$(PYTHON) uwsgiconfig.py --build $(PROFILE)
