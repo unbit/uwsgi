@@ -1,5 +1,5 @@
 #ifndef __DragonFly__
-#include <uwsgi.h>
+#include "uwsgi.h"
 #endif
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__OpenBSD__)
 #include <sys/user.h>
@@ -15,7 +15,7 @@
 #endif
 
 #ifdef __DragonFly__
-#include <uwsgi.h>
+#include "uwsgi.h"
 #endif
 
 extern struct uwsgi_server uwsgi;

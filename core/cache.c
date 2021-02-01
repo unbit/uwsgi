@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
 #define cache_item(x) (struct uwsgi_cache_item *) (((char *)uc->items) + ((sizeof(struct uwsgi_cache_item)+uc->keysize) * x))
