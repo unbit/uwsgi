@@ -275,8 +275,8 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
         }
 #if OPENSSL_VERSION_NUMBER >= 0x0090800fL
 #ifndef OPENSSL_NO_ECDH
-#ifdef NID_X9_62_prime256v1
-        EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+#ifdef NID_secp384r1
+        EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_secp384r1);
         if (ecdh) {
                 SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE);
                 SSL_CTX_set_tmp_ecdh(ctx, ecdh);
