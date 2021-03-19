@@ -1,8 +1,9 @@
 import os
+import platform
 
 NAME = 'alarm_speech'
 
-uwsgi_os = os.uname()[0]
+uwsgi_os = platform.uname()[0]
 
 LDFLAGS = []
 if uwsgi_os == "Darwin":

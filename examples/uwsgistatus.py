@@ -3,6 +3,7 @@ import uwsgi
 import time
 import sys
 import os
+import platform
 
 
 def application(env, start_response):
@@ -66,4 +67,4 @@ def application(env, start_response):
 
     yield "</ul>"
 
-    yield "<i>%s</i>" % str(os.uname())
+    yield "<i>%s</i>" % str(platform.uname())

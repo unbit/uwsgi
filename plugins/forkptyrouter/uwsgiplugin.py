@@ -1,5 +1,7 @@
 import os
-uwsgi_os = os.uname()[0]
+import platform
+
+uwsgi_os = platform.uname()[0]
 
 NAME = 'forkptyrouter'
 
