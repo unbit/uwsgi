@@ -1,5 +1,6 @@
 import os
 import sys
+import platform
 
 from distutils import sysconfig
 
@@ -54,7 +55,7 @@ if 'UWSGI_PYTHON_NOLIB' not in os.environ:
             libdir = '%s/lib/python%s/config-%s' % (sys.prefix, version, get_python_version())
 
         # get cpu type
-        uname = os.uname()
+        uname = platform.uname()
         if uname[4].startswith('arm'):
             libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LIBRARY'))
             if not os.path.exists(libpath):

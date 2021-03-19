@@ -1,4 +1,5 @@
 import os
+import platform
 
 NAME = 'router_basicauth'
 
@@ -7,7 +8,7 @@ LDFLAGS = []
 LIBS = []
 
 # osx and openbsd do not need libcrypt
-if os.uname()[0] not in ('Darwin', 'OpenBSD'):
+if platform.uname()[0] not in ('Darwin', 'OpenBSD'):
     LIBS.append('-lcrypt')
 
 GCC_LIST = ['router_basicauth']

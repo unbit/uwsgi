@@ -1,17 +1,18 @@
 import os
 import shutil
+import platform
 
 NAME = 'jvm'
 
 JVM_INCPATH = None
 JVM_LIBPATH = None
 
-operating_system = os.uname()[0].lower()
+operating_system = platform.uname()[0].lower()
 
 try:
     arch = os.environ['JVM_ARCH']
 except KeyError:
-    arch = os.uname()[4].lower()
+    arch = platform.uname()[4].lower()
 
 if arch in ('i686', 'x86', 'x86_32'):
     arch = 'i386'

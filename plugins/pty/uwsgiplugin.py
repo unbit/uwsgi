@@ -1,8 +1,9 @@
 import os
+import platform
 
 NAME = 'pty'
 
-uwsgi_os = os.uname()[0]
+uwsgi_os = platform.uname()[0]
 
 CFLAGS = []
 LDFLAGS = []

@@ -1,4 +1,5 @@
 import os
+import platform
 
 NAME = 'mono'
 
@@ -7,7 +8,7 @@ LDFLAGS = []
 LIBS = os.popen('pkg-config --libs mono-2').read().rstrip().split()
 GCC_LIST = ['mono_plugin']
 
-if os.uname()[0] == 'Darwin':
+if platform.uname()[0] == 'Darwin':
     LIBS.append('-framework Foundation')
 
 
