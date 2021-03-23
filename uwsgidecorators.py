@@ -162,6 +162,11 @@ def spoolforever(f=None, pass_arguments=False):
     return spool_decorate(f, pass_arguments, _spoolforever)
 
 
+task = partial(spool, pass_arguments=True)
+forever = partial(spoolforever, pass_arguments=True)
+raw = partial(spoolraw, pass_arguments=True)
+
+
 class mulefunc(object):
 
     def __init__(self, f):
