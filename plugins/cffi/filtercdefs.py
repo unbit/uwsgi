@@ -43,6 +43,7 @@ end = re.compile(".*}.*;")
 # types that for whatever reason we don't want to deal with
 avoid_types = set(
     (
+        "cap_value_t",
         "pthread_key_t",
         "pthread_mutex_t",
         "pthread_attr_t",
@@ -61,7 +62,7 @@ avoid_types = set(
 )
 
 # skip lines containing these strings:
-avoid_names = set(("mode_t", "uwsgi_recv_cred"))
+avoid_names = set(("mode_t", "uwsgi_recv_cred", "cap_value_t"))
 
 # declared in uwsgi.h but not included in the base profile:
 avoid_names.update(
