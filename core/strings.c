@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 char *uwsgi_str_split_nget(char *str, size_t len, char what, size_t pos, size_t *rlen) {
 	size_t i;

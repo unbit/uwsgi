@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <openssl/md5.h>
