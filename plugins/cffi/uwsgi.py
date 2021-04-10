@@ -70,7 +70,10 @@ def register_signal(signum, kind, handler):
     uwsgi_gc.append(cb)
     if (
         lib.uwsgi_register_signal(
-            signum, ffi.new("char[]", kind), cb, lib.cffi_plugin.modifier1
+            signum,
+            ffi.new("char[]", kind.encode("utf-8")),
+            cb,
+            lib.cffi_plugin.modifier1,
         )
         < 0
     ):
@@ -99,7 +102,10 @@ def register_rpc(name, func, argc=0):
     uwsgi_gc.append(cb)
     if (
         lib.uwsgi_register_rpc(
-            ffi.new("char[]", name), ffi.addressof(lib.cffi_plugin), argc, cb
+            ffi.new("char[]", name.encode("utf-8")),
+            ffi.addressof(lib.cffi_plugin),
+            argc,
+            cb,
         )
         < 0
     ):
@@ -117,17 +123,17 @@ def rpc(node, func, *args):
             raise Exception("invalid number of rpc arguments")
         if len(arg) >= 65535:
             raise Exception("invalid rpc argument size (must be < 65535)")
-        argv[argc] = ffi.new("char[]", arg)
+        argv[argc] = ffi.new("char[]", arg.encode("utf-8"))
         argvs[argc] = len(arg)
         argc += 1
 
     if node:
-        c_node = ffi.new("char[]", node)
+        c_node = ffi.new("char[]", node.encode("utf-8"))
     else:
         c_node = ffi.NULL
 
     response = lib.uwsgi_do_rpc(
-        c_node, ffi.new("char[]", func), argc, argv, argvs, rsize
+        c_node, ffi.new("char[]", func.encode("utf-8")), argc, argv, argvs, rsize
     )
     if response:
         ret = ffi.buffer(response, rsize[0])[:]
@@ -256,7 +262,10 @@ def add_rb_timer(signum, secs):
 
 
 def add_file_monitor(signum, filename):
-    if lib.uwsgi_add_file_monitor(signum, ffi.new("char[]", filename)) < 0:
+    if (
+        lib.uwsgi_add_file_monitor(signum, ffi.new("char[]", filename.encode("utf-8")))
+        < 0
+    ):
         raise Exception("unable to register file monitor")
 
 
@@ -321,10 +330,16 @@ def signal_registered(signum):
 
 
 def alarm(alarm, msg):
-    lib.uwsgi_alarm_trigger(ffi.new("char[]", alarm), ffi.new("char[]", msg), len(msg))
+    lib.uwsgi_alarm_trigger(
+        ffi.new("char[]", alarm.encode("utf-8")),
+        ffi.new("char[]", msg.encode("utf-8")),
+        len(msg),
+    )
 
 
-setprocname = lambda name: lib.uwsgi_set_processname(ffi.new("char[]", name))
+setprocname = lambda name: lib.uwsgi_set_processname(
+    ffi.new("char[]", name.encode("utf-8"))
+)
 
 
 def add_cron(signum, minute, hour, day, month, week):
@@ -401,7 +416,7 @@ def async_connect(addr):
     """
     uwsgi.async_connect(addr)
     """
-    fd = lib.uwsgi_connect(ffi.new("char[]", addr), 0, 1)
+    fd = lib.uwsgi_connect(ffi.new("char[]", addr.encode("utf-8")), 0, 1)
     if fd < 0:
         raise Exception("unable to connect to %s" % addr)
     return fd
@@ -571,7 +586,12 @@ def websocket_send(msg):
     uwsgi.websocket_send(msg)
     """
     wsgi_req = lib.uwsgi.current_wsgi_req()
-    if lib.uwsgi_websocket_send(wsgi_req, ffi.new("char[]", msg), len(msg)) < 0:
+    if (
+        lib.uwsgi_websocket_send(
+            wsgi_req, ffi.new("char[]", msg.encode("utf-8")), len(msg)
+        )
+        < 0
+    ):
         raise IOError("unable to send websocket message")
 
 
@@ -580,7 +600,12 @@ def websocket_send_binary(msg):
     uwsgi.websocket_send_binary(msg)
     """
     wsgi_req = lib.uwsgi.current_wsgi_req()
-    if lib.uwsgi_websocket_send_binary(wsgi_req, ffi.new("char[]", msg), len(msg)) < 0:
+    if (
+        lib.uwsgi_websocket_send_binary(
+            wsgi_req, ffi.new("char[]", msg.encode("utf-8")), len(msg)
+        )
+        < 0
+    ):
         raise IOError("unable to send binary websocket message")
 
 
@@ -633,7 +658,7 @@ def get_logvar(key):
     uwsgi.get_logvar(key)
     """
     wsgi_req = _current_wsgi_req()
-    c_key = ffi.new("char[]", key)
+    c_key = ffi.new("char[]", key.encode("utf-8"))
     lv = lib.uwsgi_logvar_get(wsgi_req, c_key, len(key))
     if lv:
         return ffi.string(lv.val[0 : lv.vallen])
@@ -645,8 +670,8 @@ def set_logvar(key, val):
     uwsgi.set_logvar(key, value)
     """
     wsgi_req = _current_wsgi_req()
-    c_key = ffi.new("char[]", key)
-    c_val = ffi.new("char[]", val)
+    c_key = ffi.new("char[]", key.encode("utf-8"))
+    c_val = ffi.new("char[]", val.encode("utf-8"))
     lib.uwsgi_logvar_add(wsgi_req, c_key, len(key), c_val, len(val))
 
 
