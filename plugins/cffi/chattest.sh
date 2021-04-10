@@ -16,7 +16,6 @@ authbind --deep ./uwsgi \
   --manage-script-name \
   --mount=/=starlettetest:app \
   --mount=/wsgi=$PWD/examples/welcome3.py \
-  --mount=/welcome=$PWD/examples/welcome.py \
   --chdir=$VIRTUAL_ENV/bin \
   --touch-reload $PWD/starlettetest.py \
   --touch-reload $PWD/plugins/cffi/cffi_asyncio.py
