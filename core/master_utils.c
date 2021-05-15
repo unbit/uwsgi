@@ -1624,7 +1624,10 @@ void uwsgi_register_cheaper_algo(char *name, int (*func) (int)) {
 
 void trigger_harakiri(int i) {
 	int j;
-	uwsgi_log_verbose("*** HARAKIRI ON WORKER %d (pid: %d, try: %d) ***\n", i, uwsgi.workers[i].pid, uwsgi.workers[i].pending_harakiri + 1);
+	uwsgi_log_verbose("*** HARAKIRI ON WORKER %d (pid: %d, try: %d, graceful: %s) ***\n", i,
+				uwsgi.workers[i].pid,
+				uwsgi.workers[i].pending_harakiri + 1,
+				uwsgi.workers[i].pending_harakiri > 0 ? "no": "yes");
 	if (uwsgi.harakiri_verbose) {
 #ifdef __linux__
 		int proc_file;
@@ -1673,7 +1676,11 @@ void trigger_harakiri(int i) {
 		}
 
 		uwsgi_dump_worker(i, "HARAKIRI");
-		kill(uwsgi.workers[i].pid, SIGKILL);
+		if (uwsgi.workers[i].pending_harakiri == 0 && uwsgi.harakiri_graceful_timeout > 0) {
+			kill(uwsgi.workers[i].pid, uwsgi.harakiri_graceful_signal);
+		} else {
+			kill(uwsgi.workers[i].pid, SIGKILL);
+		}
 		if (!uwsgi.workers[i].pending_harakiri)
 			uwsgi.workers[i].harakiri_count++;
 		uwsgi.workers[i].pending_harakiri++;

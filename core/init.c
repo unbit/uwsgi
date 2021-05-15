@@ -205,6 +205,8 @@ void uwsgi_init_default() {
 	uwsgi.notify_socket_fd = -1;
 
 	uwsgi.mule_msg_recv_size = 65536;
+
+	uwsgi.harakiri_graceful_signal = SIGTERM;
 }
 
 void uwsgi_setup_reload() {
