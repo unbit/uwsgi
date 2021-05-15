@@ -2852,6 +2852,11 @@ struct uwsgi_server {
 	struct uwsgi_buffer *websockets_continuation_buffer;
 
 	uint64_t max_worker_lifetime_delta;
+
+	// uWSGI 2.0.22
+	int harakiri_graceful_timeout;
+	int harakiri_graceful_signal;
+	int harakiri_queue_threshold;
 };
 
 struct uwsgi_rpc {
