@@ -590,6 +590,11 @@ void uwsgi_log_reopen() {
                         grace_them_all(0);
 			return;
                 }
+                if (uwsgi.chmod_logfile_value) {
+                    if (fchmod(uwsgi.original_log_fd, uwsgi.chmod_logfile_value)) {
+                        uwsgi_error("fchmod()");
+                    }
+                }
                 ret = snprintf(message, 1024, "[%d] %s reopened.\n", (int) uwsgi_now(), uwsgi.logfile);
                 if (ret > 0 && ret < 1024) {
                         if (write(uwsgi.original_log_fd, message, ret) != ret) {
