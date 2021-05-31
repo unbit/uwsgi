@@ -238,6 +238,7 @@ void uwsgi_manage_signal_cron(time_t now) {
                         if (run_task == 1) {
                                 // date match, signal it ?
                                 if (now - ucron->last_job >= 60) {
+                                        uwsgi_log_verbose("[uwsgi-cron] routing signal %d\n", ucron->sig);
                                         uwsgi_route_signal(ucron->sig);
                                         ucron->last_job = now;
                                 }
