@@ -1375,7 +1375,7 @@ void kill_them_all(int signum) {
 	// unsubscribe if needed
 	uwsgi_unsubscribe_all();
 
-	uwsgi_log("SIGINT/SIGQUIT received...killing workers...\n");
+	uwsgi_log("SIGINT/SIGTERM received...killing workers...\n");
 
 	int i;
 	for (i = 1; i <= uwsgi.numproc; i++) {
