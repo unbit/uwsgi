@@ -11,4 +11,4 @@ def application(env, start_response):
         if i % 2 == 0:
             stackless.schedule()
 
-    print "DONE AT %d" % i
+    print("DONE AT %d" % i)

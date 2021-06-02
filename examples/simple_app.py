@@ -10,14 +10,14 @@ def ciao():
 
 def ciao2():
     print("nuovo uwsgi_server")
-    print os.getpid()
+    print(os.getpid())
 
 counter = 0
 
 #if uwsgi.load_plugin(0, 'plugins/example/example_plugin.so', 'ciao'):
-#    print "example plugin loaded"
+#    print("example plugin loaded")
 #else:
-#    print "unable to load example plugin"
+#    print("unable to load example plugin")
 
 #uwsgi.event_add(uwsgi.EVENT_FILE, "/tmp", ciao)
 #uwsgi.event_add(uwsgi.EVENT_DNSSD, "_uwsgi._tcp", ciao2)

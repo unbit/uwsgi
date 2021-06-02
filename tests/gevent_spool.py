@@ -4,7 +4,7 @@ import gevent
 
 @spool
 def longtask(*args):
-    print args
+    print(args)
     return uwsgi.SPOOL_OK
 
 

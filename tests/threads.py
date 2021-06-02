@@ -4,6 +4,9 @@ import time
 import sys
 
 
+from six.moves import reload_module
+
+
 def monitor1():
     while 1:
         time.sleep(1)
@@ -21,7 +24,7 @@ def monitor3():
     while 1:
         time.sleep(5)
         print("5 seconds elapsed")
-        # reload(fake)
+        # reload_module(fake)
 
 
 def spawn_my_magic_threads():

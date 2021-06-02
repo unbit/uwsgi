@@ -1,6 +1,8 @@
-import Queue
 from threading import Thread
 import uwsgi
+
+from six.moves import queue
+
 
 CONSUMERS = 4
 
@@ -15,7 +17,7 @@ def consumer(q):
 
 def spawn_consumers():
     global q
-    q = Queue.Queue()
+    q = queue.Queue()
     for i in range(CONSUMERS):
         t = Thread(target=consumer, args=(q,))
         t.daemon = True

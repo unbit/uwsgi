@@ -2,19 +2,19 @@ import uwsgi
 
 
 def hello_signal(num, payload):
-    print "i am the signal %d" % num
+    print("i am the signal %d" % num)
 
 
 def hello_signal2(num, payload):
-    print "i am the signal %d with payload: %s" % (num, payload)
+    print("i am the signal %d with payload: %s" % (num, payload))
 
 
 def hello_file(num, filename):
-    print "file %s has been modified !!!" % filename
+    print("file %s has been modified !!!" % filename)
 
 
 def hello_timer(num, secs):
-    print "%s seconds elapsed" % secs
+    print("%s seconds elapsed" % secs)
 
 # uwsgi.register_signal(30, uwsgi.SIGNAL_KIND_WORKER, hello_signal)
 uwsgi.register_signal(30, "workers", hello_signal)

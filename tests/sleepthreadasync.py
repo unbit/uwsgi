@@ -6,7 +6,7 @@ import time
 def foo():
     while True:
         time.sleep(1)
-        print "ciao, sono un thread"
+        print("ciao, sono un thread")
 
 t = threading.Thread(target=foo)
 t.daemon = True
