@@ -63,11 +63,43 @@ Suite *check_core_opt_parsing(void)
 	return s;
 }
 
+START_TEST(test_uwsgi_cron_task_needs_execution_handles_weekday_7_as_sunday)
+{
+	int result;
+	struct tm *t;
+	time_t now;
+
+	now = time(NULL);
+	t = localtime(&now);
+	t->tm_wday= 0;
+
+	result = uwsgi_cron_task_needs_execution(t, -1, -1, -1, -1, 0);
+	ck_assert(result == 1);
+
+	result = uwsgi_cron_task_needs_execution(t, -1, -1, -1, -1, 7);
+	ck_assert(result == 1);
+
+	result = uwsgi_cron_task_needs_execution(t, -1, -1, -1, -1, 1);
+	ck_assert(result == 0);
+}
+END_TEST
+
+Suite *check_core_cron(void)
+{
+	Suite *s = suite_create("uwsgi cron");
+	TCase *tc = tcase_create("cron");
+
+	suite_add_tcase(s, tc);
+	tcase_add_test(tc, test_uwsgi_cron_task_needs_execution_handles_weekday_7_as_sunday);
+	return s;
+}
+
 int main(void)
 {
 	int nf;
 	SRunner *r = srunner_create(check_core_strings());
 	srunner_add_suite(r, check_core_opt_parsing());
+	srunner_add_suite(r, check_core_cron());
 	srunner_run_all(r, CK_NORMAL);
 	nf = srunner_ntests_failed(r);
 	srunner_free(r);

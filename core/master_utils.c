@@ -1687,7 +1687,8 @@ int uwsgi_cron_task_needs_execution(struct tm *uwsgi_cron_delta, int minute, int
 	uc_hour = hour;
 	uc_day = day;
 	uc_month = month;
-	uc_week = week;
+	// support 7 as alias for sunday (0) to match crontab behaviour
+	uc_week = week == 7 ? 0 : week;
 
 	// negative values as interval -1 = * , -5 = */5
 	if (minute < 0) {
