@@ -1155,6 +1155,7 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 						uwsgi_sock->family = AF_INET;
 						uwsgi_sock->bound = 1;
 						uwsgi_sock->name = uwsgi_concat2(computed_addr, "");
+						uwsgi_sock->name_len = strlen(uwsgi_sock->name);
 						if (uwsgi.zerg) {
 							uwsgi_log("uwsgi zerg socket %d attached to INET address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), computed_addr, uwsgi_sock->fd);
 						}
@@ -1222,6 +1223,7 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 						uwsgi_sock->family = AF_INET6;
 						uwsgi_sock->bound = 1;
 						uwsgi_sock->name = uwsgi_concat2(computed_addr, "");
+						uwsgi_sock->name_len = strlen(uwsgi_sock->name);
 						if (uwsgi.zerg) {
 							uwsgi_log("uwsgi zerg socket %d attached to INET6 address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), computed_addr, uwsgi_sock->fd);
 						}
