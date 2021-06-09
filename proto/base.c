@@ -111,7 +111,20 @@ int uwsgi_proto_base_accept(struct wsgi_request *wsgi_req, int fd) {
 }
 
 void uwsgi_proto_base_close(struct wsgi_request *wsgi_req) {
-	close(wsgi_req->fd);
+	int ret = 0;
+
+	// Make sure we close connection to avoid timeouts
+	ret = shutdown(wsgi_req->fd, SHUT_RDWR);
+	if (ret < 0) {
+		uwsgi_error("Failed to shutdown socket");
+		return;
+	}
+
+	ret = close(wsgi_req->fd);
+	if (ret < 0) {
+		uwsgi_error("Failed to close socket");
+		return;
+	}
 }
 
 #ifdef UWSGI_SSL
