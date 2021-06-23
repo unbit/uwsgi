@@ -188,6 +188,8 @@ void uwsgi_init_default() {
 	uwsgi_master_fifo_prepare();
 
 	uwsgi.notify_socket_fd = -1;
+
+	uwsgi.harakiri_options.delay = 0;
 }
 
 void uwsgi_setup_reload() {

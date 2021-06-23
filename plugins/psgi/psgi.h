@@ -66,6 +66,8 @@ struct uwsgi_perl {
 
 	CV *spooler;
 
+	struct uwsgi_string_list *exec_pre_harakiri;
+
 	int no_plack;
 };
 

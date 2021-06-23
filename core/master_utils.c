@@ -668,6 +668,7 @@ int uwsgi_respawn_worker(int wid) {
 	uwsgi.workers[wid].last_spawn = uwsgi.current_time;
 	// ... and memory/harakiri
 	uwsgi.workers[wid].harakiri = 0;
+	uwsgi.workers[wid].harakiri_delayed_at = 0;
 	uwsgi.workers[wid].user_harakiri = 0;
 	uwsgi.workers[wid].pending_harakiri = 0;
 	uwsgi.workers[wid].rss_size = 0;
@@ -1579,6 +1580,10 @@ void trigger_harakiri(int i) {
 	}
 
 	if (uwsgi.workers[i].pid > 0) {
+		if (uwsgi.workers[i].harakiri_delayed_at) {
+			goto kill_worker;
+		}
+
 		for (j = 0; j < uwsgi.gp_cnt; j++) {
 			if (uwsgi.gp[j]->harakiri) {
 				uwsgi.gp[j]->harakiri(i);
@@ -1589,11 +1594,18 @@ void trigger_harakiri(int i) {
 				uwsgi.p[j]->harakiri(i);
 			}
 		}
+		if (uwsgi.workers[i].harakiri_delayed_at) {
+			uwsgi_log("HARAKIRI: -- delayed\n");
+			return;
+		}
 
+	kill_worker:
 		uwsgi_dump_worker(i, "HARAKIRI");
+		uwsgi.workers[i].harakiri_delayed_at = 0;
 		kill(uwsgi.workers[i].pid, SIGKILL);
-		if (!uwsgi.workers[i].pending_harakiri)
+		if (!uwsgi.workers[i].pending_harakiri) {
 			uwsgi.workers[i].harakiri_count++;
+		}
 		uwsgi.workers[i].pending_harakiri++;
 	}
 

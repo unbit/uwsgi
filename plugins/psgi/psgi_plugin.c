@@ -42,6 +42,9 @@ struct uwsgi_option uwsgi_perl_options[] = {
         {"plshell-oneshot", no_argument, 0, "run a perl interactive shell (one shot)", uwsgi_opt_plshell, NULL, 0},
 
         {"perl-no-plack", no_argument, 0, "force the use of do instead of Plack::Util::load_psgi", uwsgi_opt_true, &uperl.no_plack, 0},
+
+        {"psgi-exec-pre-harakiri", optional_argument, 0, "run a perl interactive shell", uwsgi_opt_add_string_list, &uperl.exec_pre_harakiri, 0},
+
         {0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -994,7 +997,59 @@ static int uwsgi_perl_spooler(char *filename, char *buf, uint16_t len, char *bod
 	return ret;
 }
 
+void uwsgi_psgi_harakiri (int worker_index) {
+	uwsgi_log("[uwsgi_psgi_harakiri] triggered\n");
 
+	if (!uperl.exec_pre_harakiri) {
+		return;
+	}
+
+	char env_pid[40];
+	char env_request_uri[512];
+	char *envs[] = {&env_pid[0], &env_request_uri[0], 0};
+
+	snprintf(env_pid, 40, "UWSGI_HARAKIRI_WORKER_PID=%d", uwsgi.workers[worker_index].pid);
+
+	int i;
+	for(i = 0; i < uwsgi.cores; i++) {
+		struct uwsgi_core *uc = &uwsgi.workers[worker_index].cores[i];
+		struct wsgi_request *wsgi_req = &uc->req;
+		if (uc->in_request) {
+			snprintf(env_request_uri, 512, "UWSGI_HARAKIRI_REQUEST_URI=%s", wsgi_req->uri);
+		}
+	}
+
+	size_t str_len = 0;
+	const int max_args_num = 64;
+	char *argv[max_args_num];
+	for (i = 0; i < max_args_num; i++) {
+		str_len = 0;
+		argv[i] = uwsgi_string_get_list(&uperl.exec_pre_harakiri, i, &str_len);
+		if (!str_len) {
+			break;
+		}
+	}
+
+	uwsgi_log("[uwsgi_psgi_harakiri] executing %s %s\n", env_pid, argv[0]);
+
+	int pid = 0;
+	if ((pid = fork()) == -1) {
+		uwsgi_log("[uwsgi_psgi_harakiri] failed to fork\n");
+		return;
+	} else if (pid > 0) {
+		uwsgi.workers[worker_index].harakiri_delayed_at = uwsgi_now();
+		uwsgi_log("[uwsgi_psgi_harakiri] pre-harakiri exec pid = %d\n", pid);
+		return;
+	}
+
+	int code = execvpe(argv[0], argv, envs);
+	uwsgi_log(
+		"[uwsgi_psgi_harakiri] execvpe failed %s pid=%d code=%d errno=%d error=%s\n",
+		argv[0], getpid(), code, errno, strerror(errno)
+	);
+
+	_exit(0); // avoid triggering atexit handlers
+}
 
 struct uwsgi_plugin psgi_plugin = {
 
@@ -1014,6 +1069,8 @@ struct uwsgi_plugin psgi_plugin = {
 	.mule = uwsgi_perl_mule,
 
 	.hijack_worker = uwsgi_perl_hijack,
+
+	.harakiri = uwsgi_psgi_harakiri,
 
 	.post_fork = uwsgi_perl_post_fork,
 	.request = uwsgi_perl_request,

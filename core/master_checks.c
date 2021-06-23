@@ -186,9 +186,13 @@ int uwsgi_master_check_workers_deadline() {
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		/* first check for harakiri */
 		if (uwsgi.workers[i].harakiri > 0) {
-			if (uwsgi.workers[i].harakiri < (time_t) uwsgi.current_time) {
+			if (uwsgi.workers[i].harakiri < (time_t) uwsgi.current_time &&
+				uwsgi.workers[i].harakiri_delayed_at + uwsgi.harakiri_options.delay < (time_t) uwsgi.current_time
+			) {
 				trigger_harakiri(i);
-				ret = 1;
+				if (!uwsgi.workers[i].harakiri_delayed_at) {
+					ret = 1;
+				}
 			}
 		}
 		/* then user-defined harakiri */
