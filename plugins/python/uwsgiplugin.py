@@ -32,6 +32,10 @@ if not 'UWSGI_PYTHON_NOLIB' in os.environ:
         # try 3.x style config dir
         if not os.path.exists(libdir):
             libdir = '%s/lib/python%s/config-%s' % (sys.prefix, version, get_python_version())
+        # try >=3.6 style config dir with arch as suffix
+        if not os.path.exists(libdir):
+            multiarch = sysconfig.get_config_var('MULTIARCH')
+            libdir = '%s/lib/python%s/config-%s-%s' % (sys.prefix, version, get_python_version(), multiarch) 
 
         # get cpu type
         uname = os.uname()
