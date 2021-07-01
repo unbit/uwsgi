@@ -22,7 +22,7 @@ PyMethodDef uwsgi_eventfd_write_method[] = { {"uwsgi_eventfd_write", py_eventfd_
 void set_dyn_pyhome(char *home, uint16_t pyhome_len) {
 
 
-	char venv_version[15];
+	char venv_version[30];
 	PyObject *site_module;
 
 	PyObject *pysys_dict = get_uwsgi_pydict("sys");
@@ -45,8 +45,8 @@ void set_dyn_pyhome(char *home, uint16_t pyhome_len) {
                 PyDict_SetItemString(pysys_dict, "prefix", venv_path);
                 PyDict_SetItemString(pysys_dict, "exec_prefix", venv_path);
 
-                venv_version[14] = 0;
-                if (snprintf(venv_version, 15, "/lib/python%d.%d", PY_MAJOR_VERSION, PY_MINOR_VERSION) == -1) {
+                bzero(venv_version, 30);
+                if (snprintf(venv_version, 30, "/lib/python%d.%d", PY_MAJOR_VERSION, PY_MINOR_VERSION) == -1) {
                         return;
                 }
 
