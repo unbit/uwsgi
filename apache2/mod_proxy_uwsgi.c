@@ -48,7 +48,6 @@ https://uwsgi-docs.readthedocs.io/en/latest/Apache.html#mod-proxy-uwsgi
 
 
 #define UWSGI_SCHEME "uwsgi"
-#define UWSGI_DEFAULT_PORT 3031
 
 module AP_MODULE_DECLARE_DATA proxy_uwsgi_module;
 
@@ -57,7 +56,7 @@ static int uwsgi_canon(request_rec *r, char *url)
 {
     char *host, sport[sizeof(":65535")];
     const char *err, *path;
-    apr_port_t port = UWSGI_DEFAULT_PORT;
+    apr_port_t port = 0;
 
     if (strncasecmp(url, UWSGI_SCHEME "://", sizeof(UWSGI_SCHEME) + 2)) {
         return DECLINED;
@@ -71,7 +70,7 @@ static int uwsgi_canon(request_rec *r, char *url)
         return HTTP_BAD_REQUEST;
     }
 
-    if (port != UWSGI_DEFAULT_PORT)
+    if (port != 0)
         apr_snprintf(sport, sizeof(sport), ":%u", port);
     else
         sport[0] = '\0';
