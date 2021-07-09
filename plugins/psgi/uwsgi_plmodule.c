@@ -659,8 +659,13 @@ XS(XS_add_rb_timer) {
 
         uint8_t uwsgi_signal = SvIV(ST(0));
         int seconds = SvIV(ST(1));
+        int iterations = 0;
 
-        if (uwsgi_signal_add_rb_timer(uwsgi_signal, seconds, 0)) {
+        if (items > 2) {
+                iterations = SvIV(ST(2));
+        }
+
+        if (uwsgi_signal_add_rb_timer(uwsgi_signal, seconds, iterations)) {
                 croak("unable to register rb timer");
                 XSRETURN_UNDEF;
         }
