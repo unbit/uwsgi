@@ -10,12 +10,12 @@ import sys
 
 def application(env, sr):
 
-    ws_scheme = 'ws'
-    if 'HTTPS' in env or env['wsgi.url_scheme'] == 'https':
-        ws_scheme = 'wss'
+    ws_scheme = "ws"
+    if "HTTPS" in env or env["wsgi.url_scheme"] == "https":
+        ws_scheme = "wss"
 
-    if env['PATH_INFO'] == '/':
-        sr('200 OK', [('Content-Type', 'text/html')])
+    if env["PATH_INFO"] == "/":
+        sr("200 OK", [("Content-Type", "text/html")])
         output = """
     <html>
       <head>
@@ -47,24 +47,31 @@ def application(env, sr):
      </head>
     <body>
         <h1>WebSocket</h1>
+        <form onsubmit="event.preventDefault(); return false;">
         <input type="text" id="testo"/>
-        <input type="button" value="invia" onClick="invia();"/>
+        <input type="submit" value="invia" onclick="invia();" />
+        </form>
         <div id="blackboard" style="width:640px;height:480px;background-color:black;color:white;border: solid 2px red;overflow:auto">
         </div>
     </body>
     </html>
-        """ % (ws_scheme, env['HTTP_HOST'])
+        """ % (
+            ws_scheme,
+            env["HTTP_HOST"],
+        )
         if sys.version_info[0] > 2:
-            return output.encode('latin1')
-        return output
-    elif env['PATH_INFO'] == '/favicon.ico':
-        return ""
-    elif env['PATH_INFO'] == '/foobar/':
-        uwsgi.websocket_handshake(env['HTTP_SEC_WEBSOCKET_KEY'], env.get('HTTP_ORIGIN', ''))
+            return [output.encode("latin1")]
+        return [output]
+    elif env["PATH_INFO"] == "/favicon.ico":
+        return [""]
+    elif env["PATH_INFO"] == "/foobar/":
+        uwsgi.websocket_handshake(
+            env["HTTP_SEC_WEBSOCKET_KEY"], env.get("HTTP_ORIGIN", "")
+        )
         print("websockets...")
-        r = redis.StrictRedis(host='localhost', port=6379, db=0)
+        r = redis.StrictRedis(host="localhost", port=6379, db=0)
         channel = r.pubsub()
-        channel.subscribe('foobar')
+        channel.subscribe("foobar")
 
         websocket_fd = uwsgi.connection_fd()
         redis_fd = channel.connection._sock.fileno()
@@ -78,18 +85,23 @@ def application(env, sr):
                 if fd == websocket_fd:
                     msg = uwsgi.websocket_recv_nb()
                     if msg:
-                        r.publish('foobar', msg)
+                        r.publish("foobar", msg.decode("utf-8"))
                 elif fd == redis_fd:
                     msg = channel.parse_response()
                     print(msg)
                     # only interested in user messages
-                    t = 'message'
+                    t = "message"
                     if sys.version_info[0] > 2:
-                        t = b'message'
+                        t = b"message"
                     if msg[0] == t:
-                        uwsgi.websocket_send("[%s] %s" % (time.time(), msg))
+                        uwsgi.websocket_send(
+                            (
+                                "[%s] %s"
+                                % (time.time(), [m.decode("utf-8") for m in msg])
+                            ).encode("utf-8")
+                        )
             else:
                 # on timeout call websocket_recv_nb again to manage ping/pong
                 msg = uwsgi.websocket_recv_nb()
                 if msg:
-                    r.publish('foobar', msg)
+                    r.publish("foobar", msg.decode("utf-8"))

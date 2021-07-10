@@ -460,7 +460,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                         continue
 
                 path = path.rstrip('/')
-                path, up = get_plugin_up(path)
+                path, up = get_plugin_up(path, uc)
 
                 p_cflags = cflags[:]
                 p_cflags += up['CFLAGS']
@@ -1400,8 +1400,8 @@ except NameError:
         exec(code, up)
 
 
-def get_plugin_up(path):
-    up = {}
+def get_plugin_up(path, uc):
+    up = {'UWSGICONFIG':uc}
     if os.path.isfile(path):
         bname = os.path.basename(path)
         # override path
@@ -1440,7 +1440,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
         git_dir = get_remote_plugin(path)
         path = os.path.abspath(git_dir)
 
-    path, up = get_plugin_up(path)
+    path, up = get_plugin_up(path, uc)
 
     p_cflags = cflags[:]
     p_cflags += up['CFLAGS']
