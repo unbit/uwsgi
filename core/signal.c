@@ -24,13 +24,6 @@ int uwsgi_signal_handler(struct wsgi_request *wsgi_req, uint8_t sig) {
 			return -1;
 		}
 	}
-	// in lazy mode (without a master), only the same worker will be able to run handlers
-	else if (uwsgi.lazy) {
-		if (use->wid != uwsgi.mywid) {
-			uwsgi_log("[uwsgi-signal] you have registered this signal in worker %d memory area, only that process will be able to run it\n", use->wid);
-			return -1;
-		}
-	}
 	else {
 		// when master is not active, worker1 is the COW-leader
 		if (use->wid != 1 && use->wid != uwsgi.mywid) {
