@@ -1,0 +1,5 @@
+include proto/* apache2/* attach.py buildconf/* core/* lib/* proto/* valgrind/* vassals/*
+recursive-include plugins *
+include INSTALL install.sh LICENSE Makefile
+include setup.cpyext.py setup.py setup.pyuwsgi.py
+include uwsgiconfig.py uwsgidecorators.py uwsgi.h uwsgi_main.c

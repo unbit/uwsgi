@@ -125,6 +125,7 @@ setup(
     url='https://uwsgi-docs.readthedocs.io/en/latest/',
     py_modules=['uwsgidecorators'],
     distclass=uWSGIDistribution,
+    include_package_data=True,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
