@@ -2457,6 +2457,9 @@ struct uwsgi_server {
 	int backtrace_depth;
 
 	int harakiri_verbose;
+	int harakiri_graceful_timeout;
+	int harakiri_graceful_signal;
+	int harakiri_queue_threshold;
 	int harakiri_no_arh;
 
 	int magic_table_first_round;
