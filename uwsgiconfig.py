@@ -1,6 +1,6 @@
 # uWSGI build system
 
-uwsgi_version = '2.0.19.1'
+uwsgi_version = '2.0.20'
 
 import os
 import re
@@ -20,7 +20,10 @@ try:
 except:
     from Queue import Queue
 
-from distutils import sysconfig
+try:
+    import sysconfig
+except ImportError:
+    from distutils import sysconfig
 
 try:
     import ConfigParser
