@@ -1,4 +1,6 @@
 #include <uwsgi.h>
+/* See https://docs.python.org/3.10/whatsnew/3.10.html#id2 */
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
 #include <frameobject.h>
