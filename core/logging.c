@@ -1414,43 +1414,52 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 	}
 }
 
-static void uwsgi_log_func_do(struct uwsgi_string_list *encoders, struct uwsgi_logger *ul, char *msg, size_t len) {
+static void uwsgi_log_func_do(struct uwsgi_string_list *encoders, struct uwsgi_logger *ul, char *msg, size_t len)
+{
 	struct uwsgi_string_list *usl = encoders;
 	// note: msg must not be freed !!!
 	char *new_msg = msg;
 	size_t new_msg_len = len;
-	while(usl) {
-		struct uwsgi_log_encoder *ule = (struct uwsgi_log_encoder *) usl->custom_ptr;
-		if (ule->use_for) {
-			if (ul && ul->id) {
-				if (strcmp(ule->use_for, ul->id)) {
+	while (usl)
+	{
+		struct uwsgi_log_encoder *ule = (struct uwsgi_log_encoder *)usl->custom_ptr;
+		if (ule->use_for)
+		{
+			if (ul && ul->id)
+			{
+				if (strcmp(ule->use_for, ul->id))
+				{
 					goto next;
 				}
 			}
-			else {
+			else
+			{
 				goto next;
 			}
 		}
 		size_t rlen = 0;
 		char *buf = ule->func(ule, new_msg, new_msg_len, &rlen);
-		if (new_msg != msg) {
-                	free(new_msg);
-        	}
+		if (new_msg != msg)
+		{
+			free(new_msg);
+		}
 		new_msg = buf;
 		new_msg_len = rlen;
-next:
+	next:
 		usl = usl->next;
 	}
-	if (ul) {
+	if (ul)
+	{
 		ul->func(ul, new_msg, new_msg_len);
 	}
-	else {
-		new_msg_len = (size_t) write(uwsgi.original_log_fd, new_msg, new_msg_len);
+	else
+	{
+		new_msg_len = (size_t)write(uwsgi.original_log_fd, new_msg, new_msg_len);
 	}
-	if (new_msg != msg) {
+	if (new_msg != msg)
+	{
 		free(new_msg);
 	}
-
 }
 
 int uwsgi_master_log(void) {
