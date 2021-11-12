@@ -571,40 +571,48 @@ void uwsgi_log_rotate() {
 	uwsgi_log_do_rotate(uwsgi.logfile, uwsgi.log_backupname, uwsgi.shared->logsize, uwsgi.original_log_fd);
 }
 
-void uwsgi_log_reopen() {
+void uwsgi_log_reopen()
+{
 	char message[1024];
-	if (!uwsgi.logfile) return;
-	int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering log-reopen...\n", (int) uwsgi_now(), (unsigned long long) uwsgi.shared->logsize);
-        if (ret > 0 && ret < 1024) {
-                        if (write(uwsgi.original_log_fd, message, ret) != ret) {
-                                // very probably this will never be printed
-                                uwsgi_error("write()");
-                        }
-                }
+	if (!uwsgi.logfile)
+		return;
+	int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering log-reopen...\n", (int)uwsgi_now(), (unsigned long long)uwsgi.shared->logsize);
+	if (ret > 0 && ret < 1024)
+	{
+		if (write(uwsgi.original_log_fd, message, ret) != ret)
+		{
+			// very probably this will never be printed
+			uwsgi_error("write()");
+		}
+	}
 
-                // reopen logfile;
-                close(uwsgi.original_log_fd);
-                uwsgi.original_log_fd = open(uwsgi.logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
-                if (uwsgi.original_log_fd < 0) {
-                        uwsgi_error_open(uwsgi.logfile);
-                        grace_them_all(0);
-			return;
-                }
-                if (uwsgi.chmod_logfile_value) {
-                    if (fchmod(uwsgi.original_log_fd, uwsgi.chmod_logfile_value)) {
-                        uwsgi_error("fchmod()");
-                    }
-                }
-                ret = snprintf(message, 1024, "[%d] %s reopened.\n", (int) uwsgi_now(), uwsgi.logfile);
-                if (ret > 0 && ret < 1024) {
-                        if (write(uwsgi.original_log_fd, message, ret) != ret) {
-                                // very probably this will never be printed
-                                uwsgi_error("write()");
-                        }
-                }
-                uwsgi.shared->logsize = lseek(uwsgi.original_log_fd, 0, SEEK_CUR);
+	// reopen logfile;
+	close(uwsgi.original_log_fd);
+	uwsgi.original_log_fd = open(uwsgi.logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
+	if (uwsgi.original_log_fd < 0)
+	{
+		uwsgi_error_open(uwsgi.logfile);
+		grace_them_all(0);
+		return;
+	}
+	if (uwsgi.chmod_logfile_value)
+	{
+		if (fchmod(uwsgi.original_log_fd, uwsgi.chmod_logfile_value))
+		{
+			uwsgi_error("fchmod()");
+		}
+	}
+	ret = snprintf(message, 1024, "[%d] %s reopened.\n", (int)uwsgi_now(), uwsgi.logfile);
+	if (ret > 0 && ret < 1024)
+	{
+		if (write(uwsgi.original_log_fd, message, ret) != ret)
+		{
+			// very probably this will never be printed
+			uwsgi_error("write()");
+		}
+	}
+	uwsgi.shared->logsize = lseek(uwsgi.original_log_fd, 0, SEEK_CUR);
 }
-
 
 void log_request(struct wsgi_request *wsgi_req) {
 
