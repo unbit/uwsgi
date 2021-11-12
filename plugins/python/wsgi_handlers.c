@@ -491,7 +491,7 @@ PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
 
 	// wsgi.file_wrapper called a second time? Forget the old reference.
 	if (wsgi_req->async_sendfile) {
-		Py_DECREF(wsgi_req->async_sendfile);
+		Py_DECREF((PyObject *) wsgi_req->async_sendfile);
 	}
 
 	// XXX: Not 100% sure why twice.
