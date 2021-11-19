@@ -3407,6 +3407,7 @@ int event_queue_init(void);
 void *event_queue_alloc(int);
 int event_queue_add_fd_read(int, int);
 int event_queue_add_fd_write(int, int);
+int event_queue_idle_fd(int, int);
 int event_queue_del_fd(int, int, int);
 int event_queue_wait(int, int, int *);
 int event_queue_wait_multi(int, int, void *, int);
@@ -3420,6 +3421,7 @@ int event_queue_fd_read_to_readwrite(int, int);
 int event_queue_fd_write_to_readwrite(int, int);
 int event_queue_interesting_fd_is_read(void *, int);
 int event_queue_interesting_fd_is_write(void *, int);
+int event_queue_interesting_fd_is_closed(void *, int);
 
 int event_queue_add_timer(int, int *, int);
 int event_queue_add_timer_hr(int, int *, int, long);
