@@ -1498,6 +1498,7 @@ struct wsgi_request {
 
 	int async_id;
 	int async_status;
+	int async_closed;
 
 	int switches;
 	size_t write_pos;
@@ -2366,6 +2367,7 @@ struct uwsgi_server {
 	// async commodity
 	struct wsgi_request **async_waiting_fd_table;
 	struct wsgi_request **async_proto_fd_table;
+	struct wsgi_request **async_idle_fd_table;
 	struct uwsgi_async_request *async_runqueue;
 	struct uwsgi_async_request *async_runqueue_last;
 
