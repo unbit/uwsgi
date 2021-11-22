@@ -118,7 +118,7 @@ def thread_compiler(num):
             print_lock.acquire()
             print_compilation_output("[thread %d][%s] %s" % (num, GCC, objfile), "[thread %d] %s" % (num, cmdline))
             print_lock.release()
-            ret = os.system(cmdline)
+            ret = subprocess.call(cmdline, shell=True)
             if ret != 0:
                 os._exit(1)
         elif cmdline:
