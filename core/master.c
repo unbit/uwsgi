@@ -1115,6 +1115,7 @@ next:
 		}
 
 		// respawn the worker (if needed)
+		uwsgi_log("RESPAWN WORKER %d\n", thewid);
 		if (uwsgi_respawn_worker(thewid))
 			return 0;
 

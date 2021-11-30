@@ -683,6 +683,7 @@ class uConf(object):
         self.cflags = [
             '-O2',
             '-I.',
+            '-I/root/.pyenv/versions/2.7.17-debug/include/python2.7',
             '-Wall',
             '-Werror',
             '-D_LARGEFILE_SOURCE',
@@ -1555,6 +1556,9 @@ def build_plugin(path, uc, cflags, ldflags, libs, name=None):
     if uwsgi_os.startswith('CYGWIN'):
         need_pic = ' -L. -luwsgi'
 
+    print("path = ", path)
+    print("cflags = ", cflags)
+    print("p_cflags = ", p_cflags)
     gccline = "%s%s %s -o %s.so %s %s %s %s" % (
         GCC,
         need_pic,

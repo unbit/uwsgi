@@ -434,6 +434,7 @@ void uwsgi_python_post_fork() {
 
 	// reset python signal flags so child processes can trap signals
 	if (up.call_osafterfork) {
+		uwsgi_log("CALL_OSAFTERFORK %d\n", uwsgi.mywid);
 #ifdef HAS_NOT_PyOS_AfterFork_Child
 		PyOS_AfterFork();
 #else
@@ -1297,14 +1298,41 @@ next:
 
 }
 
-void uwsgi_python_master_fixup(int step) {
 
+void uwsgi_python_pre_uwsgi_fork() {
+	// Replicate what os.fork() by acquiring import lock as well as acquiring gil before forking
+	uwsgi_log("UWSGI_PYTHON_PRE_UWSGI_FORK\n");
+	UWSGI_GET_GIL
+	_PyImport_AcquireLock();
+}
+
+
+void uwsgi_python_post_uwsgi_fork(int step) {
+	if (!uwsgi.master_process) return;
+
+	if (uwsgi.has_threads) {
+		uwsgi_log("UWSGI_PYTHON_POST_UWSGI_FORK %d\n", step);
+		if (step == 0) {
+			// release locks in master process
+			_PyImport_ReleaseLock();
+			UWSGI_RELEASE_GIL
+		}
+		else {
+			// ensure thread state and locks is cleaned in child process
+			PyOS_AfterFork();
+		}
+	}
+}
+
+void uwsgi_python_master_fixup(int step) {
 	static int master_fixed = 0;
 	static int worker_fixed = 0;
+	int newpid = getpid();
 
 	if (!uwsgi.master_process) return;
 
 	if (uwsgi.has_threads) {
+		uwsgi_log("UWSGI_PYTHON_MASTER_FIXUP step=%d pid=%d ts.main=%p ts.current=%p\n", step, newpid, up.main_thread, PyThreadState_GET());
 		if (step == 0) {
 			if (!master_fixed) {
 				UWSGI_RELEASE_GIL;
@@ -1313,7 +1341,9 @@ void uwsgi_python_master_fixup(int step) {
 		}	
 		else {
 			if (!worker_fixed) {
-				UWSGI_GET_GIL;
+				// Acquiring the gil at this point causes a deadlock as the
+				// lock refers to threads not from the just forked child process
+				/* UWSGI_GET_GIL; */
 				worker_fixed = 1;
 			}
 		}
@@ -2081,6 +2111,10 @@ struct uwsgi_plugin python_plugin = {
 	.alias = "python",
 	.modifier1 = 0,
 	.init = uwsgi_python_init,
+
+	.pre_uwsgi_fork = uwsgi_python_pre_uwsgi_fork,
+	.post_uwsgi_fork = uwsgi_python_post_uwsgi_fork,
+
 	.post_fork = uwsgi_python_post_fork,
 	.options = uwsgi_python_options,
 	.request = uwsgi_request_wsgi,

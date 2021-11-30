@@ -1039,6 +1039,8 @@ struct uwsgi_plugin {
 	void *data;
 	void (*on_load) (void);
 	int (*init) (void);
+	void (*pre_uwsgi_fork) (void);
+	void (*post_uwsgi_fork) (int);
 	void (*post_init) (void);
 	void (*post_fork) (void);
 	struct uwsgi_option *options;

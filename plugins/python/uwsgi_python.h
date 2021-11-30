@@ -1,5 +1,6 @@
 #include <uwsgi.h>
 #include <Python.h>
+#include <pythread.h>
 
 #include <frameobject.h>
 
@@ -356,3 +357,5 @@ struct wsgi_request *py_current_wsgi_req_from_context(PyObject *);
 #ifdef __linux__
 int uwsgi_init_symbol_import(void);
 #endif
+
+#define	PyOsFork		posix_fork

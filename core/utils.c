@@ -3198,6 +3198,8 @@ pid_t uwsgi_fork(char *name) {
 
 	pid_t pid = fork();
 	if (pid == 0) {
+		// must be run before running apps
+		// NOTE: attempt to run post_fork() here
 
 #ifndef __CYGWIN__
 		if (uwsgi.never_swap) {
