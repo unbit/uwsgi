@@ -195,6 +195,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 #endif
 
 	{"py-call-osafterfork", no_argument, 0, "enable child processes running cpython to trap OS signals", uwsgi_opt_true, &up.call_osafterfork, 0},
+	{"py-call-uwsgi-fork-hooks", no_argument, 0, "call pre and post hooks when uswgi forks to update the internal interpreter state of CPython", uwsgi_opt_true, &up.call_uwsgi_fork_hooks, 0},
 
 	{"early-python", no_argument, 0, "load the python VM as soon as possible (useful for the fork server)", uwsgi_early_python, NULL, UWSGI_OPT_IMMEDIATE},
 	{"early-pyimport", required_argument, 0, "import a python module in the early phase", uwsgi_early_python_import, NULL, UWSGI_OPT_IMMEDIATE},
@@ -428,12 +429,20 @@ realstuff:
 
 void uwsgi_python_post_fork() {
 
+	// Need to acquire the gil when no master process is used as first worker
+	// will not have been forked like others
+	// Necessary if uwsgi fork hooks called to update interpreter state
+	if (up.call_uwsgi_fork_hooks && !uwsgi.master_process && uwsgi.mywid == 1) {
+		UWSGI_GET_GIL
+	}
+
 	if (uwsgi.i_am_a_spooler) {
 		UWSGI_GET_GIL
 	}	
 
 	// reset python signal flags so child processes can trap signals
-	if (up.call_osafterfork) {
+	// Necessary if uwsgi fork hooks not called to update interpreter state
+	if (!up.call_uwsgi_fork_hooks && up.call_osafterfork) {
 #ifdef HAS_NOT_PyOS_AfterFork_Child
 		PyOS_AfterFork();
 #else
@@ -1129,6 +1138,13 @@ void uwsgi_python_preinit_apps() {
 	up.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
 	up.loaders[LOADER_STRING_CALLABLE] = uwsgi_string_callable_loader;
 
+	// GIL was released in previous initialization steps but init_pyargv expects
+	// the GIL to be acquired
+	// Necessary if uwsgi fork hooks called to update interpreter state
+	if (up.call_uwsgi_fork_hooks) {
+		UWSGI_GET_GIL
+	}
+
 	init_pyargv();
 
         init_uwsgi_embedded_module();
@@ -1174,12 +1190,19 @@ ready:
 		upli = upli->next;
 	}
 
+	// Release the GIL before moving on forward with initialization
+	// Necessary if uwsgi fork hooks called to update interpreter state
+	if (up.call_uwsgi_fork_hooks) {
+		UWSGI_RELEASE_GIL
+	}
+
 }
 
 void uwsgi_python_init_apps() {
 
 	// lazy ?
-	if (uwsgi.mywid > 0) {
+	// Also necessary if uwsgi fork hooks called to update interpreter state
+	if (uwsgi.mywid > 0 || up.call_uwsgi_fork_hooks) {
 		UWSGI_GET_GIL;
 	}
 
@@ -1291,7 +1314,8 @@ next:
 		}
 	}
 	// lazy ?
-	if (uwsgi.mywid > 0) {
+	// Also necessary if uwsgi fork hooks called to update interpreter state
+	if (uwsgi.mywid > 0 || up.call_uwsgi_fork_hooks) {
 		UWSGI_RELEASE_GIL;
 	}
 
@@ -1303,6 +1327,10 @@ void uwsgi_python_master_fixup(int step) {
 	static int worker_fixed = 0;
 
 	if (!uwsgi.master_process) return;
+
+	// Skip master fixup if uwsgi fork hooks called to update interpreter state
+	if (up.call_uwsgi_fork_hooks)
+		return;
 
 	if (uwsgi.has_threads) {
 		if (step == 0) {
@@ -1316,6 +1344,40 @@ void uwsgi_python_master_fixup(int step) {
 				UWSGI_GET_GIL;
 				worker_fixed = 1;
 			}
+		}
+	}
+}
+
+void uwsgi_python_pre_uwsgi_fork() {
+	if (!up.call_uwsgi_fork_hooks)
+		return;
+
+	if (uwsgi.has_threads) {
+		// Acquire the gil and import lock before forking in order to avoid
+		// deadlocks in workers
+		UWSGI_GET_GIL
+		_PyImport_AcquireLock();
+	}
+}
+
+
+void uwsgi_python_post_uwsgi_fork(int step) {
+	if (!up.call_uwsgi_fork_hooks)
+		return;
+
+	if (uwsgi.has_threads) {
+		if (step == 0) {
+			// Release locks within master process
+			_PyImport_ReleaseLock();
+			UWSGI_RELEASE_GIL
+		}
+		else {
+			// Ensure thread state and locks are cleaned up in child process
+#ifdef HAS_NOT_PyOS_AfterFork_Child
+			PyOS_AfterFork();
+#else
+			PyOS_AfterFork_Child();
+#endif
 		}
 	}
 }
@@ -1349,7 +1411,11 @@ void uwsgi_python_enable_threads() {
 		up.reset_ts = threaded_reset_ts;
 	}
 
-	
+	// Release the newly created gil from call to PyEval_InitThreads above
+	// Necessary if uwsgi fork hooks called to update interpreter state
+	if (up.call_uwsgi_fork_hooks) {
+		UWSGI_RELEASE_GIL
+	}
 
 	uwsgi_log("python threads support enabled\n");
 	
@@ -2044,7 +2110,8 @@ static int uwsgi_python_worker() {
 		return 0;
 	UWSGI_GET_GIL;
 	// ensure signals can be used again from python
-	if (!up.call_osafterfork)
+	// Necessary if fork hooks have been not used to update interpreter state
+	if (!up.call_osafterfork && !up.call_uwsgi_fork_hooks)
 #ifdef HAS_NOT_PyOS_AfterFork_Child
 		PyOS_AfterFork();
 #else
@@ -2130,4 +2197,6 @@ struct uwsgi_plugin python_plugin = {
 
 	.worker = uwsgi_python_worker,
 
+	.pre_uwsgi_fork = uwsgi_python_pre_uwsgi_fork,
+	.post_uwsgi_fork = uwsgi_python_post_uwsgi_fork,
 };

@@ -1095,6 +1095,9 @@ struct uwsgi_plugin {
 	int (*worker)(void);
 
 	void (*early_post_jail) (void);
+
+	void (*pre_uwsgi_fork) (void);
+	void (*post_uwsgi_fork) (int);
 };
 
 #ifdef UWSGI_PCRE
