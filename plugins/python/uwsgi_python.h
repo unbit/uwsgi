@@ -2,6 +2,7 @@
 /* See https://docs.python.org/3.10/whatsnew/3.10.html#id2 */
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <pythread.h>
 
 #include <frameobject.h>
 
@@ -218,6 +219,8 @@ struct uwsgi_python {
 	char *worker_override;
 
 	char *executable;
+
+	int call_uwsgi_fork_hooks;
 };
 
 
