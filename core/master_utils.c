@@ -747,9 +747,22 @@ int uwsgi_respawn_worker(int wid) {
 		pthread_mutex_lock(&uwsgi.threaded_logger_lock);
 	}
 
+
+	for (i = 0; i < 256; i++) {
+		if (uwsgi.p[i]->pre_uwsgi_fork) {
+			uwsgi.p[i]->pre_uwsgi_fork();
+		}
+	}
+
 	pid_t pid = uwsgi_fork(uwsgi.workers[wid].name);
 
 	if (pid == 0) {
+		for (i = 0; i < 256; i++) {
+			if (uwsgi.p[i]->post_uwsgi_fork) {
+				uwsgi.p[i]->post_uwsgi_fork(1);
+			}
+		}
+
 		signal(SIGWINCH, worker_wakeup);
 		signal(SIGTSTP, worker_wakeup);
 		uwsgi.mywid = wid;
@@ -812,6 +825,12 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi_error("fork()");
 	}
 	else {
+		for (i = 0; i < 256; i++) {
+			if (uwsgi.p[i]->post_uwsgi_fork) {
+				uwsgi.p[i]->post_uwsgi_fork(0);
+			}
+		}
+
 		// the pid is set only in the master, as the worker should never use it
 		uwsgi.workers[wid].pid = pid;
 

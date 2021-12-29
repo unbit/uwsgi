@@ -1,5 +1,6 @@
 #include <uwsgi.h>
 #include <Python.h>
+#include <pythread.h>
 
 #include <frameobject.h>
 
@@ -238,6 +239,8 @@ struct uwsgi_python {
 	int master_check_signals;
 	
 	char *executable;
+
+	int call_uwsgi_fork_hooks;
 };
 
 
