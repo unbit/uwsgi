@@ -256,7 +256,7 @@ def push_command(objfile, cmdline):
         compile_queue.put((objfile, cmdline))
 
 
-def compile(cflags, last_cflags_ts, objfile, srcfile):
+def uwsgi_compile(cflags, last_cflags_ts, objfile, srcfile):
     source_stat = os.stat(srcfile)
     header_stat = os.stat('uwsgi.h')
     try:
@@ -423,13 +423,13 @@ def build_uwsgi(uc, print_only=False, gcll=None):
             if objfile.endswith('.c') or objfile.endswith('.cc') or objfile.endswith('.m') or objfile.endswith('.go'):
                 if objfile.endswith('.go'):
                     cflags.append('-Wno-error')
-                compile(' '.join(cflags), last_cflags_ts, objfile + '.o', file)
+                uwsgi_compile(' '.join(cflags), last_cflags_ts, objfile + '.o', file)
                 if objfile.endswith('.go'):
                     cflags.pop()
             else:
                 if objfile == 'core/dot_h':
                     cflags.append('-g')
-                compile(' '.join(cflags), last_cflags_ts, objfile + '.o', file + '.c')
+                uwsgi_compile(' '.join(cflags), last_cflags_ts, objfile + '.o', file + '.c')
                 if objfile == 'core/dot_h':
                     cflags.pop()
 
@@ -502,13 +502,13 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                     elif cfile.endswith('.o'):
                         gcc_list.append('%s/%s' % (path, cfile))
                     elif not cfile.endswith('.c') and not cfile.endswith('.cc') and not cfile.endswith('.go') and not cfile.endswith('.m'):
-                        compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
+                        uwsgi_compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
                                 path + '/' + cfile + '.o', path + '/' + cfile + '.c')
                         gcc_list.append('%s/%s' % (path, cfile))
                     else:
                         if cfile.endswith('.go'):
                             p_cflags.append('-Wno-error')
-                        compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
+                        uwsgi_compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
                                 path + '/' + cfile + '.o', path + '/' + cfile)
                         gcc_list.append('%s/%s' % (path, cfile))
                 for bfile in up.get('BINARY_LIST', []):
@@ -1396,7 +1396,7 @@ try:
 except NameError:
     def execfile(path, up):
         with open(path) as py:
-            code = __builtins__.compile(py.read(), path, 'exec')
+            code = compile(py.read(), path, 'exec')
         exec(code, up)
 
 
