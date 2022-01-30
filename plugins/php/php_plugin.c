@@ -1044,14 +1044,19 @@ secure3:
 
 	SG(request_info).path_translated = wsgi_req->file;
 
-        memset(&file_handle, 0, sizeof(zend_file_handle));
-        file_handle.type = ZEND_HANDLE_FILENAME;
-        file_handle.filename = real_filename;
+#if PHP_VERSION_ID >= 80100
+	zend_string *handle_filename = zend_string_init(real_filename, real_filename_len, 0);
+#else
+	const char *handle_filename = real_filename;
+#endif
+	memset(&file_handle, 0, sizeof(zend_file_handle));
+	file_handle.type = ZEND_HANDLE_FILENAME;
+	file_handle.filename = handle_filename;
 
-        if (php_request_startup() == FAILURE) {
+	if (php_request_startup() == FAILURE) {
 		uwsgi_500(wsgi_req);
-                return -1;
-        }
+		return -1;
+	}
 
 	struct uwsgi_string_list *usl=NULL;
 
