@@ -69,6 +69,20 @@ test_python() {
 }
 
 
+test_python_deadlocks() {
+    date > reload.txt
+    rm -f uwsgi.log
+    echo -e "${bldyel}================== TESTING DEADLOCKS $1 $2 =====================${txtrst}"
+    echo -e "${bldyel}>>> Starting python app${txtrst}"
+    echo -en "${bldred}"
+    # initialize with tests/deadlocks/sitecustomize.py
+    PYTHONPATH=tests/deadlocks ./uwsgi --plugin 0:$1 --http :8080 --exit-on-reload --touch-reload reload.txt --wsgi-file tests/deadlocks/main.py --ini $2 --daemonize uwsgi.log
+    echo -en "${txtrst}"
+    http_test "http://localhost:8080/"
+    echo -e "${bldyel}===================== DONE $1 $2 =====================${txtrst}\n\n"
+}
+
+
 test_rack() {
     date > reload.txt
     rm -f uwsgi.log
@@ -90,8 +104,11 @@ while read PV ; do
         test_python $PV $WSGI_FILE
     done
 done < <(cat "$CI_CONFIG" | grep "plugins/python base" | sed s_".*plugins/python base "_""_g)
-
-
+while read PV ; do
+    for INI_FILE in tests/deadlocks/*.ini ; do
+        test_python_deadlocks $PV $INI_FILE
+    done
+done < <(cat "$CI_CONFIG" | grep "plugins/python base" | sed s_".*plugins/python base "_""_g)
 while read RV ; do
     for RACK in examples/config2.ru ; do
         test_rack $RV $RACK
