@@ -84,6 +84,7 @@ test_python_deadlocks() {
     echo -en "${bldred}"
     # initialize with tests/deadlocks/sitecustomize.py
     PYTHONPATH=tests/deadlocks ./uwsgi --plugin 0:$1 --http :8080 --exit-on-reload --touch-reload reload.txt --wsgi-file tests/deadlocks/main.py --ini $2 --daemonize uwsgi.log
+    sleep 1
     echo -en "${txtrst}"
     http_test "http://localhost:8080/"
     echo -e "${bldyel}===================== DONE $1 $2 =====================${txtrst}\n\n"
