@@ -2,9 +2,9 @@ The uWSGI project
 
 For official documentation check: https://uwsgi-docs.readthedocs.io/en/latest/
 
-For commercial support check: http://unbit.com/
+Note: The project is in maintenance mode (only bugfixes and updates for new languages apis)
 
-uWSGI development is sponsored by:
+uWSGI development has been sponsored by:
 
 http://unbit.com
 https://www.pythonanywhere.com/
