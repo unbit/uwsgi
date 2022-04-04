@@ -63,6 +63,7 @@ test_python() {
     echo -e "${bldyel}>>> Spawning uWSGI python app${txtrst}"
     echo -en "${bldred}"
     ./uwsgi --master --plugin 0:$1 --http :8080 --exit-on-reload --touch-reload reload.txt --wsgi-file $2 --daemonize uwsgi.log
+    sleep 1
     echo -en "${txtrst}"
     http_test "http://localhost:8080/"
     echo -e "${bldyel}===================== DONE $1 $2 =====================${txtrst}\n\n"
