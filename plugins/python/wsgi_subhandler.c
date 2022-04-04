@@ -365,23 +365,24 @@ clear:
 		Py_DECREF((PyObject *) wsgi_req->async_sendfile);
 	}
 
-	if (wsgi_req->async_placeholder) {
-		// CALL close() ALWAYS if we are working with an iterator !!!
-		if (PyObject_HasAttrString((PyObject *)wsgi_req->async_result, "close")) {
-                        PyObject *close_method = PyObject_GetAttrString((PyObject *)wsgi_req->async_result, "close");
-                        PyObject *close_method_args = PyTuple_New(0);
-#ifdef UWSGI_DEBUG
-                        uwsgi_log("calling close() for %.*s %p %p\n", wsgi_req->uri_len, wsgi_req->uri, close_method, close_method_args);
-#endif
-                        PyObject *close_method_output = PyObject_CallObject(close_method, close_method_args);
-                        if (PyErr_Occurred()) {
-                                uwsgi_manage_exception(wsgi_req, 0);
-                        }
-                        Py_DECREF(close_method_args);
-                        Py_XDECREF(close_method_output);
-                        Py_DECREF(close_method);
-                }
+	if (wsgi_req->async_placeholder != NULL) {
 		Py_DECREF((PyObject *)wsgi_req->async_placeholder);
+	}
+
+	// Call close() on the response, this is required by the WSGI spec
+	if (PyObject_HasAttrString((PyObject *)wsgi_req->async_result, "close")) {
+		PyObject *close_method = PyObject_GetAttrString((PyObject *)wsgi_req->async_result, "close");
+		PyObject *close_method_args = PyTuple_New(0);
+#ifdef UWSGI_DEBUG
+		uwsgi_log("calling close() for %.*s %p %p\n", wsgi_req->uri_len, wsgi_req->uri, close_method, close_method_args);
+#endif
+		PyObject *close_method_output = PyObject_CallObject(close_method, close_method_args);
+		if (PyErr_Occurred()) {
+				uwsgi_manage_exception(wsgi_req, 0);
+		}
+		Py_DECREF(close_method_args);
+		Py_XDECREF(close_method_output);
+		Py_DECREF(close_method);
 	}
 
 	Py_DECREF((PyObject *)wsgi_req->async_result);
