@@ -20,7 +20,10 @@ try:
 except ImportError:
     from Queue import Queue
 
-from distutils import sysconfig
+try:
+    import sysconfig
+except ImportError:
+    from distutils import sysconfig
 
 try:
     import ConfigParser
