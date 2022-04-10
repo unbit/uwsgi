@@ -19,7 +19,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update -qq
-        sudo apt install --no-install-recommends -qqyf python{2.7,3.5,3.6,3.7,3.8}-dev \
+        sudo apt install --no-install-recommends -qqyf python{2.7,3.6,3.8,3.10}-dev \
           python3.8-distutils \
           libpcre3-dev libjansson-dev libcap2-dev \
           curl check
@@ -32,22 +32,18 @@ jobs:
       run: |
         /usr/bin/python2.7 -V
         /usr/bin/python2.7 uwsgiconfig.py --plugin plugins/python base python27
-    - name: Build python3.5 plugin
-      run: |
-        /usr/bin/python3.5 -V
-        /usr/bin/python3.5 uwsgiconfig.py --plugin plugins/python base python35
     - name: Build python3.6 plugin
       run: |
         /usr/bin/python3.6 -V
         /usr/bin/python3.6 uwsgiconfig.py --plugin plugins/python base python36
-    - name: Build python3.7 plugin
-      run: |
-        /usr/bin/python3.7 -V
-        /usr/bin/python3.7 uwsgiconfig.py --plugin plugins/python base python37
     - name: Build python3.8 plugin
       run: |
         /usr/bin/python3.8 -V
         /usr/bin/python3.8 uwsgiconfig.py --plugin plugins/python base python38
+    - name: Build python3.10 plugin
+      run: |
+        /usr/bin/python3.10 -V
+        /usr/bin/python3.10 uwsgiconfig.py --plugin plugins/python base python310
     - name: Build rack plugin
       run: |
         ruby -v
