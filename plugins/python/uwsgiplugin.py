@@ -6,9 +6,11 @@ try:
     def get_python_include(plat_specific=False):
         key = "include" if not plat_specific else "platinclude"
         return sysconfig.get_paths()[key]
+    print("NEW", sysconfig.get_config_var('VERSION'))
 except ImportError:
     from distutils import sysconfig
     get_python_include = sysconfig.get_python_inc
+    print("OLD", sysconfig.get_config_var('VERSION'))
 
 
 def get_python_version():
