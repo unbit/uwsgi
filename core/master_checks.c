@@ -308,6 +308,11 @@ int uwsgi_master_check_spoolers_death(int diedpid) {
 
 	while (uspool) {
 		if (uspool->pid > 0 && diedpid == uspool->pid) {
+			if (uwsgi.spooler_cheap) {
+				uwsgi_log_verbose("spooler %s ended\n", uspool->dir);
+				uspool->pid = 0;
+				continue;
+			}
 			if (uspool->cursed_at) {
 				uspool->pid = 0;
 				uspool->cursed_at = 0;

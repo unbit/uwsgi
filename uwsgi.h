@@ -1169,6 +1169,8 @@ struct uwsgi_spooler {
 
 	time_t cursed_at;
 	time_t no_mercy_at;
+
+	time_t last_task_managed;
 };
 
 #ifdef UWSGI_ROUTING
@@ -2838,6 +2840,9 @@ struct uwsgi_server {
 	size_t response_header_limit;
 	char *safe_pidfile;
 	char *safe_pidfile2;
+
+	int die_on_no_workers;
+	int spooler_cheap;
 
 	// uWSGI 2.0.17
 	int shutdown_sockets;
@@ -4971,6 +4976,8 @@ int uwsgi_wait_for_fs(char *, int);
 int uwsgi_wait_for_mountpoint(char *);
 int uwsgi_wait_for_socket(char *);
 
+time_t uwsgi_parse_http_date(char *, uint16_t);
+void uwsgi_spooler_cheap_check(void);
 #ifdef __cplusplus
 }
 #endif

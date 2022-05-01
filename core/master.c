@@ -656,6 +656,13 @@ int master_loop(char **argv, char **environ) {
 				return 0;
 		}
 
+		// spooler cheap management
+		if (uwsgi.spooler_cheap) {
+			if ((uwsgi.master_cycles % uwsgi.spooler_frequency) == 0) {
+				uwsgi_spooler_cheap_check();
+			}
+		}
+
 
 		// check if someone is dead
 		diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
