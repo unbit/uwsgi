@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 
 def application(env, start_response):
@@ -16,8 +17,8 @@ def application(env, start_response):
 
     while 1:
         yield "Content-Type: image/jpeg\r\n\r\n"
-        print os.system('screencapture -t jpg -m -T 1 screenshot.jpg')
+        print subprocess.call('screencapture -t jpg -m -T 1 screenshot.jpg', shell=True)
         f = open('screenshot.jpg')
         yield env['wsgi.file_wrapper'](f)
         yield "\r\n--%s\r\n" % boundary
-        # os.system('./isightcapture -w 640 -h 480 screenshot.jpg')
+        # subprocess.call('./isightcapture -w 640 -h 480 screenshot.jpg', shell=True)
