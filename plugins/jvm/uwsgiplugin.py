@@ -1,5 +1,6 @@
 import os
 import shutil
+import subprocess
 
 NAME='jvm'
 
@@ -71,9 +72,9 @@ else:
     os.environ['LD_RUN_PATH'] = JVM_LIBPATH[0][2:]
 
 def post_build(config):
-    if os.system("javac %s/plugins/jvm/uwsgi.java" % os.getcwd()) != 0:
+    if subprocess.call("javac %s/plugins/jvm/uwsgi.java" % os.getcwd(), shell=True) != 0:
         os._exit(1)
-    if os.system("cd %s/plugins/jvm ; jar cvf uwsgi.jar *.class" % os.getcwd()) != 0:
+    if subprocess.call("cd %s/plugins/jvm ; jar cvf uwsgi.jar *.class" % os.getcwd(), shell=True) != 0:
         os._exit(1)
     print("*** uwsgi.jar available in %s/plugins/jvm/uwsgi.jar ***" % os.getcwd())
 

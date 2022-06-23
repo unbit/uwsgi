@@ -116,8 +116,8 @@ def thread_compiler(num):
         if objfile:
             print_lock.acquire()
             print_compilation_output("[thread %d][%s] %s" % (num, GCC, objfile), "[thread %d] %s" % (num, cmdline))
-            print_lock.release()    
-            ret = os.system(cmdline)
+            print_lock.release()
+            ret = subprocess.call(cmdline, shell=True)
             if ret != 0:
                 os._exit(1)
         elif cmdline:
@@ -237,7 +237,7 @@ def push_print(msg):
 def push_command(objfile, cmdline):
     if not compile_queue:
         print_compilation_output("[%s] %s" % (GCC, objfile), cmdline)
-        ret = os.system(cmdline)
+        ret = subprocess.call(cmdline, shell=True)
         if ret != 0:
             sys.exit(1)
     else:
@@ -541,12 +541,12 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                     try:
                         binary_link_cmd = "ld -r -b binary -o %s/%s.o %s/%s" % (path, bfile[1], path, bfile[1])
                         print(binary_link_cmd)
-                        if os.system(binary_link_cmd) != 0:
+                        if subprocess.call(binary_link_cmd, shell=True) != 0:
                             raise Exception('unable to link binary file')
-                        for kind in ('start','end'):
+                        for kind in ('start', 'end'):
                             objcopy_cmd = "objcopy --redefine-sym _binary_%s_%s=%s_%s %s/%s.o" % (binarize('%s/%s' % (path, bfile[1])), kind, bfile[0], kind, path, bfile[1])
                             print(objcopy_cmd)
-                            if os.system(objcopy_cmd) != 0:
+                            if subprocess.call(objcopy_cmd, shell=True) != 0:
                                 raise Exception('unable to link binary file')
                         gcc_list.append('%s/%s.o' % (path, bfile[1]))
                     except:
@@ -603,7 +603,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
     ldline = "%s -o %s %s %s %s" % (GCC, quote(bin_name), ' '.join(uniq_warnings(ldflags)),
         ' '.join(map(add_o, gcc_list)), ' '.join(uniq_warnings(libs)))
     print(ldline)
-    ret = os.system(ldline)
+    ret = subprocess.call(ldline, shell=True)
     if ret != 0:
         print("*** error linking uWSGI ***")
         sys.exit(1)
@@ -1148,7 +1148,7 @@ class uConf(object):
             if self.embed_config:
                 binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(self.embed_config), self.embed_config)
                 print(binary_link_cmd)
-                os.system(binary_link_cmd)
+                subprocess.call(binary_link_cmd, shell=True)
                 self.cflags.append("-DUWSGI_EMBED_CONFIG=_binary_%s_start" % binarize(self.embed_config))
                 self.cflags.append("-DUWSGI_EMBED_CONFIG_END=_binary_%s_end" % binarize(self.embed_config))
             embed_files = os.environ.get('UWSGI_EMBED_FILES')
@@ -1167,25 +1167,23 @@ class uConf(object):
                                 fname = "%s/%s" % (directory, f)
                                 binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(fname), fname)
                                 print(binary_link_cmd)
-                                os.system(binary_link_cmd)
+                                subprocess.call(binary_link_cmd, shell=True)
                                 if symbase:
                                     for kind in ('start','end'):
                                         objcopy_cmd = "objcopy --redefine-sym _binary_%s_%s=_binary_%s%s_%s build/%s.o" % (binarize(fname), kind, binarize(symbase), binarize(fname[len(ef):]), kind, binarize(fname))
                                         print(objcopy_cmd)
-                                        os.system(objcopy_cmd)
+                                        subprocess.call(objcopy_cmd, shell=True)
                                 binary_list.append(binarize(fname))
                     else:
                         binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(ef), ef)
                         print(binary_link_cmd)
-                        os.system(binary_link_cmd)
+                        subprocess.call(binary_link_cmd, shell=True)
                         binary_list.append(binarize(ef))
                         if symbase:
                             for kind in ('start','end'):
                                 objcopy_cmd = "objcopy --redefine-sym _binary_%s_%s=_binary_%s_%s build/%s.o" % (binarize(ef), kind, binarize(symbase), kind, binarize(ef))
                                 print(objcopy_cmd)
-                                os.system(objcopy_cmd)
-                
-                 
+                                subprocess.call(objcopy_cmd, shell=True)
 
         self.cflags.append('-DUWSGI_VERSION="\\"' + uwsgi_version + '\\""')
 
@@ -1467,12 +1465,12 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         try:
             binary_link_cmd = "ld -r -b binary -o %s/%s.o %s/%s" % (path, bfile[1], path, bfile[1])
             print(binary_link_cmd)
-            if os.system(binary_link_cmd) != 0:
+            if subprocess.call(binary_link_cmd, shell=True) != 0:
                 raise Exception('unable to link binary file')
             for kind in ('start','end'):
                 objcopy_cmd = "objcopy --redefine-sym _binary_%s_%s=%s_%s %s/%s.o" % (binarize('%s/%s' % (path, bfile[1])), kind, bfile[0], kind, path, bfile[1])
                 print(objcopy_cmd)
-                if os.system(objcopy_cmd) != 0:
+                if subprocess.call(objcopy_cmd, shell=True) != 0:
                     raise Exception('unable to link binary file')
             gcc_list.append('%s/%s.o' % (path, bfile[1]))
         except:
@@ -1535,7 +1533,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     gccline = "%s%s %s -o %s.so %s %s %s %s" % (GCC, need_pic, shared_flag, plugin_dest, ' '.join(uniq_warnings(p_cflags)), ' '.join(gcc_list), ' '.join(uniq_warnings(p_ldflags)), ' '.join(uniq_warnings(p_libs)) )
     print_compilation_output("[%s] %s.so" % (GCC, plugin_dest), gccline)
 
-    ret = os.system(gccline)
+    ret = subprocess.call(gccline, shell=True)
     if ret != 0:
         print("*** unable to build %s plugin ***" % name)
         sys.exit(1)
@@ -1548,7 +1546,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
             f.close()
             objline = "objcopy %s.so --add-section uwsgi=.uwsgi_plugin_section %s.so" % (plugin_dest, plugin_dest)
             print_compilation_output(None, objline)
-            os.system(objline)
+            subprocess.call(objline, shell=True)
             os.unlink('.uwsgi_plugin_section')
     except:
         pass
@@ -1659,15 +1657,15 @@ if __name__ == "__main__":
             pass
         build_plugin(options.extra_plugin[0], None, cflags, ldflags, None, name)
     elif options.clean:
-        os.system("rm -f core/*.o")
-        os.system("rm -f proto/*.o")
-        os.system("rm -f lib/*.o")
-        os.system("rm -f plugins/*/*.o")
-        os.system("rm -f build/*.o")
-        os.system("rm -f core/dot_h.c")
-        os.system("rm -f core/config_py.c")
+        subprocess.call("rm -f core/*.o", shell=True)
+        subprocess.call("rm -f proto/*.o", shell=True)
+        subprocess.call("rm -f lib/*.o", shell=True)
+        subprocess.call("rm -f plugins/*/*.o", shell=True)
+        subprocess.call("rm -f build/*.o", shell=True)
+        subprocess.call("rm -f core/dot_h.c", shell=True)
+        subprocess.call("rm -f core/config_py.c", shell=True)
     elif options.check:
-        os.system("cppcheck --max-configs=1000 --enable=all -q core/ plugins/ proto/ lib/ apache2/")
+        subprocess.call("cppcheck --max-configs=1000 --enable=all -q core/ plugins/ proto/ lib/ apache2/", shell=True)
     else:
         parser.print_help()
         sys.exit(1)
