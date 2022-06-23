@@ -1383,10 +1383,10 @@ def get_remote_plugin(path):
     if git_dir.endswith('.git'):
         git_dir = git_dir[:-4]
     if not os.path.isdir(git_dir):
-        if subprocess.call('git clone %s' % path, shell=True) != 0:
+        if subprocess.call(['git', 'clone', path]) != 0:
             sys.exit(1)
     else:
-        if subprocess.call('cd %s ; git pull' % git_dir, shell=True) != 0:
+        if subprocess.call(['git', 'pull'], cwd=git_dir) != 0:
             sys.exit(1)
     return git_dir
 
