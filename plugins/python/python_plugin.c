@@ -1423,16 +1423,12 @@ void uwsgi_python_enable_threads() {
 }
 
 void uwsgi_python_set_thread_name(int core_id) {
-	// call threading.currentThread (taken from mod_wsgi, but removes DECREFs as thread in uWSGI are fixed)
+	// call threading.current_thread (taken from mod_wsgi, but removes DECREFs as thread in uWSGI are fixed)
 	PyObject *threading_module = PyImport_ImportModule("threading");
         if (threading_module) {
                 PyObject *threading_module_dict = PyModule_GetDict(threading_module);
                 if (threading_module_dict) {
-#ifdef PYTHREE
                         PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "current_thread");
-#else
-                        PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "currentThread");
-#endif
                         if (threading_current) {
                                 PyObject *current_thread = PyObject_CallObject(threading_current, (PyObject *)NULL);
                                 if (!current_thread) {
@@ -1516,11 +1512,7 @@ PyObject *uwsgi_python_setup_thread(char *name, PyInterpreterState *interpreter)
         if (threading_module) {
                 PyObject *threading_module_dict = PyModule_GetDict(threading_module);
                 if (threading_module_dict) {
-#ifdef PYTHREE
                         PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "current_thread");
-#else
-                        PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "currentThread");
-#endif
                         if (threading_current) {
                                 PyObject *current_thread = PyObject_CallObject(threading_current, (PyObject *)NULL);
                                 if (!current_thread) {
