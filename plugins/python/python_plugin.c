@@ -1161,8 +1161,12 @@ void uwsgi_python_init_apps() {
 
 	// prepare for stack suspend/resume
 	if (uwsgi.async > 1) {
+#ifdef UWSGI_PY311
+		up.current_recursion_remaining = uwsgi_malloc(sizeof(int)*uwsgi.async);
+#else
 		up.current_recursion_depth = uwsgi_malloc(sizeof(int)*uwsgi.async);
-        	up.current_frame = uwsgi_malloc(sizeof(struct _frame)*uwsgi.async);
+#endif
+		up.current_frame = uwsgi_malloc(sizeof(up.current_frame[0])*uwsgi.async);
 	}
 
         // setup app loaders
@@ -1588,12 +1592,22 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 	PyGILState_Release(pgst);
 
 	if (wsgi_req) {
+#ifdef UWSGI_PY311
+		up.current_recursion_remaining[wsgi_req->async_id] = tstate->recursion_remaining;
+		up.current_frame[wsgi_req->async_id] = tstate->cframe;
+#else
 		up.current_recursion_depth[wsgi_req->async_id] = tstate->recursion_depth;
 		up.current_frame[wsgi_req->async_id] = tstate->frame;
+#endif
 	}
 	else {
+#ifdef UWSGI_PY311
+		up.current_main_recursion_remaining = tstate->recursion_remaining;
+		up.current_main_frame = tstate->cframe;
+#else
 		up.current_main_recursion_depth = tstate->recursion_depth;
 		up.current_main_frame = tstate->frame;
+#endif
 	}
 
 }
@@ -1821,12 +1835,22 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 	PyGILState_Release(pgst);
 
 	if (wsgi_req) {
+#ifdef UWSGI_PY311
+		tstate->recursion_remaining = up.current_recursion_remaining[wsgi_req->async_id];
+		tstate->cframe = up.current_frame[wsgi_req->async_id];
+#else
 		tstate->recursion_depth = up.current_recursion_depth[wsgi_req->async_id];
 		tstate->frame = up.current_frame[wsgi_req->async_id];
+#endif
 	}
 	else {
+#ifdef UWSGI_PY311
+		tstate->recursion_remaining = up.current_main_recursion_remaining;
+		tstate->cframe = up.current_main_frame;
+#else
 		tstate->recursion_depth = up.current_main_recursion_depth;
 		tstate->frame = up.current_main_frame;
+#endif
 	}
 
 }
