@@ -880,6 +880,7 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 
 		strncpy(real_filename, uphp.app, PATH_MAX);
 		real_filename[PATH_MAX-1] = '\0';
+		real_filename_len = strlen(real_filename);
 		if (wsgi_req->path_info_len == 1 && wsgi_req->path_info[0] == '/') {
 			goto appready;
 		}
