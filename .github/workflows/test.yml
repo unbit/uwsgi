@@ -19,8 +19,8 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update -qq
-        sudo apt install --no-install-recommends -qqyf python{2.7,3.6,3.7,3.8,3.9,3.10}-dev \
-          python3.8-distutils python3.9-distutils python3.10-distutils \
+        sudo apt install --no-install-recommends -qqyf python{2.7,3.6,3.7,3.8,3.9,3.10,3.11}-dev \
+          python3.8-distutils python3.9-distutils python3.10-distutils python3.11-distutils \
           libpcre3-dev libjansson-dev libcap2-dev \
           curl check
     - uses: actions/checkout@v2
@@ -52,6 +52,10 @@ jobs:
       run: |
         /usr/bin/python3.10 -V
         /usr/bin/python3.10 uwsgiconfig.py --plugin plugins/python base python310
+    - name: Build python3.11 plugin
+      run: |
+        /usr/bin/python3.11 -V
+        /usr/bin/python3.11 uwsgiconfig.py --plugin plugins/python base python311
     - name: Build rack plugin
       run: |
         ruby -v
