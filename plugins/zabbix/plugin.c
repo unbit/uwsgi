@@ -172,6 +172,38 @@ static void zabbix_template_print() {
 		if (uwsgi_buffer_append(ub, um->name, um->name_len)) goto error;
 		if (uwsgi_buffer_append(ub,"</key>\n", 7)) goto error;
 		if (uwsgi_buffer_append(ub,"\t\t\t<value_type>3</value_type>\n", 30)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<snmp_community/>\n", 21)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<snmp_oid/>\n", 15)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<multiplier>0</multiplier>\n", 30)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<delay>60</delay>\n", 21)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<status>0</status>\n", 22)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<units></units>\n", 19)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<delta>2</delta>\n", 20)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<history>90</history>\n", 25)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<trends>365</trends>\n", 24)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<allowed_hosts/>\n", 20)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<snmpv3_contextname/>\n", 25)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<snmpv3_securityname/>\n", 26)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<snmpv3_securitylevel>0</snmpv3_securitylevel>\n", 50)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<snmpv3_authprotocol>0</snmpv3_authprotocol>\n", 48)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<snmpv3_authpassphrase/>\n", 28)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<snmpv3_privprotocol>0</snmpv3_privprotocol>\n", 48)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<snmpv3_privpassphrase/>\n", 28)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<formula>1</formula>\n", 24)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<delay_flex/>\n", 17)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<params/>\n", 13)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<ipmi_sensor/>\n", 18)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<authtype>0</authtype>\n", 26)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<data_type>0</data_type>\n", 28)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<username/>\n", 15)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<password/>\n", 15)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<publickey/>\n", 16)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<privatekey/>\n", 17)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<port/>\n", 11)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<description/>\n", 18)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<applications/>\n", 19)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<inventory_link>0</inventory_link>\n", 38)) goto error;
+		if (uwsgi_buffer_append(ub,"\t\t\t<valuemap/>\n", 15)) goto error;
 		if (uwsgi_buffer_append(ub,"\t\t</item>\n", 10)) goto error;
 		um = um->next;
 	}
@@ -179,7 +211,7 @@ static void zabbix_template_print() {
 	if (uwsgi_buffer_append(ub,"</zabbix_export>\n", 17)) goto error;
 
 	if (write(fd, ub->buf, ub->pos) != (ssize_t) ub->pos) {
-		uwsgi_error("zabbix_template_print()/wrtie()");
+		uwsgi_error("zabbix_template_print()/write()");
 		exit(1);
 	}
 

@@ -1,8 +1,35 @@
 /* async http protocol parser */
 
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
+
+int http_status_code(char *buf, int len) {
+	char *p = buf;
+
+	for (;;) {
+		if (len < 11) return -1;
+		if (*p == '\r' && *(p+1) == '\n') return -1;
+		if (memcmp(p, "Status:", 7)) {
+			char *q;
+			if ((q = memchr(p, '\r', len)) == NULL)
+				return -1;
+			if ((q+1) > (p+len))
+				return -1;
+			if (q[1] != '\n')
+				return -1;
+			len -= (q - p) + 2;
+			p = q + 2;
+		}
+		p += 8;
+		len -= 8;
+		while (isspace(*p) && len)
+			p++, len--;
+		return atoi(p);
+	}
+
+	return -1;
+}
 
 static char * http_header_to_cgi(char *hh, size_t hhlen, size_t *keylen, size_t *vallen, int *has_prefix) {
 	size_t i;
@@ -180,8 +207,8 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	char *ptr = wsgi_req->proto_parser_buf;
 	char *base = ptr;
 	char *query_string = NULL;
-	char ip[INET_ADDRSTRLEN+1];
-	struct sockaddr_in *http_sin = (struct sockaddr_in *) &wsgi_req->c_addr;
+	char ip[INET6_ADDRSTRLEN+1];
+	struct sockaddr *http_sa = (struct sockaddr *) &wsgi_req->client_addr;
 	char *proxy_src = NULL;
 	char *proxy_dst = NULL;
 	char *proxy_src_port = NULL;
@@ -214,7 +241,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 				if (ptr - base > 0xffff) return -1;
 				uint16_t path_info_len = ptr - base;
 				char *path_info = uwsgi_malloc(path_info_len);
-				http_url_decode(base, &path_info_len, path_info);
+				http_url_decode4(base, &path_info_len, path_info, uwsgi.http_path_info_no_decode_slashes);
 				wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
 				free(path_info);
 			}
@@ -232,7 +259,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 					if (ptr - base > 0xffff) return -1;
                                 	uint16_t path_info_len = ptr - base;
 					char *path_info = uwsgi_malloc(path_info_len);
-                                	http_url_decode(base, &path_info_len, path_info);
+					http_url_decode4(base, &path_info_len, path_info, uwsgi.http_path_info_no_decode_slashes);
                                 	wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
 					free(path_info);
                         	}
@@ -284,7 +311,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
                 }
 	}
 	else {
-		char *server_port = strchr(wsgi_req->socket->name, ':');
+		char *server_port = strrchr(wsgi_req->socket->name, ':');
 		if (server_port) {
 			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, server_port+1, strlen(server_port+1));
 		}
@@ -301,14 +328,57 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 		}
 	}
 	else {
-		// TODO add ipv6 support
-		memset(ip, 0, INET_ADDRSTRLEN+1);
-		if (inet_ntop(AF_INET, (void *) &http_sin->sin_addr.s_addr, ip, INET_ADDRSTRLEN)) {
-			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
-		}
-		else {
-			uwsgi_error("inet_ntop()");
-			return -1;
+		// TODO log something useful for AF_UNIX sockets
+		switch(http_sa->sa_family) {
+		case AF_INET6: {
+			memset(ip, 0, sizeof(ip));
+			struct sockaddr_in6* http_sin = (struct sockaddr_in6*)http_sa;
+			/* check if it's an IPv6-mapped-IPv4 address and, if so,
+			 * represent it as an IPv4 address
+			 *
+			 * these IPv6 macros are defined in POSIX.1-2001.
+			 */
+			if (IN6_IS_ADDR_V4MAPPED(&http_sin->sin6_addr)) {
+				/* just grab the last 4 bytes and pretend they're
+				 * IPv4. None of the word/half-word convenience
+				 * functions are in POSIX, so just stick to .s6_addr
+				 */
+				union {
+					unsigned char s6[4];
+					uint32_t s4;
+				} addr_parts;
+				memcpy(addr_parts.s6, &http_sin->sin6_addr.s6_addr[12], 4);
+				uint32_t in4_addr = addr_parts.s4;
+				memset(ip, 0, sizeof(ip));
+				if (inet_ntop(AF_INET, (void*)&in4_addr, ip, INET_ADDRSTRLEN)) {
+					wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+				} else {
+					uwsgi_error("inet_ntop()");
+					return -1;
+				}
+			} else {
+				if (inet_ntop(AF_INET6, (void *) &http_sin->sin6_addr, ip, INET6_ADDRSTRLEN)) {
+					wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+				} else {
+					uwsgi_error("inet_ntop()");
+					return -1;
+				}
+			}
+			}
+			break;
+		case AF_INET:
+		default: {
+			struct sockaddr_in* http_sin = (struct sockaddr_in*)http_sa;
+			memset(ip, 0, sizeof(ip));
+			if (inet_ntop(AF_INET, (void *) &http_sin->sin_addr, ip, INET_ADDRSTRLEN)) {
+				wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+			}
+			else {
+				uwsgi_error("inet_ntop()");
+				return -1;
+			}
+			}
+			break;
 		}
 	}
 
@@ -752,17 +822,17 @@ void uwsgi_proto_http11_close(struct wsgi_request *wsgi_req) {
 }
 
 int uwsgi_proto_http11_accept(struct wsgi_request *wsgi_req, int fd) {
-        if (wsgi_req->socket->retry[wsgi_req->async_id]) {
-                wsgi_req->fd = wsgi_req->socket->fd_threads[wsgi_req->async_id];
+	if (wsgi_req->socket->retry[wsgi_req->async_id]) {
+		wsgi_req->fd = wsgi_req->socket->fd_threads[wsgi_req->async_id];
 		wsgi_req->c_len = sizeof(struct sockaddr_un);
-		int ret = getsockname(wsgi_req->fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
-                if (ret < 0)
+		int ret = getsockname(wsgi_req->fd, (struct sockaddr *) &wsgi_req->client_addr, (socklen_t *) &wsgi_req->c_len);
+		if (ret < 0)
 			goto error;
-                ret = uwsgi_wait_read_req(wsgi_req);
-                if (ret <= 0)
+		ret = uwsgi_wait_read_req(wsgi_req);
+		if (ret <= 0)
 			goto error;
-                return wsgi_req->socket->fd_threads[wsgi_req->async_id];
-        }
+		return wsgi_req->socket->fd_threads[wsgi_req->async_id];
+	}
 	return uwsgi_proto_base_accept(wsgi_req, fd);
 
 error:

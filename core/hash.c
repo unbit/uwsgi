@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
 
@@ -42,8 +42,10 @@ static uint32_t murmur2_hash(char *key, uint64_t keylen) {
 	switch (keylen) {
 		case 3:
         		h ^= key[2] << 16;
+			/* fallthrough */
     		case 2:
         		h ^= key[1] << 8;
+			/* fallthrough */
     		case 1:
         		h ^= key[0];
         		h *= 0x5bd1e995;

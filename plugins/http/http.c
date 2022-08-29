@@ -31,7 +31,8 @@ struct uwsgi_option http_options[] = {
 	{"http-use-base", required_argument, 0, "use the specified base for mapping requests to unix sockets", uwsgi_opt_corerouter_use_base, &uhttp, 0},
 	{"http-events", required_argument, 0, "set the number of concurrent http async events", uwsgi_opt_set_int, &uhttp.cr.nevents, 0},
 	{"http-subscription-server", required_argument, 0, "enable the subscription server", uwsgi_opt_corerouter_ss, &uhttp, 0},
-	{"http-timeout", required_argument, 0, "set internal http socket timeout", uwsgi_opt_set_int, &uhttp.cr.socket_timeout, 0},
+	{"http-subscription-fallback-key", required_argument, 0, "key to use for fallback http handler", uwsgi_opt_corerouter_fallback_key, &uhttp.cr, 0},
+	{"http-timeout", required_argument, 0, "set internal http socket timeout (default: 60 seconds)", uwsgi_opt_set_int, &uhttp.cr.socket_timeout, 0},
 	{"http-manage-expect", optional_argument, 0, "manage the Expect HTTP request header (optionally checking for Content-Length)", uwsgi_opt_set_64bit, &uhttp.manage_expect, 0},
 	{"http-keepalive", optional_argument, 0, "HTTP 1.1 keepalive support (non-pipelined) requests", uwsgi_opt_set_int, &uhttp.keepalive, 0},
 	{"http-auto-chunked", no_argument, 0, "automatically transform output to chunked encoding during HTTP 1.1 keepalive (if needed)", uwsgi_opt_true, &uhttp.auto_chunked, 0},
@@ -70,6 +71,10 @@ struct uwsgi_option http_options[] = {
 	{"http-backend-http", no_argument, 0, "use plain http protocol instead of uwsgi for backend nodes", uwsgi_opt_true, &uhttp.proto_http, 0},
 
 	{"http-manage-rtsp", no_argument, 0, "manage RTSP sessions", uwsgi_opt_true, &uhttp.manage_rtsp, 0},
+
+	{"http-post-buffering", required_argument, 0, "enable HTTP fastrouter post buffering", uwsgi_opt_set_64bit, &uhttp.cr.post_buffering, 0},
+        {"http-post-buffering-dir", required_argument, 0, "put fastrouter buffered files to the specified directory (noop, use TMPDIR env)", uwsgi_opt_set_str, &uhttp.cr.pb_base_dir, 0},
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -443,7 +448,7 @@ static int http_headers_parse_dumb(struct corerouter_peer *peer, int skip) {
 
 	// leave space for X-Forwarded-For and X-Forwarded-Proto: https
 	peer->out = uwsgi_buffer_new(hr->headers_size + 256);
-        // force this buffer to be destroyed as soon as possibile
+        // force this buffer to be destroyed as soon as possible
         peer->out_need_free = 1;
         peer->out->limit = UMAX16;
         peer->out_pos = 0;
@@ -583,7 +588,7 @@ int http_headers_parse(struct corerouter_peer *peer, int skip) {
 	char *query_string = NULL;
 
 	peer->out = uwsgi_buffer_new(uwsgi.page_size);
-	// force this buffer to be destroyed as soon as possibile
+	// force this buffer to be destroyed as soon as possible
 	peer->out_need_free = 1;
 	peer->out->limit = UMAX16;
 	// leave space for the uwsgi header
@@ -1219,8 +1224,9 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 			}
 
 			if (hr->remains > 0) {
-				if (hr->content_length < hr->remains) { 
-					hr->remains = hr->content_length;
+				if (hr->content_length < hr->remains) {
+					if (hr->content_length > 0 || !hr->raw_body)
+						hr->remains = hr->content_length;
 					hr->content_length = 0;
 					// we need to avoid problems with pipelined requests
 					hr->session.can_keepalive = 0;

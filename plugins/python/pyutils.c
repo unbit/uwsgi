@@ -75,7 +75,7 @@ struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *wsgi_req) {
 	PyObject *args = PyTuple_New(1);
 	Py_INCREF(traceback);
 	PyTuple_SetItem(args, 0, traceback);
-	PyObject *result = PyEval_CallObject(extract_tb, args);
+	PyObject *result = PyObject_CallObject(extract_tb, args);
 	Py_DECREF(args);
 
 	if (!result) goto end;
@@ -91,37 +91,52 @@ struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *wsgi_req) {
 		PyObject *tb_text = PyTuple_GetItem(t, 3);
 
 		int64_t line_no = PyInt_AsLong(tb_lineno);
-
 #ifdef PYTHREE
-		PyObject *zero = PyUnicode_AsUTF8String(tb_filename);
-		if (!zero) goto end0;
+		PyObject *zero = NULL;
+		if (tb_filename) {
+			zero = PyUnicode_AsUTF8String(tb_filename);
+			if (!zero) goto end0;
 
-		// filename
-                if (uwsgi_buffer_u16le(ub, PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
-                if (uwsgi_buffer_append(ub, PyString_AsString(zero), PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
+			// filename
+                	if (uwsgi_buffer_u16le(ub, PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
+                	if (uwsgi_buffer_append(ub, PyString_AsString(zero), PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
 
-		Py_DECREF(zero);
+			Py_DECREF(zero);
+		}
+		else {
+                	if (uwsgi_buffer_u16le(ub, 0)) { goto end0; }
+		}
 
                 // lineno
                 if (uwsgi_buffer_append_valnum(ub, line_no)) goto end0;
 
-		zero = PyUnicode_AsUTF8String(tb_function);
-                if (!zero) goto end0;
+		if (tb_function) {
+			zero = PyUnicode_AsUTF8String(tb_function);
+                	if (!zero) goto end0;
 
-                // function
-                if (uwsgi_buffer_u16le(ub, PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
-                if (uwsgi_buffer_append(ub, PyString_AsString(zero), PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
+                	// function
+                	if (uwsgi_buffer_u16le(ub, PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
+                	if (uwsgi_buffer_append(ub, PyString_AsString(zero), PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
+			Py_DECREF(zero);
+		}
+		else {
+                	if (uwsgi_buffer_u16le(ub, 0)) { goto end0; }
+		}
 
-		Py_DECREF(zero);
 
-		zero = PyUnicode_AsUTF8String(tb_text);
-                if (!zero) goto end0;
+		if (tb_text) {
+			zero = PyUnicode_AsUTF8String(tb_text);
+                	if (!zero) goto end0;
 
-                // text
-                if (uwsgi_buffer_u16le(ub, PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
-                if (uwsgi_buffer_append(ub, PyString_AsString(zero), PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
+                	// text
+                	if (uwsgi_buffer_u16le(ub, PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
+                	if (uwsgi_buffer_append(ub, PyString_AsString(zero), PyString_Size(zero))) { Py_DECREF(zero); goto end0; }
 
-		Py_DECREF(zero);
+			Py_DECREF(zero);
+		}
+		else {
+                	if (uwsgi_buffer_u16le(ub, 0)) { goto end0; }
+		}
 		
 #else
 		// filename
@@ -261,7 +276,7 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi
 
 	//uwsgi_log("ready to call %p %p\n", callable, args);
 
-	PyObject *pyret = PyEval_CallObject(callable, args);
+	PyObject *pyret = PyObject_CallObject(callable, args);
 
 	//uwsgi_log("called\n");
 
@@ -380,10 +395,12 @@ void init_pyargv() {
 		uwsgi_log("unable to load python sys module !!!\n");
 		exit(1);
 	}
+	if (!up.executable)
+		up.executable = uwsgi.binary_path;
 #ifdef PYTHREE
-	PyDict_SetItemString(sys_dict, "executable", PyUnicode_FromString(uwsgi.binary_path));
+	PyDict_SetItemString(sys_dict, "executable", PyUnicode_FromString(up.executable));
 #else
-	PyDict_SetItemString(sys_dict, "executable", PyString_FromString(uwsgi.binary_path));
+	PyDict_SetItemString(sys_dict, "executable", PyString_FromString(up.executable));
 #endif
 
 

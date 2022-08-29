@@ -124,7 +124,7 @@ XS(XS_cache_set) {
 	if (items > 2) {
 		expires = SvIV(ST(2));
 		if (items > 3) {
-			cache = SvPV_nolen(ST(1));
+			cache = SvPV_nolen(ST(3));
 		}
 	}
 
@@ -213,7 +213,7 @@ XS(XS_cache_clear) {
         char *cache = NULL;
         psgi_check_args(1);
 
-        cache = SvPV_nolen(ST(1));
+        cache = SvPV_nolen(ST(0));
 
         if (!uwsgi_cache_magic_clear(cache)) {
                 XSRETURN_YES;
@@ -659,8 +659,13 @@ XS(XS_add_rb_timer) {
 
         uint8_t uwsgi_signal = SvIV(ST(0));
         int seconds = SvIV(ST(1));
+        int iterations = 0;
 
-        if (uwsgi_signal_add_rb_timer(uwsgi_signal, seconds, 0)) {
+        if (items > 2) {
+                iterations = SvIV(ST(2));
+        }
+
+        if (uwsgi_signal_add_rb_timer(uwsgi_signal, seconds, iterations)) {
                 croak("unable to register rb timer");
                 XSRETURN_UNDEF;
         }
@@ -885,7 +890,7 @@ XS(XS_chunked_read) {
 		XSRETURN_UNDEF;
         }
 
-	ST(0) = newSVpv(chunk, len);
+	ST(0) = newSVpvn(chunk, len);
         sv_2mortal(ST(0));
         XSRETURN(1);
 }
@@ -904,7 +909,7 @@ XS(XS_chunked_read_nb) {
                 XSRETURN_UNDEF;
         }
 
-        ST(0) = newSVpv(chunk, len);
+        ST(0) = newSVpvn(chunk, len);
         sv_2mortal(ST(0));
         XSRETURN(1);
 }
@@ -988,6 +993,44 @@ XS(XS_add_var) {
 	
 }
 
+XS(XS_set_logvar) {
+	dXSARGS;
+	psgi_check_args(2);
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	STRLEN keylen;
+	char *key = SvPV(ST(0), keylen);
+
+	STRLEN vallen;
+	char *val = SvPV(ST(1), vallen);
+
+	uwsgi_logvar_add(wsgi_req, key, keylen, val, vallen);
+
+	XSRETURN_UNDEF;
+}
+
+XS(XS_get_logvar) {
+	dXSARGS;
+	psgi_check_args(1);
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	STRLEN keylen;
+	char *key = SvPV(ST(0), keylen);
+
+	struct uwsgi_logvar *lv = uwsgi_logvar_get(wsgi_req, key, keylen);
+
+	if (lv) {
+		ST(0) = newSVpv(lv->val, lv->vallen);
+		sv_2mortal(ST(0));
+		XSRETURN(1);
+	}
+
+	XSRETURN_UNDEF;
+
+}
+
 void init_perl_embedded_module() {
 	psgi_xs(reload);
 
@@ -1053,4 +1096,6 @@ void init_perl_embedded_module() {
 	psgi_xs(add_var);
 	psgi_xs(worker_id);
 	
+	psgi_xs(set_logvar);
+	psgi_xs(get_logvar);
 }

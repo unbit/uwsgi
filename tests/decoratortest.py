@@ -53,7 +53,7 @@ def a_long_task(args):
         time.sleep(1)
 
 
-# continuosly spool a long running task
+# continuously spool a long running task
 @spoolforever
 def an_infinite_task(args):
     for i in xrange(1, 4):
@@ -141,6 +141,6 @@ print("scheduling a delayed task at %d" % when)
 delayed_task.spool(foo2='bar2', at=when)
 a_running_thread()
 a_running_thread_with_args("uWSGI")
-uwsgi_source_file = open('uwsgi.c', 'r')
+uwsgi_source_file = open('uwsgi.c')
 print(big_body_task.spool(priority=9, filename='uwsgi.c', body=uwsgi_source_file.read()))
 uwsgi_source_file.close()

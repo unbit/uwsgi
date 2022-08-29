@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
 
@@ -553,6 +553,8 @@ void async_loop() {
 					else if (proto_parser_status < 0) {
 						uwsgi.async_proto_fd_table[interesting_fd] = NULL;
 						close(interesting_fd);
+						uwsgi.async_queue_unused_ptr++;
+						uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
 						continue;
 					}
 					// re-add timer

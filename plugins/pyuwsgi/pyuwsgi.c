@@ -212,7 +212,7 @@ pyuwsgi_set_orig_argv(PyObject *self)
         char *arg = orig_argv[i];
         //XXX: _PyOS_optarg != 0 also indicates python quit early...
         //FIXME: [upstream:python] orig_argv could be mangled; reset
-        // rel: http://bugs.python.org/issue8202
+        // rel: https://bugs.python.org/issue8202
         orig_argv[i + 1] = arg + strlen(arg) + 1;
 
         // look for -c or -m and record the offset

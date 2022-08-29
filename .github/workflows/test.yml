@@ -1,0 +1,65 @@
+name: Test
+
+on:
+  push:
+    branches: [ master, uwsgi-2.0 ]
+  pull_request:
+    branches: [ master, uwsgi-2.0 ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-18.04
+
+    steps:
+    - name: Add deadnakes ppa
+      run: |
+        sudo apt install -qqyf software-properties-common
+        sudo add-apt-repository ppa:deadsnakes/ppa -y
+    - name: Install dependencies
+      run: |
+        sudo apt update -qq
+        sudo apt install --no-install-recommends -qqyf python{2.7,3.6,3.7,3.8,3.9,3.10,3.11}-dev \
+          python3.8-distutils python3.9-distutils python3.10-distutils python3.11-distutils \
+          libpcre3-dev libjansson-dev libcap2-dev \
+          curl check
+    - uses: actions/checkout@v2
+    - name: Run unit tests
+      run: make tests
+    - name: Build uWSGI binary
+      run: make
+    - name: Build python2.7 plugin
+      run: |
+        /usr/bin/python2.7 -V
+        /usr/bin/python2.7 uwsgiconfig.py --plugin plugins/python base python27
+    - name: Build python3.6 plugin
+      run: |
+        /usr/bin/python3.6 -V
+        /usr/bin/python3.6 uwsgiconfig.py --plugin plugins/python base python36
+    - name: Build python3.7 plugin
+      run: |
+        /usr/bin/python3.7 -V
+        /usr/bin/python3.7 uwsgiconfig.py --plugin plugins/python base python37
+    - name: Build python3.8 plugin
+      run: |
+        /usr/bin/python3.8 -V
+        /usr/bin/python3.8 uwsgiconfig.py --plugin plugins/python base python38
+    - name: Build python3.9 plugin
+      run: |
+        /usr/bin/python3.9 -V
+        /usr/bin/python3.9 uwsgiconfig.py --plugin plugins/python base python39
+    - name: Build python3.10 plugin
+      run: |
+        /usr/bin/python3.10 -V
+        /usr/bin/python3.10 uwsgiconfig.py --plugin plugins/python base python310
+    - name: Build python3.11 plugin
+      run: |
+        /usr/bin/python3.11 -V
+        /usr/bin/python3.11 uwsgiconfig.py --plugin plugins/python base python311
+    - name: Build rack plugin
+      run: |
+        ruby -v
+        UWSGICONFIG_RUBYPATH=ruby /usr/bin/python uwsgiconfig.py --plugin plugins/rack base rack251
+    - name: Run smoke tests
+      run: |
+        ./tests/travis.sh .github/workflows/test.yml

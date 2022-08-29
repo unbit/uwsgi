@@ -3,11 +3,7 @@
 extern char **environ;
 extern struct uwsgi_server uwsgi;
 
-#ifdef __APPLE__
-extern struct uwsgi_perl uperl;
-#else
 struct uwsgi_perl uperl;
-#endif
 
 struct uwsgi_plugin psgi_plugin;
 
@@ -333,9 +329,9 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 
                         // check for multiline header
                         if (hv_exists(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len)) {
-                                SV **already_avalable_header = hv_fetch(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, 0);
+                                SV **already_available_header = hv_fetch(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, 0);
                                 STRLEN hlen;
-                                char *old_value = SvPV(*already_avalable_header, hlen );
+                                char *old_value = SvPV(*already_available_header, hlen );
                                 char *multiline_header = uwsgi_concat3n(old_value, hlen, ", ", 2, wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len);
                                 if (!hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len,
                                         newSVpv(multiline_header, hlen+wsgi_req->hvec[i+1].iov_len+2), 0))  { free(multiline_header); goto clear;}
@@ -853,6 +849,12 @@ realstuff:
 	if (uperl.atexit) {
 		uwsgi_perl_run_hook(uperl.atexit);
 	}
+
+	// For the reasons explained in
+	// https://github.com/unbit/uwsgi/issues/1384, tearing down
+	// the interpreter can be very expensive.
+	if (uwsgi.skip_atexit_teardown)
+		return;
 
 destroyperl:
 

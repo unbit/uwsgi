@@ -22,7 +22,7 @@ PyMethodDef uwsgi_eventfd_write_method[] = { {"uwsgi_eventfd_write", py_eventfd_
 void set_dyn_pyhome(char *home, uint16_t pyhome_len) {
 
 
-	char venv_version[15];
+	char venv_version[30];
 	PyObject *site_module;
 
 	PyObject *pysys_dict = get_uwsgi_pydict("sys");
@@ -45,8 +45,8 @@ void set_dyn_pyhome(char *home, uint16_t pyhome_len) {
                 PyDict_SetItemString(pysys_dict, "prefix", venv_path);
                 PyDict_SetItemString(pysys_dict, "exec_prefix", venv_path);
 
-                venv_version[14] = 0;
-                if (snprintf(venv_version, 15, "/lib/python%d.%d", PY_MAJOR_VERSION, PY_MINOR_VERSION) == -1) {
+                bzero(venv_version, 30);
+                if (snprintf(venv_version, 30, "/lib/python%d.%d", PY_MAJOR_VERSION, PY_MINOR_VERSION) == -1) {
                         return;
                 }
 
@@ -288,10 +288,12 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 			uwsgi_log("unable to allocate new tuple for app args\n");
 			exit(1);
 		}
+		Py_INCREF(Py_None);
+		PyTuple_SetItem(wi->args[i], 0, Py_None);
 
 		// add start_response on WSGI app
-		Py_INCREF((PyObject *)up.wsgi_spitout);
 		if (app_type == PYTHON_APP_TYPE_WSGI) {
+			Py_INCREF((PyObject *)up.wsgi_spitout);
 			if (PyTuple_SetItem(wi->args[i], 1, up.wsgi_spitout)) {
 				uwsgi_log("unable to set start_response in args tuple\n");
 				exit(1);
@@ -399,6 +401,13 @@ multiapp:
 
 	// emulate COW
 	uwsgi_emulate_cow_for_apps(id);
+
+	// spawn new auto-reloader thread, if an additional interpreter was started
+        if (up.auto_reload && interpreter == NULL && id) {
+                pthread_t par_tid;
+                pthread_create(&par_tid, NULL, uwsgi_python_autoreloader_thread,
+                        ((PyThreadState *) wi->interpreter)->interp);
+        }
 
 	return id;
 
@@ -602,12 +611,12 @@ PyObject *uwsgi_file_loader(void *arg1) {
 		Py_DECREF(wsgi_file_dict);
 		Py_DECREF(wsgi_file_module);
                 free(py_filename);
-		uwsgi_log( "unable to find \"application\" callable in file %s\n", filename);
+		uwsgi_log( "unable to find \"%s\" callable in file %s\n", callable, filename);
 		return NULL;
 	}
 
 	if (!PyFunction_Check(wsgi_file_callable) && !PyCallable_Check(wsgi_file_callable)) {
-		uwsgi_log( "\"application\" must be a callable object in file %s\n", filename);
+		uwsgi_log( "\"%s\" must be a callable object in file %s\n", callable, filename);
 		Py_DECREF(wsgi_file_callable);
 		Py_DECREF(wsgi_file_dict);
 		Py_DECREF(wsgi_file_module);
@@ -658,7 +667,7 @@ PyObject *uwsgi_pecan_loader(void *arg1) {
 		exit(UWSGI_FAILED_APP_CODE);
 	}
 
-	pecan_app = PyEval_CallObject(pecan_deploy, pecan_arg);
+	pecan_app = PyObject_CallObject(pecan_deploy, pecan_arg);
 	if (!pecan_app) {
 		PyErr_Print();
 		exit(UWSGI_FAILED_APP_CODE);
@@ -676,7 +685,7 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 	uwsgi_log( "Loading paste environment: %s\n", paste);
 
 	if (up.paste_logger) {
-		PyObject *paste_logger_dict = get_uwsgi_pydict("paste.script.util.logging_config");	
+		PyObject *paste_logger_dict = get_uwsgi_pydict("logging.config");
 		if (paste_logger_dict) {
 			PyObject *paste_logger_fileConfig = PyDict_GetItemString(paste_logger_dict, "fileConfig");
 			if (paste_logger_fileConfig) {
@@ -711,7 +720,11 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 		exit(UWSGI_FAILED_APP_CODE);
 	}
 
-	paste_arg = PyTuple_New(1);
+	if (up.paste_name) {
+		paste_arg = PyTuple_New(2);
+	} else {
+		paste_arg = PyTuple_New(1);
+	}
 	if (!paste_arg) {
 		PyErr_Print();
 		exit(UWSGI_FAILED_APP_CODE);
@@ -722,7 +735,14 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 		exit(UWSGI_FAILED_APP_CODE);
 	}
 
-	paste_app = PyEval_CallObject(paste_loadapp, paste_arg);
+	if (up.paste_name) {
+		if (PyTuple_SetItem(paste_arg, 1, UWSGI_PYFROMSTRING(up.paste_name))) {
+			PyErr_Print();
+			exit(UWSGI_FAILED_APP_CODE);
+		}
+	}
+
+	paste_app = PyObject_CallObject(paste_loadapp, paste_arg);
 	if (!paste_app) {
 		PyErr_Print();
 		exit(UWSGI_FAILED_APP_CODE);
@@ -737,24 +757,14 @@ PyObject *uwsgi_eval_loader(void *arg1) {
 
 	PyObject *wsgi_eval_module, *wsgi_eval_callable = NULL;
 
-	struct _node *wsgi_eval_node = NULL;
 	PyObject *wsgi_compiled_node;
 
-	wsgi_eval_node = PyParser_SimpleParseString(code, Py_file_input);
-	if (!wsgi_eval_node) {
-		PyErr_Print();
-		uwsgi_log( "failed to parse <eval> code\n");
-		exit(UWSGI_FAILED_APP_CODE);
-	}
-
-	wsgi_compiled_node = (PyObject *) PyNode_Compile(wsgi_eval_node, "uwsgi_eval_config");
-
+	wsgi_compiled_node = Py_CompileString(code, "uwsgi_eval_config", Py_file_input);
 	if (!wsgi_compiled_node) {
 		PyErr_Print();
 		uwsgi_log( "failed to compile eval code\n");
 		exit(UWSGI_FAILED_APP_CODE);
 	}
-
 
 	wsgi_eval_module = PyImport_ExecCodeModule("uwsgi_eval_config", wsgi_compiled_node);
 	if (!wsgi_eval_module) {

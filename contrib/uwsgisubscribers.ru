@@ -23,13 +23,13 @@ template = <<eof
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="">
     <meta name="author" content="unbit">
-    <link href="http://unbit.github.com/bootstrap/css/bootstrap.css" rel="stylesheet">
+    <link href="https://unbit.github.com/bootstrap/css/bootstrap.css" rel="stylesheet">
     <style>
       body {
         padding-top: 60px; /* 60px to make the container go all the way to the bottom of the topbar */
       }
     </style>
-    <link href="http://unbit.github.com/bootstrap/css/bootstrap-responsive.css" rel="stylesheet">
+    <link href="https://unbit.github.com/bootstrap/css/bootstrap-responsive.css" rel="stylesheet">
   </head>
   <body>
 
@@ -75,8 +75,8 @@ template = <<eof
 
     <% end %>
 
-    <script src="http://unbit.github.com/jquery-1.7.2.min.js" type="text/javascript"></script>
-    <script src="http://unbit.github.com/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
+    <script src="https://unbit.github.com/jquery-1.7.2.min.js" type="text/javascript"></script>
+    <script src="https://unbit.github.com/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
   </body>
 </html>
 eof

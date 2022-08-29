@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 /*
 
@@ -54,6 +54,10 @@ static int uwsgi_websockets_pong(struct wsgi_request *wsgi_req) {
         return uwsgi_response_write_body_do(wsgi_req, uwsgi.websockets_pong->buf, uwsgi.websockets_pong->pos);
 }
 
+static int uwsgi_websockets_close(struct wsgi_request *wsgi_req) {
+	return uwsgi_response_write_body_do(wsgi_req, uwsgi.websockets_close->buf, uwsgi.websockets_close->pos);
+}
+
 static int uwsgi_websockets_check_pingpong(struct wsgi_request *wsgi_req) {
 	time_t now = uwsgi_now();
 	// first round
@@ -62,7 +66,7 @@ static int uwsgi_websockets_check_pingpong(struct wsgi_request *wsgi_req) {
 	}
 	// pong not received ?
 	if (wsgi_req->websocket_last_pong < wsgi_req->websocket_last_ping) {
-		if (wsgi_req->websocket_last_ping - wsgi_req->websocket_last_pong > uwsgi.websockets_pong_tolerance) {
+		if (now - wsgi_req->websocket_last_ping > uwsgi.websockets_pong_tolerance) {
                                 uwsgi_log("[uwsgi-websocket] \"%.*s %.*s\" (%.*s) no PONG received in %d seconds !!!\n", REQ_DATA, uwsgi.websockets_pong_tolerance);
 				return -1;
 		}
@@ -144,6 +148,7 @@ int uwsgi_websocket_send_binary_from_sharedarea(struct wsgi_request *wsgi_req, i
 static void uwsgi_websocket_parse_header(struct wsgi_request *wsgi_req) {
 	uint8_t byte1 = wsgi_req->websocket_buf->buf[0];
 	uint8_t byte2 = wsgi_req->websocket_buf->buf[1];
+	wsgi_req->websocket_is_fin = byte1 >> 7;
 	wsgi_req->websocket_opcode = byte1 & 0xf;
 	wsgi_req->websocket_has_mask = byte2 >> 7;
 	wsgi_req->websocket_size = byte2 & 0x7f;
@@ -161,14 +166,38 @@ static struct uwsgi_buffer *uwsgi_websockets_parse(struct wsgi_request *wsgi_req
 		}
 	}
 
-	struct uwsgi_buffer *ub = uwsgi_buffer_new(wsgi_req->websocket_size);
+	struct uwsgi_buffer *ub = NULL;
+	if (wsgi_req->websocket_opcode == 0) {
+		if (uwsgi.websockets_continuation_buffer == NULL) {
+			uwsgi_log("Error continuation with empty previous buffer");
+			goto error;
+		}
+		ub = uwsgi.websockets_continuation_buffer;
+	}
+	else {
+		ub = uwsgi_buffer_new(wsgi_req->websocket_size);
+	}
 	if (uwsgi_buffer_append(ub, (char *) ptr, wsgi_req->websocket_size)) goto error;	
 	if (uwsgi_buffer_decapitate(wsgi_req->websocket_buf, wsgi_req->websocket_pktsize)) goto error;
 	wsgi_req->websocket_phase = 0;
 	wsgi_req->websocket_need = 2;
+
+	if (wsgi_req->websocket_is_fin) {
+		uwsgi.websockets_continuation_buffer = NULL;
+		/// Freeing websockets_continuation_buffer is done by the caller
+		return ub;
+	}
+	uwsgi.websockets_continuation_buffer = ub;
+	/// Message is not complete, send empty dummy buffer to signal waiting for full message
+	ub = uwsgi_buffer_new(1);
+	uwsgi_buffer_append(ub, "\0", 1);
 	return ub;
 error:
 	uwsgi_buffer_destroy(ub);
+	if (uwsgi.websockets_continuation_buffer != NULL && ub != uwsgi.websockets_continuation_buffer) {
+		uwsgi_buffer_destroy(uwsgi.websockets_continuation_buffer);
+	}
+	uwsgi.websockets_continuation_buffer = NULL;
 	return NULL;
 }
 
@@ -293,6 +322,7 @@ static struct uwsgi_buffer *uwsgi_websocket_recv_do(struct wsgi_request *wsgi_re
 							return uwsgi_websockets_parse(wsgi_req);
 						// close
 						case 0x8:
+							uwsgi_websockets_close(wsgi_req);
 							return NULL;
 						// ping
 						case 0x9:
@@ -338,12 +368,20 @@ static struct uwsgi_buffer *uwsgi_websocket_recv_do(struct wsgi_request *wsgi_re
 	return NULL;
 }
 
+static void clear_continuation_buffer() {
+	if (uwsgi.websockets_continuation_buffer != NULL) {
+		uwsgi_buffer_destroy(uwsgi.websockets_continuation_buffer);
+		uwsgi.websockets_continuation_buffer = NULL;
+	}
+}
+
 struct uwsgi_buffer *uwsgi_websocket_recv(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->websocket_closed) {
 		return NULL;
 	}
 	struct uwsgi_buffer *ub = uwsgi_websocket_recv_do(wsgi_req, 0);
 	if (!ub) {
+		clear_continuation_buffer();
 		wsgi_req->websocket_closed = 1;
 	}
 	return ub;
@@ -355,6 +393,7 @@ struct uwsgi_buffer *uwsgi_websocket_recv_nb(struct wsgi_request *wsgi_req) {
         }
         struct uwsgi_buffer *ub = uwsgi_websocket_recv_do(wsgi_req, 1);
         if (!ub) {
+		clear_continuation_buffer();
                 wsgi_req->websocket_closed = 1;
         }
         return ub;
@@ -429,7 +468,10 @@ void uwsgi_websockets_init() {
         uwsgi_buffer_append(uwsgi.websockets_pong, "\x8A\0", 2);
         uwsgi.websockets_ping = uwsgi_buffer_new(2);
         uwsgi_buffer_append(uwsgi.websockets_ping, "\x89\0", 2);
+        uwsgi.websockets_close = uwsgi_buffer_new(2);
+        uwsgi_buffer_append(uwsgi.websockets_close, "\x88\0", 2);
 	uwsgi.websockets_ping_freq = 30;
 	uwsgi.websockets_pong_tolerance = 3;
 	uwsgi.websockets_max_size = 1024;
+	uwsgi.websockets_continuation_buffer = NULL;
 }

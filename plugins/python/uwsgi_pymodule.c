@@ -4,6 +4,57 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 extern struct uwsgi_plugin python_plugin;
 
+#define py_uwsgi_context_argument_check(request_context) if(request_context!=NULL) {\
+    if(!PyObject_TypeCheck(request_context, &uwsgi_RequestContextType)) {\
+        return PyErr_Format(PyExc_TypeError, "Invalid argument!");\
+    }}
+
+
+PyTypeObject uwsgi_RequestContextType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "uwsgi.RequestContext",
+    sizeof(uwsgi_RequestContext),
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    Py_TPFLAGS_DEFAULT,
+    "",
+};
+
+struct wsgi_request *py_current_wsgi_req_from_context(PyObject *context) {
+    uwsgi_RequestContext *ctx = (uwsgi_RequestContext *)context;
+    if (ctx->wsgi_req == NULL || !(ctx->wsgi_req->fd)) {
+        return NULL;
+    }
+
+    //verify
+    if(uwsgi.mywid != ctx->mywid ||
+        uwsgi.workers[uwsgi.mywid].cores[ctx->wsgi_req->async_id].requests != ctx->requests) {
+        return NULL;
+    }
+
+    int in_request = uwsgi.workers[uwsgi.mywid].cores[ctx->wsgi_req->async_id].in_request;
+    if (!in_request) {
+		return NULL;
+    }
+
+    return ctx->wsgi_req;
+}
+
+
 static PyObject *py_uwsgi_add_var(PyObject * self, PyObject * args) {
 	 char *key = NULL;
         Py_ssize_t keylen = 0;
@@ -148,13 +199,11 @@ char *uwsgi_encode_pydict(PyObject * pydict, uint16_t * size) {
 
 		if (!PyTuple_Check(zero)) {
 			uwsgi_log("invalid python dictionary item\n");
-			Py_DECREF(zero);
 			continue;
 		}
 
 		if (PyTuple_Size(zero) < 2) {
 			uwsgi_log("invalid python dictionary item\n");
-			Py_DECREF(zero);
 			continue;
 		}
 		key = PyTuple_GetItem(zero, 0);
@@ -167,7 +216,6 @@ char *uwsgi_encode_pydict(PyObject * pydict, uint16_t * size) {
 		}
 
 		if (!PyString_Check(key) || !PyString_Check(val)) {
-			Py_DECREF(zero);
 			continue;
 		}
 
@@ -186,8 +234,6 @@ char *uwsgi_encode_pydict(PyObject * pydict, uint16_t * size) {
 			memcpy(bufptr, PyString_AsString(val), valsize);
 			bufptr += valsize;
 		}
-
-		Py_DECREF(zero);
 
 	}
 
@@ -254,6 +300,25 @@ static PyObject *py_uwsgi_add_timer(PyObject * self, PyObject * args) {
 	}
 
 	if (uwsgi_add_timer(uwsgi_signal, secs))
+		return PyErr_Format(PyExc_ValueError, "unable to add timer");
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+static PyObject *py_uwsgi_add_ms_timer(PyObject * self, PyObject * args) {
+
+	uint8_t uwsgi_signal;
+	long msecs;
+	int secs;
+
+	if (!PyArg_ParseTuple(args, "Bl:add_ms_timer", &uwsgi_signal, &msecs)) {
+		return NULL;
+	}
+
+	secs = msecs / 1000;
+	msecs = msecs - secs * 1000;
+	if (uwsgi_add_timer_hr(uwsgi_signal, secs, msecs * 1000000))
 		return PyErr_Format(PyExc_ValueError, "unable to add timer");
 
 	Py_INCREF(Py_None);
@@ -998,6 +1063,22 @@ PyObject *py_uwsgi_connection_fd(PyObject * self, PyObject * args) {
 	return PyInt_FromLong(wsgi_req->fd);
 }
 
+PyObject *py_uwsgi_request_context(PyObject * self, PyObject * args) {
+    struct wsgi_request *wsgi_req = py_current_wsgi_req();
+
+    uwsgi_RequestContext *ctx = PyObject_New(uwsgi_RequestContext, &uwsgi_RequestContextType);
+    if(ctx == NULL)
+    {
+        return NULL;
+    }
+
+    ctx->mywid = uwsgi.mywid;
+    ctx->requests = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests;
+    ctx->wsgi_req = wsgi_req;
+    return (PyObject *)ctx;
+}
+
+
 PyObject *py_uwsgi_websocket_handshake(PyObject * self, PyObject * args) {
         char *key = NULL;
         Py_ssize_t key_len = 0;
@@ -1026,15 +1107,30 @@ PyObject *py_uwsgi_websocket_handshake(PyObject * self, PyObject * args) {
         return Py_None;
 }
 
-PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args) {
+
+PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args, PyObject * kwargs) {
 	char *message = NULL;
         Py_ssize_t message_len = 0;
 
-        if (!PyArg_ParseTuple(args, "s#:websocket_send", &message, &message_len)) {
+        PyObject *request_context = NULL;
+
+        static char *kwlist[] = {"message", "request_context", NULL};
+
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|O:websocket_send", kwlist, &message, &message_len, &request_context)) {
                 return NULL;
         }
 
-	struct wsgi_request *wsgi_req = py_current_wsgi_req();
+    struct wsgi_request *wsgi_req;
+    if(request_context == NULL) {
+        wsgi_req = py_current_wsgi_req();
+    } else {
+        py_uwsgi_context_argument_check(request_context);
+        wsgi_req = py_current_wsgi_req_from_context(request_context);
+    }
+
+    if(wsgi_req == NULL) {
+        return PyErr_Format(PyExc_IOError, "unable to send websocket message");
+    }
 
 	UWSGI_RELEASE_GIL	
 	int ret  = uwsgi_websocket_send(wsgi_req, message, message_len);
@@ -1046,15 +1142,29 @@ PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args) {
         return Py_None;
 }
 
-PyObject *py_uwsgi_websocket_send_binary(PyObject * self, PyObject * args) {
+PyObject *py_uwsgi_websocket_send_binary(PyObject * self, PyObject * args, PyObject * kwargs) {
         char *message = NULL;
         Py_ssize_t message_len = 0;
 
-        if (!PyArg_ParseTuple(args, "s#:websocket_send_binary", &message, &message_len)) {
+        PyObject *request_context = NULL;
+
+        static char *kwlist[] = {"message", "request_context", NULL};
+
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|O:websocket_send_binary", kwlist, &message, &message_len, &request_context)) {
                 return NULL;
         }
 
-        struct wsgi_request *wsgi_req = py_current_wsgi_req();
+        struct wsgi_request *wsgi_req;
+        if(request_context == NULL) {
+            wsgi_req = py_current_wsgi_req();
+        } else {
+            py_uwsgi_context_argument_check(request_context);
+            wsgi_req = py_current_wsgi_req_from_context(request_context);
+        }
+
+        if(wsgi_req == NULL) {
+            return PyErr_Format(PyExc_IOError, "unable to send websocket binary message");
+        }
 
         UWSGI_RELEASE_GIL
         int ret  = uwsgi_websocket_send_binary(wsgi_req, message, message_len);
@@ -1103,11 +1213,30 @@ PyObject *py_uwsgi_chunked_read_nb(PyObject * self, PyObject * args) {
 
 
 
-PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args) {
-	struct wsgi_request *wsgi_req = py_current_wsgi_req();
-	UWSGI_RELEASE_GIL	
+PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args, PyObject * kwargs) {
+    PyObject *request_context = NULL;
+
+    static char *kwlist[] = {"request_context", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:websocket_recv", kwlist, &request_context)) {
+        return NULL;
+    }
+
+    struct wsgi_request *wsgi_req;
+    if(request_context == NULL) {
+        wsgi_req = py_current_wsgi_req();
+    } else {
+        py_uwsgi_context_argument_check(request_context);
+        wsgi_req = py_current_wsgi_req_from_context(request_context);
+    }
+
+    if(wsgi_req == NULL) {
+        return PyErr_Format(PyExc_IOError, "unable to receive websocket message");
+    }
+
+	UWSGI_RELEASE_GIL
 	struct uwsgi_buffer *ub = uwsgi_websocket_recv(wsgi_req);
-	UWSGI_GET_GIL	
+	UWSGI_GET_GIL
 	if (!ub) {
 		return PyErr_Format(PyExc_IOError, "unable to receive websocket message");
 	}
@@ -1117,8 +1246,27 @@ PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args) {
 	return ret;
 }
 
-PyObject *py_uwsgi_websocket_recv_nb(PyObject * self, PyObject * args) {
-        struct wsgi_request *wsgi_req = py_current_wsgi_req();
+PyObject *py_uwsgi_websocket_recv_nb(PyObject * self, PyObject * args, PyObject * kwargs) {
+        PyObject *request_context = NULL;
+
+        static char *kwlist[] = {"request_context", NULL};
+
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:websocket_recv_nb", kwlist, &request_context)) {
+            return NULL;
+        }
+
+        struct wsgi_request *wsgi_req;
+        if(request_context == NULL) {
+            wsgi_req = py_current_wsgi_req();
+        } else {
+            py_uwsgi_context_argument_check(request_context);
+            wsgi_req = py_current_wsgi_req_from_context(request_context);
+        }
+
+        if(wsgi_req == NULL) {
+            return PyErr_Format(PyExc_IOError, "unable to receive websocket message");
+        }
+
         UWSGI_RELEASE_GIL
         struct uwsgi_buffer *ub = uwsgi_websocket_recv_nb(wsgi_req);
         UWSGI_GET_GIL
@@ -1250,6 +1398,34 @@ PyObject *py_uwsgi_farm_msg(PyObject * self, PyObject * args) {
 
 }
 
+PyObject *py_uwsgi_install_mule_msg_hook(PyObject *self, PyObject *args) {
+	PyObject *msg_hook_list;
+	PyObject *func;
+
+	if (!PyArg_ParseTuple(args, "O:install_mule_msg_hook", &func)) {
+		return NULL;
+	}
+
+	msg_hook_list = PyDict_GetItemString(up.embedded_dict, "mule_msg_extra_hooks");
+
+	if(!msg_hook_list) {
+		if((msg_hook_list = PyList_New(0)) == NULL)
+			return NULL;
+
+		if(PyDict_SetItemString(up.embedded_dict, "mule_msg_extra_hooks", msg_hook_list) == -1) {
+			return NULL;
+		}
+	}
+
+	Py_INCREF(func);
+	if(PyList_Append(msg_hook_list, func) == -1) {
+		Py_DECREF(func);
+		return NULL;
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
 
 PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 
@@ -1258,6 +1434,7 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 	PyObject *mule_obj = NULL;
 	int fd = -1;
 	int mule_id = -1;
+	int resp = -1;
 
 	if (!PyArg_ParseTuple(args, "s#|O:mule_msg", &message, &message_len, &mule_obj)) {
                 return NULL;
@@ -1268,7 +1445,7 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 
 	if (mule_obj == NULL) {
 		UWSGI_RELEASE_GIL
-		mule_send_msg(uwsgi.shared->mule_queue_pipe[0], message, message_len);
+		resp = mule_send_msg(uwsgi.shared->mule_queue_pipe[0], message, message_len);
 		UWSGI_GET_GIL
 	}
 	else {
@@ -1297,14 +1474,19 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 
 		if (fd > -1) {
 			UWSGI_RELEASE_GIL
-			mule_send_msg(fd, message, message_len);
+			resp = mule_send_msg(fd, message, message_len);
 			UWSGI_GET_GIL
 		}
 	}
 
-	Py_INCREF(Py_None);
-	return Py_None;
-	
+	if(!resp) {
+		Py_INCREF(Py_True);
+		return Py_True;
+	}
+
+	Py_INCREF(Py_False);
+	return Py_False;
+
 }
 
 PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwargs) {
@@ -1354,6 +1536,42 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwar
 	return msg;
 }
 
+PyObject *py_uwsgi_mule_file(PyObject * self, PyObject * args) {
+
+	int mule_id = uwsgi.muleid;
+
+	if (PyArg_ParseTuple(args, "|i", &mule_id) && mule_id == 0) {
+		return NULL;
+	}
+
+	if (uwsgi.mules_cnt < mule_id && mule_id > 0) {
+		return PyErr_Format(PyExc_ValueError, "The id you provided doesn't correspond to any mule");
+	}
+
+	struct uwsgi_mule *mule = get_mule_by_id(mule_id);
+	if (!mule || !mule->patch) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	return PyString_FromString(mule->patch);
+}
+
+PyObject *py_uwsgi_spooler_dir(PyObject * self, PyObject * args) {
+
+	struct uwsgi_spooler *spooler = uwsgi.spoolers;
+
+	for (;spooler;spooler=spooler->next) {
+		if (uwsgi.mypid == spooler->pid) {
+			if (*spooler->dir) return PyString_FromString(spooler->dir);
+			Py_INCREF(Py_None);
+			return Py_None;
+		}
+	}
+
+	return PyErr_Format(PyExc_ValueError, "This process is not a spooler");
+}
+
 PyObject *py_uwsgi_farm_get_msg(PyObject * self, PyObject * args) {
 
         ssize_t len = 0;
@@ -1380,6 +1598,7 @@ PyObject *py_uwsgi_farm_get_msg(PyObject * self, PyObject * args) {
 
 	ret = poll(farmpoll, count, -1);
 	if (ret <= 0) {
+        	UWSGI_GET_GIL;
 		uwsgi_error("poll()");
 		free(farmpoll);
 		Py_INCREF(Py_None);
@@ -1820,7 +2039,7 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
         }
 
 	// HACK: we are safe as rlen can only be lower or equal to len
-	Py_SIZE(ret) = rlen;
+	Py_SET_SIZE((PyVarObject *) ret, rlen);
 
 	return ret;
 }
@@ -1979,7 +2198,6 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 					if (PyString_Check(val)) {
 						valsize = PyString_Size(val);
 						if (uwsgi_buffer_append_keyval(ub, PyString_AsString(key), keysize, PyString_AsString(val), valsize)) {
-							Py_DECREF(zero);
 							uwsgi_buffer_destroy(ub);
 							goto error;
 						}
@@ -1991,31 +2209,26 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 						PyObject *str = PyObject_Str(val);
 #endif
 						if (!str) {
-							Py_DECREF(zero);
 							uwsgi_buffer_destroy(ub);
 							goto error;
 						}
 						if (uwsgi_buffer_append_keyval(ub, PyString_AsString(key), keysize, PyString_AsString(str), PyString_Size(str))) {
-                                                        Py_DECREF(zero);
 							Py_DECREF(str);
-                                                        uwsgi_buffer_destroy(ub);
-                                                        goto error;
-                                                }
+							uwsgi_buffer_destroy(ub);
+							goto error;
+						}
 						Py_DECREF(str);
 					}
 				}
 				else {
-					Py_DECREF(zero);
 					uwsgi_buffer_destroy(ub);
                                         goto error;
 				}
 			}
 			else {
-				Py_DECREF(zero);
 				uwsgi_buffer_destroy(ub);
                                 goto error;
 			}
-			Py_DECREF(zero);
 		}
 		else {
 			uwsgi_buffer_destroy(ub);
@@ -2034,7 +2247,9 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 
 
 	if (pybody) {
-		Py_DECREF(pybody);
+		if (PyString_Check(pybody)) {
+			Py_DECREF(pybody);
+		}
 	}
 	
 	Py_DECREF(spool_vars);
@@ -2067,6 +2282,58 @@ PyObject *py_uwsgi_spooler_pids(PyObject * self, PyObject * args) {
         uspool = uspool->next;
     }
     return ret;
+}
+
+PyObject *py_uwsgi_spooler_get_task(PyObject * self, PyObject * args) {
+
+	char spool_buf[0xffff];
+	struct uwsgi_header uh;
+	char *body = NULL;
+	size_t body_len = 0;
+
+	int spool_fd;
+
+	char *task_path = NULL;
+
+	struct stat task_stat;
+
+	if (!PyArg_ParseTuple(args, "s:spooler_get_task", &task_path)) {
+		return NULL;
+	}
+
+	if (lstat(task_path, &task_stat)) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	if (access(task_path, R_OK | W_OK)) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	spool_fd = open(task_path, O_RDWR);
+
+	if (spool_fd < 0) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	if (uwsgi_spooler_read_header(task_path, spool_fd, &uh) ||
+		uwsgi_spooler_read_content(spool_fd, spool_buf, &body, &body_len, &uh, &task_stat)) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	uwsgi_protected_close(spool_fd);
+
+	PyObject *spool_dict = uwsgi_python_dict_from_spooler_content(task_path, spool_buf, uh._pktsize, body, body_len);
+
+	if (!spool_dict) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	return spool_dict;
 }
 
 
@@ -2116,11 +2383,6 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		if (!worker_dict) {
 			goto clear;
 		}
-
-		apps_tuple = PyDict_GetItemString(worker_dict, "apps");
-		if (apps_tuple) {
-			Py_DECREF(apps_tuple);
-		}	
 
 		PyDict_Clear(worker_dict);
 
@@ -2275,9 +2537,10 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 
 			PyTuple_SetItem(apps_tuple, j, apps_dict);
 		}
-	
+
 
 		PyDict_SetItemString(worker_dict, "apps", apps_tuple);
+		Py_DECREF(apps_tuple);
 
 	}
 
@@ -2337,6 +2600,10 @@ PyObject *py_uwsgi_logsize(PyObject * self, PyObject * args) {
 	return PyLong_FromUnsignedLongLong(uwsgi.shared->logsize);
 }
 
+PyObject *py_uwsgi_mule_msg_recv_size(PyObject * self, PyObject *args) {
+	return PyLong_FromUnsignedLongLong(uwsgi.mule_msg_recv_size);
+}
+
 PyObject *py_uwsgi_mem(PyObject * self, PyObject * args) {
 
 	uint64_t rss=0, vsz = 0;
@@ -2372,6 +2639,15 @@ PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_ready_fd(PyObject * self, PyObject * args) {
 	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 	return PyInt_FromLong(uwsgi_ready_fd(wsgi_req));
+}
+
+PyObject *py_uwsgi_accepting(PyObject * self, PyObject * args) {
+	int accepting = 1;
+	if (!PyArg_ParseTuple(args, "|i", &accepting)) {
+		return NULL;
+	}
+	uwsgi.workers[uwsgi.mywid].accepting = !!accepting;
+	return Py_None;
 }
 
 PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
@@ -2491,17 +2767,14 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 }
 
 static PyMethodDef uwsgi_spooler_methods[] = {
-#ifdef PYTHREE
-	{"send_to_spooler", (PyCFunction) py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
-	{"spool", (PyCFunction) py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
-#else
-	{"send_to_spooler", (PyCFunction) py_uwsgi_send_spool, METH_KEYWORDS, ""},
-	{"spool", (PyCFunction) py_uwsgi_send_spool, METH_KEYWORDS, ""},
-#endif
+	{"send_to_spooler", (PyCFunction)(void *)py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
+	{"spool", (PyCFunction)(void *)py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
 	{"set_spooler_frequency", py_uwsgi_spooler_freq, METH_VARARGS, ""},
 	{"spooler_jobs", py_uwsgi_spooler_jobs, METH_VARARGS, ""},
 	{"spooler_pid", py_uwsgi_spooler_pid, METH_VARARGS, ""},
 	{"spooler_pids", py_uwsgi_spooler_pids, METH_VARARGS, ""},
+
+	{"spooler_get_task", py_uwsgi_spooler_get_task, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 
@@ -2517,6 +2790,7 @@ PyObject *py_uwsgi_suspend(PyObject * self, PyObject * args) {
 
 }
 
+
 static PyMethodDef uwsgi_advanced_methods[] = {
 	{"reload", py_uwsgi_reload, METH_VARARGS, ""},
 	{"stop", py_uwsgi_stop, METH_VARARGS, ""},
@@ -2526,6 +2800,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"request_id", py_uwsgi_request_id, METH_VARARGS, ""},
 	{"worker_id", py_uwsgi_worker_id, METH_VARARGS, ""},
 	{"mule_id", py_uwsgi_mule_id, METH_VARARGS, ""},
+	{"mule_msg_recv_size", py_uwsgi_mule_msg_recv_size, METH_VARARGS, ""},
 	{"log", py_uwsgi_log, METH_VARARGS, ""},
 	{"log_this_request", py_uwsgi_log_this, METH_VARARGS, ""},
 	{"set_logvar", py_uwsgi_set_logvar, METH_VARARGS, ""},
@@ -2536,6 +2811,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"is_locked", py_uwsgi_is_locked, METH_VARARGS, ""},
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
 	{"cl", py_uwsgi_cl, METH_VARARGS, ""},
+	{"accepting", py_uwsgi_accepting, METH_VARARGS, ""},
 
 	{"setprocname", py_uwsgi_setprocname, METH_VARARGS, ""},
 
@@ -2548,6 +2824,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"signal_received", py_uwsgi_signal_received, METH_VARARGS, ""},
 	{"add_file_monitor", py_uwsgi_add_file_monitor, METH_VARARGS, ""},
 	{"add_timer", py_uwsgi_add_timer, METH_VARARGS, ""},
+	{"add_ms_timer", py_uwsgi_add_ms_timer, METH_VARARGS, ""},
 	{"add_rb_timer", py_uwsgi_add_rb_timer, METH_VARARGS, ""},
 	{"add_cron", py_uwsgi_add_cron, METH_VARARGS, ""},
 
@@ -2589,9 +2866,10 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"embedded_data", py_uwsgi_embedded_data, METH_VARARGS, ""},
 	{"extract", py_uwsgi_extract, METH_VARARGS, ""},
 
+	{"install_mule_msg_hook", py_uwsgi_install_mule_msg_hook, METH_VARARGS, ""},
 	{"mule_msg", py_uwsgi_mule_msg, METH_VARARGS, ""},
 	{"farm_msg", py_uwsgi_farm_msg, METH_VARARGS, ""},
-	{"mule_get_msg", (PyCFunction) py_uwsgi_mule_get_msg, METH_VARARGS|METH_KEYWORDS, ""},
+	{"mule_get_msg", (PyCFunction)(void *)py_uwsgi_mule_get_msg, METH_VARARGS|METH_KEYWORDS, ""},
 	{"farm_get_msg", py_uwsgi_farm_get_msg, METH_VARARGS, ""},
 	{"in_farm", py_uwsgi_in_farm, METH_VARARGS, ""},
 
@@ -2599,10 +2877,12 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 	{"set_user_harakiri", py_uwsgi_set_user_harakiri, METH_VARARGS, ""},
 
-	{"websocket_recv", py_uwsgi_websocket_recv, METH_VARARGS, ""},
-	{"websocket_recv_nb", py_uwsgi_websocket_recv_nb, METH_VARARGS, ""},
-	{"websocket_send", py_uwsgi_websocket_send, METH_VARARGS, ""},
-	{"websocket_send_binary", py_uwsgi_websocket_send_binary, METH_VARARGS, ""},
+	{"request_context", py_uwsgi_request_context, METH_VARARGS, ""},
+
+	{"websocket_recv", (PyCFunction)(void *)py_uwsgi_websocket_recv, METH_VARARGS|METH_KEYWORDS, ""},
+	{"websocket_recv_nb", (PyCFunction)(void *)py_uwsgi_websocket_recv_nb, METH_VARARGS|METH_KEYWORDS, ""},
+	{"websocket_send", (PyCFunction)(void *)py_uwsgi_websocket_send, METH_VARARGS|METH_KEYWORDS, ""},
+	{"websocket_send_binary", (PyCFunction)(void *)py_uwsgi_websocket_send_binary, METH_VARARGS|METH_KEYWORDS, ""},
 	{"websocket_handshake", py_uwsgi_websocket_handshake, METH_VARARGS, ""},
 
 	{"chunked_read", py_uwsgi_chunked_read, METH_VARARGS, ""},
@@ -2613,6 +2893,9 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"add_var", py_uwsgi_add_var, METH_VARARGS, ""},
 
 	{"micros", py_uwsgi_micros, METH_VARARGS, ""},
+
+	{"mule_file", py_uwsgi_mule_file, METH_VARARGS, ""},
+	{"spooler_dir", py_uwsgi_spooler_dir, METH_VARARGS, ""},
 
 	{NULL, NULL},
 };
@@ -3455,6 +3738,11 @@ void init_uwsgi_module_advanced(PyObject * current_uwsgi_module) {
                 Py_DECREF(func);
         }
 
+    uwsgi_RequestContextType.tp_new = PyType_GenericNew;
+    if(PyType_Ready(&uwsgi_RequestContextType) < 0) {
+        uwsgi_log("UWSGIInput not ready\n");
+        exit(1);
+    }
 }
 
 void init_uwsgi_module_cache(PyObject * current_uwsgi_module) {

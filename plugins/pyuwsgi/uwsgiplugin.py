@@ -1,5 +1,5 @@
 from distutils import sysconfig
-import os
+import os, sys
 
 os.environ['UWSGI_PYTHON_NOLIB'] = '1'
 
@@ -12,4 +12,8 @@ CFLAGS = [
 LDFLAGS = []
 LIBS = []
 
-GCC_LIST = ['pyuwsgi']
+PY3 = sys.version_info[0] >= 3
+if not PY3:
+    GCC_LIST = ['pyuwsgi']
+else:
+    GCC_LIST = []

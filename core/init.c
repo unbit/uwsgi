@@ -46,12 +46,21 @@ struct http_status_codes hsc[] = {
         {"415", "Unsupported Media Type"},
         {"416", "Requested Range Not Satisfiable"},
         {"417", "Expectation Failed"},
+        {"418", "I'm a teapot"},
+        {"422", "Unprocessable Entity"},
+        {"425", "Too Early"},
+        {"426", "Upgrade Required"},
+        {"428", "Precondition Required"},
+        {"429", "Too Many Requests"},
+        {"431", "Request Header Fields Too Large"},
+        {"451", "Unavailable For Legal Reasons"},
         {"501", "Not Implemented"},
         {"502", "Bad Gateway"},
         {"503", "Service Unavailable"},
         {"504", "Gateway Timeout"},
         {"505", "HTTP Version Not Supported"},
         {"509", "Bandwidth Limit Exceeded"},
+        {"511", "Network Authentication Required"},
         {"", NULL},
 };
 
@@ -62,6 +71,7 @@ void uwsgi_init_default() {
 
 	uwsgi.cpus = 1;
 	uwsgi.new_argc = -1;
+	uwsgi.binary_argc = 1;
 
 	uwsgi.backtrace_depth = 64;
 	uwsgi.max_apps = 64;
@@ -89,9 +99,12 @@ void uwsgi_init_default() {
 
 	uwsgi.subscribe_freq = 10;
 	uwsgi.subscription_tolerance = 17;
+	uwsgi.subscription_tolerance_inactive = 17;
 
 	uwsgi.cores = 1;
 	uwsgi.threads = 1;
+
+	uwsgi.need_app = 1;
 
 	// default max number of rpc slot
 	uwsgi.rpc_max = 64;
@@ -150,6 +163,7 @@ void uwsgi_init_default() {
 	// 1 day of tolerance
 	uwsgi.subscriptions_sign_check_tolerance = 3600 * 24;
 	uwsgi.ssl_sessions_timeout = 300;
+	uwsgi.ssl_verify_depth = 1;
 #endif
 
 	uwsgi.alarm_freq = 3;
@@ -189,6 +203,8 @@ void uwsgi_init_default() {
 	uwsgi_master_fifo_prepare();
 
 	uwsgi.notify_socket_fd = -1;
+
+	uwsgi.mule_msg_recv_size = 65536;
 }
 
 void uwsgi_setup_reload() {
@@ -261,11 +277,33 @@ void uwsgi_commandline_config() {
 	int argc = uwsgi.argc;
 	char **argv = uwsgi.argv;
 
+	// we might want to ignore some arguments not meant for us
+	char binary_argv0_pretty[256] = {'\0'};
+	char *binary_argv0_actual = NULL;
+
 	if (uwsgi.new_argc > -1 && uwsgi.new_argv) {
 		argc = uwsgi.new_argc;
 		argv = uwsgi.new_argv;
 	}
 
+	if (uwsgi.binary_argc > 1 && argc >= uwsgi.binary_argc) {
+		char *pretty = (char *)binary_argv0_pretty;
+		strncat(pretty, argv[0], 255);
+
+		for (i = 1; i < uwsgi.binary_argc; i++) {
+			if (strlen(pretty) + 1 + strlen(argv[i]) + 1 > 256)
+				break;
+
+			strcat(pretty, " ");
+			strcat(pretty, argv[i]);
+		}
+
+		argc -= uwsgi.binary_argc - 1;
+		argv += uwsgi.binary_argc - 1;
+
+		binary_argv0_actual = argv[0];
+		argv[0] = (char *)binary_argv0_pretty;
+	}
 
 	char *optname;
 	while ((i = getopt_long(argc, argv, uwsgi.short_options, uwsgi.long_options, &uwsgi.option_index)) != -1) {
@@ -289,6 +327,8 @@ void uwsgi_commandline_config() {
 		add_exported_option(optname, optarg, 0);
 	}
 
+	if (binary_argv0_actual != NULL)
+		argv[0] = binary_argv0_actual;
 
 #ifdef UWSGI_DEBUG
 	uwsgi_log("optind:%d argc:%d\n", optind, uwsgi.argc);
@@ -413,7 +453,8 @@ pid_t uwsgi_daemonize2() {
 		uwsgi_write_pidfile(uwsgi.pidfile2);
 	}
 
-	if (uwsgi.log_master) uwsgi_setup_log_master();
+	if (uwsgi.log_master) 
+		uwsgi_setup_log_master();
 
 	return uwsgi.mypid;
 }
@@ -472,7 +513,7 @@ void sanitize_args() {
 		exit(1);
 	}
 
-	if (uwsgi.cheaper_rss_limit_soft && uwsgi.logging_options.memory_report != 1 && uwsgi.force_get_memusage != 1) {
+	if (uwsgi.cheaper_rss_limit_soft && !uwsgi.logging_options.memory_report && uwsgi.force_get_memusage != 1) {
 		uwsgi_log("enabling cheaper-rss-limit-soft requires enabling also memory-report\n");
 		exit(1);
 	}

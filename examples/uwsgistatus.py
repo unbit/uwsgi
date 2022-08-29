@@ -26,12 +26,12 @@ def application(env, start_response):
 
     try:
         yield "mode: <b>%s</b><br/>" % uwsgi.mode
-    except:
+    except Exception:
         pass
 
     try:
         yield "pidfile: <b>%s</b><br/>" % uwsgi.pidfile
-    except:
+    except Exception:
         pass
 
     yield "<h2>Hooks</h2>"

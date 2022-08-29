@@ -13,6 +13,7 @@ struct uwsgi_cgi {
 	struct uwsgi_string_list *allowed_ext;
 	struct uwsgi_string_list *unset;
 	struct uwsgi_string_list *loadlib;
+	struct uwsgi_string_list *cgi_safe;
 	int optimize;
 	int from_docroot;
 	int has_mountpoints;
@@ -20,6 +21,8 @@ struct uwsgi_cgi {
 	int path_info;
 	int do_not_kill_on_error;
 	int async_max_attempts;
+	int close_stdin_on_eof;
+	int dontresolve;
 } uc ;
 
 static void uwsgi_opt_add_cgi(char *opt, char *value, void *foobar) {
@@ -68,6 +71,12 @@ struct uwsgi_option uwsgi_cgi_options[] = {
 
         {"cgi-do-not-kill-on-error", no_argument, 0, "do not send SIGKILL to cgi script on errors", uwsgi_opt_true, &uc.do_not_kill_on_error, 0},
         {"cgi-async-max-attempts", no_argument, 0, "max waitpid() attempts in cgi async mode (default 10)", uwsgi_opt_set_int, &uc.async_max_attempts, 0},
+
+        {"cgi-close-stdin-on-eof", no_argument, 0, "close STDIN on input EOF", uwsgi_opt_true, &uc.close_stdin_on_eof, 0},
+
+        {"cgi-safe", required_argument, 0, "skip security checks if the cgi file is under the specified path", uwsgi_opt_add_string_list, &uc.cgi_safe, 0},
+
+        {"cgi-dontresolve", no_argument, 0 , "call symbolic link directly instead of the real path", uwsgi_opt_true,&uc.dontresolve, 0},
 
         {0, 0, 0, 0, 0, 0, 0},
 
@@ -351,7 +360,7 @@ send_body:
 
 static char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int *need_free, int *is_a_file, int *discard_base, char **script_name) {
 
-	struct uwsgi_dyn_dict *udd = uc.mountpoint, *choosen_udd = NULL;
+	struct uwsgi_dyn_dict *udd = uc.mountpoint, *chosen_udd = NULL;
 	int best_found = 0;
 	struct stat st;
 	char *path = NULL;
@@ -361,7 +370,7 @@ static char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int 
 			if (udd->vallen) {
 				if (!uwsgi_starts_with(path_info, path_info_len, udd->key, udd->keylen) && udd->keylen > best_found) {
 					best_found = udd->keylen ;
-					choosen_udd = udd;
+					chosen_udd = udd;
 					path = udd->value;
 					*script_name = udd->key;
 					*discard_base = udd->keylen;
@@ -374,13 +383,13 @@ static char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int 
 		}
 	}
 
-	if (choosen_udd == NULL) {
-		choosen_udd = uc.default_cgi;
-		if (!choosen_udd) return NULL;
-		path = choosen_udd->key;
+	if (chosen_udd == NULL) {
+		chosen_udd = uc.default_cgi;
+		if (!chosen_udd) return NULL;
+		path = chosen_udd->key;
 	}
 
-	if (choosen_udd->status == 0) {
+	if (chosen_udd->status == 0) {
 		char *tmp_udd = uwsgi_malloc(PATH_MAX+1);
 		if (!realpath(path, tmp_udd)) {
 			free(tmp_udd);
@@ -401,7 +410,7 @@ static char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int 
 		return tmp_udd;
 	}
 
-	if (choosen_udd->status == 2)
+	if (chosen_udd->status == 2)
 		*is_a_file = 1;
 	return path;
 }
@@ -469,6 +478,7 @@ static int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 
 	char full_path[PATH_MAX];
 	char tmp_path[PATH_MAX];
+	char symbolic_path[PATH_MAX];
 	struct stat cgi_stat;
 	int need_free = 0;
 	int is_a_file = 0;
@@ -527,17 +537,30 @@ static int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 			uwsgi_404(wsgi_req);
 			return UWSGI_OK;
 		}
+		if (uc.dontresolve) {
+			full_path_len = strlen(full_path);
+			memcpy(symbolic_path, full_path, full_path_len+1);
+		}
 
 		full_path_len = strlen(tmp_path);
 		// add +1 to copy the null byte
 		memcpy(full_path, tmp_path, full_path_len+1);
 
-		if (uwsgi_starts_with(full_path, full_path_len, docroot, docroot_len)) {
-                	uwsgi_log("CGI security error: %s is not under %s\n", full_path, docroot);
-			if (need_free)
-				free(docroot);
-                	return -1;
-        	}
+		struct uwsgi_string_list *safe = uc.cgi_safe;
+		while(safe) {
+			if (!uwsgi_starts_with(full_path, full_path_len, safe->value, safe->len))
+				break;
+			safe = safe->next;
+		}
+
+		if (!safe) {
+			if (uwsgi_starts_with(full_path, full_path_len, docroot, docroot_len)) {
+				uwsgi_log("CGI security error: %s is not under %s\n", full_path, docroot);
+				if (need_free)
+					free(docroot);
+				return -1;
+			}
+		}
 
 	}
 	else {
@@ -624,6 +647,11 @@ static int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		}
 	}
 
+	if (uc.dontresolve) {
+		full_path_len = strlen(symbolic_path);
+		memcpy(full_path, symbolic_path, full_path_len+1);
+	}
+
 	int ret = uwsgi_cgi_run(wsgi_req, docroot, docroot_len, full_path, helper, path_info, script_name, is_a_file, discard_base);
 	if (need_free) free(docroot);
 	return ret;
@@ -639,6 +667,7 @@ static int uwsgi_cgi_run(struct wsgi_request *wsgi_req, char *docroot, size_t do
 	char **argv;
 
 	char *command = full_path;
+	int stdin_closed = 0;
 
 	if (is_a_file) {
                 command = docroot;
@@ -675,21 +704,53 @@ static int uwsgi_cgi_run(struct wsgi_request *wsgi_req, char *docroot, size_t do
 		uwsgi_socket_nb(cgi_pipe[0]);
 		uwsgi_socket_nb(post_pipe[1]);
 
-		// ok start sending post data...
-		size_t remains = wsgi_req->post_cl;
-		while(remains > 0) {
-                	ssize_t rlen = 0;
-                	char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
-                	if (!buf) {
-				goto clear2;
-                	}
-                	if (buf == uwsgi.empty) break;
-                	// write data to the node
-                	if (uwsgi_write_true_nb(post_pipe[1], buf, rlen, uc.timeout)) {
-				goto clear2;
-                	}
-                	remains -= rlen;
-        	}
+		// Start sending request body
+		if (wsgi_req->body_is_chunked) {
+			// Write through to process chunk by chunk
+			while (1) {
+				struct uwsgi_buffer *ubuf = uwsgi_chunked_read_smart(wsgi_req, 8192, uwsgi.socket_timeout);
+				if (!ubuf) {
+					uwsgi_log("error reading chunk from CGI request !!!\n");
+					kill_on_error
+						goto clear2;
+				}
+				if (!ubuf->pos) {
+					// Last chunk received, go and close process's stdin
+					uwsgi_buffer_destroy(ubuf);
+					break;
+				}
+				// Write chunk to process's stdin
+				int err = uwsgi_write_true_nb(post_pipe[1], ubuf->buf, ubuf->pos, uc.timeout);
+				uwsgi_buffer_destroy(ubuf);
+				if (err) {
+					uwsgi_log("error writing chunk to CGI process !!!\n");
+					kill_on_error
+						goto clear2;
+				}
+			}
+		} else {
+			// Normal request with content length set
+			size_t remains = wsgi_req->post_cl;
+			while(remains > 0) {
+				ssize_t rlen = 0;
+				char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
+				if (!buf) {
+					goto clear2;
+				}
+				if (buf == uwsgi.empty) break;
+				// write data to the node
+				if (uwsgi_write_true_nb(post_pipe[1], buf, rlen, uc.timeout)) {
+					goto clear2;
+				}
+				remains -= rlen;
+			}
+		}
+
+		// For chunked requests, close stdin to tell the script body has ended
+		if (uc.close_stdin_on_eof || wsgi_req->body_is_chunked) {
+			close(post_pipe[1]);
+			stdin_closed = 1;
+		}
 
 		// wait for data
 		char *buf = uwsgi_malloc(uc.buffer_size);
@@ -727,7 +788,8 @@ clear:
 		free(buf);
 clear2:
 		close(cgi_pipe[0]);
-		close(post_pipe[1]);
+		if (!stdin_closed)
+			close(post_pipe[1]);
 
 		// now wait for process exit/death
 		// in async mode we need a trick...
@@ -758,17 +820,29 @@ clear2:
 	close(cgi_pipe[1]);
 
 	// close all the fd > 2
-	for(i=3;i<(int)uwsgi.max_fd;i++) {
-		close(i);
+	DIR *dirp = opendir("/proc/self/fd");
+	if (dirp == NULL)
+		dirp = opendir("/dev/fd");
+	if (dirp != NULL) {
+		struct dirent *dent;
+		while ((dent = readdir(dirp)) != NULL) {
+			int fd = atoi(dent->d_name);
+			if ((fd > 2) && fd != dirfd(dirp))
+				close(fd);
+		}
+		closedir(dirp);
+	} else {
+		for(i=3;i<(int)uwsgi.max_fd;i++) {
+			close(i);
+		}
 	}
 
 	// fill cgi env
-	for(i=0;i<wsgi_req->var_cnt;i++) {
+	for(i=0;i<wsgi_req->var_cnt;i+=2) {
 		// no need to free the putenv() memory
 		if (putenv(uwsgi_concat3n(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, "=", 1, wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len))) {
 			uwsgi_error("putenv()");
 		}
-		i++;
 	}
 
 

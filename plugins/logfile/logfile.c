@@ -1,4 +1,5 @@
 #include <uwsgi.h>
+extern struct uwsgi_server uwsgi;
 
 struct logfile_data {
 	char *logfile;
@@ -83,9 +84,19 @@ static ssize_t uwsgi_fd_logger(struct uwsgi_logger *ul, char *message, size_t le
 
 }
 
+static ssize_t uwsgi_stdio_logger(struct uwsgi_logger *ul, char *message, size_t len) {
+
+        if (uwsgi.original_log_fd >= 0) {
+                return write(uwsgi.original_log_fd, message, len);
+        }
+        return 0;
+}
+
+
 void uwsgi_file_logger_register() {
 	uwsgi_register_logger("file", uwsgi_file_logger);
 	uwsgi_register_logger("fd", uwsgi_fd_logger);
+	uwsgi_register_logger("stdio", uwsgi_stdio_logger);
 }
 
 struct uwsgi_plugin logfile_plugin = {

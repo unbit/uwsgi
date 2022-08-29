@@ -1,5 +1,6 @@
 import os
 import shutil
+import subprocess
 
 NAME = 'jvm'
 
@@ -10,7 +11,7 @@ operating_system = os.uname()[0].lower()
 
 try:
     arch = os.environ['JVM_ARCH']
-except:
+except KeyError:
     arch = os.uname()[4].lower()
 
 if arch in ('i686', 'x86', 'x86_32'):
@@ -31,7 +32,7 @@ elif operating_system.startswith('cygwin'):
     JVM_INCPATH = ['-I"/cygdrive/c/Program Files/Java/jdk1.7.0_17/include"', '-I"/cygdrive/c/Program Files/Java/jdk1.7.0_17/include/win32"']
     JVM_LIBPATH = ['-L"/cygdrive/c/Program Files/Java/jdk1.7.0_17/jre/bin/server"']
 else:
-    known_jvms = ('/usr/lib/jvm/java-7-openjdk', '/usr/local/openjdk7', '/usr/lib/jvm/java-6-openjdk', '/usr/local/openjdk', '/usr/java', '/usr/lib/jvm/java/')
+    known_jvms = ('/usr/lib/jvm/java-7-openjdk', '/usr/local/openjdk7', '/usr/lib/jvm/java-6-openjdk', '/usr/local/openjdk', '/usr/java', '/usr/lib/jvm/java/', '/usr/lib/jvm/java-8-openjdk-%s' % arch)
     for jvm in known_jvms:
         if os.path.exists(jvm + '/include'):
             JVM_INCPATH = ["-I%s/include/" % jvm, "-I%s/include/%s" % (jvm, operating_system)]
@@ -45,12 +46,12 @@ else:
 
 try:
     JVM_INCPATH = ['-I"' + os.environ['UWSGICONFIG_JVM_INCPATH'] + '"']
-except:
+except KeyError:
     pass
 
 try:
     JVM_LIBPATH = ['-L"' + os.environ['UWSGICONFIG_JVM_LIBPATH'] + '"']
-except:
+except KeyError:
     pass
 
 if not JVM_INCPATH or not JVM_LIBPATH:
@@ -72,9 +73,9 @@ else:
 
 
 def post_build(config):
-    if os.system("javac %s/plugins/jvm/uwsgi.java" % os.getcwd()) != 0:
+    if subprocess.call("javac %s/plugins/jvm/uwsgi.java" % os.getcwd(), shell=True) != 0:
         os._exit(1)
-    if os.system("cd %s/plugins/jvm ; jar cvf uwsgi.jar *.class" % os.getcwd()) != 0:
+    if subprocess.call("cd %s/plugins/jvm ; jar cvf uwsgi.jar *.class" % os.getcwd(), shell=True) != 0:
         os._exit(1)
     print("*** uwsgi.jar available in %s/plugins/jvm/uwsgi.jar ***" % os.getcwd())
 

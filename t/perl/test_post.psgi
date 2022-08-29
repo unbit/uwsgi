@@ -19,7 +19,7 @@ sub {
 
 __END__
 
-This is a trival test that prints out a POST request, it's here to
+This is a trivial test that prints out a POST request, it's here to
 test a regression introduced in 2.0-103-gf041d10 where doing reads
 without offsets, e.g.:
 

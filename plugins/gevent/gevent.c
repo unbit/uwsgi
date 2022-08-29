@@ -33,10 +33,10 @@ PyObject *py_uwsgi_gevent_ctrl_gl(PyObject *self, PyObject *args) {
 	for(;;) {
 		PyObject *gevent_sleep_args = PyTuple_New(1);
                 PyTuple_SetItem(gevent_sleep_args, 0, PyInt_FromLong(60));
-                PyObject *gswitch = PyEval_CallObject(ugevent.greenlet_switch, gevent_sleep_args);
+                PyObject *gswitch = PyObject_CallObject(ugevent.greenlet_switch, gevent_sleep_args);
 		// could be NULL on exception
 		if (!gswitch) {
-			// just for being paranid
+			// just for being paranoid
 			if (PyErr_Occurred()) {
 				PyErr_Clear();
 				break;
@@ -57,9 +57,11 @@ PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
         uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 
-	uwsgi_log_verbose("stopping gevent signals watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
-	PyObject_CallMethod(ugevent.my_signal_watcher, "stop", NULL);
-	PyObject_CallMethod(ugevent.signal_watcher, "stop", NULL);
+	if (uwsgi.signal_socket > -1) {
+		uwsgi_log_verbose("stopping gevent signals watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+		PyObject_CallMethod(ugevent.my_signal_watcher, "stop", NULL);
+		PyObject_CallMethod(ugevent.signal_watcher, "stop", NULL);
+	}
 
 	uwsgi_log_verbose("stopping gevent sockets watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	int i,count = uwsgi_count_sockets(uwsgi.sockets);
@@ -106,9 +108,11 @@ PyObject *py_uwsgi_gevent_int(PyObject *self, PyObject *args) {
         uwsgi_log("Brutally killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
         uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 
-        uwsgi_log_verbose("stopping gevent signals watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
-        PyObject_CallMethod(ugevent.my_signal_watcher, "stop", NULL);
-        PyObject_CallMethod(ugevent.signal_watcher, "stop", NULL);
+        if (uwsgi.signal_socket > -1) {
+                uwsgi_log_verbose("stopping gevent signals watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+                PyObject_CallMethod(ugevent.my_signal_watcher, "stop", NULL);
+                PyObject_CallMethod(ugevent.signal_watcher, "stop", NULL);
+        }
 
         uwsgi_log_verbose("stopping gevent sockets watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
         int i,count = uwsgi_count_sockets(uwsgi.sockets);
@@ -362,7 +366,7 @@ end:
                             !PyInt_AsLong(py_watcher_active)) {
                             start_watcher(i, uwsgi_sock);
                         }
-                        Py_DECREF(py_watcher_active);
+                        Py_XDECREF(py_watcher_active);
                 }
         }
 
@@ -385,7 +389,7 @@ static void gil_gevent_get() {
 }
 
 static void gil_gevent_release() {
-	PyGILState_Release((PyGILState_STATE) pthread_getspecific(up.upt_gil_key));
+	PyGILState_Release((PyGILState_STATE)(long) pthread_getspecific(up.upt_gil_key));
 }
 
 static void monkey_patch() {
@@ -447,8 +451,13 @@ static void gevent_loop() {
 	ugevent.spawn = PyDict_GetItemString(gevent_dict, "spawn");
 	if (!ugevent.spawn) uwsgi_pyexit;
 
-	ugevent.signal = PyDict_GetItemString(gevent_dict, "signal");
-	if (!ugevent.signal) uwsgi_pyexit;
+	ugevent.signal = PyDict_GetItemString(gevent_dict, "signal_handler");
+	if (!ugevent.signal) {
+		// gevent.signal_handler appears in gevent 1.3.
+		// On older gevent, fall back to the deprecated gevent.signal.
+		ugevent.signal = PyDict_GetItemString(gevent_dict, "signal");
+		if (!ugevent.signal) uwsgi_pyexit;
+	}
 
 	ugevent.greenlet_switch = PyDict_GetItemString(gevent_dict, "sleep");
 	if (!ugevent.greenlet_switch) uwsgi_pyexit;

@@ -72,7 +72,7 @@ class BitmapTest(unittest.TestCase):
         uwsgi.signal_wait(17)
         print("Signal received.")
 
-        with open(spooler_priority_constants.LOGFILE, "r") as log:
+        with open(spooler_priority_constants.LOGFILE) as log:
             # Check logging ordering.
             loglines = [line.rstrip() for line in log]
             self.assertEqual(loglines, spooler_priority_constants.ordered_tasks)

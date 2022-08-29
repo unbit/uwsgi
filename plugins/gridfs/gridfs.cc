@@ -85,7 +85,7 @@ static void uwsgi_gridfs_do(struct wsgi_request *wsgi_req, struct uwsgi_gridfs_m
 			}
 
 			uwsgi_response_prepare_headers(wsgi_req, (char *)"200 OK", 6);
-			// first get the content_type (if possibile)
+			// first get the content_type (if possible)
 			std::string filename = gfile.getFilename();
 
 			if (!ugm->no_mime) {

@@ -14,7 +14,7 @@ static void spooler_manage_task(struct uwsgi_spooler *, char *, char *);
 static uint64_t wakeup = 0;
 
 // function to allow waking up the spooler if blocked in event_wait
-void spooler_wakeup() {
+void spooler_wakeup(int signum) {
 	wakeup++;
 }
 
@@ -23,7 +23,8 @@ void uwsgi_opt_add_spooler(char *opt, char *directory, void *mode) {
 	int i;
 	struct uwsgi_spooler *us;
 
-	if (access(directory, R_OK | W_OK | X_OK)) {
+	if (access(directory, R_OK | W_OK | X_OK) &&
+	    mkdir(directory, S_IRWXU | S_IXGRP | S_IRGRP)) {
 		uwsgi_error("[spooler directory] access()");
 		exit(1);
 	}
@@ -100,15 +101,15 @@ pid_t spooler_start(struct uwsgi_spooler * uspool) {
 	else if (pid == 0) {
 
 		signal(SIGALRM, SIG_IGN);
-                signal(SIGHUP, SIG_IGN);
-                signal(SIGINT, end_me);
-                signal(SIGTERM, end_me);
+		signal(SIGHUP, SIG_IGN);
+		signal(SIGINT, end_me);
+		signal(SIGTERM, end_me);
 		// USR1 will be used to wake up the spooler
 		uwsgi_unix_signal(SIGUSR1, spooler_wakeup);
-                signal(SIGUSR2, SIG_IGN);
-                signal(SIGPIPE, SIG_IGN);
-                signal(SIGSTOP, SIG_IGN);
-                signal(SIGTSTP, SIG_IGN);
+		signal(SIGUSR2, SIG_IGN);
+		signal(SIGPIPE, SIG_IGN);
+		signal(SIGSTOP, SIG_IGN);
+		signal(SIGTSTP, SIG_IGN);
 
 		uwsgi.mypid = getpid();
 		uspool->pid = uwsgi.mypid;
@@ -465,7 +466,15 @@ void spooler(struct uwsgi_spooler *uspool) {
 		if (event_queue_wait(spooler_event_queue, timeout, &interesting_fd) > 0) {
 			if (uwsgi.master_process) {
 				if (interesting_fd == uwsgi.shared->spooler_signal_pipe[1]) {
-					uwsgi_receive_signal(NULL, interesting_fd, "spooler", (int) getpid());
+					if (uwsgi_receive_signal(NULL, interesting_fd, "spooler", (int) getpid())) {
+					    if (uwsgi.spooler_signal_as_task) {
+					        uspool->tasks++;
+					        if (uwsgi.spooler_max_tasks > 0 && uspool->tasks >= (uint64_t) uwsgi.spooler_max_tasks) {
+					            uwsgi_log("[spooler %s pid: %d] maximum number of tasks reached (%d) recycling ...\n", uspool->dir, (int) uwsgi.mypid, uwsgi.spooler_max_tasks);
+					            end_me(0);
+					        }
+					    }
+					}
 				}
 			}
 		}
@@ -488,7 +497,11 @@ static void spooler_scandir(struct uwsgi_spooler *uspool, char *dir) {
 	if (!dir)
 		dir = uspool->dir;
 
+#ifdef __NetBSD__
+	n = scandir(dir, &tasklist, NULL, (void *)uwsgi_versionsort);
+#else
 	n = scandir(dir, &tasklist, NULL, uwsgi_versionsort);
+#endif
 	if (n < 0) {
 		uwsgi_error("scandir()");
 		return;
@@ -521,6 +534,60 @@ static void spooler_readdir(struct uwsgi_spooler *uspool, char *dir) {
 	else {
 		uwsgi_error("spooler_readdir()/opendir()");
 	}
+}
+
+int uwsgi_spooler_read_header(char *task, int spool_fd, struct uwsgi_header *uh) {
+
+	// check if the file is locked by another process
+	if (uwsgi_fcntl_is_locked(spool_fd)) {
+		uwsgi_protected_close(spool_fd);
+		return -1;
+	}
+
+	// unlink() can destroy the lock !!!
+	if (access(task, R_OK|W_OK)) {
+		uwsgi_protected_close(spool_fd);
+		return -1;
+	}
+
+	ssize_t rlen = uwsgi_protected_read(spool_fd, uh, 4);
+
+	if (rlen != 4) {
+		// it could be here for broken file or just opened one
+		if (rlen < 0)
+			uwsgi_error("spooler_manage_task()/read()");
+		uwsgi_protected_close(spool_fd);
+		return -1;
+	}
+
+#ifdef __BIG_ENDIAN__
+	uh->_pktsize = uwsgi_swap16(uh->_pktsize);
+#endif
+
+	return 0;
+}
+
+int uwsgi_spooler_read_content(int spool_fd, char *spool_buf, char **body, size_t *body_len, struct uwsgi_header *uh, struct stat *sf_lstat) {
+
+	if (uwsgi_protected_read(spool_fd, spool_buf, uh->_pktsize) != uh->_pktsize) {
+		uwsgi_error("spooler_manage_task()/read()");
+		uwsgi_protected_close(spool_fd);
+		return 1;
+	}
+
+	// body available ?
+	if (sf_lstat->st_size > (uh->_pktsize + 4)) {
+		*body_len = sf_lstat->st_size - (uh->_pktsize + 4);
+		*body = uwsgi_malloc(*body_len);
+		if ((size_t) uwsgi_protected_read(spool_fd, *body, *body_len) != *body_len) {
+			uwsgi_error("spooler_manage_task()/read()");
+			uwsgi_protected_close(spool_fd);
+			free(*body);
+			return 1;
+		}
+	}
+
+	return 0;
 }
 
 void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
@@ -572,7 +639,6 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 		}
 		if (!access(task, R_OK | W_OK)) {
 
-
 			spool_fd = open(task, O_RDWR);
 
 			if (spool_fd < 0) {
@@ -581,51 +647,18 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 				return;
 			}
 
-			// check if the file is locked by another process
-			if (uwsgi_fcntl_is_locked(spool_fd)) {
-				uwsgi_protected_close(spool_fd);
+			if (uwsgi_spooler_read_header(task, spool_fd, &uh))
+				return;
+
+			// access lstat second time after getting a lock
+			// first-time lstat could be dirty (for example between writes in master)
+			if (lstat(task, &sf_lstat)) {
 				return;
 			}
 
-			// unlink() can destroy the lock !!!
-			if (access(task, R_OK | W_OK)) {
-				uwsgi_protected_close(spool_fd);
-				return;
-			}
-
-
-			ssize_t rlen = uwsgi_protected_read(spool_fd, &uh, 4);
-
-			if (rlen != 4) {
-				// it could be here for broken file or just opened one
-				if (rlen < 0)
-					uwsgi_error("spooler_manage_task()/read()");
-				uwsgi_protected_close(spool_fd);
-				return;
-			}
-
-#ifdef __BIG_ENDIAN__
-			uh._pktsize = uwsgi_swap16(uh._pktsize);
-#endif
-
-			if (uwsgi_protected_read(spool_fd, spool_buf, uh._pktsize) != uh._pktsize) {
-				uwsgi_error("spooler_manage_task()/read()");
+			if (uwsgi_spooler_read_content(spool_fd, spool_buf, &body, &body_len, &uh, &sf_lstat)) {
 				destroy_spool(dir, task);
-				uwsgi_protected_close(spool_fd);
 				return;
-			}
-
-			// body available ?
-			if (sf_lstat.st_size > (uh._pktsize + 4)) {
-				body_len = sf_lstat.st_size - (uh._pktsize + 4);
-				body = uwsgi_malloc(body_len);
-				if ((size_t) uwsgi_protected_read(spool_fd, body, body_len) != body_len) {
-					uwsgi_error("spooler_manage_task()/read()");
-					destroy_spool(dir, task);
-					uwsgi_protected_close(spool_fd);
-					free(body);
-					return;
-				}
 			}
 
 			// now the task is running and should not be woken up
@@ -710,7 +743,7 @@ void uwsgi_spooler_cheap_check() {
 		// this trick for avoiding spawning multiple processes for the same dir
 		// in the same cycle
 		if (!last_managed || strcmp(last_managed, uspool->dir)) {
-			// unfortunately, reusing readdir/scandir of the spooler is too dungeorus
+			// unfortunately, reusing readdir/scandir of the spooler is too dangerous
 			// as the code is run in the master, let's do a simpler check
         		struct dirent *dp;
 			DIR *sdir = opendir(uspool->dir);

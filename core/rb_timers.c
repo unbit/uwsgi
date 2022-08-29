@@ -10,7 +10,7 @@
         the "Introduction to Algorithms" by Cormen, Leiserson and Rivest.
 */
 
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 #define uwsgi_rbt_red(node)               ((node)->color = 1)
 #define uwsgi_rbt_black(node)             ((node)->color = 0)

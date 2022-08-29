@@ -76,7 +76,7 @@ static struct uwsgi_option forkptyrouter_options[] = {
 
 	{"forkptyrouter-fallback", required_argument, 0, "fallback to the specified node in case of error", uwsgi_opt_add_string_list, &ufpty.cr.fallback, 0},
 
-	{"forkptyrouter-events", required_argument, 0, "set the maximum number of concufptyent events", uwsgi_opt_set_int, &ufpty.cr.nevents, 0},
+	{"forkptyrouter-events", required_argument, 0, "set the maximum number of forkptyrouter events", uwsgi_opt_set_int, &ufpty.cr.nevents, 0},
 	{"forkptyrouter-cheap", no_argument, 0, "run the forkptyrouter in cheap mode", uwsgi_opt_true, &ufpty.cr.cheap, 0},
 
 	{"forkptyrouter-timeout", required_argument, 0, "set forkptyrouter timeout", uwsgi_opt_set_int, &ufpty.cr.socket_timeout, 0},

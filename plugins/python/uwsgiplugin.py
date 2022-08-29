@@ -8,7 +8,7 @@ def get_python_version():
     version = sysconfig.get_config_var('VERSION')
     try:
         version = version + sys.abiflags
-    except:
+    except Exception:
         pass
     return version
 
@@ -52,6 +52,10 @@ if 'UWSGI_PYTHON_NOLIB' not in os.environ:
         # try 3.x style config dir
         if not os.path.exists(libdir):
             libdir = '%s/lib/python%s/config-%s' % (sys.prefix, version, get_python_version())
+        # try >=3.6 style config dir with arch as suffix
+        if not os.path.exists(libdir):
+            multiarch = sysconfig.get_config_var('MULTIARCH')
+            libdir = '%s/lib/python%s/config-%s-%s' % (sys.prefix, version, get_python_version(), multiarch) 
 
         # get cpu type
         uname = os.uname()
@@ -71,11 +75,14 @@ if 'UWSGI_PYTHON_NOLIB' not in os.environ:
             LIBS.append('-lutil')
     else:
         try:
-            LDFLAGS.append("-L%s" % sysconfig.get_config_var('LIBDIR'))
-            os.environ['LD_RUN_PATH'] = "%s" % (sysconfig.get_config_var('LIBDIR'))
-        except:
-            LDFLAGS.append("-L%s/lib" % sysconfig.PREFIX)
-            os.environ['LD_RUN_PATH'] = "%s/lib" % sysconfig.PREFIX
+            libdir = sysconfig.get_config_var('LIBDIR')
+        except Exception:
+            libdir = "%s/lib" % sysconfig.PREFIX
+
+        LDFLAGS.append("-L%s" % libdir)
+        LDFLAGS.append("-Wl,-rpath,%s" % libdir)
+
+        os.environ['LD_RUN_PATH'] = "%s" % libdir
 
         LIBS.append('-lpython%s' % get_python_version())
 else:

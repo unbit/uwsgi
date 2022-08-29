@@ -45,12 +45,22 @@ int uwsgi_response_add_last_modified(struct wsgi_request *wsgi_req, uint64_t t) 
         return uwsgi_response_add_header(wsgi_req, "Last-Modified", 13, lm, len);
 }
 
-int uwsgi_response_add_content_range(struct wsgi_request *wsgi_req, uint64_t start, uint64_t end, uint64_t cl) {
+int uwsgi_response_add_content_range(struct wsgi_request *wsgi_req, int64_t start, int64_t end, int64_t cl) {
         char buf[6+(sizeof(UMAX64_STR)*3)+4];
-	if (end == 0) {
-		end = cl-1;
+	int ret = -1;
+	if (start == -1 && end == -1 && cl >= 0) {
+		ret = snprintf(buf, sizeof(buf), "bytes */%lld", (long long) cl);
 	}
-        int ret = snprintf(buf, 6+(sizeof(UMAX64_STR)*3)+4, "bytes %llu-%llu/%llu", (unsigned long long) start, (unsigned long long) end, (unsigned long long) cl);
+	else if (start < 0 || end < start || end >= cl) {
+		uwsgi_log("uwsgi_response_add_content_range is called with wrong arguments:"
+				"start=%lld end=%lld content-length=%lld\n",
+				start, end, cl);
+		wsgi_req->write_errors++;
+		return -1;
+	}
+	else {
+		ret = snprintf(buf, sizeof(buf), "bytes %lld-%lld/%lld", (long long) start, (long long) end, (long long) cl);
+	}
         if (ret <= 0 || ret >= (int) (6+(sizeof(UMAX64_STR)*3)+4)) {
                 wsgi_req->write_errors++;
                 return -1;
@@ -71,7 +81,7 @@ int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, 
 
 	if (!wsgi_req->headers) {
 		wsgi_req->headers = uwsgi_buffer_new(uwsgi.page_size);
-		wsgi_req->headers->limit = UMAX16;
+		wsgi_req->headers->limit = uwsgi.response_header_limit;
 	}
 
 	// reset the buffer (could be useful for rollbacks...)
@@ -146,7 +156,7 @@ static int uwsgi_response_add_header_do(struct wsgi_request *wsgi_req, char *key
 
         if (!wsgi_req->headers) {
                 wsgi_req->headers = uwsgi_buffer_new(uwsgi.page_size);
-                wsgi_req->headers->limit = UMAX16;
+                wsgi_req->headers->limit = uwsgi.response_header_limit;
         }
 
         struct uwsgi_buffer *hh = wsgi_req->socket->proto_add_header(wsgi_req, key, key_len, value, value_len);
@@ -624,7 +634,7 @@ sendfile:
 			fd = tmp_fd;
 			can_close = 1;
 		}
-       		if (!uwsgi_offload_request_sendfile_do(wsgi_req, fd, len)) {
+		if (!uwsgi_offload_request_sendfile_do(wsgi_req, fd, pos, len)) {
                 	wsgi_req->via = UWSGI_VIA_OFFLOAD;
 			wsgi_req->response_size += len;
                         return 0;

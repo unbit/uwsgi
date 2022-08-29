@@ -62,7 +62,7 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 
 				// fix SERVER_PORT
 				if (!ugs->port || !ugs->port_len) {
-					ugs->port = strchr(ugs->name, ':');
+					ugs->port = strrchr(ugs->name, ':');
 					if (ugs->port) {
 						ugs->port++;
 						ugs->port_len = strlen(ugs->port);
@@ -276,4 +276,29 @@ void uwsgi_corerouter_manage_internal_subscription(struct uwsgi_corerouter *ucr,
 		}
 	}
 
+}
+
+int corerouter_spawn_vassal(struct uwsgi_corerouter *ucr, struct uwsgi_subscribe_node *node, int attempt) {
+	// TODO
+	// a vassal field could be in the form address:name where address is the emperor command socket
+	// to use. As we cannot know in advance if it will be a UDP or UNIX address, we need to
+	// re-create and close the socket every time.
+	if (!ucr->emperor_socket)
+		return -1;
+	int ret = -1;
+	uwsgi_log_verbose("spawning vassal %.*s (attempt %d)\n", node->vassal_len, node->vassal, attempt);
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	// leave space for uwsgi header
+	ub->pos += 4;
+	if (uwsgi_buffer_append_keyval(ub, "cmd", 3, "spawn", 5)) goto end;
+	if (uwsgi_buffer_append_keyval(ub, "vassal", 6, node->vassal, node->vassal_len)) goto end;
+	// TODO choose modifier1 and 2
+	if (uwsgi_buffer_set_uh(ub, 0, 0)) goto end;
+	if (sendto(ucr->emperor_socket_fd, ub->buf, ub->pos, 0, &ucr->emperor_socket_addr.sa, ucr->emperor_socket_addr_len) < 0) {
+		uwsgi_error("corerouter_spawn_vassal()/sendto()");
+	}
+	ret = 0;
+end:
+	uwsgi_buffer_destroy(ub);
+	return ret;
 }

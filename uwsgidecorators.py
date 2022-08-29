@@ -4,7 +4,7 @@ from threading import Thread
 
 try:
     import cPickle as pickle
-except:
+except ImportError:
     import pickle
 
 import uwsgi
@@ -193,11 +193,15 @@ class mulefunc(object):
 
 
 def mule_msg_dispatcher(message):
-    msg = pickle.loads(message)
+    try:
+        msg = pickle.loads(message)
+    except pickle.UnpicklingError:
+        return
+
     if msg['service'] == 'uwsgi_mulefunc':
         return mule_functions[msg['func']](*msg['args'], **msg['kwargs'])
 
-uwsgi.mule_msg_hook = mule_msg_dispatcher
+uwsgi.install_mule_msg_hook(mule_msg_dispatcher)
 
 
 class rpc(object):
@@ -246,7 +250,7 @@ class mule_brain(object):
         if uwsgi.mule_id() == self.num:
             try:
                 self.f()
-            except:
+            except BaseException:
                 exc = sys.exc_info()
                 sys.excepthook(exc[0], exc[1], exc[2])
                 sys.exit(1)
@@ -259,7 +263,7 @@ class mule_brainloop(mule_brain):
             while True:
                 try:
                     self.f()
-                except:
+                except BaseException:
                     exc = sys.exc_info()
                     sys.excepthook(exc[0], exc[1], exc[2])
                     sys.exit(1)
@@ -324,6 +328,19 @@ class timer(object):
     def __call__(self, f):
         uwsgi.register_signal(self.num, self.target, f)
         uwsgi.add_timer(self.num, self.secs)
+        return f
+
+
+class mstimer(object):
+
+    def __init__(self, msecs, **kwargs):
+        self.num = kwargs.get('signum', get_free_signal())
+        self.msecs = msecs
+        self.target = kwargs.get('target', '')
+
+    def __call__(self, f):
+        uwsgi.register_signal(self.num, self.target, f)
+        uwsgi.add_ms_timer(self.num, self.msecs)
         return f
 
 

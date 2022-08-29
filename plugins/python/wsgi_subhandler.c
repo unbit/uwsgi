@@ -76,7 +76,18 @@ found:
 		return 1;
 	}
 	return 0;
-} 
+}
+
+/*
+ * attempt to make a fd from a file-like PyObject - returns -1 on error.
+ */
+static int uwsgi_python_try_filelike_as_fd(PyObject *filelike) {
+	int fd;
+	if ((fd = PyObject_AsFileDescriptor(filelike)) < 0) {
+		PyErr_Clear();
+	}
+	return fd;
+}
 
 /*
 this is a hack for supporting non-file object passed to wsgi.file_wrapper
@@ -92,7 +103,7 @@ static void uwsgi_python_consume_file_wrapper_read(struct wsgi_request *wsgi_req
         	read_method_args = PyTuple_New(0);
 	}
 	for(;;) {
-        	PyObject *read_method_output = PyEval_CallObject(read_method, read_method_args);
+        	PyObject *read_method_output = PyObject_CallObject(read_method, read_method_args);
                 if (PyErr_Occurred()) {
                 	uwsgi_manage_exception(wsgi_req, 0);
 			break;
@@ -168,7 +179,17 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
         PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_req->async_input);
 
-	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.file_wrapper", wi->sendfile);
+	if (up.wsgi_manage_chunked_input) {
+		if (wsgi_req->body_is_chunked) {
+			PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input_terminated", Py_True);
+		}
+		else {
+			PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input_terminated", Py_False);
+		}
+	}
+
+	if (!up.wsgi_disable_file_wrapper)
+		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.file_wrapper", wi->sendfile);
 
 	if (uwsgi.async > 0) {
 		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.readable", wi->eventfd_read);
@@ -233,7 +254,13 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.node", wi->uwsgi_node);
 
 	// call
-	PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
+	if (PyTuple_GetItem(wsgi_req->async_args, 0) != wsgi_req->async_environ) {
+	    Py_INCREF(wsgi_req->async_environ);
+	    if (PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ)) {
+	        uwsgi_log_verbose("unable to set environ to the python application callable, consider using the holy env allocator\n");
+	        return NULL;
+	    }
+	}
 	return python_call(wsgi_req->async_app, wsgi_req->async_args, uwsgi.catch_exceptions, wsgi_req);
 }
 
@@ -247,7 +274,9 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 		if (uwsgi_python_send_body(wsgi_req, (PyObject *)wsgi_req->async_result)) goto clear;
 	}
 
-	if (wsgi_req->sendfile_obj == wsgi_req->async_result) {
+	// Check if wsgi.file_wrapper has been used.
+	if (wsgi_req->async_sendfile == wsgi_req->async_result) {
+		wsgi_req->sendfile_fd = uwsgi_python_try_filelike_as_fd((PyObject *)wsgi_req->async_sendfile);
 		if (wsgi_req->sendfile_fd >= 0) {
 			UWSGI_RELEASE_GIL
 			uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
@@ -293,8 +322,14 @@ exception:
 			Py_DECREF(pychunk);
 			goto clear;
 		}
-	}
-	else if (wsgi_req->sendfile_obj == pychunk) {
+	} else if (wsgi_req->async_sendfile == pychunk) {
+		//
+		// XXX: It's not clear whether this can ever be sensibly reached
+		//      based on PEP 333/3333 - it would mean the iterator yielded
+		//      the result of wsgi.file_wrapper. However, the iterator should
+		//      only ever yield `bytes`...
+		//
+		wsgi_req->sendfile_fd = uwsgi_python_try_filelike_as_fd((PyObject *)wsgi_req->async_sendfile);
 		if (wsgi_req->sendfile_fd >= 0) {
 			UWSGI_RELEASE_GIL
 			uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
@@ -304,41 +339,50 @@ exception:
 		else if (PyObject_HasAttrString(pychunk, "read")) {
 			uwsgi_python_consume_file_wrapper_read(wsgi_req, pychunk);
 		}
-
 		uwsgi_py_check_write_errors {
 			uwsgi_py_write_exception(wsgi_req);
 			Py_DECREF(pychunk);
 			goto clear;
 		}
+	} else {
+		// The iterator returned something that we were not able to handle.
+		PyObject *pystr = PyObject_Repr(pychunk);
+#ifdef PYTHREE
+		const char *cstr = PyUnicode_AsUTF8(pystr);
+#else
+		const char *cstr = PyString_AsString(pystr);
+#endif
+		uwsgi_log("[ERROR] Unhandled object from iterator: %s (%p)\n", cstr, pychunk);
+		Py_DECREF(pystr);
 	}
-
 
 	Py_DECREF(pychunk);
 	return UWSGI_AGAIN;
 
 clear:
-
-	if (wsgi_req->sendfile_fd != -1) {
-		Py_DECREF((PyObject *)wsgi_req->async_sendfile);
+	// Release the reference that we took in py_uwsgi_sendfile.
+	if (wsgi_req->async_sendfile != NULL) {
+		Py_DECREF((PyObject *) wsgi_req->async_sendfile);
 	}
 
-	if (wsgi_req->async_placeholder) {
-		// CALL close() ALWAYS if we are working with an iterator !!!
-		if (PyObject_HasAttrString((PyObject *)wsgi_req->async_result, "close")) {
-                        PyObject *close_method = PyObject_GetAttrString((PyObject *)wsgi_req->async_result, "close");
-                        PyObject *close_method_args = PyTuple_New(0);
-#ifdef UWSGI_DEBUG
-                        uwsgi_log("calling close() for %.*s %p %p\n", wsgi_req->uri_len, wsgi_req->uri, close_method, close_method_args);
-#endif
-                        PyObject *close_method_output = PyEval_CallObject(close_method, close_method_args);
-                        if (PyErr_Occurred()) {
-                                uwsgi_manage_exception(wsgi_req, 0);
-                        }
-                        Py_DECREF(close_method_args);
-                        Py_XDECREF(close_method_output);
-                        Py_DECREF(close_method);
-                }
+	if (wsgi_req->async_placeholder != NULL) {
 		Py_DECREF((PyObject *)wsgi_req->async_placeholder);
+	}
+
+	// Call close() on the response, this is required by the WSGI spec
+	if (PyObject_HasAttrString((PyObject *)wsgi_req->async_result, "close")) {
+		PyObject *close_method = PyObject_GetAttrString((PyObject *)wsgi_req->async_result, "close");
+		PyObject *close_method_args = PyTuple_New(0);
+#ifdef UWSGI_DEBUG
+		uwsgi_log("calling close() for %.*s %p %p\n", wsgi_req->uri_len, wsgi_req->uri, close_method, close_method_args);
+#endif
+		PyObject *close_method_output = PyObject_CallObject(close_method, close_method_args);
+		if (PyErr_Occurred()) {
+				uwsgi_manage_exception(wsgi_req, 0);
+		}
+		Py_DECREF(close_method_args);
+		Py_XDECREF(close_method_output);
+		Py_DECREF(close_method);
 	}
 
 	Py_DECREF((PyObject *)wsgi_req->async_result);

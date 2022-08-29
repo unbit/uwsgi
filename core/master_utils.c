@@ -177,8 +177,10 @@ safe:
 	if (needed_workers > 0) {
 		for (i = 1; i <= uwsgi.numproc; i++) {
 			if (uwsgi.workers[i].cheaped == 1 && uwsgi.workers[i].pid == 0) {
-				if (uwsgi_respawn_worker(i))
+				if (uwsgi_respawn_worker(i)) {
+					uwsgi.cheaper_fifo_delta += needed_workers;
 					return 0;
+				}
 				needed_workers--;
 			}
 			if (needed_workers == 0)
@@ -186,25 +188,34 @@ safe:
 		}
 	}
 	else if (needed_workers < 0) {
-		int oldest_worker = 0;
-		time_t oldest_worker_spawn = INT_MAX;
-		for (i = 1; i <= uwsgi.numproc; i++) {
-			if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-				if (uwsgi.workers[i].last_spawn < oldest_worker_spawn) {
-					oldest_worker_spawn = uwsgi.workers[i].last_spawn;
-					oldest_worker = i;
+		while (needed_workers < 0) {
+			int oldest_worker = 0;
+			time_t oldest_worker_spawn = INT_MAX;
+			for (i = 1; i <= uwsgi.numproc; i++) {
+				if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+					if (uwsgi_worker_is_busy(i) == 0) {
+						if (uwsgi.workers[i].last_spawn < oldest_worker_spawn) {
+							oldest_worker_spawn = uwsgi.workers[i].last_spawn;
+							oldest_worker = i;
+						}
+					}
 				}
 			}
-		}
-		if (oldest_worker > 0) {
+			if (oldest_worker > 0) {
 #ifdef UWSGI_DEBUG
-			uwsgi_log("worker %d should die...\n", oldest_worker);
+				uwsgi_log("worker %d should die...\n", oldest_worker);
 #endif
-			uwsgi.workers[oldest_worker].cheaped = 1;
-			uwsgi.workers[oldest_worker].rss_size = 0;
-			uwsgi.workers[oldest_worker].vsz_size = 0;
-			uwsgi.workers[oldest_worker].manage_next_request = 0;
-			uwsgi_curse(oldest_worker, SIGWINCH);
+				uwsgi.workers[oldest_worker].cheaped = 1;
+				uwsgi.workers[oldest_worker].rss_size = 0;
+				uwsgi.workers[oldest_worker].vsz_size = 0;
+				uwsgi.workers[oldest_worker].manage_next_request = 0;
+				uwsgi_curse(oldest_worker, SIGWINCH);
+			}
+			else {
+				// Return it to the pool
+				uwsgi.cheaper_fifo_delta--;
+			}
+			needed_workers++;
 		}
 	}
 
@@ -226,7 +237,7 @@ int uwsgi_cheaper_algo_manual(int can_spawn) {
 
         when at least one worker is free, the overload_count is decremented and the idle_count is incremented.
         If overload_count reaches 0, the system will count active workers (the ones uncheaped) and busy workers (the ones running a request)
-	if there is exacly 1 free worker we are in "stable state" (1 spare worker available). no worker will be touched.
+	if there is exactly 1 free worker we are in "stable state" (1 spare worker available). no worker will be touched.
 	if the number of active workers is higher than uwsgi.cheaper_count and at least uwsgi.cheaper_overload cycles are passed from the last
         "cheap it" procedure, then cheap a worker.
 
@@ -340,7 +351,7 @@ healthy:
 
 	This algorithm increase workers *before* overloaded, and decrease workers slowly.
 
-	This algorithm uses these options: chaper, cheaper-initial, cheaper-step and cheaper-idle.
+	This algorithm uses these options: cheaper, cheaper-initial, cheaper-step and cheaper-idle.
 
 	* When number of idle workers is smaller than cheaper count, increase
 	  min(cheaper-step, cheaper - idle workers) workers.
@@ -495,7 +506,7 @@ void uwsgi_reload(char **argv) {
 		uwsgi_error("uwsgi_reload()/chdir()");
 	}
 
-	/* check fd table (a module can obviosly open some fd on initialization...) */
+	/* check fd table (a module can obviously open some fd on initialization...) */
 	uwsgi_log("closing all non-uwsgi socket fds > 2 (max_fd = %d)...\n", (int) uwsgi.max_fd);
 	for (i = 3; i < (int) uwsgi.max_fd; i++) {
 		if (uwsgi.close_on_exec2) fcntl(i, F_SETFD, 0);
@@ -716,6 +727,8 @@ int uwsgi_respawn_worker(int wid) {
 	uwsgi.workers[wid].pending_harakiri = 0;
 	uwsgi.workers[wid].rss_size = 0;
 	uwsgi.workers[wid].vsz_size = 0;
+	uwsgi.workers[wid].uss_size = 0;
+	uwsgi.workers[wid].pss_size = 0;
 	// ... reset stopped_at
 	uwsgi.workers[wid].cursed_at = 0;
 	uwsgi.workers[wid].no_mercy_at = 0;
@@ -734,9 +747,22 @@ int uwsgi_respawn_worker(int wid) {
 		pthread_mutex_lock(&uwsgi.threaded_logger_lock);
 	}
 
+
+	for (i = 0; i < 256; i++) {
+		if (uwsgi.p[i]->pre_uwsgi_fork) {
+			uwsgi.p[i]->pre_uwsgi_fork();
+		}
+	}
+
 	pid_t pid = uwsgi_fork(uwsgi.workers[wid].name);
 
 	if (pid == 0) {
+		for (i = 0; i < 256; i++) {
+			if (uwsgi.p[i]->post_uwsgi_fork) {
+				uwsgi.p[i]->post_uwsgi_fork(1);
+			}
+		}
+
 		signal(SIGWINCH, worker_wakeup);
 		signal(SIGTSTP, worker_wakeup);
 		uwsgi.mywid = wid;
@@ -772,6 +798,7 @@ int uwsgi_respawn_worker(int wid) {
 		for(i=0;i<uwsgi.cores;i++) {
 			uwsgi.workers[uwsgi.mywid].cores[i].in_request = 0;
 			memset(&uwsgi.workers[uwsgi.mywid].cores[i].req, 0, sizeof(struct wsgi_request));
+			memset(uwsgi.workers[uwsgi.mywid].cores[i].buffer, 0, sizeof(struct uwsgi_header));
 		}
 
 		uwsgi_fixup_fds(wid, 0, NULL);
@@ -798,6 +825,12 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi_error("fork()");
 	}
 	else {
+		for (i = 0; i < 256; i++) {
+			if (uwsgi.p[i]->post_uwsgi_fork) {
+				uwsgi.p[i]->post_uwsgi_fork(0);
+			}
+		}
+
 		// the pid is set only in the master, as the worker should never use it
 		uwsgi.workers[wid].pid = pid;
 
@@ -1156,6 +1189,10 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			goto end;
 		if (uwsgi_stats_keylong_comma(us, "vsz", (unsigned long long) uwsgi.workers[i + 1].vsz_size))
 			goto end;
+		if (uwsgi_stats_keylong_comma(us, "uss", (unsigned long long) uwsgi.workers[i + 1].uss_size))
+			goto end;
+		if (uwsgi_stats_keylong_comma(us, "pss", (unsigned long long) uwsgi.workers[i + 1].pss_size))
+			goto end;
 
 		if (uwsgi_stats_keylong_comma(us, "running_time", (unsigned long long) uwsgi.workers[i + 1].running_time))
 			goto end;
@@ -1269,6 +1306,18 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_list_close(us))
 				goto end;
 
+			if (uwsgi_stats_comma(us)) goto end;
+
+			if (uwsgi_stats_key(us, "req_info"))
+				goto end;
+
+			if (uwsgi_stats_object_open(us))
+				goto end;
+
+			if (uwsgi_stats_dump_request(us, uc)) goto end;
+
+			if (uwsgi_stats_object_close(us))
+				goto end;
 
 			if (uwsgi_stats_object_close(us))
 				goto end;
@@ -1657,7 +1706,8 @@ int uwsgi_cron_task_needs_execution(struct tm *uwsgi_cron_delta, int minute, int
 	uc_hour = hour;
 	uc_day = day;
 	uc_month = month;
-	uc_week = week;
+	// support 7 as alias for sunday (0) to match crontab behaviour
+	uc_week = week == 7 ? 0 : week;
 
 	// negative values as interval -1 = * , -5 = */5
 	if (minute < 0) {

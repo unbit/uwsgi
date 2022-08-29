@@ -13,7 +13,7 @@ if LUAINC:
 else:
     try:
         CFLAGS = os.popen('pkg-config --cflags %s' % LUAPC).read().rstrip().split()
-    except:
+    except Exception:
         CFLAGS = ['-I/usr/include/lua5.1']
 
 if LUALIB:
@@ -21,7 +21,7 @@ if LUALIB:
 else:
     try:
         LIBS = os.popen('pkg-config --libs %s' % LUAPC).read().rstrip().split()
-    except:
+    except Exception:
         LIBS = ['-llua5.1']
 
 if LUALIBPATH:

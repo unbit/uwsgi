@@ -4,7 +4,9 @@ extern struct uwsgi_server uwsgi;
 
 struct uwsgi_redislog_state {
 	int fd;
+	char *password;
 	char *address;
+	char *id;
 	char *command;
 	char *prefix;
 	char msgsize[11];
@@ -50,9 +52,26 @@ static char *uwsgi_redis_logger_build_command(char *src) {
 	return orig_dst;
 }
 
+static ssize_t uwsgi_redis_logger_discard_response(struct uwsgi_redislog_state *uredislog) {
+	ssize_t ret = 0, ret2;
+again:
+	// read til a \n is found (ugly but fast)
+	ret2 = read(uredislog->fd, uredislog->response, 8);
+	if (ret2 <= 0) {
+		close(uredislog->fd);
+		uredislog->fd = -1;
+		return -1;
+	}
+	ret += ret2;
+	if (!memchr(uredislog->response, '\n', ret2)) {
+		goto again;
+	}
+	return ret;
+}
+
 ssize_t uwsgi_redis_logger(struct uwsgi_logger *ul, char *message, size_t len) {
 
-	ssize_t ret,ret2;
+	ssize_t ret;
 	struct uwsgi_redislog_state *uredislog = NULL;
 
 	if (!ul->configured) {
@@ -62,14 +81,30 @@ ssize_t uwsgi_redis_logger(struct uwsgi_logger *ul, char *message, size_t len) {
 			uredislog = (struct uwsgi_redislog_state *) ul->data;
 		}
 
-        	if (ul->arg != NULL) {
+		if (ul->arg != NULL) {
 			char *logarg = uwsgi_str(ul->arg);
+			char *at = strchr(logarg, '@');
+			if (at) {
+			  *at = 0;
+			  uredislog->password = logarg;
+			  logarg = at + 1;
+			}
 			char *comma1 = strchr(logarg, ',');
 			if (!comma1) {
-				uredislog->address = logarg;
+				char *slash = strchr(logarg, '/');
+				if (slash) {
+				  *slash = 0;
+				  uredislog->id = slash + 1;
+				}
+				uredislog->address = uwsgi_resolve_ip(logarg);
 				goto done;
 			}
 			*comma1 = 0;
+			char *slash = strchr(logarg, '/');
+			if (slash) {
+			  *slash = 0;
+			  uredislog->id = slash + 1;
+			}
 			uredislog->address = logarg;
 			comma1++;
 			if (*comma1 == 0) goto done;
@@ -86,11 +121,12 @@ ssize_t uwsgi_redis_logger(struct uwsgi_logger *ul, char *message, size_t len) {
 			if (*comma2 == 0) goto done;
 
 			uredislog->prefix = comma2;
-			
 		}
 
 done:
 
+		if (!uredislog->password) uredislog->password = NULL;
+		if (!uredislog->id) uredislog->id = "0";
 		if (!uredislog->address) uredislog->address = uwsgi_str("127.0.0.1:6379");
 		if (!uredislog->command) uredislog->command = "*3\r\n$7\r\npublish\r\n$5\r\nuwsgi\r\n";
 		if (!uredislog->prefix) uredislog->prefix = "";
@@ -118,7 +154,35 @@ done:
 
 	uredislog = (struct uwsgi_redislog_state *) ul->data;
 	if (uredislog->fd == -1) {
+		struct iovec	setup_iov;
+		char		setup_buf[4096];
 		uredislog->fd = uwsgi_connect(uredislog->address, uwsgi.socket_timeout, 0);
+		if (uredislog->password) {
+		  setup_iov.iov_len = snprintf(
+		    setup_buf, sizeof (setup_buf), "*2\r\n$4\r\nauth\r\n$%zu\r\n%*s\r\n",
+		    strlen(uredislog->password), (int)strlen(uredislog->password), uredislog->password);
+		  setup_iov.iov_base = setup_buf;
+		  ret = writev(uredislog->fd, &setup_iov, 1);
+		  if (ret <= 0) {
+		    close(uredislog->fd);
+		    uredislog->fd = -1;
+		    return -1;
+		  }
+		  uwsgi_redis_logger_discard_response(uredislog);
+		}
+		if (uredislog->id) {
+		  setup_iov.iov_len = snprintf(
+		    setup_buf, sizeof (setup_buf), "*2\r\n$6\r\nselect\r\n$%zu\r\n%*s\r\n",
+	            strlen(uredislog->id), (int)strlen(uredislog->id), uredislog->id);
+		  setup_iov.iov_base = setup_buf;
+		  ret = writev(uredislog->fd, &setup_iov, 1);
+		  if (ret <= 0) {
+		    close(uredislog->fd);
+		    uredislog->fd = -1;
+		    return -1;
+		  }
+		  uwsgi_redis_logger_discard_response(uredislog);
+		}
 	}
 
 	if (uredislog->fd == -1) return -1;
@@ -139,18 +203,7 @@ done:
 		return -1;
 	}
 
-again:
-	// read til a \n is found (ugly but fast)
-	ret2 = read(uredislog->fd, uredislog->response, 8);
-	if (ret2 <= 0) {
-		close(uredislog->fd);
-		uredislog->fd = -1;
-		return -1;
-	}
-
-	if (!memchr(uredislog->response, '\n', ret2)) {
-		goto again;
-	}
+	uwsgi_redis_logger_discard_response(uredislog);
 
 	return ret;
 

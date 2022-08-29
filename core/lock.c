@@ -93,13 +93,25 @@ retry:
 #ifdef EOWNERDEAD
 #ifndef PTHREAD_MUTEX_ROBUST
 #define PTHREAD_MUTEX_ROBUST PTHREAD_MUTEX_ROBUST_NP
+#define pthread_mutexattr_setrobust pthread_mutexattr_setrobust_np
+#define pthread_mutex_consistent pthread_mutex_consistent_np
 #endif
 	if (uwsgi_pthread_robust_mutexes_enabled) {
-		if (pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT)) {
-			uwsgi_log("unable to set PTHREAD_PRIO_INHERIT\n");
-			exit(1);
+		int ret;
+		if ((ret = pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT)) != 0) {
+			switch (ret) {
+			case ENOTSUP:
+				// PTHREAD_PRIO_INHERIT will only prevent
+				// priority inversion when SCHED_FIFO or
+				// SCHED_RR is used, so this is non-fatal and
+				// also currently unsupported on musl.
+				break;
+			default:
+				uwsgi_log("unable to set PTHREAD_PRIO_INHERIT\n");
+				exit(1);
+			}
 		}
-		if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST)) {
+		if (pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) {
 			uwsgi_log("unable to make the mutex 'robust'\n");
 			exit(1);
 		}
@@ -161,7 +173,7 @@ void uwsgi_lock_fast(struct uwsgi_lock_item *uli) {
 #ifdef EOWNERDEAD
 	if (pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr) == EOWNERDEAD) {
 		uwsgi_log("[deadlock-detector] a process holding a robust mutex died. recovering...\n");
-		pthread_mutex_consistent_np((pthread_mutex_t *) uli->lock_ptr);
+		pthread_mutex_consistent((pthread_mutex_t *) uli->lock_ptr);
 	}
 #else
 	pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr);
@@ -476,6 +488,20 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) {
 
 #endif
 
+#ifdef __RUMP__
+int semctl(int _0, int _1, int _2, ...) {
+	return 0;
+}
+int semget(key_t _0, int _1, int _2) {
+	return 0;
+}
+int semop(int _0, struct sembuf * _1, size_t _2) {
+	return 0;
+}
+#undef UWSGI_LOCK_ENGINE_NAME
+#define UWSGI_LOCK_ENGINE_NAME "fake"
+#endif
+
 struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *id) {
 
 	// used by ftok
@@ -639,7 +665,6 @@ pid_t uwsgi_rwlock_ipcsem_check(struct uwsgi_lock_item *uli) {
 	return uwsgi_lock_ipcsem_check(uli);
 }
 
-#ifdef UNBIT
 /*
 	Unbit-specific workaround for robust-mutexes
 */
@@ -664,8 +689,6 @@ void uwsgi_robust_mutexes_watchdog() {
 		exit(1);
         }
 }
-
-#endif
 
 void uwsgi_setup_locking() {
 
@@ -745,14 +768,14 @@ ready:
 	if (uwsgi.use_thunder_lock) {
 		// process shared thunder lock
 		uwsgi.the_thunder_lock = uwsgi_lock_init("thunder");	
-#ifdef UNBIT
-		// we have a serious bug on Unbit (and very probably on older libc)
-		// when all of the workers die in the same moment the pthread robust mutes is left
-		// in inconsistent state and we have no way to recover
-		// we span a thread in the master constantly ensuring the lock is ok
-		// for now we apply it only for Unbit (where thunder-lock is automatically enabled)
-		uwsgi_robust_mutexes_watchdog();		
-#endif
+		if (uwsgi.use_thunder_lock_watchdog) {
+			// there is a bug on older libc where, when all of the workers die
+			// in the same moment, the pthread robust mutex is left in an
+			// inconsistent state and we have no way to recover. to workaround
+			// this we spawn a thread in the master to constantly ensure the
+			// lock is ok. see https://github.com/unbit/uwsgi/issues/1571
+			uwsgi_robust_mutexes_watchdog();
+		}
 	}
 
 	uwsgi.rpc_table_lock = uwsgi_lock_init("rpc");

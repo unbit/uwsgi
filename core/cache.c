@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
 #define cache_item(x) (struct uwsgi_cache_item *) (((char *)uc->items) + ((sizeof(struct uwsgi_cache_item)+uc->keysize) * x))
@@ -26,6 +26,7 @@ extern struct uwsgi_server uwsgi;
 
 static void cache_full(struct uwsgi_cache *uc) {
 	uint64_t i;
+	int clear_cache = uc->clear_on_full;
 
 	if (!uc->ignore_full) {
         	if (uc->purge_lru)
@@ -41,19 +42,25 @@ static void cache_full(struct uwsgi_cache *uc) {
 
 	// we do not need locking here !
 	if (uc->sweep_on_full) {
+		uint64_t removed = 0;
 		uint64_t now = (uint64_t) uwsgi_now();
 		if (uc->next_scan <= now) {
 			uc->next_scan = now + uc->sweep_on_full;
-                	for (i = 1; i < uc->max_items; i++) {
+			for (i = 1; i < uc->max_items; i++) {
 				struct uwsgi_cache_item *uci = cache_item(i);
 				if (uci->expires > 0 && uci->expires <= now) {
-                			uwsgi_cache_del2(uc, NULL, 0, i, 0);
+					if (!uwsgi_cache_del2(uc, NULL, 0, i, 0)) {
+						removed++;
+					}
 				}
 			}
-                }
+		}
+		if (removed) {
+			clear_cache = 0;
+		}
 	}
 
-	if (uc->clear_on_full) {
+	if (clear_cache) {
                 for (i = 1; i < uc->max_items; i++) {
                 	uwsgi_cache_del2(uc, NULL, 0, i, 0);
                 }
@@ -232,17 +239,17 @@ static void cache_sync_hook(char *k, uint16_t kl, char *v, uint16_t vl, void *da
 
 static void uwsgi_cache_add_items(struct uwsgi_cache *uc) {
 	struct uwsgi_string_list *usl = uwsgi.add_cache_item;
-        while(usl) {
-                char *space = strchr(usl->value, ' ');
+	while(usl) {
+		char *space = strchr(usl->value, ' ');
 		char *key = usl->value;
-		uint16_t key_len = usl->len;
-                if (space) {
-                        // need to skip ?
-                        if (uwsgi_strncmp(uc->name, uc->name_len, usl->value, space-usl->value)) {
-                                goto next;
-                        }
-                        key = space+1;
-                }
+		uint16_t key_len;
+		if (space) {
+			// need to skip ?
+			if (uwsgi_strncmp(uc->name, uc->name_len, usl->value, space-usl->value)) {
+				goto next;
+			}
+			key = space+1;
+		}
 		char *value = strchr(key, '=');
 		if (!value) {
 			uwsgi_log("[cache] unable to store item %s\n", usl->value);
@@ -251,18 +258,17 @@ static void uwsgi_cache_add_items(struct uwsgi_cache *uc) {
 		key_len = value - key;
 		value++;
 		uint64_t len = (usl->value + usl->len) - value;
-                uwsgi_wlock(uc->lock);
-                if (!uwsgi_cache_set2(uc, key, key_len, value, len, 0, 0)) {
-                	uwsgi_log("[cache] stored \"%.*s\" in \"%s\"\n", key_len, key, uc->name);
-                }
-                else {
-                	uwsgi_log("[cache-error] unable to store \"%.*s\" in \"%s\"\n", key_len, key, uc->name);
-                }
-                uwsgi_rwunlock(uc->lock);
+		uwsgi_wlock(uc->lock);
+		if (!uwsgi_cache_set2(uc, key, key_len, value, len, 0, 0)) {
+			uwsgi_log("[cache] stored \"%.*s\" in \"%s\"\n", key_len, key, uc->name);
+		}
+		else {
+			uwsgi_log("[cache-error] unable to store \"%.*s\" in \"%s\"\n", key_len, key, uc->name);
+		}
+		uwsgi_rwunlock(uc->lock);
 next:
-                usl = usl->next;
-        }
-
+		usl = usl->next;
+	}
 }
 
 static void uwsgi_cache_load_files(struct uwsgi_cache *uc) {
@@ -501,7 +507,7 @@ cycle:
 		if (rounds > uc->max_items) {
 			uwsgi_log("ALARM !!! cache-loop (and potential deadlock) detected slot = %lu prev = %lu next = %lu\n", slot, uci->prev, uci->next);
 			// terrible case: the whole uWSGI stack can deadlock, leaving only the master alive
-			// if the master is avalable, trigger a brutal reload
+			// if the master is available, trigger a brutal reload
 			if (uwsgi.master_process) {
 				kill(uwsgi.workers[0].pid, SIGTERM);
 			}
@@ -715,6 +721,7 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 
 	uint64_t i;
 	unsigned long long restored = 0;
+	uint64_t next_scan = 0;
 
 	// reset unused blocks
 	uc->unused_blocks_stack_ptr = 0;
@@ -726,8 +733,11 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 			if (!uci->prev) {
 				// put value in hash_table
 				uc->hashtable[uci->hash % uc->hashsize] = i;
-				restored++;
 			}
+			if (uci->expires && (!next_scan || next_scan > uci->expires)) {
+				next_scan = uci->expires;
+			}
+			restored++;
 		}
 		else {
 			// put this record in unused stack
@@ -736,6 +746,7 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 		}
 	}
 
+	uc->next_scan = next_scan;
 	uc->n_items = restored;
 	uwsgi_log("[uwsgi-cache] restored %llu items\n", uc->n_items);
 }
@@ -835,7 +846,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 			}
 		}
 
-		// set this as late as possibile (to reduce races risk)
+		// set this as late as possible (to reduce races risk)
 
 		uci->valsize = vallen;
 		uci->keysize = keylen;
@@ -1227,7 +1238,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		uwsgi.caches = uc;
 	}
 
-	// default (old-stye) cache ?
+	// default (old-style) cache ?
 	if (!arg) {
 		uc->name = "default";
 		uc->name_len = strlen(uc->name);
@@ -1727,6 +1738,7 @@ char *uwsgi_cache_magic_get(char *key, uint16_t keylen, uint64_t *vallen, uint64
 		}
 
 		// now the magic, we dereference the internal buffer and return it to the caller
+		close(fd);
 		char *value = ub->buf;
 		ub->buf = NULL;
 		uwsgi_buffer_destroy(ub);
@@ -1803,6 +1815,8 @@ int uwsgi_cache_magic_exists(char *key, uint16_t keylen, char *cache) {
 			return 0;
                 }
 
+		close(fd);
+		uwsgi_buffer_destroy(ub);
 		return 1;
         }
 
@@ -1876,6 +1890,7 @@ int uwsgi_cache_magic_set(char *key, uint16_t keylen, char *value, uint64_t vall
                         return -1;
                 }
 
+		close(fd);
 		uwsgi_buffer_destroy(ub);
 		return 0;
 
@@ -1948,6 +1963,8 @@ int uwsgi_cache_magic_del(char *key, uint16_t keylen, char *cache) {
                         return -1;
                 }
 
+		close(fd);
+		uwsgi_buffer_destroy(ub);
                 return 0;
         }
 
@@ -2021,6 +2038,8 @@ int uwsgi_cache_magic_clear(char *cache) {
                         return -1;
                 }
 
+		close(fd);
+		uwsgi_buffer_destroy(ub);
                 return 0;
         }
 

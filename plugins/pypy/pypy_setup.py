@@ -340,10 +340,10 @@ def uwsgi_pypy_paste_loader(config):
     if c[0] != '/':
         c = os.getcwd() + '/' + c
     try:
-        from paste.script.util.logging_config import fileConfig
+        from logging.config import fileConfig
         fileConfig(c)
     except ImportError:
-        print "PyPy WARNING: unable to load paste.script.util.logging_config"
+        print("PyPy WARNING: unable to load logging.config")
     from paste.deploy import loadapp
     wsgi_application = loadapp('config:%s' % c)
 
@@ -365,7 +365,7 @@ def uwsgi_pypy_pythonpath(item):
     """
     path = ffi.string(item)
     sys.path.append(path)
-    print "added %s to pythonpath" % path
+    print("added %s to pythonpath" % path)
 
 
 class WSGIfilewrapper(object):
@@ -381,6 +381,17 @@ class WSGIfilewrapper(object):
 
     def __iter__(self):
         return self
+
+    def __next__(self):
+        if self.chunksize:
+            data = self.f.read(self.chunksize)
+        else:
+            data = self.f.read()
+        if data:
+            return data
+        raise StopIteration()
+
+    next = __next__
 
     def sendfile(self):
         if hasattr(self.f, 'fileno'):
@@ -997,8 +1008,8 @@ def uwsgi_pypy_set_logvar(key, val):
 uwsgi.set_logvar = uwsgi_pypy_set_logvar
 
 
-print "Initialized PyPy with Python", sys.version
-print "PyPy Home:", sys.prefix
+print("Initialized PyPy with Python %s" % sys.version)
+print("PyPy Home: %s" % sys.prefix)
 
 
 """
@@ -1060,4 +1071,4 @@ def uwsgi_pypy_setup_continulets():
         raise Exception("pypy continulets require async mode !!!")
     lib.uwsgi.schedule_to_main = uwsgi_pypy_continulet_switch
     lib.uwsgi.schedule_to_req = uwsgi_pypy_continulet_schedule
-    print "*** PyPy Continulets engine loaded ***"
+    print("*** PyPy Continulets engine loaded ***")

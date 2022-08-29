@@ -14,7 +14,7 @@ char *uwsgi_python_get_thread_name(PyObject *thread_id) {
 	PyObject *threading_enumerate = PyDict_GetItemString(threading_dict, "enumerate");
 	if (!threading_enumerate) return NULL;
 
-	PyObject *threads_list = PyEval_CallObject(threading_enumerate, (PyObject *)NULL);
+	PyObject *threads_list = PyObject_CallObject(threading_enumerate, (PyObject *)NULL);
 	if (!threads_list) return NULL;
 
 	PyObject *threads_list_iter = PyObject_GetIter(threads_list);
@@ -28,10 +28,10 @@ char *uwsgi_python_get_thread_name(PyObject *thread_id) {
 			PyObject *thread_name = PyObject_GetAttrString(threads_list_next, "name");
 			if (!thread_name) goto clear2;
 #ifdef PYTHREE
-			PyObject *thread_name_utf8 = PyUnicode_AsUTF8String(thread_name);
+			PyObject *thread_name_utf8 = PyUnicode_AsEncodedString(thread_name, "ASCII", "strict");
 			if (!thread_name_utf8) goto clear2;
 			char *name = NULL;
-			char *tmp_name = PyString_AsString(thread_name_utf8);
+			char *tmp_name = PyBytes_AS_STRING(thread_name_utf8);
 			if (tmp_name) {
 				name = uwsgi_str(tmp_name);	
 				Py_DECREF(thread_name_utf8);
@@ -59,7 +59,7 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 
 	struct iovec iov[11];
 
-	PyObject *new_thread = uwsgi_python_setup_thread("uWSGITraceBacker");
+	PyObject *new_thread = uwsgi_python_setup_thread("uWSGITraceBacker", up.main_thread->interp);
 	if (!new_thread) return NULL;
 
 	struct sockaddr_un so_sun;
@@ -106,13 +106,13 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 		}
 		UWSGI_GET_GIL;
 // here is the core of the tracebacker
-		PyObject *current_frames = PyEval_CallObject(_current_frames, (PyObject *)NULL);
+		PyObject *current_frames = PyObject_CallObject(_current_frames, (PyObject *)NULL);
 		if (!current_frames) goto end2;
 
 		PyObject *current_frames_items = PyObject_GetAttrString(current_frames, "items");
 		if (!current_frames_items) goto end;
 
-		PyObject *frames_ret = PyEval_CallObject(current_frames_items, (PyObject *)NULL);
+		PyObject *frames_ret = PyObject_CallObject(current_frames_items, (PyObject *)NULL);
 		if (!frames_ret) goto end3;
 
 		PyObject *frames_iter = PyObject_GetIter(frames_ret);
@@ -134,7 +134,7 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 			PyObject *arg_tuple = PyTuple_New(1);
 			PyTuple_SetItem(arg_tuple, 0, stack);
 			Py_INCREF(stack);
-			PyObject *stacktrace = PyEval_CallObject( extract_stack, arg_tuple);
+			PyObject *stacktrace = PyObject_CallObject( extract_stack, arg_tuple);
 			Py_DECREF(arg_tuple);
 			if (!stacktrace) goto next2;
 			
@@ -146,16 +146,26 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 			while(st_items) {
 #ifdef PYTHREE
 				int thread_name_need_free = 0;
-#endif
-				PyObject *st_filename = PyTuple_GetItem(st_items, 0);
+
+			        	     	
+				PyObject *st_filename = PyObject_GetAttrString(st_items, "filename");
 				if (!st_filename) { Py_DECREF(st_items); goto next; }
-				PyObject *st_lineno = PyTuple_GetItem(st_items, 1);
+				PyObject *st_lineno = PyObject_GetAttrString(st_items, "lineno");
 				if (!st_lineno) {Py_DECREF(st_items); goto next;}
-				PyObject *st_name = PyTuple_GetItem(st_items, 2);
+				PyObject *st_name = PyObject_GetAttrString(st_items, "name");
 				if (!st_name) {Py_DECREF(st_items); goto next;}
 
+				PyObject *st_line = PyObject_GetAttrString(st_items, "line");
+#else
+				PyObject *st_filename = PyTuple_GetItem(st_items, 0);
+ 				if (!st_filename) { Py_DECREF(st_items); goto next; }
+				PyObject *st_lineno = PyTuple_GetItem(st_items, 1);
+ 				if (!st_lineno) {Py_DECREF(st_items); goto next;}
+				PyObject *st_name = PyTuple_GetItem(st_items, 2);
+ 				if (!st_name) {Py_DECREF(st_items); goto next;}
+ 
 				PyObject *st_line = PyTuple_GetItem(st_items, 3);
-
+#endif				
 				iov[0].iov_base = "thread_id = ";
 				iov[0].iov_len = 12;
 
@@ -174,12 +184,12 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 				iov[2].iov_len = 12;
 
 #ifdef PYTHREE
-				PyObject *st_filename_utf8 = PyUnicode_AsUTF8String(st_filename);
+				PyObject *st_filename_utf8 = PyUnicode_AsEncodedString(st_filename, "ASCII", "strict");
 				if (!st_filename_utf8) {
 					if (thread_name_need_free) free(iov[1].iov_base);
 					goto next;
 				}
-				iov[3].iov_base = PyString_AsString(st_filename_utf8);
+				iov[3].iov_base = PyBytes_AS_STRING(st_filename_utf8);
 #else
 				iov[3].iov_base = PyString_AsString(st_filename);
 #endif
@@ -195,13 +205,13 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 				iov[6].iov_len = 12 ;
 
 #ifdef PYTHREE
-                                PyObject *st_name_utf8 = PyUnicode_AsUTF8String(st_name);
+                                PyObject *st_name_utf8 = PyUnicode_AsEncodedString(st_name, "ASCII", "strict");
                                 if (!st_name_utf8) {
 					if (thread_name_need_free) free(iov[1].iov_base);
 					Py_DECREF(st_filename_utf8);
 					goto next;
 				}
-				iov[7].iov_base = PyString_AsString(st_name_utf8);
+				iov[7].iov_base = PyBytes_AS_STRING(st_name_utf8);
 #else
 				iov[7].iov_base = PyString_AsString(st_name);
 #endif
@@ -223,14 +233,14 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 					iov[8].iov_base = " line = ";
 					iov[8].iov_len = 8;
 #ifdef PYTHREE
-                                	PyObject *st_line_utf8 = PyUnicode_AsUTF8String(st_line);
+                                	PyObject *st_line_utf8 = PyUnicode_AsEncodedString(st_line, "ASCII", "strict");
                                 	if (!st_line_utf8) {
 						if (thread_name_need_free) free(iov[1].iov_base);
                                         	Py_DECREF(st_filename_utf8);
                                         	Py_DECREF(st_name_utf8);
                                         	goto next;
                                 	}
-					iov[9].iov_base = PyString_AsString(st_line_utf8);
+					iov[9].iov_base = PyBytes_AS_STRING(st_line_utf8);
 #else
 					iov[9].iov_base = PyString_AsString(st_line);
 #endif

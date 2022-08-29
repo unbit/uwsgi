@@ -2,9 +2,8 @@ import os
 
 NAME = 'emperor_pg'
 
-CFLAGS = os.popen('pg_config --cflags').read().rstrip().split()
-CFLAGS.append('-I' + os.popen('pg_config --includedir').read().rstrip())
-LDFLAGS = os.popen('pg_config --ldflags').read().rstrip().split()
+CFLAGS = ['-I' + os.popen('pg_config --includedir').read().rstrip()]
+LDFLAGS = []
 LIBS = [
     '-L' + os.popen('pg_config --libdir').read().rstrip(),
     '-lpq'

@@ -27,7 +27,7 @@ static int uwsgi_libffi_hook(char *arg) {
 	if (!func) goto destroy;
 
 	ffi_cif cif;
-	ffi_type **args_type = (ffi_type **) uwsgi_malloc(sizeof(ffi_type) * (argc-1));
+	ffi_type **args_type = (ffi_type **) uwsgi_malloc(sizeof(ffi_type*) * (argc-1));
 	void **values = uwsgi_malloc(sizeof(void*) * (argc-1));
 	for(i=1;i<argc;i++) {
 		size_t skip = 0;

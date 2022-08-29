@@ -449,17 +449,16 @@ static int uwsgi_routing_func_rpc_var(struct wsgi_request *wsgi_req, struct uwsg
         uint64_t size;
         response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
         free(func);
-        if (!response) goto end;
 
         ret = UWSGI_ROUTE_BREAK;
-        if (size == 0) goto end;
 
 	if (!uwsgi_req_append(wsgi_req, ur->data4, ur->data4_len, response, size)) {
 		goto end;
 	}
 	ret = UWSGI_ROUTE_NEXT;
 end:
-	free(response);
+	if (response)
+		free(response);
         for(i=0;i<ur->custom;i++) {
                 if (ubs[i] != NULL) {
                         uwsgi_buffer_destroy(ubs[i]);
@@ -472,78 +471,76 @@ end:
 
 // "next" || "continue" || "break(.*)" || "goon" || "goto .+"
 static int uwsgi_routing_func_rpc_ret(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
-        int ret = -1;
-        // this is the list of args
-        char *argv[UMAX8];
-        // this is the size of each argument
-        uint16_t argvs[UMAX8];
-        // this is a placeholder for tmp uwsgi_buffers
-        struct uwsgi_buffer *ubs[UMAX8];
+	int ret = -1;
+	// this is the list of args
+	char *argv[UMAX8];
+	// this is the size of each argument
+	uint16_t argvs[UMAX8];
+	// this is a placeholder for tmp uwsgi_buffers
+	struct uwsgi_buffer *ubs[UMAX8];
 
-        uint64_t i;
-	if (!uwsgi_rpc_apply_translations(wsgi_req, ur, ubs, &i, argv, argvs))
+	uint64_t num_translated, i;
+	if (!uwsgi_rpc_apply_translations(wsgi_req, ur, ubs, &num_translated, argv, argvs))
 		goto end;
 
-        // ok we now need to check it it is a local call or a remote one
-        char *func = uwsgi_str(ur->data);
+	// ok we now need to check it it is a local call or a remote one
+	char *func = uwsgi_str(ur->data);
 	char *remote = uwsgi_rpc_get_remote(func);
-        uint64_t size;
-        char *response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
-        free(func);
-        if (!response) goto end;
+	uint64_t size;
+	char *response = uwsgi_do_rpc(remote, func, ur->custom, argv, argvs, &size);
+	free(func);
+	if (!response) goto end;
 
-        ret = UWSGI_ROUTE_CONTINUE;
+	ret = UWSGI_ROUTE_CONTINUE;
 	if (!uwsgi_strncmp(response, size, "next", 4 )) {
-        	ret = UWSGI_ROUTE_NEXT;
+		ret = UWSGI_ROUTE_NEXT;
 	}
 	else if (!uwsgi_strncmp(response, size, "continue", 8 )) {
-        	ret = UWSGI_ROUTE_CONTINUE;
+		ret = UWSGI_ROUTE_CONTINUE;
 	}
 	else if (!uwsgi_starts_with(response, size, "break", 5 )) {
-        	ret = UWSGI_ROUTE_BREAK;
+		ret = UWSGI_ROUTE_BREAK;
 		if (size > 6) {
 			if (uwsgi_response_prepare_headers(wsgi_req, response+6, size-6)) goto end0;
-                	if (uwsgi_response_add_connection_close(wsgi_req)) goto end0;
-                	if (uwsgi_response_add_content_type(wsgi_req, "text/plain", 10)) goto end0;
-                	// no need to check for return value
-                	uwsgi_response_write_headers_do(wsgi_req);
+			if (uwsgi_response_add_connection_close(wsgi_req)) goto end0;
+			if (uwsgi_response_add_content_type(wsgi_req, "text/plain", 10)) goto end0;
+			// no need to check for return value
+			uwsgi_response_write_headers_do(wsgi_req);
 		}
 	}
 	else if (!uwsgi_starts_with(response, size, "goto ", 5)) {
 		ret = UWSGI_ROUTE_BREAK;
 		if (size > 5) {
 		 	// find the label
-        		struct uwsgi_route *routes = uwsgi.routes;
-        		while(routes) {
-                		if (!routes->label) goto next;
-                		if (!uwsgi_strncmp(routes->label, routes->label_len, response+5, size-5)) {
+			struct uwsgi_route *routes = uwsgi.routes;
+			while(routes) {
+				if (!routes->label) goto next;
+				if (!uwsgi_strncmp(routes->label, routes->label_len, response+5, size-5)) {
 					ret = UWSGI_ROUTE_NEXT;
-                        		wsgi_req->route_goto = routes->pos;
-                        		goto found;
-                		}
+					wsgi_req->route_goto = routes->pos;
+					goto found;
+				}
 next:
-               			routes = routes->next;
-        		}
+				routes = routes->next;
+			}
 			goto end0;	
 found:
-        		if (wsgi_req->route_goto <= wsgi_req->route_pc) {
-                		wsgi_req->route_goto = 0;
-                		uwsgi_log("[uwsgi-route] ERROR \"goto\" instruction can only jump forward (check your label !!!)\n");
+			if (wsgi_req->route_goto <= wsgi_req->route_pc) {
+				wsgi_req->route_goto = 0;
+				uwsgi_log("[uwsgi-route] ERROR \"goto\" instruction can only jump forward (check your label !!!)\n");
 				ret = UWSGI_ROUTE_BREAK;
-        		}
+			}
 		}
 	}
 
 end0:
-        free(response);
+	free(response);
 
 end:
-        for(i=0;i<ur->custom;i++) {
-                if (ubs[i] != NULL) {
-                        uwsgi_buffer_destroy(ubs[i]);
-                }
-        }
-        return ret;
+	for(i=0; i < num_translated; i++) {
+		uwsgi_buffer_destroy(ubs[i]);
+	}
+	return ret;
 }
 
 

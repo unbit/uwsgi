@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
 
@@ -35,7 +35,7 @@ extern struct uwsgi_server uwsgi;
 	value_type = UWSGI_METRIC_COUNTER/UWSGI_METRIC_GAUGE/UWSGI_METRIC_ABSOLUTE
 	collect_way = "ptr" -> get from a pointer / UWSGI_METRIC_FUNC -> get from a func with the prototype int64_t func(struct uwsgi_metric *); / UWSGI_METRIC_FILE -> get the value from a file, ptr is the filename
 
-	For some metric (or all ?) you may want to hold a value even after a server reload. For such a reason you can specify a directory on wich the server (on startup/restart) will look for
+	For some metric (or all ?) you may want to hold a value even after a server reload. For such a reason you can specify a directory in which the server (on startup/restart) will look for
 	a file named like the metric and will read the initial value from it. It may look an old-fashioned and quite inefficient way, but it is the most versatile for a sysadmin (allowing him/her
 	to even modify the values manually)
 
@@ -703,16 +703,16 @@ int64_t uwsgi_metric_getn(char *name, size_t nlen, char *oid, size_t olen) {
 
 int uwsgi_metric_set_max(char *name, char *oid, int64_t value) {
 	um_op;
-    if (value > *um->value)
-        *um->value = value;
+	if (value > *um->value)
+	        *um->value = value;
 	uwsgi_rwunlock(uwsgi.metrics_lock);
 	return 0;
 }
 
 int uwsgi_metric_set_min(char *name, char *oid, int64_t value) {
 	um_op;
-    if ((value > um->initial_value || 0) && value < *um->value)
-        *um->value = value;
+	if ((value > um->initial_value || 0) && value < *um->value)
+		*um->value = value;
 	uwsgi_rwunlock(uwsgi.metrics_lock);
 	return 0;
 }
@@ -756,6 +756,7 @@ void uwsgi_setup_metrics() {
 	struct uwsgi_metric *total_rss = uwsgi_register_metric_do("core.total_rss", "5.101", UWSGI_METRIC_GAUGE, "sum", NULL, 0, NULL, 1);
 	struct uwsgi_metric *total_vsz = uwsgi_register_metric_do("core.total_vsz", "5.102", UWSGI_METRIC_GAUGE, "sum", NULL, 0, NULL, 1);
 	struct uwsgi_metric *total_avg_rt = uwsgi_register_metric_do("core.avg_response_time", "5.103", UWSGI_METRIC_GAUGE, "avg", NULL, 0, NULL, 1);
+	struct uwsgi_metric *total_running_time = uwsgi_register_metric_do("core.total_running_time", "5.104", UWSGI_METRIC_COUNTER, "sum", NULL, 0, NULL, 1);
 
 	int ret;
 
@@ -788,8 +789,12 @@ void uwsgi_setup_metrics() {
 		if (i > 0) uwsgi_metric_add_child(total_rss, rss);
 
 		uwsgi_metric_name("worker.%d.vsz_size", i) ; uwsgi_metric_oid("3.%d.12", i);
-                struct uwsgi_metric *vsz = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].vsz_size, 0, NULL);
-                if (i > 0) uwsgi_metric_add_child(total_vsz, vsz);
+		struct uwsgi_metric *vsz = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_GAUGE, "ptr", &uwsgi.workers[i].vsz_size, 0, NULL);
+		if (i > 0) uwsgi_metric_add_child(total_vsz, vsz);
+
+		uwsgi_metric_name("worker.%d.running_time", i) ; uwsgi_metric_oid("3.%d.13", i);
+		struct uwsgi_metric *running_time = uwsgi_register_metric(buf, buf2, UWSGI_METRIC_COUNTER, "ptr", &uwsgi.workers[i].running_time, 0, NULL);
+		if (i > 0) uwsgi_metric_add_child(total_running_time, running_time);
 
 		// skip core metrics for worker 0
 		if (i == 0) continue;
@@ -827,6 +832,7 @@ void uwsgi_setup_metrics() {
 	uwsgi_metric_append(total_rss);
 	uwsgi_metric_append(total_vsz);
 	uwsgi_metric_append(total_avg_rt);
+	uwsgi_metric_append(total_running_time);
 
 	// sockets
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;

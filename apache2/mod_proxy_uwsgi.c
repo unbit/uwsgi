@@ -1,23 +1,6 @@
 /*
-        
+
 *** mod_proxy_uwsgi ***
-
-Copyright 2009-2014 Unbit S.a.s. <info@unbit.it>
-     
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
 
 To build:
 
@@ -30,7 +13,7 @@ ProxyPass / uwsgi://127.0.0.1:3031/
 
 Docs:
 
-http://uwsgi-docs.readthedocs.org/en/latest/Apache.html#mod-proxy-uwsgi
+https://uwsgi-docs.readthedocs.io/en/latest/Apache.html#mod-proxy-uwsgi
 
 */
 #define APR_WANT_MEMFUNC
@@ -67,19 +50,17 @@ static int uwsgi_canon(request_rec *r, char *url)
     }
     url += sizeof(UWSGI_SCHEME); /* Keep slashes */
 
-    // is it a unix socket ?
-    if (strlen(url) == 2) {
-	*sport = 0;
+    err = ap_proxy_canon_netloc(r->pool, &url, NULL, NULL, &host, &port);
+    if (err) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                    "error parsing URL %s: %s", url, err);
+        return HTTP_BAD_REQUEST;
     }
-    else {
-        err = ap_proxy_canon_netloc(r->pool, &url, NULL, NULL, &host, &port);
-        if (err) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                      "error parsing URL %s: %s", url, err);
-            return HTTP_BAD_REQUEST;
-        }
-	apr_snprintf(sport, sizeof(sport), ":%u", port);
-    }
+
+    if (port != UWSGI_DEFAULT_PORT)
+        apr_snprintf(sport, sizeof(sport), ":%u", port);
+    else
+        sport[0] = '\0';
 
     if (ap_strchr(host, ':')) { /* if literal IPv6 address */
         host = apr_pstrcat(r->pool, "[", host, "]", NULL);
@@ -259,7 +240,7 @@ static request_rec *ap_proxy_make_fake_req(conn_rec *c, request_rec *r)
     return rp;
 }
 
-static apr_status_t ap_proxy_buckets_lifetime_transform(request_rec *r,
+apr_status_t ap_proxy_buckets_lifetime_transform(request_rec *r,
         apr_bucket_brigade *from, apr_bucket_brigade *to)
 {
     apr_bucket *e;
@@ -305,7 +286,7 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 	const char *buf;
 	char *value, *end;
 	int len;
-	int backend_broke = 1;
+	int backend_broke = 0;
 	apr_status_t rc;
 	conn_rec *c = r->connection;
 	apr_off_t readbytes;
@@ -328,43 +309,70 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 
 	backend->worker->s->read += len;
 
-	if (!apr_date_checkmask(buffer, "HTTP/#.# ###*") || len >= sizeof(buffer)-1) {
+	if (len >= sizeof(buffer)-1) {
 		// oops
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
+	/* Position of http status code */
+	int status_start;
+	if (apr_date_checkmask(buffer, "HTTP/#.# ###*")) {
+		status_start = 9;
+	} else if (apr_date_checkmask(buffer, "HTTP/# ###*")) {
+		status_start = 7;
+	} else {
+		// oops
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
+	int status_end = status_start + 3;
 
-        char keepchar = buffer[12];
-        buffer[12] = '\0';
-        r->status = atoi(&buffer[9]);
+	char keepchar = buffer[status_end];
+	buffer[status_end] = '\0';
+	r->status = atoi(&buffer[status_start]);
 
-        if (keepchar != '\0') {
-                buffer[12] = keepchar;
-        } else {
-                /* 2616 requires the space in Status-Line; the origin
-                 * server may have sent one but ap_rgetline_core will
-                 * have stripped it. */
-                buffer[12] = ' ';
-                buffer[13] = '\0';
-            }
-        r->status_line = apr_pstrdup(r->pool, &buffer[9]);
+	if (keepchar != '\0') {
+		buffer[status_end] = keepchar;
+	} else {
+		/* 2616 requires the space in Status-Line; the origin
+		* server may have sent one but ap_rgetline_core will
+		* have stripped it. */
+		buffer[status_end] = ' ';
+		buffer[status_end+1] = '\0';
+	}
+	r->status_line = apr_pstrdup(r->pool, &buffer[status_start]);
 
-		// start parsing headers;
-		while ((len = ap_getline(buffer, sizeof(buffer), rp, 1)) > 0) {
-			value = strchr(buffer, ':');
-			// invalid header skip
-			if (!value) continue;
-			*value = '\0';
-        		++value;
-        		while (apr_isspace(*value)) ++value; 
-        		for (end = &value[strlen(value)-1]; end > value && apr_isspace(*end); --end) *end = '\0';
-			apr_table_add(r->headers_out, buffer, value);
-		}
-
+	// start parsing headers;
+	while ((len = ap_getline(buffer, sizeof(buffer), rp, 1)) > 0) {
+		value = strchr(buffer, ':');
+		// invalid header skip
+		if (!value) continue;
+		*value = '\0';
+		++value;
+		while (apr_isspace(*value)) ++value; 
+		for (end = &value[strlen(value)-1]; end > value && apr_isspace(*end); --end) *end = '\0';
+		apr_table_add(r->headers_out, buffer, value);
+	}
 
 	if ((buf = apr_table_get(r->headers_out, "Content-Type"))) {
-                ap_set_content_type(r, apr_pstrdup(r->pool, buf));
-            }
-	
+		ap_set_content_type(r, apr_pstrdup(r->pool, buf));
+	}
+
+    // honor ProxyErrorOverride and ErrorDocument
+#if AP_MODULE_MAGIC_AT_LEAST(20101106,0)
+    proxy_dir_conf *dconf = ap_get_module_config(r->per_dir_config, &proxy_module);
+    if (dconf->error_override && ap_is_HTTP_ERROR(r->status)) {
+#else
+    if (conf->error_override && ap_is_HTTP_ERROR(r->status)) {
+#endif
+        int status = r->status;
+        r->status = HTTP_OK;
+        r->status_line = NULL;
+
+        apr_brigade_cleanup(bb);
+               apr_brigade_cleanup(pass_bb);
+
+        return status;
+    }
+
 	int finish = 0;
 	while(!finish) {
 		rv = ap_get_brigade(rp->input_filters, bb,

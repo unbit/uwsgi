@@ -82,7 +82,7 @@ static int transform_cache(struct wsgi_request *wsgi_req, struct uwsgi_transform
 	if (utcc->value) {
 		ub = utcc->value;
 	}
-	// store only successfull response
+	// store only successful response
 	if (wsgi_req->write_errors == 0 && (wsgi_req->status == 200 || (utcc->status && wsgi_req->status == utcc->status))  && ub->pos > 0) {
 		if (utcc->cache_it) {
 			uwsgi_cache_magic_set(utcc->cache_it->buf, utcc->cache_it->pos, ub->buf, ub->pos, utcc->cache_it_expires,

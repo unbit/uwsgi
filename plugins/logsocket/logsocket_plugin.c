@@ -43,6 +43,7 @@ ssize_t uwsgi_socket_logger(struct uwsgi_logger *ul, char *message, size_t len) 
 		else {
 			ul->msg.msg_iov = uwsgi_malloc(sizeof(struct iovec));
 			ul->msg.msg_iovlen = 1;
+			ul->count = 0;
 		}
 
 		if (comma) {

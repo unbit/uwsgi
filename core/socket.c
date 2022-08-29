@@ -98,13 +98,16 @@ static int create_server_socket(int domain, int type) {
 		}
 	}
 
-	if (type == SOCK_STREAM) {
+	if (type == SOCK_STREAM || type == SOCK_DGRAM) {
 		if (uwsgi.so_sndbuf) {
 			socklen_t sndbuf = (socklen_t) uwsgi.so_sndbuf;
 			if (setsockopt(serverfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(socklen_t)) < 0) {
 				uwsgi_error("SO_SNDBUF setsockopt()");
 				uwsgi_nuclear_blast();
 				return -1;
+			}
+			else {
+				uwsgi_log("successfully set SO_SNDBUF to %u for socket fd %d\n", sndbuf, serverfd);
 			}
 		}
 
@@ -114,6 +117,9 @@ static int create_server_socket(int domain, int type) {
 				uwsgi_error("SO_RCVBUF setsockopt()");
 				uwsgi_nuclear_blast();
 				return -1;
+			}
+			else {
+				uwsgi_log("successfully set SO_RCVBUF to %u for socket fd %d\n", rcvbuf, serverfd);
 			}
 		}
 
@@ -888,7 +894,7 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 				uwsgi_error("poll()");
 				return -1;
 			}
-			/* something hapened on the socket ... */
+			/* something happened on the socket ... */
 			else if (cnt > 0) {
 				if (getsockopt(fdpoll->fd, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
 					uwsgi_error("getsockopt()");
@@ -1083,6 +1089,7 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 	union uwsgi_sockaddr usa;
 	int abstract = 0;
 
+	memset(&usa, 0, sizeof(usa));
 	socket_type_len = sizeof(struct sockaddr_un);
 	gsa.sa = &usa.sa;
 	if (!getsockname(fd, gsa.sa, &socket_type_len)) {
@@ -1176,7 +1183,7 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 							}
 						}
 						else {
-							match = strcmp(computed_addr, uwsgi_sock->name);
+							match = uwsgi_socket_strcmp(computed_addr, uwsgi_sock->name);
 						}
 					}
 					if (!match) {
@@ -1259,8 +1266,21 @@ void uwsgi_close_all_sockets() {
         struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
         while (uwsgi_sock) {
-                if (uwsgi_sock->bound)
+                if (uwsgi_sock->bound) {
                         close(uwsgi_sock->fd);
+                }
+                uwsgi_sock = uwsgi_sock->next;
+        }
+}
+
+void uwsgi_shutdown_all_sockets() {
+        struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+
+        while (uwsgi_sock) {
+                if (uwsgi_sock->bound) {
+                        shutdown(uwsgi_sock->fd, SHUT_RDWR);
+                        close(uwsgi_sock->fd);
+                }
                 uwsgi_sock = uwsgi_sock->next;
         }
 }
@@ -1827,13 +1847,6 @@ void uwsgi_bind_sockets() {
 
 stdin_done:
 
-	if (uwsgi.chown_socket) {
-		if (!uwsgi.master_as_root) {
-			uwsgi_as_root();
-		}
-	}
-
-
 	// check for auto_port socket
 	uwsgi_sock = uwsgi.sockets;
 	while (uwsgi_sock) {
@@ -1950,6 +1963,57 @@ int uwsgi_socket_passcred(int fd) {
 #else
 	return -1;
 #endif
+}
+
+int uwsgi_socket_from_addr(union uwsgi_sockaddr *addr, socklen_t *len, char *addrtxt, int sock_type) {
+	int fd = -1;
+	int type;
+	char *colon = strchr(addrtxt, ':');
+
+#ifdef AF_INET6
+	if (*addrtxt == '[' && colon && colon[-1] == ']') {
+		type = AF_INET6;
+	}
+	else
+#endif
+	if (colon) {
+		type = AF_INET;
+	}
+	else {
+		type = AF_UNIX;
+	}
+
+	if (type != AF_UNIX) {
+		if (!colon) {
+			uwsgi_log("invalid address %s\n", addrtxt);
+			return fd;
+		}
+	}
+
+	switch (type) {
+		case AF_INET:
+			*len = socket_to_in_addr(addrtxt, colon, 0, &addr->sa_in);
+			break;
+#ifdef AF_INET6
+		case AF_INET6:
+			*len = socket_to_in_addr6(addrtxt, colon, 0, &addr->sa_in6);
+			break;
+#endif
+		case AF_UNIX:
+			*len = socket_to_un_addr(addrtxt, &addr->sa_un);
+			break;
+		default:
+			uwsgi_log("unsupported socket type: %d\n", type);
+			return -1;
+	}
+
+	fd = socket(type, sock_type, 0);
+	if (fd < 0) {
+		uwsgi_error("uwsgi_socket_from_addr()");
+		return fd;
+	}
+
+	return fd;
 }
 
 void uwsgi_protocols_register() {

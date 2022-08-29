@@ -1,10 +1,10 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 /*
 
 	jail systems (Linux namespaces, FreeBSD jails...) heavily rely on mount/umount
 
-	to simplify setups (expecially because the mount command could not be available in
+	to simplify setups (especially because the mount command could not be available in
 	the initial phase of jailing, we need an api to mount/umount filesystems
 
 	int uwsgi_mount(char *fs, char *what, char *where, int flags);
@@ -106,6 +106,7 @@ uint64_t uwsgi_mount_flag(char *mflag) {
 }
 
 int uwsgi_mount(char *fs, char *what, char *where, char *flags, char *data) {
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 #if defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	struct iovec iov[6];
 #endif
@@ -114,6 +115,8 @@ int uwsgi_mount(char *fs, char *what, char *where, char *flags, char *data) {
 	char *mflags = uwsgi_str(flags);
 	char *p, *ctx = NULL;
 	uwsgi_foreach_token(mflags, ",", p, ctx) {
+		if (strcmp(p, "defaults") == 0)
+			continue;
 		unsigned long flag = (unsigned long) uwsgi_mount_flag(p);
 		if (!flag) {
 			uwsgi_log("unknown mount flag \"%s\"\n", p);
@@ -121,6 +124,7 @@ int uwsgi_mount(char *fs, char *what, char *where, char *flags, char *data) {
 		}
 		mountflags |= flag;
 	}
+	if (!*fs) fs = NULL;
 	free(mflags);
 parsed:
 #ifdef __linux__
@@ -143,10 +147,12 @@ parsed:
 
 	return nmount(iov, 6, (int) mountflags);
 #endif
+#endif
 	return -1;
 }
 
 int uwsgi_umount(char *where, char *flags) {
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	unsigned long mountflags = 0;
         if (!flags) goto parsed;
         char *mflags = uwsgi_str(flags);
@@ -195,6 +201,7 @@ unmountable:
         return umount2(where, mountflags);
 #elif defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	return unmount(where, mountflags);
+#endif
 #endif
         return -1;
 }

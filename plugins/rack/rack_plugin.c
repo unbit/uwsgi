@@ -71,7 +71,7 @@ static struct uwsgi_buffer *uwsgi_ruby_exception_class(struct wsgi_request *wsgi
 
 static struct uwsgi_buffer *uwsgi_ruby_exception_msg(struct wsgi_request *wsgi_req) {
 	VALUE err = rb_errinfo();
-	VALUE e = rb_funcall(err, rb_intern("message"), 0, 0);
+	VALUE e = rb_funcall(err, rb_intern("message"), 0);
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(RSTRING_LEN(e));
 	if (uwsgi_buffer_append(ub, RSTRING_PTR(e), RSTRING_LEN(e))) {
 		uwsgi_buffer_destroy(ub);
@@ -114,7 +114,7 @@ error:
 static void uwsgi_ruby_exception_log(struct wsgi_request *wsgi_req) {
 	VALUE err = rb_errinfo();
 	VALUE eclass = rb_class_name(rb_class_of(err));
-	VALUE msg = rb_funcall(err, rb_intern("message"), 0, 0);
+	VALUE msg = rb_funcall(err, rb_intern("message"), 0);
 	
 	VALUE ary = rb_funcall(err, rb_intern("backtrace"), 0);
         int i;
@@ -994,7 +994,7 @@ clear:
 #ifdef UWSGI_DEBUG
 			uwsgi_log("calling ruby GC\n");
 #endif
-			// try to limit damanges if threads are enabled...
+			// try to limit damages if threads are enabled...
 			if (wsgi_req->async_id == 0) {
 				rb_gc();
 			}
@@ -1286,7 +1286,7 @@ void uwsgi_rack_postinit_apps(void) {
 }
 
 /*
-	If the ruby VM has rb_reserved_fd_p, we avoid closign the filedescriptor needed by
+	If the ruby VM has rb_reserved_fd_p, we avoid closing the file descriptor needed by
 	modern ruby (the Matz ones) releases.
 */
 static void uwsgi_ruby_cleanup() {

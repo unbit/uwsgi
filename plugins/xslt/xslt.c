@@ -52,7 +52,7 @@ struct uwsgi_option uwsgi_xslt_options[] = {
 	{"xslt-ext", required_argument, 0, "search for xslt stylesheets with the specified extension", uwsgi_opt_add_string_list, &uxslt.ext, 0},
 	{"xslt-var", required_argument, 0, "get the xslt stylesheet path from the specified request var", uwsgi_opt_add_string_list, &uxslt.var, 0},
 	{"xslt-stylesheet", required_argument, 0, "if no xslt stylesheet file can be found, use the specified one", uwsgi_opt_add_string_list, &uxslt.stylesheet, 0},
-	{"xslt-content-type", required_argument, 0, "set the content-type for the xslt rsult (default: text/html)", uwsgi_opt_set_str, &uxslt.content_type, 0},
+	{"xslt-content-type", required_argument, 0, "set the content-type for the xslt result (default: text/html)", uwsgi_opt_set_str, &uxslt.content_type, 0},
 	{NULL, 0, 0, NULL, NULL, NULL, 0},
 };
 

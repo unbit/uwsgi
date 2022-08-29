@@ -16,6 +16,7 @@
 /core/config_py.c
 
 /t/ring/target
+/t/spooler/spooldir/uwsgi_*
 
 core/dot_h.c
 
@@ -26,3 +27,5 @@ core/dot_h.c
 /build/
 /dist/
 /uWSGI.egg-info/
+check/check_*
+!check/*.c

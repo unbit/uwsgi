@@ -98,6 +98,7 @@ int uwsgi_signal_registered(uint8_t sig) {
 int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t modifier1) {
 
 	struct uwsgi_signal_entry *use = NULL;
+	size_t receiver_len;
 
 	if (!uwsgi.master_process) {
 		uwsgi_log("you cannot register signals without a master\n");
@@ -109,7 +110,8 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
                 return -1;
         }
 
-	if (strlen(receiver) > 63)
+	receiver_len = strlen(receiver);
+	if (receiver_len > 63)
 		return -1;
 
 	uwsgi_lock(uwsgi.signal_table_lock);
@@ -123,7 +125,7 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
 		return -1;
 	}
 
-	strncpy(use->receiver, receiver, strlen(receiver) + 1);
+	strncpy(use->receiver, receiver, receiver_len + 1);
 	use->handler = handler;
 	use->modifier1 = modifier1;
 	use->wid = uwsgi.mywid;
@@ -180,7 +182,7 @@ int uwsgi_add_file_monitor(uint8_t sig, char *filename) {
 
 }
 
-int uwsgi_add_timer(uint8_t sig, int secs) {
+int uwsgi_add_timer_hr(uint8_t sig, int secs, long nsecs) {
 
 	if (!uwsgi.master_process) return -1;
 
@@ -192,6 +194,7 @@ int uwsgi_add_timer(uint8_t sig, int secs) {
 		ushared->timers[ushared->timers_cnt].value = secs;
 		ushared->timers[ushared->timers_cnt].registered = 0;
 		ushared->timers[ushared->timers_cnt].sig = sig;
+		ushared->timers[ushared->timers_cnt].nsvalue = nsecs;
 		ushared->timers_cnt++;
 	}
 	else {
@@ -204,6 +207,10 @@ int uwsgi_add_timer(uint8_t sig, int secs) {
 
 	return 0;
 
+}
+
+int uwsgi_add_timer(uint8_t sig, int secs) {
+	return uwsgi_add_timer_hr(sig, secs, 0);
 }
 
 int uwsgi_signal_add_rb_timer(uint8_t sig, int secs, int iterations) {
@@ -331,7 +338,7 @@ void uwsgi_route_signal(uint8_t sig) {
 			}
 		}
 	}
-	// send to al lactive workers
+	// send to all active workers
 	else if (!strcmp(use->receiver, "active-workers")) {
                 for (i = 1; i <= uwsgi.numproc; i++) {
 			if (uwsgi.workers[i].pid > 0 && !uwsgi.workers[i].cheaped && !uwsgi.workers[i].suspended) {
@@ -467,8 +474,7 @@ cycle:
 	return received_signal;
 }
 
-void uwsgi_receive_signal(struct wsgi_request *wsgi_req, int fd, char *name, int id) {
-
+int uwsgi_receive_signal(struct wsgi_request *wsgi_req, int fd, char *name, int id) {
 	uint8_t uwsgi_signal;
 
 	ssize_t ret = read(fd, &uwsgi_signal, 1);
@@ -487,13 +493,15 @@ void uwsgi_receive_signal(struct wsgi_request *wsgi_req, int fd, char *name, int
 		if (uwsgi_signal_handler(wsgi_req, uwsgi_signal)) {
 			uwsgi_log_verbose("error managing signal %d on %s %d\n", uwsgi_signal, name, id);
 		}
+		return 1;
 	}
 
-	return;
+	return 0;
 
 destroy:
 	// better to kill the whole worker...
-	uwsgi_log_verbose("uWSGI %s %d screams: UAAAAAAH my master disconnected: I will kill myself!!!\n", name, id);
+	uwsgi_log_verbose("uWSGI %s %d error: the master disconnected from this worker. Shutting down the worker.\n", name, id);
 	end_me(0);
-
+	// never here
+	return 0;
 }

@@ -1,5 +1,5 @@
 #ifdef UWSGI_ROUTING
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
 
@@ -805,6 +805,16 @@ static int uwsgi_router_donotlog_func(struct wsgi_request *wsgi_req, struct uwsg
 }
 static int uwsgi_router_donotlog(struct uwsgi_route *ur, char *arg) {
         ur->func = uwsgi_router_donotlog_func;
+        return 0;
+}
+
+// do not offload !!!
+static int uwsgi_router_donotoffload_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	wsgi_req->socket->can_offload = 0;
+	return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_donotoffload(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_donotoffload_func;
         return 0;
 }
 
@@ -1682,6 +1692,125 @@ static int uwsgi_route_condition_startswith(struct wsgi_request *wsgi_req, struc
         return 0;
 }
 
+static int uwsgi_route_condition_ipv4in(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+#define IP4_LEN		(sizeof("255.255.255.255")-1)
+#define IP4PFX_LEN	(sizeof("255.255.255.255/32")-1)
+	char ipbuf[IP4_LEN+1] = {}, maskbuf[IP4PFX_LEN+1] = {};
+	char *slash;
+	int pfxlen = 32;
+	in_addr_t ip, net, mask;
+
+        char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
+        if (!semicolon) return 0;
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
+        if (!ub) return -1;
+
+        struct uwsgi_buffer *ub2 = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str));
+        if (!ub2) {
+                uwsgi_buffer_destroy(ub);
+                return -1;
+        }
+
+	if (ub->pos > IP4_LEN || ub2->pos >= IP4PFX_LEN) {
+                uwsgi_buffer_destroy(ub);
+                uwsgi_buffer_destroy(ub2);
+		return -1;
+	}
+
+	memcpy(ipbuf, ub->buf, ub->pos);
+	memcpy(maskbuf, ub2->buf, ub2->pos);
+
+	if ((slash = strchr(maskbuf, '/')) != NULL) {
+		*slash++ = 0;
+		pfxlen = atoi(slash);
+	}
+
+        uwsgi_buffer_destroy(ub);
+        uwsgi_buffer_destroy(ub2);
+
+	if ((ip = htonl(inet_addr(ipbuf))) == ~(in_addr_t)0)
+		return 0;
+	if ((net = htonl(inet_addr(maskbuf))) == ~(in_addr_t)0)
+		return 0;
+	if (pfxlen < 0 || pfxlen > 32)
+		return 0;
+
+	mask = (~0UL << (32 - pfxlen)) & ~0U;
+
+	return ((ip & mask) == (net & mask));
+#undef IP4_LEN
+#undef IP4PFX_LEN
+}
+
+static int uwsgi_route_condition_ipv6in(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+#define IP6_LEN 	(sizeof("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")-1)
+#define IP6PFX_LEN 	(sizeof("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128")-1)
+#define IP6_U32LEN	(128 / 8 / 4)
+	char ipbuf[IP6_LEN+1] = {}, maskbuf[IP6PFX_LEN+1] = {};
+	char *slash;
+	int pfxlen = 128;
+	uint32_t ip[IP6_U32LEN], net[IP6_U32LEN], mask[IP6_U32LEN] = {};
+
+        char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
+        if (!semicolon) return 0;
+
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
+        if (!ub) return -1;
+
+        struct uwsgi_buffer *ub2 = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str));
+        if (!ub2) {
+                uwsgi_buffer_destroy(ub);
+                return -1;
+        }
+
+	if (ub->pos > IP6_LEN || ub2->pos >= IP6PFX_LEN) {
+                uwsgi_buffer_destroy(ub);
+                uwsgi_buffer_destroy(ub2);
+		return -1;
+	}
+
+	memcpy(ipbuf, ub->buf, ub->pos);
+	memcpy(maskbuf, ub2->buf, ub2->pos);
+
+	if ((slash = strchr(maskbuf, '/')) != NULL) {
+		*slash++ = 0;
+		pfxlen = atoi(slash);
+	}
+
+        uwsgi_buffer_destroy(ub);
+        uwsgi_buffer_destroy(ub2);
+
+	if (inet_pton(AF_INET6, ipbuf, ip) != 1)
+		return 0;
+	if (inet_pton(AF_INET6, maskbuf, net) != 1)
+		return 0;
+	if (pfxlen < 0 || pfxlen > 128)
+		return 0;
+
+	memset(mask, 0xFF, sizeof(mask));
+
+	int i = (pfxlen / 32);
+	switch (i) {
+	case 0: mask[0] = 0; /* fallthrough */
+	case 1: mask[1] = 0; /* fallthrough */
+	case 2: mask[2] = 0; /* fallthrough */
+	case 3: mask[3] = 0; /* fallthrough */
+	}
+
+	if (pfxlen % 32)
+		mask[i] = htonl(~(uint32_t)0 << (32 - (pfxlen % 32)));
+
+	for (i = 0; i < 4; i++)
+		if ((ip[i] & mask[i]) != (net[i] & mask[i]))
+			return 0;
+
+	return 1;
+#undef IP6_LEN
+#undef IP6PFX_LEN
+#undef IP6_U32LEN
+}
+
 static int uwsgi_route_condition_contains(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
         char *semicolon = memchr(ur->subject_str, ';', ur->subject_str_len);
         if (!semicolon) return 0;
@@ -1904,6 +2033,7 @@ void uwsgi_register_embedded_routers() {
 	uwsgi_register_router("break-with-status", uwsgi_router_return);
         uwsgi_register_router("log", uwsgi_router_log);
         uwsgi_register_router("donotlog", uwsgi_router_donotlog);
+        uwsgi_register_router("donotoffload", uwsgi_router_donotoffload);
         uwsgi_register_router("logvar", uwsgi_router_logvar);
         uwsgi_register_router("goto", uwsgi_router_goto);
         uwsgi_register_router("addvar", uwsgi_router_addvar);
@@ -1969,6 +2099,8 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_route_condition("<=", uwsgi_route_condition_lowerequal);
         uwsgi_register_route_condition("contains", uwsgi_route_condition_contains);
         uwsgi_register_route_condition("contain", uwsgi_route_condition_contains);
+        uwsgi_register_route_condition("ipv4in", uwsgi_route_condition_ipv4in);
+        uwsgi_register_route_condition("ipv6in", uwsgi_route_condition_ipv6in);
 #ifdef UWSGI_SSL
         uwsgi_register_route_condition("lord", uwsgi_route_condition_lord);
 #endif

@@ -38,8 +38,14 @@ static int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsg
 		}
 	}
 
-	char *ptr = uwsgi_req_append(wsgi_req, "PATH_INFO", 9, ub->buf, path_info_len);
+	char *path_info = uwsgi_malloc(path_info_len);
+	http_url_decode(ub->buf, &path_info_len, path_info);
+
+	char *ptr = uwsgi_req_append(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
         if (!ptr) goto clear;
+
+	free(path_info);
+	path_info = NULL;
 
 	// set new path_info
 	wsgi_req->path_info = ptr;
@@ -61,6 +67,7 @@ static int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsg
 clear:
 	uwsgi_buffer_destroy(ub);
 	if (tmp_qs) free(tmp_qs);
+	if (path_info) free(path_info);
 	return UWSGI_ROUTE_BREAK;
 }
 

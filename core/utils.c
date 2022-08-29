@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 
 extern struct uwsgi_server uwsgi;
@@ -71,30 +71,19 @@ void set_user_harakiri(struct wsgi_request *wsgi_req, int sec) {
 		uwsgi_log("!!! unable to set user harakiri without the master process !!!\n");
 		return;
 	}
+
 	// a 0 seconds value, reset the timer
-	if (sec == 0) {
-		if (uwsgi.muleid > 0) {
-			uwsgi.mules[uwsgi.muleid - 1].user_harakiri = 0;
-		}
-		else if (uwsgi.i_am_a_spooler) {
-			struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
-			uspool->user_harakiri = 0;
-		}
-		else if (wsgi_req) {
-			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri = 0;
-		}
+	time_t timeout = sec == 0 ? 0 : uwsgi_now() + sec;
+
+	if (uwsgi.muleid > 0) {
+		uwsgi.mules[uwsgi.muleid - 1].user_harakiri = timeout;
 	}
-	else {
-		if (uwsgi.muleid > 0) {
-			uwsgi.mules[uwsgi.muleid - 1].user_harakiri = uwsgi_now() + sec;
-		}
-		else if (uwsgi.i_am_a_spooler) {
-			struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
-			uspool->user_harakiri = uwsgi_now() + sec;
-		}
-		else if (wsgi_req) {
-			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri = uwsgi_now() + sec;
-		}
+	else if (uwsgi.i_am_a_spooler) {
+		struct uwsgi_spooler *uspool = uwsgi.i_am_a_spooler;
+		uspool->user_harakiri = timeout;
+	}
+	else if (wsgi_req) {
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].user_harakiri = timeout;
 	}
 }
 
@@ -175,7 +164,9 @@ void daemonize(char *logfile) {
 
 // get current working directory
 char *uwsgi_get_cwd() {
-
+#if defined(__GLIBC__)
+	return getcwd(NULL, 0);
+#else
 	// set this to static to avoid useless reallocations in stats mode
 	static size_t newsize = 256;
 
@@ -193,6 +184,7 @@ char *uwsgi_get_cwd() {
 	}
 
 	return cwd;
+#endif
 
 }
 
@@ -333,9 +325,11 @@ void uwsgi_as_root() {
 	if (getuid() > 0)
 		goto nonroot;
 
+#ifndef __RUMP__
 	if (!uwsgi.master_as_root && !uwsgi.uidname) {
 		uwsgi_log_initial("uWSGI running as root, you can use --uid/--gid/--chroot options\n");
 	}
+#endif
 
 	int in_jail = 0;
 
@@ -520,6 +514,13 @@ void uwsgi_as_root() {
 #endif
 
 	if (in_jail || uwsgi.jailed) {
+		int i;
+		for (i = 0; i < uwsgi.gp_cnt; i++) {
+			if (uwsgi.gp[i]->early_post_jail) {
+				uwsgi.gp[i]->early_post_jail();
+			}
+		}
+
 		uwsgi_hooks_run(uwsgi.hook_post_jail, "post-jail", 1);
 		struct uwsgi_string_list *usl = NULL;
 		uwsgi_foreach(usl, uwsgi.mount_post_jail) {
@@ -572,8 +573,6 @@ void uwsgi_as_root() {
 			}
 		}
 
-
-		int i;
 		for (i = 0; i < uwsgi.gp_cnt; i++) {
 			if (uwsgi.gp[i]->post_jail) {
 				uwsgi.gp[i]->post_jail();
@@ -581,13 +580,15 @@ void uwsgi_as_root() {
 		}
 	}
 
-	if (uwsgi.chroot && !uwsgi.reloads) {
+	if (uwsgi.chroot && !uwsgi.is_chrooted && !uwsgi.reloads) {
 		if (!uwsgi.master_as_root)
 			uwsgi_log("chroot() to %s\n", uwsgi.chroot);
+
 		if (chroot(uwsgi.chroot)) {
 			uwsgi_error("chroot()");
 			exit(1);
 		}
+		uwsgi.is_chrooted = 1;
 #ifdef __linux__
 		if (uwsgi.logging_options.memory_report) {
 			uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
@@ -905,9 +906,11 @@ void uwsgi_as_root() {
 		}
 	}
 
+#ifndef __RUMP__
 	if (!getuid()) {
 		uwsgi_log_initial("*** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
 	}
+#endif
 
 #ifdef UWSGI_CAP
 
@@ -986,7 +989,7 @@ void uwsgi_as_root() {
 	return;
 
 nonroot:
-	if (uwsgi.chroot && !uwsgi.is_a_reload) {
+	if (uwsgi.chroot && !uwsgi.is_chrooted && !uwsgi.is_a_reload) {
 		uwsgi_log("cannot chroot() as non-root user\n");
 		exit(1);
 	}
@@ -1053,6 +1056,9 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	int waitpid_status;
 	int tmp_id;
 	uint64_t tmp_rt, rss = 0, vsz = 0;
+#ifdef __linux__
+	uint64_t uss = 0, pss = 0;
+#endif
 
 	// apply transformations
 	if (wsgi_req->transformations) {
@@ -1082,11 +1088,19 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// get memory usage
-	if (uwsgi.logging_options.memory_report == 1 || uwsgi.force_get_memusage) {
+	if (uwsgi.logging_options.memory_report || uwsgi.force_get_memusage) {
 		get_memusage(&rss, &vsz);
 		uwsgi.workers[uwsgi.mywid].vsz_size = vsz;
 		uwsgi.workers[uwsgi.mywid].rss_size = rss;
 	}
+
+#ifdef __linux__
+	if (uwsgi.logging_options.memory_report || uwsgi.reload_on_uss || uwsgi.reload_on_pss) {
+		get_memusage_extra(&uss, &pss);
+		uwsgi.workers[uwsgi.mywid].uss_size = uss;
+		uwsgi.workers[uwsgi.mywid].pss_size = pss;
+	}
+#endif
 
 	if (!wsgi_req->do_not_account) {
 		uwsgi.workers[0].requests++;
@@ -1177,6 +1191,10 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		uwsgi_buffer_destroy(wsgi_req->chunked_input_buf);
 	}
 
+	if (wsgi_req->body_chunked_buf) {
+		uwsgi_buffer_destroy(wsgi_req->body_chunked_buf);
+	}
+
 	// free websocket engine
 	if (wsgi_req->websocket_buf) {
 		uwsgi_buffer_destroy(wsgi_req->websocket_buf);
@@ -1217,6 +1235,21 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		);
 	}
 
+#ifdef __linux__
+	if (uwsgi.reload_on_uss && (rlim_t) uss >= uwsgi.reload_on_uss && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
+		goodbye_cruel_world("reload-on-uss limit reached (%llu >= %llu)",
+			(unsigned long long) (rlim_t) uss,
+			(unsigned long long) uwsgi.reload_on_uss
+		);
+	}
+
+	if (uwsgi.reload_on_pss && (rlim_t) pss >= uwsgi.reload_on_pss && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
+		goodbye_cruel_world("reload-on-pss limit reached (%llu >= %llu)",
+			(unsigned long long) (rlim_t) pss,
+			(unsigned long long) uwsgi.reload_on_pss
+		);
+	}
+#endif
 
 	// after the first request, if i am a vassal, signal Emperor about my loyalty
 	if (uwsgi.has_emperor && !uwsgi.loyal) {
@@ -1497,6 +1530,16 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 	thunder_lock;
 
+	// Recheck the manage_next_request before going forward.
+	// This is because the worker might get cheaped while it's
+	// blocking on the thunder_lock, because thunder_lock is
+	// not interruptable, it'll slow down the cheaping process
+	// (the worker will handle the next request before shuts down).
+	if (!uwsgi.workers[uwsgi.mywid].manage_next_request) {
+		thunder_unlock;
+		return -1;
+	}
+
 	// heartbeat
 	// in multithreaded mode we are now locked
 	if (uwsgi.has_emperor && uwsgi.heartbeat) {
@@ -1731,16 +1774,19 @@ char *uwsgi_substitute(char *src, char *what, char *with) {
 
 	char *dst = uwsgi_calloc(len);
 	char *ptr = src;
+	char *dst_ptr = dst;
 
 	p = strstr(ptr, what);
 	while (p) {
-		strncat(dst, ptr, (p - ptr));
-		strncat(dst, with, with_len);
+		memcpy(dst_ptr, ptr, p - ptr);
+		dst_ptr += p - ptr;
+		memcpy(dst_ptr, with, with_len);
+		dst_ptr += with_len;
 		ptr = p + wlen;
 		p = strstr(ptr, what);
 	}
 
-	strncat(dst, ptr, strlen(ptr));
+	snprintf(dst_ptr, strlen(ptr) + 1, "%s", ptr);
 
 	return dst;
 }
@@ -1811,17 +1857,18 @@ void *uwsgi_calloc(size_t size) {
 	return ptr;
 }
 
+#ifdef AF_INET6
+#define ADDR_AF_INET_FAMILY(addrtype) (addrtype == AF_INET || addrtype == AF_INET6)
+#else
+#define ADDR_AF_INET_FAMILY(addrtype) (addrtype == AF_INET)
+#endif
 
 char *uwsgi_resolve_ip(char *domain) {
 
 	struct hostent *he;
 
 	he = gethostbyname(domain);
-	if (!he || !*he->h_addr_list || (he->h_addrtype != AF_INET
-#ifdef AF_INET6
-					 && he->h_addrtype != AF_INET6
-#endif
-	    )) {
+	if (!he || !*he->h_addr_list || !ADDR_AF_INET_FAMILY(he->h_addrtype)) {
 		return NULL;
 	}
 
@@ -1887,10 +1934,24 @@ char *uwsgi_num2str(int num) {
 	return str;
 }
 
+char *uwsgi_float2str(float num) {
+
+	char *str = uwsgi_malloc(11);
+
+	snprintf(str, 11, "%f", num);
+	return str;
+}
+
 char *uwsgi_64bit2str(int64_t num) {
 	char *str = uwsgi_malloc(sizeof(MAX64_STR) + 1);
 	snprintf(str, sizeof(MAX64_STR) + 1, "%lld", (long long) num);
 	return str;
+}
+
+char *uwsgi_size2str(size_t num) {
+	char *str = uwsgi_malloc(sizeof(UMAX64_STR) + 1);
+	snprintf(str, sizeof(UMAX64_STR) + 1, "%llu", (unsigned long long) num);
+	return str;	
 }
 
 int uwsgi_num2str2(int num, char *ptr) {
@@ -2040,10 +2101,10 @@ int uwsgi_str4_num(char *str) {
 	return num;
 }
 
-size_t uwsgi_str_num(char *str, int len) {
+uint64_t uwsgi_str_num(char *str, int len) {
 
 	int i;
-	size_t num = 0;
+	uint64_t num = 0;
 
 	uint64_t delta = pow(10, len);
 
@@ -2309,6 +2370,15 @@ struct uwsgi_regexp_list *uwsgi_regexp_custom_new_list(struct uwsgi_regexp_list 
 	return url;
 }
 
+int uwsgi_regexp_match_pattern(char *pattern, char *str) {
+
+	pcre *regexp;
+	pcre_extra *regexp_extra;
+
+	if (uwsgi_regexp_build(pattern, &regexp, &regexp_extra))
+		return 1;
+	return !uwsgi_regexp_match(regexp, regexp_extra, str, strlen(str));
+}
 
 
 #endif
@@ -3005,6 +3075,7 @@ void uwsgi_apply_config_pass(char symbol, char *(*hook) (char *)) {
 		int depth = 0;
 		char *magic_key = NULL;
 		char *magic_val = NULL;
+
 		if (uwsgi.exported_opts[i]->value && !uwsgi.exported_opts[i]->configured) {
 			for (j = 0; j < (int) strlen(uwsgi.exported_opts[i]->value); j++) {
 				if (uwsgi.exported_opts[i]->value[j] == symbol) {
@@ -3067,33 +3138,36 @@ void uwsgi_set_processname(char *name) {
 
 #if defined(__linux__) || defined(__sun__)
 	size_t amount = 0;
+	size_t max_procname = uwsgi.argv_len + uwsgi.environ_len;
 
 	// prepare for strncat
 	*uwsgi.orig_argv[0] = 0;
 
 	if (uwsgi.procname_prefix) {
 		amount += strlen(uwsgi.procname_prefix);
-		if ((int) amount > uwsgi.max_procname - 1)
+		if (amount >= max_procname)
 			return;
-		strncat(uwsgi.orig_argv[0], uwsgi.procname_prefix, uwsgi.max_procname - (amount + 1));
+		strncat(uwsgi.orig_argv[0], uwsgi.procname_prefix, max_procname - (amount + 1));
 	}
 
 	amount += strlen(name);
-	if ((int) amount > uwsgi.max_procname - 1)
+	if (amount >= max_procname)
 		return;
-	strncat(uwsgi.orig_argv[0], name, (uwsgi.max_procname - amount + 1));
+	strncat(uwsgi.orig_argv[0], name, max_procname - (amount + 1));
 
 	if (uwsgi.procname_append) {
 		amount += strlen(uwsgi.procname_append);
-		if ((int) amount > uwsgi.max_procname - 1)
+		if (amount >= max_procname)
 			return;
-		strncat(uwsgi.orig_argv[0], uwsgi.procname_append, uwsgi.max_procname - (amount + 1));
+		strncat(uwsgi.orig_argv[0], uwsgi.procname_append, max_procname - (amount + 1));
 	}
 
+	// if we fit into argv, only fill argv with spaces, otherwise use environ as well
+	if (amount < uwsgi.argv_len)  {
+		max_procname = uwsgi.argv_len;
+	}
 	// fill with spaces...
-	memset(uwsgi.orig_argv[0] + amount + 1, ' ', uwsgi.max_procname - (amount));
-	// end with \0
-	memset(uwsgi.orig_argv[0] + amount + 1 + (uwsgi.max_procname - (amount)), '\0', 1);
+	memset(uwsgi.orig_argv[0] + amount + 1, ' ', max_procname - (amount + 1));
 
 #elif defined(__FreeBSD__) || defined(__GNU_kFreeBSD__) || defined(__NetBSD__)
 	if (uwsgi.procname_prefix) {
@@ -3215,7 +3289,7 @@ it manages:
 	stop at the first #
 
 */
-void http_url_decode(char *buf, uint16_t * len, char *dst) {
+void http_url_decode4(char *buf, uint16_t * len, char *dst, int no_slash_decode) {
 
 	enum {
 		zero = 0,
@@ -3272,8 +3346,15 @@ void http_url_decode(char *buf, uint16_t * len, char *dst) {
 			break;
 		case percent2:
 			value[1] = c;
-			*ptr++ = hex2num(value);
-			new_len++;
+			if (no_slash_decode && value[0] == '2' && (value[1] == 'F' || value[1] == 'f')) {
+				*ptr++ = '%';
+				*ptr++ = value[0];
+				*ptr++ = value[1];
+				new_len += 3;
+			} else {
+				*ptr++ = hex2num(value);
+				new_len++;
+			}
 			status = zero;
 			break;
 		case slash:
@@ -3618,9 +3699,12 @@ void uwsgi_write_pidfile_explicit(char *pidfile_name, pid_t pid) {
 }
 
 char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {
-	char src[PATH_MAX + 1];
-	memcpy(src, dir, dir_len);
-	src[dir_len] = 0;
+	if (dir_len > PATH_MAX)
+	{
+		uwsgi_log("invalid path size: %d (max %d)\n", dir_len, PATH_MAX);
+		return NULL;
+	}
+	char *src = uwsgi_concat2n(dir, dir_len, "", 0);
 	char *dst = ptr;
 	if (!dst)
 		dst = uwsgi_malloc(PATH_MAX + 1);
@@ -3628,13 +3712,16 @@ char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {
 		uwsgi_error_realpath(src);
 		if (!ptr)
 			free(dst);
+		free(src);
 		return NULL;
 	}
+	free(src);
 	return dst;
 }
 
 
 void uwsgi_set_cpu_affinity() {
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	char buf[4096];
 	int ret;
 	int pos = 0;
@@ -3654,7 +3741,6 @@ void uwsgi_set_cpu_affinity() {
 #elif defined(__FreeBSD__)
 		cpuset_t cpuset;
 #endif
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 		CPU_ZERO(&cpuset);
 		int i;
 		for (i = 0; i < uwsgi.cpu_affinity; i++) {
@@ -3669,7 +3755,6 @@ void uwsgi_set_cpu_affinity() {
 			pos += ret;
 			base_cpu++;
 		}
-#endif
 #if defined(__linux__) || defined(__GNU_kFreeBSD__)
 		if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset)) {
 			uwsgi_error("sched_setaffinity()");
@@ -3681,7 +3766,7 @@ void uwsgi_set_cpu_affinity() {
 #endif
 		uwsgi_log("%s\n", buf);
 	}
-
+#endif
 }
 
 #ifdef UWSGI_ELF
@@ -3841,7 +3926,7 @@ struct uwsgi_thread *uwsgi_thread_new(void (*func) (struct uwsgi_thread *)) {
 	return uwsgi_thread_new_with_data(func, NULL);
 }
 
-int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, char kv_separator, ...) {
+int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, int kv_separator, ...) {
 	size_t i;
 	va_list ap;
 	struct uwsgi_string_list *itemlist = NULL;
@@ -4442,7 +4527,7 @@ void uwsgi_setns(char *path) {
 		exit(1);
 	}
 
-	// cound be overwritten
+	// count be overwritten
 	int count = 64;
 
 	uwsgi_log("joining namespaces from %s ...\n", path);
@@ -4613,3 +4698,58 @@ int uwsgi_versionsort(const struct dirent **da, const struct dirent **db) {
         }
 }
 #endif
+
+void uwsgi_fix_range_for_size(enum uwsgi_range* parsed, int64_t* from, int64_t* to, int64_t size) {
+        if (*parsed != UWSGI_RANGE_PARSED) {
+                return;
+        }
+        if (*from < 0) {
+                *from = size + *from;
+        }
+        if (*to > size-1) {
+                *to = size-1;
+        }
+        if (*from == 0 && *to == size-1) {
+                /* we have a right to reset to 200 OK answer */
+                *parsed = UWSGI_RANGE_NOT_PARSED;
+        }
+        else if (*to >= *from) {
+                *parsed = UWSGI_RANGE_VALID;
+        }
+        else { /* case *from > size-1 is also handled here */
+                *parsed = UWSGI_RANGE_INVALID;
+                *from = 0;
+                *to = 0;
+        }
+}
+
+char* uwsgi_getenv_with_default(const char* key) {
+    /* VARIABLE:-DEFAULT_VALUE: if VARIABLE is unset or empty returns DEFAULT_VALUE
+     * VARIABLE-DEFAULT_VALUE : if VARIABLE is unset returns DEFAULT_VALUE
+     */
+    if (strstr(key, ":-") != NULL) {
+        char* dup = strdup(key);
+        char* variable = strtok(dup, ":-");
+        char* defaultval = strtok(NULL, ":-");
+        char* value = getenv(variable);
+
+        if (!value || strcmp(value, "") == 0) {
+            value = strdup(defaultval);
+        }
+        free(dup);
+        return value;
+    }
+    else if (strstr(key, "-") != NULL) {
+        char* dup = strdup(key);
+        char* variable = strtok(dup, "-");
+        char* defaultval = strtok(NULL, "-");
+        char* value = getenv(variable);
+
+        if (!value) {
+            value = strdup(defaultval);
+        }
+        free(dup);
+        return value;
+    }
+    return getenv(key);
+}

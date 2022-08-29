@@ -2,7 +2,7 @@
 
 /*
 
-	this is an UDP logger encrypting each packet with the choosen algo, key and iv.
+	this is an UDP logger encrypting each packet with the chosen algo, key and iv.
 
 	It is useful in cloud services without persistent storage for which you want to send logs to an external system.
 
@@ -32,8 +32,12 @@ static void uwsgi_crypto_logger_setup_encryption(struct uwsgi_crypto_logger_conf
                 uwsgi_ssl_init();
         }
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
         uclc->encrypt_ctx = uwsgi_malloc(sizeof(EVP_CIPHER_CTX));
         EVP_CIPHER_CTX_init(uclc->encrypt_ctx);
+#else
+        uclc->encrypt_ctx = EVP_CIPHER_CTX_new();
+#endif
 
         const EVP_CIPHER *cipher = EVP_get_cipherbyname(uclc->algo);
         if (!cipher) {

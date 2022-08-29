@@ -1,5 +1,8 @@
 #include <uwsgi.h>
+/* See https://docs.python.org/3.10/whatsnew/3.10.html#id2 */
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <pythread.h>
 
 #include <frameobject.h>
 
@@ -12,6 +15,10 @@
 #if PY_MINOR_VERSION == 4 && PY_MAJOR_VERSION == 2
 #define Py_ssize_t ssize_t
 #define UWSGI_PYTHON_OLD
+#endif
+
+#if (PY_VERSION_HEX >= 0x030b0000)
+#  define UWSGI_PY311
 #endif
 
 #if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION < 7
@@ -30,13 +37,25 @@
 #define HAS_NO_ERRORS_IN_PyFile_FromFd
 #endif
 
+#if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 7
+#define HAS_NOT_PyOS_AfterFork_Child
+#endif
+
+#if PY_MAJOR_VERSION < 3
+#define HAS_NOT_PyOS_AfterFork_Child
+#endif
+
 #if PY_MAJOR_VERSION > 2
 #define PYTHREE
 #endif
 
-#if (PY_VERSION_HEX < 0x02060000)
-#ifndef Py_SIZE
-#define Py_SIZE(ob)             (((PyVarObject*)(ob))->ob_size)
+#if (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 7) || PY_MAJOR_VERSION < 3
+#define UWSGI_SHOULD_CALL_PYEVAL_INITTHREADS
+#endif
+
+#if (PY_VERSION_HEX < 0x03090000)
+#ifndef Py_SET_SIZE
+#define Py_SET_SIZE(o, size) ((o)->ob_size = (size))
 #endif
 #endif
 
@@ -100,6 +119,19 @@ typedef struct uwsgi_Input {
         struct wsgi_request *wsgi_req;
 } uwsgi_Input;
 
+
+// this struct is used for:
+// get this object in python,
+// and pass back to uwsgi.
+// uwsgi verify whether this is a valid `struct wsgi_request *` pointer
+typedef struct uwsgi_RequestContext {
+    PyObject_HEAD
+    int mywid;
+    uint64_t requests;
+    struct wsgi_request *wsgi_req;
+} uwsgi_RequestContext;
+
+
 struct uwsgi_python {
 
 	char *home;
@@ -141,6 +173,7 @@ struct uwsgi_python {
 	char *file_config;
 	char *paste;
 	int paste_logger;
+	char *paste_name;
 	char *eval;
 
 	char *web3;
@@ -149,11 +182,19 @@ struct uwsgi_python {
 
 	char *callable;
 
+#ifdef UWSGI_PY311
+	int *current_recursion_remaining;
+	_PyCFrame **current_frame;
+
+	int current_main_recursion_remaining;
+	_PyCFrame *current_main_frame;
+#else
 	int *current_recursion_depth;
 	struct _frame **current_frame;
 
 	int current_main_recursion_depth;
 	struct _frame *current_main_frame;
+#endif
 
 	void (*swap_ts)(struct wsgi_request *, struct uwsgi_app *);
 	void (*reset_ts)(struct wsgi_request *, struct uwsgi_app *);
@@ -169,7 +210,6 @@ struct uwsgi_python {
 
 	PyObject *workers_tuple;
 	PyObject *embedded_dict;
-	PyObject *embedded_args;
 
 	char *wsgi_env_behaviour;
 
@@ -200,6 +240,21 @@ struct uwsgi_python {
 
 	int call_osafterfork;
 	int pre_initialized;
+
+	// when 1 we have the app-loading lock held
+	int is_dynamically_loading_an_app;
+
+	int wsgi_disable_file_wrapper;
+
+	char *worker_override;
+
+	int wsgi_manage_chunked_input;
+
+	int master_check_signals;
+	
+	char *executable;
+
+	int call_uwsgi_fork_hooks;
 };
 
 
@@ -268,6 +323,8 @@ void init_uwsgi_module_cache(PyObject *);
 void init_uwsgi_module_queue(PyObject *);
 void init_uwsgi_module_snmp(PyObject *);
 
+PyObject *uwsgi_python_dict_from_spooler_content(char *, char *, uint16_t, char *, size_t);
+
 PyObject *uwsgi_pyimport_by_filename(char *, char *);
 
 void threaded_swap_ts(struct wsgi_request *, struct uwsgi_app *);
@@ -288,7 +345,7 @@ void *uwsgi_python_tracebacker_thread(void *);
 
 int uwsgi_python_do_send_headers(struct wsgi_request *);
 void *uwsgi_python_tracebacker_thread(void *);
-PyObject *uwsgi_python_setup_thread(char *);
+PyObject *uwsgi_python_setup_thread(char *, PyInterpreterState *);
 
 struct uwsgi_buffer *uwsgi_python_exception_class(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_python_exception_msg(struct wsgi_request *);
@@ -302,10 +359,14 @@ int uwsgi_request_python_raw(struct wsgi_request *);
 
 void uwsgi_python_set_thread_name(int);
 
+void uwsgi_python_add_item(char *, uint16_t, char *, uint16_t, void *);
+
 #define py_current_wsgi_req() current_wsgi_req();\
 			if (!wsgi_req) {\
 				return PyErr_Format(PyExc_SystemError, "you can call uwsgi api function only from the main callable");\
 			}
+
+struct wsgi_request *py_current_wsgi_req_from_context(PyObject *);
 
 #define uwsgi_pyexit {PyErr_Print();exit(1);}
 
