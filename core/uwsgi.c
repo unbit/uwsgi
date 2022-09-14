@@ -3718,6 +3718,10 @@ void uwsgi_ignition() {
 		}
 	}
 
+	if (uwsgi.threads > 1 && !uwsgi_instance_is_dying) {
+		wait_for_threads();
+	}
+
 	// end of the process...
 	end_me(0);
 }
