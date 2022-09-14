@@ -3671,6 +3671,7 @@ char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {
 
 
 void uwsgi_set_cpu_affinity() {
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	char buf[4096];
 	int ret;
 	int pos = 0;
@@ -3690,7 +3691,6 @@ void uwsgi_set_cpu_affinity() {
 #elif defined(__FreeBSD__)
 		cpuset_t cpuset;
 #endif
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 		CPU_ZERO(&cpuset);
 		int i;
 		for (i = 0; i < uwsgi.cpu_affinity; i++) {
@@ -3705,7 +3705,6 @@ void uwsgi_set_cpu_affinity() {
 			pos += ret;
 			base_cpu++;
 		}
-#endif
 #if defined(__linux__) || defined(__GNU_kFreeBSD__)
 		if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset)) {
 			uwsgi_error("sched_setaffinity()");
@@ -3717,7 +3716,7 @@ void uwsgi_set_cpu_affinity() {
 #endif
 		uwsgi_log("%s\n", buf);
 	}
-
+#endif
 }
 
 #ifdef UWSGI_ELF

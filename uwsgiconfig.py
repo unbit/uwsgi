@@ -157,7 +157,7 @@ def uniq_warnings(elements):
 
 if uwsgi_version.endswith('-dev') and os.path.exists('%s/.git' % os.path.dirname(os.path.abspath( __file__ ))):
     try:
-        uwsgi_version += '-%s' % spcall('git rev-parse --short HEAD')
+        uwsgi_version += '+%s' % spcall('git rev-parse --short HEAD')
     except:
         pass
 
