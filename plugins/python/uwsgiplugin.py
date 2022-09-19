@@ -73,6 +73,8 @@ if 'UWSGI_PYTHON_NOLIB' not in os.environ:
         # hack for messy linkers/compilers
         if '-lutil' in LIBS:
             LIBS.append('-lutil')
+        if '-lrt' in LIBS:
+            LIBS.append('-lrt')
     else:
         try:
             libdir = sysconfig.get_config_var('LIBDIR')
