@@ -1743,6 +1743,7 @@ struct uwsgi_harakiri_options {
 	int workers;
 	int spoolers;
 	int mules;
+	int delay;
 };
 
 struct uwsgi_fsmon {
@@ -3022,6 +3023,7 @@ struct uwsgi_worker {
 
 	time_t harakiri;
 	time_t user_harakiri;
+	time_t harakiri_delayed_at;
 	uint64_t harakiri_count;
 	int pending_harakiri;
 

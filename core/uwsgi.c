@@ -80,6 +80,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"workers", required_argument, 'p', "spawn the specified number of workers/processes", uwsgi_opt_set_int, &uwsgi.numproc, 0},
 	{"thunder-lock", no_argument, 0, "serialize accept() usage (if possible)", uwsgi_opt_true, &uwsgi.use_thunder_lock, 0},
 	{"harakiri", required_argument, 't', "set harakiri timeout", uwsgi_opt_set_int, &uwsgi.harakiri_options.workers, 0},
+	{"harakiri-delay", required_argument, 0, "set harakiri delay time", uwsgi_opt_set_int, &uwsgi.harakiri_options.delay, 0},
 	{"harakiri-verbose", no_argument, 0, "enable verbose mode for harakiri", uwsgi_opt_true, &uwsgi.harakiri_verbose, 0},
 	{"harakiri-no-arh", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh, 0},
 	{"no-harakiri-arh", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh, 0},
