@@ -2,7 +2,9 @@
 #include "uwsgi.h"
 #endif
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__OpenBSD__)
+#  if !defined(__NetBSD__)
 #include <sys/user.h>
+#  endif
 #include <sys/sysctl.h>
 #include <kvm.h>
 #elif defined(__sun__)
