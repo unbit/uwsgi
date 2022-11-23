@@ -591,7 +591,7 @@ void init_uwsgi_vars() {
 #ifdef HAS_NO_ERRORS_IN_PyFile_FromFd
 		PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, NULL, 0);
 #else
-		PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, NULL, NULL, 0);
+		PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, "backslashreplace", NULL, 0);
 #endif
 		PyDict_SetItemString(pysys_dict, "stdout", new_stdprint);
 		PyDict_SetItemString(pysys_dict, "__stdout__", new_stdprint);
