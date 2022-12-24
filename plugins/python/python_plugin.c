@@ -195,6 +195,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 #endif
 
 	{"py-call-osafterfork", no_argument, 0, "enable child processes running cpython to trap OS signals", uwsgi_opt_true, &up.call_osafterfork, 0},
+	{"py-call-uwsgi-fork-hooks", no_argument, 0, "call pre and post hooks when uswgi forks to update the internal interpreter state of CPython", uwsgi_opt_true, &up.call_uwsgi_fork_hooks, 0},
 
 	{"early-python", no_argument, 0, "load the python VM as soon as possible (useful for the fork server)", uwsgi_early_python, NULL, UWSGI_OPT_IMMEDIATE},
 	{"early-pyimport", required_argument, 0, "import a python module in the early phase", uwsgi_early_python_import, NULL, UWSGI_OPT_IMMEDIATE},
@@ -356,7 +357,7 @@ void uwsgi_python_reset_random_seed() {
                                 PyObject *random_args = PyTuple_New(1);
                                 // pass no args
                                 PyTuple_SetItem(random_args, 0, Py_None);
-                                PyEval_CallObject(random_seed, random_args);
+                                PyObject_CallObject(random_seed, random_args);
                                 if (PyErr_Occurred()) {
                                         PyErr_Print();
                                 }
@@ -428,12 +429,20 @@ realstuff:
 
 void uwsgi_python_post_fork() {
 
+	// Need to acquire the gil when no master process is used as first worker
+	// will not have been forked like others
+	// Necessary if uwsgi fork hooks called to update interpreter state
+	if (up.call_uwsgi_fork_hooks && !uwsgi.master_process && uwsgi.mywid == 1) {
+		UWSGI_GET_GIL
+	}
+
 	if (uwsgi.i_am_a_spooler) {
 		UWSGI_GET_GIL
 	}	
 
 	// reset python signal flags so child processes can trap signals
-	if (up.call_osafterfork) {
+	// Necessary if uwsgi fork hooks not called to update interpreter state
+	if (!up.call_uwsgi_fork_hooks && up.call_osafterfork) {
 #ifdef HAS_NOT_PyOS_AfterFork_Child
 		PyOS_AfterFork();
 #else
@@ -473,8 +482,7 @@ UWSGI_RELEASE_GIL
 
 PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
-	FILE *pyfile;
-	struct _node *py_file_node = NULL;
+	char *pycontent;
 	PyObject *py_compiled_node, *py_file_module;
 	int is_a_package = 0;
 	struct stat pystat;
@@ -483,7 +491,7 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
 	if (!uwsgi_check_scheme(filename)) {
 
-		pyfile = fopen(filename, "r");
+		FILE *pyfile = fopen(filename, "r");
 		if (!pyfile) {
 			uwsgi_log("failed to open python file %s\n", filename);
 			return NULL;
@@ -507,37 +515,32 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 			}
 		}
 
-		py_file_node = PyParser_SimpleParseFile(pyfile, real_filename, Py_file_input);
-		if (!py_file_node) {
-			PyErr_Print();
-			uwsgi_log("failed to parse file %s\n", real_filename);
-			if (is_a_package)
+		fclose(pyfile);
+		pycontent = uwsgi_simple_file_read(real_filename);
+
+		if (!pycontent) {
+			if (is_a_package) {
 				free(real_filename);
-			fclose(pyfile);
+			}
+			uwsgi_log("no data read from file %s\n", real_filename);
 			return NULL;
 		}
 
-		fclose(pyfile);
 	}
 	else {
 		size_t pycontent_size = 0;
-		char *pycontent = uwsgi_open_and_read(filename, &pycontent_size, 1, NULL);
+		pycontent = uwsgi_open_and_read(filename, &pycontent_size, 1, NULL);
 
-		if (pycontent) {
-			py_file_node = PyParser_SimpleParseString(pycontent, Py_file_input);
-			if (!py_file_node) {
-				PyErr_Print();
-				uwsgi_log("failed to parse url %s\n", real_filename);
-				return NULL;
-			}
+		if (!pycontent) {
+			uwsgi_log("no data read from url %s\n", real_filename);
+			return NULL;
 		}
 	}
 
-	py_compiled_node = (PyObject *) PyNode_Compile(py_file_node, real_filename);
-
+	py_compiled_node = Py_CompileString(pycontent, real_filename, Py_file_input);
 	if (!py_compiled_node) {
 		PyErr_Print();
-		uwsgi_log("failed to compile python file %s\n", real_filename);
+		uwsgi_log("failed to compile %s\n", real_filename);
 		return NULL;
 	}
 
@@ -588,7 +591,7 @@ void init_uwsgi_vars() {
 #ifdef HAS_NO_ERRORS_IN_PyFile_FromFd
 		PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, NULL, 0);
 #else
-		PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, NULL, NULL, 0);
+		PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, "backslashreplace", NULL, 0);
 #endif
 		PyDict_SetItemString(pysys_dict, "stdout", new_stdprint);
 		PyDict_SetItemString(pysys_dict, "__stdout__", new_stdprint);
@@ -1135,6 +1138,13 @@ void uwsgi_python_preinit_apps() {
 	up.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
 	up.loaders[LOADER_STRING_CALLABLE] = uwsgi_string_callable_loader;
 
+	// GIL was released in previous initialization steps but init_pyargv expects
+	// the GIL to be acquired
+	// Necessary if uwsgi fork hooks called to update interpreter state
+	if (up.call_uwsgi_fork_hooks) {
+		UWSGI_GET_GIL
+	}
+
 	init_pyargv();
 
         init_uwsgi_embedded_module();
@@ -1180,19 +1190,30 @@ ready:
 		upli = upli->next;
 	}
 
+	// Release the GIL before moving on forward with initialization
+	// Necessary if uwsgi fork hooks called to update interpreter state
+	if (up.call_uwsgi_fork_hooks) {
+		UWSGI_RELEASE_GIL
+	}
+
 }
 
 void uwsgi_python_init_apps() {
 
 	// lazy ?
-	if (uwsgi.mywid > 0) {
+	// Also necessary if uwsgi fork hooks called to update interpreter state
+	if (uwsgi.mywid > 0 || up.call_uwsgi_fork_hooks) {
 		UWSGI_GET_GIL;
 	}
 
 	// prepare for stack suspend/resume
 	if (uwsgi.async > 0) {
+#ifdef UWSGI_PY311
+		up.current_recursion_remaining = uwsgi_malloc(sizeof(int)*uwsgi.async);
+#else
 		up.current_recursion_depth = uwsgi_malloc(sizeof(int)*uwsgi.async);
-        	up.current_frame = uwsgi_malloc(sizeof(struct _frame)*uwsgi.async);
+#endif
+		up.current_frame = uwsgi_malloc(sizeof(up.current_frame[0])*uwsgi.async);
 	}
 
 	struct uwsgi_string_list *upli = up.import_list;
@@ -1297,7 +1318,8 @@ next:
 		}
 	}
 	// lazy ?
-	if (uwsgi.mywid > 0) {
+	// Also necessary if uwsgi fork hooks called to update interpreter state
+	if (uwsgi.mywid > 0 || up.call_uwsgi_fork_hooks) {
 		UWSGI_RELEASE_GIL;
 	}
 
@@ -1309,6 +1331,10 @@ void uwsgi_python_master_fixup(int step) {
 	static int worker_fixed = 0;
 
 	if (!uwsgi.master_process) return;
+
+	// Skip master fixup if uwsgi fork hooks called to update interpreter state
+	if (up.call_uwsgi_fork_hooks)
+		return;
 
 	if (uwsgi.has_threads) {
 		if (step == 0) {
@@ -1326,9 +1352,45 @@ void uwsgi_python_master_fixup(int step) {
 	}
 }
 
+void uwsgi_python_pre_uwsgi_fork() {
+	if (!up.call_uwsgi_fork_hooks)
+		return;
+
+	if (uwsgi.has_threads) {
+		// Acquire the gil and import lock before forking in order to avoid
+		// deadlocks in workers
+		UWSGI_GET_GIL
+		_PyImport_AcquireLock();
+	}
+}
+
+
+void uwsgi_python_post_uwsgi_fork(int step) {
+	if (!up.call_uwsgi_fork_hooks)
+		return;
+
+	if (uwsgi.has_threads) {
+		if (step == 0) {
+			// Release locks within master process
+			_PyImport_ReleaseLock();
+			UWSGI_RELEASE_GIL
+		}
+		else {
+			// Ensure thread state and locks are cleaned up in child process
+#ifdef HAS_NOT_PyOS_AfterFork_Child
+			PyOS_AfterFork();
+#else
+			PyOS_AfterFork_Child();
+#endif
+		}
+	}
+}
+
 void uwsgi_python_enable_threads() {
 
+#ifdef UWSGI_SHOULD_CALL_PYEVAL_INITTHREADS
 	PyEval_InitThreads();
+#endif
 	if (pthread_key_create(&up.upt_save_key, NULL)) {
 		uwsgi_error("pthread_key_create()");
 		exit(1);
@@ -1353,7 +1415,11 @@ void uwsgi_python_enable_threads() {
 		up.reset_ts = threaded_reset_ts;
 	}
 
-	
+	// Release the newly created gil from call to PyEval_InitThreads above
+	// Necessary if uwsgi fork hooks called to update interpreter state
+	if (up.call_uwsgi_fork_hooks) {
+		UWSGI_RELEASE_GIL
+	}
 
 	uwsgi_log("python threads support enabled\n");
 	
@@ -1361,18 +1427,14 @@ void uwsgi_python_enable_threads() {
 }
 
 void uwsgi_python_set_thread_name(int core_id) {
-	// call threading.currentThread (taken from mod_wsgi, but removes DECREFs as thread in uWSGI are fixed)
+	// call threading.current_thread (taken from mod_wsgi, but removes DECREFs as thread in uWSGI are fixed)
 	PyObject *threading_module = PyImport_ImportModule("threading");
         if (threading_module) {
                 PyObject *threading_module_dict = PyModule_GetDict(threading_module);
                 if (threading_module_dict) {
-#ifdef PYTHREE
                         PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "current_thread");
-#else
-                        PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "currentThread");
-#endif
                         if (threading_current) {
-                                PyObject *current_thread = PyEval_CallObject(threading_current, (PyObject *)NULL);
+                                PyObject *current_thread = PyObject_CallObject(threading_current, (PyObject *)NULL);
                                 if (!current_thread) {
                                         // ignore the error
                                         PyErr_Clear();
@@ -1454,13 +1516,9 @@ PyObject *uwsgi_python_setup_thread(char *name, PyInterpreterState *interpreter)
         if (threading_module) {
                 PyObject *threading_module_dict = PyModule_GetDict(threading_module);
                 if (threading_module_dict) {
-#ifdef PYTHREE
                         PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "current_thread");
-#else
-                        PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "currentThread");
-#endif
                         if (threading_current) {
-                                PyObject *current_thread = PyEval_CallObject(threading_current, (PyObject *)NULL);
+                                PyObject *current_thread = PyObject_CallObject(threading_current, (PyObject *)NULL);
                                 if (!current_thread) {
                                         // ignore the error
                                         PyErr_Clear();
@@ -1585,12 +1643,22 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 	PyGILState_Release(pgst);
 
 	if (wsgi_req) {
+#ifdef UWSGI_PY311
+		up.current_recursion_remaining[wsgi_req->async_id] = tstate->recursion_remaining;
+		up.current_frame[wsgi_req->async_id] = tstate->cframe;
+#else
 		up.current_recursion_depth[wsgi_req->async_id] = tstate->recursion_depth;
 		up.current_frame[wsgi_req->async_id] = tstate->frame;
+#endif
 	}
 	else {
+#ifdef UWSGI_PY311
+		up.current_main_recursion_remaining = tstate->recursion_remaining;
+		up.current_main_frame = tstate->cframe;
+#else
 		up.current_main_recursion_depth = tstate->recursion_depth;
 		up.current_main_frame = tstate->frame;
+#endif
 	}
 
 }
@@ -1818,12 +1886,22 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 	PyGILState_Release(pgst);
 
 	if (wsgi_req) {
+#ifdef UWSGI_PY311
+		tstate->recursion_remaining = up.current_recursion_remaining[wsgi_req->async_id];
+		tstate->cframe = up.current_frame[wsgi_req->async_id];
+#else
 		tstate->recursion_depth = up.current_recursion_depth[wsgi_req->async_id];
 		tstate->frame = up.current_frame[wsgi_req->async_id];
+#endif
 	}
 	else {
+#ifdef UWSGI_PY311
+		tstate->recursion_remaining = up.current_main_recursion_remaining;
+		tstate->cframe = up.current_main_frame;
+#else
 		tstate->recursion_depth = up.current_main_recursion_depth;
 		tstate->frame = up.current_main_frame;
+#endif
 	}
 
 }
@@ -1905,7 +1983,7 @@ int uwsgi_python_mule(char *opt) {
         PyObject *arglist = Py_BuildValue("()");
         PyObject *callable = up.loaders[LOADER_MOUNT](opt);
         if (callable) {
-            result = PyEval_CallObject(callable, arglist);
+            result = PyObject_CallObject(callable, arglist);
         }
         Py_XDECREF(result);
         Py_XDECREF(arglist);
@@ -2018,7 +2096,7 @@ static ssize_t uwsgi_python_logger(struct uwsgi_logger *ul, char *message, size_
 			py_getLogger_args = PyTuple_New(1);
 			PyTuple_SetItem(py_getLogger_args, 0, UWSGI_PYFROMSTRING(ul->arg));
 		}
-                ul->data = (void *) PyEval_CallObject(py_getLogger, py_getLogger_args);
+                ul->data = (void *) PyObject_CallObject(py_getLogger, py_getLogger_args);
                 if (PyErr_Occurred()) {
                 	PyErr_Clear();
                 }
@@ -2048,7 +2126,8 @@ static int uwsgi_python_worker() {
 		return 0;
 	UWSGI_GET_GIL;
 	// ensure signals can be used again from python
-	if (!up.call_osafterfork)
+	// Necessary if fork hooks have been not used to update interpreter state
+	if (!up.call_osafterfork && !up.call_uwsgi_fork_hooks)
 #ifdef HAS_NOT_PyOS_AfterFork_Child
 		PyOS_AfterFork();
 #else
@@ -2134,4 +2213,6 @@ struct uwsgi_plugin python_plugin = {
 
 	.worker = uwsgi_python_worker,
 
+	.pre_uwsgi_fork = uwsgi_python_pre_uwsgi_fork,
+	.post_uwsgi_fork = uwsgi_python_post_uwsgi_fork,
 };

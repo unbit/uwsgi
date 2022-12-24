@@ -2,6 +2,7 @@
 set -u
 
 
+CI_CONFIG="$1"
 txtund=$(tput sgr 0 1)          # underline
 txtbld=$(tput bold)             # bold
 bldred=${txtbld}$(tput setaf 1) # red
@@ -62,6 +63,22 @@ test_python() {
     echo -e "${bldyel}>>> Spawning uWSGI python app${txtrst}"
     echo -en "${bldred}"
     ./uwsgi --master --plugin 0:$1 --http :8080 --exit-on-reload --touch-reload reload.txt --wsgi-file $2 --daemonize uwsgi.log
+    sleep 1
+    echo -en "${txtrst}"
+    http_test "http://localhost:8080/"
+    echo -e "${bldyel}===================== DONE $1 $2 =====================${txtrst}\n\n"
+}
+
+
+test_python_deadlocks() {
+    date > reload.txt
+    rm -f uwsgi.log
+    echo -e "${bldyel}================== TESTING DEADLOCKS $1 $2 =====================${txtrst}"
+    echo -e "${bldyel}>>> Starting python app${txtrst}"
+    echo -en "${bldred}"
+    # initialize with tests/deadlocks/sitecustomize.py
+    PYTHONPATH=tests/deadlocks ./uwsgi --plugin 0:$1 --http :8080 --exit-on-reload --touch-reload reload.txt --wsgi-file tests/deadlocks/main.py --ini $2 --daemonize uwsgi.log
+    sleep 1
     echo -en "${txtrst}"
     http_test "http://localhost:8080/"
     echo -e "${bldyel}===================== DONE $1 $2 =====================${txtrst}\n\n"
@@ -74,7 +91,7 @@ test_rack() {
     # the code assumes that ruby environment is activated by `rvm use`
     echo -e "${bldyel}================== TESTING $1 $2 =====================${txtrst}"
     echo -e "${bldyel}>>> Installing sinatra gem using gem${txtrst}"
-    gem install sinatra || die
+    sudo gem install sinatra -v 2.2.2 || die
     echo -e "${bldyel}>>> Spawning uWSGI rack app${txtrst}"
     echo -en "${bldred}"
     ./uwsgi --master --plugin 0:$1 --http :8080 --exit-on-reload --touch-reload reload.txt --rack $2 --daemonize uwsgi.log
@@ -85,17 +102,20 @@ test_rack() {
 
 
 while read PV ; do
-    for WSGI_FILE in tests/staticfile.py tests/testworkers.py ; do
+    for WSGI_FILE in tests/staticfile.py tests/testworkers.py tests/testrpc.py ; do
         test_python $PV $WSGI_FILE
     done
-done < <(cat .travis.yml | grep "plugins/python base" | sed s_".*plugins/python base "_""_g)
-
-
+done < <(cat "$CI_CONFIG" | grep "plugins/python base" | sed s_".*plugins/python base "_""_g)
+while read PV ; do
+    for INI_FILE in tests/deadlocks/*.ini ; do
+        test_python_deadlocks $PV $INI_FILE
+    done
+done < <(cat "$CI_CONFIG" | grep "plugins/python base" | sed s_".*plugins/python base "_""_g)
 while read RV ; do
     for RACK in examples/config2.ru ; do
         test_rack $RV $RACK
     done
-done < <(cat .travis.yml | grep "plugins/rack base" | sed s_".*plugins/rack base "_""_g)
+done < <(cat "$CI_CONFIG" | grep "plugins/rack base" | sed s_".*plugins/rack base "_""_g)
 
 
 echo "${bldgre}>>> $SUCCESS SUCCESSFUL TEST(S)${txtrst}"

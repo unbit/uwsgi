@@ -1,0 +1,81 @@
+name: Test
+
+on:
+  push:
+    branches: [ master, uwsgi-2.0 ]
+  pull_request:
+    branches: [ master, uwsgi-2.0 ]
+
+jobs:
+  python:
+
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        python-version: ["2.7", "3.6", "3.7", "3.8", "3.9", "3.10", "3.11"]
+        test-suite: [unittest, python, deadlocks]
+    steps:
+    - name: Add deadnakes ppa
+      run: |
+        sudo apt install -qqyf software-properties-common
+        sudo add-apt-repository ppa:deadsnakes/ppa -y
+    - name: Install dependencies
+      run: |
+        sudo apt update -qq
+        sudo apt install --no-install-recommends -qqyf python${{ matrix.python-version }}-dev \
+          libpcre3-dev libjansson-dev libcap2-dev \
+          curl check
+    - name: Install distutils
+      if: contains(fromJson('["3.8","3.9","3.10","3.11"]'), matrix.python-version)
+      run: |
+        sudo apt install --no-install-recommends -qqyf python${{ matrix.python-version }}-distutils \
+    - uses: actions/checkout@v2
+    - name: Run unit tests
+      if: matrix.test-suite == 'unittest'
+      run: make tests
+    - name: Build uWSGI binary
+      if: matrix.test-suite != 'unittest'
+      run: make
+    - name: Build python${{ matrix.python-version }} plugin
+      if: matrix.test-suite != 'unittest'
+      run: |
+        PYTHON_VERSION=${{ matrix.python-version }}
+        PYTHON_VERSION=python${PYTHON_VERSION//.}
+        /usr/bin/python${{ matrix.python-version }} -V
+        /usr/bin/python${{ matrix.python-version }} uwsgiconfig.py --plugin plugins/python base $PYTHON_VERSION
+    - name: run smoke tests
+      if: matrix.test-suite != 'unittest'
+      run: |
+        PYTHON_VERSION=${{ matrix.python-version }}
+        PYTHON_VERSION=python${PYTHON_VERSION//.}
+        ./tests/gh-${{ matrix.test-suite }}.sh ${PYTHON_VERSION}
+
+  rack:
+
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        rack-version: ["251"]
+    steps:
+    - name: Add deadnakes ppa
+      run: |
+        sudo apt install -qqyf software-properties-common
+        sudo add-apt-repository ppa:deadsnakes/ppa -y
+    - name: Install dependencies
+      run: |
+        sudo apt update -qq
+        sudo apt install --no-install-recommends -qqyf python3-dev \
+          libpcre3-dev libjansson-dev libcap2-dev \
+          curl check
+    - uses: actions/checkout@v2
+    - name: Run unit tests
+      run: make tests
+    - name: Build uWSGI binary
+      run: make
+    - name: Build rack plugin
+      run: |
+        ruby -v
+        UWSGICONFIG_RUBYPATH=ruby /usr/bin/python uwsgiconfig.py --plugin plugins/rack base rack${{ matrix.rack-version }}
+    - name: run smoke tests
+      run: |
+        ./tests/gh-rack.sh rack${{ matrix.rack-version}}

@@ -1,4 +1,4 @@
-PYTHON := python
+PYTHON := python3
 
 all:
 	$(PYTHON) uwsgiconfig.py --build $(PROFILE)
@@ -19,4 +19,4 @@ tests:
 %:
 	$(PYTHON) uwsgiconfig.py --build $@
 
-.PHONY: tests
+.PHONY: all clean check tests

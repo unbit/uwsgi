@@ -32,7 +32,7 @@ struct uwsgi_option http_options[] = {
 	{"http-events", required_argument, 0, "set the number of concurrent http async events", uwsgi_opt_set_int, &uhttp.cr.nevents, 0},
 	{"http-subscription-server", required_argument, 0, "enable the subscription server", uwsgi_opt_corerouter_ss, &uhttp, 0},
 	{"http-subscription-fallback-key", required_argument, 0, "key to use for fallback http handler", uwsgi_opt_corerouter_fallback_key, &uhttp.cr, 0},
-	{"http-timeout", required_argument, 0, "set internal http socket timeout", uwsgi_opt_set_int, &uhttp.cr.socket_timeout, 0},
+	{"http-timeout", required_argument, 0, "set internal http socket timeout (default: 60 seconds)", uwsgi_opt_set_int, &uhttp.cr.socket_timeout, 0},
 	{"http-manage-expect", optional_argument, 0, "manage the Expect HTTP request header (optionally checking for Content-Length)", uwsgi_opt_set_64bit, &uhttp.manage_expect, 0},
 	{"http-keepalive", optional_argument, 0, "HTTP 1.1 keepalive support (non-pipelined) requests", uwsgi_opt_set_int, &uhttp.keepalive, 0},
 	{"http-auto-chunked", no_argument, 0, "automatically transform output to chunked encoding during HTTP 1.1 keepalive (if needed)", uwsgi_opt_true, &uhttp.auto_chunked, 0},
@@ -1224,8 +1224,9 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 			}
 
 			if (hr->remains > 0) {
-				if (hr->content_length < hr->remains) { 
-					hr->remains = hr->content_length;
+				if (hr->content_length < hr->remains) {
+					if (hr->content_length > 0 || !hr->raw_body)
+						hr->remains = hr->content_length;
 					hr->content_length = 0;
 					// we need to avoid problems with pipelined requests
 					hr->session.can_keepalive = 0;

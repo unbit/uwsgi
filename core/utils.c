@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 
 extern struct uwsgi_server uwsgi;
@@ -580,13 +580,15 @@ void uwsgi_as_root() {
 		}
 	}
 
-	if (uwsgi.chroot && !uwsgi.reloads) {
+	if (uwsgi.chroot && !uwsgi.is_chrooted && !uwsgi.reloads) {
 		if (!uwsgi.master_as_root)
 			uwsgi_log("chroot() to %s\n", uwsgi.chroot);
+
 		if (chroot(uwsgi.chroot)) {
 			uwsgi_error("chroot()");
 			exit(1);
 		}
+		uwsgi.is_chrooted = 1;
 #ifdef __linux__
 		if (uwsgi.logging_options.memory_report) {
 			uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
@@ -987,7 +989,7 @@ void uwsgi_as_root() {
 	return;
 
 nonroot:
-	if (uwsgi.chroot && !uwsgi.is_a_reload) {
+	if (uwsgi.chroot && !uwsgi.is_chrooted && !uwsgi.is_a_reload) {
 		uwsgi_log("cannot chroot() as non-root user\n");
 		exit(1);
 	}
@@ -1944,6 +1946,12 @@ char *uwsgi_64bit2str(int64_t num) {
 	char *str = uwsgi_malloc(sizeof(MAX64_STR) + 1);
 	snprintf(str, sizeof(MAX64_STR) + 1, "%lld", (long long) num);
 	return str;
+}
+
+char *uwsgi_size2str(size_t num) {
+	char *str = uwsgi_malloc(sizeof(UMAX64_STR) + 1);
+	snprintf(str, sizeof(UMAX64_STR) + 1, "%llu", (unsigned long long) num);
+	return str;	
 }
 
 int uwsgi_num2str2(int num, char *ptr) {
@@ -3713,6 +3721,7 @@ char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {
 
 
 void uwsgi_set_cpu_affinity() {
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	char buf[4096];
 	int ret;
 	int pos = 0;
@@ -3732,7 +3741,6 @@ void uwsgi_set_cpu_affinity() {
 #elif defined(__FreeBSD__)
 		cpuset_t cpuset;
 #endif
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 		CPU_ZERO(&cpuset);
 		int i;
 		for (i = 0; i < uwsgi.cpu_affinity; i++) {
@@ -3747,7 +3755,6 @@ void uwsgi_set_cpu_affinity() {
 			pos += ret;
 			base_cpu++;
 		}
-#endif
 #if defined(__linux__) || defined(__GNU_kFreeBSD__)
 		if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset)) {
 			uwsgi_error("sched_setaffinity()");
@@ -3759,7 +3766,7 @@ void uwsgi_set_cpu_affinity() {
 #endif
 		uwsgi_log("%s\n", buf);
 	}
-
+#endif
 }
 
 #ifdef UWSGI_ELF

@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
 
@@ -15,6 +15,11 @@ int uwsgi_register_rpc(char *name, struct uwsgi_plugin *plugin, uint8_t args, vo
 	if (uwsgi.mywid == 0 && uwsgi.workers[0].pid != uwsgi.mypid) {
 		uwsgi_log("only the master and the workers can register RPC functions\n");
 		return -1;
+	}
+
+	if (strlen(name) >= UMAX8)  {
+	      uwsgi_log("the supplied RPC name string is too long, max size is %d\n", UMAX8-1);
+	      return -1;
 	}
 
 	uwsgi_lock(uwsgi.rpc_table_lock);
