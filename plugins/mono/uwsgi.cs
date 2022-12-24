@@ -90,8 +90,18 @@ namespace uwsgi {
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		extern public override int ReadEntityBody(byte[] buffer, int size);
 
+		public override string GetFilePath()
+		{
+			string fpath = GetFilePathInt();
+			if (fpath == null)
+			{
+				return GetAppPath();
+			}
+			return fpath;
+		}
+		
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
-		extern public override string GetFilePath();
+		extern private string GetFilePathInt();
 
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		extern public override string MapPath(string virtualPath);

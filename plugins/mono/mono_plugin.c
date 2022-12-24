@@ -120,7 +120,7 @@ static struct wsgi_request *uwsgi_mono_get_current_req(MonoObject *this) {
 	return request;
 }
 
-static MonoString *uwsgi_mono_method_GetFilePath(MonoObject *this) {
+static MonoString *uwsgi_mono_method_GetFilePathInt(MonoObject *this) {
 	MonoString *ret = NULL;
 	// cache it !!!
 	MonoObject *filepath = mono_field_get_value_object(mono_domain_get(), umono.filepath, this);
@@ -160,7 +160,7 @@ simple:
 }
 
 static MonoString *uwsgi_mono_method_GetUriPath(MonoObject *this) {
-	return uwsgi_mono_method_GetFilePath(this);
+	return uwsgi_mono_method_GetFilePathInt(this);
 }
 
 static MonoString *uwsgi_mono_method_MapPath(MonoObject *this, MonoString *virtualPath) {
@@ -324,7 +324,7 @@ static void uwsgi_mono_add_internal_calls() {
 	mono_add_internal_call("uwsgi.uWSGIRequest::MapPath", uwsgi_mono_method_MapPath);
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetHttpVerbName", uwsgi_mono_method_GetHttpVerbName);
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetRawUrl", uwsgi_mono_method_GetRawUrl);
-	mono_add_internal_call("uwsgi.uWSGIRequest::GetFilePath", uwsgi_mono_method_GetFilePath);
+	mono_add_internal_call("uwsgi.uWSGIRequest::GetFilePathInt", uwsgi_mono_method_GetFilePathInt);
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetUriPath", uwsgi_mono_method_GetUriPath);
 	mono_add_internal_call("uwsgi.uWSGIRequest::SendResponseFromFile", uwsgi_mono_method_SendResponseFromFile);
 	mono_add_internal_call("uwsgi.uWSGIRequest::SendResponseFromFd", uwsgi_mono_method_SendResponseFromFd);
