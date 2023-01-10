@@ -607,7 +607,11 @@ static void activate_user_config(const char *filename, const char *doc_root, siz
 static int php_uwsgi_startup(sapi_module_struct *sapi_module)
 {
 
+#if ((PHP_MAJOR_VERSION >= 8) && (PHP_MINOR_VERSION >= 2))
+	if (php_module_startup(&uwsgi_sapi_module, &uwsgi_module_entry)==FAILURE) {
+#else
 	if (php_module_startup(&uwsgi_sapi_module, &uwsgi_module_entry, 1)==FAILURE) {
+#endif
 		return FAILURE;
 	} else {
 		return SUCCESS;
