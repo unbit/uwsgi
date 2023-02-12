@@ -374,6 +374,13 @@ static void uwsgi_mono_create_jit() {
 
 
 	mono_config_parse(umono.config);
+	
+	// For some reason Mono doesn't want to work with hybrid/coop Mono threading model
+	// Override it. Possible tracking bug (unsure it is the correct one): https://github.com/mono/mono/issues/21466
+	// Don't change it if it was set by someone else
+	if (setenv("MONO_THREADS_SUSPEND", "preemptive", 0)) {
+		uwsgi_error("uwsgi_mono_create_jit()/setenv()");
+	}
 
 	umono.main_domain = mono_jit_init_version("uwsgi", umono.version);
 	if (!umono.main_domain) {
