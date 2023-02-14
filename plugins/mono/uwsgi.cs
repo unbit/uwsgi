@@ -104,7 +104,17 @@ namespace uwsgi {
 		extern private string GetFilePathInt();
 
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
-		extern public override string MapPath(string virtualPath);
+		extern private string MapPathInt(string virtualPath);
+		
+		public override string MapPath(string virtualPath)
+		{
+			string mpath = MapPathInt(virtualPath);
+			if (mpath == null)
+			{
+				return GetFilePath();
+			}
+			return mpath;
+		}
 
 		public override void EndOfRequest() {
 			_requestEndEvent.Set();
