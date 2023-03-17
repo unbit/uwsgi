@@ -1,3 +1,4 @@
+# ./uwsgi --master --http :8080 --harakiri 1 --wsgi-file tests/harakiri.py --harakiri-graceful-timeout 1 --py-call-osafterfork --lazy-apps --enable-threads --threads 2 --harakiri-graceful-signal 31
 import time
 import uwsgi
 import signal
