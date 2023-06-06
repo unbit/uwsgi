@@ -9,16 +9,14 @@ on:
 jobs:
   python:
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         python-version: ["2.7", "3.6", "3.7", "3.8", "3.9", "3.10", "3.11"]
         test-suite: [unittest, python, deadlocks]
     steps:
     - name: Add deadnakes ppa
-      run: |
-        sudo apt install -qqyf software-properties-common
-        sudo add-apt-repository ppa:deadsnakes/ppa -y
+      run: sudo add-apt-repository ppa:deadsnakes/ppa -y
     - name: Install dependencies
       run: |
         sudo apt update -qq
@@ -26,7 +24,7 @@ jobs:
           libpcre3-dev libjansson-dev libcap2-dev \
           curl check
     - name: Install distutils
-      if: contains(fromJson('["3.8","3.9","3.10","3.11"]'), matrix.python-version)
+      if: contains(fromJson('["3.6","3.7","3.8","3.9","3.10","3.11"]'), matrix.python-version)
       run: |
         sudo apt install --no-install-recommends -qqyf python${{ matrix.python-version }}-distutils \
     - uses: actions/checkout@v2
@@ -52,20 +50,16 @@ jobs:
 
   rack:
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
-        rack-version: ["251"]
+        rack-version: ["270"]
     steps:
-    - name: Add deadnakes ppa
-      run: |
-        sudo apt install -qqyf software-properties-common
-        sudo add-apt-repository ppa:deadsnakes/ppa -y
     - name: Install dependencies
       run: |
         sudo apt update -qq
         sudo apt install --no-install-recommends -qqyf python3-dev \
-          libpcre3-dev libjansson-dev libcap2-dev \
+          libpcre3-dev libjansson-dev libcap2-dev ruby2.7-dev \
           curl check
     - uses: actions/checkout@v2
     - name: Run unit tests
