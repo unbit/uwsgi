@@ -7,13 +7,13 @@ extern struct uwsgi_plugin rack_plugin;
 
 #define uwsgi_rack_api(x, y, z) rb_define_module_function(rb_uwsgi_embedded, x, y, z)
 
-static VALUE rack_uwsgi_metric_get(VALUE *class, VALUE key) {
+static VALUE rack_uwsgi_metric_get(VALUE class, VALUE key) {
 	Check_Type(key, T_STRING);
 	int64_t value = uwsgi_metric_get(RSTRING_PTR(key), NULL);
 	return LONG2NUM(value);	
 }
 
-static VALUE rack_uwsgi_metric_set(VALUE *class, VALUE key, VALUE val) {
+static VALUE rack_uwsgi_metric_set(VALUE class, VALUE key, VALUE val) {
         Check_Type(key, T_STRING);
         Check_Type(val, T_FIXNUM); // should be T_BIGNUM...
         if (uwsgi_metric_set(RSTRING_PTR(key), NULL, NUM2LONG(val) )) {
@@ -22,7 +22,7 @@ static VALUE rack_uwsgi_metric_set(VALUE *class, VALUE key, VALUE val) {
         return Qtrue;
 }
 
-static VALUE rack_uwsgi_metric_inc(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_metric_inc(int argc, VALUE *argv, VALUE class) {
 	int64_t value = 1;
 	if (argc == 0) return Qnil;
 	Check_Type(argv[0], T_STRING);
@@ -38,7 +38,7 @@ static VALUE rack_uwsgi_metric_inc(int argc, VALUE *argv, VALUE *class) {
         return Qtrue;
 }
 
-static VALUE rack_uwsgi_metric_dec(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_metric_dec(int argc, VALUE *argv, VALUE class) {
         int64_t value = 1;
         if (argc == 0) return Qnil;
         Check_Type(argv[0], T_STRING);
@@ -54,7 +54,7 @@ static VALUE rack_uwsgi_metric_dec(int argc, VALUE *argv, VALUE *class) {
         return Qtrue;
 }
 
-static VALUE rack_uwsgi_metric_mul(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_metric_mul(int argc, VALUE *argv, VALUE class) {
         int64_t value = 1;
         if (argc == 0) return Qnil;
         Check_Type(argv[0], T_STRING);
@@ -70,7 +70,7 @@ static VALUE rack_uwsgi_metric_mul(int argc, VALUE *argv, VALUE *class) {
         return Qtrue;
 }
 
-static VALUE rack_uwsgi_metric_div(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_metric_div(int argc, VALUE *argv, VALUE class) {
         int64_t value = 1;
         if (argc == 0) return Qnil;
         Check_Type(argv[0], T_STRING);
@@ -89,7 +89,7 @@ static VALUE rack_uwsgi_metric_div(int argc, VALUE *argv, VALUE *class) {
 
 
 
-static VALUE rack_uwsgi_warning(VALUE *class, VALUE rbmessage) {
+static VALUE rack_uwsgi_warning(VALUE class, VALUE rbmessage) {
 
 	Check_Type(rbmessage, T_STRING);
         char *message = RSTRING_PTR(rbmessage);
@@ -108,14 +108,14 @@ static VALUE rack_uwsgi_warning(VALUE *class, VALUE rbmessage) {
         return Qnil;
 }
 
-static VALUE rack_uwsgi_user_harakiri(VALUE *class, VALUE sec) {
+static VALUE rack_uwsgi_user_harakiri(VALUE class, VALUE sec) {
         Check_Type(sec, T_FIXNUM);
 	set_user_harakiri(NUM2INT(sec));
         return Qnil;
 }
 
 
-static VALUE rack_uwsgi_log(VALUE *class, VALUE msg) {
+static VALUE rack_uwsgi_log(VALUE class, VALUE msg) {
 
 	Check_Type(msg, T_STRING);
 
@@ -124,7 +124,7 @@ static VALUE rack_uwsgi_log(VALUE *class, VALUE msg) {
         return Qnil;
 }
 
-static VALUE rack_uwsgi_i_am_the_spooler(VALUE *class) {
+static VALUE rack_uwsgi_i_am_the_spooler(VALUE class) {
         if (uwsgi.i_am_a_spooler) {
                 return Qtrue;
         }
@@ -132,7 +132,7 @@ static VALUE rack_uwsgi_i_am_the_spooler(VALUE *class) {
 }
 
 #ifdef UWSGI_SSL
-static VALUE rack_uwsgi_i_am_the_lord(VALUE *class, VALUE legion_name) {
+static VALUE rack_uwsgi_i_am_the_lord(VALUE class, VALUE legion_name) {
 	Check_Type(legion_name, T_STRING);
         if (uwsgi_legion_i_am_the_lord(RSTRING_PTR(legion_name))) {
                 return Qtrue;
@@ -141,14 +141,14 @@ static VALUE rack_uwsgi_i_am_the_lord(VALUE *class, VALUE legion_name) {
 }
 #endif
 
-static VALUE rack_uwsgi_connection_fd(VALUE *class) {
+static VALUE rack_uwsgi_connection_fd(VALUE class) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
         return INT2NUM(wsgi_req->fd);
 }
 
 
 
-static VALUE rack_uwsgi_setprocname(VALUE *class, VALUE rbname) {
+static VALUE rack_uwsgi_setprocname(VALUE class, VALUE rbname) {
 
 	Check_Type(rbname, T_STRING);
 	char *name = RSTRING_PTR(rbname);
@@ -157,7 +157,7 @@ static VALUE rack_uwsgi_setprocname(VALUE *class, VALUE rbname) {
         return Qnil;
 }
 
-static VALUE rack_uwsgi_mem(VALUE *class) {
+static VALUE rack_uwsgi_mem(VALUE class) {
 
         uint64_t rss=0, vsz = 0;
         VALUE ml = rb_ary_new2(2);
@@ -171,23 +171,23 @@ static VALUE rack_uwsgi_mem(VALUE *class) {
 
 }
 
-static VALUE rack_uwsgi_request_id(VALUE *class) {
+static VALUE rack_uwsgi_request_id(VALUE class) {
         return ULONG2NUM(uwsgi.workers[uwsgi.mywid].requests);
 }
 
-static VALUE rack_uwsgi_worker_id(VALUE *class) {
+static VALUE rack_uwsgi_worker_id(VALUE class) {
         return INT2NUM(uwsgi.mywid);
 }
 
-static VALUE rack_uwsgi_mule_id(VALUE *class) {
+static VALUE rack_uwsgi_mule_id(VALUE class) {
         return INT2NUM(uwsgi.muleid);
 }
 
-static VALUE rack_uwsgi_logsize(VALUE *class) {
+static VALUE rack_uwsgi_logsize(VALUE class) {
         return ULONG2NUM(uwsgi.shared->logsize);
 }
 
-static VALUE rack_uwsgi_mule_msg(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_mule_msg(int argc, VALUE *argv, VALUE class) {
 
         int fd = -1;
         int mule_id = -1;
@@ -266,7 +266,7 @@ static int uwsgi_ruby_hash_mule_callback(VALUE key, VALUE val, VALUE arg_array) 
 	return 0;
 }
 
-static VALUE rack_uwsgi_mule_get_msg(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_mule_get_msg(int argc, VALUE *argv, VALUE class) {
 
 	int manage_signals = 1;
 	int manage_farms = 1;
@@ -322,7 +322,7 @@ static VALUE rack_uwsgi_mule_get_msg(int argc, VALUE *argv, VALUE *class) {
 }
 
 
-static VALUE rack_uwsgi_lock(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_lock(int argc, VALUE *argv, VALUE class) {
 
         int lock_num = 0;
 
@@ -340,7 +340,7 @@ static VALUE rack_uwsgi_lock(int argc, VALUE *argv, VALUE *class) {
 	return Qnil;
 }
 
-static VALUE rack_uwsgi_unlock(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_unlock(int argc, VALUE *argv, VALUE class) {
 
         int lock_num = 0;
 
@@ -362,7 +362,7 @@ static VALUE rack_uwsgi_unlock(int argc, VALUE *argv, VALUE *class) {
 
 
 
-static VALUE rack_uwsgi_cache_set(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_cache_set(int argc, VALUE *argv, VALUE class) {
 
 	if (argc < 2) goto error;
 
@@ -398,7 +398,7 @@ error:
 
 }
 
-static VALUE rack_uwsgi_cache_update(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_cache_update(int argc, VALUE *argv, VALUE class) {
 
         if (argc < 2) goto error;
 
@@ -435,7 +435,7 @@ error:
 }
 
 
-static VALUE rack_uwsgi_cache_set_exc(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_cache_set_exc(int argc, VALUE *argv, VALUE class) {
 	VALUE ret = rack_uwsgi_cache_set(argc, argv, class);
 	if (ret == Qnil) {
 		rb_raise(rb_eRuntimeError, "unable to set value in uWSGI cache");
@@ -443,7 +443,7 @@ static VALUE rack_uwsgi_cache_set_exc(int argc, VALUE *argv, VALUE *class) {
 	return ret;
 }
 
-static VALUE rack_uwsgi_cache_update_exc(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_cache_update_exc(int argc, VALUE *argv, VALUE class) {
 	VALUE ret = rack_uwsgi_cache_update(argc, argv, class);
 	if (ret == Qnil) {
 		rb_raise(rb_eRuntimeError, "unable to update value in uWSGI cache");
@@ -451,7 +451,7 @@ static VALUE rack_uwsgi_cache_update_exc(int argc, VALUE *argv, VALUE *class) {
 	return ret;
 }
 
-static VALUE rack_uwsgi_cache_del(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_cache_del(int argc, VALUE *argv, VALUE class) {
 
         if (argc == 0) goto error;
 
@@ -477,7 +477,7 @@ error:
         return Qnil;
 }
 
-static VALUE rack_uwsgi_cache_del_exc(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_cache_del_exc(int argc, VALUE *argv, VALUE class) {
         VALUE ret = rack_uwsgi_cache_del(argc, argv, class);
         if (ret == Qnil) {
                 rb_raise(rb_eRuntimeError, "unable to delete object from uWSGI cache");
@@ -487,7 +487,7 @@ static VALUE rack_uwsgi_cache_del_exc(int argc, VALUE *argv, VALUE *class) {
 
 
 
-static VALUE rack_uwsgi_cache_exists(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_cache_exists(int argc, VALUE *argv, VALUE class) {
 
 	if (argc == 0) goto error;
 
@@ -515,7 +515,7 @@ error:
 
 
 
-static VALUE rack_uwsgi_cache_clear(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_cache_clear(int argc, VALUE *argv, VALUE class) {
 
 	char *cache = NULL;
 
@@ -531,7 +531,7 @@ static VALUE rack_uwsgi_cache_clear(int argc, VALUE *argv, VALUE *class) {
         return Qnil;
 }
 
-static VALUE rack_uwsgi_cache_clear_exc(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_cache_clear_exc(int argc, VALUE *argv, VALUE class) {
         VALUE ret = rack_uwsgi_cache_clear(argc, argv, class);
         if (ret == Qnil) {
                 rb_raise(rb_eRuntimeError, "unable to clear the uWSGI cache");
@@ -541,7 +541,7 @@ static VALUE rack_uwsgi_cache_clear_exc(int argc, VALUE *argv, VALUE *class) {
 
 
 
-static VALUE rack_uwsgi_cache_get(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_cache_get(int argc, VALUE *argv, VALUE class) {
 
 	if (argc == 0) goto error;
 
@@ -571,7 +571,7 @@ error:
 
 }
 
-static VALUE rack_uwsgi_cache_get_exc(int argc, VALUE *argv, VALUE *class) {
+static VALUE rack_uwsgi_cache_get_exc(int argc, VALUE *argv, VALUE class) {
 	VALUE ret = rack_uwsgi_cache_get(argc, argv, class);
 	if (ret == Qnil) {
 		rb_raise(rb_eRuntimeError, "unable to get value from uWSGI cache");
@@ -582,7 +582,7 @@ static VALUE rack_uwsgi_cache_get_exc(int argc, VALUE *argv, VALUE *class) {
 
 
 
-static VALUE rack_uwsgi_add_cron(VALUE *class, VALUE rbsignum, VALUE rbmin, VALUE rbhour, VALUE rbday, VALUE rbmon, VALUE rbweek) {
+static VALUE rack_uwsgi_add_cron(VALUE class, VALUE rbsignum, VALUE rbmin, VALUE rbhour, VALUE rbday, VALUE rbmon, VALUE rbweek) {
 
 	Check_Type(rbsignum, T_FIXNUM);
 	Check_Type(rbmin, T_FIXNUM);
@@ -608,7 +608,7 @@ static VALUE rack_uwsgi_add_cron(VALUE *class, VALUE rbsignum, VALUE rbmin, VALU
 
 
 
-static VALUE rack_uwsgi_add_timer(VALUE *class, VALUE rbsignum, VALUE secs) {
+static VALUE rack_uwsgi_add_timer(VALUE class, VALUE rbsignum, VALUE secs) {
 
 	Check_Type(rbsignum, T_FIXNUM);
 	Check_Type(secs, T_FIXNUM);
@@ -626,7 +626,7 @@ static VALUE rack_uwsgi_add_timer(VALUE *class, VALUE rbsignum, VALUE secs) {
 
 
 
-static VALUE rack_uwsgi_add_rb_timer(VALUE *class, VALUE rbsignum, VALUE secs) {
+static VALUE rack_uwsgi_add_rb_timer(VALUE class, VALUE rbsignum, VALUE secs) {
 
 	Check_Type(rbsignum, T_FIXNUM);
 	Check_Type(secs, T_FIXNUM);
@@ -644,7 +644,7 @@ static VALUE rack_uwsgi_add_rb_timer(VALUE *class, VALUE rbsignum, VALUE secs) {
 }
 
 
-static VALUE rack_uwsgi_alarm(VALUE *class, VALUE alarm, VALUE msg) {
+static VALUE rack_uwsgi_alarm(VALUE class, VALUE alarm, VALUE msg) {
 
 	Check_Type(alarm, T_STRING);
 	Check_Type(msg, T_STRING);
@@ -654,7 +654,7 @@ static VALUE rack_uwsgi_alarm(VALUE *class, VALUE alarm, VALUE msg) {
 	return Qnil;
 }
 
-static VALUE rack_uwsgi_add_file_monitor(VALUE *class, VALUE rbsignum, VALUE rbfilename) {
+static VALUE rack_uwsgi_add_file_monitor(VALUE class, VALUE rbsignum, VALUE rbfilename) {
 
 	Check_Type(rbsignum, T_FIXNUM);
 	Check_Type(rbfilename, T_STRING);
@@ -671,7 +671,7 @@ static VALUE rack_uwsgi_add_file_monitor(VALUE *class, VALUE rbsignum, VALUE rbf
 }
 
 
-static VALUE uwsgi_ruby_wait_fd_read(VALUE *class, VALUE arg1, VALUE arg2) {
+static VALUE uwsgi_ruby_wait_fd_read(VALUE class, VALUE arg1, VALUE arg2) {
 
 	Check_Type(arg1, T_FIXNUM);
 	Check_Type(arg2, T_FIXNUM);
@@ -689,7 +689,7 @@ static VALUE uwsgi_ruby_wait_fd_read(VALUE *class, VALUE arg1, VALUE arg2) {
         return Qtrue;
 }
 
-static VALUE uwsgi_ruby_wait_fd_write(VALUE *class, VALUE arg1, VALUE arg2) {
+static VALUE uwsgi_ruby_wait_fd_write(VALUE class, VALUE arg1, VALUE arg2) {
 
 	Check_Type(arg1, T_FIXNUM);
 	Check_Type(arg2, T_FIXNUM);
@@ -706,7 +706,7 @@ static VALUE uwsgi_ruby_wait_fd_write(VALUE *class, VALUE arg1, VALUE arg2) {
         return Qtrue;
 }
 
-static VALUE uwsgi_ruby_async_connect(VALUE *class, VALUE arg) {
+static VALUE uwsgi_ruby_async_connect(VALUE class, VALUE arg) {
 
 	Check_Type(arg, T_STRING);
 
@@ -716,7 +716,7 @@ static VALUE uwsgi_ruby_async_connect(VALUE *class, VALUE arg) {
 }
 
 
-static VALUE uwsgi_ruby_async_sleep(VALUE *class, VALUE arg) {
+static VALUE uwsgi_ruby_async_sleep(VALUE class, VALUE arg) {
 
 	Check_Type(arg, T_FIXNUM);
 
@@ -730,7 +730,7 @@ static VALUE uwsgi_ruby_async_sleep(VALUE *class, VALUE arg) {
         return Qtrue;
 }
 
-static VALUE uwsgi_ruby_masterpid(VALUE *class) {
+static VALUE uwsgi_ruby_masterpid(VALUE class) {
 
         if (uwsgi.master_process) {
                 return INT2NUM(uwsgi.workers[0].pid);
@@ -738,7 +738,7 @@ static VALUE uwsgi_ruby_masterpid(VALUE *class) {
         return INT2NUM(0);
 }
 
-static VALUE uwsgi_ruby_suspend(VALUE *class) {
+static VALUE uwsgi_ruby_suspend(VALUE class) {
 
         struct wsgi_request *wsgi_req = current_wsgi_req();
 
@@ -749,7 +749,7 @@ static VALUE uwsgi_ruby_suspend(VALUE *class) {
 }
 
 
-static VALUE uwsgi_ruby_signal_wait(int argc, VALUE *argv, VALUE *class) {
+static VALUE uwsgi_ruby_signal_wait(int argc, VALUE *argv, VALUE class) {
 
         struct wsgi_request *wsgi_req = current_wsgi_req();
         int wait_for_specific_signal = 0;
@@ -781,7 +781,7 @@ static VALUE uwsgi_ruby_signal_wait(int argc, VALUE *argv, VALUE *class) {
         return Qnil;
 }
 
-static VALUE uwsgi_ruby_signal_received(VALUE *class) {
+static VALUE uwsgi_ruby_signal_received(VALUE class) {
 
         struct wsgi_request *wsgi_req = current_wsgi_req();
 
@@ -789,7 +789,7 @@ static VALUE uwsgi_ruby_signal_received(VALUE *class) {
 }
 
 
-static VALUE uwsgi_ruby_signal_registered(VALUE *class, VALUE signum) {
+static VALUE uwsgi_ruby_signal_registered(VALUE class, VALUE signum) {
 
 	Check_Type(signum, T_FIXNUM);
 
@@ -802,7 +802,7 @@ static VALUE uwsgi_ruby_signal_registered(VALUE *class, VALUE signum) {
         return Qfalse;
 }
 
-static VALUE uwsgi_ruby_do_rpc(int argc, VALUE *rpc_argv, VALUE *class) {
+static VALUE uwsgi_ruby_do_rpc(int argc, VALUE *rpc_argv, VALUE class) {
 
 	char *node = NULL, *func;
         uint64_t size = 0;
@@ -853,7 +853,7 @@ clear:
         return Qnil;
 }
 
-static VALUE uwsgi_ruby_register_rpc(int argc, VALUE *argv, VALUE *class) {
+static VALUE uwsgi_ruby_register_rpc(int argc, VALUE *argv, VALUE class) {
 
         int rb_argc = 0;
 
@@ -879,7 +879,7 @@ clear:
         return Qtrue;
 }
 
-static VALUE uwsgi_ruby_register_signal(VALUE *class, VALUE signum, VALUE sigkind, VALUE rbhandler) {
+static VALUE uwsgi_ruby_register_signal(VALUE class, VALUE signum, VALUE sigkind, VALUE rbhandler) {
 
 	Check_Type(signum, T_FIXNUM);
 	Check_Type(sigkind, T_STRING);
@@ -899,7 +899,7 @@ static VALUE uwsgi_ruby_register_signal(VALUE *class, VALUE signum, VALUE sigkin
 }
 
 
-static VALUE uwsgi_ruby_signal(int argc, VALUE *argv, VALUE *class) {
+static VALUE uwsgi_ruby_signal(int argc, VALUE *argv, VALUE class) {
 
 	if (argc < 1) {
 		rb_raise(rb_eRuntimeError, "you have to specify a signum");
@@ -967,7 +967,7 @@ static int rack_uwsgi_build_spool(VALUE rbkey, VALUE rbval, VALUE argv) {
 }
 
 
-static VALUE rack_uwsgi_send_spool(VALUE *class, VALUE args) {
+static VALUE rack_uwsgi_send_spool(VALUE class, VALUE args) {
 
         char *body = NULL;
         size_t body_len= 0;
@@ -1005,7 +1005,7 @@ static VALUE rack_uwsgi_send_spool(VALUE *class, VALUE args) {
 
 }
 
-static VALUE uwsgi_ruby_websocket_handshake(int argc, VALUE *argv, VALUE *class) {
+static VALUE uwsgi_ruby_websocket_handshake(int argc, VALUE *argv, VALUE class) {
 
         struct wsgi_request *wsgi_req = current_wsgi_req();
 
@@ -1034,7 +1034,7 @@ static VALUE uwsgi_ruby_websocket_handshake(int argc, VALUE *argv, VALUE *class)
 	return Qnil;
 }
 
-static VALUE uwsgi_ruby_websocket_send(VALUE *class, VALUE *msg) {
+static VALUE uwsgi_ruby_websocket_send(VALUE class, VALUE msg) {
 	Check_Type(msg, T_STRING);
 	char *message = RSTRING_PTR(msg);
 	size_t message_len = RSTRING_LEN(msg);
@@ -1045,7 +1045,7 @@ static VALUE uwsgi_ruby_websocket_send(VALUE *class, VALUE *msg) {
 	return Qnil;
 }
 
-static VALUE uwsgi_ruby_websocket_recv(VALUE *class) {
+static VALUE uwsgi_ruby_websocket_recv(VALUE class) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
         struct uwsgi_buffer *ub = uwsgi_websocket_recv(wsgi_req);
@@ -1059,7 +1059,7 @@ static VALUE uwsgi_ruby_websocket_recv(VALUE *class) {
 
 }
 
-static VALUE uwsgi_ruby_websocket_recv_nb(VALUE *class) {
+static VALUE uwsgi_ruby_websocket_recv_nb(VALUE class) {
 
         struct wsgi_request *wsgi_req = current_wsgi_req();
         struct uwsgi_buffer *ub = uwsgi_websocket_recv_nb(wsgi_req);
