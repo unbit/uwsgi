@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        python-version: ["2.7", "3.6", "3.7", "3.8", "3.9", "3.10", "3.11"]
+        python-version: ["2.7", "3.6", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
         test-suite: [unittest, python, deadlocks]
     steps:
     - name: Add deadnakes ppa
@@ -24,7 +24,7 @@ jobs:
           libpcre3-dev libjansson-dev libcap2-dev \
           curl check
     - name: Install distutils
-      if: contains(fromJson('["3.6","3.7","3.8","3.9","3.10","3.11"]'), matrix.python-version)
+      if: contains(fromJson('["3.6","3.7","3.8","3.9","3.10","3.11","3.12"]'), matrix.python-version)
       run: |
         sudo apt install --no-install-recommends -qqyf python${{ matrix.python-version }}-distutils \
     - uses: actions/checkout@v2
