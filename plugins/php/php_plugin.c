@@ -877,7 +877,7 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 #ifdef UWSGI_PCRE
 		struct uwsgi_regexp_list *bypass = uphp.app_bypass;
 		while (bypass) {
-                        if (uwsgi_regexp_match(bypass->pattern, bypass->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
+                        if (uwsgi_regexp_match(bypass->pattern, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
 				goto oldstyle;
                         }
                         bypass = bypass->next;

@@ -450,7 +450,8 @@ struct uwsgi_lock_ops {
 #define uwsgi_wait_write_req(x) uwsgi.wait_write_hook(x->fd, uwsgi.socket_timeout) ; x->switches++
 
 #ifdef UWSGI_PCRE
-#include <pcre.h>
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include <pcre2.h>
 #endif
 
 struct uwsgi_dyn_dict {
@@ -467,8 +468,7 @@ struct uwsgi_dyn_dict {
 	struct uwsgi_dyn_dict *next;
 
 #ifdef UWSGI_PCRE
-	pcre *pattern;
-	pcre_extra *pattern_extra;
+	pcre2_code *pattern;
 #endif
 
 };
@@ -482,8 +482,7 @@ struct uwsgi_hook {
 #ifdef UWSGI_PCRE
 struct uwsgi_regexp_list {
 
-	pcre *pattern;
-	pcre_extra *pattern_extra;
+	pcre2_code *pattern;
 
 	uint64_t custom;
 	char *custom_str;
@@ -1101,10 +1100,10 @@ struct uwsgi_plugin {
 };
 
 #ifdef UWSGI_PCRE
-int uwsgi_regexp_build(char *, pcre **, pcre_extra **);
-int uwsgi_regexp_match(pcre *, pcre_extra *, char *, int);
-int uwsgi_regexp_match_ovec(pcre *, pcre_extra *, char *, int, int *, int);
-int uwsgi_regexp_ovector(pcre *, pcre_extra *);
+int uwsgi_regexp_build(char *, pcre2_code **);
+int uwsgi_regexp_match(pcre2_code *, const char *, int);
+int uwsgi_regexp_match_ovec(pcre2_code *, const char *, int, int *, int);
+int uwsgi_regexp_ovector(pcre2_code *);
 char *uwsgi_regexp_apply_ovec(char *, int, char *, int, int *, int);
 
 int uwsgi_regexp_match_pattern(char *pattern, char *str);
@@ -1195,8 +1194,7 @@ struct uwsgi_spooler {
 
 struct uwsgi_route {
 
-	pcre *pattern;
-	pcre_extra *pattern_extra;
+	pcre2_code *pattern;
 
 	char *orig_route;
 	
@@ -1312,8 +1310,7 @@ struct uwsgi_alarm_ll {
 };
 
 struct uwsgi_alarm_log {
-	pcre *pattern;
-	pcre_extra *pattern_extra;
+	pcre2_code *pattern;
 	int negate;
 	struct uwsgi_alarm_ll *alarms;
 	struct uwsgi_alarm_log *next;

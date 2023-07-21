@@ -39,7 +39,7 @@ int uwsgi_static_want_gzip(struct wsgi_request *wsgi_req, char *filename, size_t
 	// check for regexp
 	struct uwsgi_regexp_list *url = uwsgi.static_gzip;
 	while(url) {
-		if (uwsgi_regexp_match(url->pattern, url->pattern_extra, filename, *filename_len) >= 0) {
+		if (uwsgi_regexp_match(url->pattern, filename, *filename_len) >= 0) {
 			goto gzip;
 		}
 		url = url->next;
@@ -229,7 +229,7 @@ int uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filenam
 	char expires[31];
 
 	while (udd) {
-		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, filename, filename_len) >= 0) {
+		if (uwsgi_regexp_match(udd->pattern, filename, filename_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
 			int size = uwsgi_http_date(now + delta, expires);
 			if (size > 0) {
@@ -242,7 +242,7 @@ int uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filenam
 
 	udd = uwsgi.static_expires_mtime;
 	while (udd) {
-		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, filename, filename_len) >= 0) {
+		if (uwsgi_regexp_match(udd->pattern, filename, filename_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
 			int size = uwsgi_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {
@@ -264,7 +264,7 @@ int uwsgi_add_expires_path_info(struct wsgi_request *wsgi_req, struct stat *st) 
 	char expires[31];
 
 	while (udd) {
-		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
+		if (uwsgi_regexp_match(udd->pattern, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
 			int size = uwsgi_http_date(now + delta, expires);
 			if (size > 0) {
@@ -277,7 +277,7 @@ int uwsgi_add_expires_path_info(struct wsgi_request *wsgi_req, struct stat *st) 
 
 	udd = uwsgi.static_expires_path_info_mtime;
 	while (udd) {
-		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
+		if (uwsgi_regexp_match(udd->pattern, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
 			int size = uwsgi_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {
@@ -299,7 +299,7 @@ int uwsgi_add_expires_uri(struct wsgi_request *wsgi_req, struct stat *st) {
 	char expires[31];
 
 	while (udd) {
-		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
+		if (uwsgi_regexp_match(udd->pattern, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
 			int size = uwsgi_http_date(now + delta, expires);
 			if (size > 0) {
@@ -312,7 +312,7 @@ int uwsgi_add_expires_uri(struct wsgi_request *wsgi_req, struct stat *st) {
 
 	udd = uwsgi.static_expires_uri_mtime;
 	while (udd) {
-		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
+		if (uwsgi_regexp_match(udd->pattern, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
 			int size = uwsgi_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {

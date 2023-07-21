@@ -1447,7 +1447,7 @@ int uwsgi_master_log(void) {
                 uwsgi_alarm_log_check(uwsgi.log_master_buf, rlen);
                 struct uwsgi_regexp_list *url = uwsgi.log_drain_rules;
                 while (url) {
-                        if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+                        if (uwsgi_regexp_match(url->pattern, uwsgi.log_master_buf, rlen) >= 0) {
                                 return 0;
                         }
                         url = url->next;
@@ -1456,7 +1456,7 @@ int uwsgi_master_log(void) {
                         int show = 0;
                         url = uwsgi.log_filter_rules;
                         while (url) {
-                                if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+                                if (uwsgi_regexp_match(url->pattern, uwsgi.log_master_buf, rlen) >= 0) {
                                         show = 1;
                                         break;
                                 }
@@ -1469,7 +1469,7 @@ int uwsgi_master_log(void) {
                 url = uwsgi.log_route;
                 int finish = 0;
                 while (url) {
-                        if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+                        if (uwsgi_regexp_match(url->pattern, uwsgi.log_master_buf, rlen) >= 0) {
                                 struct uwsgi_logger *ul_route = (struct uwsgi_logger *) url->custom_ptr;
                                 if (ul_route) {
 					uwsgi_log_func_do(uwsgi.requested_log_encoders, ul_route, uwsgi.log_master_buf, rlen);
@@ -1513,7 +1513,7 @@ int uwsgi_master_req_log(void) {
                 struct uwsgi_regexp_list *url = uwsgi.log_req_route;
                 int finish = 0;
                 while (url) {
-                        if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+                        if (uwsgi_regexp_match(url->pattern, uwsgi.log_master_buf, rlen) >= 0) {
                                 struct uwsgi_logger *ul_route = (struct uwsgi_logger *) url->custom_ptr;
                                 if (ul_route) {
                                         uwsgi_log_func_do(uwsgi.requested_log_req_encoders, ul_route, uwsgi.log_master_buf, rlen);

@@ -35,7 +35,7 @@ jobs:
       run: |
         sudo apt update -qq
         sudo apt install --no-install-recommends -qqyf python3-dev \
-          libxml2-dev libpcre3-dev libcap2-dev \
+          libxml2-dev libpcre2-dev libcap2-dev \
           libargon2-0-dev libsodium-dev \
           ${{ matrix.php }}-dev lib${{ matrix.php }}-embed \
           liblua5.1-0-dev ruby-dev \

@@ -170,7 +170,7 @@ static int uwsgi_alarm_log_add(char *alarms, char *regexp, int negate) {
 	}
 
 	ual = uwsgi_calloc(sizeof(struct uwsgi_alarm_log));
-	if (uwsgi_regexp_build(regexp, &ual->pattern, &ual->pattern_extra)) {
+	if (uwsgi_regexp_build(regexp, &ual->pattern)) {
 		free(ual);
 		return -1;
 	}
@@ -384,7 +384,7 @@ void uwsgi_alarm_log_check(char *msg, size_t len) {
 		return;
 	struct uwsgi_alarm_log *ual = uwsgi.alarm_logs;
 	while (ual) {
-		if (uwsgi_regexp_match(ual->pattern, ual->pattern_extra, msg, len) >= 0) {
+		if (uwsgi_regexp_match(ual->pattern, msg, len) >= 0) {
 			if (!ual->negate) {
 				struct uwsgi_alarm_ll *uall = ual->alarms;
 				while (uall) {
