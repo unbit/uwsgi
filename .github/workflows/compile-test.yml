@@ -9,16 +9,21 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
+    - name: remove sury php ppa that does not ship libphpX.Y-embed
+      run: |
+        sudo add-apt-repository --remove ppa:ondrej/php
+        sudo apt remove php7.4-dev php7.4 php7.4-common
     - name: Install dependencies
       run: |
         sudo apt update -qq
-        sudo apt install --no-install-recommends -qqyf python3.6-dev \
+        sudo apt install --no-install-recommends -qqyf python3.8-dev \
           libxml2-dev libpcre3-dev libcap2-dev \
-          php7.2-dev libphp7.2-embed libargon2-0-dev libsodium-dev \
-          liblua5.1-0-dev ruby2.5-dev \
+          libargon2-0-dev libsodium-dev \
+          php7.4-dev libphp7.4-embed \
+          liblua5.1-0-dev ruby2.7-dev \
           libjansson-dev libldap2-dev libpq-dev \
           libpam0g-dev libsqlite3-dev libyaml-dev \
           libzmq3-dev libmatheval-dev libperl-dev \
@@ -27,12 +32,12 @@ jobs:
           libboost-thread-dev libboost-filesystem-dev \
           libssl-dev libacl1-dev python-greenlet-dev \
           libcurl4-openssl-dev \
-          openjdk-8-jdk libgloox-dev gccgo \
+          openjdk-11-jdk libgloox-dev gccgo \
           cli-common-dev mono-devel mono-mcs uuid-dev \
           curl check
     - uses: actions/checkout@v2
     - name: Build kitchensink uWSGI binary
-      run: UWSGICONFIG_PHPPATH=php-config7.2 /usr/bin/python3 uwsgiconfig.py --build travis
+      run: UWSGICONFIG_PHPPATH=php-config7.4 /usr/bin/python3 uwsgiconfig.py --build travis
     - name: Build uWSGI binary
       run: |
         /usr/bin/python3 uwsgiconfig.py --build base

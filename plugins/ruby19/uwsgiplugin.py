@@ -14,9 +14,11 @@ v = version.split('.')
 
 GCC_LIST = ['../rack/rack_plugin', '../rack/rack_api']
 
-if v[0] == '1' and v[1] == '9':
+if (v[0] == '1' and v[1] == '9') or v[0] >= '2':
     CFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print RbConfig::CONFIG['CFLAGS']\"").read().rstrip().split()
     CFLAGS.append('-DRUBY19')
+    if version >= '2.7':
+        CFLAGS.append('-DRUBY27')
     CFLAGS.append('-Wno-unused-parameter')
     rbconfig = 'RbConfig'	 
 else:

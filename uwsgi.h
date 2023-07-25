@@ -2439,7 +2439,7 @@ struct uwsgi_server {
 	int master_queue;
 	int master_interval;
 
-	// mainly iseful for broodlord mode
+	// mainly useful for broodlord mode
 	int vassal_sos_backlog;
 
 	int no_defer_accept;

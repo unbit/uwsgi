@@ -315,18 +315,16 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 	apr_bucket_brigade *pass_bb = apr_brigade_create(r->pool, c->bucket_alloc);
 
 	len = ap_getline(buffer, sizeof(buffer), rp, 1);
-
 	if (len <= 0) {
-		// oops
+		/* invalid or empty */
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
-
 	backend->worker->s->read += len;
-
-	if (len >= sizeof(buffer)-1) {
-		// oops
+	if ((apr_size_t)len >= sizeof(buffer)) {
+	        /* too long */
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
+
 	/* Position of http status code */
 	int status_start;
 	if (apr_date_checkmask(buffer, "HTTP/#.# ###*")) {
@@ -334,8 +332,8 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 	} else if (apr_date_checkmask(buffer, "HTTP/# ###*")) {
 		status_start = 7;
 	} else {
-		// oops
-		return HTTP_INTERNAL_SERVER_ERROR;
+	        /* not HTTP */
+	        return HTTP_BAD_GATEWAY;
 	}
 	int status_end = status_start + 3;
 
@@ -354,16 +352,40 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 	}
 	r->status_line = apr_pstrdup(r->pool, &buffer[status_start]);
 
-	// start parsing headers;
+	/* parse headers */
 	while ((len = ap_getline(buffer, sizeof(buffer), rp, 1)) > 0) {
+	        if ((apr_size_t)len >= sizeof(buffer)) {
+		  /* too long */
+		  len = -1;
+		  break;
+		}
 		value = strchr(buffer, ':');
-		// invalid header skip
-		if (!value) continue;
-		*value = '\0';
-		++value;
+		if (!value) {
+		  /* invalid header */
+		  len = -1;
+		  break;
+		}
+		*value++ = '\0';
+		if (*ap_scan_http_token(buffer)) {
+		  /* invalid name */
+		  len = -1;
+		  break;
+		}
 		while (apr_isspace(*value)) ++value; 
 		for (end = &value[strlen(value)-1]; end > value && apr_isspace(*end); --end) *end = '\0';
+		if (*ap_scan_http_field_content(value)) {
+		  /* invalid value */
+		  len = -1;
+		  break;
+		}
 		apr_table_add(r->headers_out, buffer, value);
+	}
+	if (len < 0) {
+	  /* Reset headers, but not to NULL because things below the chain expect
+	   * this to be non NULL e.g. the ap_content_length_filter.
+	   */
+	  r->headers_out = apr_table_make(r->pool, 1);
+	  return HTTP_BAD_GATEWAY;
 	}
 
 	if ((buf = apr_table_get(r->headers_out, "Content-Type"))) {
