@@ -208,7 +208,7 @@ VALUE rb_uwsgi_io_init(int argc, VALUE *argv, VALUE self) {
 	return self;
 }
 
-VALUE rb_uwsgi_io_gets(VALUE obj, VALUE args) {
+VALUE rb_uwsgi_io_gets(VALUE obj) {
 
 	struct wsgi_request *wsgi_req;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
@@ -222,14 +222,14 @@ VALUE rb_uwsgi_io_gets(VALUE obj, VALUE args) {
 	return Qnil;
 }
 
-VALUE rb_uwsgi_io_each(VALUE obj, VALUE args) {
+VALUE rb_uwsgi_io_each(VALUE obj) {
 
 	if (!rb_block_given_p())
 		rb_raise(rb_eArgError, "Expected block on rack.input 'each' method");
 
 	// yield strings chunks
 	for(;;) {
-		VALUE chunk = rb_uwsgi_io_gets(obj, Qnil);
+		VALUE chunk = rb_uwsgi_io_gets(obj);
 		if (chunk == Qnil) {
 			return Qnil;
 		}
@@ -273,7 +273,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	return Qnil;
 }
 
-VALUE rb_uwsgi_io_rewind(VALUE obj, VALUE args) {
+VALUE rb_uwsgi_io_rewind(VALUE obj) {
 
 	struct wsgi_request *wsgi_req;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
@@ -454,9 +454,13 @@ void uwsgi_ruby_gemset(char *gemset) {
 	
 }
 
-static void rack_hack_dollar_zero(VALUE name, ID id) {
+static void rack_hack_dollar_zero(VALUE name, ID id, VALUE *_) {
 	ur.dollar_zero = rb_obj_as_string(name);
+	// From ruby 2.7 onwards this is a noop, from ruby 3.2 onwards
+	// this function no longer exists
+#if !defined(RUBY27)
 	rb_obj_taint(ur.dollar_zero);
+#endif
 }
 
 #ifndef RUBY19
@@ -698,7 +702,7 @@ VALUE call_dispatch(VALUE env) {
 
 }
 
-static VALUE send_body(VALUE obj) {
+static VALUE send_body(VALUE obj, VALUE data, int argc, const VALUE *argv, VALUE blockarg) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
@@ -731,7 +735,7 @@ VALUE iterate_body(VALUE body) {
 #endif
 }
 
-VALUE send_header(VALUE obj, VALUE headers) {
+VALUE send_header(VALUE obj, VALUE headers, int argc, const VALUE *argv, VALUE blockarg) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
@@ -792,7 +796,7 @@ clear:
 VALUE iterate_headers(VALUE headers) {
 
 #ifdef RUBY19
-        return rb_block_call(headers, rb_intern("each"), 0, 0, send_header, headers );
+        return rb_block_call(headers, rb_intern("each"), 0, 0, send_header, headers);
 #else
         return rb_iterate(rb_each, headers, send_header, headers);
 #endif
