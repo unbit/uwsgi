@@ -236,11 +236,11 @@ static void uwsgi_offload_close(struct uwsgi_thread *ut, struct uwsgi_offload_re
 		close(uor->pipe[0]);
 	}
 
-	free(uor);
-
 #ifdef UWSGI_DEBUG
 	uwsgi_log("[offload] destroyed session %p\n", uor);
 #endif
+
+	free(uor);
 }
 
 static void uwsgi_offload_append(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor) {
