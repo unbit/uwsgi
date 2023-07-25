@@ -1099,30 +1099,29 @@ class uConf(object):
 
         has_pcre = False
 
-        # re-enable after pcre fix
-        if self.get('pcre'):
-            if self.get('pcre') == 'auto':
-                pcreconf = spcall('pcre-config --libs')
-                if pcreconf:
-                    self.libs.append(pcreconf)
-                    pcreconf = spcall("pcre-config --cflags")
-                    self.cflags.append(pcreconf)
-                    self.gcc_list.append('core/regexp')
-                    self.cflags.append("-DUWSGI_PCRE")
-                    has_pcre = True
-
+        required_pcre = self.get('pcre')
+        if required_pcre:
+            pcre_libs = spcall('pcre2-config --libs8')
+            if pcre_libs:
+                pcre_cflags = spcall("pcre2-config --cflags")
+                pcre_define = "-DUWSGI_PCRE"
             else:
-                pcreconf = spcall('pcre-config --libs')
-                if pcreconf is None:
-                    print("*** libpcre headers unavailable. uWSGI build is interrupted. You have to install pcre development package or disable pcre")
-                    sys.exit(1)
-                else:
-                    self.libs.append(pcreconf)
-                    pcreconf = spcall("pcre-config --cflags")
-                    self.cflags.append(pcreconf)
-                    self.gcc_list.append('core/regexp')
-                    self.cflags.append("-DUWSGI_PCRE")
-                    has_pcre = True
+                pcre_libs = spcall('pcre-config --libs')
+                pcre_cflags = spcall("pcre-config --cflags")
+                pcre_define = "-DUWSGI_PCRE"
+        else:
+            pcre_libs = None
+
+        if required_pcre:
+            if required_pcre != 'auto' and pcre_libs is None:
+                print("*** libpcre headers unavailable. uWSGI build is interrupted. You have to install pcre development package or disable pcre")
+                sys.exit(1)
+
+            self.libs.append(pcre_libs)
+            self.cflags.append(pcre_cflags)
+            self.gcc_list.append('core/regexp')
+            self.cflags.append(pcre_define)
+            has_pcre = True
 
         if has_pcre:
             report['pcre'] = True
