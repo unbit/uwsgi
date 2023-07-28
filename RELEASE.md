@@ -16,7 +16,7 @@ Please remember to substitute XY with proper version.
 
 ```
 git tag 2.0.XY
-git push ---tags origin HEAD
+git push --tags origin HEAD
 git archive HEAD --prefix uwsgi-2.0.XY/ -o uwsgi-2.0.XY.tar.gz
 ```
 
