@@ -109,7 +109,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"if-hostname", required_argument, 0, "(opt logic) check for hostname", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_hostname, UWSGI_OPT_IMMEDIATE},
 	{"if-not-hostname", required_argument, 0, "(opt logic) check for hostname", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_hostname, UWSGI_OPT_IMMEDIATE},
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"if-hostname-match", required_argument, 0, "(opt logic) try to match hostname against a regular expression", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_hostname_match, UWSGI_OPT_IMMEDIATE},
 	{"if-not-hostname-match", required_argument, 0, "(opt logic) try to match hostname against a regular expression", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_hostname_match, UWSGI_OPT_IMMEDIATE},
 #endif
@@ -565,7 +565,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ksm", optional_argument, 0, "enable Linux KSM", uwsgi_opt_set_int, &uwsgi.linux_ksm, 0},
 #endif
 #endif
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"pcre-jit", no_argument, 0, "enable pcre jit (if available)", uwsgi_opt_pcre_jit, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 	{"never-swap", no_argument, 0, "lock all memory pages avoiding swapping", uwsgi_opt_true, &uwsgi.never_swap, 0},
@@ -701,7 +701,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ssl-enable-sslv3", no_argument, 0, "enable SSLv3 (insecure)", uwsgi_opt_true, &uwsgi.sslv3, 0},
 	{"ssl-enable-tlsv1", no_argument, 0, "enable TLSv1 (insecure)", uwsgi_opt_true, &uwsgi.tlsv1, 0},
 	{"ssl-option", required_argument, 0, "set a raw ssl option (numeric value)", uwsgi_opt_add_string_list, &uwsgi.ssl_options, 0},
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"sni-regexp", required_argument, 0, "add an SNI-governed SSL context (the key is a regexp)", uwsgi_opt_sni, NULL, 0},
 #endif
 	{"ssl-tmp-dir", required_argument, 0, "store ssl-related temp files in the specified directory", uwsgi_opt_set_str, &uwsgi.ssl_tmp_dir, 0},
@@ -743,7 +743,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"worker-log-req-encoder", required_argument, 0, "add an item in the log req encoder chain", uwsgi_opt_add_string_list, &uwsgi.requested_log_req_encoders, 0},
 	
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"log-drain", required_argument, 0, "drain (do not show) log lines matching the specified regexp", uwsgi_opt_add_regexp_list, &uwsgi.log_drain_rules, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"log-filter", required_argument, 0, "show only log lines matching the specified regexp", uwsgi_opt_add_regexp_list, &uwsgi.log_filter_rules, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"log-route", required_argument, 0, "log to the specified named logger if regexp applied on logline matches", uwsgi_opt_add_regexp_custom_list, &uwsgi.log_route, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -764,7 +764,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"alarm-lq", required_argument, 0, "raise the specified alarm when the socket backlog queue is full", uwsgi_opt_add_string_list, &uwsgi.alarm_backlog, UWSGI_OPT_MASTER},
 	{"alarm-listen-queue", required_argument, 0, "raise the specified alarm when the socket backlog queue is full", uwsgi_opt_add_string_list, &uwsgi.alarm_backlog, UWSGI_OPT_MASTER},
 	{"listen-queue-alarm", required_argument, 0, "raise the specified alarm when the socket backlog queue is full", uwsgi_opt_add_string_list, &uwsgi.alarm_backlog, UWSGI_OPT_MASTER},
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"log-alarm", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"alarm-log", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"not-log-alarm", required_argument, 0, "skip the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list_custom, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -945,7 +945,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"static-expires-type", required_argument, 0, "set the Expires header based on content type", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type, UWSGI_OPT_MIME},
 	{"static-expires-type-mtime", required_argument, 0, "set the Expires header based on content type and file mtime", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type_mtime, UWSGI_OPT_MIME},
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"static-expires", required_argument, 0, "set the Expires header based on filename regexp", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires, UWSGI_OPT_MIME},
 	{"static-expires-mtime", required_argument, 0, "set the Expires header based on filename regexp and file mtime", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires_mtime, UWSGI_OPT_MIME},
 
@@ -2500,7 +2500,7 @@ configure:
 #endif
 
 	uwsgi_log_initial("clock source: %s\n", uwsgi.clock->name);
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	if (uwsgi.pcre_jit) {
 		uwsgi_log_initial("pcre jit enabled\n");
 	}
@@ -4302,7 +4302,7 @@ void uwsgi_opt_add_string_list_custom(char *opt, char *value, void *list) {
 	usl->custom = 1;
 }
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 void uwsgi_opt_add_regexp_list(char *opt, char *value, void *list) {
 	struct uwsgi_regexp_list **ptr = (struct uwsgi_regexp_list **) list;
 	uwsgi_regexp_new_list(ptr, value);
@@ -4568,7 +4568,7 @@ void uwsgi_opt_add_dyn_dict(char *opt, char *value, void *dict) {
 
 }
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 void uwsgi_opt_add_regexp_dyn_dict(char *opt, char *value, void *dict) {
 
 	char *space = strchr(value, ' ');
@@ -4583,7 +4583,11 @@ void uwsgi_opt_add_regexp_dyn_dict(char *opt, char *value, void *dict) {
 
 	char *regexp = uwsgi_concat2n(value, space - value, "", 0);
 
+#ifdef UWSGI_PCRE2
 	if (uwsgi_regexp_build(regexp, &new_udd->pattern)) {
+#else
+	if (uwsgi_regexp_build(regexp, &new_udd->pattern, &new_udd->pattern_extra)) {
+#endif
 		exit(1);
 	}
 

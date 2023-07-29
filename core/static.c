@@ -35,11 +35,15 @@ int uwsgi_static_want_gzip(struct wsgi_request *wsgi_req, char *filename, size_t
 		usl = usl->next;
 	}
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	// check for regexp
 	struct uwsgi_regexp_list *url = uwsgi.static_gzip;
 	while(url) {
+#ifdef UWSGI_PCRE2
 		if (uwsgi_regexp_match(url->pattern, filename, *filename_len) >= 0) {
+#else
+		if (uwsgi_regexp_match(url->pattern, url->pattern_extra, filename, *filename_len) >= 0) {
+#endif
 			goto gzip;
 		}
 		url = url->next;
@@ -220,7 +224,7 @@ int uwsgi_add_expires_type(struct wsgi_request *wsgi_req, char *mime_type, int m
 	return 0;
 }
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 int uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filename_len, struct stat *st) {
 
 	struct uwsgi_dyn_dict *udd = uwsgi.static_expires;
@@ -229,7 +233,11 @@ int uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filenam
 	char expires[31];
 
 	while (udd) {
+#ifdef UWSGI_PCRE2
 		if (uwsgi_regexp_match(udd->pattern, filename, filename_len) >= 0) {
+#else
+		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, filename, filename_len) >= 0) {
+#endif
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
 			int size = uwsgi_http_date(now + delta, expires);
 			if (size > 0) {
@@ -242,7 +250,11 @@ int uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filenam
 
 	udd = uwsgi.static_expires_mtime;
 	while (udd) {
+#ifdef UWSGI_PCRE2
 		if (uwsgi_regexp_match(udd->pattern, filename, filename_len) >= 0) {
+#else
+		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, filename, filename_len) >= 0) {
+#endif
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
 			int size = uwsgi_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {
@@ -264,7 +276,11 @@ int uwsgi_add_expires_path_info(struct wsgi_request *wsgi_req, struct stat *st) 
 	char expires[31];
 
 	while (udd) {
+#ifdef UWSGI_PCRE2
 		if (uwsgi_regexp_match(udd->pattern, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
+#else
+		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
+#endif
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
 			int size = uwsgi_http_date(now + delta, expires);
 			if (size > 0) {
@@ -277,7 +293,11 @@ int uwsgi_add_expires_path_info(struct wsgi_request *wsgi_req, struct stat *st) 
 
 	udd = uwsgi.static_expires_path_info_mtime;
 	while (udd) {
+#ifdef UWSGI_PCRE2
 		if (uwsgi_regexp_match(udd->pattern, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
+#else
+		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
+#endif
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
 			int size = uwsgi_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {
@@ -299,7 +319,11 @@ int uwsgi_add_expires_uri(struct wsgi_request *wsgi_req, struct stat *st) {
 	char expires[31];
 
 	while (udd) {
+#ifdef UWSGI_PCRE2
 		if (uwsgi_regexp_match(udd->pattern, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
+#else
+		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
+#endif
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
 			int size = uwsgi_http_date(now + delta, expires);
 			if (size > 0) {
@@ -312,7 +336,11 @@ int uwsgi_add_expires_uri(struct wsgi_request *wsgi_req, struct stat *st) {
 
 	udd = uwsgi.static_expires_uri_mtime;
 	while (udd) {
+#ifdef UWSGI_PCRE2
 		if (uwsgi_regexp_match(udd->pattern, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
+#else
+		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
+#endif
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
 			int size = uwsgi_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {
@@ -511,7 +539,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 		if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) return -1;
 	}
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	uwsgi_add_expires(wsgi_req, real_filename, real_filename_len, st);
 	uwsgi_add_expires_path_info(wsgi_req, st);
 	uwsgi_add_expires_uri(wsgi_req, st);

@@ -145,10 +145,14 @@ static int uwsgi_sni_cb(SSL *ssl, int *ad, void *arg) {
 
 	if (uwsgi.subscription_dotsplit) goto end;
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
         struct uwsgi_regexp_list *url = uwsgi.sni_regexp;
         while(url) {
+#ifdef UWSGI_PCRE2
                 if (uwsgi_regexp_match(url->pattern, (char *)servername, servername_len) >= 0) {
+#else
+                if (uwsgi_regexp_match(url->pattern, url->pattern_extra, (char *)servername, servername_len) >= 0) {
+#endif
                         SSL_set_SSL_CTX(ssl, url->custom_ptr);
                         return SSL_TLSEXT_ERR_OK;
                 }
@@ -628,7 +632,7 @@ void uwsgi_opt_sni(char *opt, char *value, void *foobar) {
                 return;
         }
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
         if (!strcmp(opt, "sni-regexp")) {
                 struct uwsgi_regexp_list *url = uwsgi_regexp_new_list(&uwsgi.sni_regexp, v);
                 url->custom_ptr = ctx;
@@ -637,7 +641,7 @@ void uwsgi_opt_sni(char *opt, char *value, void *foobar) {
 #endif
                 struct uwsgi_string_list *usl = uwsgi_string_new_list(&uwsgi.sni, v);
                 usl->custom_ptr = ctx;
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
         }
 #endif
 

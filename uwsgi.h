@@ -449,9 +449,13 @@ struct uwsgi_lock_ops {
 #define uwsgi_wait_read_req(x) uwsgi.wait_read_hook(x->fd, uwsgi.socket_timeout) ; x->switches++
 #define uwsgi_wait_write_req(x) uwsgi.wait_write_hook(x->fd, uwsgi.socket_timeout) ; x->switches++
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
+#ifdef UWSGI_PCRE2
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>
+#else
+#include <pcre.h>
+#endif
 #endif
 
 struct uwsgi_dyn_dict {
@@ -467,8 +471,13 @@ struct uwsgi_dyn_dict {
 	struct uwsgi_dyn_dict *prev;
 	struct uwsgi_dyn_dict *next;
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
+#ifdef UWSGI_PCRE2
 	pcre2_code *pattern;
+#else
+	pcre *pattern;
+	pcre_extra *pattern_extra;
+#endif
 #endif
 
 };
@@ -479,10 +488,15 @@ struct uwsgi_hook {
 	struct uwsgi_hook *next;
 };
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 struct uwsgi_regexp_list {
 
+#ifdef UWSGI_PCRE2
 	pcre2_code *pattern;
+#else
+	pcre *pattern;
+	pcre_extra *pattern_extra;
+#endif
 
 	uint64_t custom;
 	char *custom_str;
@@ -1099,11 +1113,18 @@ struct uwsgi_plugin {
 	void (*post_uwsgi_fork) (int);
 };
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
+#ifdef UWSGI_PCRE2
 int uwsgi_regexp_build(char *, pcre2_code **);
 int uwsgi_regexp_match(pcre2_code *, const char *, int);
 int uwsgi_regexp_match_ovec(pcre2_code *, const char *, int, int *, int);
 int uwsgi_regexp_ovector(pcre2_code *);
+#else
+int uwsgi_regexp_build(char *, pcre **, pcre_extra **);
+int uwsgi_regexp_match(pcre *, pcre_extra *, char *, int);
+int uwsgi_regexp_match_ovec(pcre *, pcre_extra *, char *, int, int *, int);
+int uwsgi_regexp_ovector(pcre *, pcre_extra *);
+#endif
 char *uwsgi_regexp_apply_ovec(char *, int, char *, int, int *, int);
 
 int uwsgi_regexp_match_pattern(char *pattern, char *str);
@@ -1194,7 +1215,12 @@ struct uwsgi_spooler {
 
 struct uwsgi_route {
 
+#ifdef UWSGI_PCRE2
 	pcre2_code *pattern;
+#else
+	pcre *pattern;
+	pcre_extra *pattern_extra;
+#endif
 
 	char *orig_route;
 	
@@ -1303,14 +1329,19 @@ struct uwsgi_alarm_fd {
 
 struct uwsgi_alarm_fd *uwsgi_add_alarm_fd(int, char *, size_t, char *, size_t);
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 struct uwsgi_alarm_ll {
 	struct uwsgi_alarm_instance *alarm;
 	struct uwsgi_alarm_ll *next;
 };
 
 struct uwsgi_alarm_log {
+#ifdef UWSGI_PCRE2
 	pcre2_code *pattern;
+#else
+	pcre *pattern;
+	pcre_extra *pattern_extra;
+#endif
 	int negate;
 	struct uwsgi_alarm_ll *alarms;
 	struct uwsgi_alarm_log *next;
@@ -2255,7 +2286,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *requested_log_encoders;
 	struct uwsgi_string_list *requested_log_req_encoders;
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	int pcre_jit;
 	struct uwsgi_regexp_list *log_drain_rules;
 	struct uwsgi_regexp_list *log_filter_rules;
@@ -2337,7 +2368,7 @@ struct uwsgi_server {
 	int static_gzip_all;
 	struct uwsgi_string_list *static_gzip_dir;
 	struct uwsgi_string_list *static_gzip_ext;
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	struct uwsgi_regexp_list *static_gzip;
 #endif
 
@@ -2742,7 +2773,7 @@ struct uwsgi_server {
 	int ssl_sessions_timeout;
 	struct uwsgi_cache *ssl_sessions_cache;
 	char *ssl_tmp_dir;
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	struct uwsgi_regexp_list *sni_regexp;
 #endif
 	struct uwsgi_string_list *sni;
@@ -3664,7 +3695,7 @@ void uwsgi_close_all_unshared_sockets(void);
 void uwsgi_shutdown_all_sockets(void);
 
 struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **, char *);
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 struct uwsgi_regexp_list *uwsgi_regexp_custom_new_list(struct uwsgi_regexp_list **, char *, char *);
 #define uwsgi_regexp_new_list(x, y) uwsgi_regexp_custom_new_list(x, y, NULL);
 #endif
@@ -3938,7 +3969,7 @@ void uwsgi_opt_add_addr_list(char *, char *, void *);
 void uwsgi_opt_add_string_list_custom(char *, char *, void *);
 void uwsgi_opt_add_dyn_dict(char *, char *, void *);
 void uwsgi_opt_binary_append_data(char *, char *, void *);
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 void uwsgi_opt_pcre_jit(char *, char *, void *);
 void uwsgi_opt_add_regexp_dyn_dict(char *, char *, void *);
 void uwsgi_opt_add_regexp_list(char *, char *, void *);

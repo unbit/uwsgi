@@ -160,7 +160,7 @@ static struct uwsgi_alarm_instance *uwsgi_alarm_get_instance(char *name) {
 }
 
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 static int uwsgi_alarm_log_add(char *alarms, char *regexp, int negate) {
 
 	struct uwsgi_alarm_log *old_ual = NULL, *ual = uwsgi.alarm_logs;
@@ -170,7 +170,11 @@ static int uwsgi_alarm_log_add(char *alarms, char *regexp, int negate) {
 	}
 
 	ual = uwsgi_calloc(sizeof(struct uwsgi_alarm_log));
+#ifdef UWSGI_PCRE2
 	if (uwsgi_regexp_build(regexp, &ual->pattern)) {
+#else
+	if (uwsgi_regexp_build(regexp, &ual->pattern, &ual->pattern_extra)) {
+#endif
 		free(ual);
 		return -1;
 	}
@@ -331,7 +335,7 @@ void uwsgi_alarms_init() {
 		usl = usl->next;
 	}
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	// then map log-alarm
 	usl = uwsgi.alarm_logs_list;
 	while (usl) {
@@ -377,14 +381,18 @@ void uwsgi_alarm_trigger_uai(struct uwsgi_alarm_instance *uai, char *msg, size_t
 	}
 }
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 // check if a log should raise an alarm
 void uwsgi_alarm_log_check(char *msg, size_t len) {
 	if (!uwsgi_strncmp(msg, len, "[uwsgi-alarm", 12))
 		return;
 	struct uwsgi_alarm_log *ual = uwsgi.alarm_logs;
 	while (ual) {
+#ifdef UWSGI_PCRE2
 		if (uwsgi_regexp_match(ual->pattern, msg, len) >= 0) {
+#else
+		if (uwsgi_regexp_match(ual->pattern, ual->pattern_extra, msg, len) >= 0) {
+#endif
 			if (!ual->negate) {
 				struct uwsgi_alarm_ll *uall = ual->alarms;
 				while (uall) {

@@ -1104,7 +1104,7 @@ class uConf(object):
             pcre_libs = spcall('pcre2-config --libs8')
             if pcre_libs:
                 pcre_cflags = spcall("pcre2-config --cflags")
-                pcre_define = "-DUWSGI_PCRE"
+                pcre_define = "-DUWSGI_PCRE2"
             else:
                 pcre_libs = spcall('pcre-config --libs')
                 pcre_cflags = spcall("pcre-config --cflags")

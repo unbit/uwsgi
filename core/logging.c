@@ -414,7 +414,7 @@ void uwsgi_setup_log_master(void) {
                 usl = usl->next;
         }
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	// set logger by its id
 	struct uwsgi_regexp_list *url = uwsgi.log_route;
 	while (url) {
@@ -1443,11 +1443,15 @@ int uwsgi_master_log(void) {
 
         ssize_t rlen = read(uwsgi.shared->worker_log_pipe[0], uwsgi.log_master_buf, uwsgi.log_master_bufsize);
         if (rlen > 0) {
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
                 uwsgi_alarm_log_check(uwsgi.log_master_buf, rlen);
                 struct uwsgi_regexp_list *url = uwsgi.log_drain_rules;
                 while (url) {
+#ifdef UWSGI_PCRE2
                         if (uwsgi_regexp_match(url->pattern, uwsgi.log_master_buf, rlen) >= 0) {
+#else
+                        if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+#endif
                                 return 0;
                         }
                         url = url->next;
@@ -1456,7 +1460,11 @@ int uwsgi_master_log(void) {
                         int show = 0;
                         url = uwsgi.log_filter_rules;
                         while (url) {
+#ifdef UWSGI_PCRE2
                                 if (uwsgi_regexp_match(url->pattern, uwsgi.log_master_buf, rlen) >= 0) {
+#else
+                                if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+#endif
                                         show = 1;
                                         break;
                                 }
@@ -1469,7 +1477,11 @@ int uwsgi_master_log(void) {
                 url = uwsgi.log_route;
                 int finish = 0;
                 while (url) {
+#ifdef UWSGI_PCRE2
                         if (uwsgi_regexp_match(url->pattern, uwsgi.log_master_buf, rlen) >= 0) {
+#else
+                        if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+#endif
                                 struct uwsgi_logger *ul_route = (struct uwsgi_logger *) url->custom_ptr;
                                 if (ul_route) {
 					uwsgi_log_func_do(uwsgi.requested_log_encoders, ul_route, uwsgi.log_master_buf, rlen);
@@ -1509,11 +1521,15 @@ int uwsgi_master_req_log(void) {
 
         ssize_t rlen = read(uwsgi.shared->worker_req_log_pipe[0], uwsgi.log_master_buf, uwsgi.log_master_bufsize);
         if (rlen > 0) {
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
                 struct uwsgi_regexp_list *url = uwsgi.log_req_route;
                 int finish = 0;
                 while (url) {
+#ifdef UWSGI_PCRE2
                         if (uwsgi_regexp_match(url->pattern, uwsgi.log_master_buf, rlen) >= 0) {
+#else
+                        if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+#endif
                                 struct uwsgi_logger *ul_route = (struct uwsgi_logger *) url->custom_ptr;
                                 if (ul_route) {
                                         uwsgi_log_func_do(uwsgi.requested_log_req_encoders, ul_route, uwsgi.log_master_buf, rlen);
