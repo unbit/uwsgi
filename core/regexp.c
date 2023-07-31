@@ -84,14 +84,23 @@ int uwsgi_regexp_match_ovec(pcre2_code *pattern, const char *subject, int length
 int uwsgi_regexp_match_ovec(pcre * pattern, pcre_extra * pattern_extra, char *subject, int length, int *ovec, int n) {
 #endif
 
+		/*
+		 * Quoting PCRE{,2} spec, "The first pair of integers, ovector[0]
+		 * and ovector[1], identify the portion of the subject string matched
+		 * by the entire pattern. The next pair is used for the first capturing
+		 * subpattern, and so on." Therefore, the ovector size is the number of
+		 * capturing subpatterns (INFO_CAPTURECOUNT), from uwsgi_regexp_ovector(),
+		 * as matching pairs, plus room for the first pair.
+		 */
 	if (n > 0) {
 #ifdef UWSGI_PCRE2
 		// copy pcre2 output vector to uwsgi output vector
 		pcre2_ovec = pcre2_get_ovector_pointer(match_data);
-		for (i=0;i<2*n+1;i++) {
+		for (i=0;i<(n+1)*2;i++) {
 			ovec[i] = pcre2_ovec[i];
 		}
 #else
+		// for pcre, the byte size of the ovector must be (n + 1) * 3
 		return pcre_exec((const pcre *) pattern, (const pcre_extra *) pattern_extra, subject, length, 0, 0, ovec, (n + 1) * 3);
 #endif
 	}
@@ -106,22 +115,18 @@ int uwsgi_regexp_match_ovec(pcre * pattern, pcre_extra * pattern_extra, char *su
 }
 
 #ifdef UWSGI_PCRE2
-int uwsgi_regexp_ovector(pcre2_code *pattern) {
+int uwsgi_regexp_ovector(const pcre2_code *pattern) {
 #else
 int uwsgi_regexp_ovector(pcre * pattern, pcre_extra * pattern_extra) {
 #endif
 
 	int n;
 #ifdef UWSGI_PCRE2
-	pcre2_match_data *match_data;
-
-	match_data = pcre2_match_data_create_from_pattern(pattern, NULL);
-	n = pcre2_get_ovector_count(match_data);
-	pcre2_match_data_free(match_data);
+	if (pcre2_pattern_info(pattern, PCRE2_INFO_CAPTURECOUNT, &n))
 #else
 	if (pcre_fullinfo((const pcre *) pattern, (const pcre_extra *) pattern_extra, PCRE_INFO_CAPTURECOUNT, &n))
-		return 0;
 #endif
+		return 0;
 
 	return n;
 }

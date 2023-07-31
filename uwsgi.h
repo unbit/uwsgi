@@ -1118,7 +1118,7 @@ struct uwsgi_plugin {
 int uwsgi_regexp_build(char *, pcre2_code **);
 int uwsgi_regexp_match(pcre2_code *, const char *, int);
 int uwsgi_regexp_match_ovec(pcre2_code *, const char *, int, int *, int);
-int uwsgi_regexp_ovector(pcre2_code *);
+int uwsgi_regexp_ovector(const pcre2_code *);
 #else
 int uwsgi_regexp_build(char *, pcre **, pcre_extra **);
 int uwsgi_regexp_match(pcre *, pcre_extra *, char *, int);
