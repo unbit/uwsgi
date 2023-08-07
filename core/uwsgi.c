@@ -4583,11 +4583,7 @@ void uwsgi_opt_add_regexp_dyn_dict(char *opt, char *value, void *dict) {
 
 	char *regexp = uwsgi_concat2n(value, space - value, "", 0);
 
-#ifdef UWSGI_PCRE2
 	if (uwsgi_regexp_build(regexp, &new_udd->pattern)) {
-#else
-	if (uwsgi_regexp_build(regexp, &new_udd->pattern, &new_udd->pattern_extra)) {
-#endif
 		exit(1);
 	}
 

@@ -148,11 +148,7 @@ static int uwsgi_sni_cb(SSL *ssl, int *ad, void *arg) {
 #if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
         struct uwsgi_regexp_list *url = uwsgi.sni_regexp;
         while(url) {
-#ifdef UWSGI_PCRE2
                 if (uwsgi_regexp_match(url->pattern, (char *)servername, servername_len) >= 0) {
-#else
-                if (uwsgi_regexp_match(url->pattern, url->pattern_extra, (char *)servername, servername_len) >= 0) {
-#endif
                         SSL_set_SSL_CTX(ssl, url->custom_ptr);
                         return SSL_TLSEXT_ERR_OK;
                 }

@@ -2359,11 +2359,7 @@ struct uwsgi_regexp_list *uwsgi_regexp_custom_new_list(struct uwsgi_regexp_list 
 		old_url->next = url;
 	}
 
-#ifdef UWSGI_PCRE2
 	if (uwsgi_regexp_build(value, &url->pattern)) {
-#else
-	if (uwsgi_regexp_build(value, &url->pattern, &url->pattern_extra)) {
-#endif
 		exit(1);
 	}
 	url->next = NULL;
@@ -2376,26 +2372,13 @@ struct uwsgi_regexp_list *uwsgi_regexp_custom_new_list(struct uwsgi_regexp_list 
 
 int uwsgi_regexp_match_pattern(char *pattern, char *str) {
 
-#ifdef UWSGI_PCRE2
-	pcre2_code *regexp;
-#else
-	pcre *regexp;
-	pcre_extra *regexp_extra;
-#endif
+	uwsgi_pcre *regexp;
 
-#ifdef UWSGI_PCRE2
 	if (uwsgi_regexp_build(pattern, &regexp))
-#else
-	if (uwsgi_regexp_build(pattern, &regexp, &regexp_extra))
-#endif
 		return 1;
-#ifdef UWSGI_PCRE2
-	return !uwsgi_regexp_match(regexp, str, strlen(str));
-#else
-	return !uwsgi_regexp_match(regexp, regexp_extra, str, strlen(str));
-#endif
-}
 
+	return !uwsgi_regexp_match(regexp, str, strlen(str));
+}
 
 #endif
 

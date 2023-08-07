@@ -211,11 +211,7 @@ int uwsgi_apply_routes_do(struct uwsgi_route *routes, struct wsgi_request *wsgi_
 				subject = *subject2 ;
 				subject_len = *subject_len2;
 			}
-#ifdef UWSGI_PCRE2
 			n = uwsgi_regexp_match_ovec(routes->pattern, subject, subject_len, routes->ovector[wsgi_req->async_id], routes->ovn[wsgi_req->async_id]);
-#else
-			n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, subject, subject_len, routes->ovector[wsgi_req->async_id], routes->ovn[wsgi_req->async_id]);
-#endif
 		}
 		else {
 			int ret = routes->if_func(wsgi_req, routes);
@@ -510,27 +506,15 @@ void uwsgi_fixup_routes(struct uwsgi_route *ur) {
 
 		// fill them if needed... (this is an optimization for route with a static subject)
 		if (ur->subject && ur->subject_len) {
-#ifdef UWSGI_PCRE2
 			if (uwsgi_regexp_build(ur->orig_route, &ur->pattern)) {
-#else
-                	if (uwsgi_regexp_build(ur->orig_route, &ur->pattern, &ur->pattern_extra)) {
-#endif
                         	exit(1);
                 	}
 
 			int i;
 			for(i=0;i<uwsgi.cores;i++) {
-#ifdef UWSGI_PCRE2
 				ur->ovn[i] = uwsgi_regexp_ovector(ur->pattern);
-#else
-                		ur->ovn[i] = uwsgi_regexp_ovector(ur->pattern, ur->pattern_extra);
-#endif
                 		if (ur->ovn[i] > 0) {
-#ifdef UWSGI_PCRE2
-                        		ur->ovector[i] = uwsgi_calloc(sizeof(int) * (2 * (ur->ovn[i] + 1)));
-#else
-                        		ur->ovector[i] = uwsgi_calloc(sizeof(int) * (3 * (ur->ovn[i] + 1)));
-#endif
+                        		ur->ovector[i] = uwsgi_calloc(sizeof(int) * PCRE_OVECTOR_BYTESIZE(ur->ovn[i]));
                 		}
 			}
 		}
@@ -1500,44 +1484,31 @@ static int uwsgi_route_condition_regexp(struct wsgi_request *wsgi_req, struct uw
         ur->condition_ub[wsgi_req->async_id] = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, semicolon - ur->subject_str);
         if (!ur->condition_ub[wsgi_req->async_id]) return -1;
 
-#ifdef UWSGI_PCRE2
-	pcre2_code *pattern;
-#else
-	pcre *pattern;
-	pcre_extra *pattern_extra;
-#endif
+	uwsgi_pcre *pattern;
 	char *re = uwsgi_concat2n(semicolon+1, ur->subject_str_len - ((semicolon+1) - ur->subject_str), "", 0);
-#ifdef UWSGI_PCRE2
 	if (uwsgi_regexp_build(re, &pattern)) {
-#else
-	if (uwsgi_regexp_build(re, &pattern, &pattern_extra)) {
-#endif
 		free(re);
 		return -1;
 	}
 	free(re);
 
 	// a condition has no initialized vectors, let's create them
-#ifdef UWSGI_PCRE2
 	ur->ovn[wsgi_req->async_id] = uwsgi_regexp_ovector(pattern);
-#else
-	ur->ovn[wsgi_req->async_id] = uwsgi_regexp_ovector(pattern, pattern_extra);
-#endif
         if (ur->ovn[wsgi_req->async_id] > 0) {
         	ur->ovector[wsgi_req->async_id] = uwsgi_calloc(sizeof(int) * (3 * (ur->ovn[wsgi_req->async_id] + 1)));
         }
 
-#ifdef UWSGI_PCRE2
 	if (uwsgi_regexp_match_ovec(pattern, ur->condition_ub[wsgi_req->async_id]->buf, ur->condition_ub[wsgi_req->async_id]->pos, ur->ovector[wsgi_req->async_id], ur->ovn[wsgi_req->async_id] ) >= 0) {
+#ifdef UWSGI_PCRE2
 		pcre2_code_free(pattern);
 #else
-	if (uwsgi_regexp_match_ovec(pattern, pattern_extra, ur->condition_ub[wsgi_req->async_id]->buf, ur->condition_ub[wsgi_req->async_id]->pos, ur->ovector[wsgi_req->async_id], ur->ovn[wsgi_req->async_id] ) >= 0) {
-		pcre_free(pattern);
+		pcre_free(pattern->p);
 #ifdef PCRE_STUDY_JIT_COMPILE
-		pcre_free_study(pattern_extra);
+		pcre_free_study(pattern->extra);
 #else
-		pcre_free(pattern_extra);
+		pcre_free(pattern->extra);
 #endif
+		free(pattern);
 #endif
 		return 1;
 	}
@@ -1545,12 +1516,13 @@ static int uwsgi_route_condition_regexp(struct wsgi_request *wsgi_req, struct uw
 #ifdef UWSGI_PCRE2
 	pcre2_code_free(pattern);
 #else
-	pcre_free(pattern);
+	pcre_free(pattern->p);
 #ifdef PCRE_STUDY_JIT_COMPILE
-	pcre_free_study(pattern_extra);
+	pcre_free_study(pattern->extra);
 #else
-	pcre_free(pattern_extra);
+	pcre_free(pattern->extra);
 #endif
+	free(pattern);
 #endif
 	return 0;
 }

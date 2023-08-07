@@ -451,10 +451,23 @@ struct uwsgi_lock_ops {
 
 #if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 #ifdef UWSGI_PCRE2
+
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>
+#define PCRE_OVECTOR_BYTESIZE(n) (n+1)*2
+
+typedef pcre2_code uwsgi_pcre;
+
 #else
+
 #include <pcre.h>
+#define PCRE_OVECTOR_BYTESIZE(n) (n+1)*3
+
+typedef struct {
+	pcre *p;
+	pcre_extra *extra;
+} uwsgi_pcre;
+
 #endif
 #endif
 
@@ -472,12 +485,7 @@ struct uwsgi_dyn_dict {
 	struct uwsgi_dyn_dict *next;
 
 #if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
-#ifdef UWSGI_PCRE2
-	pcre2_code *pattern;
-#else
-	pcre *pattern;
-	pcre_extra *pattern_extra;
-#endif
+	uwsgi_pcre *pattern;
 #endif
 
 };
@@ -491,12 +499,7 @@ struct uwsgi_hook {
 #if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 struct uwsgi_regexp_list {
 
-#ifdef UWSGI_PCRE2
-	pcre2_code *pattern;
-#else
-	pcre *pattern;
-	pcre_extra *pattern_extra;
-#endif
+	uwsgi_pcre *pattern;
 
 	uint64_t custom;
 	char *custom_str;
@@ -1114,17 +1117,10 @@ struct uwsgi_plugin {
 };
 
 #if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
-#ifdef UWSGI_PCRE2
-int uwsgi_regexp_build(char *, pcre2_code **);
-int uwsgi_regexp_match(pcre2_code *, const char *, int);
-int uwsgi_regexp_match_ovec(pcre2_code *, const char *, int, int *, int);
-int uwsgi_regexp_ovector(const pcre2_code *);
-#else
-int uwsgi_regexp_build(char *, pcre **, pcre_extra **);
-int uwsgi_regexp_match(pcre *, pcre_extra *, char *, int);
-int uwsgi_regexp_match_ovec(pcre *, pcre_extra *, char *, int, int *, int);
-int uwsgi_regexp_ovector(pcre *, pcre_extra *);
-#endif
+int uwsgi_regexp_build(char *, uwsgi_pcre **);
+int uwsgi_regexp_match(uwsgi_pcre *, const char *, int);
+int uwsgi_regexp_match_ovec(uwsgi_pcre *, const char *, int, int *, int);
+int uwsgi_regexp_ovector(const uwsgi_pcre *);
 char *uwsgi_regexp_apply_ovec(char *, int, char *, int, int *, int);
 
 int uwsgi_regexp_match_pattern(char *pattern, char *str);
@@ -1215,12 +1211,7 @@ struct uwsgi_spooler {
 
 struct uwsgi_route {
 
-#ifdef UWSGI_PCRE2
-	pcre2_code *pattern;
-#else
-	pcre *pattern;
-	pcre_extra *pattern_extra;
-#endif
+	uwsgi_pcre *pattern;
 
 	char *orig_route;
 	
@@ -1336,12 +1327,7 @@ struct uwsgi_alarm_ll {
 };
 
 struct uwsgi_alarm_log {
-#ifdef UWSGI_PCRE2
-	pcre2_code *pattern;
-#else
-	pcre *pattern;
-	pcre_extra *pattern_extra;
-#endif
+	uwsgi_pcre *pattern;
 	int negate;
 	struct uwsgi_alarm_ll *alarms;
 	struct uwsgi_alarm_log *next;
