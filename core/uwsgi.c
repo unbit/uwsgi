@@ -1321,6 +1321,7 @@ void end_me(int signum) {
 static void simple_goodbye_cruel_world(const char *reason) {
 
 	if (uwsgi.threads > 1 && !uwsgi_instance_is_dying) {
+		uwsgi_log_verbose("Now waiting on process %d threads\n", getpid());
 		wait_for_threads();
 	}
 
