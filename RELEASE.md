@@ -25,3 +25,6 @@ Then the tarball must be uploaded to pypi with:
 ```
 python3 -m twine upload uwsgi-2.0.XY.tar.gz
 ```
+
+Once the file is uploaded the `Download.rst` page of [uwsgi-docs repository](https://github.com/unbit/uwsgi-docs)
+should be updated.
