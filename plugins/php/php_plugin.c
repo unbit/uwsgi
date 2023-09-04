@@ -28,6 +28,7 @@ struct uwsgi_php {
 	char *fallback;
 	char *fallback2;
 	char *fallback_qs;
+	char *ini_entries;
 	size_t ini_size;
 	int dump_config;
 	char *server_software;
@@ -222,21 +223,22 @@ static sapi_module_struct uwsgi_sapi_module;
 
 void uwsgi_php_append_config(char *filename) {
 	size_t file_size = 0;
-        char *file_content = uwsgi_open_and_read(filename, &file_size, 1, NULL);
-	uwsgi_sapi_module.ini_entries = realloc(uwsgi_sapi_module.ini_entries, uphp.ini_size + file_size);
-	memcpy(uwsgi_sapi_module.ini_entries + uphp.ini_size, file_content, file_size);
+	char *file_content = uwsgi_open_and_read(filename, &file_size, 1, NULL);
+	uphp.ini_entries = realloc(uphp.ini_entries, uphp.ini_size + file_size);
+	memcpy(uphp.ini_entries + uphp.ini_size, file_content, file_size);
 	uphp.ini_size += file_size-1;
 	free(file_content);
+	uwsgi_sapi_module.ini_entries = uphp.ini_entries;
 }
 
 void uwsgi_php_set(char *opt) {
 
-	uwsgi_sapi_module.ini_entries = realloc(uwsgi_sapi_module.ini_entries, uphp.ini_size + strlen(opt)+2);
-	memcpy(uwsgi_sapi_module.ini_entries + uphp.ini_size, opt, strlen(opt));
-
+	uphp.ini_entries = realloc(uphp.ini_entries, uphp.ini_size + strlen(opt)+2);
+	memcpy(uphp.ini_entries + uphp.ini_size, opt, strlen(opt));
 	uphp.ini_size += strlen(opt)+1;
-	uwsgi_sapi_module.ini_entries[uphp.ini_size-1] = '\n';
-	uwsgi_sapi_module.ini_entries[uphp.ini_size] = 0;
+	uphp.ini_entries[uphp.ini_size-1] = '\n';
+	uphp.ini_entries[uphp.ini_size] = 0;
+	uwsgi_sapi_module.ini_entries = uphp.ini_entries;
 }
 
 extern ps_module ps_mod_uwsgi;
