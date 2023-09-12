@@ -1098,25 +1098,26 @@ class uConf(object):
         has_pcre = False
 
         # re-enable after pcre fix
+        pcreconfig = os.environ.get('PCRE_CONFIG','pcre-config')
         if self.get('pcre'):
             if self.get('pcre') == 'auto':
-                pcreconf = spcall('pcre-config --libs')
+                pcreconf = spcall(pcreconfig + ' --libs')
                 if pcreconf:
                     self.libs.append(pcreconf)
-                    pcreconf = spcall("pcre-config --cflags")
+                    pcreconf = spcall(pcreconfig + ' --cflags')
                     self.cflags.append(pcreconf)
                     self.gcc_list.append('core/regexp')
                     self.cflags.append("-DUWSGI_PCRE")
                     has_pcre = True
 
             else:
-                pcreconf = spcall('pcre-config --libs')
+                pcreconf = spcall(pcreconfig + ' --libs')
                 if pcreconf is None:
                     print("*** libpcre headers unavailable. uWSGI build is interrupted. You have to install pcre development package or disable pcre")
                     sys.exit(1)
                 else:
                     self.libs.append(pcreconf)
-                    pcreconf = spcall("pcre-config --cflags")
+                    pcreconf = spcall(pcreconfig + ' --cflags')
                     self.cflags.append(pcreconf)
                     self.gcc_list.append('core/regexp')
                     self.cflags.append("-DUWSGI_PCRE")
