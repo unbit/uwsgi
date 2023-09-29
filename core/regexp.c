@@ -10,6 +10,12 @@ void uwsgi_opt_pcre_jit(char *opt, char *value, void *foobar) {
 	if (ret != 0 || has_jit != 1)
 		return;
 	uwsgi.pcre_jit = PCRE_STUDY_JIT_COMPILE;
+#elif defined(PCRE2_CONFIG_JIT)
+	int has_jit = 0, ret;
+	ret = pcre2_config(PCRE2_CONFIG_JIT, &has_jit);
+	if (ret != 0)
+		return;
+	uwsgi.pcre_jit = has_jit;
 #endif
 }
 
