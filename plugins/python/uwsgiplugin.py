@@ -3,6 +3,18 @@ import sys
 
 import sysconfig
 
+def get_includes():
+    try:
+        from distutils import sysconfig as legacy
+    except ImportError:
+        legacy = None
+
+    yield sysconfig.get_path('include')
+    yield sysconfig.get_path('platinclude')
+    if legacy:
+        yield legacy.get_python_inc()
+        yield legacy.get_python_inc(plat_specific=True)
+
 
 def get_python_version():
     version = sysconfig.get_config_var('VERSION')
@@ -30,10 +42,7 @@ GCC_LIST = [
     'raw'
 ]
 
-CFLAGS = [
-    '-I' + sysconfig.get_path('include'),
-    '-I' + sysconfig.get_path('platinclude'),
-]
+CFLAGS = ['-I' + i for i in filter(os.path.exists, get_includes())]
 LDFLAGS = []
 
 if 'UWSGI_PYTHON_NOLIB' not in os.environ:
