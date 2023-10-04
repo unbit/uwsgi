@@ -1,7 +1,7 @@
 import os
 import sys
 
-from distutils import sysconfig
+import sysconfig
 
 
 def get_python_version():
@@ -31,8 +31,8 @@ GCC_LIST = [
 ]
 
 CFLAGS = [
-    '-I' + sysconfig.get_python_inc(),
-    '-I' + sysconfig.get_python_inc(plat_specific=True),
+    '-I' + sysconfig.get_path('include'),
+    '-I' + sysconfig.get_path('platinclude'),
 ]
 LDFLAGS = []
 

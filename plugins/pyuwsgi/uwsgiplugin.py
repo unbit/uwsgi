@@ -1,4 +1,4 @@
-from distutils import sysconfig
+import sysconfig
 import os, sys
 
 os.environ['UWSGI_PYTHON_NOLIB'] = '1'
@@ -6,8 +6,8 @@ os.environ['UWSGI_PYTHON_NOLIB'] = '1'
 NAME = 'pyuwsgi'
 
 CFLAGS = [
-    '-I' + sysconfig.get_python_inc(),
-    '-I' + sysconfig.get_python_inc(plat_specific=True),
+    '-I' + sysconfig.get_path('include'),
+    '-I' + sysconfig.get_path('platinclude'),
 ]
 LDFLAGS = []
 LIBS = []
