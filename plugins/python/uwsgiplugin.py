@@ -1,6 +1,17 @@
-import os,sys
-
-from distutils import sysconfig
+import os
+import sys
+try:
+    from distutils import sysconfig
+    paths = [
+        sysconfig.get_python_inc(),
+        sysconfig.get_python_inc(plat_specific=True),
+    ]
+except ImportError:
+    import sysconfig
+    paths = [
+        sysconfig.get_path('include'),
+        sysconfig.get_path('platinclude'),
+    ]
 
 def get_python_version():
     version = sysconfig.get_config_var('VERSION')
@@ -10,10 +21,25 @@ def get_python_version():
         pass
     return version
 
-NAME='python'
-GCC_LIST = ['python_plugin', 'pyutils', 'pyloader', 'wsgi_handlers', 'wsgi_headers', 'wsgi_subhandler', 'web3_subhandler', 'pump_subhandler', 'gil', 'uwsgi_pymodule', 'profiler', 'symimporter', 'tracebacker', 'raw']
+NAME = 'python'
+GCC_LIST = [
+    'python_plugin',
+    'pyutils',
+    'pyloader',
+    'wsgi_handlers',
+    'wsgi_headers',
+    'wsgi_subhandler',
+    'web3_subhandler',
+    'pump_subhandler',
+    'gil',
+    'uwsgi_pymodule',
+    'profiler',
+    'symimporter',
+    'tracebacker',
+    'raw'
+]
 
-CFLAGS = ['-I' + sysconfig.get_python_inc(), '-I' + sysconfig.get_python_inc(plat_specific=True) ] 
+CFLAGS = ['-I' + path for path in paths]
 LDFLAGS = []
 
 if not 'UWSGI_PYTHON_NOLIB' in os.environ:
