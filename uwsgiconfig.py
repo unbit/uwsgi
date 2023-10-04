@@ -12,6 +12,7 @@ uwsgi_cpu = os.uname()[4]
 
 import sys
 import subprocess
+import sysconfig
 from threading import Thread, Lock
 from optparse import OptionParser
 
@@ -19,8 +20,6 @@ try:
     from queue import Queue
 except ImportError:
     from Queue import Queue
-
-from distutils import sysconfig
 
 try:
     import ConfigParser
