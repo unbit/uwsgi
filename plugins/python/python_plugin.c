@@ -1360,7 +1360,12 @@ void uwsgi_python_pre_uwsgi_fork() {
 		// Acquire the gil and import lock before forking in order to avoid
 		// deadlocks in workers
 		UWSGI_GET_GIL
-		_PyImport_AcquireLock();
+		#ifdef UWSGI_PY312
+			PyInterpreterState *interp = PyInterpreterState_Get();
+			_PyImport_AcquireLock(interp);
+		#else
+			_PyImport_AcquireLock();
+		#endif
 	}
 }
 
@@ -1372,7 +1377,12 @@ void uwsgi_python_post_uwsgi_fork(int step) {
 	if (uwsgi.has_threads) {
 		if (step == 0) {
 			// Release locks within master process
-			_PyImport_ReleaseLock();
+			#ifdef UWSGI_PY312
+				PyInterpreterState *interp = PyInterpreterState_Get();
+				_PyImport_ReleaseLock(interp);
+			#else
+				_PyImport_ReleaseLock();
+			#endif
 			UWSGI_RELEASE_GIL
 		}
 		else {
@@ -1643,7 +1653,10 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 	PyGILState_Release(pgst);
 
 	if (wsgi_req) {
-#ifdef UWSGI_PY311
+#ifdef UWSGI_PY312
+		up.current_recursion_remaining[wsgi_req->async_id] = tstate->c_recursion_remaining;
+		up.current_frame[wsgi_req->async_id] = tstate->cframe;
+#elif UWSGI_PY311
 		up.current_recursion_remaining[wsgi_req->async_id] = tstate->recursion_remaining;
 		up.current_frame[wsgi_req->async_id] = tstate->cframe;
 #else
@@ -1652,7 +1665,10 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 #endif
 	}
 	else {
-#ifdef UWSGI_PY311
+#ifdef UWSGI_PY312
+		up.current_main_recursion_remaining = tstate->c_recursion_remaining;
+		up.current_main_frame = tstate->cframe;
+#elif UWSGI_PY311
 		up.current_main_recursion_remaining = tstate->recursion_remaining;
 		up.current_main_frame = tstate->cframe;
 #else
@@ -1886,7 +1902,10 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 	PyGILState_Release(pgst);
 
 	if (wsgi_req) {
-#ifdef UWSGI_PY311
+#ifdef UWSGI_PY312
+		tstate->c_recursion_remaining = up.current_recursion_remaining[wsgi_req->async_id];
+		tstate->cframe = up.current_frame[wsgi_req->async_id];
+#elif UWSGI_PY311
 		tstate->recursion_remaining = up.current_recursion_remaining[wsgi_req->async_id];
 		tstate->cframe = up.current_frame[wsgi_req->async_id];
 #else
@@ -1895,7 +1914,10 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 #endif
 	}
 	else {
-#ifdef UWSGI_PY311
+#ifdef UWSGI_PY312
+		tstate->c_recursion_remaining = up.current_main_recursion_remaining;
+		tstate->cframe = up.current_main_frame;
+#elif UWSGI_PY311
 		tstate->recursion_remaining = up.current_main_recursion_remaining;
 		tstate->cframe = up.current_main_frame;
 #else

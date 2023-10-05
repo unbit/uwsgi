@@ -17,6 +17,10 @@
 #define UWSGI_PYTHON_OLD
 #endif
 
+#if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION > 11
+#define UWSGI_PY312
+#endif
+
 #if (PY_VERSION_HEX >= 0x030b0000)
 #  define UWSGI_PY311
 #endif
