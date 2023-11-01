@@ -36,7 +36,7 @@ else:
     for jvm in known_jvms:
         if os.path.exists(jvm + '/include'):
             JVM_INCPATH = ["-I%s/include/" % jvm, "-I%s/include/%s" % (jvm, operating_system)]
-            if os.path.exists("%s/jre"):
+            if os.path.exists("%s/jre" % jvm):
                 JVM_LIBPATH = ["-L%s/jre/lib/%s/server" % (jvm, arch)]
             else:
                 JVM_LIBPATH = ["-L%s/lib/server" % (jvm,)]

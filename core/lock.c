@@ -91,11 +91,6 @@ retry:
 	}
 
 #ifdef EOWNERDEAD
-#ifndef PTHREAD_MUTEX_ROBUST
-#define PTHREAD_MUTEX_ROBUST PTHREAD_MUTEX_ROBUST_NP
-#define pthread_mutexattr_setrobust pthread_mutexattr_setrobust_np
-#define pthread_mutex_consistent pthread_mutex_consistent_np
-#endif
 	if (uwsgi_pthread_robust_mutexes_enabled) {
 		int ret;
 		if ((ret = pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT)) != 0) {

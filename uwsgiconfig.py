@@ -1,6 +1,6 @@
 # uWSGI build system
 
-uwsgi_version = '2.0.22'
+uwsgi_version = '2.0.23'
 
 import os
 import re
@@ -12,22 +12,18 @@ uwsgi_cpu = os.uname()[4]
 
 import sys
 import subprocess
-from threading import Thread,Lock
+import sysconfig
+from threading import Thread, Lock
 from optparse import OptionParser
 
 try:
     from queue import Queue
-except:
+except ImportError:
     from Queue import Queue
 
 try:
-    import sysconfig
-except ImportError:
-    from distutils import sysconfig
-
-try:
     import ConfigParser
-except:
+except ImportError:
     import configparser as ConfigParser
 
 try:
