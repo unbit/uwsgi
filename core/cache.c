@@ -737,6 +737,12 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 			if (uci->expires && (!next_scan || next_scan > uci->expires)) {
 				next_scan = uci->expires;
 			}
+			if (!uc->lru_head && !uci->lru_prev) {
+				uc->lru_head = i;
+			}
+			if (!uc->lru_tail && !uci->lru_next) {
+				uc->lru_tail = i;
+			}
 			restored++;
 		}
 		else {
