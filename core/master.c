@@ -8,15 +8,11 @@ static void master_check_processes() {
 	if (!uwsgi.die_on_no_workers) return;
 
 	int alive_processes = 0;
-	int dead_processes = 0;
 
 	int i;
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
 			alive_processes++;
-		}
-		else {
-			dead_processes++;
 		}
 	}
 
