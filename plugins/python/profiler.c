@@ -13,6 +13,14 @@ int PyFrame_GetLineNumber(PyFrameObject *frame) {
 }
 #endif
 
+#if PY_VERSION_HEX < 0x030900B1
+PyCodeObject* PyFrame_GetCode(PyFrameObject *frame)
+{
+	Py_INCREF(frame->f_code);
+	return frame->f_code;
+}
+#endif
+
 #ifdef PYTHREE
 #undef PyString_AsString
 static char *PyString_AsString(PyObject *o) {
@@ -27,27 +35,32 @@ int uwsgi_python_profiler_call(PyObject *obj, PyFrameObject *frame, int what, Py
 	static uint64_t last_ts = 0;
         uint64_t now = uwsgi_micros();
         uint64_t delta = 0;
+	PyCodeObject *code;
 
 	switch(what) {
 		case PyTrace_CALL:
 			if (last_ts == 0) delta = 0;
                 	else delta = now - last_ts;
                 	last_ts = now;
+			code = PyFrame_GetCode(frame);
 			uwsgi_log("[uWSGI Python profiler %llu] CALL: %s (line %d) -> %s %d args, stacksize %d\n",
 				(unsigned long long) delta,
-				PyString_AsString(frame->f_code->co_filename),
+				PyString_AsString(code->co_filename),
 				PyFrame_GetLineNumber(frame),
-				PyString_AsString(frame->f_code->co_name), frame->f_code->co_argcount, frame->f_code->co_stacksize);
+				PyString_AsString(code->co_name), code->co_argcount, code->co_stacksize);
+			Py_DECREF(code);
 			break;
 		case PyTrace_C_CALL:
 			if (last_ts == 0) delta = 0;
                 	else delta = now - last_ts;
                 	last_ts = now;
+			code = PyFrame_GetCode(frame);
 			uwsgi_log("[uWSGI Python profiler %llu] C CALL: %s (line %d) -> %s %d args, stacksize %d\n",
 				(unsigned long long) delta,
-				PyString_AsString(frame->f_code->co_filename),
+				PyString_AsString(code->co_filename),
 				PyFrame_GetLineNumber(frame),
-				PyEval_GetFuncName(arg), frame->f_code->co_argcount, frame->f_code->co_stacksize);
+				PyEval_GetFuncName(arg), code->co_argcount, code->co_stacksize);
+			Py_DECREF(code);
 			break;
 	}
 
@@ -68,7 +81,9 @@ int uwsgi_python_tracer(PyObject *obj, PyFrameObject *frame, int what, PyObject 
 			delta = now - last_ts;
 		}
 		last_ts = now;
-		uwsgi_log("[uWSGI Python profiler %llu] file %s line %d: %s argc:%d\n", (unsigned long long)delta,  PyString_AsString(frame->f_code->co_filename), PyFrame_GetLineNumber(frame), PyString_AsString(frame->f_code->co_name), frame->f_code->co_argcount);
+		PyCodeObject *code = PyFrame_GetCode(frame);
+		uwsgi_log("[uWSGI Python profiler %llu] file %s line %d: %s argc:%d\n", (unsigned long long)delta,  PyString_AsString(code->co_filename), PyFrame_GetLineNumber(frame), PyString_AsString(code->co_name), code->co_argcount);
+		Py_DECREF(code);
 	}
 
         return 0;

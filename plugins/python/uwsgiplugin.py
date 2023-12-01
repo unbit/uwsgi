@@ -1,8 +1,17 @@
 import os
 import sys
-
-from distutils import sysconfig
-
+try:
+    from distutils import sysconfig
+    paths = [
+        sysconfig.get_python_inc(),
+        sysconfig.get_python_inc(plat_specific=True),
+    ]
+except ImportError:
+    import sysconfig
+    paths = [
+        sysconfig.get_path('include'),
+        sysconfig.get_path('platinclude'),
+    ]
 
 def get_python_version():
     version = sysconfig.get_config_var('VERSION')
@@ -30,10 +39,7 @@ GCC_LIST = [
     'raw'
 ]
 
-CFLAGS = [
-    '-I' + sysconfig.get_python_inc(),
-    '-I' + sysconfig.get_python_inc(plat_specific=True),
-]
+CFLAGS = ['-I' + path for path in paths]
 LDFLAGS = []
 
 if 'UWSGI_PYTHON_NOLIB' not in os.environ:
@@ -73,6 +79,8 @@ if 'UWSGI_PYTHON_NOLIB' not in os.environ:
         # hack for messy linkers/compilers
         if '-lutil' in LIBS:
             LIBS.append('-lutil')
+        if '-lrt' in LIBS:
+            LIBS.append('-lrt')
     else:
         try:
             libdir = sysconfig.get_config_var('LIBDIR')

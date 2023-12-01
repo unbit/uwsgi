@@ -2,6 +2,7 @@
 /* See https://docs.python.org/3.10/whatsnew/3.10.html#id2 */
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <pythread.h>
 
 #include <frameobject.h>
 
@@ -14,6 +15,14 @@
 #if PY_MINOR_VERSION == 4 && PY_MAJOR_VERSION == 2
 #define Py_ssize_t ssize_t
 #define UWSGI_PYTHON_OLD
+#endif
+
+#if (PY_VERSION_HEX >= 0x030b0000)
+#  define UWSGI_PY311
+#endif
+
+#if (PY_VERSION_HEX >= 0x030c0000)
+#  define UWSGI_PY312
 #endif
 
 #if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION < 7
@@ -177,11 +186,27 @@ struct uwsgi_python {
 
 	char *callable;
 
+#ifdef UWSGI_PY312
+	int *current_c_recursion_remaining;
+	int *current_py_recursion_remaining;
+	_PyCFrame **current_frame;
+
+	int current_main_c_recursion_remaining;
+	int current_main_py_recursion_remaining;
+	_PyCFrame *current_main_frame;
+#elif defined UWSGI_PY311
+	int *current_recursion_remaining;
+	_PyCFrame **current_frame;
+
+	int current_main_recursion_remaining;
+	_PyCFrame *current_main_frame;
+#else
 	int *current_recursion_depth;
 	struct _frame **current_frame;
 
 	int current_main_recursion_depth;
 	struct _frame *current_main_frame;
+#endif
 
 	void (*swap_ts)(struct wsgi_request *, struct uwsgi_app *);
 	void (*reset_ts)(struct wsgi_request *, struct uwsgi_app *);
@@ -240,6 +265,8 @@ struct uwsgi_python {
 	int master_check_signals;
 	
 	char *executable;
+
+	int call_uwsgi_fork_hooks;
 };
 
 

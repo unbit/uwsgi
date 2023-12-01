@@ -106,6 +106,7 @@ uint64_t uwsgi_mount_flag(char *mflag) {
 }
 
 int uwsgi_mount(char *fs, char *what, char *where, char *flags, char *data) {
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 #if defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	struct iovec iov[6];
 #endif
@@ -146,10 +147,12 @@ parsed:
 
 	return nmount(iov, 6, (int) mountflags);
 #endif
+#endif
 	return -1;
 }
 
 int uwsgi_umount(char *where, char *flags) {
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	unsigned long mountflags = 0;
         if (!flags) goto parsed;
         char *mflags = uwsgi_str(flags);
@@ -198,6 +201,7 @@ unmountable:
         return umount2(where, mountflags);
 #elif defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	return unmount(where, mountflags);
+#endif
 #endif
         return -1;
 }

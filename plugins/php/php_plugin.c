@@ -27,6 +27,7 @@ struct uwsgi_php {
 	char *fallback;
 	char *fallback2;
 	char *fallback_qs;
+	char *ini_entries;
 	size_t ini_size;
 	int dump_config;
 	char *server_software;
@@ -232,21 +233,22 @@ static sapi_module_struct uwsgi_sapi_module;
 
 void uwsgi_php_append_config(char *filename) {
 	size_t file_size = 0;
-        char *file_content = uwsgi_open_and_read(filename, &file_size, 1, NULL);
-	uwsgi_sapi_module.ini_entries = realloc(uwsgi_sapi_module.ini_entries, uphp.ini_size + file_size);
-	memcpy(uwsgi_sapi_module.ini_entries + uphp.ini_size, file_content, file_size);
+	char *file_content = uwsgi_open_and_read(filename, &file_size, 1, NULL);
+	uphp.ini_entries = realloc(uphp.ini_entries, uphp.ini_size + file_size);
+	memcpy(uphp.ini_entries + uphp.ini_size, file_content, file_size);
 	uphp.ini_size += file_size-1;
 	free(file_content);
+	uwsgi_sapi_module.ini_entries = uphp.ini_entries;
 }
 
 void uwsgi_php_set(char *opt) {
 
-	uwsgi_sapi_module.ini_entries = realloc(uwsgi_sapi_module.ini_entries, uphp.ini_size + strlen(opt)+2);
-	memcpy(uwsgi_sapi_module.ini_entries + uphp.ini_size, opt, strlen(opt));
-
+	uphp.ini_entries = realloc(uphp.ini_entries, uphp.ini_size + strlen(opt)+2);
+	memcpy(uphp.ini_entries + uphp.ini_size, opt, strlen(opt));
 	uphp.ini_size += strlen(opt)+1;
-	uwsgi_sapi_module.ini_entries[uphp.ini_size-1] = '\n';
-	uwsgi_sapi_module.ini_entries[uphp.ini_size] = 0;
+	uphp.ini_entries[uphp.ini_size-1] = '\n';
+	uphp.ini_entries[uphp.ini_size] = 0;
+	uwsgi_sapi_module.ini_entries = uphp.ini_entries;
 }
 
 extern ps_module ps_mod_uwsgi;
@@ -617,7 +619,11 @@ static void activate_user_config(const char *filename, const char *doc_root, siz
 static int php_uwsgi_startup(sapi_module_struct *sapi_module)
 {
 
+#if ((PHP_MAJOR_VERSION >= 8) && (PHP_MINOR_VERSION >= 2))
+	if (php_module_startup(&uwsgi_sapi_module, &uwsgi_module_entry)==FAILURE) {
+#else
 	if (php_module_startup(&uwsgi_sapi_module, &uwsgi_module_entry, 1)==FAILURE) {
+#endif
 		return FAILURE;
 	} else {
 		return SUCCESS;
@@ -880,6 +886,7 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 
 		strncpy(real_filename, uphp.app, PATH_MAX);
 		real_filename[PATH_MAX-1] = '\0';
+		real_filename_len = strlen(real_filename);
 		if (wsgi_req->path_info_len == 1 && wsgi_req->path_info[0] == '/') {
 			goto appready;
 		}

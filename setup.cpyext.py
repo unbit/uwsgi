@@ -12,9 +12,8 @@ import errno
 import shlex
 import uwsgiconfig
 
-from setuptools import setup
+from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
-from distutils.core import Extension
 
 
 class uWSGIBuildExt(build_ext):

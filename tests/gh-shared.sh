@@ -1,8 +1,5 @@
 #!/bin/bash
-set -u
 
-
-CI_CONFIG="$1"
 txtund=$(tput sgr 0 1)          # underline
 txtbld=$(tput bold)             # bold
 bldred=${txtbld}$(tput setaf 1) # red
@@ -100,29 +97,12 @@ test_rack() {
     echo -e "${bldyel}===================== DONE $1 $2 =====================${txtrst}\n\n"
 }
 
+results() {
+  echo "${bldgre}>>> $SUCCESS SUCCESSFUL TEST(S)${txtrst}"
+  if [ $ERROR -ge 1 ]; then
+      echo "${bldred}>>> $ERROR FAILED TEST(S)${txtrst}"
+      exit 1
+  fi
 
-while read PV ; do
-    for WSGI_FILE in tests/staticfile.py tests/testworkers.py tests/testrpc.py ; do
-        test_python $PV $WSGI_FILE
-    done
-done < <(cat "$CI_CONFIG" | grep "plugins/python base" | sed s_".*plugins/python base "_""_g)
-while read PV ; do
-    for INI_FILE in tests/deadlocks/*.ini ; do
-        test_python_deadlocks $PV $INI_FILE
-    done
-done < <(cat "$CI_CONFIG" | grep "plugins/python base" | sed s_".*plugins/python base "_""_g)
-while read RV ; do
-    for RACK in examples/config2.ru ; do
-        test_rack $RV $RACK
-    done
-done < <(cat "$CI_CONFIG" | grep "plugins/rack base" | sed s_".*plugins/rack base "_""_g)
-
-
-echo "${bldgre}>>> $SUCCESS SUCCESSFUL TEST(S)${txtrst}"
-if [ $ERROR -ge 1 ]; then
-    echo "${bldred}>>> $ERROR FAILED TEST(S)${txtrst}"
-    exit 1
-fi
-
-exit 0
-
+  exit 0
+}
