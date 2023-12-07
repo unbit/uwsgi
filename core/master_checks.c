@@ -180,7 +180,7 @@ done:
 
 }
 
-int uwsgi_master_check_harakiri(int w, int c, int harakiri) {
+int uwsgi_master_check_harakiri(int w, int c, time_t harakiri) {
 	/**
 	 * Triggers a harakiri when the following conditions are met:
 	 * - harakiri timeout > current time
