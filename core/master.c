@@ -276,7 +276,7 @@ static void master_check_listen_queue() {
 	uint64_t backlog = 0;
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while(uwsgi_sock) {
-		if (uwsgi_sock->family == AF_INET) {
+		if (uwsgi_sock->family == AF_INET || uwsgi_sock->family == AF_INET6) {
 			get_tcp_info(uwsgi_sock);
                 }
 #ifdef __linux__
