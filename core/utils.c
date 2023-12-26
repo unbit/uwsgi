@@ -4097,7 +4097,7 @@ void uwsgi_uuid(char *buf) {
 	uuid_generate(uuid_value);
 	uuid_unparse(uuid_value, buf);
 #else
-	int i, r[11];
+	unsigned int i, r[11];
 	if (!uwsgi_file_exists("/dev/urandom"))
 		goto fallback;
 	int fd = open("/dev/urandom", O_RDONLY);
@@ -4113,7 +4113,7 @@ void uwsgi_uuid(char *buf) {
 	goto done;
 fallback:
 	for (i = 0; i < 11; i++) {
-		r[i] = rand();
+		r[i] = (unsigned int) rand();
 	}
 done:
 	snprintf(buf, 37, "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x", r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10]);
