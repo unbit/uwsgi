@@ -720,7 +720,7 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 	}
 
 	if (uwsgi.logging_options.memory_report) {
-		rlen = snprintf(mempkt, 4096, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ",
+		rlen = snprintf(mempkt, 4096, "{address space usage: %llu bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ",
 						(unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size,
 						(unsigned long long) uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024,
 						(unsigned long long) uwsgi.workers[uwsgi.mywid].rss_size,
@@ -772,7 +772,7 @@ void get_memusage(uint64_t * rss, uint64_t * vsz) {
 	int i;
 	procfile = fopen("/proc/self/stat", "r");
 	if (procfile) {
-		i = fscanf(procfile, "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %llu %lld", (unsigned long long *) vsz, (unsigned long long *) rss);
+		i = fscanf(procfile, "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %llu %llu", (unsigned long long *) vsz, (unsigned long long *) rss);
 		if (i != 2) {
 			uwsgi_log("warning: invalid record in /proc/self/stat\n");
 		} else {
@@ -786,7 +786,7 @@ void get_memusage(uint64_t * rss, uint64_t * vsz) {
         int i;
         procfile = fopen("/proc/self/stat", "r");
         if (procfile) {
-                i = fscanf(procfile, "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %llu %lld", (unsigned long long *) vsz, (unsigned long long *) rss);
+                i = fscanf(procfile, "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %llu %llu", (unsigned long long *) vsz, (unsigned long long *) rss);
                 if (i != 2) {
                         uwsgi_log("warning: invalid record in /proc/self/stat\n");
                 }
