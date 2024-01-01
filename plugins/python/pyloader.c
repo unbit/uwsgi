@@ -97,7 +97,9 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	memset(wi, 0, sizeof(struct uwsgi_app));
 	wi->modifier1 = python_plugin.modifier1;
 	wi->mountpoint_len = wsgi_req->appid_len < 0xff ? wsgi_req->appid_len : (0xff-1);
-	strncpy(wi->mountpoint, wsgi_req->appid, wi->mountpoint_len);
+	if (wi->mountpoint_len > 0) {
+		strncpy(wi->mountpoint, wsgi_req->appid, wi->mountpoint_len);
+	}
 
 	// dynamic chdir ?
 	if (wsgi_req->chdir_len > 0) {
