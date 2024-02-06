@@ -684,6 +684,7 @@ class uConf(object):
             '-I.',
             '-Wall',
             '-Werror',
+            '-Wformat-signedness',
             '-Wno-error=deprecated-declarations',
             '-D_LARGEFILE_SOURCE',
             '-D_FILE_OFFSET_BITS=64'
