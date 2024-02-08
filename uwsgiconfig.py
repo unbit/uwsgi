@@ -683,8 +683,16 @@ class uConf(object):
         if 'UWSGI_INCLUDES' in os.environ:
             self.include_path += os.environ['UWSGI_INCLUDES'].split(',')
 
-
-        self.cflags = ['-O2', '-I.', '-Wall', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split() + self.get('cflags','').split()
+        cflags = [
+            '-O2',
+            '-I.',
+            '-Wall',
+            '-D_LARGEFILE_SOURCE',
+            '-D_FILE_OFFSET_BITS=64'
+        ]
+        if "gcc" in GCC:
+            cflags.append('-Wformat-signedness')
+        self.cflags = cflags + os.environ.get("CFLAGS", "").split() + self.get('cflags', '').split()
 
         report['kernel'] = uwsgi_os
 

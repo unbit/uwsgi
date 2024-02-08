@@ -211,7 +211,6 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 #else
 	int depth;
 	int current_depth = 0;
-	int lines = 1;
 	char *yaml_line;
 	char *section = "";
 
@@ -221,7 +220,6 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 		if (yaml_line == NULL) {
 			break;
 		}
-		lines++;
 
 		// skip empty line
 		if (yaml[0] == 0)

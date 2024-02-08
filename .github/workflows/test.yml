@@ -27,7 +27,7 @@ jobs:
       if: contains(fromJson('["3.6","3.7","3.8","3.9","3.10","3.11","3.12"]'), matrix.python-version)
       run: |
         sudo apt install --no-install-recommends -qqyf python${{ matrix.python-version }}-distutils \
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Run unit tests
       if: matrix.test-suite == 'unittest'
       run: make tests
@@ -61,7 +61,7 @@ jobs:
         sudo apt install --no-install-recommends -qqyf python3-dev \
           libpcre3-dev libjansson-dev libcap2-dev ruby2.7-dev \
           curl check
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Run unit tests
       run: make tests
     - name: Build uWSGI binary
