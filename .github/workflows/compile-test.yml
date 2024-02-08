@@ -14,9 +14,15 @@ jobs:
           - os: ubuntu-20.04
             php: "php7.4"
             php-config: "php-config7.4"
+            cc: "gcc"
           - os: ubuntu-22.04
             php: "php8.1"
             php-config: "php-config8.1"
+            cc: "gcc"
+          - os: ubuntu-22.04
+            php: "php8.1"
+            php-config: "php-config8.1"
+            cc: "clang"
 
     runs-on: ${{ matrix.os }}
 
@@ -43,16 +49,16 @@ jobs:
           libcurl4-openssl-dev \
           openjdk-11-jdk libgloox-dev gccgo \
           cli-common-dev mono-devel mono-mcs uuid-dev \
-          curl check
+          curl check ${{ matrix.cc == 'clang' && 'clang' || '' }}
     - uses: actions/checkout@v2
-    - name: Build kitchensink uWSGI binary
-      run: UWSGICONFIG_PHPPATH=${{ matrix.php-config }} /usr/bin/python3 uwsgiconfig.py --build travis
+    - name: Build kitchensink uWSGI binary with gcc or default with clang
+      run: CC=${{ matrix.cc }} UWSGICONFIG_PHPPATH=${{ matrix.php-config }} /usr/bin/python3 uwsgiconfig.py --build ${{ matrix.cc == 'gcc' && 'travis' || '' }}
     - name: Build uWSGI binary
       run: |
-        /usr/bin/python3 uwsgiconfig.py --build base
+        CC=${{ matrix.cc }} /usr/bin/python3 uwsgiconfig.py --build base
     - name: Build cgi plugin
       run: |
-        /usr/bin/python3 uwsgiconfig.py --plugin plugins/cgi base
+        CC=${{ matrix.cc }} /usr/bin/python3 uwsgiconfig.py --plugin plugins/cgi base
     - name: Build dummy plugin
       run: |
-        /usr/bin/python3 uwsgiconfig.py --plugin plugins/dummy base
+        CC=${{ matrix.cc }} /usr/bin/python3 uwsgiconfig.py --plugin plugins/dummy base
