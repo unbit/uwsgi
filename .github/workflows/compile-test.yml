@@ -50,7 +50,7 @@ jobs:
           openjdk-11-jdk libgloox-dev gccgo \
           cli-common-dev mono-devel mono-mcs uuid-dev \
           curl check ${{ matrix.cc == 'clang' && 'clang' || '' }}
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Build kitchensink uWSGI binary with gcc or default with clang
       run: CC=${{ matrix.cc }} UWSGICONFIG_PHPPATH=${{ matrix.php-config }} /usr/bin/python3 uwsgiconfig.py --build ${{ matrix.cc == 'gcc' && 'travis' || '' }}
     - name: Build uWSGI binary
