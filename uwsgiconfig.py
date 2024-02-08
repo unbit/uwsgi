@@ -679,16 +679,18 @@ class uConf(object):
         if 'UWSGI_INCLUDES' in os.environ:
             self.include_path += os.environ['UWSGI_INCLUDES'].split(',')
 
-        self.cflags = [
+        cflags = [
             '-O2',
             '-I.',
             '-Wall',
             '-Werror',
-            '-Wformat-signedness',
             '-Wno-error=deprecated-declarations',
             '-D_LARGEFILE_SOURCE',
             '-D_FILE_OFFSET_BITS=64'
-        ] + os.environ.get("CFLAGS", "").split() + self.get('cflags', '').split()
+        ]
+        if "gcc" in GCC:
+            cflags.append('-Wformat-signedness')
+        self.cflags = cflags + os.environ.get("CFLAGS", "").split() + self.get('cflags', '').split()
 
         python_venv_include = os.path.join(sys.prefix, 'include', 'site',
                                            'python{0}.{1}'.format(*sys.version_info))
