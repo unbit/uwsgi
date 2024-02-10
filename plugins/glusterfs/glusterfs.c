@@ -46,7 +46,7 @@ struct uwsgi_glusterfs_async_io {
 	ssize_t rlen;
 };
 
-static void uwsgi_glusterfs_read_async_cb(glfs_fd_t *fd, ssize_t rlen, void *data) {
+static void uwsgi_glusterfs_read_async_cb(glfs_fd_t *fd, ssize_t rlen, struct glfs_stat *prestat, struct glfs_stat *poststat, void *data) {
 	struct uwsgi_glusterfs_async_io *aio = (struct uwsgi_glusterfs_async_io *) data;
 #ifdef UWSGI_DEBUG
 	uwsgi_log("[glusterfs-cb] rlen = %d\n", rlen);
