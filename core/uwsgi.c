@@ -278,7 +278,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"reaper", no_argument, 'r', "call waitpid(-1,...) after each request to get rid of zombies", uwsgi_opt_true, &uwsgi.reaper, 0},
 	{"max-requests", required_argument, 'R', "reload workers after the specified amount of managed requests", uwsgi_opt_set_64bit, &uwsgi.max_requests, 0},
 	{"max-requests-delta", required_argument, 0, "add (worker_id * delta) to the max_requests value of each worker", uwsgi_opt_set_64bit, &uwsgi.max_requests_delta, 0},
-	{"min-worker-lifetime", required_argument, 0, "number of seconds worker must run before being reloaded (default is 60)", uwsgi_opt_set_64bit, &uwsgi.min_worker_lifetime, 0},
+	{"min-worker-lifetime", required_argument, 0, "number of seconds worker must run before being reloaded (default is 10)", uwsgi_opt_set_64bit, &uwsgi.min_worker_lifetime, 0},
 	{"max-worker-lifetime", required_argument, 0, "reload workers after the specified amount of seconds (default is disabled)", uwsgi_opt_set_64bit, &uwsgi.max_worker_lifetime, 0},
 	{"max-worker-lifetime-delta", required_argument, 0, "add (worker_id * delta) seconds to the max_worker_lifetime value of each worker", uwsgi_opt_set_int, &uwsgi.max_worker_lifetime_delta, 0},
 
@@ -649,7 +649,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"legion-freq", required_argument, 0, "set the frequency of legion packets", uwsgi_opt_set_int, &uwsgi.legion_freq, UWSGI_OPT_MASTER},
 	{"legion-tolerance", required_argument, 0, "set the tolerance of legion subsystem", uwsgi_opt_set_int, &uwsgi.legion_tolerance, UWSGI_OPT_MASTER},
 	{"legion-death-on-lord-error", required_argument, 0, "declare itself as a dead node for the specified amount of seconds if one of the lord hooks fails", uwsgi_opt_set_int, &uwsgi.legion_death_on_lord_error, UWSGI_OPT_MASTER},
-	{"legion-skew-tolerance", required_argument, 0, "set the clock skew tolerance of legion subsystem (default 30 seconds)", uwsgi_opt_set_int, &uwsgi.legion_skew_tolerance, UWSGI_OPT_MASTER},
+	{"legion-skew-tolerance", required_argument, 0, "set the clock skew tolerance of legion subsystem (default 60 seconds)", uwsgi_opt_set_int, &uwsgi.legion_skew_tolerance, UWSGI_OPT_MASTER},
 	{"legion-lord", required_argument, 0, "action to call on Lord election", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-unlord", required_argument, 0, "action to call on Lord dismiss", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-setup", required_argument, 0, "action to call on legion setup", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
