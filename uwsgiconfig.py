@@ -690,8 +690,6 @@ class uConf(object):
             '-D_LARGEFILE_SOURCE',
             '-D_FILE_OFFSET_BITS=64'
         ]
-        if "gcc" in GCC:
-            cflags.append('-Wformat-signedness')
         self.cflags = cflags + os.environ.get("CFLAGS", "").split() + self.get('cflags', '').split()
 
         report['kernel'] = uwsgi_os
@@ -767,6 +765,8 @@ class uConf(object):
             self.cflags = self.cflags + [ '-Wextra', '-Wno-unused-parameter', '-Wno-missing-field-initializers' ]
         if gcc_major == 4 and gcc_minor < 9:
             self.cflags.append('-Wno-format -Wno-format-security')
+        if "gcc" in GCC and gcc_major >= 5:
+            self.cflags.append('-Wformat-signedness')
 
         self.ldflags = os.environ.get("LDFLAGS", "").split()
         self.libs = ['-lpthread', '-lm', '-rdynamic']
