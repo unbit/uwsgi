@@ -4,7 +4,7 @@ LDFLAGS = $(shell pkg-config --libs check)
 LDFLAGS += -ldl -lz
 LDFLAGS += $(shell xml2-config --libs)
 LDFLAGS += $(shell pkg-config --libs openssl)
-LDFLAGS += $(shell pcre-config --libs)
+LDFLAGS += $(shell pcre2-config --libs8)
 LDFLAGS += $(shell pkg-config --libs jansson)
 
 UNAME_S := $(shell uname -s)
