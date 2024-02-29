@@ -14,7 +14,7 @@ void uwsgi_setup_systemd() {
 			if (listen_fds) {
 				int systemd_fds = atoi(listen_fds);
 				if (systemd_fds > 0) {
-					uwsgi_log("- SystemD socket activation detected -\n");
+					uwsgi_log("- systemd socket activation detected -\n");
 					for (i = 3; i < 3 + systemd_fds; i++) {
 						uwsgi_sock = uwsgi_new_socket(NULL);
 						uwsgi_add_socket_from_fd(uwsgi_sock, i);
