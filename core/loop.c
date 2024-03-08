@@ -72,6 +72,16 @@ void uwsgi_loop_cores_run(void *(*func) (void *)) {
 	}
 	long y = 0;
 	func((void *) y);
+
+	// main thread waits other threads.
+	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
+
+	for (i = 1; i < uwsgi.threads; i++) {
+		int ret = pthread_join(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, NULL);
+		if (ret) {
+			uwsgi_log("pthread_join() = %d\n", ret);
+		}
+	}
 }
 
 void uwsgi_setup_thread_req(long core_id, struct wsgi_request *wsgi_req) {

@@ -1319,14 +1319,11 @@ void end_me(int signum) {
 }
 
 static void simple_goodbye_cruel_world(const char *reason) {
-
-	if (uwsgi.threads > 1 && !uwsgi_instance_is_dying) {
-		wait_for_threads();
-	}
-
+	int prev = uwsgi.workers[uwsgi.mywid].manage_next_request;
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
-	uwsgi_log("...The work of process %d is done (%s). Seeya!\n", getpid(), (reason != NULL ? reason : "no reason given"));
-	exit(0);
+	if (prev) {  // Avoid showing same message from all threads.
+		uwsgi_log("...The work of process %d is done (%s). Seeya!\n", getpid(), (reason != NULL ? reason : "no reason given"));
+	}
 }
 
 void goodbye_cruel_world(const char *reason_fmt, ...) {
