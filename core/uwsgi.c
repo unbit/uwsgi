@@ -3718,6 +3718,11 @@ void uwsgi_ignition() {
 		}
 	}
 
+	// main thread waits other threads.
+	if (uwsgi.threads > 1) {
+		wait_for_threads();
+	}
+
 	// end of the process...
 	end_me(0);
 }
