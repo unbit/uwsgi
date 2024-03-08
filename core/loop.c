@@ -60,6 +60,9 @@ void *uwsgi_get_loop(char *name) {
 
 void simple_loop() {
 	uwsgi_loop_cores_run(simple_loop_run);
+	// Other threads may still run. Make sure they will stop.
+	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
+
 	if (uwsgi.workers[uwsgi.mywid].shutdown_sockets)
 		uwsgi_shutdown_all_sockets();
 }

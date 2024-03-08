@@ -1255,6 +1255,10 @@ void wait_for_threads() {
 			if (ret) {
 				uwsgi_log("pthread_join() = %d\n", ret);
 			}
+			else {
+				// uwsgi_worker_is_busy() should not consider this thread as busy.
+				uwsgi.workers[uwsgi.mywid].cores[i].in_request = 0;
+			}
 		}
 	}
 
@@ -1319,14 +1323,12 @@ void end_me(int signum) {
 }
 
 static void simple_goodbye_cruel_world(const char *reason) {
-
-	if (uwsgi.threads > 1 && !uwsgi_instance_is_dying) {
-		wait_for_threads();
-	}
-
+	int prev = uwsgi.workers[uwsgi.mywid].manage_next_request;
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
-	uwsgi_log("...The work of process %d is done (%s). Seeya!\n", getpid(), (reason != NULL ? reason : "no reason given"));
-	exit(0);
+	if (prev) {
+		// Avoid showing same message from all threads.
+		uwsgi_log("...The work of process %d is done (%s). Seeya!\n", getpid(), (reason != NULL ? reason : "no reason given"));
+	}
 }
 
 void goodbye_cruel_world(const char *reason_fmt, ...) {
@@ -3719,6 +3721,11 @@ void uwsgi_ignition() {
 		else {
 			async_loop();
 		}
+	}
+
+	// main thread waits other threads.
+	if (uwsgi.threads > 1) {
+		wait_for_threads();
 	}
 
 	// end of the process...
