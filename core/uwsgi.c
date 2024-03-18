@@ -1255,6 +1255,10 @@ void wait_for_threads() {
 			if (ret) {
 				uwsgi_log("pthread_join() = %d\n", ret);
 			}
+			else {
+				// uwsgi_worker_is_busy() should not consider this thread is busy.
+				uwsgi.workers[uwsgi.mywid].cores[i].in_request = 0;
+			}
 		}
 	}
 
