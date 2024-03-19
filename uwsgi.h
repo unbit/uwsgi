@@ -2497,7 +2497,6 @@ struct uwsgi_server {
 
 	// avoid thundering herd in threaded modes
 	pthread_mutex_t thunder_mutex;
-	pthread_mutex_t six_feet_under_lock;
 	pthread_mutex_t lock_static;
 
 	int use_thunder_lock;

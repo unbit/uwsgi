@@ -81,9 +81,6 @@ void uwsgi_setup_thread_req(long core_id, struct wsgi_request *wsgi_req) {
 	int i;
 	sigset_t smask;
 
-
-	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &i);
-	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &i);
 	pthread_setspecific(uwsgi.tur_key, (void *) wsgi_req);
 
 	if (core_id > 0) {

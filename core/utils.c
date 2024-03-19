@@ -1036,12 +1036,6 @@ void uwsgi_destroy_request(struct wsgi_request *wsgi_req) {
 
 	close_and_free_request(wsgi_req);
 
-	int foo;
-        if (uwsgi.threads > 1) {
-                // now the thread can die...
-                pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &foo);
-        }
-
 	// reset for avoiding following requests to fail on non-uwsgi protocols
 	// thanks Marko Tiikkaja for catching it
 	wsgi_req->uh->pktsize = 0;
@@ -1120,11 +1114,6 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	uwsgi_foreach(usl, uwsgi.after_request_hooks) {
 		void (*func) (struct wsgi_request *) = (void (*)(struct wsgi_request *)) usl->custom_ptr;
 		func(wsgi_req);
-	}
-
-	if (uwsgi.threads > 1) {
-		// now the thread can die...
-		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &tmp_id);
 	}
 
 	// leave harakiri mode
@@ -1546,18 +1535,12 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 		}
 	}
 
-	// kill the thread after the request completion
-	if (uwsgi.threads > 1)
-		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &ret);
-
 	if (uwsgi.signal_socket > -1 && (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket)) {
 
 		thunder_unlock;
 
 		uwsgi_receive_signal(interesting_fd, "worker", uwsgi.mywid);
 
-		if (uwsgi.threads > 1)
-			pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
 		return -1;
 	}
 
@@ -1568,8 +1551,6 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 			wsgi_req->fd = wsgi_req->socket->proto_accept(wsgi_req, interesting_fd);
 			thunder_unlock;
 			if (wsgi_req->fd < 0) {
-				if (uwsgi.threads > 1)
-					pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
 				return -1;
 			}
 
@@ -1584,8 +1565,6 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	}
 
 	thunder_unlock;
-	if (uwsgi.threads > 1)
-		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
 	return -1;
 }
 
