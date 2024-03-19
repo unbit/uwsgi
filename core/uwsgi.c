@@ -1226,30 +1226,17 @@ void warn_pipe() {
 	}
 }
 
-// in threading mode we need to use the cancel pthread subsystem
-void wait_for_threads() {
+// This function is called from signal handler or main thread to wait worker threads.
+// `uwsgi.workers[uwsgi.mywid].manage_next_request` should be set to 0 to stop worker threads.
+static void wait_for_threads() {
 	int i, ret;
 
-	// on some platform thread cancellation is REALLY flaky
+	// This option was added because we used pthread_cancel().
+	// thread cancellation is REALLY flaky
 	if (uwsgi.no_threads_wait) return;
 
-	int sudden_death = 0;
-
-	pthread_mutex_lock(&uwsgi.six_feet_under_lock);
-	for (i = 1; i < uwsgi.threads; i++) {
-		if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, pthread_self())) {
-			if (pthread_cancel(uwsgi.workers[uwsgi.mywid].cores[i].thread_id)) {
-				uwsgi_error("pthread_cancel()\n");
-				sudden_death = 1;
-			}
-		}
-	}
-
-	if (sudden_death)
-		goto end;
-
 	// wait for thread termination
-	for (i = 1; i < uwsgi.threads; i++) {
+	for (i = 0; i < uwsgi.threads; i++) {
 		if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, pthread_self())) {
 			ret = pthread_join(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, NULL);
 			if (ret) {
@@ -1261,26 +1248,6 @@ void wait_for_threads() {
 			}
 		}
 	}
-
-	// cancel initial thread last since after pthread_cancel() and
-	// pthread_join() is called on it, the whole process will appear to be
-	// a zombie. although it won't eliminate process zombie time, but it
-	// should minimize it.
-	if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[0].thread_id, pthread_self())) {
-		if (pthread_cancel(uwsgi.workers[uwsgi.mywid].cores[0].thread_id)) {
-			uwsgi_error("pthread_cancel() on initial thread\n");
-			goto end;
-		}
-
-		ret = pthread_join(uwsgi.workers[uwsgi.mywid].cores[0].thread_id, NULL);
-		if (ret) {
-			uwsgi_log("pthread_join() = %d on initial thread\n", ret);
-		}
-	}
-
-end:
-
-	pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
 }
 
 
@@ -3641,7 +3608,6 @@ void uwsgi_worker_run() {
 
 	if (uwsgi.cores > 1) {
 		uwsgi.workers[uwsgi.mywid].cores[0].thread_id = pthread_self();
-		pthread_mutex_init(&uwsgi.six_feet_under_lock, NULL);
 	}
 
 	uwsgi_ignition();
