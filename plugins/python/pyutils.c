@@ -10,16 +10,7 @@ int manage_python_response(struct wsgi_request *wsgi_req) {
 
 char *uwsgi_python_get_exception_type(PyObject *exc) {
 	char *class_name = NULL;
-#if !defined(PYTHREE)
-	if (PyClass_Check(exc)) {
-		class_name = PyString_AsString( ((PyClassObject*)(exc))->cl_name );
-	}
-	else {
-#endif
-		class_name = (char *) ((PyTypeObject*)exc)->tp_name;
-#if !defined(PYTHREE)
-	}
-#endif
+	class_name = (char *) ((PyTypeObject*)exc)->tp_name;
 
 	if (class_name) {
 		char *dot = strrchr(class_name, '.');
@@ -27,20 +18,14 @@ char *uwsgi_python_get_exception_type(PyObject *exc) {
 
 		PyObject *module_name = PyObject_GetAttrString(exc, "__module__");
 		if (module_name) {
-#ifdef PYTHREE
 			char *mod_name = NULL;
 			PyObject *zero = PyUnicode_AsUTF8String(module_name);
 			if (zero) {
 				mod_name = PyString_AsString(zero);
 			}
-#else
-			char *mod_name = PyString_AsString(module_name);
-#endif
 			if (mod_name && strcmp(mod_name, "exceptions") ) {
 				char *ret = uwsgi_concat3(mod_name, ".", class_name);
-#ifdef PYTHREE
 				Py_DECREF(zero);
-#endif
 				Py_DECREF(module_name);
 				return ret;
 			}
@@ -91,7 +76,6 @@ struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *wsgi_req) {
 		PyObject *tb_text = PyTuple_GetItem(t, 3);
 
 		int64_t line_no = PyInt_AsLong(tb_lineno);
-#ifdef PYTHREE
 		PyObject *zero = NULL;
 		if (tb_filename) {
 			zero = PyUnicode_AsUTF8String(tb_filename);
@@ -138,23 +122,6 @@ struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *wsgi_req) {
                 	if (uwsgi_buffer_u16le(ub, 0)) { goto end0; }
 		}
 		
-#else
-		// filename
-		if (uwsgi_buffer_u16le(ub, PyString_Size(tb_filename))) goto end0;
-		if (uwsgi_buffer_append(ub, PyString_AsString(tb_filename), PyString_Size(tb_filename))) goto end0;
-
-		// lineno
-		if (uwsgi_buffer_append_valnum(ub, line_no)) goto end0;
-
-		// function
-		if (uwsgi_buffer_u16le(ub, PyString_Size(tb_function))) goto end0;
-                if (uwsgi_buffer_append(ub, PyString_AsString(tb_function), PyString_Size(tb_function))) goto end0;
-
-		// text
-		if (uwsgi_buffer_u16le(ub, PyString_Size(tb_text))) goto end0;
-                if (uwsgi_buffer_append(ub, PyString_AsString(tb_text), PyString_Size(tb_text))) goto end0;
-#endif
-
 		// custom (unused)
 		if (uwsgi_buffer_u16le(ub, 0)) goto end0;
                 if (uwsgi_buffer_append(ub, "", 0)) goto end0;
@@ -211,29 +178,21 @@ struct uwsgi_buffer *uwsgi_python_exception_msg(struct wsgi_request *wsgi_req) {
 	// value could be NULL ?
 	if (!value) goto end;
 
-#ifdef PYTHREE
 	char *msg = NULL;
 	PyObject *zero = PyUnicode_AsUTF8String( PyObject_Str(value) );
 	if (zero) {
         	msg = PyString_AsString( zero );
 	}
-#else
-        char *msg = PyString_AsString( PyObject_Str(value) );
-#endif
         if (msg) {
                 size_t msg_len = strlen(msg);
                 ub = uwsgi_buffer_new(msg_len);
                 if (uwsgi_buffer_append(ub, msg, msg_len)) {
-#ifdef PYTHREE
 			Py_DECREF(zero);
-#endif
                         uwsgi_buffer_destroy(ub);
                         ub = NULL;
                         goto end;
                 }
-#ifdef PYTHREE
 		Py_DECREF(zero);
-#endif
         }
 end:
         PyErr_Restore(type, value, traceback);
@@ -323,12 +282,8 @@ void init_pyargv() {
 		argv0 = up.pyrun;
 	}
 
-#ifdef PYTHREE
 	wchar_t *pname = uwsgi_calloc(sizeof(wchar_t) * (strlen(argv0)+1));
 	mbstowcs(pname, argv0, strlen(argv0)+1);
-#else
-	char *pname = argv0;
-#endif
 
 	up.argc = 1;
 	if (up.argv) {
@@ -349,12 +304,7 @@ void init_pyargv() {
 		free(tmp_ptr);
 	}
 
-#ifdef PYTHREE
 	up.py_argv = uwsgi_calloc(sizeof(wchar_t *) * up.argc+1);
-#else
-	up.py_argv = uwsgi_calloc(sizeof(char *) * up.argc+1);
-#endif
-
 	up.py_argv[0] = pname;
 
 
@@ -362,9 +312,7 @@ void init_pyargv() {
 
 		char *py_argv_copy = uwsgi_str(up.argv);
 		up.argc = 1;
-#ifdef PYTHREE
 		wchar_t *wcargv = uwsgi_calloc( sizeof( wchar_t ) * (strlen(py_argv_copy)+1));
-#endif
 
 #ifdef __sun__
 		// FIX THIS !!!
@@ -375,13 +323,9 @@ void init_pyargv() {
 		while ((ap = strsep(&py_argv_copy, " \t")) != NULL) {
 #endif
 				if (*ap != '\0') {
-#ifdef PYTHREE
 					mbstowcs( wcargv, ap, strlen(ap));
 					up.py_argv[up.argc] = wcargv;
 					wcargv += strlen(ap) + 1;
-#else
-					up.py_argv[up.argc] = ap;
-#endif
 					up.argc++;
 				}
 		}
@@ -397,11 +341,5 @@ void init_pyargv() {
 	}
 	if (!up.executable)
 		up.executable = uwsgi.binary_path;
-#ifdef PYTHREE
 	PyDict_SetItemString(sys_dict, "executable", PyUnicode_FromString(up.executable));
-#else
-	PyDict_SetItemString(sys_dict, "executable", PyString_FromString(up.executable));
-#endif
-
-
 }
