@@ -12,11 +12,6 @@
 #define PYTHON_APP_TYPE_PUMP		3
 #define PYTHON_APP_TYPE_WSGI_LITE	4
 
-#if PY_MINOR_VERSION == 4 && PY_MAJOR_VERSION == 2
-#define Py_ssize_t ssize_t
-#define UWSGI_PYTHON_OLD
-#endif
-
 #if (PY_VERSION_HEX >= 0x030b0000)
 #  define UWSGI_PY311
 #endif
@@ -25,35 +20,16 @@
 #  define UWSGI_PY312
 #endif
 
-#if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION < 7
-#define HAS_NOT_PyMemoryView_FromBuffer
-#endif
-
-#if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION < 7
-#define HAS_NOT_PyFrame_GetLineNumber 
+#if PY_MAJOR_VERSION < 3
+#error "Python 2 is not supported"
 #endif
 
 #if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 2
-#define HAS_NOT_PyFrame_GetLineNumber 
-#endif
-
-#if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION == 0
-#define HAS_NO_ERRORS_IN_PyFile_FromFd
+#error "Python <3.3 is not supported"
 #endif
 
 #if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 7
 #define HAS_NOT_PyOS_AfterFork_Child
-#endif
-
-#if PY_MAJOR_VERSION < 3
-#define HAS_NOT_PyOS_AfterFork_Child
-#endif
-
-#if PY_MAJOR_VERSION > 2
-#define PYTHREE
-#endif
-
-#if (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 7) || PY_MAJOR_VERSION < 3
 #define UWSGI_SHOULD_CALL_PYEVAL_INITTHREADS
 #endif
 
@@ -82,7 +58,6 @@
 PyAPI_FUNC(PyObject *) PyMarshal_WriteObjectToString(PyObject *, int);
 PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
-#ifdef PYTHREE
 #define UWSGI_PYFROMSTRING(x) PyUnicode_FromString(x)
 #define UWSGI_PYFROMSTRINGSIZE(x, y) PyUnicode_FromStringAndSize(x, y)
 #define PyInt_FromLong	PyLong_FromLong
@@ -98,13 +73,6 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define PyFile_FromFile(A,B,C,D) PyFile_FromFd(fileno((A)), (B), (C), -1, NULL, NULL, NULL, 0)
 #define uwsgi_py_dict_get(a, b) PyDict_GetItem(a, PyBytes_FromString(b));
 #define uwsgi_py_dict_del(a, b) PyDict_DelItem(a, PyBytes_FromString(b));
-
-#else
-#define UWSGI_PYFROMSTRING(x) PyString_FromString(x)
-#define UWSGI_PYFROMSTRINGSIZE(x, y) PyString_FromStringAndSize(x, y)
-#define uwsgi_py_dict_get(a, b) PyDict_GetItemString(a, b)
-#define uwsgi_py_dict_del(a, b) PyDict_DelItemString(a, b)
-#endif
 
 #define LOADER_DYN              0
 #define LOADER_UWSGI            1
@@ -144,11 +112,7 @@ struct uwsgi_python {
 	char *argv;
 	int argc;
 
-#ifdef PYTHREE
 	wchar_t **py_argv;
-#else
-	char **py_argv;
-#endif
 
 	PyObject *wsgi_spitout;
 	PyObject *wsgi_writeout;

@@ -162,7 +162,7 @@ static PyObject *py_uwsgi_asyncio_request(PyObject *self, PyObject *args) {
 
 end:
 	uwsgi.async_proto_fd_table[wsgi_req->fd] = NULL;
-	uwsgi_close_request(uwsgi.wsgi_req);	
+	uwsgi_close_request(uwsgi.wsgi_req);
 	free_req_queue;
 again:
 	Py_INCREF(Py_None);
@@ -282,11 +282,11 @@ static void uwsgi_asyncio_schedule_fix(struct wsgi_request *wsgi_req) {
         PyObject *cb = PyObject_CallMethod(uasyncio.loop, "call_soon", "Ol", uasyncio.hook_fix, (long) wsgi_req);
 	if (!cb) goto error;
 	Py_DECREF(cb);
-        return; 
+        return;
 
 error:
         PyErr_Print();
-} 
+}
 
 static void asyncio_loop() {
 
@@ -328,11 +328,7 @@ static void asyncio_loop() {
 		uwsgi.schedule_fix = uwsgi_asyncio_schedule_fix;
 	}
 
-#ifndef PYTHREE
-	PyObject *asyncio = PyImport_ImportModule("trollius");
-#else
 	PyObject *asyncio = PyImport_ImportModule("asyncio");
-#endif
 	if (!asyncio) uwsgi_pyexit;
 
 	uasyncio.mod = asyncio;
@@ -366,7 +362,7 @@ static void asyncio_loop() {
 			uwsgi_pyexit;
 		}
 		uwsgi_sock = uwsgi_sock->next;
-	}	
+	}
 
 	if (PyObject_CallMethod(uasyncio.loop, "run_forever", NULL) == NULL) {
 		uwsgi_pyexit;
