@@ -20,8 +20,9 @@ def fibonacci(n):
         return n
     return fibonacci(n - 1) + fibonacci(n - 2)
 
+
 def application(env, start_response):
-    start_response('200 OK', [('Content-Type','text/html')])
+    start_response('200 OK', [('Content-Type', 'text/html')])
     n = 24
     r = fibonacci(n)
     s = f"F({n}) = {r}"

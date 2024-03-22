@@ -18,21 +18,27 @@
 #
 # [1] https://github.com/rakyll/hey
 
-import atexit, os, sys, time, threading
-import uwsgi
+import atexit
+import os
+import sys
+import time
+
 
 pid = os.getpid()
 stamp_file = f"./uwsgi_worker{pid}.txt"
 
+
 with open(stamp_file, "w") as f:
     print(time.time(), file=f)
+
 
 @atexit.register
 def on_finish_worker():
     print(f"removing {stamp_file}", file=sys.stderr)
     os.remove(stamp_file)
 
+
 def application(env, start_response):
     time.sleep(1)
-    start_response('200 OK', [('Content-Type','text/html')])
+    start_response('200 OK', [('Content-Type', 'text/html')])
     return [b"Hello World"]
