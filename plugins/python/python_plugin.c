@@ -1727,8 +1727,10 @@ uint64_t uwsgi_python_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[
 	PyObject *pyargs = PyTuple_New(argc);
 	PyObject *ret;
 
-	if (!pyargs)
+	if (!pyargs) {
+		UWSGI_RELEASE_GIL;
 		return 0;
+	}
 
 	for (i = 0; i < argc; i++) {
 		PyTuple_SetItem(pyargs, i, PyString_FromStringAndSize(argv[i], argvs[i]));
