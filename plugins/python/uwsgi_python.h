@@ -95,7 +95,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define	PyString_Size		PyBytes_Size
 #define	PyString_Concat		PyBytes_Concat
 #define	PyString_AsString	(char *) PyBytes_AsString
-#define PyFile_FromFile(A,B,C,D) PyFile_FromFd(fileno((A)), (B), (C), -1, NULL, NULL, NULL, 0)
+#define PyFile_FromFile(A,B,C,D) PyFile_FromFd(fileno((A)), (B), (C), 1, NULL, NULL, NULL, 0)
 #define uwsgi_py_dict_get(a, b) PyDict_GetItem(a, PyBytes_FromString(b));
 #define uwsgi_py_dict_del(a, b) PyDict_DelItem(a, PyBytes_FromString(b));
 
