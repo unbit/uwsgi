@@ -63,6 +63,87 @@ Suite *check_core_opt_parsing(void)
 	return s;
 }
 
+/* abstract socket tests */
+
+START_TEST(test_uwsgi_connect_to_unix) {
+	int sfd, cfd;
+	// Normal abstract socket bind
+	sfd = bind_to_unix("uwsgi_abs_test_socket", 10, 0, 1);
+	ck_assert_msg(sfd > 0, "Failed to bind abstract socket");
+
+	//Test open '@' prefix
+	cfd = uwsgi_connect("@uwsgi_abs_test_socket", 0, 0);
+	ck_assert_msg(cfd > 0, "Failed to connect with abstract socket with '@' prefix");
+	close(cfd);
+
+	//Test open '\\0' prefix
+	cfd = uwsgi_connect("\\0uwsgi_abs_test_socket", 0, 0);
+	ck_assert_msg(cfd > 0, "Failed to connect with abstract socket with \"\\0\" prefix");
+	close(cfd);
+	close(sfd);
+}
+END_TEST
+
+START_TEST(test_uwsgi_bind_to_unix_normal) {
+	int sfd, cfd;
+	// Normal abstract socket bind
+	sfd = bind_to_unix("uwsgi_abs_test_socket", 10, 0, 1);
+	ck_assert_msg(sfd > 0, "Failed to bind abstract socket");
+
+	//Test open '@' prefix
+	cfd = uwsgi_connect("@uwsgi_abs_test_socket", 0, 0);
+	ck_assert_msg(cfd > 0, "Failed to connect to abstract socket");
+
+	close(cfd);
+	close(sfd);
+}
+END_TEST
+
+START_TEST(test_uwsgi_bind_to_unix_at) {
+	int sfd, cfd;
+	// Normal abstract socket bind
+	sfd = bind_to_unix("@uwsgi_abs_test_socket", 10, 0, 0);
+	ck_assert_msg(sfd > 0, "Failed to bind abstract socket");
+
+	//Test open '@' prefix
+	cfd = uwsgi_connect("@uwsgi_abs_test_socket", 0, 0);
+	ck_assert_msg(cfd > 0, "Failed to connect to abstract socket");
+
+	close(cfd);
+	close(sfd);
+}
+END_TEST
+
+START_TEST(test_uwsgi_bind_to_unix_null) {
+	int sfd, cfd;
+	// Normal abstract socket bind
+	sfd = bind_to_unix("\\0uwsgi_abs_test_socket", 10, 0, 0);
+	ck_assert_msg(sfd > 0, "Failed to bind abstract socket");
+
+	//Test open '@' prefix
+	cfd = uwsgi_connect("@uwsgi_abs_test_socket", 0, 0);
+	ck_assert_msg(cfd > 0, "Failed to connect to abstract socket");
+
+	close(cfd);
+	close(sfd);
+}
+END_TEST
+
+
+Suite *check_core_socket(void)
+{
+	Suite *s = suite_create("uwsgi socket");
+
+	TCase *socket_tc = tcase_create("socket_tests");
+	suite_add_tcase(s, socket_tc);
+
+	tcase_add_test(socket_tc, test_uwsgi_connect_to_unix);
+	tcase_add_test(socket_tc, test_uwsgi_bind_to_unix_normal);
+	tcase_add_test(socket_tc, test_uwsgi_bind_to_unix_at);
+	tcase_add_test(socket_tc, test_uwsgi_bind_to_unix_null);
+	return s;
+}
+
 START_TEST(test_uwsgi_cron_task_needs_execution_handles_weekday_7_as_sunday)
 {
 	int result;
@@ -99,6 +180,7 @@ int main(void)
 	int nf;
 	SRunner *r = srunner_create(check_core_strings());
 	srunner_add_suite(r, check_core_opt_parsing());
+	srunner_add_suite(r, check_core_socket());
 	srunner_add_suite(r, check_core_cron());
 	srunner_run_all(r, CK_NORMAL);
 	nf = srunner_ntests_failed(r);
