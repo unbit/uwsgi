@@ -6,21 +6,22 @@ import time
 
 
 def microtask(wid):
-    print "i am a gevent task"
+    print("i am a gevent task")
     gevent.sleep(10)
-    print "10 seconds elapsed in worker id %d" % wid
+    print("10 seconds elapsed in worker id %d" % wid)
 
 
 def athread():
     while True:
         time.sleep(1)
-        print "i am the thread 1"
+        print("i am the thread 1")
 
 
 def athread2():
     while True:
         time.sleep(1)
-        print "i am the thread 2"
+        print("i am the thread 2")
+
 
 t1 = Thread(target=athread)
 t1.daemon = True
@@ -34,7 +35,7 @@ t2.start()
 def application(environ, start_response):
 
     gevent.sleep()
-    start_response('200 OK', [('Content-Type', 'text/html')])
+    start_response("200 OK", [("Content-Type", "text/html")])
     yield "sleeping for 3 seconds...<br/>"
     gevent.sleep(3)
     yield "done<br/>"
