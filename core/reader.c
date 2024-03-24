@@ -220,14 +220,15 @@ wait:
 char *uwsgi_request_body_readline(struct wsgi_request *wsgi_req, ssize_t hint, ssize_t *rlen) {
 
 	// return 0 if no post_cl or pos >= post_cl and no residual data
-        if ((!wsgi_req->post_cl || wsgi_req->post_pos >= wsgi_req->post_cl ) && !wsgi_req->post_readline_pos) {
+	if ((!wsgi_req->post_cl || wsgi_req->post_pos >= wsgi_req->post_cl ) &&
+		!wsgi_req->post_readline_pos) {
 		return uwsgi.empty;
-        }
+	}
 
 	// some residual data ?
 	if (wsgi_req->post_readline_pos > 0) {
 		size_t i;
-		for(i=wsgi_req->post_readline_pos;i<wsgi_req->post_readline_watermark;i++) {
+		for(i=wsgi_req->post_readline_pos; i < wsgi_req->post_readline_watermark; i++) {
 			// found a newline
 			if (wsgi_req->post_readline_buf[i] == '\n') {
 				*rlen = (i+1)-wsgi_req->post_readline_pos;
@@ -258,36 +259,37 @@ char *uwsgi_request_body_readline(struct wsgi_request *wsgi_req, ssize_t hint, s
 	}
 
 	// ok, no newline found, consume a bit more of memory and retry
-        for(;;) {
+	for(;;) {
 		// no more data to consume
-		if (wsgi_req->post_pos >= wsgi_req->post_cl) break;
+		if (wsgi_req->post_pos >= wsgi_req->post_cl)
+			break;
 
-                        if (consume_body_for_readline(wsgi_req)) {
-				wsgi_req->read_errors++;
-                                *rlen = -1;
-                                return NULL;
-                        }
-			size_t i;
-                        for(i=wsgi_req->post_readline_pos;i<wsgi_req->post_readline_watermark;i++) {
-                                if (wsgi_req->post_readline_buf[i] == '\n') {
-                                        *rlen = (i+1)-wsgi_req->post_readline_pos;
-                                        char *buf = wsgi_req->post_readline_buf + wsgi_req->post_readline_pos;
-                                        wsgi_req->post_readline_pos += *rlen;
-                                        if (wsgi_req->post_readline_pos >= wsgi_req->post_readline_watermark) {
-                                                wsgi_req->post_readline_pos = 0;
-						wsgi_req->post_readline_watermark = 0;
-                                        }
-                                        return buf;
-                                }
-                        }
-                }
+		if (consume_body_for_readline(wsgi_req)) {
+			wsgi_req->read_errors++;
+			*rlen = -1;
+			return NULL;
+		}
+		size_t i;
+		for(i=wsgi_req->post_readline_pos; i < wsgi_req->post_readline_watermark; i++) {
+			if (wsgi_req->post_readline_buf[i] == '\n') {
+				*rlen = (i+1)-wsgi_req->post_readline_pos;
+				char *buf = wsgi_req->post_readline_buf + wsgi_req->post_readline_pos;
+				wsgi_req->post_readline_pos += *rlen;
+				if (wsgi_req->post_readline_pos >= wsgi_req->post_readline_watermark) {
+					wsgi_req->post_readline_pos = 0;
+					wsgi_req->post_readline_watermark = 0;
+				}
+                return buf;
+			}
+		}
+	}
 
 	// no line found, let's return all
-        *rlen = wsgi_req->post_readline_size - wsgi_req->post_readline_pos;
-        char *buf = wsgi_req->post_readline_buf + wsgi_req->post_readline_pos;
+	*rlen = wsgi_req->post_readline_watermark - wsgi_req->post_readline_pos;
+	char *buf = wsgi_req->post_readline_buf + wsgi_req->post_readline_pos;
 	wsgi_req->post_readline_pos = 0;
-	return buf;
 
+	return buf;
 }
 
 char *uwsgi_request_body_read(struct wsgi_request *wsgi_req, ssize_t hint, ssize_t *rlen) {
