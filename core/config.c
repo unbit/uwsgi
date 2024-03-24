@@ -562,10 +562,6 @@ add:
 		if (op->flags & UWSGI_OPT_PROCNAME) {
 			uwsgi.auto_procname = 1;
 		}
-		// requires lazy ?
-		if (op->flags & UWSGI_OPT_LAZY) {
-			uwsgi.lazy = 1;
-		}
 		// requires no_initial ?
 		if (op->flags & UWSGI_OPT_NO_INITIAL) {
 			uwsgi.no_initial_output = 1;
