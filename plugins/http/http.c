@@ -1014,7 +1014,7 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 			hr->can_gzip = 0;
 			hr->has_gzip = 0;
 #endif
-			if (uhttp.keepalive > 1) {
+			if (uhttp.keepalive > 0) {
 				http_set_timeout(peer->session->main_peer, uhttp.keepalive);
 			}
 		}
