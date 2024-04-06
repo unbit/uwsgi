@@ -336,7 +336,7 @@ int uwsgi_logic_opt_if_not_hostname(char *key, char *value) {
         return 0;
 }
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 int uwsgi_logic_opt_if_hostname_match(char *key, char *value) {
 	uwsgi.logic_opt_if_failed = 0;
 	if (uwsgi_regexp_match_pattern(uwsgi.logic_opt_data, uwsgi.hostname)) {
