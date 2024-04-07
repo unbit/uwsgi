@@ -1226,8 +1226,9 @@ void warn_pipe() {
 	}
 }
 
-// in threading mode we need to use the cancel pthread subsystem
-void wait_for_threads() {
+// This function is called from signal handler or main thread to wait worker threads.
+// `uwsgi.workers[uwsgi.mywid].manage_next_request` should be set to 0 to stop worker threads.
+static void wait_for_threads() {
 	int i, ret;
 
 	// This option was added because we used pthread_cancel().
