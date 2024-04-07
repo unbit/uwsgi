@@ -1234,8 +1234,6 @@ void wait_for_threads() {
 	// thread cancellation is REALLY flaky
 	if (uwsgi.no_threads_wait) return;
 
-	pthread_mutex_lock(&uwsgi.six_feet_under_lock);
-
 	// wait for thread termination
 	for (i = 0; i < uwsgi.threads; i++) {
 		if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, pthread_self())) {
