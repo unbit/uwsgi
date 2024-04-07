@@ -3608,7 +3608,6 @@ void uwsgi_worker_run() {
 
 	if (uwsgi.cores > 1) {
 		uwsgi.workers[uwsgi.mywid].cores[0].thread_id = pthread_self();
-		pthread_mutex_init(&uwsgi.six_feet_under_lock, NULL);
 	}
 
 	uwsgi_ignition();
