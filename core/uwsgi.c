@@ -130,7 +130,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"if-hostname", required_argument, 0, "(opt logic) check for hostname", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_hostname, UWSGI_OPT_IMMEDIATE},
 	{"if-not-hostname", required_argument, 0, "(opt logic) check for hostname", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_hostname, UWSGI_OPT_IMMEDIATE},
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"if-hostname-match", required_argument, 0, "(opt logic) try to match hostname against a regular expression", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_hostname_match, UWSGI_OPT_IMMEDIATE},
 	{"if-not-hostname-match", required_argument, 0, "(opt logic) try to match hostname against a regular expression", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_hostname_match, UWSGI_OPT_IMMEDIATE},
 #endif
@@ -277,7 +277,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"reaper", no_argument, 'r', "call waitpid(-1,...) after each request to get rid of zombies", uwsgi_opt_true, &uwsgi.reaper, 0},
 	{"max-requests", required_argument, 'R', "reload workers after the specified amount of managed requests", uwsgi_opt_set_64bit, &uwsgi.max_requests, 0},
-	{"min-worker-lifetime", required_argument, 0, "number of seconds worker must run before being reloaded (default is 60)", uwsgi_opt_set_64bit, &uwsgi.min_worker_lifetime, 0},
+	{"min-worker-lifetime", required_argument, 0, "number of seconds worker must run before being reloaded (default is 10)", uwsgi_opt_set_64bit, &uwsgi.min_worker_lifetime, 0},
 	{"max-worker-lifetime", required_argument, 0, "reload workers after the specified amount of seconds (default is disabled)", uwsgi_opt_set_64bit, &uwsgi.max_worker_lifetime, 0},
 	{"max-worker-lifetime-delta", required_argument, 0, "add (worker_id * delta) seconds to the max_worker_lifetime value of each worker", uwsgi_opt_set_int, &uwsgi.max_worker_lifetime_delta, 0},
 
@@ -548,7 +548,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ksm", optional_argument, 0, "enable Linux KSM", uwsgi_opt_set_int, &uwsgi.linux_ksm, 0},
 #endif
 #endif
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"pcre-jit", no_argument, 0, "enable pcre jit (if available)", uwsgi_opt_pcre_jit, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 	{"never-swap", no_argument, 0, "lock all memory pages avoiding swapping", uwsgi_opt_true, &uwsgi.never_swap, 0},
@@ -629,7 +629,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"legion-freq", required_argument, 0, "set the frequency of legion packets", uwsgi_opt_set_int, &uwsgi.legion_freq, UWSGI_OPT_MASTER},
 	{"legion-tolerance", required_argument, 0, "set the tolerance of legion subsystem", uwsgi_opt_set_int, &uwsgi.legion_tolerance, UWSGI_OPT_MASTER},
 	{"legion-death-on-lord-error", required_argument, 0, "declare itself as a dead node for the specified amount of seconds if one of the lord hooks fails", uwsgi_opt_set_int, &uwsgi.legion_death_on_lord_error, UWSGI_OPT_MASTER},
-	{"legion-skew-tolerance", required_argument, 0, "set the clock skew tolerance of legion subsystem (default 30 seconds)", uwsgi_opt_set_int, &uwsgi.legion_skew_tolerance, UWSGI_OPT_MASTER},
+	{"legion-skew-tolerance", required_argument, 0, "set the clock skew tolerance of legion subsystem (default 60 seconds)", uwsgi_opt_set_int, &uwsgi.legion_skew_tolerance, UWSGI_OPT_MASTER},
 	{"legion-lord", required_argument, 0, "action to call on Lord election", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-unlord", required_argument, 0, "action to call on Lord dismiss", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-setup", required_argument, 0, "action to call on legion setup", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
@@ -679,7 +679,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ssl-enable-sslv3", no_argument, 0, "enable SSLv3 (insecure)", uwsgi_opt_true, &uwsgi.sslv3, 0},
 	{"ssl-enable-tlsv1", no_argument, 0, "enable TLSv1 (insecure)", uwsgi_opt_true, &uwsgi.tlsv1, 0},
 	{"ssl-option", no_argument, 0, "set a raw ssl option (numeric value)", uwsgi_opt_add_string_list, &uwsgi.ssl_options, 0},
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"sni-regexp", required_argument, 0, "add an SNI-governed SSL context (the key is a regexp)", uwsgi_opt_sni, NULL, 0},
 #endif
 	{"ssl-tmp-dir", required_argument, 0, "store ssl-related temp files in the specified directory", uwsgi_opt_set_str, &uwsgi.ssl_tmp_dir, 0},
@@ -715,7 +715,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-req-encoder", required_argument, 0, "add an item in the log req encoder chain", uwsgi_opt_add_string_list, &uwsgi.requested_log_req_encoders, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"log-drain", required_argument, 0, "drain (do not show) log lines matching the specified regexp", uwsgi_opt_add_regexp_list, &uwsgi.log_drain_rules, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"log-filter", required_argument, 0, "show only log lines matching the specified regexp", uwsgi_opt_add_regexp_list, &uwsgi.log_filter_rules, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"log-route", required_argument, 0, "log to the specified named logger if regexp applied on logline matches", uwsgi_opt_add_regexp_custom_list, &uwsgi.log_route, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -736,7 +736,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"alarm-lq", required_argument, 0, "raise the specified alarm when the socket backlog queue is full", uwsgi_opt_add_string_list, &uwsgi.alarm_backlog, UWSGI_OPT_MASTER},
 	{"alarm-listen-queue", required_argument, 0, "raise the specified alarm when the socket backlog queue is full", uwsgi_opt_add_string_list, &uwsgi.alarm_backlog, UWSGI_OPT_MASTER},
 	{"listen-queue-alarm", required_argument, 0, "raise the specified alarm when the socket backlog queue is full", uwsgi_opt_add_string_list, &uwsgi.alarm_backlog, UWSGI_OPT_MASTER},
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"log-alarm", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"alarm-log", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"not-log-alarm", required_argument, 0, "skip the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list_custom, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -915,7 +915,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"static-expires-type", required_argument, 0, "set the Expires header based on content type", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type, UWSGI_OPT_MIME},
 	{"static-expires-type-mtime", required_argument, 0, "set the Expires header based on content type and file mtime", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type_mtime, UWSGI_OPT_MIME},
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"static-expires", required_argument, 0, "set the Expires header based on filename regexp", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires, UWSGI_OPT_MIME},
 	{"static-expires-mtime", required_argument, 0, "set the Expires header based on filename regexp and file mtime", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires_mtime, UWSGI_OPT_MIME},
 
@@ -1195,57 +1195,28 @@ void warn_pipe() {
 	}
 }
 
-// in threading mode we need to use the cancel pthread subsystem
-void wait_for_threads() {
+// This function is called from signal handler or main thread to wait worker threads.
+// `uwsgi.workers[uwsgi.mywid].manage_next_request` should be set to 0 to stop worker threads.
+static void wait_for_threads() {
 	int i, ret;
 
-	// on some platform thread cancellation is REALLY flaky
+	// This option was added because we used pthread_cancel().
+	// thread cancellation is REALLY flaky
 	if (uwsgi.no_threads_wait) return;
 
-	int sudden_death = 0;
-
-	pthread_mutex_lock(&uwsgi.six_feet_under_lock);
-	for (i = 1; i < uwsgi.threads; i++) {
-		if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, pthread_self())) {
-			if (pthread_cancel(uwsgi.workers[uwsgi.mywid].cores[i].thread_id)) {
-				uwsgi_error("pthread_cancel()\n");
-				sudden_death = 1;
-			}
-		}
-	}
-
-	if (sudden_death)
-		goto end;
-
 	// wait for thread termination
-	for (i = 1; i < uwsgi.threads; i++) {
+	for (i = 0; i < uwsgi.threads; i++) {
 		if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, pthread_self())) {
 			ret = pthread_join(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, NULL);
 			if (ret) {
 				uwsgi_log("pthread_join() = %d\n", ret);
 			}
+			else {
+				// uwsgi_worker_is_busy() should not consider this thread as busy.
+				uwsgi.workers[uwsgi.mywid].cores[i].in_request = 0;
+			}
 		}
 	}
-
-	// cancel inital thread last since after pthread_cancel() and
-	// pthread_join() is called on it, the whole process will appear to be
-	// a zombie. although it won't eliminate process zombie time, but it
-	// should minimize it.
-	if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[0].thread_id, pthread_self())) {
-		if (pthread_cancel(uwsgi.workers[uwsgi.mywid].cores[0].thread_id)) {
-			uwsgi_error("pthread_cancel() on initial thread\n");
-			goto end;
-		}
-
-		ret = pthread_join(uwsgi.workers[uwsgi.mywid].cores[0].thread_id, NULL);
-		if (ret) {
-			uwsgi_log("pthread_join() = %d on initial thread\n", ret);
-		}
-	}
-
-end:
-
-	pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
 }
 
 
@@ -1287,15 +1258,13 @@ void end_me(int signum) {
 	exit(UWSGI_END_CODE);
 }
 
-void simple_goodbye_cruel_world() {
-
-	if (uwsgi.threads > 1 && !uwsgi_instance_is_dying) {
-		wait_for_threads();
-	}
-
+static void simple_goodbye_cruel_world() {
+	int prev = uwsgi.workers[uwsgi.mywid].manage_next_request;
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
-	uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
-	exit(0);
+	if (prev) {
+		// Avoid showing same message from all threads.
+		uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
+	}
 }
 
 void goodbye_cruel_world() {
@@ -2424,7 +2393,7 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 	}
 
 	uwsgi_log_initial("clock source: %s\n", uwsgi.clock->name);
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	if (uwsgi.pcre_jit) {
 		uwsgi_log_initial("pcre jit enabled\n");
 	}
@@ -3537,7 +3506,6 @@ void uwsgi_worker_run() {
 
 	if (uwsgi.cores > 1) {
 		uwsgi.workers[uwsgi.mywid].cores[0].thread_id = pthread_self();
-		pthread_mutex_init(&uwsgi.six_feet_under_lock, NULL);
 	}
 
 	uwsgi_ignition();
@@ -3617,6 +3585,11 @@ void uwsgi_ignition() {
 		else {
 			async_loop();
 		}
+	}
+
+	// main thread waits other threads.
+	if (uwsgi.threads > 1) {
+		wait_for_threads();
 	}
 
 	// end of the process...
@@ -4186,7 +4159,7 @@ void uwsgi_opt_add_string_list_custom(char *opt, char *value, void *list) {
 	usl->custom = 1;
 }
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 void uwsgi_opt_add_regexp_list(char *opt, char *value, void *list) {
 	struct uwsgi_regexp_list **ptr = (struct uwsgi_regexp_list **) list;
 	uwsgi_regexp_new_list(ptr, value);
@@ -4452,7 +4425,7 @@ void uwsgi_opt_add_dyn_dict(char *opt, char *value, void *dict) {
 
 }
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 void uwsgi_opt_add_regexp_dyn_dict(char *opt, char *value, void *dict) {
 
 	char *space = strchr(value, ' ');
@@ -4467,7 +4440,7 @@ void uwsgi_opt_add_regexp_dyn_dict(char *opt, char *value, void *dict) {
 
 	char *regexp = uwsgi_concat2n(value, space - value, "", 0);
 
-	if (uwsgi_regexp_build(regexp, &new_udd->pattern, &new_udd->pattern_extra)) {
+	if (uwsgi_regexp_build(regexp, &new_udd->pattern)) {
 		exit(1);
 	}
 

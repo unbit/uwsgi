@@ -60,6 +60,9 @@ void *uwsgi_get_loop(char *name) {
 
 void simple_loop() {
 	uwsgi_loop_cores_run(simple_loop_run);
+	// Other threads may still run. Make sure they will stop.
+	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
+
 	if (uwsgi.workers[uwsgi.mywid].shutdown_sockets)
 		uwsgi_shutdown_all_sockets();
 }
@@ -78,9 +81,6 @@ void uwsgi_setup_thread_req(long core_id, struct wsgi_request *wsgi_req) {
 	int i;
 	sigset_t smask;
 
-
-	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &i);
-	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &i);
 	pthread_setspecific(uwsgi.tur_key, (void *) wsgi_req);
 
 	if (core_id > 0) {

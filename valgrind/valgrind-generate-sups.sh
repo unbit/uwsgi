@@ -1,5 +1,7 @@
 #!/bin/bash
 
+pydir=${1:-/usr}
+
 
 gensup() {
     for SUP in Cond Free Leak Overlap Addr1 Addr2 Addr4 Addr8 Addr16 Value1 Value2 Value4 Value8 Value16 ; do
@@ -16,10 +18,10 @@ gensup() {
 
 while read SO ; do
     gensup libpython "$SO"
-done < <(find /usr/lib*/ -type f -name libpython*)
+done < <(find ${pydir}/lib*/ -type f -name libpython*)
 
 
 while read SO ; do
     gensup python "$SO"
-done < <(find /usr/lib*/python*/ -type f -name \*.so)
+done < <(find ${pydir}/lib*/python*/ -type f -name \*.so)
 
