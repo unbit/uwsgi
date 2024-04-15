@@ -336,7 +336,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
     if 'APPEND_CFLAGS' in os.environ:
         cflags += os.environ['APPEND_CFLAGS'].split()
 
-    clags = [str(flag) for flag in cflags if flag is not None]
+    cflags = [str(flag) for flag in cflags if flag is not None]
     print("detected CPU cores: %d" % CPUCOUNT)
     print("configured CFLAGS: %s" % ' '.join(cflags))
 
