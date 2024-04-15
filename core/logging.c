@@ -529,7 +529,7 @@ void uwsgi_check_logrotate(void) {
 	}
 }
 
-void uwsgi_log_do_rotate(char *logfile, char *rotatedfile, off_t logsize, int log_fd) {
+void uwsgi_log_do_rotate(char *logfile, char *rotatedfile, off_t logsize, int log_fd, mode_t mode) {
 	int need_free = 0;
 	char *rot_name = rotatedfile;
 
@@ -539,11 +539,15 @@ void uwsgi_log_do_rotate(char *logfile, char *rotatedfile, off_t logsize, int lo
 		free(ts_str);
 		need_free = 1;
 	}
+        if (mode == 0) {
+                mode = S_IRUSR | S_IWUSR | S_IRGRP;
+        }
+
 	// this will be rawly written to the logfile
 	uwsgi_logfile_write("logsize: %llu, triggering rotation to %s...\n", (unsigned long long) logsize, rot_name);
 	if (rename(logfile, rot_name) == 0) {
 		// reopen logfile and dup'it, on dup2 error, exit(1)
-		int fd = open(logfile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP);
+		int fd = open(logfile, O_RDWR | O_CREAT | O_TRUNC, mode);
 		if (fd < 0) {
 			// this will be written to the original file
 			uwsgi_error_open(logfile);
@@ -568,7 +572,7 @@ void uwsgi_log_do_rotate(char *logfile, char *rotatedfile, off_t logsize, int lo
 void uwsgi_log_rotate() {
 	if (!uwsgi.logfile)
 		return;
-	uwsgi_log_do_rotate(uwsgi.logfile, uwsgi.log_backupname, uwsgi.shared->logsize, uwsgi.original_log_fd);
+	uwsgi_log_do_rotate(uwsgi.logfile, uwsgi.log_backupname, uwsgi.shared->logsize, uwsgi.original_log_fd, uwsgi.chmod_logfile_value);
 }
 
 void uwsgi_log_reopen() {

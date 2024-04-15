@@ -5,6 +5,7 @@ struct logfile_data {
 	char *logfile;
 	char *backupname;
 	uint64_t maxsize;
+	mode_t mode;
 };
 
 static ssize_t uwsgi_file_logger(struct uwsgi_logger *ul, char *message, size_t len) {
@@ -15,15 +16,29 @@ static ssize_t uwsgi_file_logger(struct uwsgi_logger *ul, char *message, size_t 
 			char *backupname = NULL;
 			char *maxsize = NULL;
 			char *logfile = NULL;
+			char *mode = NULL;
+			mode_t encmode = 0;
 
 			if (strchr(ul->arg, '=')) {
 				if (uwsgi_kvlist_parse(ul->arg, strlen(ul->arg), ',', '=',
-					"logfile", &logfile, "backupname", &backupname, "maxsize", &maxsize, NULL)) {
+					"logfile", &logfile, "backupname", &backupname, "maxsize", &maxsize, "mode", &mode, NULL)) {
 					uwsgi_log("[uwsgi-logfile] invalid keyval syntax\n");
 					exit(1);
 				}
 				is_keyval = 1;
 			}
+
+			// calculate the file mode to use, defaulting to 640
+			if (!mode) {
+				mode = "640";
+			}
+			int error = 0;
+			encmode = uwsgi_mode_t(mode, &error);
+			if (error) {
+				uwsgi_log("[uwsgi-logfile] invalid mode: %s\n", mode);
+				return 0;
+			}
+
 			if (is_keyval) {
 				if (!logfile) {
 					uwsgi_log("[uwsgi-logfile] missing logfile key\n");
@@ -35,6 +50,7 @@ static ssize_t uwsgi_file_logger(struct uwsgi_logger *ul, char *message, size_t 
 					data->logfile = logfile;
 					data->backupname = backupname;
 					data->maxsize = (uint64_t)strtoull(maxsize, NULL, 10);
+					data->mode = encmode;
 					ul->data = data;
 
 					free(maxsize);
@@ -44,10 +60,10 @@ static ssize_t uwsgi_file_logger(struct uwsgi_logger *ul, char *message, size_t 
 				logfile = ul->arg;
 			}
 
-			ul->fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
+			ul->fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, encmode);
 			if (ul->fd >= 0) {
 				ul->configured = 1;
-			}	
+			}
 		}
 	}
 
@@ -59,7 +75,7 @@ static ssize_t uwsgi_file_logger(struct uwsgi_logger *ul, char *message, size_t 
 			off_t logsize = lseek(ul->fd, 0, SEEK_CUR);
 
 			if (data->maxsize > 0 && (uint64_t) logsize > data->maxsize) {
-				uwsgi_log_do_rotate(data->logfile, data->backupname, logsize, ul->fd);
+				uwsgi_log_do_rotate(data->logfile, data->backupname, logsize, ul->fd, data->mode);
 			}
 		}
 

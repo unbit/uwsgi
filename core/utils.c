@@ -4543,22 +4543,25 @@ void uwsgi_setns(char *path) {
 mode_t uwsgi_mode_t(char *value, int *error) {
 	mode_t mode = 0;
 	*error = 0;
+	int len = strlen(value);
 
-        if (strlen(value) < 3) {
+	if (len < 3) {
 		*error = 1;
 		return mode;
 	}
 
-        if (strlen(value) == 3) {
-                mode = (mode << 3) + (value[0] - '0');
-                mode = (mode << 3) + (value[1] - '0');
-                mode = (mode << 3) + (value[2] - '0');
-        }
-        else {
-                mode = (mode << 3) + (value[1] - '0');
-                mode = (mode << 3) + (value[2] - '0');
-                mode = (mode << 3) + (value[3] - '0');
-        }
+	int i, start = 0;
+	if (len != 3) {
+		start = 1;
+	}
+
+	for (i = start; i < start + 3; i++) {
+		if (value[i] < '0' || value[i] > '7') {
+			*error = 1;
+			return 0;
+		}
+		mode = (mode << 3) + (value[i] - '0');
+	}
 
 	return mode;
 }

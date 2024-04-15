@@ -13,7 +13,7 @@ ifeq ($(UNAME_S),Linux)
 endif
 
 
-objects = check_core
+objects = check_core check_utils
 
 all: $(objects)
 
