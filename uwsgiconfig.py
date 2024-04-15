@@ -1101,11 +1101,12 @@ class uConf(object):
                 print("*** libpcre headers unavailable. uWSGI build is interrupted. You have to install pcre development package or disable pcre")
                 sys.exit(1)
 
-            self.libs.append(pcre_libs)
-            self.cflags.append(pcre_cflags)
-            self.gcc_list.append('core/regexp')
-            self.cflags.append(pcre_define)
-            has_pcre = True
+            if pcre_libs:
+                self.libs.append(pcre_libs)
+                self.cflags.append(pcre_cflags)
+                self.gcc_list.append('core/regexp')
+                self.cflags.append(pcre_define)
+                has_pcre = True
 
         if has_pcre:
             report['pcre'] = True
