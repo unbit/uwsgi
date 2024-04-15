@@ -337,7 +337,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
         cflags += os.environ['APPEND_CFLAGS'].split()
 
     print("detected CPU cores: %d" % CPUCOUNT)
-    print("configured CFLAGS: %s" % ' '.join(cflags))
+    print("configured CFLAGS: %s" % ' '.join([str(flag) for flag in cflags if flag is not None]))
 
     if sys.version_info[0] >= 3:
         import binascii
