@@ -73,6 +73,8 @@
 #define uwsgi_py_write_set_exception(x) if (!uwsgi.disable_write_exception) { PyErr_SetString(PyExc_IOError, "write error"); };
 #define uwsgi_py_write_exception(x) uwsgi_py_write_set_exception(x); uwsgi_manage_exception(x, 0);
 
+#define uwsgi_py_closed_set_exception(x)  };
+#define uwsgi_py_closed_exception(x) PyErr_SetString(PyExc_IOError, "Connection reset by peer"); uwsgi_manage_exception(x, 0);
 
 #define uwsgi_py_check_write_errors if (wsgi_req->write_errors > 0 && uwsgi.write_errors_exception_only) {\
                         uwsgi_py_write_set_exception(wsgi_req);\
