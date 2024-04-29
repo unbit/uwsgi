@@ -21,7 +21,7 @@ all: $(objects)
 $(objects): %: %.c ../libuwsgi.a
 	$(CC) $(CFLAGS) -o $@ $< ../libuwsgi.a $(LDFLAGS)
 
-test:
+test: all
 	@for file in $(objects); do ./$$file; done
 
 clean:
