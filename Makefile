@@ -13,9 +13,9 @@ check:
 plugin.%:
 	$(PYTHON) uwsgiconfig.py --plugin plugins/$* $(PROFILE)
 
-tests:
+unittests:
 	$(PYTHON) uwsgiconfig.py --build unittest
-	cd unittest && make && make test
+	cd unittest && make test
 
 %:
 	$(PYTHON) uwsgiconfig.py --build $@
