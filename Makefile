@@ -5,6 +5,7 @@ all:
 
 clean:
 	$(PYTHON) uwsgiconfig.py --clean
+	cd unittest && make clean
 
 check:
 	$(PYTHON) uwsgiconfig.py --check
@@ -14,7 +15,7 @@ plugin.%:
 
 tests:
 	$(PYTHON) uwsgiconfig.py --build unittest
-	cd check && make && make test
+	cd unittest && make && make test
 
 %:
 	$(PYTHON) uwsgiconfig.py --build $@
