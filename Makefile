@@ -17,6 +17,9 @@ unittests:
 	$(PYTHON) uwsgiconfig.py --build unittest
 	cd unittest && make test
 
+tests:
+	$(PYTHON) t/runner
+
 %:
 	$(PYTHON) uwsgiconfig.py --build $@
 

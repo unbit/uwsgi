@@ -21,6 +21,18 @@ jobs:
     - name: Run unit tests
       run: make unittests
 
+  test:
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Install dependencies
+      run: |
+        sudo apt update -qq
+        sudo apt install --no-install-recommends -qqyf \
+          libpcre2-dev libjansson-dev libcap2-dev
+    - uses: actions/checkout@v4
+    - name: Run integration tests
+      run: make all tests
+
   python:
     runs-on: ubuntu-20.04
     strategy:

@@ -1,0 +1,82 @@
+#!/usr/bin/python3
+
+
+import os
+import requests
+import signal
+import socket
+import subprocess
+import time
+import unittest
+
+
+TESTS_DIR = os.path.dirname(__file__)
+UWSGI_BINARY = os.getenv("UWSGI_BINARY", os.path.join(TESTS_DIR, "..", "uwsgi"))
+UWSGI_ADDR = "127.0.0.1"
+UWSGI_PORT = 8000
+UWSGI_HTTP = f"{UWSGI_ADDR}:{UWSGI_PORT}"
+
+
+class BaseTest:
+    """
+    Container class to avoid base test being run
+    """
+
+    class UwsgiServerTest(unittest.TestCase):
+        """
+        Test case with a server instance available on a socket for requests
+        """
+
+        @classmethod
+        def uwsgi_ready(cls):
+            try:
+                s = socket.socket()
+                s.connect(
+                    (
+                        UWSGI_ADDR,
+                        UWSGI_PORT,
+                    )
+                )
+            except socket.error:
+                return False
+            else:
+                return True
+            finally:
+                s.close()
+
+        @classmethod
+        def setUpClass(cls):
+            # launch server
+            cls.testserver = subprocess.Popen(
+                [UWSGI_BINARY, "--http-socket", UWSGI_HTTP] + cls.ARGS
+            )
+
+            # ensure server is ready
+            retries = 10
+            while not cls.uwsgi_ready() and retries > 0:
+                time.sleep(0.1)
+                retries = retries - 1
+                if retries == 0:
+                    raise RuntimeError("uwsgi test server is not available")
+
+        @classmethod
+        def tearDownClass(cls):
+            cls.testserver.send_signal(signal.SIGTERM)
+            cls.testserver.wait()
+
+
+class StaticTest(BaseTest.UwsgiServerTest):
+
+    ARGS = [
+        "--plugin",
+        "python3",  # provide a request plugin if no embedded request plugin
+        os.path.join(TESTS_DIR, "static", "config.ini"),
+    ]
+
+    def test_static_expires(self):
+        with requests.get(f"http://{UWSGI_HTTP}/foobar/config.ini") as r:
+            self.assertTrue("Expires" in r.headers)
+
+
+if __name__ == "__main__":
+    unittest.main()
