@@ -20,40 +20,81 @@
 
 extern struct uwsgi_server uwsgi;
 
+
 //use this instead of fprintf to avoid buffering mess with udp logging
-void uwsgi_log(const char *fmt, ...) {
+void _uwsgi_report(const char *file, int line,int loglevel, const char *fmt, ...) {
 	va_list ap;
 	char logpkt[4096];
 	int rlen = 0;
 	int ret;
 
-	struct timeval tv;
 	char sftime[64];
-	char ctime_storage[26];
 	time_t now;
 
-	if (uwsgi.logdate) {
+	if (uwsgi.loglevel & loglevel) {
+		return;
+	}
+
+	if (!uwsgi.logdate && uwsgi.clock) {
 		if (uwsgi.log_strftime) {
 			now = uwsgi_now();
 			rlen = strftime(sftime, 64, uwsgi.log_strftime, localtime(&now));
 			memcpy(logpkt, sftime, rlen);
-			memcpy(logpkt + rlen, " - ", 3);
-			rlen += 3;
+			memcpy(logpkt + rlen, " ", 1);
+			rlen += 1;
 		}
 		else {
-			gettimeofday(&tv, NULL);
-#if defined(__sun__) && !defined(__clang__)
-			ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
-#else
-			ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
-#endif
-			memcpy(logpkt, ctime_storage, 24);
-			memcpy(logpkt + 24, " - ", 3);
-
-			rlen = 24 + 3;
+			rlen += sprintf(logpkt + rlen ,"%ld ",uwsgi_millis());
 		}
 	}
 
+	if (!uwsgi.logtrace) {
+		if(!uwsgi.logtraceshort) {
+			char *ptr = strrchr(file,'/')+1;
+			char *end = strchr(ptr,'.');
+			int size;
+			if(end) {
+				size = end - ptr;
+			} else {
+				size = strlen(ptr);
+			}
+			rlen += sprintf(logpkt + rlen,"%.*s ",size,ptr);
+		} else {
+			rlen += sprintf(logpkt + rlen,"%s:%d ",file,line);
+		}
+	}
+	if (!uwsgi.logpid) {
+		rlen += sprintf(logpkt + rlen,"%d ",getpid());
+	}
+
+	if (!uwsgi.logflags) {
+		if(!uwsgi.logflagspretty) {
+			char sep[] = "\0\0";
+			if(loglevel & ERROR) {
+				rlen += sprintf(logpkt + rlen,"%sERROR",sep);
+				*sep = '|';
+			}
+			if(loglevel & DEBUG) {
+				rlen += sprintf(logpkt + rlen,"%sDEBUG",sep);
+				*sep = '|';
+			}
+			if(loglevel & INFO) {
+				rlen += sprintf(logpkt + rlen,"%sINFO",sep);
+				*sep = '|';
+			}
+			if(loglevel & ALARM) {
+				rlen += sprintf(logpkt + rlen,"%sALARM",sep);
+				*sep = '|';
+			}
+			if(loglevel & DEBUG) {
+				rlen += sprintf(logpkt + rlen,"%sREQUEST",sep);
+				*sep = '|';
+			}
+			rlen += sprintf(logpkt +rlen, " ");
+		} else {
+			rlen += sprintf(logpkt + rlen,"%d ",loglevel);
+		}
+	}
 	va_start(ap, fmt);
 	ret = vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
 	va_end(ap);
@@ -72,49 +113,8 @@ void uwsgi_log(const char *fmt, ...) {
 	rlen += ret;
 	// do not check for errors
 	rlen = write(2, logpkt, rlen);
+
 }
-
-void uwsgi_log_verbose(const char *fmt, ...) {
-
-	va_list ap;
-	char logpkt[4096];
-	int rlen = 0;
-
-	struct timeval tv;
-	char sftime[64];
-	time_t now;
-	char ctime_storage[26];
-
-	if (uwsgi.log_strftime) {
-		now = uwsgi_now();
-		rlen = strftime(sftime, 64, uwsgi.log_strftime, localtime(&now));
-		memcpy(logpkt, sftime, rlen);
-		memcpy(logpkt + rlen, " - ", 3);
-		rlen += 3;
-	}
-	else {
-		gettimeofday(&tv, NULL);
-#if defined(__sun__) && !defined(__clang__)
-		ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
-#else
-		ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
-#endif
-		memcpy(logpkt, ctime_storage, 24);
-		memcpy(logpkt + 24, " - ", 3);
-
-		rlen = 24 + 3;
-	}
-
-
-
-	va_start(ap, fmt);
-	rlen += vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
-	va_end(ap);
-
-	// do not check for errors
-	rlen = write(2, logpkt, rlen);
-}
-
 
 /*
 	commodity function mainly useful in log rotation
