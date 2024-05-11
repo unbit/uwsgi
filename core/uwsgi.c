@@ -3835,13 +3835,6 @@ void uwsgi_init_all_apps() {
 		if (uwsgi.need_app) {
 			if (!uwsgi.lazy)
 				uwsgi_log("*** no app loaded. GAME OVER ***\n");
-			if (uwsgi.lazy_apps) {
-				if (uwsgi.master_process) {
-					if (kill(uwsgi.workers[0].pid, SIGINT)) {
-						uwsgi_error("kill()");
-					}
-				}
-			}
 			exit(UWSGI_FAILED_APP_CODE);
 		}
 		else {
