@@ -1,5 +1,6 @@
 
 CFLAGS = $(shell pkg-config --cflags check)
+CFLAGS += -DUWSGI_PCRE2
 LDFLAGS = $(shell pkg-config --libs check)
 LDFLAGS += -ldl -lz
 LDFLAGS += $(shell xml2-config --libs)
@@ -13,14 +14,14 @@ ifeq ($(UNAME_S),Linux)
 endif
 
 
-objects = check_core
+objects = check_core check_regexp
 
 all: $(objects)
 
-$(objects): %: %.c
+$(objects): %: %.c ../libuwsgi.a
 	$(CC) $(CFLAGS) -o $@ $< ../libuwsgi.a $(LDFLAGS)
 
-test:
+test: all
 	@for file in $(objects); do ./$$file; done
 
 clean:

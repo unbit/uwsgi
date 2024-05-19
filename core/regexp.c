@@ -69,7 +69,7 @@ int uwsgi_regexp_build(char *re, uwsgi_pcre ** pattern) {
 
 int uwsgi_regexp_match(uwsgi_pcre *pattern, const char *subject, int length) {
 #ifdef UWSGI_PCRE2
-	return pcre2_match(pattern, (const unsigned char *)subject, length, 0, 0, NULL, NULL);
+	return uwsgi_regexp_match_ovec(pattern, subject, length, NULL, 0);
 #else
 	return pcre_exec((const pcre *) pattern->p, (const pcre_extra *) pattern->extra, subject, length, 0, 0, NULL, 0);
 #endif
