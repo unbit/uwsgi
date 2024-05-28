@@ -13,9 +13,19 @@ import unittest
 
 TESTS_DIR = os.path.dirname(__file__)
 UWSGI_BINARY = os.getenv("UWSGI_BINARY", os.path.join(TESTS_DIR, "..", "uwsgi"))
+UWSGI_PLUGINS = os.getenv("UWSGI_PLUGINS", "all").split(" ")
 UWSGI_ADDR = "127.0.0.1"
 UWSGI_PORT = 8000
 UWSGI_HTTP = f"{UWSGI_ADDR}:{UWSGI_PORT}"
+
+
+def plugins_available(plugins):
+    available = False
+    if "all" in UWSGI_PLUGINS:
+        available = True
+    else:
+        available = all([plugin in UWSGI_PLUGINS for plugin in plugins])
+    return available, f"{plugins} plugins not available but required for this test case"
 
 
 class UwsgiTest(unittest.TestCase):
@@ -72,6 +82,7 @@ class UwsgiTest(unittest.TestCase):
         self.testserver.wait()
         self.testserver.stdout.close()
 
+    @unittest.skipUnless(*plugins_available(["python3"]))
     def test_static_expires(self):
         self.start_listen_server(
             [
