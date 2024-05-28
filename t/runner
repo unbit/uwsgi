@@ -6,6 +6,7 @@ import requests
 import signal
 import socket
 import subprocess
+import sys
 import time
 import unittest
 
@@ -17,63 +18,69 @@ UWSGI_PORT = 8000
 UWSGI_HTTP = f"{UWSGI_ADDR}:{UWSGI_PORT}"
 
 
-class BaseTest:
-    """
-    Container class to avoid base test being run
-    """
+class UwsgiTest(unittest.TestCase):
 
-    class UwsgiServerTest(unittest.TestCase):
-        """
-        Test case with a server instance available on a socket for requests
-        """
+    def start_server(self, args):
+        self.testserver = subprocess.Popen(
+            [UWSGI_BINARY] + args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
 
-        @classmethod
-        def uwsgi_ready(cls):
-            try:
-                s = socket.socket()
-                s.connect(
-                    (
-                        UWSGI_ADDR,
-                        UWSGI_PORT,
-                    )
+    def uwsgi_ready(self):
+        try:
+            s = socket.socket()
+            s.connect(
+                (
+                    UWSGI_ADDR,
+                    UWSGI_PORT,
                 )
-            except socket.error:
-                return False
-            else:
-                return True
-            finally:
-                s.close()
-
-        @classmethod
-        def setUpClass(cls):
-            # launch server
-            cls.testserver = subprocess.Popen(
-                [UWSGI_BINARY, "--http-socket", UWSGI_HTTP] + cls.ARGS
             )
+        except socket.error:
+            return False
+        else:
+            return True
+        finally:
+            s.close()
 
-            # ensure server is ready
-            retries = 10
-            while not cls.uwsgi_ready() and retries > 0:
-                time.sleep(0.1)
-                retries = retries - 1
-                if retries == 0:
-                    raise RuntimeError("uwsgi test server is not available")
+    def start_listen_server(self, args):
+        self.start_server(["--http-socket", UWSGI_HTTP] + args)
 
-        @classmethod
-        def tearDownClass(cls):
-            cls.testserver.send_signal(signal.SIGTERM)
-            cls.testserver.wait()
+        # ensure server is ready
+        retries = 10
+        while not self.uwsgi_ready() and retries > 0:
+            time.sleep(0.1)
+            retries = retries - 1
+            if retries == 0:
+                raise RuntimeError("uwsgi test server is not available")
 
+    def tearDown(self):
+        if hasattr(self._outcome, "errors"):
+            # Python 3.4 - 3.10  (These two methods have no side effects)
+            result = self.defaultTestResult()
+            self._feedErrorsToResult(result, self._outcome.errors)
+        else:
+            # Python 3.11+
+            result = self._outcome.result
+        ok = not (result.errors + result.failures)
 
-class StaticTest(BaseTest.UwsgiServerTest):
+        self.testserver.send_signal(signal.SIGTERM)
+        if not ok:
+            print(self.testserver.stdout.read(), file=sys.stderr)
 
-    ARGS = [
-        "--plugin",
-        "python3",  # provide a request plugin if no embedded request plugin
-        os.path.join(TESTS_DIR, "static", "config.ini"),
-    ]
+        self.testserver.wait()
+        self.testserver.stdout.close()
 
     def test_static_expires(self):
+        self.start_listen_server(
+            [
+                "--plugin",
+                "python3",  # provide a request plugin if no embedded request plugin
+                os.path.join(TESTS_DIR, "static", "config.ini"),
+            ]
+        )
+
         with requests.get(f"http://{UWSGI_HTTP}/foobar/config.ini") as r:
             self.assertTrue("Expires" in r.headers)
 
