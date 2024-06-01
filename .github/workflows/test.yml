@@ -7,13 +7,38 @@ on:
     branches: [ master, uwsgi-2.0 ]
 
 jobs:
-  python:
 
+  unittest:
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Install dependencies
+      run: |
+        sudo apt update -qq
+        sudo apt install --no-install-recommends -qqyf \
+          libpcre2-dev libjansson-dev libcap2-dev \
+          check
+    - uses: actions/checkout@v4
+    - name: Run unit tests
+      run: make unittests
+
+  test:
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Install dependencies
+      run: |
+        sudo apt update -qq
+        sudo apt install --no-install-recommends -qqyf \
+          libpcre2-dev libjansson-dev libcap2-dev
+    - uses: actions/checkout@v4
+    - name: Run integration tests
+      run: make all tests
+
+  python:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
         python-version: ["2.7", "3.6", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
-        test-suite: [unittest, python, deadlocks]
+        test-suite: [python, deadlocks]
     steps:
     - name: Add deadnakes ppa
       run: sudo add-apt-repository ppa:deadsnakes/ppa -y
@@ -22,34 +47,27 @@ jobs:
         sudo apt update -qq
         sudo apt install --no-install-recommends -qqyf python${{ matrix.python-version }}-dev \
           libpcre2-dev libjansson-dev libcap2-dev \
-          curl check
+          curl
     - name: Install distutils
       if: contains(fromJson('["3.6","3.7","3.8","3.9","3.10","3.11","3.12"]'), matrix.python-version)
       run: |
         sudo apt install --no-install-recommends -qqyf python${{ matrix.python-version }}-distutils \
     - uses: actions/checkout@v4
-    - name: Run unit tests
-      if: matrix.test-suite == 'unittest'
-      run: make tests
     - name: Build uWSGI binary
-      if: matrix.test-suite != 'unittest'
       run: make
     - name: Build python${{ matrix.python-version }} plugin
-      if: matrix.test-suite != 'unittest'
       run: |
         PYTHON_VERSION=${{ matrix.python-version }}
         PYTHON_VERSION=python${PYTHON_VERSION//.}
         /usr/bin/python${{ matrix.python-version }} -V
         /usr/bin/python${{ matrix.python-version }} uwsgiconfig.py --plugin plugins/python base $PYTHON_VERSION
     - name: run smoke tests
-      if: matrix.test-suite != 'unittest'
       run: |
         PYTHON_VERSION=${{ matrix.python-version }}
         PYTHON_VERSION=python${PYTHON_VERSION//.}
         ./tests/gh-${{ matrix.test-suite }}.sh ${PYTHON_VERSION}
 
   rack:
-
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -59,11 +77,9 @@ jobs:
       run: |
         sudo apt update -qq
         sudo apt install --no-install-recommends -qqyf python3-dev \
-          libpcre3-dev libjansson-dev libcap2-dev ruby2.7-dev \
-          curl check
+          libpcre2-dev libjansson-dev libcap2-dev ruby2.7-dev \
+          curl
     - uses: actions/checkout@v4
-    - name: Run unit tests
-      run: make tests
     - name: Build uWSGI binary
       run: make
     - name: Build rack plugin
