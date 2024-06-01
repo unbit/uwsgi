@@ -5,8 +5,9 @@ cherry-picked from the `master` branch.
 
 Before tagging a new release the release notes should be updated and a file named
 `Changelog-2.0.XY.rst` where XY is the number of the release created in
-the [uwsgi-docs repository](https://github.com/unbit/uwsgi-docs). The file should then be referenced
-the newly created changelog file from the `index.rst`.
+the [uwsgi-docs repository](https://github.com/unbit/uwsgi-docs). The newly created changelog file
+should then be referenced from the `index.rst`. The release should also be updated in the `Download.rst`
+page.
 
 In order to cut a new release you have to first bump the version and then tag with the same version
 the last commit in git. All the commands are assumed to be run from the `uwsgi-2.0` branch.
