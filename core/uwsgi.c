@@ -1255,16 +1255,17 @@ void gracefully_kill(int signum) {
 
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
+
 	if (uwsgi.threads > 1) {
-		struct wsgi_request *wsgi_req = current_wsgi_req();
-		wait_for_threads();
-		if (!uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request) {
-			if (uwsgi.workers[uwsgi.mywid].shutdown_sockets)
-				uwsgi_shutdown_all_sockets();
-			exit(UWSGI_RELOAD_CODE);
+		// Stop event_queue_wait() in other threads.
+		// We use loop_stop_pipe only in threaded workers to avoid
+		// unintensional behavior changes in single threaded workers.
+		int fd;
+		if ((fd = uwsgi.loop_stop_pipe[1]) > 0) {
+			close(fd);
+			uwsgi.loop_stop_pipe[1] = 0;
 		}
 		return;
-		// never here
 	}
 
 	// still not found a way to gracefully reload in async mode
@@ -1295,6 +1296,17 @@ static void simple_goodbye_cruel_world(const char *reason) {
 	if (prev) {
 		// Avoid showing same message from all threads.
 		uwsgi_log("...The work of process %d is done (%s). Seeya!\n", getpid(), (reason != NULL ? reason : "no reason given"));
+	}
+
+	if (uwsgi.threads > 1) {
+		// Stop event_queue_wait() in other threads.
+		// We use loop_stop_pipe only in threaded workers to avoid
+		// unintensional behavior changes in single threaded workers.
+		int fd;
+		if ((fd = uwsgi.loop_stop_pipe[1]) > 0) {
+			close(fd);
+			uwsgi.loop_stop_pipe[1] = 0;
+		}
 	}
 }
 
@@ -3640,6 +3652,10 @@ void uwsgi_ignition() {
 			uwsgi_error("pthread_key_create()");
 			exit(1);
 		}
+	}
+	if (pipe(&uwsgi.loop_stop_pipe[0])) {
+		uwsgi_error("pipe()")
+		exit(1);
 	}
 
 	// mark the worker as "accepting" (this is a mark used by chain reloading)
