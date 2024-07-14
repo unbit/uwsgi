@@ -6,6 +6,11 @@
 
 #include <frameobject.h>
 
+#if (PY_VERSION_HEX >= 0x030d0000)
+// # FIXME, ask @vstinner for _PyImport_AcquireLock, _PyImport_ReleaseLock
+#include "internal/pycore_import.h"
+#endif
+
 #define PYTHON_APP_TYPE_WSGI		0
 #define PYTHON_APP_TYPE_WEB3		1
 #define PYTHON_APP_TYPE_WSGI2		2
@@ -23,6 +28,10 @@
 
 #if (PY_VERSION_HEX >= 0x030c0000)
 #  define UWSGI_PY312
+#endif
+
+#if (PY_VERSION_HEX >= 0x030d0000)
+#  define UWSGI_PY313
 #endif
 
 #if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION < 7
@@ -189,11 +198,19 @@ struct uwsgi_python {
 #ifdef UWSGI_PY312
 	int *current_c_recursion_remaining;
 	int *current_py_recursion_remaining;
+#ifdef UWSGI_PY313
+	struct _PyInterpreterFrame **current_frame;
+#else
 	_PyCFrame **current_frame;
+#endif
 
 	int current_main_c_recursion_remaining;
 	int current_main_py_recursion_remaining;
+#ifdef UWSGI_PY313
+	struct _PyInterpreterFrame *current_main_frame;
+#else
 	_PyCFrame *current_main_frame;
+#endif
 #elif defined UWSGI_PY311
 	int *current_recursion_remaining;
 	_PyCFrame **current_frame;

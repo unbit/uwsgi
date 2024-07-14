@@ -682,6 +682,8 @@ class uConf(object):
         cflags = [
             '-O2',
             '-I.',
+            '-I/home/rm/src/cpython/',
+            '-I/home/rm/src/cpython/Include',
             '-Wall',
             '-Werror',
             '-Wno-error=deprecated-declarations',
