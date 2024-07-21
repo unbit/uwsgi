@@ -25,6 +25,10 @@
 #  define UWSGI_PY312
 #endif
 
+#if (PY_VERSION_HEX >= 0x030d0000)
+#  define UWSGI_PY313
+#endif
+
 #if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION < 7
 #define HAS_NOT_PyMemoryView_FromBuffer
 #endif
@@ -171,11 +175,19 @@ struct uwsgi_python {
 #ifdef UWSGI_PY312
 	int *current_c_recursion_remaining;
 	int *current_py_recursion_remaining;
+#ifdef UWSGI_PY313
+	struct _PyInterpreterFrame **current_frame;
+#else
 	_PyCFrame **current_frame;
+#endif
 
 	int current_main_c_recursion_remaining;
 	int current_main_py_recursion_remaining;
+#ifdef UWSGI_PY313
+	struct _PyInterpreterFrame *current_main_frame;
+#else
 	_PyCFrame *current_main_frame;
+#endif
 #elif defined UWSGI_PY311
 	int *current_recursion_remaining;
 	_PyCFrame **current_frame;
