@@ -424,7 +424,7 @@ void uwsgi_python_post_fork() {
 	// reset python signal flags so child processes can trap signals
 	// Necessary if uwsgi fork hooks not called to update interpreter state
 	if (!up.call_uwsgi_fork_hooks && up.call_osafterfork) {
-#ifdef HAS_NOT_PyOS_AfterFork_Child
+#ifdef HAS_NOT_PYOS_FORK_STABLE_API
 		PyOS_AfterFork();
 #else
 		PyOS_AfterFork_Child();
@@ -1332,11 +1332,10 @@ void uwsgi_python_pre_uwsgi_fork() {
 		// Acquire the gil and import lock before forking in order to avoid
 		// deadlocks in workers
 		UWSGI_GET_GIL
-#if defined UWSGI_PY312
-		PyInterpreterState *interp = PyInterpreterState_Get();
-		_PyImport_AcquireLock(interp);
-#else
+#ifdef HAS_NOT_PYOS_FORK_STABLE_API
 		_PyImport_AcquireLock();
+#else
+		PyOS_BeforeFork();
 #endif
 	}
 }
@@ -1349,17 +1348,16 @@ void uwsgi_python_post_uwsgi_fork(int step) {
 	if (uwsgi.has_threads) {
 		if (step == 0) {
 			// Release locks within master process
-#if defined UWSGI_PY312
-			PyInterpreterState *interp = PyInterpreterState_Get();
-			_PyImport_ReleaseLock(interp);
-#else
+#ifdef HAS_NOT_PYOS_FORK_STABLE_API
 			_PyImport_ReleaseLock();
+#else
+			PyOS_AfterFork_Parent();
 #endif
 			UWSGI_RELEASE_GIL
 		}
 		else {
 			// Ensure thread state and locks are cleaned up in child process
-#ifdef HAS_NOT_PyOS_AfterFork_Child
+#ifdef HAS_NOT_PYOS_FORK_STABLE_API
 			PyOS_AfterFork();
 #else
 			PyOS_AfterFork_Child();
@@ -2090,7 +2088,7 @@ static int uwsgi_python_worker() {
 	// ensure signals can be used again from python
 	// Necessary if fork hooks have been not used to update interpreter state
 	if (!up.call_osafterfork && !up.call_uwsgi_fork_hooks)
-#ifdef HAS_NOT_PyOS_AfterFork_Child
+#ifdef HAS_NOT_PYOS_FORK_STABLE_API
 		PyOS_AfterFork();
 #else
 		PyOS_AfterFork_Child();
