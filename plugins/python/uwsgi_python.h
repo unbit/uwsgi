@@ -41,12 +41,8 @@
 #define HAS_NO_ERRORS_IN_PyFile_FromFd
 #endif
 
-#if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 7
-#define HAS_NOT_PyOS_AfterFork_Child
-#endif
-
-#if PY_MAJOR_VERSION < 3
-#define HAS_NOT_PyOS_AfterFork_Child
+#if (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 7) || PY_MAJOR_VERSION < 3
+#define HAS_NOT_PYOS_FORK_STABLE_API
 #endif
 
 #if PY_MAJOR_VERSION > 2
