@@ -54,11 +54,11 @@ void uwsgi_destroy_processes() {
 
         uwsgi_detach_daemons();
 
-		for (i = 1; i <= uwsgi.numproc; i++) {
-                if (uwsgi.workers[i].pid > 0) {
-                        waitpid(uwsgi.workers[i].pid, &waitpid_status, 0);
-                }
-        }
+	for (i = 1; i <= uwsgi.numproc; i++) {
+		if (uwsgi.workers[i].pid > 0) {
+			waitpid(uwsgi.workers[i].pid, &waitpid_status, 0);
+		}
+	}
 
         for (i = 0; i < ushared->gateways_cnt; i++) {
                 if (ushared->gateways[i].pid > 0) {
