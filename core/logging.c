@@ -531,15 +531,25 @@ void uwsgi_check_logrotate(void) {
 }
 
 void uwsgi_log_do_rotate(char *logfile, char *rotatedfile, off_t logsize, int log_fd) {
-	int need_free = 0;
-	char *rot_name = rotatedfile;
+	time_t rawtime = uwsgi_now();
+	struct tm *current = localtime(&rawtime);
 
-	if (rot_name == NULL) {
-		char *ts_str = uwsgi_num2str((int) uwsgi_now());
-		rot_name = uwsgi_concat3(logfile, ".", ts_str);
-		free(ts_str);
+	int need_free = 0;
+	char *rot_base_name = rotatedfile;
+	if (rot_base_name == NULL) {
+		rot_base_name = uwsgi_concat2(logfile, ".%Y-%m-%dT%X");
 		need_free = 1;
 	}
+
+    size_t rot_name_len = strlen(rot_base_name) + 64;
+    char *rot_name = uwsgi_malloc(rot_name_len);
+
+    if (strftime(rot_name, rot_name_len, rot_base_name, current) == 0) {
+	    uwsgi_error("uwsgi_log_do_rotate()/strftime() (maybe too long)");
+	}
+	if (need_free)
+		free(rot_base_name);
+
 	// this will be rawly written to the logfile
 	uwsgi_logfile_write("logsize: %llu, triggering rotation to %s...\n", (unsigned long long) logsize, rot_name);
 	if (rename(logfile, rot_name) == 0) {
@@ -562,8 +572,8 @@ void uwsgi_log_do_rotate(char *logfile, char *rotatedfile, off_t logsize, int lo
 	else {
 		uwsgi_error("unable to rotate log: rename()");
 	}
-	if (need_free)
-		free(rot_name);
+
+	free(rot_name);
 }
 
 void uwsgi_log_rotate() {
