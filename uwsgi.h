@@ -4897,6 +4897,7 @@ void uwsgi_master_fifo_prepare();
 int uwsgi_master_fifo();
 int uwsgi_master_fifo_manage(int);
 
+mode_t uwsgi_get_logfile_chmod_value();
 void uwsgi_log_do_rotate(char *, char *, off_t, int);
 void uwsgi_log_rotate();
 void uwsgi_log_reopen();
