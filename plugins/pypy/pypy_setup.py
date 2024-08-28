@@ -17,6 +17,25 @@ uwsgi_gc = []
 # the main ffi
 ffi = cffi.FFI()
 
+PY3 = sys.version_info[0] == 3
+if PY3:
+    def maybeEncode(o):
+        if type(o) is str:
+            return o.encode()
+        return o
+
+    def maybeDecode(o):
+        if type(o) is bytes:
+            return o.decode()
+        return o
+else:
+    def maybeEncode(o):
+        return o
+
+    def maybeDecode(o):
+        return o
+
+
 # the hooks we need to patch
 hooks = '''
 void free(void *);
@@ -46,7 +65,7 @@ lib0 = ffi.verify(defines0)
 # basically it build a list of #define from binary CFLAGS
 uwsgi_cdef = []
 uwsgi_defines = []
-uwsgi_cflags = ffi.string(lib0.uwsgi_get_cflags()).split()
+uwsgi_cflags = maybeDecode(ffi.string(lib0.uwsgi_get_cflags())).split()
 for cflag in uwsgi_cflags:
     if cflag.startswith('-D'):
         line = cflag[2:]
@@ -57,7 +76,7 @@ for cflag in uwsgi_cflags:
         else:
             uwsgi_cdef.append('#define %s ...' % line)
             uwsgi_defines.append('#define %s 1' % line)
-uwsgi_dot_h = ffi.string(lib0.uwsgi_get_dot_h())
+uwsgi_dot_h = maybeDecode(ffi.string(lib0.uwsgi_get_dot_h()))
 
 # uwsgi definitions
 cdefines = '''
@@ -286,7 +305,7 @@ wsgi_application = None
 
 # fix argv if needed
 if len(sys.argv) == 0:
-    sys.argv.insert(0, ffi.string(lib.uwsgi_binary_path()))
+    sys.argv.insert(0, maybeDecode(ffi.string(lib.uwsgi_binary_path())))
 
 
 @ffi.callback("void(char *)")
@@ -295,7 +314,7 @@ def uwsgi_pypy_execute_source(s):
     execute source, we expose it as cffi callback to avoid deadlocks
     after GIL initialization
     """
-    source = ffi.string(s)
+    source = maybeDecode(ffi.string(s))
     exec(source)
 
 
@@ -305,7 +324,7 @@ def uwsgi_pypy_loader(module):
     load a wsgi module
     """
     global wsgi_application
-    m = ffi.string(module)
+    m = maybeDecode(ffi.string(module))
     c = 'application'
     if ':' in m:
         m, c = m.split(':')
@@ -322,7 +341,7 @@ def uwsgi_pypy_file_loader(filename):
     load a mod_wsgi compliant .wsgi file
     """
     global wsgi_application
-    w = ffi.string(filename)
+    w = maybeDecode(ffi.string(filename))
     c = 'application'
     mod = imp.load_source('uwsgi_file_wsgi', w)
     wsgi_application = getattr(mod, c)
@@ -334,7 +353,7 @@ def uwsgi_pypy_paste_loader(config):
     load a .ini paste app
     """
     global wsgi_application
-    c = ffi.string(config)
+    c = maybeDecode(ffi.string(config))
     if c.startswith('config:'):
         c = c[7:]
     if c[0] != '/':
@@ -363,7 +382,7 @@ def uwsgi_pypy_pythonpath(item):
     """
     add an item to the pythonpath
     """
-    path = ffi.string(item)
+    path = maybeDecode(ffi.string(item))
     sys.path.append(path)
     print("added %s to pythonpath" % path)
 
@@ -400,13 +419,15 @@ class WSGIfilewrapper(object):
             if self.chunksize == 0:
                 chunk = self.f.read()
                 if len(chunk) > 0:
-                    lib.uwsgi_response_write_body_do(self.wsgi_req, ffi.new("char[]", chunk), len(chunk))
+                    chunkobj = maybeEncode(chunk)
+                    lib.uwsgi_response_write_body_do(self.wsgi_req, ffi.new("char[]", chunkobj), len(chunkobj))
                 return
             while True:
                 chunk = self.f.read(self.chunksize)
                 if chunk is None or len(chunk) == 0:
                     break
-                lib.uwsgi_response_write_body_do(self.wsgi_req, ffi.new("char[]", chunk), len(chunk))
+                chunkobj = maybeEncode(chunk)
+                lib.uwsgi_response_write_body_do(self.wsgi_req, ffi.new("char[]", chunkobj), len(chunkobj))
 
 
 class WSGIinput(object):
@@ -465,20 +486,24 @@ def uwsgi_pypy_wsgi_handler(wsgi_req):
     global wsgi_application
 
     def writer(data):
-        lib.uwsgi_response_write_body_do(wsgi_req, ffi.new("char[]", data), len(data))
+        dataobj = maybeEncode(data)
+        lib.uwsgi_response_write_body_do(wsgi_req, ffi.new("char[]", dataobj), len(dataobj))
 
     def start_response(status, headers, exc_info=None):
         if exc_info:
             traceback.print_exception(*exc_info)
-        lib.uwsgi_response_prepare_headers(wsgi_req, ffi.new("char[]", status), len(status))
+        statusobj = maybeEncode(status)
+        lib.uwsgi_response_prepare_headers(wsgi_req, ffi.new("char[]", statusobj), len(statusobj))
         for hh in headers:
-            lib.uwsgi_response_add_header(wsgi_req, ffi.new("char[]", hh[0]), len(hh[0]), ffi.new("char[]", hh[1]), len(hh[1]))
+            hh0obj = maybeEncode(hh[0])
+            hh1obj = maybeEncode(hh[1])
+            lib.uwsgi_response_add_header(wsgi_req, ffi.new("char[]", hh0obj), len(hh0obj), ffi.new("char[]", hh1obj), len(hh1obj))
         return writer
 
     environ = {}
     iov = wsgi_req.hvec
     for i in range(0, wsgi_req.var_cnt, 2):
-        environ[ffi.string(ffi.cast("char*", iov[i].iov_base), iov[i].iov_len)] = ffi.string(ffi.cast("char*", iov[i+1].iov_base), iov[i+1].iov_len)
+        environ[maybeDecode(ffi.string(ffi.cast("char*", iov[i].iov_base), iov[i].iov_len))] = maybeDecode(ffi.string(ffi.cast("char*", iov[i+1].iov_base), iov[i+1].iov_len))
 
     environ['wsgi.version'] = (1, 0)
     scheme = 'http'
@@ -530,14 +555,14 @@ Here we define the "uwsgi" virtual module
 
 uwsgi = imp.new_module('uwsgi')
 sys.modules['uwsgi'] = uwsgi
-uwsgi.version = ffi.string(lib.uwsgi_pypy_version)
-uwsgi.hostname = ffi.string(lib.uwsgi.hostname)
+uwsgi.version = maybeDecode(ffi.string(lib.uwsgi_pypy_version))
+uwsgi.hostname = maybeDecode(ffi.string(lib.uwsgi.hostname))
 
 
 def uwsgi_pypy_uwsgi_register_signal(signum, kind, handler):
     cb = ffi.callback('void(int)', handler)
     uwsgi_gc.append(cb)
-    if lib.uwsgi_register_signal(signum, ffi.new("char[]", kind), cb, lib.pypy_plugin.modifier1) < 0:
+    if lib.uwsgi_register_signal(signum, ffi.new("char[]", maybeEncode(kind)), cb, lib.pypy_plugin.modifier1) < 0:
         raise Exception("unable to register signal %d" % signum)
 uwsgi.register_signal = uwsgi_pypy_uwsgi_register_signal
 
@@ -562,7 +587,7 @@ def uwsgi_pypy_uwsgi_register_rpc(name, func, argc=0):
     rpc_func = uwsgi_pypy_RPC(func)
     cb = ffi.callback("int(int, char*[], int[], char**)", rpc_func)
     uwsgi_gc.append(cb)
-    if lib.uwsgi_register_rpc(ffi.new("char[]", name), ffi.addressof(lib.pypy_plugin), argc, cb) < 0:
+    if lib.uwsgi_register_rpc(ffi.new("char[]", maybeEncode(name)), ffi.addressof(lib.pypy_plugin), argc, cb) < 0:
         raise Exception("unable to register rpc func %s" % name)
 uwsgi.register_rpc = uwsgi_pypy_uwsgi_register_rpc
 
@@ -578,16 +603,17 @@ def uwsgi_pypy_rpc(node, func, *args):
             raise Exception('invalid number of rpc arguments')
         if len(arg) >= 65535:
             raise Exception('invalid rpc argument size (must be < 65535)')
-        argv[argc] = ffi.new('char[]', arg)
-        argvs[argc] = len(arg)
+        argobj = maybeEncode(arg)
+        argv[argc] = ffi.new('char[]', argobj)
+        argvs[argc] = len(argobj)
         argc += 1
 
     if node:
-        c_node = ffi.new("char[]", node)
+        c_node = ffi.new("char[]", maybeEncode(node))
     else:
         c_node = ffi.NULL
 
-    response = lib.uwsgi_do_rpc(c_node, ffi.new("char[]", func), argc, argv, argvs, rsize)
+    response = lib.uwsgi_do_rpc(c_node, ffi.new("char[]", maybeEncode(func)), argc, argv, argvs, rsize)
     if response:
         ret = ffi.buffer(response, rsize[0])[:]
         lib.free(response)
@@ -673,7 +699,7 @@ uwsgi.add_rb_timer = uwsgi_pypy_uwsgi_add_rb_timer
 
 
 def uwsgi_pypy_uwsgi_add_file_monitor(signum, filename):
-    if lib.uwsgi_add_file_monitor(signum, ffi.new("char[]", filename)) < 0:
+    if lib.uwsgi_add_file_monitor(signum, ffi.new("char[]", maybeEncode(filename))) < 0:
         raise Exception("unable to register file monitor")
 uwsgi.add_file_monitor = uwsgi_pypy_uwsgi_add_file_monitor
 
@@ -709,10 +735,11 @@ uwsgi.signal_registered = uwsgi_pypy_signal_registered
 
 
 def uwsgi_pypy_alarm(alarm, msg):
-    lib.uwsgi_alarm_trigger(ffi.new('char[]', alarm), ffi.new('char[]', msg), len(msg))
+    msgobj = maybeEncode(msg)
+    lib.uwsgi_alarm_trigger(ffi.new('char[]', maybeEncode(alarm)), ffi.new('char[]', msgobj), len(msgobj))
 uwsgi.alarm = uwsgi_pypy_alarm
 
-uwsgi.setprocname = lambda name: lib.uwsgi_set_processname(ffi.new('char[]', name))
+uwsgi.setprocname = lambda name: lib.uwsgi_set_processname(ffi.new('char[]', maybeEncode(name)))
 
 
 def uwsgi_pypy_add_cron(signum, minute, hour, day, month, week):
@@ -726,11 +753,11 @@ populate uwsgi.opt
 uwsgi.opt = {}
 for i in range(0, lib.uwsgi.exported_opts_cnt):
     uo = lib.uwsgi.exported_opts[i]
-    k = ffi.string(uo.key)
+    k = maybeDecode(ffi.string(uo.key))
     if uo.value == ffi.NULL:
         v = True
     else:
-        v = ffi.string(uo.value)
+        v = maybeDecode(ffi.string(uo.value))
     if k in uwsgi.opt:
         if type(uwsgi.opt[k]) is list:
             uwsgi.opt[k].append(v)
@@ -806,7 +833,7 @@ def uwsgi_pypy_async_connect(addr):
     """
     uwsgi.async_connect(addr)
     """
-    fd = lib.uwsgi_connect(ffi.new('char[]', addr), 0, 1)
+    fd = lib.uwsgi_connect(ffi.new('char[]', maybeEncode(addr)), 0, 1)
     if fd < 0:
         raise Exception("unable to connect to %s" % addr)
     return fd
@@ -881,7 +908,7 @@ def uwsgi_pypy_recv(*args):
     rlen = libc.read(fd, data, l)
     if rlen <= 0:
         raise IOError("unable to receive data")
-    return ffi.string(data[0:rlen])
+    return maybeDecode(ffi.string(data[0:rlen]))
 uwsgi.recv = uwsgi_pypy_recv
 
 """
@@ -928,10 +955,13 @@ def uwsgi_pypy_websocket_handshake(key='', origin='', proto=''):
     uwsgi.websocket_handshake(key, origin)
     """
     wsgi_req = uwsgi_pypy_current_wsgi_req()
-    c_key = ffi.new('char[]', key)
-    c_origin = ffi.new('char[]', origin)
-    c_proto = ffi.new('char[]', proto)
-    if lib.uwsgi_websocket_handshake(wsgi_req, c_key, len(key), c_origin, len(origin), c_proto, len(proto)) < 0:
+    keyobj = maybeEncode(key)
+    originobj = maybeEncode(origin)
+    protoobj = maybeEncode(proto)
+    c_key = ffi.new('char[]', keyobj)
+    c_origin = ffi.new('char[]', originobj)
+    c_proto = ffi.new('char[]', protoobj)
+    if lib.uwsgi_websocket_handshake(wsgi_req, c_key, len(keyobj), c_origin, len(originobj), c_proto, len(protoobj)) < 0:
         raise IOError("unable to complete websocket handshake")
 uwsgi.websocket_handshake = uwsgi_pypy_websocket_handshake
 
@@ -941,7 +971,8 @@ def uwsgi_pypy_websocket_send(msg):
     uwsgi.websocket_send(msg)
     """
     wsgi_req = uwsgi_pypy_current_wsgi_req()
-    if lib.uwsgi_websocket_send(wsgi_req, ffi.new('char[]', msg), len(msg)) < 0:
+    msgobj = maybeEncode(msg)
+    if lib.uwsgi_websocket_send(wsgi_req, ffi.new('char[]', msgobj), len(msgobj)) < 0:
         raise IOError("unable to send websocket message")
 uwsgi.websocket_send = uwsgi_pypy_websocket_send
 
@@ -989,10 +1020,11 @@ def uwsgi_pypy_get_logvar(key):
     uwsgi.get_logvar(key)
     """
     wsgi_req = uwsgi_pypy_current_wsgi_req()
-    c_key = ffi.new('char[]', key)
-    lv = lib.uwsgi_logvar_get(wsgi_req, c_key, len(key))
+    keyobj = maybeEncode(key)
+    c_key = ffi.new('char[]', keyobj)
+    lv = lib.uwsgi_logvar_get(wsgi_req, c_key, len(keyobj))
     if lv:
-        return ffi.string(lv.val[0:lv.vallen])
+        return maybeDecode(ffi.string(lv.val[0:lv.vallen]))
     return None
 uwsgi.get_logvar = uwsgi_pypy_get_logvar
 
@@ -1002,9 +1034,11 @@ def uwsgi_pypy_set_logvar(key, val):
     uwsgi.set_logvar(key, value)
     """
     wsgi_req = uwsgi_pypy_current_wsgi_req()
-    c_key = ffi.new('char[]', key)
-    c_val = ffi.new('char[]', val)
-    lib.uwsgi_logvar_add(wsgi_req, c_key, len(key), c_val, len(val))
+    keyobj = maybeEncode(key)
+    valobj = maybeEncode(val)
+    c_key = ffi.new('char[]', keyobj)
+    c_val = ffi.new('char[]', valobj)
+    lib.uwsgi_logvar_add(wsgi_req, c_key, len(keyobj), c_val, len(valobj))
 uwsgi.set_logvar = uwsgi_pypy_set_logvar
 
 
