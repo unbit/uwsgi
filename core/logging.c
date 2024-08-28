@@ -582,6 +582,11 @@ void uwsgi_log_rotate() {
 	uwsgi_log_do_rotate(uwsgi.logfile, uwsgi.log_backupname, uwsgi.shared->logsize, uwsgi.original_log_fd);
 }
 
+void uwsgi_opt_add_cron_logrotate(char *opt, char *value, void *foobar) {
+	struct uwsgi_cron *uc = uwsgi_cron_add(value);
+	uc->func = uwsgi_log_rotate;
+}
+
 void uwsgi_log_reopen() {
 	char message[1024];
 	if (!uwsgi.logfile)

@@ -3003,6 +3003,9 @@ struct uwsgi_cron {
 	char *command;
 	void (*func)(struct uwsgi_cron *, time_t);
 
+	// data to be used with func
+	void *data;
+
 	time_t started_at;
 
 	// next harakiri timestamp
@@ -4900,6 +4903,7 @@ int uwsgi_master_fifo_manage(int);
 mode_t uwsgi_get_logfile_chmod_value();
 void uwsgi_log_do_rotate(char *, char *, off_t, int);
 void uwsgi_log_rotate();
+void uwsgi_opt_add_cron_logrotate(char *opt, char *value, void *foobar);
 void uwsgi_log_reopen();
 void uwsgi_reload_workers();
 void uwsgi_reload_mules();
