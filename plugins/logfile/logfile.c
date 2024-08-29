@@ -38,19 +38,23 @@ static ssize_t uwsgi_file_logger(struct uwsgi_logger *ul, char *message, size_t 
 					uwsgi_log("[uwsgi-logfile] missing logfile key\n");
 					return 0;
 				}
-
-				if (logfile) {
-					struct logfile_data *data = uwsgi_malloc(sizeof(struct logfile_data));
-					data->logfile = logfile;
-					data->backupname = backupname;
-					if (maxsize) {
-						data->maxsize = (uint64_t)strtoull(maxsize, NULL, 10);
-					}
-					ul->data = data;
-
+				
+				struct logfile_data *data = uwsgi_malloc(sizeof(struct logfile_data));
+				data->logfile = logfile;
+				data->backupname = backupname;
+				if (maxsize) {
+					data->maxsize = (uint64_t)strtoull(maxsize, NULL, 10);
 					free(maxsize);
 					maxsize = NULL;
+				} else {
+					data->maxsize = (uint64_t) 0;
 				}
+				if (cron) {
+					struct uwsgi_cron *uc = uwsgi_cron_add(cron);
+					uc->data = ul;
+					uc->func = uwsgi_cron_trigger_rotate_func;
+				}
+				ul->data = data;
 			} else {
 				logfile = ul->arg;
 			}
@@ -58,12 +62,6 @@ static ssize_t uwsgi_file_logger(struct uwsgi_logger *ul, char *message, size_t 
 			ul->fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, uwsgi_get_logfile_chmod_value());
 			if (ul->fd >= 0) {
 				ul->configured = 1;
-
-				if (cron) {
-				    struct uwsgi_cron *uc = uwsgi_cron_add(cron);
-				    uc->data = ul;
-				    uc->func = uwsgi_cron_trigger_rotate_func;
-				}
 			}	
 		}
 	}
