@@ -186,22 +186,22 @@ struct uwsgi_python {
 
 	char *callable;
 
-#ifdef UWSGI_PY312
+#ifdef UWSGI_PY313
 	int *current_c_recursion_remaining;
 	int *current_py_recursion_remaining;
-#ifdef UWSGI_PY313
 	struct _PyInterpreterFrame **current_frame;
-#else
-	_PyCFrame **current_frame;
-#endif
 
 	int current_main_c_recursion_remaining;
 	int current_main_py_recursion_remaining;
-#ifdef UWSGI_PY313
 	struct _PyInterpreterFrame *current_main_frame;
-#else
+#elif defined UWSGI_PY312
+	int *current_c_recursion_remaining;
+	int *current_py_recursion_remaining;
+	_PyCFrame **current_frame;
+
+	int current_main_c_recursion_remaining;
+	int current_main_py_recursion_remaining;
 	_PyCFrame *current_main_frame;
-#endif
 #elif defined UWSGI_PY311
 	int *current_recursion_remaining;
 	_PyCFrame **current_frame;
