@@ -461,7 +461,7 @@ void uwsgi_python_post_fork() {
 	// reset python signal flags so child processes can trap signals
 	// Necessary if uwsgi fork hooks not called to update interpreter state
 	if (!up.call_uwsgi_fork_hooks && up.call_osafterfork) {
-#ifdef HAS_NOT_PyOS_AfterFork_Child
+#ifdef HAS_NOT_PYOS_FORK_STABLE_API
 		PyOS_AfterFork();
 #else
                 PyOS_AfterFork_Child();
@@ -1368,11 +1368,10 @@ void uwsgi_python_pre_uwsgi_fork() {
 		// Acquire the gil and import lock before forking in order to avoid
 		// deadlocks in workers
 		UWSGI_GET_GIL
-#if defined UWSGI_PY312
-		PyInterpreterState *interp = PyInterpreterState_Get();
-		_PyImport_AcquireLock(interp);
-#else
+#ifdef HAS_NOT_PYOS_FORK_STABLE_API
 		_PyImport_AcquireLock();
+#else
+		PyOS_BeforeFork();
 #endif
 	}
 }
@@ -1385,17 +1384,16 @@ void uwsgi_python_post_uwsgi_fork(int step) {
 	if (uwsgi.has_threads) {
 		if (step == 0) {
 			// Release locks within master process
-#if defined UWSGI_PY312
-			PyInterpreterState *interp = PyInterpreterState_Get();
-			_PyImport_ReleaseLock(interp);
-#else
+#ifdef HAS_NOT_PYOS_FORK_STABLE_API
 			_PyImport_ReleaseLock();
+#else
+			PyOS_AfterFork_Parent();
 #endif
 			UWSGI_RELEASE_GIL
 		}
 		else {
 			// Ensure thread state and locks are cleaned up in child process
-#ifdef HAS_NOT_PyOS_AfterFork_Child
+#ifdef HAS_NOT_PYOS_FORK_STABLE_API
 			PyOS_AfterFork();
 #else
 			PyOS_AfterFork_Child();
@@ -1664,7 +1662,11 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 #ifdef UWSGI_PY312
 		up.current_c_recursion_remaining[wsgi_req->async_id] = tstate->c_recursion_remaining;
 		up.current_py_recursion_remaining[wsgi_req->async_id] = tstate->py_recursion_remaining;
+#ifdef UWSGI_PY313
+		up.current_frame[wsgi_req->async_id] = tstate->current_frame;
+#else
 		up.current_frame[wsgi_req->async_id] = tstate->cframe;
+#endif
 #elif defined UWSGI_PY311
 		up.current_recursion_remaining[wsgi_req->async_id] = tstate->recursion_remaining;
 		up.current_frame[wsgi_req->async_id] = tstate->cframe;
@@ -1677,7 +1679,11 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 #ifdef UWSGI_PY312
 		up.current_main_c_recursion_remaining = tstate->c_recursion_remaining;
 		up.current_main_py_recursion_remaining = tstate->py_recursion_remaining;
+#ifdef UWSGI_PY313
+		up.current_main_frame = tstate->current_frame;
+#else
 		up.current_main_frame = tstate->cframe;
+#endif
 #elif defined UWSGI_PY311
 		up.current_main_recursion_remaining = tstate->recursion_remaining;
 		up.current_main_frame = tstate->cframe;
@@ -1917,7 +1923,11 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 #ifdef UWSGI_PY312
 		tstate->c_recursion_remaining = up.current_c_recursion_remaining[wsgi_req->async_id];
 		tstate->py_recursion_remaining = up.current_py_recursion_remaining[wsgi_req->async_id];
+#ifdef UWSGI_PY313
+		tstate->current_frame = up.current_frame[wsgi_req->async_id];
+#else
 		tstate->cframe = up.current_frame[wsgi_req->async_id];
+#endif
 #elif defined UWSGI_PY311
 		tstate->recursion_remaining = up.current_recursion_remaining[wsgi_req->async_id];
 		tstate->cframe = up.current_frame[wsgi_req->async_id];
@@ -1930,7 +1940,11 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 #ifdef UWSGI_PY312
 		tstate->c_recursion_remaining = up.current_main_c_recursion_remaining;
 		tstate->py_recursion_remaining = up.current_main_py_recursion_remaining;
+#ifdef UWSGI_PY313
+		tstate->current_frame = up.current_main_frame;
+#else
 		tstate->cframe = up.current_main_frame;
+#endif
 #elif defined UWSGI_PY311
 		tstate->recursion_remaining = up.current_main_recursion_remaining;
 		tstate->cframe = up.current_main_frame;
@@ -2164,7 +2178,7 @@ static int uwsgi_python_worker() {
 	// ensure signals can be used again from python
 	// Necessary if fork hooks have been not used to update interpreter state
 	if (!up.call_osafterfork && !up.call_uwsgi_fork_hooks)
-#ifdef HAS_NOT_PyOS_AfterFork_Child
+#ifdef HAS_NOT_PYOS_FORK_STABLE_API
 		PyOS_AfterFork();
 #else
                 PyOS_AfterFork_Child();
