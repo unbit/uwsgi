@@ -1608,14 +1608,14 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 	PyGILState_Release(pgst);
 
 	if (wsgi_req) {
-#ifdef UWSGI_PY312
+#ifdef UWSGI_PY313
 		up.current_c_recursion_remaining[wsgi_req->async_id] = tstate->c_recursion_remaining;
 		up.current_py_recursion_remaining[wsgi_req->async_id] = tstate->py_recursion_remaining;
-#ifdef UWSGI_PY313
 		up.current_frame[wsgi_req->async_id] = tstate->current_frame;
-#else
+#elif defined UWSGI_PY312
+		up.current_c_recursion_remaining[wsgi_req->async_id] = tstate->c_recursion_remaining;
+		up.current_py_recursion_remaining[wsgi_req->async_id] = tstate->py_recursion_remaining;
 		up.current_frame[wsgi_req->async_id] = tstate->cframe;
-#endif
 #elif defined UWSGI_PY311
 		up.current_recursion_remaining[wsgi_req->async_id] = tstate->recursion_remaining;
 		up.current_frame[wsgi_req->async_id] = tstate->cframe;
@@ -1625,14 +1625,14 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 #endif
 	}
 	else {
-#ifdef UWSGI_PY312
+#ifdef UWSGI_PY313
 		up.current_main_c_recursion_remaining = tstate->c_recursion_remaining;
 		up.current_main_py_recursion_remaining = tstate->py_recursion_remaining;
-#ifdef UWSGI_PY313
 		up.current_main_frame = tstate->current_frame;
-#else
+#elif defined UWSGI_PY312
+		up.current_main_c_recursion_remaining = tstate->c_recursion_remaining;
+		up.current_main_py_recursion_remaining = tstate->py_recursion_remaining;
 		up.current_main_frame = tstate->cframe;
-#endif
 #elif defined UWSGI_PY311
 		up.current_main_recursion_remaining = tstate->recursion_remaining;
 		up.current_main_frame = tstate->cframe;
@@ -1869,14 +1869,14 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 	PyGILState_Release(pgst);
 
 	if (wsgi_req) {
-#ifdef UWSGI_PY312
+#ifdef UWSGI_PY313
 		tstate->c_recursion_remaining = up.current_c_recursion_remaining[wsgi_req->async_id];
 		tstate->py_recursion_remaining = up.current_py_recursion_remaining[wsgi_req->async_id];
-#ifdef UWSGI_PY313
 		tstate->current_frame = up.current_frame[wsgi_req->async_id];
-#else
+#elif defined UWSGI_PY312
+		tstate->c_recursion_remaining = up.current_c_recursion_remaining[wsgi_req->async_id];
+		tstate->py_recursion_remaining = up.current_py_recursion_remaining[wsgi_req->async_id];
 		tstate->cframe = up.current_frame[wsgi_req->async_id];
-#endif
 #elif defined UWSGI_PY311
 		tstate->recursion_remaining = up.current_recursion_remaining[wsgi_req->async_id];
 		tstate->cframe = up.current_frame[wsgi_req->async_id];
@@ -1886,14 +1886,14 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 #endif
 	}
 	else {
-#ifdef UWSGI_PY312
+#ifdef UWSGI_PY313
 		tstate->c_recursion_remaining = up.current_main_c_recursion_remaining;
 		tstate->py_recursion_remaining = up.current_main_py_recursion_remaining;
-#ifdef UWSGI_PY313
 		tstate->current_frame = up.current_main_frame;
-#else
+#elif defined UWSGI_PY312
+		tstate->c_recursion_remaining = up.current_main_c_recursion_remaining;
+		tstate->py_recursion_remaining = up.current_main_py_recursion_remaining;
 		tstate->cframe = up.current_main_frame;
-#endif
 #elif defined UWSGI_PY311
 		tstate->recursion_remaining = up.current_main_recursion_remaining;
 		tstate->cframe = up.current_main_frame;
