@@ -7,5 +7,7 @@
 
 #include "ext/session/php_session.h"
 
+#include "ext/standard/head.h"
+
 #include <uwsgi.h>
 
