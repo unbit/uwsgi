@@ -83,12 +83,12 @@ struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *wsgi_req) {
 	ub = uwsgi_buffer_new(4096);
 	Py_ssize_t i;
 	// we have to build a uwsgi array with 5 items (4 are taken from the python tb)
-	for(i=0;i< PyList_Size(result);i++) {
-		PyObject *t = PyList_GetItem(result, i);
-		PyObject *tb_filename = PyTuple_GetItem(t, 0);
-		PyObject *tb_lineno = PyTuple_GetItem(t, 1);
-		PyObject *tb_function = PyTuple_GetItem(t, 2);
-		PyObject *tb_text = PyTuple_GetItem(t, 3);
+	for(i=0;i< PySequence_Size(result);i++) {
+		PyObject *t = PySequence_GetItem(result, i);
+		PyObject *tb_filename = PySequence_GetItem(t, 0);
+		PyObject *tb_lineno = PySequence_GetItem(t, 1);
+		PyObject *tb_function = PySequence_GetItem(t, 2);
+		PyObject *tb_text = PySequence_GetItem(t, 3);
 
 		int64_t line_no = PyInt_AsLong(tb_lineno);
 #ifdef PYTHREE
