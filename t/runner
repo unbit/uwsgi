@@ -1,4 +1,12 @@
 #!/usr/bin/python3
+#
+# This test suite runner runs some integration tests for uwsgi, that is
+# each test launches a test server with a specific configuration and
+# verifies (usually using a HTTP request) that this test server behaves as
+# expected.
+#
+# buildconf/integration-tests.ini holds the build configuration for this
+# to run fine.
 
 
 import os
@@ -82,18 +90,54 @@ class UwsgiTest(unittest.TestCase):
         self.testserver.wait()
         self.testserver.stdout.close()
 
-    @unittest.skipUnless(*plugins_available(["python3"]))
+    @unittest.skipUnless(*plugins_available(["python"]))
     def test_static_expires(self):
         self.start_listen_server(
             [
                 "--plugin",
-                "python3",  # provide a request plugin if no embedded request plugin
+                "python",  # provide a request plugin
                 os.path.join(TESTS_DIR, "static", "config.ini"),
             ]
         )
 
         with requests.get(f"http://{UWSGI_HTTP}/foobar/config.ini") as r:
             self.assertTrue("Expires" in r.headers)
+
+    @unittest.skipUnless(*plugins_available(["python"]))
+    def test_python3_helloworld(self):
+        self.start_listen_server(
+            [
+                "--plugin",
+                "python",
+                "--wsgi-file",
+                os.path.join(TESTS_DIR, "python", "helloapp.py"),
+            ]
+        )
+
+        with requests.get(f"http://{UWSGI_HTTP}/") as r:
+            self.assertEqual(r.text, "Hello World")
+
+    @unittest.skipUnless(*plugins_available(["pypy"]))
+    def test_pypy3_helloworld(self):
+        self.start_listen_server(
+            [
+                os.path.join(TESTS_DIR, "pypy", "config.ini"),
+            ]
+        )
+
+        with requests.get(f"http://{UWSGI_HTTP}/") as r:
+            self.assertEqual(r.text, "Hello World")
+
+    @unittest.skipUnless(*plugins_available(["php"]))
+    def test_php_session(self):
+        self.start_listen_server(
+            [
+                os.path.join(TESTS_DIR, "php", "config.ini"),
+            ]
+        )
+
+        with requests.get(f"http://{UWSGI_HTTP}/test.php") as r:
+            self.assertEqual(r.text, "PASS\n")
 
 
 if __name__ == "__main__":
