@@ -468,8 +468,8 @@ void sanitize_args() {
                 uwsgi.cores = uwsgi.async;
         }
 
+        uwsgi.has_threads = 1;
         if (uwsgi.threads > 1) {
-                uwsgi.has_threads = 1;
                 uwsgi.cores = uwsgi.threads;
         }
 

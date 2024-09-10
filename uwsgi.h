@@ -2953,6 +2953,8 @@ struct uwsgi_server {
 	struct uwsgi_buffer *websockets_continuation_buffer;
 
 	uint64_t max_worker_lifetime_delta;
+	// This pipe is used to stop event_queue_wait() in threaded workers.
+	int loop_stop_pipe[2];
 };
 
 struct uwsgi_rpc {

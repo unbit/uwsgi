@@ -499,6 +499,21 @@ PHP_FUNCTION(uwsgi_signal) {
         RETURN_NULL();
 }
 
+PHP_FUNCTION(uwsgi_disconnect) {
+
+	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
+
+	php_output_end_all();
+	php_header();
+
+	uwsgi_disconnect(wsgi_req);
+
+	php_output_set_status(PHP_OUTPUT_DISABLED);
+
+	RETURN_NULL();
+}
+
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo_void, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
@@ -517,6 +532,7 @@ zend_function_entry uwsgi_php_functions[] = {
 	PHP_FE(uwsgi_cache_del, arginfo_void)
 	PHP_FE(uwsgi_cache_clear, arginfo_void)
 	PHP_FE(uwsgi_cache_exists, arginfo_void)
+	PHP_FE(uwsgi_disconnect, arginfo_void)
 	{ NULL, NULL, NULL},
 };
 

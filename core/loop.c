@@ -127,6 +127,7 @@ void *simple_loop_run(void *arg1) {
 	int main_queue = event_queue_init();
 
 	uwsgi_add_sockets_to_queue(main_queue, core_id);
+	event_queue_add_fd_read(main_queue, uwsgi.loop_stop_pipe[0]);
 
 	if (uwsgi.signal_socket > -1) {
 		event_queue_add_fd_read(main_queue, uwsgi.signal_socket);
