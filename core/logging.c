@@ -1449,9 +1449,6 @@ next:
 		ul->func(ul, new_msg, new_msg_len);
 	}
 	else {
-		if (uwsgi.log_tee_like) {
-			(void)!write(uwsgi.stderr_back_fd, new_msg, new_msg_len);
-		}
 		new_msg_len = (size_t) write(uwsgi.original_log_fd, new_msg, new_msg_len);
 	}
 	if (new_msg != msg) {

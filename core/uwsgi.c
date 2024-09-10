@@ -719,7 +719,6 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"max-fd", required_argument, 0, "set maximum number of file descriptors (requires root privileges)", uwsgi_opt_set_int, &uwsgi.requested_max_fd, 0},
 	{"logto", required_argument, 0, "set logfile/udp address", uwsgi_opt_set_str, &uwsgi.logfile, 0},
 	{"logto2", required_argument, 0, "log to specified file or udp address after privileges drop", uwsgi_opt_set_str, &uwsgi.logto2, 0},
-	{"logto-tee-like", required_argument, 0, "sends logs to logto file and to stdout", uwsgi_opt_true, &uwsgi.log_tee_like, 0},
 	{"log-format", required_argument, 0, "set advanced format for request logging", uwsgi_opt_set_str, &uwsgi.logformat, 0},
 	{"logformat", required_argument, 0, "set advanced format for request logging", uwsgi_opt_set_str, &uwsgi.logformat, 0},
 	{"logformat-strftime", no_argument, 0, "apply strftime to logformat output", uwsgi_opt_true, &uwsgi.logformat_strftime, 0},

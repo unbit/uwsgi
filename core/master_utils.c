@@ -574,10 +574,6 @@ void uwsgi_reload(char **argv) {
 
 		}
 
-		if (i == uwsgi.stderr_back_fd) {
-			continue;
-		}
-
 #ifdef __APPLE__
 		fcntl(i, F_SETFD, FD_CLOEXEC);
 #else
@@ -606,9 +602,6 @@ void uwsgi_reload(char **argv) {
 		}
 		if (uwsgi.shared->worker_log_pipe[1] > -1) {
 			close(uwsgi.shared->worker_log_pipe[1]);
-		}
-		if (uwsgi.stderr_back_fd > -1) {
-			close(uwsgi.stderr_back_fd);
 		}
 	}
 	execvp(uwsgi.binary_path, argv);

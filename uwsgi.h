@@ -2163,8 +2163,6 @@ struct uwsgi_server {
 	char *log_backupname;
 
 	int original_log_fd;
-	int stderr_back_fd;
-	int log_tee_like;
 	int req_log_fd;
 
 	// static file serving
