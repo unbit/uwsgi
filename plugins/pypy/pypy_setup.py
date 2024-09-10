@@ -49,13 +49,12 @@ uwsgi_defines = []
 uwsgi_cflags = ffi.string(lib0.uwsgi_get_cflags()).split()
 for cflag in uwsgi_cflags:
     if cflag.startswith(b'-D'):
-        line = cflag[2:]
-        if b'=' in line:
-            (key, value) = line.decode().split('=', 1)
+        line = cflag[2:].decode()
+        if '=' in line:
+            (key, value) = line.split('=', 1)
             uwsgi_cdef.append('#define %s ...' % key)
             uwsgi_defines.append('#define %s %s' % (key, value.replace('\\"', '"').replace('""', '"')))
         else:
-            line = line.decode()
             uwsgi_cdef.append('#define %s ...' % line)
             uwsgi_defines.append('#define %s 1' % line)
 uwsgi_dot_h = ffi.string(lib0.uwsgi_get_dot_h())
@@ -169,7 +168,7 @@ struct uwsgi_server {
 };
 extern struct uwsgi_server uwsgi;
 
-extern struct uwsgi_plugin pypy3_plugin;
+extern struct uwsgi_plugin pypy_plugin;
 
 extern const char *uwsgi_pypy_version;
 
@@ -249,7 +248,7 @@ void uwsgi_disconnect(struct wsgi_request *);
 
 int uwsgi_ready_fd(struct wsgi_request *);
 
-void set_user_harakiri(int);
+void set_user_harakiri(struct wsgi_request *, int);
 
 int uwsgi_metric_set(char *, char *, int64_t);
 int uwsgi_metric_inc(char *, char *, int64_t);
@@ -270,7 +269,7 @@ const char *uwsgi_pypy_version = UWSGI_VERSION;
 %s
 
 extern struct uwsgi_server uwsgi;
-extern struct uwsgi_plugin pypy3_plugin;
+extern struct uwsgi_plugin pypy_plugin;
 %s
 ''' % ('\n'.join(uwsgi_defines), uwsgi_dot_h.decode(), hooks)
 
@@ -306,14 +305,14 @@ def uwsgi_pypy_loader(module):
     load a wsgi module
     """
     global wsgi_application
-    m = ffi.string(module)
+    m = ffi.string(module).decode()
     c = 'application'
-    if b':' in m:
-        m, c = m.split(b':')
-    if b'.' in m:
-        mod = __import__(m.decode(), None, None, '*')
+    if ':' in m:
+        m, c = m.split(':')
+    if '.' in m:
+        mod = __import__(m, None, None, '*')
     else:
-        mod = __import__(m.decode())
+        mod = __import__(m)
     wsgi_application = getattr(mod, c)
 
 
@@ -335,16 +334,16 @@ def uwsgi_pypy_paste_loader(config):
     load a .ini paste app
     """
     global wsgi_application
-    c = ffi.string(config)
-    if c.startswith(b'config:'):
+    c = ffi.string(config).decode()
+    if c.startswith('config:'):
         c = c[7:]
-    if c[0] != b'/'[0]:
-        c = os.getcwd() + '/' + c.decode()
+    if c[0] != '/':
+        c = os.getcwd() + '/' + c
     try:
-        from paste.script.util.logging_config import fileConfig
+        from logging.config import fileConfig
         fileConfig(c)
     except ImportError:
-        print("PyPy WARNING: unable to load paste.script.util.logging_config")
+        print("PyPy WARNING: unable to load logging.config")
     from paste.deploy import loadapp
     wsgi_application = loadapp('config:%s' % c)
 
@@ -364,9 +363,9 @@ def uwsgi_pypy_pythonpath(item):
     """
     add an item to the pythonpath
     """
-    path = ffi.string(item)
-    sys.path.append(path.decode())
-    print("added %s to pythonpath" % path.decode())
+    path = ffi.string(item).decode()
+    sys.path.append(path)
+    print("added %s to pythonpath" % path)
 
 
 class WSGIfilewrapper(object):
@@ -978,10 +977,13 @@ def uwsgi_pypy_chunked_read_nb():
 uwsgi.chunked_read_nb = uwsgi_pypy_chunked_read_nb
 
 
-"""
-uwsgi.set_user_harakiri(sec)
-"""
-uwsgi.set_user_harakiri = lambda x: lib.set_user_harakiri(x)
+def uwsgi_pypy_set_user_harakiri(x):
+    """
+    uwsgi.set_user_harakiri(sec)
+    """
+    wsgi_req = uwsgi_pypy_current_wsgi_req()
+    lib.set_user_harakiri(wsgi_req, x)
+uwsgi.set_user_harakiri = uwsgi_pypy_set_user_harakiri
 
 
 def uwsgi_pypy_get_logvar(key):
