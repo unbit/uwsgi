@@ -29,3 +29,7 @@ core/dot_h.c
 /uWSGI.egg-info/
 check/check_*
 !check/*.c
+
+.vscode
+/plugins/cffi/_*
+/plugins/cffi/cffi_plugin.c
