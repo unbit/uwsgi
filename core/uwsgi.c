@@ -197,7 +197,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"freebind", no_argument, 0, "put socket in freebind mode", uwsgi_opt_true, &uwsgi.freebind, 0},
 #endif
 	{"map-socket", required_argument, 0, "map sockets to specific workers", uwsgi_opt_add_string_list, &uwsgi.map_socket, 0},
-	{"enable-threads", no_argument, 'T', "enable threads", uwsgi_opt_true, &uwsgi.has_threads, 0},
+	{"enable-threads", no_argument, 'T', "enable threads (stub option this is true by default)", uwsgi_opt_true, &uwsgi.has_threads, 0},
 	{"no-threads-wait", no_argument, 0, "do not wait for threads cancellation on quit/reload", uwsgi_opt_true, &uwsgi.no_threads_wait, 0},
 
 	{"auto-procname", no_argument, 0, "automatically set processes name to something meaningful", uwsgi_opt_true, &uwsgi.auto_procname, 0},
@@ -1224,16 +1224,17 @@ void gracefully_kill(int signum) {
 
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
+
 	if (uwsgi.threads > 1) {
-		struct wsgi_request *wsgi_req = current_wsgi_req();
-		wait_for_threads();
-		if (!uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request) {
-			if (uwsgi.workers[uwsgi.mywid].shutdown_sockets)
-				uwsgi_shutdown_all_sockets();
-			exit(UWSGI_RELOAD_CODE);
+		// Stop event_queue_wait() in other threads.
+		// We use loop_stop_pipe only in threaded workers to avoid
+		// unintensional behavior changes in single threaded workers.
+		int fd;
+		if ((fd = uwsgi.loop_stop_pipe[1]) > 0) {
+			close(fd);
+			uwsgi.loop_stop_pipe[1] = 0;
 		}
 		return;
-		// never here
 	}
 
 	// still not found a way to gracefully reload in async mode
@@ -1264,6 +1265,17 @@ static void simple_goodbye_cruel_world() {
 	if (prev) {
 		// Avoid showing same message from all threads.
 		uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
+	}
+
+	if (uwsgi.threads > 1) {
+		// Stop event_queue_wait() in other threads.
+		// We use loop_stop_pipe only in threaded workers to avoid
+		// unintensional behavior changes in single threaded workers.
+		int fd;
+		if ((fd = uwsgi.loop_stop_pipe[1]) > 0) {
+			close(fd);
+			uwsgi.loop_stop_pipe[1] = 0;
+		}
 	}
 }
 
@@ -3538,6 +3550,10 @@ void uwsgi_ignition() {
 			uwsgi_error("pthread_key_create()");
 			exit(1);
 		}
+	}
+	if (pipe(&uwsgi.loop_stop_pipe[0])) {
+		uwsgi_error("pipe()")
+		exit(1);
 	}
 
 	// mark the worker as "accepting" (this is a mark used by chain reloading)

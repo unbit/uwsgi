@@ -2870,6 +2870,10 @@ struct uwsgi_server {
 	int harakiri_graceful_timeout;
 	int harakiri_graceful_signal;
 	int harakiri_queue_threshold;
+
+	// uWSGI 2.0.27
+	// This pipe is used to stop event_queue_wait() in threaded workers.
+	int loop_stop_pipe[2];
 };
 
 struct uwsgi_rpc {
