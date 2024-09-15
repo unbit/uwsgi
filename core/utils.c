@@ -876,6 +876,7 @@ void uwsgi_as_root() {
 				uwsgi_error("setgroups()");
 				exit(1);
 			}
+			free(ags_list);
 		}
 		int additional_groups = getgroups(0, NULL);
 		if (additional_groups > 0) {
@@ -1645,6 +1646,7 @@ void parse_sys_envs(char **envs) {
 			eq_pos[0] = 0;
 
 			add_exported_option(earg, eq_pos + 1, 0);
+			free(earg);
 		}
 		uenvs++;
 	}
