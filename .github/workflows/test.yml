@@ -22,14 +22,18 @@ jobs:
       run: make unittests
 
   test:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - name: Install dependencies
       run: |
         sudo apt update -qq
         sudo apt install --no-install-recommends -qqyf \
-          libpcre2-dev libjansson-dev libcap2-dev
+          libpcre2-dev libjansson-dev libcap2-dev \
+          php-dev libphp-embed libargon2-dev libsodium-dev \
+          pypy3
     - uses: actions/checkout@v4
+    - name: Set env
+      run: echo "PROFILE=integration-tests" >> $GITHUB_ENV
     - name: Run integration tests
       run: make all tests
 
