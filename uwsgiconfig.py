@@ -1,6 +1,6 @@
 # uWSGI build system
 
-uwsgi_version = '2.0.26'
+uwsgi_version = '2.0.27'
 
 import os
 import re
