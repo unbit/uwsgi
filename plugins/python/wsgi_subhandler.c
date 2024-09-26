@@ -268,6 +268,11 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 	PyObject *pychunk;
 
+	if (wsgi_req->async_closed) {
+		uwsgi_py_closed_exception(wsgi_req);
+		goto clear;
+	}
+
 	// return or yield ?
 	// in strict mode we do not optimize apps directly returning strings (or bytes)
 	if (!up.wsgi_strict) {

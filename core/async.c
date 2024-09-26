@@ -42,6 +42,7 @@ void uwsgi_async_init() {
 	// optimization, this array maps file descriptor to requests
         uwsgi.async_waiting_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
         uwsgi.async_proto_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
+        uwsgi.async_idle_fd_table = uwsgi_calloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
 
 }
 
@@ -51,6 +52,10 @@ struct wsgi_request *find_wsgi_req_proto_by_fd(int fd) {
 
 struct wsgi_request *find_wsgi_req_by_fd(int fd) {
 	return uwsgi.async_waiting_fd_table[fd];
+}
+
+struct wsgi_request *find_wsgi_req_idle_by_fd(int fd) {
+	return uwsgi.async_idle_fd_table[fd];
 }
 
 static void runqueue_remove(struct uwsgi_async_request *u_request) {
@@ -125,7 +130,11 @@ void async_reset_request(struct wsgi_request *wsgi_req) {
 	
 	struct uwsgi_async_fd *uaf = wsgi_req->waiting_fds;
 	while (uaf) {
-        	event_queue_del_fd(uwsgi.async_queue, uaf->fd, uaf->event);
+		if (uaf->fd == wsgi_req->fd) {
+			event_queue_idle_fd(uwsgi.async_queue, uaf->fd);
+		} else {
+			event_queue_del_fd(uwsgi.async_queue, uaf->fd, uaf->event);
+		}
                 uwsgi.async_waiting_fd_table[uaf->fd] = NULL;
                 struct uwsgi_async_fd *current_uaf = uaf;
                 uaf = current_uaf->next;
@@ -199,7 +208,11 @@ int async_add_fd_read(struct wsgi_request *wsgi_req, int fd, int timeout) {
 	}
 	uwsgi.async_waiting_fd_table[fd] = wsgi_req;
 	wsgi_req->async_force_again = 1;
-	return event_queue_add_fd_read(uwsgi.async_queue, fd);
+	if (fd == wsgi_req->fd) {
+		return event_queue_fd_write_to_read(uwsgi.async_queue, fd);
+	} else {
+		return event_queue_add_fd_read(uwsgi.async_queue, fd);
+	}
 }
 
 static int async_wait_fd_read(int fd, int timeout) {
@@ -307,7 +320,11 @@ int async_add_fd_write(struct wsgi_request *wsgi_req, int fd, int timeout) {
 
 	uwsgi.async_waiting_fd_table[fd] = wsgi_req;
 	wsgi_req->async_force_again = 1;
-	return event_queue_add_fd_write(uwsgi.async_queue, fd);
+	if (fd == wsgi_req->fd) {
+		return event_queue_fd_read_to_write(uwsgi.async_queue, fd);
+	} else {
+		return event_queue_add_fd_write(uwsgi.async_queue, fd);
+	}
 }
 
 static int async_wait_fd_write(int fd, int timeout) {
@@ -533,6 +550,15 @@ void async_loop() {
 				uwsgi_sock = uwsgi_sock->next;
 			}
 
+			if (event_queue_interesting_fd_is_closed(events, i)) {
+				uwsgi.wsgi_req = find_wsgi_req_idle_by_fd(interesting_fd);
+				if (uwsgi.wsgi_req) {
+					uwsgi.wsgi_req->async_closed = 1;
+					runqueue_push(uwsgi.wsgi_req);
+					continue;
+				}
+			}
+
 			if (!is_a_new_connection) {
 				// proto event
 				uwsgi.wsgi_req = find_wsgi_req_proto_by_fd(interesting_fd);
@@ -544,7 +570,8 @@ void async_loop() {
 					if (!proto_parser_status) {
 						// remove fd from event poll and fd proto table 
 						uwsgi.async_proto_fd_table[interesting_fd] = NULL;
-						event_queue_del_fd(uwsgi.async_queue, interesting_fd, event_queue_read());
+						event_queue_idle_fd(uwsgi.async_queue, interesting_fd);
+						uwsgi.async_idle_fd_table[interesting_fd] = uwsgi.wsgi_req;
 						// put request in the runqueue (set it as UWSGI_OK to signal the first run)
 						uwsgi.wsgi_req->async_status = UWSGI_OK;
 						runqueue_push(uwsgi.wsgi_req);
