@@ -245,7 +245,7 @@ wait:
 }
 
 
-static struct uwsgi_buffer *uwsgi_websocket_recv_do(struct wsgi_request *wsgi_req, int nb) {
+struct uwsgi_buffer *uwsgi_websocket_recv_do(struct wsgi_request *wsgi_req, int nb) {
 	if (!wsgi_req->websocket_buf) {
 		// this buffer will be destroyed on connection close
 		wsgi_req->websocket_buf = uwsgi_buffer_new(uwsgi.page_size);
