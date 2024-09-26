@@ -186,6 +186,7 @@ static int on_demand_bind(char *socket_name) {
 	char *is_tcp = strchr(socket_name, ':');
 	int af_family = is_tcp ? AF_INET : AF_UNIX;
 	int fd = socket(af_family, SOCK_STREAM, 0);
+	int is_abstract = (socket_name[0] == '@') || (socket_name[0] == '\\' && socket_name[1] == '0' && socket_name++);
 	if (fd < 0)
 		return -1;
 
@@ -209,20 +210,23 @@ static int on_demand_bind(char *socket_name) {
 		addr_len = sizeof(struct sockaddr_in);
 	}
 	else {
-		if (unlink(socket_name) != 0 && errno != ENOENT) {
+		int socket_name_len = strlen(socket_name);
+		if (unlink(socket_name) != 0 && errno != ENOENT && !is_abstract) {
 			goto error;
 		}
-
 		us.sa_un.sun_family = AF_UNIX;
-		memcpy(us.sa_un.sun_path, socket_name, UMIN(strlen(socket_name), 102));
-		addr_len = strlen(socket_name) + ((void *) us.sa_un.sun_path - (void *) &us.sa_un);
+		memcpy(us.sa_un.sun_path, socket_name, UMIN(socket_name_len, 102));
+		addr_len = socket_name_len + ((void *) us.sa_un.sun_path - (void *) &us.sa_un);
+		if(is_abstract) {
+			us.sa_un.sun_path[0] = 0;
+		}
 	}
 
 	if (bind(fd, (struct sockaddr *) &us, addr_len) != 0) {
 		goto error;
 	}
 
-	if (!is_tcp) {
+	if (!is_tcp && !is_abstract) {
 		if (chmod(socket_name, 0666)) {
 			goto error;
 		}
