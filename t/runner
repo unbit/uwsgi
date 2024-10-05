@@ -83,12 +83,13 @@ class UwsgiTest(unittest.TestCase):
             result = self._outcome.result
         ok = not (result.errors + result.failures)
 
-        self.testserver.send_signal(signal.SIGTERM)
-        if not ok:
-            print(self.testserver.stdout.read(), file=sys.stderr)
+        if hasattr(self, "testserver"):
+            self.testserver.send_signal(signal.SIGTERM)
+            if not ok:
+                print(self.testserver.stdout.read(), file=sys.stderr)
 
-        self.testserver.wait()
-        self.testserver.stdout.close()
+            self.testserver.wait()
+            self.testserver.stdout.close()
 
     @unittest.skipUnless(*plugins_available(["python"]))
     def test_static_expires(self):
