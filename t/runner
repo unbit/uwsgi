@@ -91,12 +91,11 @@ class UwsgiTest(unittest.TestCase):
             self.testserver.wait()
             self.testserver.stdout.close()
 
-    @unittest.skipUnless(*plugins_available(["python"]))
     def test_static_expires(self):
         self.start_listen_server(
             [
                 "--plugin",
-                "python",  # provide a request plugin
+                "notfound",
                 os.path.join(TESTS_DIR, "static", "config.ini"),
             ]
         )
