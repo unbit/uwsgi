@@ -139,6 +139,40 @@ class UwsgiTest(unittest.TestCase):
         with requests.get(f"http://{UWSGI_HTTP}/test.php") as r:
             self.assertEqual(r.text, "PASS\n")
 
+    @unittest.skipUnless(*plugins_available(["jvm"]))
+    def test_jvm_hellworld(self):
+        classpath = ":".join(
+            [
+                "/usr/share/java/uwsgi.jar",
+                os.path.join(TESTS_DIR, "java"),
+                os.path.join(TESTS_DIR, "..", "plugins", "jvm"),
+            ]
+        )
+
+        subprocess.call(
+            [
+                "javac",
+                "-classpath",
+                classpath,
+                os.path.join(TESTS_DIR, "java", "rpc.java"),
+            ]
+        )
+
+        self.start_listen_server(
+            [
+                "--need-app=0",
+                "--plugins",
+                "0:jvm,jwsgi",
+                "--jvm-classpath",
+                classpath,
+                "--jwsgi",
+                "rpc:application",
+            ]
+        )
+
+        with requests.get(f"http://{UWSGI_HTTP}/") as r:
+            self.assertEqual(r.text, "<h1>null</h1>")
+
 
 if __name__ == "__main__":
     unittest.main()
