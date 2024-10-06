@@ -21,7 +21,7 @@ import unittest
 
 TESTS_DIR = os.path.dirname(__file__)
 UWSGI_BINARY = os.getenv("UWSGI_BINARY", os.path.join(TESTS_DIR, "..", "uwsgi"))
-UWSGI_PLUGINS = os.getenv("UWSGI_PLUGINS", "all").split(" ")
+UWSGI_PLUGINS = os.getenv("UWSGI_PLUGINS_TEST", "all").split(" ")
 UWSGI_ADDR = "127.0.0.1"
 UWSGI_PORT = 8000
 UWSGI_HTTP = f"{UWSGI_ADDR}:{UWSGI_PORT}"
