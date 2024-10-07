@@ -173,6 +173,20 @@ class UwsgiTest(unittest.TestCase):
         with requests.get(f"http://{UWSGI_HTTP}/") as r:
             self.assertEqual(r.text, "<h1>null</h1>")
 
+    @unittest.skipUnless(*plugins_available(["psgi"]))
+    def test_psgi_helloworld(self):
+        self.start_listen_server(
+            [
+                "--plugins",
+                "psgi",
+                "--psgi",
+                os.path.join(TESTS_DIR, "perl", "test_hello.psgi"),
+            ]
+        )
+
+        with requests.get(f"http://{UWSGI_HTTP}/") as r:
+            self.assertEqual(r.text, "Hello, world!")
+
 
 if __name__ == "__main__":
     unittest.main()

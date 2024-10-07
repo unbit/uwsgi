@@ -30,7 +30,7 @@ jobs:
         sudo apt install --no-install-recommends -qqyf \
           libpcre2-dev libjansson-dev libcap2-dev \
           php-dev libphp-embed libargon2-dev libsodium-dev \
-          pypy3 default-jdk-headless
+          pypy3 default-jdk-headless libperl-dev
     - uses: actions/checkout@v4
     - name: Set env
       run: echo "PROFILE=integration-tests" >> $GITHUB_ENV
