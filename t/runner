@@ -187,6 +187,21 @@ class UwsgiTest(unittest.TestCase):
         with requests.get(f"http://{UWSGI_HTTP}/") as r:
             self.assertEqual(r.text, "Hello, world!")
 
+    @unittest.skipUnless(*plugins_available(["cgi"]))
+    def test_cgi_helloworld(self):
+        self.start_listen_server(
+            [
+                "--need-app=0",
+                "--plugins",
+                "0:cgi",
+                "--cgi",
+                os.path.join(TESTS_DIR, "cgi", "hello.cgi"),
+            ]
+        )
+
+        with requests.get(f"http://{UWSGI_HTTP}/foobar/say_hello") as r:
+            self.assertEqual(r.text, "Hello world!\nPATH_INFO=/foobar/say_hello\n")
+
 
 if __name__ == "__main__":
     unittest.main()
