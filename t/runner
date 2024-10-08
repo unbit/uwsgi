@@ -21,7 +21,7 @@ import unittest
 
 TESTS_DIR = os.path.dirname(__file__)
 UWSGI_BINARY = os.getenv("UWSGI_BINARY", os.path.join(TESTS_DIR, "..", "uwsgi"))
-UWSGI_PLUGINS = os.getenv("UWSGI_PLUGINS", "all").split(" ")
+UWSGI_PLUGINS = os.getenv("UWSGI_PLUGINS_TEST", "all").split(" ")
 UWSGI_ADDR = "127.0.0.1"
 UWSGI_PORT = 8000
 UWSGI_HTTP = f"{UWSGI_ADDR}:{UWSGI_PORT}"
@@ -83,19 +83,19 @@ class UwsgiTest(unittest.TestCase):
             result = self._outcome.result
         ok = not (result.errors + result.failures)
 
-        self.testserver.send_signal(signal.SIGTERM)
-        if not ok:
-            print(self.testserver.stdout.read(), file=sys.stderr)
+        if hasattr(self, "testserver"):
+            self.testserver.send_signal(signal.SIGTERM)
+            if not ok:
+                print(self.testserver.stdout.read(), file=sys.stderr)
 
-        self.testserver.wait()
-        self.testserver.stdout.close()
+            self.testserver.wait()
+            self.testserver.stdout.close()
 
-    @unittest.skipUnless(*plugins_available(["python"]))
     def test_static_expires(self):
         self.start_listen_server(
             [
                 "--plugin",
-                "python",  # provide a request plugin
+                "notfound",
                 os.path.join(TESTS_DIR, "static", "config.ini"),
             ]
         )
@@ -138,6 +138,83 @@ class UwsgiTest(unittest.TestCase):
 
         with requests.get(f"http://{UWSGI_HTTP}/test.php") as r:
             self.assertEqual(r.text, "PASS\n")
+
+    @unittest.skipUnless(*plugins_available(["jvm"]))
+    def test_jvm_hellworld(self):
+        classpath = ":".join(
+            [
+                "/usr/share/java/uwsgi.jar",
+                os.path.join(TESTS_DIR, "java"),
+                os.path.join(TESTS_DIR, "..", "plugins", "jvm"),
+            ]
+        )
+
+        subprocess.call(
+            [
+                "javac",
+                "-classpath",
+                classpath,
+                os.path.join(TESTS_DIR, "java", "rpc.java"),
+            ]
+        )
+
+        self.start_listen_server(
+            [
+                "--need-app=0",
+                "--plugins",
+                "0:jvm,jwsgi",
+                "--jvm-classpath",
+                classpath,
+                "--jwsgi",
+                "rpc:application",
+            ]
+        )
+
+        with requests.get(f"http://{UWSGI_HTTP}/") as r:
+            self.assertEqual(r.text, "<h1>null</h1>")
+
+    @unittest.skipUnless(*plugins_available(["psgi"]))
+    def test_psgi_helloworld(self):
+        self.start_listen_server(
+            [
+                "--plugins",
+                "psgi",
+                "--psgi",
+                os.path.join(TESTS_DIR, "perl", "test_hello.psgi"),
+            ]
+        )
+
+        with requests.get(f"http://{UWSGI_HTTP}/") as r:
+            self.assertEqual(r.text, "Hello, world!")
+
+    @unittest.skipUnless(*plugins_available(["cgi"]))
+    def test_cgi_helloworld(self):
+        self.start_listen_server(
+            [
+                "--need-app=0",
+                "--plugins",
+                "0:cgi",
+                "--cgi",
+                os.path.join(TESTS_DIR, "cgi", "hello.cgi"),
+            ]
+        )
+
+        with requests.get(f"http://{UWSGI_HTTP}/foobar/say_hello") as r:
+            self.assertEqual(r.text, "Hello world!\nPATH_INFO=/foobar/say_hello\n")
+
+    @unittest.skipUnless(*plugins_available(["rack"]))
+    def test_rack_helloworld(self):
+        self.start_listen_server(
+            [
+                "--plugins",
+                "0:rack",
+                "--rack",
+                os.path.join(TESTS_DIR, "rack", "app.ru"),
+            ]
+        )
+
+        with requests.get(f"http://{UWSGI_HTTP}/") as r:
+            self.assertEqual(r.text, "Hello")
 
 
 if __name__ == "__main__":
