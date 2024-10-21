@@ -104,6 +104,56 @@ class UwsgiTest(unittest.TestCase):
             self.assertTrue("Expires" in r.headers)
 
     @unittest.skipUnless(*plugins_available(["python"]))
+    def test_mountpoints(self):
+        self.start_listen_server(
+            [
+                "--plugin",
+                "python",
+                os.path.join(
+                    TESTS_DIR,
+                    "python",
+                    "manage_script_name",
+                    "manage_script_name_test.ini",
+                ),
+            ]
+        )
+
+        mps = {"/foo", "/foobis/", "/footris/"}
+
+        for mp in mps:
+            # Requests to /foo should kick-in the managed script name.
+            with requests.get(f"http://{UWSGI_HTTP}{mp}") as r:
+                self.assertEqual(r.text, mp)
+
+            ends = mp.endswith("/")
+
+            # And equally requests to /foo/
+            with (
+                requests.get(f"http://{UWSGI_HTTP}{mp}/")
+                if not ends
+                else requests.get(f"http://{UWSGI_HTTP}{mp}"[:-1])
+            ) as r:
+                self.assertEqual(r.text, mp)
+
+            # Or correct requests (/foo/resource)
+            with (
+                requests.get(f"http://{UWSGI_HTTP}{mp}/resource")
+                if not ends
+                else requests.get(f"http://{UWSGI_HTTP}{mp}resource")
+            ) as r:
+                self.assertEqual(r.text, mp)
+
+        mps = {
+            "/fooanything",
+            "/foobisis/",
+            "/foofighters",
+        }
+
+        for mp in mps:
+            with requests.get(f"http://{UWSGI_HTTP}{mp}") as r:
+                self.assertEqual(r.text, "")
+
+    @unittest.skipUnless(*plugins_available(["python"]))
     def test_python3_helloworld(self):
         self.start_listen_server(
             [
