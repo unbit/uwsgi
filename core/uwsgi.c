@@ -1319,6 +1319,8 @@ void kill_them_all(int signum) {
 // gracefully destroy
 void gracefully_kill_them_all(int signum) {
 
+        int waitpid_status;
+
         if (uwsgi_instance_is_dying) return;
         uwsgi.status.gracefully_destroying = 1;
 
@@ -1339,6 +1341,12 @@ void gracefully_kill_them_all(int signum) {
                 if (uwsgi.mules[i].pid > 0) {
                         uwsgi_curse_mule(i, SIGHUP);
                 }
+        }
+
+        for (i = 1; i <= uwsgi.numproc; i++) {
+            if (uwsgi.workers[i].pid > 0) {
+                waitpid(uwsgi.workers[i].pid, &waitpid_status, 0);
+            }
         }
 
         uwsgi_destroy_processes();
