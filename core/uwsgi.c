@@ -189,7 +189,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"procname-master", required_argument, 0, "set master process name", uwsgi_opt_set_str, &uwsgi.procname_master, UWSGI_OPT_PROCNAME},
 
 	{"single-interpreter", no_argument, 'i', "do not use multiple interpreters (where available)", uwsgi_opt_true, &uwsgi.single_interpreter, 0},
-	{"need-app", no_argument, 0, "exit if no app can be loaded", uwsgi_opt_true, &uwsgi.need_app, 0},
+	{"need-app", optional_argument, 0, "exit if no app can be loaded", uwsgi_opt_true, &uwsgi.need_app, 0},
 	{"dynamic-apps", no_argument, 0, "allows apps to be dynamically loaded via uwsgi protocol", uwsgi_opt_true, &uwsgi.dynamic_apps, 0},
 	{"master", no_argument, 'M', "enable master process", uwsgi_opt_true, &uwsgi.master_process, 0},
 	{"honour-stdin", no_argument, 0, "do not remap stdin to /dev/null", uwsgi_opt_true, &uwsgi.honour_stdin, 0},
@@ -1357,6 +1357,8 @@ void kill_them_all(int signum) {
 // gracefully destroy
 void gracefully_kill_them_all(int signum) {
 
+        int waitpid_status;
+
         if (uwsgi_instance_is_dying) return;
         uwsgi.status.gracefully_destroying = 1;
 
@@ -1376,6 +1378,12 @@ void gracefully_kill_them_all(int signum) {
                 if (uwsgi.mules[i].pid > 0) {
                         uwsgi_curse_mule(i, SIGHUP);
                 }
+        }
+
+        for (i = 1; i <= uwsgi.numproc; i++) {
+            if (uwsgi.workers[i].pid > 0) {
+                waitpid(uwsgi.workers[i].pid, &waitpid_status, 0);
+            }
         }
 
         uwsgi_destroy_processes();
