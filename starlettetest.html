@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width,initial-scale=1,minimal-ui" name="viewport">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700,400italic|Material+Icons">
+  <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/vue-material.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/theme/default.css">
+</head>
+
+<body>
+  <div id="app">
+    <md-card class="md-layout-item md-size-50 md-small-size-100">
+      <md-card-header>
+        <div class="md-title">WebSocket Chat (asgi + $async_library)</div>
+      </md-card-header>
+
+      <md-card-content>
+        <form novalidate class="md-layout" @submit.prevent="send">
+          <md-field>
+            <label>Chat</label>
+            <md-input v-model="textarea">
+              </md-textarea>
+          </md-field>
+
+          <md-field>
+            <label>Messages</label>
+            <md-textarea v-model="autogrow" disabled md-autogrow></md-textarea>
+          </md-field>
+        </form>
+      </md-card-content>
+  </div>
+
+  <script src="https://unpkg.com/vue"></script>
+  <script src="https://unpkg.com/vue-material"></script>
+  <script>
+    var s = new WebSocket("$protocol://$path/foobar/");
+
+    function post(message) {
+      app.messages.splice(0, 0, message);
+    }
+
+    s.onopen = function () {
+      post("connected !!!");
+      s.send("ciao");
+    };
+
+    s.onmessage = function (e) {
+      post(e.data);
+    };
+
+    s.onerror = function (e) {
+      post(e.toString());
+    }
+
+    s.onclose = function (e) {
+      post("connection closed");
+    }
+
+    Vue.use(VueMaterial.default);
+
+    var app = new Vue({
+      el: '#app',
+      data: () => ({
+        messages: [],
+        textarea: "",
+      }),
+      computed: {
+        autogrow() {
+          return this.messages.join("\n");
+        }
+      },
+      methods: {
+        send() {
+          s.send(this.textarea);
+          this.textarea = "";
+        }
+      }
+    })
+  </script>
+</body>
+
+</html>
