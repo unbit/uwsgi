@@ -12,7 +12,7 @@ static void spooler_manage_task(struct uwsgi_spooler *, char *, char *);
 static uint64_t wakeup = 0;
 
 // function to allow waking up the spooler if blocked in event_wait
-void spooler_wakeup() {
+void spooler_wakeup(int signum) {
 	wakeup++;
 }
 
