@@ -78,25 +78,25 @@ void uwsgi_master_fifo_prepare() {
 	uwsgi_fifo_table['8'] = uwsgi_fifo_set_slot_eight;
 	uwsgi_fifo_table['9'] = uwsgi_fifo_set_slot_nine;
 
-	uwsgi_fifo_table['-'] = uwsgi_cheaper_decrease;
-	uwsgi_fifo_table['+'] = uwsgi_cheaper_increase;
-	uwsgi_fifo_table['B'] = vassal_sos; 
-	uwsgi_fifo_table['c'] = uwsgi_chain_reload;
-	uwsgi_fifo_table['C'] = uwsgi_go_cheap;
+	uwsgi_fifo_table['-'] = (void (*)(int))uwsgi_cheaper_decrease;
+	uwsgi_fifo_table['+'] = (void (*)(int))uwsgi_cheaper_increase;
+	uwsgi_fifo_table['B'] = (void (*)(int))vassal_sos;
+	uwsgi_fifo_table['c'] = (void (*)(int))uwsgi_chain_reload;
+	uwsgi_fifo_table['C'] = (void (*)(int))uwsgi_go_cheap;
 	uwsgi_fifo_table['E'] = emperor_rescan;
-	uwsgi_fifo_table['f'] = uwsgi_refork_master;
-	uwsgi_fifo_table['l'] = uwsgi_log_reopen;
-	uwsgi_fifo_table['L'] = uwsgi_log_rotate;
+	uwsgi_fifo_table['f'] = (void (*)(int))uwsgi_refork_master;
+	uwsgi_fifo_table['l'] = (void (*)(int))uwsgi_log_reopen;
+	uwsgi_fifo_table['L'] = (void (*)(int))uwsgi_log_rotate;
 	uwsgi_fifo_table['p'] = suspend_resume_them_all;
-	uwsgi_fifo_table['P'] = uwsgi_update_pidfiles;
+	uwsgi_fifo_table['P'] = (void (*)(int))uwsgi_update_pidfiles;
 	uwsgi_fifo_table['q'] = gracefully_kill_them_all;
 	uwsgi_fifo_table['Q'] = kill_them_all;
 	uwsgi_fifo_table['r'] = grace_them_all;
 	uwsgi_fifo_table['R'] = reap_them_all;
 	uwsgi_fifo_table['s'] = stats;
 	uwsgi_fifo_table['S'] = subscriptions_blocker;
-	uwsgi_fifo_table['w'] = uwsgi_reload_workers;
-	uwsgi_fifo_table['W'] = uwsgi_brutally_reload_workers;
+	uwsgi_fifo_table['w'] = (void (*)(int))uwsgi_reload_workers;
+	uwsgi_fifo_table['W'] = (void (*)(int))uwsgi_brutally_reload_workers;
 
 }
 
