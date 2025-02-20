@@ -2,7 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-void worker_wakeup() {
+void worker_wakeup(int sig) {
 }
 
 uint64_t uwsgi_worker_exceptions(int wid) {
