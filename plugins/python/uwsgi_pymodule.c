@@ -289,6 +289,48 @@ static PyObject *py_uwsgi_add_cron(PyObject * self, PyObject * args) {
 	return Py_True;
 }
 
+static PyObject *py_uwsgi_del_cron(PyObject * self, PyObject * args) {
+
+	uint8_t uwsgi_signal;
+
+	if (!PyArg_ParseTuple(args, "B:del_cron", &uwsgi_signal)) {
+                return NULL;
+        }
+
+	if (uwsgi_signal_del_cron(uwsgi_signal)) {
+		return PyErr_Format(PyExc_ValueError, "unable to del cron");
+	}
+
+	Py_INCREF(Py_True);
+	return Py_True;
+}
+
+PyObject *py_uwsgi_list_cron(PyObject * self, PyObject * noarg) {
+
+  int i;
+
+  PyObject *cron_dict = NULL;
+  PyObject *cron_list;
+  cron_list = (PyObject *) Py_BuildValue("[]");
+
+  uwsgi_lock(uwsgi.cron_table_lock);
+
+  for (i = 0; i < ushared->cron_cnt; i++) {
+	  cron_dict = Py_BuildValue("{s:i,s:i,s:i,s:i,s:i,s:i,s:B,s:s,s:i,s:i,s:i,s:B,s:i}",
+	          "minute", ushared->cron[i].minute, "hour", ushared->cron[i].hour,
+	          "day", ushared->cron[i].day, "month", ushared->cron[i].month,
+	          "week", ushared->cron[i].week, "last_job", ushared->cron[i].last_job,
+	          "sig", ushared->cron[i].sig, "command", ushared->cron[i].command,
+	          "started_at", ushared->cron[i].started_at, "harakiri", ushared->cron[i].harakiri,
+	          "mercy", ushared->cron[i].mercy, "unique", ushared->cron[i].unique,
+	          "pid", ushared->cron[i].pid);
+	  PyList_Append(cron_list, cron_dict);
+  }
+
+  uwsgi_unlock(uwsgi.cron_table_lock);
+
+  return cron_list;
+}
 
 static PyObject *py_uwsgi_add_timer(PyObject * self, PyObject * args) {
 
@@ -2827,6 +2869,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"add_ms_timer", py_uwsgi_add_ms_timer, METH_VARARGS, ""},
 	{"add_rb_timer", py_uwsgi_add_rb_timer, METH_VARARGS, ""},
 	{"add_cron", py_uwsgi_add_cron, METH_VARARGS, ""},
+	{"del_cron", py_uwsgi_del_cron, METH_VARARGS, ""},
+	{"list_cron", py_uwsgi_list_cron, METH_NOARGS, ""},
 
 #ifdef UWSGI_ROUTING
 	{"route", py_uwsgi_route, METH_VARARGS, ""},
