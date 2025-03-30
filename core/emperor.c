@@ -598,7 +598,7 @@ static void emperor_massive_reload(int signum) {
 }
 
 
-static void emperor_stats() {
+static void emperor_stats(int signum) {
 
 	struct uwsgi_instance *c_ui = ui->ui_next;
 
