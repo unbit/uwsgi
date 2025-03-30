@@ -22,3 +22,5 @@ tests:
 
 %:
 	$(PYTHON) uwsgiconfig.py --build $@
+
+.PHONY: all clean check tests
