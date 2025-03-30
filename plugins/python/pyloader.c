@@ -129,21 +129,21 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
                         		p = strchr(*e, '=');
                         		if (p == NULL) continue;
 
-					k = PyString_FromStringAndSize(*e, (int)(p-*e));
+					k = PyUnicode_FromStringAndSize(*e, (int)(p-*e));
 					if (k == NULL) {
                                 		PyErr_Print();
                                 		continue;
 					}
 
-                        		env_value = PyString_FromString(p+1);
+                        		env_value = PyUnicode_FromString(p+1);
                         		if (env_value == NULL) {
                                 		PyErr_Print();
 						Py_DECREF(k);
                                 		continue;
                         		}
-	
+
 #ifdef UWSGI_DEBUG
-					uwsgi_log("%s = %s\n", PyString_AsString(k), PyString_AsString(env_value));
+					uwsgi_log("%s = %s\n", PyUnicode_AsUTF8(k), PyUnicode_AsUTF8(env_value));
 #endif
 
                         		if (PyObject_SetItem(py_environ, k, env_value)) {
@@ -209,7 +209,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		if (multiapp < 1) {
 			uwsgi_log("you have to define at least one app in the applications dictionary\n");
 			goto doh;
-		}		
+		}
 
 		PyObject *app_mnt = PyList_GetItem(app_list, 0);
 		if (!PyString_Check(app_mnt)) {
@@ -228,7 +228,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		if (PyString_Check((PyObject *) wi->callable)) {
 			PyObject *callables_dict = get_uwsgi_pydict((char *)arg1);
 			if (callables_dict) {
-				wi->callable = PyDict_GetItem(callables_dict, (PyObject *)wi->callable);	
+				wi->callable = PyDict_GetItem(callables_dict, (PyObject *)wi->callable);
 				if (!wi->callable) {
 					uwsgi_log("skipping broken app %s\n", wsgi_req->appid);
 					goto multiapp;
@@ -377,7 +377,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 multiapp:
 	if (multiapp > 1) {
 		for(i=1;i<multiapp;i++) {
-			PyObject *app_mnt = PyList_GetItem(app_list, i);		
+			PyObject *app_mnt = PyList_GetItem(app_list, i);
 			if (!PyString_Check(app_mnt)) {
 				uwsgi_log("applications dictionary key must be a string, skipping.\n");
 				continue;
@@ -788,7 +788,7 @@ PyObject *uwsgi_eval_loader(void *arg1) {
 		wsgi_eval_callable = PyDict_GetItemString(up.loader_dict, up.callable);
 	}
 	else {
-		
+
 		wsgi_eval_callable = PyDict_GetItemString(up.loader_dict, "application");
 	}
 
