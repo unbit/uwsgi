@@ -2278,7 +2278,9 @@ PyObject *py_uwsgi_spooler_pids(PyObject * self, PyObject * args) {
     PyObject *ret = PyList_New(0);
     struct uwsgi_spooler *uspool = uwsgi.spoolers;
     while (uspool) {
-        PyList_Append(ret, PyInt_FromLong(uspool->pid));
+        PyObject *spool_pid = PyInt_FromLong(uspool->pid)
+        PyList_Append(ret, spool_pid);
+        Py_DECREF(spool_pid);
         uspool = uspool->next;
     }
     return ret;
