@@ -1189,7 +1189,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	// yes, this is pretty useless but we cannot ensure all of the plugin have the same behaviour
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
 
-	if (uwsgi.max_requests > 0 && uwsgi.workers[uwsgi.mywid].delta_requests >= uwsgi.max_requests
+	if (uwsgi.max_requests > 0 && uwsgi.workers[uwsgi.mywid].delta_requests >= (uwsgi.max_requests + ((uwsgi.mywid-1) * uwsgi.max_requests_delta))
 	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn * 1000000) >= uwsgi.min_worker_lifetime * 1000000)) {
 		goodbye_cruel_world();
 	}

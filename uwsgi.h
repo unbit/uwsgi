@@ -2874,6 +2874,9 @@ struct uwsgi_server {
 	// uWSGI 2.0.27
 	// This pipe is used to stop event_queue_wait() in threaded workers.
 	int loop_stop_pipe[2];
+
+	// uWSGI 2.0.29
+	uint64_t max_requests_delta;
 };
 
 struct uwsgi_rpc {
