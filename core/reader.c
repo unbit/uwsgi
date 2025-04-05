@@ -283,7 +283,7 @@ char *uwsgi_request_body_readline(struct wsgi_request *wsgi_req, ssize_t hint, s
                 }
 
 	// no line found, let's return all
-        *rlen = wsgi_req->post_readline_size - wsgi_req->post_readline_pos;
+        *rlen = wsgi_req->post_readline_watermark - wsgi_req->post_readline_pos;
         char *buf = wsgi_req->post_readline_buf + wsgi_req->post_readline_pos;
 	wsgi_req->post_readline_pos = 0;
 	return buf;
