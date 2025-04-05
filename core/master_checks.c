@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
 
@@ -180,28 +180,57 @@ done:
 
 }
 
+int uwsgi_master_check_harakiri(int w, int c, time_t harakiri) {
+	/**
+	 * Triggers a harakiri when the following conditions are met:
+	 * - harakiri timeout > current time
+	 * - listen queue pressure (ie backlog > harakiri_queue_threshold)
+	 *
+	 * The first harakiri attempt on a worker will be graceful if harakiri_graceful_timeout > 0,
+	 * then the worker has harakiri_graceful_timeout seconds to shutdown cleanly, otherwise
+	 * a second harakiri will trigger a SIGKILL
+	 *
+	 */
+#ifdef __linux__
+	int backlog = uwsgi.shared->backlog;
+#else
+	int backlog = 0;
+#endif
+	if (harakiri == 0 || harakiri > (time_t) uwsgi.current_time) {
+		return 0;
+	}
+	// no pending harakiri for the worker and no backlog pressure, safe to skip
+	if (uwsgi.workers[w].pending_harakiri == 0 &&  backlog < uwsgi.harakiri_queue_threshold) {
+		uwsgi_log_verbose("HARAKIRI: Skipping harakiri on worker %d. Listen queue is smaller than the threshold (%d < %d)\n",
+			w, backlog, uwsgi.harakiri_queue_threshold);
+		return 0;
+	}
+
+	trigger_harakiri(w);
+	if (uwsgi.harakiri_graceful_timeout > 0) {
+		uwsgi.workers[w].cores[c].harakiri = harakiri + uwsgi.harakiri_graceful_timeout;
+		uwsgi_log_verbose("HARAKIRI: graceful termination attempt on worker %d with signal %d. Next harakiri: %d\n",
+			w, uwsgi.harakiri_graceful_signal, uwsgi.workers[w].cores[c].harakiri);
+	}
+	return 1;
+}
+
 int uwsgi_master_check_workers_deadline() {
 	int i,j;
 	int ret = 0;
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		for(j=0;j<uwsgi.cores;j++) {
 			/* first check for harakiri */
-			if (uwsgi.workers[i].cores[j].harakiri > 0) {
-				if (uwsgi.workers[i].cores[j].harakiri < (time_t) uwsgi.current_time) {
-					uwsgi_log_verbose("HARAKIRI triggered by worker %d core %d !!!\n", i, j);
-					trigger_harakiri(i);
-					ret = 1;
-					break;
-				}
+			if (uwsgi_master_check_harakiri(i, j, uwsgi.workers[i].cores[j].harakiri)) {
+				uwsgi_log_verbose("HARAKIRI triggered by worker %d core %d !!!\n", i, j);
+				ret = 1;
+				break;
 			}
 			/* then user-defined harakiri */
-			if (uwsgi.workers[i].cores[j].user_harakiri > 0) {
+			if (uwsgi_master_check_harakiri(i, j, uwsgi.workers[i].cores[j].user_harakiri)) {
 				uwsgi_log_verbose("HARAKIRI (user) triggered by worker %d core %d !!!\n", i, j);
-				if (uwsgi.workers[i].cores[j].user_harakiri < (time_t) uwsgi.current_time) {
-					trigger_harakiri(i);
-					ret = 1;
-					break;
-				}
+				ret = 1;
+				break;
 			}
 		}
 		// then for evil memory checkers
@@ -224,7 +253,7 @@ int uwsgi_master_check_workers_deadline() {
 		// check if worker was running longer than allowed lifetime
 		if (uwsgi.workers[i].pid > 0 && uwsgi.workers[i].cheaped == 0 && uwsgi.max_worker_lifetime > 0) {
 			uint64_t lifetime = uwsgi_now() - uwsgi.workers[i].last_spawn;
-			if (lifetime > uwsgi.max_worker_lifetime && uwsgi.workers[i].manage_next_request == 1) {
+			if (lifetime > (uwsgi.max_worker_lifetime + (i-1) * uwsgi.max_worker_lifetime_delta)  && uwsgi.workers[i].manage_next_request == 1) {
 				uwsgi_log("worker %d lifetime reached, it was running for %llu second(s)\n", i, (unsigned long long) lifetime);
 				uwsgi.workers[i].manage_next_request = 0;
 				kill(uwsgi.workers[i].pid, SIGWINCH);

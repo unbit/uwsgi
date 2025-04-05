@@ -46,12 +46,21 @@ struct http_status_codes hsc[] = {
         {"415", "Unsupported Media Type"},
         {"416", "Requested Range Not Satisfiable"},
         {"417", "Expectation Failed"},
+        {"418", "I'm a teapot"},
+        {"422", "Unprocessable Entity"},
+        {"425", "Too Early"},
+        {"426", "Upgrade Required"},
+        {"428", "Precondition Required"},
+        {"429", "Too Many Requests"},
+        {"431", "Request Header Fields Too Large"},
+        {"451", "Unavailable For Legal Reasons"},
         {"501", "Not Implemented"},
         {"502", "Bad Gateway"},
         {"503", "Service Unavailable"},
         {"504", "Gateway Timeout"},
         {"505", "HTTP Version Not Supported"},
         {"509", "Bandwidth Limit Exceeded"},
+        {"511", "Network Authentication Required"},
         {"", NULL},
 };
 
@@ -196,6 +205,8 @@ void uwsgi_init_default() {
 	uwsgi.notify_socket_fd = -1;
 
 	uwsgi.mule_msg_recv_size = 65536;
+
+	uwsgi.harakiri_graceful_signal = SIGTERM;
 }
 
 void uwsgi_setup_reload() {
@@ -457,8 +468,8 @@ void sanitize_args() {
                 uwsgi.cores = uwsgi.async;
         }
 
+        uwsgi.has_threads = 1;
         if (uwsgi.threads > 1) {
-                uwsgi.has_threads = 1;
                 uwsgi.cores = uwsgi.threads;
         }
 

@@ -22,6 +22,7 @@ struct uwsgi_cgi {
 	int do_not_kill_on_error;
 	int async_max_attempts;
 	int close_stdin_on_eof;
+	int dontresolve;
 } uc ;
 
 static void uwsgi_opt_add_cgi(char *opt, char *value, void *foobar) {
@@ -74,6 +75,8 @@ struct uwsgi_option uwsgi_cgi_options[] = {
         {"cgi-close-stdin-on-eof", no_argument, 0, "close STDIN on input EOF", uwsgi_opt_true, &uc.close_stdin_on_eof, 0},
 
         {"cgi-safe", required_argument, 0, "skip security checks if the cgi file is under the specified path", uwsgi_opt_add_string_list, &uc.cgi_safe, 0},
+
+        {"cgi-dontresolve", no_argument, 0 , "call symbolic link directly instead of the real path", uwsgi_opt_true,&uc.dontresolve, 0},
 
         {0, 0, 0, 0, 0, 0, 0},
 
@@ -475,6 +478,7 @@ static int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 
 	char full_path[PATH_MAX];
 	char tmp_path[PATH_MAX];
+	char symbolic_path[PATH_MAX];
 	struct stat cgi_stat;
 	int need_free = 0;
 	int is_a_file = 0;
@@ -532,6 +536,10 @@ static int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 				free(docroot);
 			uwsgi_404(wsgi_req);
 			return UWSGI_OK;
+		}
+		if (uc.dontresolve) {
+			full_path_len = strlen(full_path);
+			memcpy(symbolic_path, full_path, full_path_len+1);
 		}
 
 		full_path_len = strlen(tmp_path);
@@ -639,6 +647,11 @@ static int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		}
 	}
 
+	if (uc.dontresolve) {
+		full_path_len = strlen(symbolic_path);
+		memcpy(full_path, symbolic_path, full_path_len+1);
+	}
+
 	int ret = uwsgi_cgi_run(wsgi_req, docroot, docroot_len, full_path, helper, path_info, script_name, is_a_file, discard_base);
 	if (need_free) free(docroot);
 	return ret;
@@ -691,23 +704,50 @@ static int uwsgi_cgi_run(struct wsgi_request *wsgi_req, char *docroot, size_t do
 		uwsgi_socket_nb(cgi_pipe[0]);
 		uwsgi_socket_nb(post_pipe[1]);
 
-		// ok start sending post data...
-		size_t remains = wsgi_req->post_cl;
-		while(remains > 0) {
-                	ssize_t rlen = 0;
-                	char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
-                	if (!buf) {
-				goto clear2;
-                	}
-                	if (buf == uwsgi.empty) break;
-                	// write data to the node
-                	if (uwsgi_write_true_nb(post_pipe[1], buf, rlen, uc.timeout)) {
-				goto clear2;
-                	}
-                	remains -= rlen;
-        	}
+		// Start sending request body
+		if (wsgi_req->body_is_chunked) {
+			// Write through to process chunk by chunk
+			while (1) {
+				struct uwsgi_buffer *ubuf = uwsgi_chunked_read_smart(wsgi_req, 8192, uwsgi.socket_timeout);
+				if (!ubuf) {
+					uwsgi_log("error reading chunk from CGI request !!!\n");
+					kill_on_error
+						goto clear2;
+				}
+				if (!ubuf->pos) {
+					// Last chunk received, go and close process's stdin
+					uwsgi_buffer_destroy(ubuf);
+					break;
+				}
+				// Write chunk to process's stdin
+				int err = uwsgi_write_true_nb(post_pipe[1], ubuf->buf, ubuf->pos, uc.timeout);
+				uwsgi_buffer_destroy(ubuf);
+				if (err) {
+					uwsgi_log("error writing chunk to CGI process !!!\n");
+					kill_on_error
+						goto clear2;
+				}
+			}
+		} else {
+			// Normal request with content length set
+			size_t remains = wsgi_req->post_cl;
+			while(remains > 0) {
+				ssize_t rlen = 0;
+				char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
+				if (!buf) {
+					goto clear2;
+				}
+				if (buf == uwsgi.empty) break;
+				// write data to the node
+				if (uwsgi_write_true_nb(post_pipe[1], buf, rlen, uc.timeout)) {
+					goto clear2;
+				}
+				remains -= rlen;
+			}
+		}
 
-		if (uc.close_stdin_on_eof) {
+		// For chunked requests, close stdin to tell the script body has ended
+		if (uc.close_stdin_on_eof || wsgi_req->body_is_chunked) {
 			close(post_pipe[1]);
 			stdin_closed = 1;
 		}
@@ -780,8 +820,21 @@ clear2:
 	close(cgi_pipe[1]);
 
 	// close all the fd > 2
-	for(i=3;i<(int)uwsgi.max_fd;i++) {
-		close(i);
+	DIR *dirp = opendir("/proc/self/fd");
+	if (dirp == NULL)
+		dirp = opendir("/dev/fd");
+	if (dirp != NULL) {
+		struct dirent *dent;
+		while ((dent = readdir(dirp)) != NULL) {
+			int fd = atoi(dent->d_name);
+			if ((fd > 2) && fd != dirfd(dirp))
+				close(fd);
+		}
+		closedir(dirp);
+	} else {
+		for(i=3;i<(int)uwsgi.max_fd;i++) {
+			close(i);
+		}
 	}
 
 	// fill cgi env

@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 
 extern struct uwsgi_server uwsgi;
@@ -580,13 +580,15 @@ void uwsgi_as_root() {
 		}
 	}
 
-	if (uwsgi.chroot && !uwsgi.reloads) {
+	if (uwsgi.chroot && !uwsgi.is_chrooted && !uwsgi.reloads) {
 		if (!uwsgi.master_as_root)
 			uwsgi_log("chroot() to %s\n", uwsgi.chroot);
+
 		if (chroot(uwsgi.chroot)) {
 			uwsgi_error("chroot()");
 			exit(1);
 		}
+		uwsgi.is_chrooted = 1;
 #ifdef __linux__
 		if (uwsgi.logging_options.memory_report) {
 			uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
@@ -987,7 +989,7 @@ void uwsgi_as_root() {
 	return;
 
 nonroot:
-	if (uwsgi.chroot && !uwsgi.is_a_reload) {
+	if (uwsgi.chroot && !uwsgi.is_chrooted && !uwsgi.is_a_reload) {
 		uwsgi_log("cannot chroot() as non-root user\n");
 		exit(1);
 	}
@@ -1031,12 +1033,6 @@ static void close_and_free_request(struct wsgi_request *wsgi_req) {
 void uwsgi_destroy_request(struct wsgi_request *wsgi_req) {
 
 	close_and_free_request(wsgi_req);
-
-	int foo;
-        if (uwsgi.threads > 1) {
-                // now the thread can die...
-                pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &foo);
-        }
 
 	// reset for avoiding following requests to fail on non-uwsgi protocols
 	// thanks Marko Tiikkaja for catching it
@@ -1127,11 +1123,6 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	uwsgi_foreach(usl, uwsgi.after_request_hooks) {
 		void (*func) (struct wsgi_request *) = (void (*)(struct wsgi_request *)) usl->custom_ptr;
 		func(wsgi_req);
-	}
-
-	if (uwsgi.threads > 1) {
-		// now the thread can die...
-		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &tmp_id);
 	}
 
 	// leave harakiri mode
@@ -1581,18 +1572,12 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 		}
 	}
 
-	// kill the thread after the request completion
-	if (uwsgi.threads > 1)
-		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &ret);
-
 	if (uwsgi.signal_socket > -1 && (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket)) {
 
 		thunder_unlock;
 
 		uwsgi_receive_signal(wsgi_req, interesting_fd, "worker", uwsgi.mywid);
 
-		if (uwsgi.threads > 1)
-			pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
 		return -1;
 	}
 
@@ -1603,8 +1588,6 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 			wsgi_req->fd = wsgi_req->socket->proto_accept(wsgi_req, interesting_fd);
 			thunder_unlock;
 			if (wsgi_req->fd < 0) {
-				if (uwsgi.threads > 1)
-					pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
 				return -1;
 			}
 
@@ -1619,8 +1602,6 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	}
 
 	thunder_unlock;
-	if (uwsgi.threads > 1)
-		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
 	return -1;
 }
 
@@ -1944,6 +1925,12 @@ char *uwsgi_64bit2str(int64_t num) {
 	char *str = uwsgi_malloc(sizeof(MAX64_STR) + 1);
 	snprintf(str, sizeof(MAX64_STR) + 1, "%lld", (long long) num);
 	return str;
+}
+
+char *uwsgi_size2str(size_t num) {
+	char *str = uwsgi_malloc(sizeof(UMAX64_STR) + 1);
+	snprintf(str, sizeof(UMAX64_STR) + 1, "%llu", (unsigned long long) num);
+	return str;	
 }
 
 int uwsgi_num2str2(int num, char *ptr) {
@@ -2332,7 +2319,7 @@ struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **list,
 	return uwsgi_string;
 }
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 struct uwsgi_regexp_list *uwsgi_regexp_custom_new_list(struct uwsgi_regexp_list **list, char *value, char *custom) {
 
 	struct uwsgi_regexp_list *url = *list, *old_url;
@@ -2351,7 +2338,7 @@ struct uwsgi_regexp_list *uwsgi_regexp_custom_new_list(struct uwsgi_regexp_list 
 		old_url->next = url;
 	}
 
-	if (uwsgi_regexp_build(value, &url->pattern, &url->pattern_extra)) {
+	if (uwsgi_regexp_build(value, &url->pattern)) {
 		exit(1);
 	}
 	url->next = NULL;
@@ -2364,14 +2351,13 @@ struct uwsgi_regexp_list *uwsgi_regexp_custom_new_list(struct uwsgi_regexp_list 
 
 int uwsgi_regexp_match_pattern(char *pattern, char *str) {
 
-	pcre *regexp;
-	pcre_extra *regexp_extra;
+	uwsgi_pcre *regexp;
 
-	if (uwsgi_regexp_build(pattern, &regexp, &regexp_extra))
+	if (uwsgi_regexp_build(pattern, &regexp))
 		return 1;
-	return !uwsgi_regexp_match(regexp, regexp_extra, str, strlen(str));
-}
 
+	return !uwsgi_regexp_match(regexp, str, strlen(str));
+}
 
 #endif
 
@@ -3713,6 +3699,7 @@ char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {
 
 
 void uwsgi_set_cpu_affinity() {
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 	char buf[4096];
 	int ret;
 	int pos = 0;
@@ -3732,7 +3719,6 @@ void uwsgi_set_cpu_affinity() {
 #elif defined(__FreeBSD__)
 		cpuset_t cpuset;
 #endif
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
 		CPU_ZERO(&cpuset);
 		int i;
 		for (i = 0; i < uwsgi.cpu_affinity; i++) {
@@ -3747,7 +3733,6 @@ void uwsgi_set_cpu_affinity() {
 			pos += ret;
 			base_cpu++;
 		}
-#endif
 #if defined(__linux__) || defined(__GNU_kFreeBSD__)
 		if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset)) {
 			uwsgi_error("sched_setaffinity()");
@@ -3759,7 +3744,7 @@ void uwsgi_set_cpu_affinity() {
 #endif
 		uwsgi_log("%s\n", buf);
 	}
-
+#endif
 }
 
 #ifdef UWSGI_ELF
@@ -4090,7 +4075,7 @@ void uwsgi_uuid(char *buf) {
 	uuid_generate(uuid_value);
 	uuid_unparse(uuid_value, buf);
 #else
-	int i, r[11];
+	unsigned int i, r[11];
 	if (!uwsgi_file_exists("/dev/urandom"))
 		goto fallback;
 	int fd = open("/dev/urandom", O_RDONLY);
@@ -4106,7 +4091,7 @@ void uwsgi_uuid(char *buf) {
 	goto done;
 fallback:
 	for (i = 0; i < 11; i++) {
-		r[i] = rand();
+		r[i] = (unsigned int) rand();
 	}
 done:
 	snprintf(buf, 37, "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x", r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10]);

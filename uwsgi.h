@@ -449,8 +449,26 @@ struct uwsgi_lock_ops {
 #define uwsgi_wait_read_req(x) uwsgi.wait_read_hook(x->fd, uwsgi.socket_timeout) ; x->switches++
 #define uwsgi_wait_write_req(x) uwsgi.wait_write_hook(x->fd, uwsgi.socket_timeout) ; x->switches++
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
+#ifdef UWSGI_PCRE2
+
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include <pcre2.h>
+#define PCRE_OVECTOR_BYTESIZE(n) (n+1)*2
+
+typedef pcre2_code uwsgi_pcre;
+
+#else
+
 #include <pcre.h>
+#define PCRE_OVECTOR_BYTESIZE(n) (n+1)*3
+
+typedef struct {
+	pcre *p;
+	pcre_extra *extra;
+} uwsgi_pcre;
+
+#endif
 #endif
 
 struct uwsgi_dyn_dict {
@@ -466,9 +484,8 @@ struct uwsgi_dyn_dict {
 	struct uwsgi_dyn_dict *prev;
 	struct uwsgi_dyn_dict *next;
 
-#ifdef UWSGI_PCRE
-	pcre *pattern;
-	pcre_extra *pattern_extra;
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
+	uwsgi_pcre *pattern;
 #endif
 
 };
@@ -479,11 +496,10 @@ struct uwsgi_hook {
 	struct uwsgi_hook *next;
 };
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 struct uwsgi_regexp_list {
 
-	pcre *pattern;
-	pcre_extra *pattern_extra;
+	uwsgi_pcre *pattern;
 
 	uint64_t custom;
 	char *custom_str;
@@ -625,6 +641,8 @@ struct uwsgi_daemon {
 	char *chdir;
 
 	int max_throttle;
+
+	int notifypid;
 };
 
 struct uwsgi_logger {
@@ -1093,13 +1111,16 @@ struct uwsgi_plugin {
 	int (*worker)(void);
 
 	void (*early_post_jail) (void);
+
+	void (*pre_uwsgi_fork) (void);
+	void (*post_uwsgi_fork) (int);
 };
 
-#ifdef UWSGI_PCRE
-int uwsgi_regexp_build(char *, pcre **, pcre_extra **);
-int uwsgi_regexp_match(pcre *, pcre_extra *, char *, int);
-int uwsgi_regexp_match_ovec(pcre *, pcre_extra *, char *, int, int *, int);
-int uwsgi_regexp_ovector(pcre *, pcre_extra *);
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
+int uwsgi_regexp_build(char *, uwsgi_pcre **);
+int uwsgi_regexp_match(uwsgi_pcre *, const char *, int);
+int uwsgi_regexp_match_ovec(uwsgi_pcre *, const char *, int, int *, int);
+int uwsgi_regexp_ovector(const uwsgi_pcre *);
 char *uwsgi_regexp_apply_ovec(char *, int, char *, int, int *, int);
 
 int uwsgi_regexp_match_pattern(char *pattern, char *str);
@@ -1190,8 +1211,7 @@ struct uwsgi_spooler {
 
 struct uwsgi_route {
 
-	pcre *pattern;
-	pcre_extra *pattern_extra;
+	uwsgi_pcre *pattern;
 
 	char *orig_route;
 	
@@ -1300,15 +1320,14 @@ struct uwsgi_alarm_fd {
 
 struct uwsgi_alarm_fd *uwsgi_add_alarm_fd(int, char *, size_t, char *, size_t);
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 struct uwsgi_alarm_ll {
 	struct uwsgi_alarm_instance *alarm;
 	struct uwsgi_alarm_ll *next;
 };
 
 struct uwsgi_alarm_log {
-	pcre *pattern;
-	pcre_extra *pattern_extra;
+	uwsgi_pcre *pattern;
 	int negate;
 	struct uwsgi_alarm_ll *alarms;
 	struct uwsgi_alarm_log *next;
@@ -1651,6 +1670,8 @@ struct wsgi_request {
 
 	char * if_range;
 	uint16_t if_range_len;
+
+	uint8_t websocket_is_fin;
 };
 
 
@@ -2251,7 +2272,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *requested_log_encoders;
 	struct uwsgi_string_list *requested_log_req_encoders;
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	int pcre_jit;
 	struct uwsgi_regexp_list *log_drain_rules;
 	struct uwsgi_regexp_list *log_filter_rules;
@@ -2333,7 +2354,7 @@ struct uwsgi_server {
 	int static_gzip_all;
 	struct uwsgi_string_list *static_gzip_dir;
 	struct uwsgi_string_list *static_gzip_ext;
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	struct uwsgi_regexp_list *static_gzip;
 #endif
 
@@ -2458,7 +2479,7 @@ struct uwsgi_server {
 	int master_queue;
 	int master_interval;
 
-	// mainly iseful for broodlord mode
+	// mainly useful for broodlord mode
 	int vassal_sos_backlog;
 
 	int no_defer_accept;
@@ -2479,6 +2500,9 @@ struct uwsgi_server {
 	int backtrace_depth;
 
 	int harakiri_verbose;
+	int harakiri_graceful_timeout;
+	int harakiri_graceful_signal;
+	int harakiri_queue_threshold;
 	int harakiri_no_arh;
 
 	int magic_table_first_round;
@@ -2502,7 +2526,6 @@ struct uwsgi_server {
 
 	// avoid thundering herd in threaded modes
 	pthread_mutex_t thunder_mutex;
-	pthread_mutex_t six_feet_under_lock;
 	pthread_mutex_t lock_static;
 
 	int use_thunder_lock;
@@ -2735,7 +2758,7 @@ struct uwsgi_server {
 	int ssl_sessions_timeout;
 	struct uwsgi_cache *ssl_sessions_cache;
 	char *ssl_tmp_dir;
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	struct uwsgi_regexp_list *sni_regexp;
 #endif
 	struct uwsgi_string_list *sni;
@@ -2768,6 +2791,7 @@ struct uwsgi_server {
 
 	struct uwsgi_buffer *websockets_ping;
 	struct uwsgi_buffer *websockets_pong;
+	struct uwsgi_buffer *websockets_close;
 	int websockets_ping_freq;
 	int websockets_pong_tolerance;
 	uint64_t websockets_max_size;
@@ -2857,6 +2881,10 @@ struct uwsgi_server {
 	int tlsv1;
 #endif
 
+	// uWSGI 2.0.19
+	int emperor_graceful_shutdown;
+	int is_chrooted;
+
 	size_t response_header_limit;
 	
 	// uWSGI 2.1
@@ -2921,6 +2949,12 @@ struct uwsgi_server {
 	size_t environ_len;
 
 	int dynamic_apps;
+
+	struct uwsgi_buffer *websockets_continuation_buffer;
+
+	uint64_t max_worker_lifetime_delta;
+	// This pipe is used to stop event_queue_wait() in threaded workers.
+	int loop_stop_pipe[2];
 };
 
 struct uwsgi_rpc {
@@ -3229,7 +3263,6 @@ void uwsgi_405(struct wsgi_request *);
 void uwsgi_redirect_to_slash(struct wsgi_request *);
 
 void manage_snmp(int, uint8_t *, int, struct sockaddr_in *);
-void snmp_init(void);
 
 void uwsgi_master_manage_snmp(int);
 
@@ -3262,30 +3295,18 @@ uint32_t uwsgi_swap32(uint32_t);
 uint64_t uwsgi_swap64(uint64_t);
 #endif
 
-int uwsgi_parse_request(int, struct wsgi_request *, int);
 int uwsgi_parse_vars(struct wsgi_request *);
-
-int uwsgi_enqueue_message(char *, int, uint8_t, uint8_t, char *, int, int);
-
-void manage_opt(int, char *);
-
-int uwsgi_ping_node(int, struct wsgi_request *);
 
 void uwsgi_async_init(void);
 void async_loop();
 struct wsgi_request *find_first_available_wsgi_req(void);
-struct wsgi_request *find_first_accepting_wsgi_req(void);
 struct wsgi_request *find_wsgi_req_by_fd(int);
-struct wsgi_request *find_wsgi_req_by_id(int);
 void async_schedule_to_req_green(void);
 void async_schedule_to_req(void);
 
 int async_add_fd_write(struct wsgi_request *, int, int);
 int async_add_fd_read(struct wsgi_request *, int, int);
 void async_reset_request(struct wsgi_request *);
-
-struct wsgi_request *next_wsgi_req(struct wsgi_request *);
-
 
 void async_add_timeout(struct wsgi_request *, int);
 
@@ -3368,28 +3389,17 @@ void *uwsgi_get_loop(char *);
 void add_exported_option(char *, char *, int);
 void add_exported_option_do(char *, char *, int, int);
 
-ssize_t uwsgi_send_empty_pkt(int, char *, uint8_t, uint8_t);
-
 int uwsgi_waitfd_event(int, int, int);
 #define uwsgi_waitfd(a, b) uwsgi_waitfd_event(a, b, POLLIN)
 #define uwsgi_waitfd_write(a, b) uwsgi_waitfd_event(a, b, POLLOUT)
 
-int uwsgi_hooked_parse_dict_dgram(int, char *, size_t, uint8_t, uint8_t, void (*)(char *, uint16_t, char *, uint16_t, void *), void *);
 int uwsgi_hooked_parse(char *, size_t, void (*)(char *, uint16_t, char *, uint16_t, void *), void *);
 int uwsgi_hooked_parse_array(char *, size_t, void (*) (uint16_t, char *, uint16_t, void *), void *);
-
-int uwsgi_get_dgram(int, struct wsgi_request *);
-
-int uwsgi_string_sendto(int, uint8_t, uint8_t, struct sockaddr *, socklen_t, char *, size_t);
-
-void uwsgi_stdin_sendto(char *, uint8_t, uint8_t);
 
 char *generate_socket_name(char *);
 
 #define UMIN(a,b) ((a)>(b)?(b):(a))
 #define UMAX(a,b) ((a)<(b)?(b):(a))
-
-ssize_t uwsgi_send_message(int, uint8_t, uint8_t, char *, uint16_t, int, ssize_t, int);
 
 int uwsgi_cache_set2(struct uwsgi_cache *, char *, uint16_t, char *, uint64_t, uint64_t, uint64_t);
 int uwsgi_cache_del2(struct uwsgi_cache *, char *, uint16_t, uint64_t, uint16_t);
@@ -3477,6 +3487,7 @@ void emperor_loop(void);
 char *uwsgi_num2str(int);
 char *uwsgi_float2str(float);
 char *uwsgi_64bit2str(int64_t);
+char *uwsgi_size2str(size_t);
 
 char *magic_sub(char *, size_t, size_t *, char *[]);
 void init_magic_table(char *[]);
@@ -3614,7 +3625,6 @@ int uwsgi_proto_base_writev(struct wsgi_request *, struct iovec *, size_t *);
 #ifdef UWSGI_SSL
 int uwsgi_proto_ssl_write(struct wsgi_request *, char *, size_t);
 #endif
-int uwsgi_proto_base_write_header(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_base_read_body(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_noop_read_body(struct wsgi_request *, char *, size_t);
 #ifdef UWSGI_SSL
@@ -3672,7 +3682,7 @@ void uwsgi_close_all_unshared_sockets(void);
 void uwsgi_shutdown_all_sockets(void);
 
 struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **, char *);
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 struct uwsgi_regexp_list *uwsgi_regexp_custom_new_list(struct uwsgi_regexp_list **, char *, char *);
 #define uwsgi_regexp_new_list(x, y) uwsgi_regexp_custom_new_list(x, y, NULL);
 #endif
@@ -3946,7 +3956,7 @@ void uwsgi_opt_add_addr_list(char *, char *, void *);
 void uwsgi_opt_add_string_list_custom(char *, char *, void *);
 void uwsgi_opt_add_dyn_dict(char *, char *, void *);
 void uwsgi_opt_binary_append_data(char *, char *, void *);
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 void uwsgi_opt_pcre_jit(char *, char *, void *);
 void uwsgi_opt_add_regexp_dyn_dict(char *, char *, void *);
 void uwsgi_opt_add_regexp_list(char *, char *, void *);
@@ -3959,7 +3969,6 @@ void uwsgi_opt_set_rawint(char *, char *, void *);
 void uwsgi_opt_set_16bit(char *, char *, void *);
 void uwsgi_opt_set_64bit(char *, char *, void *);
 void uwsgi_opt_set_megabytes(char *, char *, void *);
-void uwsgi_opt_set_dyn(char *, char *, void *);
 void uwsgi_opt_set_placeholder(char *, char *, void *);
 void uwsgi_opt_add_shared_socket(char *, char *, void *);
 void uwsgi_opt_add_socket(char *, char *, void *);
@@ -4103,7 +4112,6 @@ int uwsgi_calc_cheaper(void);
 int uwsgi_cheaper_algo_spare(int);
 int uwsgi_cheaper_algo_spare2(int);
 int uwsgi_cheaper_algo_backlog(int);
-int uwsgi_cheaper_algo_backlog2(int);
 int uwsgi_cheaper_algo_manual(int);
 
 int uwsgi_master_log(void);
@@ -4274,7 +4282,6 @@ struct uwsgi_logchunk *uwsgi_register_logchunk(char *, ssize_t (*)(struct wsgi_r
 
 void uwsgi_logit_simple(struct wsgi_request *);
 void uwsgi_logit_lf(struct wsgi_request *);
-void uwsgi_logit_lf_strftime(struct wsgi_request *);
 
 struct uwsgi_logvar *uwsgi_logvar_get(struct wsgi_request *, char *, uint8_t);
 void uwsgi_logvar_add(struct wsgi_request *, char *, uint8_t, char *, uint8_t);
@@ -4573,7 +4580,6 @@ void uwsgi_loop_cores_run(void *(*)(void *));
 int uwsgi_kvlist_parse(char *, size_t, char, int, ...);
 int uwsgi_send_http_stats(int);
 
-ssize_t uwsgi_simple_request_read(struct wsgi_request *, char *, size_t);
 int uwsgi_plugin_modifier1(char *);
 
 void *cache_udp_server_loop(void *);
@@ -4648,7 +4654,6 @@ int uwsgi_response_prepare_headers(struct wsgi_request *, char *, uint16_t);
 int uwsgi_response_prepare_headers_int(struct wsgi_request *, int);
 int uwsgi_response_add_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 int uwsgi_response_add_header_force(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
-int uwsgi_response_commit_headers(struct wsgi_request *);
 int uwsgi_response_sendfile_do(struct wsgi_request *, int, size_t, size_t);
 int uwsgi_response_sendfile_do_can_close(struct wsgi_request *, int, size_t, size_t, int);
 
@@ -5126,7 +5131,11 @@ char *uwsgi_subscription_algo_name(void *);
 int uwsgi_wait_for_fs(char *, int);
 int uwsgi_wait_for_mountpoint(char *);
 int uwsgi_wait_for_socket(char *);
+
+#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
 void uwsgi_hooks_setns_run(struct uwsgi_string_list *, pid_t, uid_t, gid_t);
+#endif
+
 char *vassal_attr_get(struct uwsgi_instance *, char *);
 int vassal_attr_get_multi(struct uwsgi_instance *, char *, int (*)(struct uwsgi_instance *, char *, void *), void *);
 

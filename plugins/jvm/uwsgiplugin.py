@@ -1,5 +1,6 @@
 import os
 import shutil
+import subprocess
 
 NAME = 'jvm'
 
@@ -31,11 +32,14 @@ elif operating_system.startswith('cygwin'):
     JVM_INCPATH = ['-I"/cygdrive/c/Program Files/Java/jdk1.7.0_17/include"', '-I"/cygdrive/c/Program Files/Java/jdk1.7.0_17/include/win32"']
     JVM_LIBPATH = ['-L"/cygdrive/c/Program Files/Java/jdk1.7.0_17/jre/bin/server"']
 else:
-    known_jvms = ('/usr/lib/jvm/java-7-openjdk', '/usr/local/openjdk7', '/usr/lib/jvm/java-6-openjdk', '/usr/local/openjdk', '/usr/java', '/usr/lib/jvm/java/', '/usr/lib/jvm/java-8-openjdk-%s' % arch)
+    known_jvms = ('/usr/lib/jvm/java-7-openjdk', '/usr/local/openjdk7', '/usr/lib/jvm/java-6-openjdk', '/usr/local/openjdk', '/usr/java', '/usr/lib/jvm/java/', '/usr/lib/jvm/java-8-openjdk-%s' % arch, '/usr/lib/jvm/java-11-openjdk-%s' % arch)
     for jvm in known_jvms:
         if os.path.exists(jvm + '/include'):
             JVM_INCPATH = ["-I%s/include/" % jvm, "-I%s/include/%s" % (jvm, operating_system)]
-            JVM_LIBPATH = ["-L%s/jre/lib/%s/server" % (jvm, arch)]
+            if os.path.exists("%s/jre" % jvm):
+                JVM_LIBPATH = ["-L%s/jre/lib/%s/server" % (jvm, arch)]
+            else:
+                JVM_LIBPATH = ["-L%s/lib/server" % (jvm,)]
             break
         if os.path.exists("%s-%s/include" % (jvm, arch)):
             jvm = "%s-%s" % (jvm, arch)
@@ -72,9 +76,9 @@ else:
 
 
 def post_build(config):
-    if os.system("javac %s/plugins/jvm/uwsgi.java" % os.getcwd()) != 0:
+    if subprocess.call("javac %s/plugins/jvm/uwsgi.java" % os.getcwd(), shell=True) != 0:
         os._exit(1)
-    if os.system("cd %s/plugins/jvm ; jar cvf uwsgi.jar *.class" % os.getcwd()) != 0:
+    if subprocess.call("cd %s/plugins/jvm ; jar cvf uwsgi.jar *.class" % os.getcwd(), shell=True) != 0:
         os._exit(1)
     print("*** uwsgi.jar available in %s/plugins/jvm/uwsgi.jar ***" % os.getcwd())
 

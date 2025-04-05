@@ -1,8 +1,17 @@
 import os
 import sys
-
-from distutils import sysconfig
-
+try:
+    from distutils import sysconfig
+    paths = [
+        sysconfig.get_python_inc(),
+        sysconfig.get_python_inc(plat_specific=True),
+    ]
+except ImportError:
+    import sysconfig
+    paths = [
+        sysconfig.get_path('include'),
+        sysconfig.get_path('platinclude'),
+    ]
 
 def get_python_version():
     version = sysconfig.get_config_var('VERSION')
@@ -30,16 +39,14 @@ GCC_LIST = [
     'raw'
 ]
 
-CFLAGS = [
-    '-I' + sysconfig.get_python_inc(),
-    '-I' + sysconfig.get_python_inc(plat_specific=True),
-]
+CFLAGS = ['-I' + path for path in paths]
 LDFLAGS = []
 
 if 'UWSGI_PYTHON_NOLIB' not in os.environ:
     LIBS = sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
     # check if it is a non-shared build (but please, add --enable-shared to your python's ./configure script)
-    if not sysconfig.get_config_var('Py_ENABLE_SHARED'):
+    use_static_lib = not sysconfig.get_config_var('Py_ENABLE_SHARED')
+    if use_static_lib:
         libdir = sysconfig.get_config_var('LIBPL')
         # libdir does not exists, try to get it from the venv
         version = get_python_version()
@@ -52,6 +59,10 @@ if 'UWSGI_PYTHON_NOLIB' not in os.environ:
         # try 3.x style config dir
         if not os.path.exists(libdir):
             libdir = '%s/lib/python%s/config-%s' % (sys.prefix, version, get_python_version())
+        # try >=3.6 style config dir with arch as suffix
+        if not os.path.exists(libdir):
+            multiarch = sysconfig.get_config_var('MULTIARCH')
+            libdir = '%s/lib/python%s/config-%s-%s' % (sys.prefix, version, get_python_version(), multiarch) 
 
         # get cpu type
         uname = os.uname()
@@ -65,11 +76,17 @@ if 'UWSGI_PYTHON_NOLIB' not in os.environ:
                 libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LIBRARY'))
         if not os.path.exists(libpath):
             libpath = '%s/libpython%s.a' % (libdir, version)
-        LIBS.append(libpath)
-        # hack for messy linkers/compilers
-        if '-lutil' in LIBS:
-            LIBS.append('-lutil')
-    else:
+
+        if os.path.exists(libpath):
+            LIBS.append(libpath)
+            # hack for messy linkers/compilers
+            if '-lutil' in LIBS:
+                LIBS.append('-lutil')
+            if '-lrt' in LIBS:
+                LIBS.append('-lrt')
+        else:
+            use_static_lib = False
+    if not use_static_lib:
         try:
             libdir = sysconfig.get_config_var('LIBDIR')
         except Exception:

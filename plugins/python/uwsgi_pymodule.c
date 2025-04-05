@@ -2039,7 +2039,7 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
         }
 
 	// HACK: we are safe as rlen can only be lower or equal to len
-	Py_SIZE(ret) = rlen;
+	Py_SET_SIZE((PyVarObject *) ret, rlen);
 
 	return ret;
 }
@@ -2384,8 +2384,6 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 			goto clear;
 		}
 
-		apps_tuple = PyDict_GetItemString(worker_dict, "apps");
-
 		PyDict_Clear(worker_dict);
 
 		zero = PyInt_FromLong(uwsgi.workers[i + 1].id);
@@ -2539,9 +2537,10 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 
 			PyTuple_SetItem(apps_tuple, j, apps_dict);
 		}
-	
+
 
 		PyDict_SetItemString(worker_dict, "apps", apps_tuple);
+		Py_DECREF(apps_tuple);
 
 	}
 

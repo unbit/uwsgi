@@ -1,0 +1,64 @@
+name: Compile test
+
+on:
+  push:
+    branches: [ master, uwsgi-2.0 ]
+  pull_request:
+    branches: [ master, uwsgi-2.0 ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        libpcre: ["libpcre3-dev", "libpcre2-dev"]
+        os: ["ubuntu-20.04", "ubuntu-22.04"]
+        cc: [gcc, clang]
+        include:
+          - os: ubuntu-20.04
+            php: "php7.4"
+            php-config: "php-config7.4"
+          - os: ubuntu-22.04
+            php: "php8.1"
+            php-config: "php-config8.1"
+        exclude:
+          - os: ubuntu-20.04
+            cc: "clang"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: remove sury php ppa that does not ship libphpX.Y-embed
+      run: |
+        sudo add-apt-repository --remove ppa:ondrej/php
+        sudo apt remove ${{ matrix.php }}-dev ${{ matrix.php }} ${{ matrix.php }}-common
+    - name: Install dependencies
+      run: |
+        sudo apt update -qq
+        sudo apt install --no-install-recommends -qqyf python3-dev \
+          libxml2-dev ${{ matrix.libpcre }} libcap2-dev \
+          libargon2-0-dev libsodium-dev \
+          ${{ matrix.php }}-dev lib${{ matrix.php }}-embed \
+          liblua5.1-0-dev ruby-dev \
+          libjansson-dev libldap2-dev libpq-dev \
+          libpam0g-dev libsqlite3-dev libyaml-dev \
+          libzmq3-dev libmatheval-dev libperl-dev \
+          libonig-dev libdb-dev libqdbm-dev libbz2-dev \
+          libwrap0-dev libgeoip-dev libv8-dev libxslt1-dev \
+          libboost-thread-dev libboost-filesystem-dev \
+          libssl-dev libacl1-dev python-greenlet-dev \
+          libcurl4-openssl-dev \
+          openjdk-11-jdk libgloox-dev gccgo \
+          cli-common-dev mono-devel mono-mcs uuid-dev \
+          curl check ${{ matrix.cc == 'clang' && 'clang' || '' }}
+    - uses: actions/checkout@v4
+    - name: Build kitchensink uWSGI binary with gcc or default with clang
+      run: CC=${{ matrix.cc }} UWSGICONFIG_PHPPATH=${{ matrix.php-config }} /usr/bin/python3 uwsgiconfig.py --build ${{ matrix.cc == 'gcc' && 'travis' || '' }}
+    - name: Build uWSGI binary
+      run: |
+        CC=${{ matrix.cc }} /usr/bin/python3 uwsgiconfig.py --build base
+    - name: Build cgi plugin
+      run: |
+        CC=${{ matrix.cc }} /usr/bin/python3 uwsgiconfig.py --plugin plugins/cgi base
+    - name: Build dummy plugin
+      run: |
+        CC=${{ matrix.cc }} /usr/bin/python3 uwsgiconfig.py --plugin plugins/dummy base

@@ -747,9 +747,22 @@ int uwsgi_respawn_worker(int wid) {
 		pthread_mutex_lock(&uwsgi.threaded_logger_lock);
 	}
 
+
+	for (i = 0; i < 256; i++) {
+		if (uwsgi.p[i]->pre_uwsgi_fork) {
+			uwsgi.p[i]->pre_uwsgi_fork();
+		}
+	}
+
 	pid_t pid = uwsgi_fork(uwsgi.workers[wid].name);
 
 	if (pid == 0) {
+		for (i = 0; i < 256; i++) {
+			if (uwsgi.p[i]->post_uwsgi_fork) {
+				uwsgi.p[i]->post_uwsgi_fork(1);
+			}
+		}
+
 		signal(SIGWINCH, worker_wakeup);
 		signal(SIGTSTP, worker_wakeup);
 		uwsgi.mywid = wid;
@@ -812,6 +825,12 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi_error("fork()");
 	}
 	else {
+		for (i = 0; i < 256; i++) {
+			if (uwsgi.p[i]->post_uwsgi_fork) {
+				uwsgi.p[i]->post_uwsgi_fork(0);
+			}
+		}
+
 		// the pid is set only in the master, as the worker should never use it
 		uwsgi.workers[wid].pid = pid;
 
@@ -1605,7 +1624,10 @@ void uwsgi_register_cheaper_algo(char *name, int (*func) (int)) {
 
 void trigger_harakiri(int i) {
 	int j;
-	uwsgi_log_verbose("*** HARAKIRI ON WORKER %d (pid: %d, try: %d) ***\n", i, uwsgi.workers[i].pid, uwsgi.workers[i].pending_harakiri + 1);
+	uwsgi_log_verbose("*** HARAKIRI ON WORKER %d (pid: %d, try: %d, graceful: %s) ***\n", i,
+				uwsgi.workers[i].pid,
+				uwsgi.workers[i].pending_harakiri + 1,
+				uwsgi.workers[i].pending_harakiri > 0 ? "no": "yes");
 	if (uwsgi.harakiri_verbose) {
 #ifdef __linux__
 		int proc_file;
@@ -1654,7 +1676,11 @@ void trigger_harakiri(int i) {
 		}
 
 		uwsgi_dump_worker(i, "HARAKIRI");
-		kill(uwsgi.workers[i].pid, SIGKILL);
+		if (uwsgi.workers[i].pending_harakiri == 0 && uwsgi.harakiri_graceful_timeout > 0) {
+			kill(uwsgi.workers[i].pid, uwsgi.harakiri_graceful_signal);
+		} else {
+			kill(uwsgi.workers[i].pid, SIGKILL);
+		}
 		if (!uwsgi.workers[i].pending_harakiri)
 			uwsgi.workers[i].harakiri_count++;
 		uwsgi.workers[i].pending_harakiri++;
@@ -1687,7 +1713,8 @@ int uwsgi_cron_task_needs_execution(struct tm *uwsgi_cron_delta, int minute, int
 	uc_hour = hour;
 	uc_day = day;
 	uc_month = month;
-	uc_week = week;
+	// support 7 as alias for sunday (0) to match crontab behaviour
+	uc_week = week == 7 ? 0 : week;
 
 	// negative values as interval -1 = * , -5 = */5
 	if (minute < 0) {

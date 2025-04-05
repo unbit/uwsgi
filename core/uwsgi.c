@@ -1,27 +1,4 @@
-/*
-
- *** uWSGI ***
-
- Copyright (C) 2009-2017 Unbit S.a.s. <info@unbit.it>
-
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- as published by the Free Software Foundation; either version 2
- of the License, or (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program; if not, write to the Free Software
- Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
-*/
-
-
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 struct uwsgi_server uwsgi;
 pid_t masterpid;
@@ -83,6 +60,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"thunder-lock-watchdog", no_argument, 0, "watchdog for buggy pthread robust mutexes", uwsgi_opt_true, &uwsgi.use_thunder_lock_watchdog, 0},
 	{"harakiri", required_argument, 't', "set harakiri timeout", uwsgi_opt_set_int, &uwsgi.harakiri_options.workers, 0},
 	{"harakiri-verbose", no_argument, 0, "enable verbose mode for harakiri", uwsgi_opt_true, &uwsgi.harakiri_verbose, 0},
+	{"harakiri-graceful-timeout", required_argument, 0, "interval between graceful harakiri attempt and a sigkill", uwsgi_opt_set_int, &uwsgi.harakiri_graceful_timeout, 0},
+	{"harakiri-graceful-signal", required_argument, 0, "use this signal instead of sigterm for graceful harakiri attempts", uwsgi_opt_set_int, &uwsgi.harakiri_graceful_signal, 0},
+	{"harakiri-queue-threshold", required_argument, 0, "only trigger harakiri if queue is greater than this threshold", uwsgi_opt_set_int, &uwsgi.harakiri_queue_threshold, 0},
 	{"harakiri-no-arh", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh, 0},
 	{"no-harakiri-arh", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh, 0},
 	{"no-harakiri-after-req-hook", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh, 0},
@@ -129,7 +109,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"if-hostname", required_argument, 0, "(opt logic) check for hostname", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_hostname, UWSGI_OPT_IMMEDIATE},
 	{"if-not-hostname", required_argument, 0, "(opt logic) check for hostname", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_hostname, UWSGI_OPT_IMMEDIATE},
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"if-hostname-match", required_argument, 0, "(opt logic) try to match hostname against a regular expression", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_hostname_match, UWSGI_OPT_IMMEDIATE},
 	{"if-not-hostname-match", required_argument, 0, "(opt logic) try to match hostname against a regular expression", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_hostname_match, UWSGI_OPT_IMMEDIATE},
 #endif
@@ -198,7 +178,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"freebind", no_argument, 0, "put socket in freebind mode", uwsgi_opt_true, &uwsgi.freebind, 0},
 #endif
 	{"map-socket", required_argument, 0, "map sockets to specific workers", uwsgi_opt_add_string_list, &uwsgi.map_socket, 0},
-	{"enable-threads", no_argument, 'T', "enable threads", uwsgi_opt_true, &uwsgi.has_threads, 0},
+	{"enable-threads", no_argument, 'T', "enable threads (stub option this is true by default)", uwsgi_opt_true, &uwsgi.has_threads, 0},
 	{"no-threads-wait", no_argument, 0, "do not wait for threads cancellation on quit/reload", uwsgi_opt_true, &uwsgi.no_threads_wait, 0},
 
 	{"auto-procname", no_argument, 0, "automatically set processes name to something meaningful", uwsgi_opt_true, &uwsgi.auto_procname, 0},
@@ -209,7 +189,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"procname-master", required_argument, 0, "set master process name", uwsgi_opt_set_str, &uwsgi.procname_master, UWSGI_OPT_PROCNAME},
 
 	{"single-interpreter", no_argument, 'i', "do not use multiple interpreters (where available)", uwsgi_opt_true, &uwsgi.single_interpreter, 0},
-	{"need-app", no_argument, 0, "exit if no app can be loaded", uwsgi_opt_true, &uwsgi.need_app, 0},
+	{"need-app", optional_argument, 0, "exit if no app can be loaded", uwsgi_opt_true, &uwsgi.need_app, 0},
 	{"dynamic-apps", no_argument, 0, "allows apps to be dynamically loaded via uwsgi protocol", uwsgi_opt_true, &uwsgi.dynamic_apps, 0},
 	{"master", no_argument, 'M', "enable master process", uwsgi_opt_true, &uwsgi.master_process, 0},
 	{"honour-stdin", no_argument, 0, "do not remap stdin to /dev/null", uwsgi_opt_true, &uwsgi.honour_stdin, 0},
@@ -255,6 +235,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-use-fork-server", required_argument, 0, "connect to the specified fork server instead of using plain fork() for new vassals", uwsgi_opt_set_str, &uwsgi.emperor_use_fork_server, 0},
 	{"vassal-fork-base", required_argument, 0, "use plain fork() for the specified vassal (instead of a fork-server)", uwsgi_opt_add_string_list, &uwsgi.vassal_fork_base, 0},
 	{"emperor-subreaper", no_argument, 0, "force the Emperor to be a sub-reaper (if supported)", uwsgi_opt_true, &uwsgi.emperor_subreaper, 0},
+	{"emperor-graceful-shutdown", no_argument, 0, "use vassals graceful shutdown during ragnarok", uwsgi_opt_true, &uwsgi.emperor_graceful_shutdown, 0},
 #ifdef UWSGI_CAP
 	{"emperor-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},
 	{"vassals-cap", required_argument, 0, "set vassals capability", uwsgi_opt_set_emperor_cap, NULL, 0},
@@ -297,8 +278,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"reaper", no_argument, 'r', "call waitpid(-1,...) after each request to get rid of zombies", uwsgi_opt_true, &uwsgi.reaper, 0},
 	{"max-requests", required_argument, 'R', "reload workers after the specified amount of managed requests", uwsgi_opt_set_64bit, &uwsgi.max_requests, 0},
 	{"max-requests-delta", required_argument, 0, "add (worker_id * delta) to the max_requests value of each worker", uwsgi_opt_set_64bit, &uwsgi.max_requests_delta, 0},
-	{"min-worker-lifetime", required_argument, 0, "number of seconds worker must run before being reloaded (default is 60)", uwsgi_opt_set_64bit, &uwsgi.min_worker_lifetime, 0},
+	{"min-worker-lifetime", required_argument, 0, "number of seconds worker must run before being reloaded (default is 10)", uwsgi_opt_set_64bit, &uwsgi.min_worker_lifetime, 0},
 	{"max-worker-lifetime", required_argument, 0, "reload workers after the specified amount of seconds (default is disabled)", uwsgi_opt_set_64bit, &uwsgi.max_worker_lifetime, 0},
+	{"max-worker-lifetime-delta", required_argument, 0, "add (worker_id * delta) seconds to the max_worker_lifetime value of each worker", uwsgi_opt_set_int, &uwsgi.max_worker_lifetime_delta, 0},
 
 	{"socket-timeout", required_argument, 'z', "set internal sockets timeout", uwsgi_opt_set_int, &uwsgi.socket_timeout, 0},
 	{"no-fd-passing", no_argument, 0, "disable file descriptor passing", uwsgi_opt_true, &uwsgi.no_fd_passing, 0},
@@ -583,7 +565,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ksm", optional_argument, 0, "enable Linux KSM", uwsgi_opt_set_int, &uwsgi.linux_ksm, 0},
 #endif
 #endif
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"pcre-jit", no_argument, 0, "enable pcre jit (if available)", uwsgi_opt_pcre_jit, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 	{"never-swap", no_argument, 0, "lock all memory pages avoiding swapping", uwsgi_opt_true, &uwsgi.never_swap, 0},
@@ -667,7 +649,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"legion-freq", required_argument, 0, "set the frequency of legion packets", uwsgi_opt_set_int, &uwsgi.legion_freq, UWSGI_OPT_MASTER},
 	{"legion-tolerance", required_argument, 0, "set the tolerance of legion subsystem", uwsgi_opt_set_int, &uwsgi.legion_tolerance, UWSGI_OPT_MASTER},
 	{"legion-death-on-lord-error", required_argument, 0, "declare itself as a dead node for the specified amount of seconds if one of the lord hooks fails", uwsgi_opt_set_int, &uwsgi.legion_death_on_lord_error, UWSGI_OPT_MASTER},
-	{"legion-skew-tolerance", required_argument, 0, "set the clock skew tolerance of legion subsystem (default 30 seconds)", uwsgi_opt_set_int, &uwsgi.legion_skew_tolerance, UWSGI_OPT_MASTER},
+	{"legion-skew-tolerance", required_argument, 0, "set the clock skew tolerance of legion subsystem (default 60 seconds)", uwsgi_opt_set_int, &uwsgi.legion_skew_tolerance, UWSGI_OPT_MASTER},
 	{"legion-lord", required_argument, 0, "action to call on Lord election", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-unlord", required_argument, 0, "action to call on Lord dismiss", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-setup", required_argument, 0, "action to call on legion setup", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
@@ -719,7 +701,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ssl-enable-sslv3", no_argument, 0, "enable SSLv3 (insecure)", uwsgi_opt_true, &uwsgi.sslv3, 0},
 	{"ssl-enable-tlsv1", no_argument, 0, "enable TLSv1 (insecure)", uwsgi_opt_true, &uwsgi.tlsv1, 0},
 	{"ssl-option", required_argument, 0, "set a raw ssl option (numeric value)", uwsgi_opt_add_string_list, &uwsgi.ssl_options, 0},
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"sni-regexp", required_argument, 0, "add an SNI-governed SSL context (the key is a regexp)", uwsgi_opt_sni, NULL, 0},
 #endif
 	{"ssl-tmp-dir", required_argument, 0, "store ssl-related temp files in the specified directory", uwsgi_opt_set_str, &uwsgi.ssl_tmp_dir, 0},
@@ -761,7 +743,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"worker-log-req-encoder", required_argument, 0, "add an item in the log req encoder chain", uwsgi_opt_add_string_list, &uwsgi.requested_log_req_encoders, 0},
 	
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"log-drain", required_argument, 0, "drain (do not show) log lines matching the specified regexp", uwsgi_opt_add_regexp_list, &uwsgi.log_drain_rules, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"log-filter", required_argument, 0, "show only log lines matching the specified regexp", uwsgi_opt_add_regexp_list, &uwsgi.log_filter_rules, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"log-route", required_argument, 0, "log to the specified named logger if regexp applied on logline matches", uwsgi_opt_add_regexp_custom_list, &uwsgi.log_route, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -773,7 +755,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"alarm", required_argument, 0, "create a new alarm, syntax: <alarm> <plugin:args>", uwsgi_opt_add_string_list, &uwsgi.alarm_list, UWSGI_OPT_MASTER},
 	{"alarm-cheap", required_argument, 0, "use main alarm thread rather than create dedicated threads for curl-based alarms", uwsgi_opt_true, &uwsgi.alarm_cheap, 0},
 	{"alarm-freq", required_argument, 0, "tune the anti-loop alarm system (default 3 seconds)", uwsgi_opt_set_int, &uwsgi.alarm_freq, 0},
-	{"alarm-fd", required_argument, 0, "raise the specified alarm when an fd is read for read (by default it reads 1 byte, set 8 for eventfd)", uwsgi_opt_add_string_list, &uwsgi.alarm_fd_list, UWSGI_OPT_MASTER},
+	{"alarm-fd", required_argument, 0, "raise the specified alarm when an fd is ready for read (by default it reads 1 byte, set 8 for eventfd)", uwsgi_opt_add_string_list, &uwsgi.alarm_fd_list, UWSGI_OPT_MASTER},
 	{"alarm-segfault", required_argument, 0, "raise the specified alarm when the segmentation fault handler is executed", uwsgi_opt_add_string_list, &uwsgi.alarm_segfault, UWSGI_OPT_MASTER},
 	{"segfault-alarm", required_argument, 0, "raise the specified alarm when the segmentation fault handler is executed", uwsgi_opt_add_string_list, &uwsgi.alarm_segfault, UWSGI_OPT_MASTER},
 	{"alarm-backlog", required_argument, 0, "raise the specified alarm when the socket backlog queue is full", uwsgi_opt_add_string_list, &uwsgi.alarm_backlog, UWSGI_OPT_MASTER},
@@ -782,7 +764,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"alarm-lq", required_argument, 0, "raise the specified alarm when the socket backlog queue is full", uwsgi_opt_add_string_list, &uwsgi.alarm_backlog, UWSGI_OPT_MASTER},
 	{"alarm-listen-queue", required_argument, 0, "raise the specified alarm when the socket backlog queue is full", uwsgi_opt_add_string_list, &uwsgi.alarm_backlog, UWSGI_OPT_MASTER},
 	{"listen-queue-alarm", required_argument, 0, "raise the specified alarm when the socket backlog queue is full", uwsgi_opt_add_string_list, &uwsgi.alarm_backlog, UWSGI_OPT_MASTER},
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"log-alarm", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"alarm-log", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"not-log-alarm", required_argument, 0, "skip the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list_custom, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -963,7 +945,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"static-expires-type", required_argument, 0, "set the Expires header based on content type", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type, UWSGI_OPT_MIME},
 	{"static-expires-type-mtime", required_argument, 0, "set the Expires header based on content type and file mtime", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type_mtime, UWSGI_OPT_MIME},
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	{"static-expires", required_argument, 0, "set the Expires header based on filename regexp", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires, UWSGI_OPT_MIME},
 	{"static-expires-mtime", required_argument, 0, "set the Expires header based on filename regexp and file mtime", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires_mtime, UWSGI_OPT_MIME},
 
@@ -1244,57 +1226,28 @@ void warn_pipe() {
 	}
 }
 
-// in threading mode we need to use the cancel pthread subsystem
-void wait_for_threads() {
+// This function is called from signal handler or main thread to wait worker threads.
+// `uwsgi.workers[uwsgi.mywid].manage_next_request` should be set to 0 to stop worker threads.
+static void wait_for_threads() {
 	int i, ret;
 
-	// on some platform thread cancellation is REALLY flaky
+	// This option was added because we used pthread_cancel().
+	// thread cancellation is REALLY flaky
 	if (uwsgi.no_threads_wait) return;
 
-	int sudden_death = 0;
-
-	pthread_mutex_lock(&uwsgi.six_feet_under_lock);
-	for (i = 1; i < uwsgi.threads; i++) {
-		if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, pthread_self())) {
-			if (pthread_cancel(uwsgi.workers[uwsgi.mywid].cores[i].thread_id)) {
-				uwsgi_error("pthread_cancel()\n");
-				sudden_death = 1;
-			}
-		}
-	}
-
-	if (sudden_death)
-		goto end;
-
 	// wait for thread termination
-	for (i = 1; i < uwsgi.threads; i++) {
+	for (i = 0; i < uwsgi.threads; i++) {
 		if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, pthread_self())) {
 			ret = pthread_join(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, NULL);
 			if (ret) {
 				uwsgi_log("pthread_join() = %d\n", ret);
 			}
+			else {
+				// uwsgi_worker_is_busy() should not consider this thread as busy.
+				uwsgi.workers[uwsgi.mywid].cores[i].in_request = 0;
+			}
 		}
 	}
-
-	// cancel initial thread last since after pthread_cancel() and
-	// pthread_join() is called on it, the whole process will appear to be
-	// a zombie. although it won't eliminate process zombie time, but it
-	// should minimize it.
-	if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[0].thread_id, pthread_self())) {
-		if (pthread_cancel(uwsgi.workers[uwsgi.mywid].cores[0].thread_id)) {
-			uwsgi_error("pthread_cancel() on initial thread\n");
-			goto end;
-		}
-
-		ret = pthread_join(uwsgi.workers[uwsgi.mywid].cores[0].thread_id, NULL);
-		if (ret) {
-			uwsgi_log("pthread_join() = %d on initial thread\n", ret);
-		}
-	}
-
-end:
-
-	pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
 }
 
 
@@ -1302,16 +1255,17 @@ void gracefully_kill(int signum) {
 
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
+
 	if (uwsgi.threads > 1) {
-		struct wsgi_request *wsgi_req = current_wsgi_req();
-		wait_for_threads();
-		if (!uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request) {
-			if (uwsgi.workers[uwsgi.mywid].shutdown_sockets)
-				uwsgi_shutdown_all_sockets();
-			exit(UWSGI_RELOAD_CODE);
+		// Stop event_queue_wait() in other threads.
+		// We use loop_stop_pipe only in threaded workers to avoid
+		// unintensional behavior changes in single threaded workers.
+		int fd;
+		if ((fd = uwsgi.loop_stop_pipe[1]) > 0) {
+			close(fd);
+			uwsgi.loop_stop_pipe[1] = 0;
 		}
 		return;
-		// never here
 	}
 
 	// still not found a way to gracefully reload in async mode
@@ -1337,14 +1291,23 @@ void end_me(int signum) {
 }
 
 static void simple_goodbye_cruel_world(const char *reason) {
-
-	if (uwsgi.threads > 1 && !uwsgi_instance_is_dying) {
-		wait_for_threads();
+	int prev = uwsgi.workers[uwsgi.mywid].manage_next_request;
+	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
+	if (prev) {
+		// Avoid showing same message from all threads.
+		uwsgi_log("...The work of process %d is done (%s). Seeya!\n", getpid(), (reason != NULL ? reason : "no reason given"));
 	}
 
-	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
-	uwsgi_log("...The work of process %d is done (%s). Seeya!\n", getpid(), (reason != NULL ? reason : "no reason given"));
-	exit(0);
+	if (uwsgi.threads > 1) {
+		// Stop event_queue_wait() in other threads.
+		// We use loop_stop_pipe only in threaded workers to avoid
+		// unintensional behavior changes in single threaded workers.
+		int fd;
+		if ((fd = uwsgi.loop_stop_pipe[1]) > 0) {
+			close(fd);
+			uwsgi.loop_stop_pipe[1] = 0;
+		}
+	}
 }
 
 void goodbye_cruel_world(const char *reason_fmt, ...) {
@@ -1373,7 +1336,7 @@ void kill_them_all(int signum) {
 	// unsubscribe if needed
 	uwsgi_unsubscribe_all();
 
-	uwsgi_log("SIGINT/SIGQUIT received...killing workers...\n");
+	uwsgi_log("SIGINT/SIGTERM received...killing workers...\n");
 
 	int i;
 	for (i = 1; i <= uwsgi.numproc; i++) {
@@ -1392,6 +1355,8 @@ void kill_them_all(int signum) {
 
 // gracefully destroy
 void gracefully_kill_them_all(int signum) {
+
+        int waitpid_status;
 
         if (uwsgi_instance_is_dying) return;
         uwsgi.status.gracefully_destroying = 1;
@@ -1412,6 +1377,12 @@ void gracefully_kill_them_all(int signum) {
                 if (uwsgi.mules[i].pid > 0) {
                         uwsgi_curse_mule(i, SIGHUP);
                 }
+        }
+
+        for (i = 1; i <= uwsgi.numproc; i++) {
+            if (uwsgi.workers[i].pid > 0) {
+                waitpid(uwsgi.workers[i].pid, &waitpid_status, 0);
+            }
         }
 
         uwsgi_destroy_processes();
@@ -1515,7 +1486,7 @@ void reap_them_all(int signum) {
 
 void harakiri() {
 
-	uwsgi_log("\nF*CK !!! i must kill myself (pid: %d app_id: %d)...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id);
+	uwsgi_log("\nKilling the current process (pid: %d app_id: %d)...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id);
 
 	if (!uwsgi.master_process) {
 		uwsgi_log("*** if you want your workers to be automatically respawned consider enabling the uWSGI master process ***\n");
@@ -2518,7 +2489,7 @@ configure:
 #endif
 
 	uwsgi_log_initial("clock source: %s\n", uwsgi.clock->name);
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	if (uwsgi.pcre_jit) {
 		uwsgi_log_initial("pcre jit enabled\n");
 	}
@@ -3192,10 +3163,6 @@ unsafe:
 	if (uwsgi.logformat) {
 		uwsgi_build_log_format(uwsgi.logformat);
 		uwsgi.logit = uwsgi_logit_lf;
-		// TODO check it
-		//if (uwsgi.logformat_strftime) {
-			//uwsgi.logit = uwsgi_logit_lf_strftime;
-		//}
 		uwsgi.logvectors = uwsgi_malloc(sizeof(struct iovec *) * uwsgi.cores);
 		for (j = 0; j < uwsgi.cores; j++) {
 			uwsgi.logvectors[j] = uwsgi_malloc(sizeof(struct iovec) * uwsgi.logformat_vectors);
@@ -3661,7 +3628,6 @@ void uwsgi_worker_run() {
 
 	if (uwsgi.cores > 1) {
 		uwsgi.workers[uwsgi.mywid].cores[0].thread_id = pthread_self();
-		pthread_mutex_init(&uwsgi.six_feet_under_lock, NULL);
 	}
 
 	uwsgi_ignition();
@@ -3694,6 +3660,10 @@ void uwsgi_ignition() {
 			uwsgi_error("pthread_key_create()");
 			exit(1);
 		}
+	}
+	if (pipe(&uwsgi.loop_stop_pipe[0])) {
+		uwsgi_error("pipe()")
+		exit(1);
 	}
 
 	// mark the worker as "accepting" (this is a mark used by chain reloading)
@@ -3741,6 +3711,11 @@ void uwsgi_ignition() {
 		else {
 			async_loop();
 		}
+	}
+
+	// main thread waits other threads.
+	if (uwsgi.threads > 1) {
+		wait_for_threads();
 	}
 
 	// end of the process...
@@ -3986,13 +3961,6 @@ void uwsgi_init_all_apps() {
 		if (uwsgi.need_app) {
 			if (!uwsgi.lazy)
 				uwsgi_log("*** no app loaded. GAME OVER ***\n");
-			if (uwsgi.lazy_apps) {
-				if (uwsgi.master_process) {
-					if (kill(uwsgi.workers[0].pid, SIGINT)) {
-						uwsgi_error("kill()");
-					}
-				}
-			}
 			exit(UWSGI_FAILED_APP_CODE);
 		}
 		else {
@@ -4324,7 +4292,7 @@ void uwsgi_opt_add_string_list_custom(char *opt, char *value, void *list) {
 	usl->custom = 1;
 }
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 void uwsgi_opt_add_regexp_list(char *opt, char *value, void *list) {
 	struct uwsgi_regexp_list **ptr = (struct uwsgi_regexp_list **) list;
 	uwsgi_regexp_new_list(ptr, value);
@@ -4590,7 +4558,7 @@ void uwsgi_opt_add_dyn_dict(char *opt, char *value, void *dict) {
 
 }
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 void uwsgi_opt_add_regexp_dyn_dict(char *opt, char *value, void *dict) {
 
 	char *space = strchr(value, ' ');
@@ -4605,7 +4573,7 @@ void uwsgi_opt_add_regexp_dyn_dict(char *opt, char *value, void *dict) {
 
 	char *regexp = uwsgi_concat2n(value, space - value, "", 0);
 
-	if (uwsgi_regexp_build(regexp, &new_udd->pattern, &new_udd->pattern_extra)) {
+	if (uwsgi_regexp_build(regexp, &new_udd->pattern)) {
 		exit(1);
 	}
 

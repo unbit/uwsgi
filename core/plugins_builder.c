@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 #define UWSGI_BUILD_DIR ".uwsgi_plugins_builder"
 

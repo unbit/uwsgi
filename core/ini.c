@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
 
@@ -87,8 +87,6 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 	char *key;
 	char *val;
 
-	int lines = 1;
-
 	char *section_asked = "uwsgi";
 	char *colon;
 	int got_section = 0;
@@ -130,7 +128,6 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 		if (ini_line == NULL) {
 			break;
 		}
-		lines++;
 
 		// skip empty line
 		key = ini_lstrip(ini);

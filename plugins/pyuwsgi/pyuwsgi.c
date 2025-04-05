@@ -115,12 +115,6 @@ pyuwsgi_setup(PyObject *self, PyObject *args, PyObject *kwds)
         return NULL;
     }
 
-    //TODO: ...???
-    // actually do the thing!
-    PyThreadState *_tstate = PyThreadState_Get();
-    uwsgi_setup(orig_argc, orig_argv, environ);
-    PyThreadState_Swap(_tstate);
-
     Py_INCREF(self);
     return self;
 }
@@ -133,6 +127,7 @@ pyuwsgi_init(PyObject *self, PyObject *args, PyObject *kwds)
         return NULL;
     }
 
+    uwsgi_setup(orig_argc, orig_argv, environ);
     int rc = uwsgi_run();
 
     // never(?) here
@@ -149,6 +144,7 @@ pyuwsgi_run(PyObject *self, PyObject *args, PyObject *kwds)
         return NULL;
     }
 
+    uwsgi_setup(orig_argc, orig_argv, environ);
     int rc = uwsgi_run();
 
     // never(?) here

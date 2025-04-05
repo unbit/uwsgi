@@ -14,7 +14,7 @@ char *uwsgi_python_get_thread_name(PyObject *thread_id) {
 	PyObject *threading_enumerate = PyDict_GetItemString(threading_dict, "enumerate");
 	if (!threading_enumerate) return NULL;
 
-	PyObject *threads_list = PyEval_CallObject(threading_enumerate, (PyObject *)NULL);
+	PyObject *threads_list = PyObject_CallObject(threading_enumerate, (PyObject *)NULL);
 	if (!threads_list) return NULL;
 
 	PyObject *threads_list_iter = PyObject_GetIter(threads_list);
@@ -106,13 +106,13 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 		}
 		UWSGI_GET_GIL;
 // here is the core of the tracebacker
-		PyObject *current_frames = PyEval_CallObject(_current_frames, (PyObject *)NULL);
+		PyObject *current_frames = PyObject_CallObject(_current_frames, (PyObject *)NULL);
 		if (!current_frames) goto end2;
 
 		PyObject *current_frames_items = PyObject_GetAttrString(current_frames, "items");
 		if (!current_frames_items) goto end;
 
-		PyObject *frames_ret = PyEval_CallObject(current_frames_items, (PyObject *)NULL);
+		PyObject *frames_ret = PyObject_CallObject(current_frames_items, (PyObject *)NULL);
 		if (!frames_ret) goto end3;
 
 		PyObject *frames_iter = PyObject_GetIter(frames_ret);
@@ -134,7 +134,7 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 			PyObject *arg_tuple = PyTuple_New(1);
 			PyTuple_SetItem(arg_tuple, 0, stack);
 			Py_INCREF(stack);
-			PyObject *stacktrace = PyEval_CallObject( extract_stack, arg_tuple);
+			PyObject *stacktrace = PyObject_CallObject( extract_stack, arg_tuple);
 			Py_DECREF(arg_tuple);
 			if (!stacktrace) goto next2;
 			

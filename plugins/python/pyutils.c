@@ -75,7 +75,7 @@ struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *wsgi_req) {
 	PyObject *args = PyTuple_New(1);
 	Py_INCREF(traceback);
 	PyTuple_SetItem(args, 0, traceback);
-	PyObject *result = PyEval_CallObject(extract_tb, args);
+	PyObject *result = PyObject_CallObject(extract_tb, args);
 	Py_DECREF(args);
 
 	if (!result) goto end;
@@ -83,12 +83,12 @@ struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *wsgi_req) {
 	ub = uwsgi_buffer_new(4096);
 	Py_ssize_t i;
 	// we have to build a uwsgi array with 5 items (4 are taken from the python tb)
-	for(i=0;i< PyList_Size(result);i++) {
-		PyObject *t = PyList_GetItem(result, i);
-		PyObject *tb_filename = PyTuple_GetItem(t, 0);
-		PyObject *tb_lineno = PyTuple_GetItem(t, 1);
-		PyObject *tb_function = PyTuple_GetItem(t, 2);
-		PyObject *tb_text = PyTuple_GetItem(t, 3);
+	for(i=0;i< PySequence_Size(result);i++) {
+		PyObject *t = PySequence_GetItem(result, i);
+		PyObject *tb_filename = PySequence_GetItem(t, 0);
+		PyObject *tb_lineno = PySequence_GetItem(t, 1);
+		PyObject *tb_function = PySequence_GetItem(t, 2);
+		PyObject *tb_text = PySequence_GetItem(t, 3);
 
 		int64_t line_no = PyInt_AsLong(tb_lineno);
 #ifdef PYTHREE
@@ -276,7 +276,7 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi
 
 	//uwsgi_log("ready to call %p %p\n", callable, args);
 
-	PyObject *pyret = PyEval_CallObject(callable, args);
+	PyObject *pyret = PyObject_CallObject(callable, args);
 
 	//uwsgi_log("called\n");
 

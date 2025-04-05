@@ -1,4 +1,4 @@
-#include <uwsgi.h>
+#include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
 #define cache_item(x) (struct uwsgi_cache_item *) (((char *)uc->items) + ((sizeof(struct uwsgi_cache_item)+uc->keysize) * x))
@@ -736,6 +736,12 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 			}
 			if (uci->expires && (!next_scan || next_scan > uci->expires)) {
 				next_scan = uci->expires;
+			}
+			if (!uc->lru_head && !uci->lru_prev) {
+				uc->lru_head = i;
+			}
+			if (!uc->lru_tail && !uci->lru_next) {
+				uc->lru_tail = i;
 			}
 			restored++;
 		}
