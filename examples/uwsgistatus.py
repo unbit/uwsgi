@@ -6,7 +6,7 @@ import os
 
 
 def application(env, start_response):
-    print env
+    print(env)
     start_response('200 OK', [('Content-Type', 'text/html')])
 
     yield '<h1>uWSGI %s status</h1>' % uwsgi.version
@@ -50,11 +50,11 @@ def application(env, start_response):
     yield '<h2>workers</h2>'
 
     for w in workers:
-        # print w
-        # print w['running_time']
+        # print(w)
+        # print(w['running_time'])
         if w is not None:
             yield '<tr><td>' + str(w['id']) + '</td><td>' + str(w['pid']) + '</td><td>' + str(w['pid']) + '</td><td>' + str(w['requests']) + '</td><td>' + str(w['running_time']) + '</td><td>' + str(w['vsz']) + '</td><td>' + str(w['rss']) + '</td></tr>'
-            print w
+            print(w)
 
     yield '</table>'
 

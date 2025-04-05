@@ -11,13 +11,13 @@ def application(env, start_response):
 
     # has timed out ?
     if env['x-wsgiorg.fdevent.timeout']:
-        print "connection timed out !!!"
+        print("connection timed out !!!")
         uwsgi.close(fd)
         raise StopIteration
 
     # connection refused ?
     if not uwsgi.is_connected(fd):
-        print "unable to connect"
+        print("unable to connect")
         uwsgi.close(fd)
         raise StopIteration
 
@@ -42,7 +42,7 @@ def application(env, start_response):
             bufsize = min(cl, 4096)
             yield uwsgi.wait_fd_read(input, 30)
             if env['x-wsgiorg.fdevent.timeout']:
-                print "connection timed out !!!"
+                print("connection timed out !!!")
                 uwsgi.close(fd)
                 raise StopIteration
             body = uwsgi.recv(input, bufsize)
@@ -57,7 +57,7 @@ def application(env, start_response):
 
     # has timed out ?
     if env['x-wsgiorg.fdevent.timeout']:
-        print "connection timed out !!!"
+        print("connection timed out !!!")
         uwsgi.close(fd)
         raise StopIteration
 
@@ -68,7 +68,7 @@ def application(env, start_response):
         # wait for response
         yield uwsgi.wait_fd_read(fd, 30)
         if env['x-wsgiorg.fdevent.timeout']:
-            print "connection timed out !!!"
+            print("connection timed out !!!")
             uwsgi.close(fd)
             raise StopIteration
         data = uwsgi.recv(fd)

@@ -17,7 +17,7 @@ def application(env, start_response):
 
     while 1:
         yield "Content-Type: image/jpeg\r\n\r\n"
-        print subprocess.call('screencapture -t jpg -m -T 1 screenshot.jpg', shell=True)
+        print(subprocess.call('screencapture -t jpg -m -T 1 screenshot.jpg', shell=True))
         f = open('screenshot.jpg')
         yield env['wsgi.file_wrapper'](f)
         yield "\r\n--%s\r\n" % boundary
