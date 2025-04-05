@@ -512,7 +512,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                         gcc_list.append('%s/%s' % (path, cfile))
                 for bfile in up.get('BINARY_LIST', []):
                     try:
-                        binary_link_cmd = "ld -r -b binary -o %s/%s.o %s/%s" % (path, bfile[1], path, bfile[1])
+                        binary_link_cmd = "ld -z noexecstack -r -b binary -o %s/%s.o %s/%s" % (path, bfile[1], path, bfile[1])
                         print(binary_link_cmd)
                         if subprocess.call(binary_link_cmd, shell=True) != 0:
                             raise Exception('unable to link binary file')
@@ -1164,7 +1164,7 @@ class uConf(object):
             if not self.embed_config:
                 self.embed_config = self.get('embed_config')
             if self.embed_config:
-                binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(self.embed_config), self.embed_config)
+                binary_link_cmd = "ld -z noexecstack -r -b binary -o %s.o %s" % (binarize(self.embed_config), self.embed_config)
                 print(binary_link_cmd)
                 subprocess.call(binary_link_cmd, shell=True)
                 self.cflags.append("-DUWSGI_EMBED_CONFIG=_binary_%s_start" % binarize(self.embed_config))
@@ -1183,7 +1183,7 @@ class uConf(object):
                         for directory, directories, files in os.walk(ef):
                             for f in files:
                                 fname = "%s/%s" % (directory, f)
-                                binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(fname), fname)
+                                binary_link_cmd = "ld -z noexecstack -r -b binary -o %s.o %s" % (binarize(fname), fname)
                                 print(binary_link_cmd)
                                 subprocess.call(binary_link_cmd, shell=True)
                                 if symbase:
@@ -1193,7 +1193,7 @@ class uConf(object):
                                         subprocess.call(objcopy_cmd, shell=True)
                                 binary_list.append(binarize(fname))
                     else:
-                        binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(ef), ef)
+                        binary_link_cmd = "ld -z noexecstack -r -b binary -o %s.o %s" % (binarize(ef), ef)
                         print(binary_link_cmd)
                         subprocess.call(binary_link_cmd, shell=True)
                         binary_list.append(binarize(ef))
