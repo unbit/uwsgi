@@ -1055,18 +1055,22 @@ VALUE init_rack_app( VALUE script ) {
 	}
 #endif
 
-        VALUE rackup = rb_funcall( rb_const_get(rack, rb_intern("Builder")), rb_intern("parse_file"), 1, script);
-        if (TYPE(rackup) != T_ARRAY) {
-        	uwsgi_log("unable to parse %s file\n", RSTRING_PTR(script));
-                return Qnil;
-        }
-
-        if (RARRAY_LEN(rackup) < 1) {
-        	uwsgi_log("invalid rack config file: %s\n", RSTRING_PTR(script));
+	VALUE rackup = rb_funcall( rb_const_get(rack, rb_intern("Builder")), rb_intern("parse_file"), 1, script);
+	if (TYPE(rackup) == T_OBJECT) { // rack +3
+		return rackup;
+	}
+	else if (TYPE(rackup) == T_ARRAY) { // rack << 3
+		if (RARRAY_LEN(rackup) < 1) {
+			uwsgi_log("invalid rack config file: %s\n", RSTRING_PTR(script));
+			return Qnil;
+		}
+		return RARRAY_PTR(rackup)[0] ;
+	}
+	else {
+		uwsgi_log("unable to parse %s file %d\n", RSTRING_PTR(script), TYPE(rackup));
 		return Qnil;
-        }
+	}
 
-        return RARRAY_PTR(rackup)[0] ;
 }
 
 int uwsgi_rack_magic(char *mountpoint, char *lazy) {

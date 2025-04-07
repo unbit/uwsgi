@@ -55,7 +55,7 @@ def application(env, sr):
         return ""
     elif env['PATH_INFO'] == '/foobar/':
         uwsgi.websocket_handshake(env['HTTP_SEC_WEBSOCKET_KEY'], env.get('HTTP_ORIGIN', ''))
-        print "websockets..."
+        print("websockets...")
         r = redis.StrictRedis(host='localhost', port=6379, db=0)
         channel = r.pubsub()
         channel.subscribe('foobar')

@@ -55,7 +55,7 @@ def application(env, sr):
         """ % (ws_scheme, env['HTTP_HOST'])
     elif env['PATH_INFO'] == '/foobar/':
         uwsgi.websocket_handshake(env['HTTP_SEC_WEBSOCKET_KEY'], env.get('HTTP_ORIGIN', ''))
-        print "websockets..."
+        print("websockets...")
         while True:
             msg = uwsgi.websocket_recv_nb()
             if msg:

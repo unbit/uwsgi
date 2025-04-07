@@ -54,7 +54,7 @@ jobs:
           libpcre2-dev libjansson-dev libcap2-dev \
           curl
     - name: Install distutils
-      if: contains(fromJson('["3.6","3.7","3.8","3.9","3.10","3.11","3.12"]'), matrix.python-version)
+      if: contains(fromJson('["3.6","3.7","3.8","3.9","3.10","3.11"]'), matrix.python-version)
       run: |
         sudo apt install --no-install-recommends -qqyf python${{ matrix.python-version }}-distutils \
     - uses: actions/checkout@v4
