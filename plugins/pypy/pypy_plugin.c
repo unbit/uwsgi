@@ -294,7 +294,7 @@ static void uwsgi_pypy_enable_threads() {
 	}
 }
 
-static void uwsgi_pypy_init_thread() {
+static void uwsgi_pypy_init_thread(int sig) {
 	if (u_pypy_thread_attach) {
 		pthread_mutex_lock(&upypy.attach_thread_lock);
 		u_pypy_thread_attach();

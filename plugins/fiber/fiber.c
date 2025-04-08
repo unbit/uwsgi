@@ -15,12 +15,12 @@ struct uwsgi_option fiber_options[] = {
 };
 
 
-VALUE uwsgi_fiber_request() {
+VALUE uwsgi_fiber_request(RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) {
 	async_schedule_to_req_green();
 	return Qnil;
 }
 
-VALUE rb_fiber_schedule_to_req() {
+VALUE rb_fiber_schedule_to_req(VALUE v) {
 	int id = uwsgi.wsgi_req->async_id;
 
         if (!uwsgi.wsgi_req->suspended) {
