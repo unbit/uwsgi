@@ -1,35 +1,37 @@
-from uwsgidecorators import *
-import Queue
+from uwsgidecorators import spool
 from threading import Thread
 
+from six.moves import queue
+
 queues = {}
+
 
 class queueconsumer(object):
 
     def __init__(self, name, num=1, **kwargs):
         self.name = name
-	self.num = num
-        self.queue = Queue.Queue()
-	self.threads = []
-	self.func = None
-	queues[self.name] = self
-
+        self.num = num
+        self.queue = queue.Queue()
+        self.threads = []
+        self.func = None
+        queues[self.name] = self
 
     @staticmethod
     def consumer(self):
         while True:
-	    req = self.queue.get()
-            print req
-	    self.func(req)
-	    self.queue.task_done()
+            req = self.queue.get()
+            print(req)
+            self.func(req)
+            self.queue.task_done()
 
     def __call__(self, f):
         self.func = f
-	for i in range(self.num):
-	    t = Thread(target=self.consumer,args=(self,))	
-	    self.threads.append(t)
-	    t.daemon = True
-	    t.start()
+        for i in range(self.num):
+            t = Thread(target=self.consumer, args=(self,))
+            self.threads.append(t)
+            t.daemon = True
+            t.start()
+
 
 @spool
 def spooler_enqueuer(arguments):

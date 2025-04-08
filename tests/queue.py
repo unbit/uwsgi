@@ -2,16 +2,17 @@
 
 import uwsgi
 import os
-from flask import Flask,render_template,request,redirect,flash
+from flask import Flask, render_template, request, redirect, flash
 
 app = Flask(__name__)
 app.debug = True
 app.secret_key = os.urandom(24)
 
+
 @app.route('/')
 def index():
-
     return render_template('queue.html', uwsgi=uwsgi)
+
 
 @app.route('/push', methods=['POST'])
 def push_item():
@@ -22,19 +23,22 @@ def push_item():
         flash('unable to enqueue item')
         return render_template('queue.html', uwsgi=uwsgi)
 
+
 @app.route('/get', methods=['POST'])
 def get_item():
-    flash( "slot %s value = %s" % (request.form['slot'], uwsgi.queue_get( int(request.form['slot']) )))
+    flash("slot %s value = %s" % (request.form['slot'], uwsgi.queue_get(int(request.form['slot']))))
     return redirect('/')
+
 
 @app.route('/pop', methods=['POST'])
 def pop_item():
-    flash( "popped value = %s" %  uwsgi.queue_pop() )
+    flash("popped value = %s" % uwsgi.queue_pop())
     return redirect('/')
+
 
 @app.route('/pull', methods=['POST'])
 def pull_item():
-    flash( "pulled value = %s" %  uwsgi.queue_pull() )
+    flash("pulled value = %s" % uwsgi.queue_pull())
     return redirect('/')
 
 

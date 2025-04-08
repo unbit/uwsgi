@@ -3,9 +3,20 @@ import unittest
 import random
 import string
 
+
 class BitmapTest(unittest.TestCase):
 
-    __caches__ = ['items_1', 'items_2', 'items_3', 'items_4', 'items_17', 'items_4_10', 'items_1_100000', 'items_non_bitmap', 'items_lru']
+    __caches__ = [
+        'items_1',
+        'items_2',
+        'items_3',
+        'items_4',
+        'items_17',
+        'items_4_10',
+        'items_1_100000',
+        'items_non_bitmap',
+        'items_lru'
+    ]
 
     def setUp(self):
         for cache in self.__caches__:
@@ -27,7 +38,7 @@ class BitmapTest(unittest.TestCase):
     def test_overlapping(self):
         self.assertTrue(uwsgi.cache_update('key1', 'HE', 0, 'items_2'))
         self.assertIsNone(uwsgi.cache_update('key1', 'HELL', 0, 'items_2'))
-        self.assertTrue(uwsgi.cache_del('key1', 'items_2')) 
+        self.assertTrue(uwsgi.cache_del('key1', 'items_2'))
         self.assertTrue(uwsgi.cache_update('key1', 'HELL', 0, 'items_2'))
 
     def test_big_item(self):
@@ -49,7 +60,7 @@ class BitmapTest(unittest.TestCase):
         self.assertIsNone(uwsgi.cache_set('key5', 'HELLO', 0, 'items_4_10'))
 
     def test_big_delete(self):
-        self.assertTrue(uwsgi.cache_set('key1', 'X' * 50 , 0, 'items_4_10'))
+        self.assertTrue(uwsgi.cache_set('key1', 'X' * 50, 0, 'items_4_10'))
         self.assertTrue(uwsgi.cache_del('key1', 'items_4_10'))
         self.assertTrue(uwsgi.cache_set('key1', 'HELLOHELLO', 0, 'items_4_10'))
         self.assertTrue(uwsgi.cache_set('key2', 'HELLOHELLO', 0, 'items_4_10'))
@@ -58,11 +69,11 @@ class BitmapTest(unittest.TestCase):
         self.assertIsNone(uwsgi.cache_set('key5', 'HELLOHELLO', 0, 'items_4_10'))
 
     def test_big_update(self):
-        self.assertTrue(uwsgi.cache_set('key1', 'X' * 40 , 0, 'items_4_10'))
-        self.assertTrue(uwsgi.cache_update('key1', 'X' * 10 , 0, 'items_4_10'))
+        self.assertTrue(uwsgi.cache_set('key1', 'X' * 40, 0, 'items_4_10'))
+        self.assertTrue(uwsgi.cache_update('key1', 'X' * 10, 0, 'items_4_10'))
         self.assertTrue(uwsgi.cache_del('key1', 'items_4_10'))
-        self.assertIsNone(uwsgi.cache_update('key1', 'X' * 51 , 0, 'items_4_10'))
-        self.assertTrue(uwsgi.cache_update('key1', 'X' * 50 , 0, 'items_4_10'))
+        self.assertIsNone(uwsgi.cache_update('key1', 'X' * 51, 0, 'items_4_10'))
+        self.assertTrue(uwsgi.cache_update('key1', 'X' * 50, 0, 'items_4_10'))
 
     def test_multi_clear(self):
         for i in range(0, 100):
@@ -70,23 +81,23 @@ class BitmapTest(unittest.TestCase):
 
     def test_multi_delete(self):
         for i in range(0, 100):
-            self.assertTrue(uwsgi.cache_set('key1', 'X' * 50 , 0, 'items_4_10'))
+            self.assertTrue(uwsgi.cache_set('key1', 'X' * 50, 0, 'items_4_10'))
             self.assertTrue(uwsgi.cache_del('key1', 'items_4_10'))
 
         for i in range(0, 100):
-            self.assertIsNone(uwsgi.cache_set('key1', 'X' * 51 , 0, 'items_4_10'))
+            self.assertIsNone(uwsgi.cache_set('key1', 'X' * 51, 0, 'items_4_10'))
             self.assertIsNone(uwsgi.cache_del('key1', 'items_4_10'))
 
         for i in range(0, 100):
-            self.assertTrue(uwsgi.cache_set('key1', 'X' * 50 , 0, 'items_4_10'))
+            self.assertTrue(uwsgi.cache_set('key1', 'X' * 50, 0, 'items_4_10'))
             self.assertTrue(uwsgi.cache_del('key1', 'items_4_10'))
 
     def test_big_key(self):
-        self.assertTrue(uwsgi.cache_set('K' * 2048, 'X' * 50 , 0, 'items_4_10'))
-        self.assertIsNone(uwsgi.cache_set('K' * 2049, 'X' * 50 , 0, 'items_4_10'))
+        self.assertTrue(uwsgi.cache_set('K' * 2048, 'X' * 50, 0, 'items_4_10'))
+        self.assertIsNone(uwsgi.cache_set('K' * 2049, 'X' * 50, 0, 'items_4_10'))
 
     def rand_blob(self, n=32):
-        return ''.join([random.choice(string.ascii_letters + string.digits) for n in range(n)])
+        return ''.join(random.choice(string.ascii_letters + string.digits) for x in range(n))
 
     def test_big_random(self):
         blob = self.rand_blob(100000)
@@ -108,9 +119,9 @@ class BitmapTest(unittest.TestCase):
         self.assertTrue(uwsgi.cache_set('KEY2', 'X' * 20, 0, 'items_lru'))
         self.assertTrue(uwsgi.cache_set('KEY3', 'Y' * 20, 0, 'items_lru'))
         self.assertIsNone(uwsgi.cache_get('KEY1', 'items_lru'))
-        second_item = uwsgi.cache_get('KEY3', 'items_lru')
-        for i in range(4,100):
+        uwsgi.cache_get('KEY3', 'items_lru')
+        for i in range(4, 100):
             self.assertTrue(uwsgi.cache_set('KEY%d' % i, 'Y' * 20, 0, 'items_lru'))
             self.assertIsNone(uwsgi.cache_get('KEY%d' % (i-2), 'items_lru'))
-    
+
 unittest.main()

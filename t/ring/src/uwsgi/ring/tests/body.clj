@@ -2,7 +2,7 @@
   (:use [compojure.core]))
 
 ; generating primary numbers
-; http://clojuredocs.org/clojure_core/clojure.core/lazy-seq#example_1000
+; https://clojuredocs.org/clojure.core/lazy-seq#example_1000
 (defn sieve [s]
   (cons (first s)
         (lazy-seq (sieve (filter #(not= 0 (mod % (first s)))

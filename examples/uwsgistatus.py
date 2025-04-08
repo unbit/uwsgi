@@ -6,7 +6,7 @@ import os
 
 
 def application(env, start_response):
-    print env
+    print(env)
     start_response('200 OK', [('Content-Type', 'text/html')])
 
     yield '<h1>uWSGI %s status</h1>' % uwsgi.version
@@ -26,17 +26,17 @@ def application(env, start_response):
 
     try:
         yield "mode: <b>%s</b><br/>" % uwsgi.mode
-    except:
+    except Exception:
         pass
 
     try:
         yield "pidfile: <b>%s</b><br/>" % uwsgi.pidfile
-    except:
+    except Exception:
         pass
 
     yield "<h2>Hooks</h2>"
 
-    for h in range(0,255):
+    for h in range(0, 255):
         if uwsgi.has_hook(h):
             yield "%d<br/>" % h
 
@@ -45,16 +45,16 @@ def application(env, start_response):
     yield '<table border="1">'
     yield '<th>worker id</th><th>pid</th><th>in request</th><th>requests</th><th>running time</th><th>address space</th><th>rss</th>'
 
-    workers = uwsgi.workers();
+    workers = uwsgi.workers()
 
     yield '<h2>workers</h2>'
 
     for w in workers:
-        #print w
-        #print w['running_time']
+        # print(w)
+        # print(w['running_time'])
         if w is not None:
-            yield '<tr><td>'+ str(w['id']) +'</td><td>' + str(w['pid']) + '</td><td>' + str(w['pid']) + '</td><td>' + str(w['requests']) + '</td><td>' + str(w['running_time']) + '</td><td>' + str(w['vsz']) + '</td><td>' + str(w['rss']) + '</td></tr>'
-            print w
+            yield '<tr><td>' + str(w['id']) + '</td><td>' + str(w['pid']) + '</td><td>' + str(w['pid']) + '</td><td>' + str(w['requests']) + '</td><td>' + str(w['running_time']) + '</td><td>' + str(w['vsz']) + '</td><td>' + str(w['rss']) + '</td></tr>'
+            print(w)
 
     yield '</table>'
 
