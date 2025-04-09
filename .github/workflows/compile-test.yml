@@ -11,18 +11,12 @@ jobs:
     strategy:
       matrix:
         libpcre: ["libpcre3-dev", "libpcre2-dev"]
-        os: ["ubuntu-20.04", "ubuntu-22.04"]
+        os: ["ubuntu-22.04"]
         cc: [gcc, clang]
         include:
-          - os: ubuntu-20.04
-            php: "php7.4"
-            php-config: "php-config7.4"
           - os: ubuntu-22.04
             php: "php8.1"
             php-config: "php-config8.1"
-        exclude:
-          - os: ubuntu-20.04
-            cc: "clang"
 
     runs-on: ${{ matrix.os }}
 

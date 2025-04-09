@@ -9,13 +9,13 @@ on:
 jobs:
 
   unittest:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - name: Install dependencies
       run: |
         sudo apt update -qq
         sudo apt install --no-install-recommends -qqyf \
-          libpcre2-dev libjansson-dev libcap2-dev \
+          libpcre3-dev libjansson-dev libcap2-dev \
           check
     - uses: actions/checkout@v4
     - name: Run unit tests
@@ -39,10 +39,10 @@ jobs:
       run: make all tests
 
   python:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
-        python-version: ["2.7", "3.6", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["2.7", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
         test-suite: [python, deadlocks]
     steps:
     - name: Add deadnakes ppa
@@ -54,7 +54,7 @@ jobs:
           libpcre2-dev libjansson-dev libcap2-dev \
           curl
     - name: Install distutils
-      if: contains(fromJson('["3.6","3.7","3.8","3.9","3.10","3.11"]'), matrix.python-version)
+      if: contains(fromJson('["3.7","3.8","3.9","3.10","3.11"]'), matrix.python-version)
       run: |
         sudo apt install --no-install-recommends -qqyf python${{ matrix.python-version }}-distutils \
     - uses: actions/checkout@v4
@@ -73,16 +73,16 @@ jobs:
         ./tests/gh-${{ matrix.test-suite }}.sh ${PYTHON_VERSION}
 
   rack:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
-        rack-version: ["270"]
+        rack-version: ["300"]
     steps:
     - name: Install dependencies
       run: |
         sudo apt update -qq
         sudo apt install --no-install-recommends -qqyf python3-dev \
-          libpcre2-dev libjansson-dev libcap2-dev ruby2.7-dev \
+          libpcre2-dev libjansson-dev libcap2-dev ruby3.0-dev \
           curl
     - uses: actions/checkout@v4
     - name: Build uWSGI binary
