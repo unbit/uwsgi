@@ -4,6 +4,7 @@ from django.conf import settings
 import os
 import sys
 
+
 class Command(BaseCommand):
     help = "Runs this project as a uWSGI application. Requires the uwsgi binary in system path."
 
@@ -12,10 +13,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         for arg in args:
-            k,v = arg.split('=')
+            k, v = arg.split('=')
             if k == 'http':
                 if self.http_port:
-                   self.http_port = v
+                    self.http_port = v
             elif k == 'socket':
                 self.http_port = None
                 self.socket_addr = v
@@ -40,8 +41,8 @@ class Command(BaseCommand):
         elif self.socket_addr:
             os.environ['UWSGI_SOCKET'] = self.socket_addr
 
-	# map admin static files
-	os.environ['UWSGI_STATIC_MAP'] = '%s=%s' % (settings.ADMIN_MEDIA_PREFIX, os.path.join(django.__path__[0], 'contrib', 'admin', 'media'))
+        # map admin static files
+        os.environ['UWSGI_STATIC_MAP'] = '%s=%s' % (settings.ADMIN_MEDIA_PREFIX, os.path.join(django.__path__[0], 'contrib', 'admin', 'media'))
         # remove sockets/pidfile at exit
         os.environ['UWSGI_VACUUM'] = '1'
         # retrieve/set the PythonHome
@@ -57,7 +58,7 @@ class Command(BaseCommand):
         # exec the uwsgi binary
         os.execvp('uwsgi', ('uwsgi',))
 
-    def usage(self, subcomand):
+    def usage(self, subcommand):
         return r"""
 run this project on the uWSGI server
 

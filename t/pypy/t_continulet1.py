@@ -7,12 +7,14 @@ uwsgi --pypy-wsgi-file t/pypy/t_continulet1.py --http-socket :9090 --pypy-home /
 
 """
 import uwsgi
+
+
 def application(e, sr):
-    sr('200 OK', [('Content-Type','text/plain')])
+    sr('200 OK', [('Content-Type', 'text/plain')])
 
     # call suspend 10 times and yield some value
-    for i in range(0,10):
-        print i
+    for i in range(0, 10):
+        print(i)
         uwsgi.suspend()
         yield str(i)
 
@@ -34,7 +36,7 @@ def application(e, sr):
     finally:
         uwsgi.close(fd)
 
-    print "sleeping for 3 seconds..."
+    print("sleeping for 3 seconds...")
     uwsgi.async_sleep(3)
     uwsgi.suspend()
     yield "done"

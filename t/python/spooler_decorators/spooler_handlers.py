@@ -1,6 +1,6 @@
 # See spooler_decorator_tests
 
-from uwsgidecorators import *
+from uwsgidecorators import spool, spoolraw
 import uwsgi
 
 ghostpath = "/tmp/ghost"

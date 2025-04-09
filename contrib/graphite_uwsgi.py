@@ -15,6 +15,7 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'settings'
 
 CARBON_SERVER = "127.0.0.1:2003"
 
+
 def update_carbon(signum):
     # connect to the carbon server
     carbon_fd = uwsgi.connect(CARBON_SERVER)

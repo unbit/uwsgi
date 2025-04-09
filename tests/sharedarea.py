@@ -2,9 +2,10 @@ import uwsgi
 
 uwsgi.sharedarea_writelong(173, 30)
 
+
 def application(e, sr):
 
-    sr('200 Ok', [('Content-Type','text/html')])
+    sr('200 Ok', [('Content-Type', 'text/html')])
 
     uwsgi.sharedarea_write(17, e['REQUEST_URI'])
 

@@ -7,6 +7,7 @@ import time
 import redis
 import sys
 
+
 def application(env, sr):
 
     ws_scheme = 'ws'
@@ -14,7 +15,7 @@ def application(env, sr):
         ws_scheme = 'wss'
 
     if env['PATH_INFO'] == '/':
-        sr('200 OK', [('Content-Type','text/html')])
+        sr('200 OK', [('Content-Type', 'text/html')])
         output = """
     <html>
       <head>
@@ -25,18 +26,18 @@ def application(env, sr):
               s.send("ciao");
             };
             s.onmessage = function(e) {
-		var bb = document.getElementById('blackboard')
-		var html = bb.innerHTML;
-		bb.innerHTML = html + '<br/>' + e.data;
+                var bb = document.getElementById('blackboard')
+                var html = bb.innerHTML;
+                bb.innerHTML = html + '<br/>' + e.data;
             };
 
-	    s.onerror = function(e) {
-			alert(e);
-		}
+            s.onerror = function(e) {
+                        alert(e);
+                }
 
-	s.onclose = function(e) {
-		alert("connection closed");
-	}
+        s.onclose = function(e) {
+                alert("connection closed");
+        }
 
             function invia() {
               var value = document.getElementById('testo').value;
@@ -48,8 +49,8 @@ def application(env, sr):
         <h1>WebSocket</h1>
         <input type="text" id="testo"/>
         <input type="button" value="invia" onClick="invia();"/>
-	<div id="blackboard" style="width:640px;height:480px;background-color:black;color:white;border: solid 2px red;overflow:auto">
-	</div>
+        <div id="blackboard" style="width:640px;height:480px;background-color:black;color:white;border: solid 2px red;overflow:auto">
+        </div>
     </body>
     </html>
         """ % (ws_scheme, env['HTTP_HOST'])
@@ -67,7 +68,7 @@ def application(env, sr):
 
         websocket_fd = uwsgi.connection_fd()
         redis_fd = channel.connection._sock.fileno()
-        
+
         while True:
             uwsgi.wait_fd_read(websocket_fd, 3)
             uwsgi.wait_fd_read(redis_fd)
@@ -79,7 +80,7 @@ def application(env, sr):
                     if msg:
                         r.publish('foobar', msg)
                 elif fd == redis_fd:
-                    msg = channel.parse_response() 
+                    msg = channel.parse_response()
                     print(msg)
                     # only interested in user messages
                     t = 'message'

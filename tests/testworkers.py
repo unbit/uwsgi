@@ -10,7 +10,10 @@ def application(env, start_response):
     start_objs = len(gc.get_objects())
 
     for i in range(200):
-        uwsgi.workers()
+        workers = uwsgi.workers()
+        assert workers, "none/empty uwsgi.workers() - " + repr(workers)
+        for w in workers:
+            assert w["apps"], "none/empty apps in worker dict: " + repr(w)
 
     gc.collect()
     end_objs = len(gc.get_objects())
@@ -19,7 +22,7 @@ def application(env, start_response):
     # Sometimes there is a spurious diff of 4 objects or so.
     if diff_objs > 10:
         start_response('500 Leaking', [('Content-Type', 'text/plain')])
-        yield "Leaking objects...\n".format(diff_objs).encode("utf-8")
+        yield "Leaking objects...\n".encode("utf-8")
     else:
         start_response('200 OK', [('Content-Type', 'text/plain')])
 
