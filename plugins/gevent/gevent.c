@@ -523,12 +523,14 @@ static void gevent_loop() {
 	ugevent.watchers = uwsgi_malloc(sizeof(PyObject *) * uwsgi_count_sockets(uwsgi.sockets));
 	int i = 0;
 	while(uwsgi_sock) {
-		// this is the watcher for server socket
-		ugevent.watchers[i] = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", uwsgi_sock->fd, 1);
-		if (!ugevent.watchers[i]) uwsgi_pyexit;
+		if (uwsgi_sock->fd >= 0) {
+			// this is the watcher for server socket
+			ugevent.watchers[i] = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", uwsgi_sock->fd, 1);
+			if (!ugevent.watchers[i]) uwsgi_pyexit;
 	
-		// start the main greenlet
-		start_watcher(i, uwsgi_sock);
+			// start the main greenlet
+			start_watcher(i, uwsgi_sock);
+		}
 		uwsgi_sock = uwsgi_sock->next;
 		i++;
 	}
