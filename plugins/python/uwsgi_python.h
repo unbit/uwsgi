@@ -226,6 +226,7 @@ struct uwsgi_python {
 	void (*gil_release) (void);
 	int auto_reload;
 	char *tracebacker;
+	char *mule_tracebacker;
 	struct uwsgi_string_list *auto_reload_ignore;
 
 	PyObject *workers_tuple;
