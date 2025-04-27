@@ -1256,8 +1256,6 @@ class uConf(object):
                 else:
                     jsonconf = spcall("pkg-config --cflags yajl")
                     if jsonconf:
-                        if jsonconf.endswith('include/yajl'):
-                            jsonconf = jsonconf.rstrip('yajl')
                         self.cflags.append(jsonconf)
                         self.cflags.append("-DUWSGI_JSON")
                         self.gcc_list.append('core/json')
