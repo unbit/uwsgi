@@ -68,6 +68,11 @@ int uwsgi_simple_wait_read2_hook(int fd0, int fd1, int timeout, int *fd) {
 */
 
 void uwsgi_request_body_seek(struct wsgi_request *wsgi_req, off_t pos) {
+        if (wsgi_req->request_finished) {
+                uwsgi_req_error("uwsgi_request_body_seek(): attempt to read request body in cleanup handler, which is not supported");
+                return;
+        }
+
 	if (wsgi_req->post_file) {
 		if (pos < 0) {
 			if (fseek(wsgi_req->post_file, pos, SEEK_CUR)) {
@@ -218,6 +223,10 @@ wait:
 // TODO take hint into account
 // readline_buf is allocated when needed and freed at the end of the request
 char *uwsgi_request_body_readline(struct wsgi_request *wsgi_req, ssize_t hint, ssize_t *rlen) {
+        if (wsgi_req->request_finished) {
+                uwsgi_req_error("uwsgi_request_body_readline(): attempt to read request body in cleanup handler, which is not supported");
+                return uwsgi.empty;
+        }
 
 	// return 0 if no post_cl or pos >= post_cl and no residual data
         if ((!wsgi_req->post_cl || wsgi_req->post_pos >= wsgi_req->post_cl ) && !wsgi_req->post_readline_pos) {
@@ -291,6 +300,10 @@ char *uwsgi_request_body_readline(struct wsgi_request *wsgi_req, ssize_t hint, s
 }
 
 char *uwsgi_request_body_read(struct wsgi_request *wsgi_req, ssize_t hint, ssize_t *rlen) {
+        if (wsgi_req->request_finished) {
+                uwsgi_req_error("uwsgi_request_body_read(): attempt to read request body in cleanup handler, which is not supported");
+                return uwsgi.empty;
+        }
 
 	int ret = -1;
 	size_t remains = hint;

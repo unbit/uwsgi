@@ -1011,20 +1011,29 @@ static void close_and_free_request(struct wsgi_request *wsgi_req) {
                 wsgi_req->socket->proto_close(wsgi_req);
         }
 
+        /* mark request as finished so uwsgi_request_body_*()
+         * knows to not use the below pointers anymore
+         */
+        wsgi_req->request_finished = 1;
+
         if (wsgi_req->post_file) {
                 fclose(wsgi_req->post_file);
+                wsgi_req->post_file = NULL;
         }
 
         if (wsgi_req->post_read_buf) {
                 free(wsgi_req->post_read_buf);
+                wsgi_req->post_read_buf = NULL;
         }
 
         if (wsgi_req->post_readline_buf) {
                 free(wsgi_req->post_readline_buf);
+                wsgi_req->post_readline_buf = NULL;
         }
 
         if (wsgi_req->proto_parser_buf) {
                 free(wsgi_req->proto_parser_buf);
+                wsgi_req->proto_parser_buf = NULL;
         }
 
 }
