@@ -1665,7 +1665,7 @@ struct wsgi_request {
 	union address {
 		struct sockaddr_in sin;
 		struct sockaddr_in6 sin6;
-		struct sockaddr_un sun;
+		struct sockaddr_un sa_un;
 	} client_addr;
 
 	char * if_range;
