@@ -1213,7 +1213,9 @@ void uwsgi_python_init_apps() {
 
 	// prepare for stack suspend/resume
 	if (uwsgi.async > 0) {
-#ifdef UWSGI_PY312
+#ifdef UWSGI_PY314
+		up.current_py_recursion_remaining = uwsgi_malloc(sizeof(int)*uwsgi.async);
+#elif defined UWSGI_PY312
 		up.current_c_recursion_remaining = uwsgi_malloc(sizeof(int)*uwsgi.async);
 		up.current_py_recursion_remaining = uwsgi_malloc(sizeof(int)*uwsgi.async);
 #elif defined UWSGI_PY311
@@ -1659,7 +1661,10 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 	PyGILState_Release(pgst);
 
 	if (wsgi_req) {
-#ifdef UWSGI_PY313
+#ifdef UWSGI_PY314
+		up.current_py_recursion_remaining[wsgi_req->async_id] = tstate->py_recursion_remaining;
+		up.current_frame[wsgi_req->async_id] = tstate->current_frame;
+#elif defined UWSGI_PY313
 		up.current_c_recursion_remaining[wsgi_req->async_id] = tstate->c_recursion_remaining;
 		up.current_py_recursion_remaining[wsgi_req->async_id] = tstate->py_recursion_remaining;
 		up.current_frame[wsgi_req->async_id] = tstate->current_frame;
@@ -1676,7 +1681,10 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 #endif
 	}
 	else {
-#ifdef UWSGI_PY313
+#ifdef UWSGI_PY314
+		up.current_main_py_recursion_remaining = tstate->py_recursion_remaining;
+		up.current_main_frame = tstate->current_frame;
+#elif defined UWSGI_PY313
 		up.current_main_c_recursion_remaining = tstate->c_recursion_remaining;
 		up.current_main_py_recursion_remaining = tstate->py_recursion_remaining;
 		up.current_main_frame = tstate->current_frame;
@@ -1920,7 +1928,10 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 	PyGILState_Release(pgst);
 
 	if (wsgi_req) {
-#ifdef UWSGI_PY313
+#ifdef UWSGI_PY314
+		tstate->py_recursion_remaining = up.current_py_recursion_remaining[wsgi_req->async_id];
+		tstate->current_frame = up.current_frame[wsgi_req->async_id];
+#elif defined UWSGI_PY313
 		tstate->c_recursion_remaining = up.current_c_recursion_remaining[wsgi_req->async_id];
 		tstate->py_recursion_remaining = up.current_py_recursion_remaining[wsgi_req->async_id];
 		tstate->current_frame = up.current_frame[wsgi_req->async_id];
@@ -1937,7 +1948,10 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 #endif
 	}
 	else {
-#ifdef UWSGI_PY313
+#ifdef UWSGI_PY314
+		tstate->py_recursion_remaining = up.current_main_py_recursion_remaining;
+		tstate->current_frame = up.current_main_frame;
+#elif defined UWSGI_PY313
 		tstate->c_recursion_remaining = up.current_main_c_recursion_remaining;
 		tstate->py_recursion_remaining = up.current_main_py_recursion_remaining;
 		tstate->current_frame = up.current_main_frame;
