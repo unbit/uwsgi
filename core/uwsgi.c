@@ -574,6 +574,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"touch-mules-reload", required_argument, 0, "reload mules if the specified file is modified/touched", uwsgi_opt_add_string_list, &uwsgi.touch_mules_reload, UWSGI_OPT_MASTER},
 	{"touch-spoolers-reload", required_argument, 0, "reload spoolers if the specified file is modified/touched", uwsgi_opt_add_string_list, &uwsgi.touch_spoolers_reload, UWSGI_OPT_MASTER},
 	{"touch-chain-reload", required_argument, 0, "trigger chain reload if the specified file is modified/touched", uwsgi_opt_add_string_list, &uwsgi.touch_chain_reload, UWSGI_OPT_MASTER},
+	{"cron-logrotate", required_argument, 0, "add a cron task to trigger log rotation", uwsgi_opt_add_cron_logrotate, NULL, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"touch-logrotate", required_argument, 0, "trigger logrotation if the specified file is modified/touched", uwsgi_opt_add_string_list, &uwsgi.touch_logrotate, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"touch-logreopen", required_argument, 0, "trigger log reopen if the specified file is modified/touched", uwsgi_opt_add_string_list, &uwsgi.touch_logreopen, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"touch-exec", required_argument, 0, "run command when the specified file is modified/touched (syntax: file command)", uwsgi_opt_add_string_list, &uwsgi.touch_exec, UWSGI_OPT_MASTER},
