@@ -751,6 +751,13 @@ static int uwsgi_php_init(void) {
 	uwsgi_sapi_module.startup(&uwsgi_sapi_module);
 	uwsgi_log("PHP %s initialized\n", PHP_VERSION);
 
+	// The PHP plugin does not register an app.
+	// Ensure uwsgi keeps running by disabling need_app.
+	if (uwsgi.need_app) {
+		uwsgi_log("php plugin forcing need_app=0\n");
+		uwsgi.need_app = 0;
+	}
+
 	return 0;
 }
 
