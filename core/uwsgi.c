@@ -3202,12 +3202,11 @@ next:
 	//init apps hook (if not lazy)
 	if (!uwsgi.lazy && !uwsgi.lazy_apps) {
 		uwsgi_init_all_apps();
+		// Register uwsgi atexit plugin callbacks after all applications have
+		// been loaded. This ensures plugin atexit callbacks are called prior
+		// to application registered atexit callbacks.
+		atexit(uwsgi_plugins_atexit);
 	}
-
-	// Register uwsgi atexit plugin callbacks after all applications have
-	// been loaded. This ensures plugin atexit callbacks are called prior
-	// to application registered atexit callbacks.
-	atexit(uwsgi_plugins_atexit);
 
 	if (!uwsgi.master_as_root) {
 		uwsgi_log("dropping root privileges after application loading\n");
@@ -3553,6 +3552,11 @@ void uwsgi_worker_run() {
 
 	if (uwsgi.lazy || uwsgi.lazy_apps) {
 		uwsgi_init_all_apps();
+
+		// Register uwsgi atexit plugin callbacks after all applications have
+		// been loaded. This ensures plugin atexit callbacks are called prior
+		// to application registered atexit callbacks.
+		atexit(uwsgi_plugins_atexit);
 	}
 
 	// some apps could be mounted only on specific workers
