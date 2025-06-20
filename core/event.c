@@ -516,7 +516,7 @@ int event_queue_add_fd_read(int eq, int fd) {
 	struct epoll_event ee;
 
 	memset(&ee, 0, sizeof(struct epoll_event));
-	ee.events = EPOLLIN;
+	ee.events = EPOLLIN | EPOLLRDHUP;
 	ee.data.fd = fd;
 
 	if (epoll_ctl(eq, EPOLL_CTL_ADD, fd, &ee)) {
@@ -532,7 +532,7 @@ int event_queue_fd_write_to_read(int eq, int fd) {
 	struct epoll_event ee;
 
 	memset(&ee, 0, sizeof(struct epoll_event));
-	ee.events = EPOLLIN;
+	ee.events = EPOLLIN | EPOLLRDHUP;
 	ee.data.fd = fd;
 
 	if (epoll_ctl(eq, EPOLL_CTL_MOD, fd, &ee)) {
@@ -548,7 +548,7 @@ int event_queue_fd_read_to_write(int eq, int fd) {
 	struct epoll_event ee;
 
 	memset(&ee, 0, sizeof(struct epoll_event));
-	ee.events = EPOLLOUT;
+	ee.events = EPOLLOUT | EPOLLRDHUP;
 	ee.data.fd = fd;
 
 	if (epoll_ctl(eq, EPOLL_CTL_MOD, fd, &ee)) {
@@ -564,7 +564,7 @@ int event_queue_fd_readwrite_to_read(int eq, int fd) {
 	struct epoll_event ee;
 
 	memset(&ee, 0, sizeof(struct epoll_event));
-	ee.events = EPOLLIN;
+	ee.events = EPOLLIN | EPOLLRDHUP;
 	ee.data.fd = fd;
 
 	if (epoll_ctl(eq, EPOLL_CTL_MOD, fd, &ee)) {
@@ -580,7 +580,7 @@ int event_queue_fd_readwrite_to_write(int eq, int fd) {
 	struct epoll_event ee;
 
 	memset(&ee, 0, sizeof(struct epoll_event));
-	ee.events = EPOLLOUT;
+	ee.events = EPOLLOUT | EPOLLRDHUP;
 	ee.data.fd = fd;
 
 	if (epoll_ctl(eq, EPOLL_CTL_MOD, fd, &ee)) {
@@ -597,7 +597,7 @@ int event_queue_fd_read_to_readwrite(int eq, int fd) {
 	struct epoll_event ee;
 
 	memset(&ee, 0, sizeof(struct epoll_event));
-	ee.events = EPOLLIN | EPOLLOUT;
+	ee.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP;
 	ee.data.fd = fd;
 
 	if (epoll_ctl(eq, EPOLL_CTL_MOD, fd, &ee)) {
@@ -613,7 +613,7 @@ int event_queue_fd_write_to_readwrite(int eq, int fd) {
 	struct epoll_event ee;
 
 	memset(&ee, 0, sizeof(struct epoll_event));
-	ee.events = EPOLLIN | EPOLLOUT;
+	ee.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP;
 	ee.data.fd = fd;
 
 	if (epoll_ctl(eq, EPOLL_CTL_MOD, fd, &ee)) {
@@ -642,12 +642,28 @@ int event_queue_del_fd(int eq, int fd, int event) {
 	return 0;
 }
 
+int event_queue_idle_fd(int eq, int fd) {
+
+	struct epoll_event ee;
+
+	memset(&ee, 0, sizeof(struct epoll_event));
+	ee.data.fd = fd;
+	ee.events = EPOLLRDHUP;
+
+	if (epoll_ctl(eq, EPOLL_CTL_MOD, fd, &ee)) {
+		uwsgi_error("epoll_ctl()");
+		return -1;
+	}
+
+	return 0;
+}
+
 int event_queue_add_fd_write(int eq, int fd) {
 
 	struct epoll_event ee;
 
 	memset(&ee, 0, sizeof(struct epoll_event));
-	ee.events = EPOLLOUT;
+	ee.events = EPOLLOUT | EPOLLRDHUP;
 	ee.data.fd = fd;
 
 	if (epoll_ctl(eq, EPOLL_CTL_ADD, fd, &ee)) {
@@ -692,6 +708,13 @@ int event_queue_interesting_fd_is_write(void *events, int id) {
 	return 0;
 }
 
+int event_queue_interesting_fd_is_closed(void *events, int id) {
+	struct epoll_event *ee = (struct epoll_event *) events;
+	if (ee[id].events & EPOLLRDHUP) {
+		return 1;
+	}
+	return 0;
+}
 
 int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
 
