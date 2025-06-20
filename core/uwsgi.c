@@ -1961,7 +1961,7 @@ check:
 	if (pfd.fd == -1)
 		pfd.fd = 2;
 
-	while (poll(&pfd, 1, 0) > 0) {
+	while (uwsgi_poll(&pfd, 1, 0) > 0) {
 		if (uwsgi_master_log()) {
 			break;
 		}

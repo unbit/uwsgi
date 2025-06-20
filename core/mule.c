@@ -353,7 +353,7 @@ next:
 
 	int ret = -1;
 retry:
-	ret = poll(mulepoll, count + farms_count, timeout);
+	ret = uwsgi_poll(mulepoll, count + farms_count, timeout);
 	if (ret < 0) {
 		uwsgi_error("uwsgi_mule_get_msg()/poll()");
 	}
