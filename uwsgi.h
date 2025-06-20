@@ -1556,6 +1556,13 @@ struct wsgi_request {
 	// when set, do not send warnings about bad behaviours
 	int post_warning;
 
+        /* post_file and the buffers will be free'd before the
+         * cleanup handlers. so we need to make sure we really
+         * stop using them even if the application attempts to
+         * read the body in the cleanup handler.
+         */
+        int request_finished;
+
 	// deprecated fields: size_t is 32bit on 32bit platform
 	size_t __range_from;
 	size_t __range_to;
