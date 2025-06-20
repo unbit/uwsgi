@@ -169,6 +169,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"pyrun", required_argument, 0, "run a python script in the uWSGI environment", uwsgi_opt_pyrun, NULL, 0},
 
 	{"py-tracebacker", required_argument, 0, "enable the uWSGI python tracebacker", uwsgi_opt_set_str, &up.tracebacker, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
+	{"py-tracebacker-mule", required_argument, 0, "enable the uWSGI python tracebacker for mules", uwsgi_opt_set_str, &up.mule_tracebacker, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 
 	{"py-auto-reload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 	{"py-autoreload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
@@ -488,6 +489,13 @@ void uwsgi_python_post_fork() {
 			pthread_create(&par_tid, NULL, uwsgi_python_autoreloader_thread, up.main_thread->interp);
 		}
 		if (up.tracebacker) {
+			// spawn the tracebacker thread
+			pthread_t ptb_tid;
+			pthread_create(&ptb_tid, NULL, uwsgi_python_tracebacker_thread, NULL);
+		}
+	}
+	if (uwsgi.muleid > 0) {
+		if (up.mule_tracebacker) {
 			// spawn the tracebacker thread
 			pthread_t ptb_tid;
 			pthread_create(&ptb_tid, NULL, uwsgi_python_tracebacker_thread, NULL);

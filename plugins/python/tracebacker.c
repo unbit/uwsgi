@@ -65,8 +65,16 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 	struct sockaddr_un so_sun;
 	socklen_t so_sun_len = 0;
 
-	char *str_wid = uwsgi_num2str(uwsgi.mywid);
-	char *sock_path = uwsgi_concat2(up.tracebacker, str_wid);
+	char *str_wid = NULL;
+	char *sock_path = NULL;
+	if (uwsgi.muleid > 0) {
+		str_wid = uwsgi_num2str(uwsgi.muleid);
+		sock_path = uwsgi_concat2(up.mule_tracebacker, str_wid);
+	}
+	else {
+		str_wid = uwsgi_num2str(uwsgi.mywid);
+		sock_path = uwsgi_concat2(up.tracebacker, str_wid);
+	}
 
 	int current_defer_accept = uwsgi.no_defer_accept;
         uwsgi.no_defer_accept = 1;
@@ -94,7 +102,12 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 
 	PyObject *_current_frames = PyDict_GetItemString(sys_dict, "_current_frames");
 
-	uwsgi_log("python tracebacker for worker %d available on %s\n", uwsgi.mywid, sock_path);
+	if (uwsgi.muleid > 0) {
+		uwsgi_log("python tracebacker for mule %d available on %s\n", uwsgi.muleid, sock_path);
+	}
+	else {
+		uwsgi_log("python tracebacker for worker %d available on %s\n", uwsgi.mywid, sock_path);
+	}
 
 	for(;;) {
 		UWSGI_RELEASE_GIL;
