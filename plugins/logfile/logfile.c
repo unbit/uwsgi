@@ -44,7 +44,7 @@ static ssize_t uwsgi_file_logger(struct uwsgi_logger *ul, char *message, size_t 
 				logfile = ul->arg;
 			}
 
-			ul->fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
+			ul->fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 			if (ul->fd >= 0) {
 				ul->configured = 1;
 			}	
