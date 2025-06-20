@@ -1374,6 +1374,13 @@ class uConf(object):
         if self.get('unbit'):
             self.cflags.append("-DUNBIT")
 
+        if 'VIRTUAL_ENV' in os.environ:
+            venv_include = '{0}/include/site/python{1}.{2}'.format(
+                sys.prefix, sys.version_info.major, sys.version_info.minor)
+            self.cflags.append('-I{0}'.format(venv_include))
+            self.include_path.append(venv_include)
+            if self.has_include('greenlet.h'):
+                self.cflags.append("-DGREENLET_HEADER_HACK")
         return self.gcc_list, self.cflags, self.ldflags, self.libs
 
 
