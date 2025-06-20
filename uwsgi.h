@@ -4638,8 +4638,10 @@ void uwsgi_subscribe_all(uint8_t, int);
 void uwsgi_websockets_init(void);
 int uwsgi_websocket_send(struct wsgi_request *, char *, size_t);
 int uwsgi_websocket_send_binary(struct wsgi_request *, char *, size_t);
+int uwsgi_websocket_check_pingpong(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_websocket_recv(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_websocket_recv_nb(struct wsgi_request *);
+struct uwsgi_buffer *uwsgi_websocket_recv_do(struct wsgi_request *, int);
 
 char *uwsgi_chunked_read(struct wsgi_request *, size_t *, int, int);
 struct uwsgi_buffer *uwsgi_chunked_read_smart(struct wsgi_request *, size_t, int);
