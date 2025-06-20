@@ -122,10 +122,31 @@ This is built from uWSGI's source without any modifications.
 A different [`setup.py`](https://github.com/unbit/uwsgi/blob/uwsgi-2.0/setup.pyuwsgi.py)
 is used to make the project a friendlier part of the Python ecosystem. It allows it
 to be imported as a Python module and distributed using the
-[wheel format](https://www.python.org/dev/peps/pep-0427/).
+[wheel format](https://www.python.org/dev/peps/pep-0427/). The pre-packaged wheels
+include the following common libraries used by uWSGI:
+
+* [zlib](https://zlib.net/)
+* [pcre](https://www.pcre.org/)
+* [jansson](http://www.digip.org/jansson/)
+
+SSL is intentionally excluded for security reasons. If you need SSL support, you can
+force a wheel to be built locally with the `pip` flag `--no-binary=pyuwsgi`.
+
+In addition to the default plugins, the [`stats_pusher_statsd`](https://uwsgi-docs.readthedocs.io/en/latest/Metrics.html#statsd)
+plugin is included by default in `pyuwsgi` where it is typically optional for uWSGI.
 
 The full uWSGI documentation can be found at
 [https://uwsgi-docs.readthedocs.org](https://uwsgi-docs.readthedocs.org).
+
+## License
+
+uWSGI is licensed [GPLv2](https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt) with
+a [linking exception](https://en.wikipedia.org/wiki/GPL_linking_exception) which means
+you are allowed to use uWSGI (or pyuwsgi) unmodified in a proprietary or otherwise non-GPL
+licensed project without invoking the GPL on the rest of the code.
+
+The [full license](https://github.com/unbit/uwsgi/blob/uwsgi-2.0/LICENSE) can be found
+on GitHub.
 
 ---
 
@@ -148,6 +169,7 @@ setup(
     description='The uWSGI server',
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
+    url="https://uwsgi-docs.readthedocs.org",
     cmdclass={
         'build_ext': uWSGIBuildExt,
         },
