@@ -1444,9 +1444,7 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 		return PyErr_Format(PyExc_ValueError, "no mule configured");
 
 	if (mule_obj == NULL) {
-		UWSGI_RELEASE_GIL
-		resp = mule_send_msg(uwsgi.shared->mule_queue_pipe[0], message, message_len);
-		UWSGI_GET_GIL
+		fd = uwsgi.shared->mule_queue_pipe[0];
 	}
 	else {
 		if (PyString_Check(mule_obj)) {
@@ -1471,12 +1469,12 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 		else {
 			return PyErr_Format(PyExc_ValueError, "invalid mule");
 		}
+	}
 
-		if (fd > -1) {
-			UWSGI_RELEASE_GIL
-			resp = mule_send_msg(fd, message, message_len);
-			UWSGI_GET_GIL
-		}
+	if (fd > -1) {
+		UWSGI_RELEASE_GIL
+		resp = mule_send_msg(fd, message, message_len);
+		UWSGI_GET_GIL
 	}
 
 	if(!resp) {

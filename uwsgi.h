@@ -3201,6 +3201,9 @@ struct uwsgi_mule {
 
 	time_t cursed_at;
 	time_t no_mercy_at;
+
+	uint64_t vsz_size;
+	uint64_t rss_size;
 };
 
 struct uwsgi_mule_farm {

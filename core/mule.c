@@ -32,6 +32,24 @@ int mule_send_msg(int fd, char *message, size_t len) {
 	return 0;
 }
 
+// Runs in a mule thread and periodically scans for memory usage.
+static void *mule_mem_collector(void *foobar) {
+	// block all signals
+	sigset_t smask;
+	sigfillset(&smask);
+	pthread_sigmask(SIG_BLOCK, &smask, NULL);
+	int id = uwsgi.muleid;
+	uwsgi_log_verbose("mem-collector thread started for mule %d\n", id);
+	for(;;) {
+		sleep(uwsgi.mem_collector_freq);
+		uint64_t rss = 0, vsz = 0;
+		get_memusage(&rss, &vsz);
+		uwsgi.mules[id - 1].rss_size = rss;
+		uwsgi.mules[id - 1].vsz_size = vsz;
+	}
+	return NULL;
+}
+
 void uwsgi_mule(int id) {
 
 	int i;
@@ -82,8 +100,13 @@ void uwsgi_mule(int id) {
 		}
 
 		uwsgi_hooks_run(uwsgi.hook_as_mule, "as-mule", 1);
-		uwsgi_mule_run();
 
+		if (uwsgi.logging_options.memory_report || uwsgi.force_get_memusage) {
+			pthread_t t;
+			pthread_create(&t, NULL, mule_mem_collector, NULL);
+		}
+
+		uwsgi_mule_run();
 	}
 	else if (pid > 0) {
 		uwsgi.mules[id - 1].id = id;
