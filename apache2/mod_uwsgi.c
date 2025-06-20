@@ -208,7 +208,7 @@ static int timed_connect(struct pollfd *fdpoll , struct sockaddr *addr, int addr
 			if (timeout < 1)
 				timeout = 3;
 			fdpoll->events = POLLOUT ;
-			cnt = poll(fdpoll, 1, timeout*1000) ;	
+			cnt = uwsgi_poll(fdpoll, 1, timeout*1000) ;	
 			/* check for errors */
 			if (cnt < 0 && errno != EINTR) {
 				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: unable to connect to uWSGI server: %s", strerror(errno));
@@ -460,7 +460,7 @@ static int uwsgi_handler(request_rec *r) {
 
 	for(;;) {
 		/* put -1 to disable timeout on zero */
-		cnt = poll(&uwsgi_poll, 1, (c->socket_timeout*1000)-1) ;
+		cnt = uwsgi_poll(&uwsgi_poll, 1, (c->socket_timeout*1000)-1) ;
 		if (cnt == 0) {
 			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: recv() timeout");
 			apr_brigade_destroy(bb);
@@ -529,7 +529,7 @@ static int uwsgi_handler(request_rec *r) {
                         }
 		}
 		else {
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: poll() %s", strerror(errno));
+			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: uwsgi_poll() %s", strerror(errno));
 			close(uwsgi_poll.fd);
 			apr_brigade_destroy(bb);
 			free(uwsgi_vars);
