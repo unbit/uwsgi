@@ -2,17 +2,6 @@
 
 extern struct uwsgi_server uwsgi;
 
-#ifdef HAS_NOT_PyFrame_GetLineNumber
-int PyFrame_GetLineNumber(PyFrameObject *frame) {
-	if (frame->f_trace) {
-		return frame->f_lineno;
-	}
-	else {
-		return PyCode_Addr2Line(frame->f_code, frame->f_lasti);
-	}
-}
-#endif
-
 #if PY_VERSION_HEX < 0x030900B1
 PyCodeObject* PyFrame_GetCode(PyFrameObject *frame)
 {
@@ -21,14 +10,12 @@ PyCodeObject* PyFrame_GetCode(PyFrameObject *frame)
 }
 #endif
 
-#ifdef PYTHREE
 #undef PyString_AsString
 static char *PyString_AsString(PyObject *o) {
 	PyObject *zero = PyUnicode_AsLatin1String(o);
 	if (!zero) return "";
         return PyBytes_AsString(zero);
 }
-#endif
 
 int uwsgi_python_profiler_call(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg) {
 
