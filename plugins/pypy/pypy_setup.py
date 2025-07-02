@@ -48,8 +48,8 @@ uwsgi_cdef = []
 uwsgi_defines = []
 uwsgi_cflags = ffi.string(lib0.uwsgi_get_cflags()).split()
 for cflag in uwsgi_cflags:
-    if cflag.startswith('-D'):
-        line = cflag[2:]
+    if cflag.startswith(b'-D'):
+        line = cflag[2:].decode()
         if '=' in line:
             (key, value) = line.split('=', 1)
             uwsgi_cdef.append('#define %s ...' % key)
@@ -166,22 +166,22 @@ struct uwsgi_server {
         struct uwsgi_plugin *p[];
         ...;
 };
-struct uwsgi_server uwsgi;
+extern struct uwsgi_server uwsgi;
 
-struct uwsgi_plugin pypy_plugin;
+extern struct uwsgi_plugin pypy_plugin;
 
-const char *uwsgi_pypy_version;
+extern const char *uwsgi_pypy_version;
 
 char *uwsgi_binary_path();
 
 void *uwsgi_malloc(size_t);
 
 struct uwsgi_logvar {
-	char key[256];
-	uint8_t keylen;
-	char val[256];
-	uint8_t vallen;
-	struct uwsgi_logvar *next;
+        char key[256];
+        uint8_t keylen;
+        char val[256];
+        uint8_t vallen;
+        struct uwsgi_logvar *next;
 };
 
 struct uwsgi_logvar *uwsgi_logvar_get(struct wsgi_request *, char *, uint8_t);
@@ -271,7 +271,7 @@ const char *uwsgi_pypy_version = UWSGI_VERSION;
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_plugin pypy_plugin;
 %s
-''' % ('\n'.join(uwsgi_defines), uwsgi_dot_h, hooks)
+''' % ('\n'.join(uwsgi_defines), uwsgi_dot_h.decode(), hooks)
 
 ffi.cdef(cdefines)
 lib = ffi.verify(cverify)
@@ -286,7 +286,7 @@ wsgi_application = None
 
 # fix argv if needed
 if len(sys.argv) == 0:
-    sys.argv.insert(0, ffi.string(lib.uwsgi_binary_path()))
+    sys.argv.insert(0, ffi.string(lib.uwsgi_binary_path()).decode())
 
 
 @ffi.callback("void(char *)")
@@ -305,7 +305,7 @@ def uwsgi_pypy_loader(module):
     load a wsgi module
     """
     global wsgi_application
-    m = ffi.string(module)
+    m = ffi.string(module).decode()
     c = 'application'
     if ':' in m:
         m, c = m.split(':')
@@ -324,7 +324,7 @@ def uwsgi_pypy_file_loader(filename):
     global wsgi_application
     w = ffi.string(filename)
     c = 'application'
-    mod = imp.load_source('uwsgi_file_wsgi', w)
+    mod = imp.load_source('uwsgi_file_wsgi', w.decode())
     wsgi_application = getattr(mod, c)
 
 
@@ -334,7 +334,7 @@ def uwsgi_pypy_paste_loader(config):
     load a .ini paste app
     """
     global wsgi_application
-    c = ffi.string(config)
+    c = ffi.string(config).decode()
     if c.startswith('config:'):
         c = c[7:]
     if c[0] != '/':
@@ -363,7 +363,7 @@ def uwsgi_pypy_pythonpath(item):
     """
     add an item to the pythonpath
     """
-    path = ffi.string(item)
+    path = ffi.string(item).decode()
     sys.path.append(path)
     print("added %s to pythonpath" % path)
 
@@ -470,15 +470,17 @@ def uwsgi_pypy_wsgi_handler(wsgi_req):
     def start_response(status, headers, exc_info=None):
         if exc_info:
             traceback.print_exception(*exc_info)
+        status = status.encode()
         lib.uwsgi_response_prepare_headers(wsgi_req, ffi.new("char[]", status), len(status))
         for hh in headers:
+            hh = (hh[0].encode(), hh[1].encode())
             lib.uwsgi_response_add_header(wsgi_req, ffi.new("char[]", hh[0]), len(hh[0]), ffi.new("char[]", hh[1]), len(hh[1]))
         return writer
 
     environ = {}
     iov = wsgi_req.hvec
     for i in range(0, wsgi_req.var_cnt, 2):
-        environ[ffi.string(ffi.cast("char*", iov[i].iov_base), iov[i].iov_len)] = ffi.string(ffi.cast("char*", iov[i+1].iov_base), iov[i+1].iov_len)
+        environ[ffi.string(ffi.cast("char*", iov[i].iov_base), iov[i].iov_len).decode()] = ffi.string(ffi.cast("char*", iov[i+1].iov_base), iov[i+1].iov_len).decode()
 
     environ['wsgi.version'] = (1, 0)
     scheme = 'http'
@@ -598,8 +600,8 @@ uwsgi.rpc = uwsgi_pypy_rpc
 
 def uwsgi_pypy_call(func, *args):
     node = None
-    if '@' in func:
-        (func, node) = func.split('@')
+    if b'@' in func:
+        (func, node) = func.split(b'@')
     return uwsgi_pypy_rpc(node, func, *args)
 uwsgi.call = uwsgi_pypy_call
 
@@ -1067,7 +1069,7 @@ def uwsgi_pypy_continulet_switch(wsgi_req):
 
 
 def uwsgi_pypy_setup_continulets():
-    if lib.uwsgi.async < 1:
+    if lib.uwsgi["async"] < 1:
         raise Exception("pypy continulets require async mode !!!")
     lib.uwsgi.schedule_to_main = uwsgi_pypy_continulet_switch
     lib.uwsgi.schedule_to_req = uwsgi_pypy_continulet_schedule

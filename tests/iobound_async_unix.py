@@ -44,7 +44,7 @@ def application(env, start_response):
         for r in send_request(env, s):
             yield r
     else:
-        print c
+        print(c)
         start_response('500 Internal Server Error', [('Content-Type', 'text/plain')])
         yield "Internal Server Error"
 

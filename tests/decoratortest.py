@@ -8,6 +8,9 @@ from uwsgicc import app as application  # NOQA
 import time
 
 
+from six.moves import range
+
+
 # register rpc function helloworld
 @rpc("helloworld")
 def hello2():
@@ -47,7 +50,7 @@ def tmpmodified(num):
 # spool a long running task
 @spool
 def a_long_task(args):
-    for i in xrange(1, 10):
+    for i in range(1, 10):
         print("%s = %d" % (str(args), i))
         print(uwsgi.call('helloworld'))
         time.sleep(1)
@@ -56,7 +59,7 @@ def a_long_task(args):
 # continuously spool a long running task
 @spoolforever
 def an_infinite_task(args):
-    for i in xrange(1, 4):
+    for i in range(1, 4):
         print("infinite: %d %s" % (i, str(args)))
         print(uwsgi.call('helloworld'))
         uwsgi.signal(100)
@@ -127,7 +130,7 @@ def fork_happened2():
 @lock
 def locked_func():
     print("starting locked function on worker %d" % uwsgi.worker_id())
-    for i in xrange(1, 5):
+    for i in range(1, 5):
         time.sleep(1)
         print("[locked %d] waiting..." % uwsgi.worker_id())
     print("done with locked function on worker %d" % uwsgi.worker_id())

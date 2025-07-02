@@ -16,7 +16,7 @@ struct uwsgi_php {
 	struct uwsgi_string_list *index;
 	struct uwsgi_string_list *set;
 	struct uwsgi_string_list *append_config;
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 	struct uwsgi_regexp_list *app_bypass;
 #endif
 	struct uwsgi_string_list *vars;
@@ -70,7 +70,7 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-fallback", required_argument, 0, "run the specified php script when the requested one does not exist", uwsgi_opt_set_str, &uphp.fallback, 0},
         {"php-fallback2", required_argument, 0, "run the specified php script relative to the document root when the requested one does not exist", uwsgi_opt_set_str, &uphp.fallback2, 0},
         {"php-fallback-qs", required_argument, 0, "php-fallback with QUERY_STRING set", uwsgi_opt_set_str, &uphp.fallback_qs, 0},
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
         {"php-app-bypass", required_argument, 0, "if the regexp matches the uri the --php-app is bypassed", uwsgi_opt_add_regexp_list, &uphp.app_bypass, 0},
 #endif
         {"php-var", required_argument, 0, "add/overwrite a CGI variable at each request", uwsgi_opt_add_string_list, &uphp.vars, 0},
@@ -499,6 +499,21 @@ PHP_FUNCTION(uwsgi_signal) {
         RETURN_NULL();
 }
 
+PHP_FUNCTION(uwsgi_disconnect) {
+
+	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
+
+	php_output_end_all();
+	php_header();
+
+	uwsgi_disconnect(wsgi_req);
+
+	php_output_set_status(PHP_OUTPUT_DISABLED);
+
+	RETURN_NULL();
+}
+
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo_void, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
@@ -517,6 +532,7 @@ zend_function_entry uwsgi_php_functions[] = {
 	PHP_FE(uwsgi_cache_del, arginfo_void)
 	PHP_FE(uwsgi_cache_clear, arginfo_void)
 	PHP_FE(uwsgi_cache_exists, arginfo_void)
+	PHP_FE(uwsgi_disconnect, arginfo_void)
 	{ NULL, NULL, NULL},
 };
 
@@ -874,10 +890,14 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 	wsgi_req->document_root_len = strlen(wsgi_req->document_root);
 
 	if (uphp.app) {
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 		struct uwsgi_regexp_list *bypass = uphp.app_bypass;
 		while (bypass) {
+#ifdef UWSGI_PCRE2
+                        if (uwsgi_regexp_match(bypass->pattern, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
+#else
                         if (uwsgi_regexp_match(bypass->pattern, bypass->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
+#endif
 				goto oldstyle;
                         }
                         bypass = bypass->next;
@@ -914,7 +934,7 @@ appready:
 		goto secure2;
 	}
 
-#ifdef UWSGI_PCRE
+#if defined(UWSGI_PCRE) || defined(UWSGI_PCRE2)
 oldstyle:
 #endif
 

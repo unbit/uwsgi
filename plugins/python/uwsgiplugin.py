@@ -45,7 +45,8 @@ LDFLAGS = []
 if 'UWSGI_PYTHON_NOLIB' not in os.environ:
     LIBS = sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
     # check if it is a non-shared build (but please, add --enable-shared to your python's ./configure script)
-    if not sysconfig.get_config_var('Py_ENABLE_SHARED'):
+    use_static_lib = not sysconfig.get_config_var('Py_ENABLE_SHARED')
+    if use_static_lib:
         libdir = sysconfig.get_config_var('LIBPL')
         # libdir does not exists, try to get it from the venv
         version = get_python_version()
@@ -75,13 +76,17 @@ if 'UWSGI_PYTHON_NOLIB' not in os.environ:
                 libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LIBRARY'))
         if not os.path.exists(libpath):
             libpath = '%s/libpython%s.a' % (libdir, version)
-        LIBS.append(libpath)
-        # hack for messy linkers/compilers
-        if '-lutil' in LIBS:
-            LIBS.append('-lutil')
-        if '-lrt' in LIBS:
-            LIBS.append('-lrt')
-    else:
+
+        if os.path.exists(libpath):
+            LIBS.append(libpath)
+            # hack for messy linkers/compilers
+            if '-lutil' in LIBS:
+                LIBS.append('-lutil')
+            if '-lrt' in LIBS:
+                LIBS.append('-lrt')
+        else:
+            use_static_lib = False
+    if not use_static_lib:
         try:
             libdir = sysconfig.get_config_var('LIBDIR')
         except Exception:

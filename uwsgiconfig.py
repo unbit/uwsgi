@@ -512,7 +512,7 @@ def build_uwsgi(uc, print_only=False, gcll=None):
                         gcc_list.append('%s/%s' % (path, cfile))
                 for bfile in up.get('BINARY_LIST', []):
                     try:
-                        binary_link_cmd = "ld -r -b binary -o %s/%s.o %s/%s" % (path, bfile[1], path, bfile[1])
+                        binary_link_cmd = "ld -z noexecstack -r -b binary -o %s/%s.o %s/%s" % (path, bfile[1], path, bfile[1])
                         print(binary_link_cmd)
                         if subprocess.call(binary_link_cmd, shell=True) != 0:
                             raise Exception('unable to link binary file')
@@ -712,13 +712,13 @@ class uConf(object):
         if uwsgi_os == 'GNU':
             self.cflags.append('-D__HURD__')
 
-        gcc_version = spcall("%s -dumpversion" % GCC)
+        gcc_version = spcall("%s -dumpfullversion -dumpversion" % GCC)
         if not gcc_version and GCC.startswith('gcc'):
             if uwsgi_os == 'Darwin':
                 GCC = 'llvm-' + GCC
             else:
                 GCC = 'gcc'
-            gcc_version = spcall("%s -dumpversion" % GCC)
+            gcc_version = spcall("%s -dumpfullversion -dumpversion" % GCC)
 
         try:
             add_it = False
@@ -1099,30 +1099,30 @@ class uConf(object):
 
         has_pcre = False
 
-        # re-enable after pcre fix
-        if self.get('pcre'):
-            if self.get('pcre') == 'auto':
-                pcreconf = spcall('pcre-config --libs')
-                if pcreconf:
-                    self.libs.append(pcreconf)
-                    pcreconf = spcall("pcre-config --cflags")
-                    self.cflags.append(pcreconf)
-                    self.gcc_list.append('core/regexp')
-                    self.cflags.append("-DUWSGI_PCRE")
-                    has_pcre = True
-
+        required_pcre = self.get('pcre')
+        if required_pcre:
+            pcre_libs = spcall('pcre2-config --libs8')
+            if pcre_libs:
+                pcre_cflags = spcall("pcre2-config --cflags")
+                pcre_define = "-DUWSGI_PCRE2"
             else:
-                pcreconf = spcall('pcre-config --libs')
-                if pcreconf is None:
-                    print("*** libpcre headers unavailable. uWSGI build is interrupted. You have to install pcre development package or disable pcre")
-                    sys.exit(1)
-                else:
-                    self.libs.append(pcreconf)
-                    pcreconf = spcall("pcre-config --cflags")
-                    self.cflags.append(pcreconf)
-                    self.gcc_list.append('core/regexp')
-                    self.cflags.append("-DUWSGI_PCRE")
-                    has_pcre = True
+                pcre_libs = spcall('pcre-config --libs')
+                pcre_cflags = spcall("pcre-config --cflags")
+                pcre_define = "-DUWSGI_PCRE"
+        else:
+            pcre_libs = None
+
+        if required_pcre:
+            if required_pcre != 'auto' and pcre_libs is None:
+                print("*** libpcre headers unavailable. uWSGI build is interrupted. You have to install pcre development package or disable pcre")
+                sys.exit(1)
+
+            if pcre_libs:
+                self.libs.append(pcre_libs)
+                self.cflags.append(pcre_cflags)
+                self.gcc_list.append('core/regexp')
+                self.cflags.append(pcre_define)
+                has_pcre = True
 
         if has_pcre:
             report['pcre'] = True
@@ -1164,7 +1164,7 @@ class uConf(object):
             if not self.embed_config:
                 self.embed_config = self.get('embed_config')
             if self.embed_config:
-                binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(self.embed_config), self.embed_config)
+                binary_link_cmd = "ld -z noexecstack -r -b binary -o %s.o %s" % (binarize(self.embed_config), self.embed_config)
                 print(binary_link_cmd)
                 subprocess.call(binary_link_cmd, shell=True)
                 self.cflags.append("-DUWSGI_EMBED_CONFIG=_binary_%s_start" % binarize(self.embed_config))
@@ -1183,7 +1183,7 @@ class uConf(object):
                         for directory, directories, files in os.walk(ef):
                             for f in files:
                                 fname = "%s/%s" % (directory, f)
-                                binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(fname), fname)
+                                binary_link_cmd = "ld -z noexecstack -r -b binary -o %s.o %s" % (binarize(fname), fname)
                                 print(binary_link_cmd)
                                 subprocess.call(binary_link_cmd, shell=True)
                                 if symbase:
@@ -1193,7 +1193,7 @@ class uConf(object):
                                         subprocess.call(objcopy_cmd, shell=True)
                                 binary_list.append(binarize(fname))
                     else:
-                        binary_link_cmd = "ld -r -b binary -o %s.o %s" % (binarize(ef), ef)
+                        binary_link_cmd = "ld -z noexecstack -r -b binary -o %s.o %s" % (binarize(ef), ef)
                         print(binary_link_cmd)
                         subprocess.call(binary_link_cmd, shell=True)
                         binary_list.append(binarize(ef))

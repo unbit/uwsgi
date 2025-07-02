@@ -23,7 +23,7 @@ def application(env, start_response):
     for i in pg_wait(connection, env, 3):
         yield i
 
-    print "connected"
+    print("connected")
     cursor = connection.cursor()
 
     cursor.execute("SELECT * FROM foo")
@@ -31,7 +31,7 @@ def application(env, start_response):
     for i in pg_wait(cursor.connection, env, 3):
         yield i
 
-    print "query result available"
+    print("query result available")
 
     for record in cursor:
         yield str(record)

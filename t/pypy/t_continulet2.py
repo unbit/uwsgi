@@ -14,7 +14,7 @@ def application(e, sr):
 
     # suspend 10 times and yield a value
     for i in range(1, 10):
-        print i
+        print(i)
         uwsgi.suspend()
         yield str(i)
 
@@ -43,7 +43,7 @@ def application(e, sr):
         # always ensure sockets are closed
         uwsgi.close(fd)
 
-    print "sleeping for 3 seconds..."
+    print("sleeping for 3 seconds...")
     uwsgi.async_sleep(3)
     uwsgi.suspend()
     yield "done"

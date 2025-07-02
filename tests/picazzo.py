@@ -12,7 +12,7 @@ def login(req):
 
 
 def login_post(req):
-    print req
+    print(req)
     req["session"]["user"] = "James"
     return redirect("/")
 

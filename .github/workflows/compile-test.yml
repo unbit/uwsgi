@@ -10,19 +10,13 @@ jobs:
   build:
     strategy:
       matrix:
+        libpcre: ["libpcre3-dev", "libpcre2-dev"]
+        os: ["ubuntu-22.04"]
+        cc: [gcc, clang]
         include:
-          - os: ubuntu-20.04
-            php: "php7.4"
-            php-config: "php-config7.4"
-            cc: "gcc"
           - os: ubuntu-22.04
             php: "php8.1"
             php-config: "php-config8.1"
-            cc: "gcc"
-          - os: ubuntu-22.04
-            php: "php8.1"
-            php-config: "php-config8.1"
-            cc: "clang"
 
     runs-on: ${{ matrix.os }}
 
@@ -35,7 +29,7 @@ jobs:
       run: |
         sudo apt update -qq
         sudo apt install --no-install-recommends -qqyf python3-dev \
-          libxml2-dev libpcre3-dev libcap2-dev \
+          libxml2-dev ${{ matrix.libpcre }} libcap2-dev \
           libargon2-0-dev libsodium-dev \
           ${{ matrix.php }}-dev lib${{ matrix.php }}-embed \
           liblua5.1-0-dev ruby-dev \

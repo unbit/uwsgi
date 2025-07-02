@@ -20,16 +20,27 @@
 #  define UWSGI_PY312
 #endif
 
-#if PY_MAJOR_VERSION < 3
-#error "Python 2 is not supported"
+#if (PY_VERSION_HEX >= 0x030d0000)
+#  define UWSGI_PY313
 #endif
 
-#if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 2
+#if (PY_VERSION_HEX >= 0x030e0000)
+#  define UWSGI_PY314
+#endif
+
+#if PY_MAJOR_VERSION < 3 || PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 2
 #error "Python <3.3 is not supported"
 #endif
 
-#if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 7
-#define HAS_NOT_PyOS_AfterFork_Child
+#if (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 7)
+#define HAS_NOT_PYOS_FORK_STABLE_API
+#endif
+
+#if PY_MAJOR_VERSION > 2
+#define PYTHREE
+#endif
+
+#if (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 7) || PY_MAJOR_VERSION < 3
 #define UWSGI_SHOULD_CALL_PYEVAL_INITTHREADS
 #endif
 
@@ -150,7 +161,21 @@ struct uwsgi_python {
 
 	char *callable;
 
-#ifdef UWSGI_PY312
+#ifdef UWSGI_PY314
+	int *current_py_recursion_remaining;
+	struct _PyInterpreterFrame **current_frame;
+
+	int current_main_py_recursion_remaining;
+	struct _PyInterpreterFrame *current_main_frame;
+#elif defined UWSGI_PY313
+	int *current_c_recursion_remaining;
+	int *current_py_recursion_remaining;
+	struct _PyInterpreterFrame **current_frame;
+
+	int current_main_c_recursion_remaining;
+	int current_main_py_recursion_remaining;
+	struct _PyInterpreterFrame *current_main_frame;
+#elif defined UWSGI_PY312
 	int *current_c_recursion_remaining;
 	int *current_py_recursion_remaining;
 	_PyCFrame **current_frame;

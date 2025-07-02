@@ -3,7 +3,7 @@
 extern struct uwsgi_server uwsgi;
 
 struct http_status_codes {
-        const char      key[3];
+        const char      key[4];
         const char      *message;
         int             message_size;
 };
@@ -468,8 +468,8 @@ void sanitize_args() {
                 uwsgi.cores = uwsgi.async;
         }
 
+        uwsgi.has_threads = 1;
         if (uwsgi.threads > 1) {
-                uwsgi.has_threads = 1;
                 uwsgi.cores = uwsgi.threads;
         }
 

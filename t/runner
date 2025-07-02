@@ -1,0 +1,258 @@
+#!/usr/bin/python3
+#
+# This test suite runner runs some integration tests for uwsgi, that is
+# each test launches a test server with a specific configuration and
+# verifies (usually using a HTTP request) that this test server behaves as
+# expected.
+#
+# buildconf/integration-tests.ini holds the build configuration for this
+# to run fine.
+
+
+import os
+import requests
+import signal
+import socket
+import subprocess
+import sys
+import time
+import unittest
+
+
+TESTS_DIR = os.path.dirname(__file__)
+UWSGI_BINARY = os.getenv("UWSGI_BINARY", os.path.join(TESTS_DIR, "..", "uwsgi"))
+UWSGI_PLUGINS = os.getenv("UWSGI_PLUGINS_TEST", "all").split(" ")
+UWSGI_ADDR = "127.0.0.1"
+UWSGI_PORT = 8000
+UWSGI_HTTP = f"{UWSGI_ADDR}:{UWSGI_PORT}"
+
+
+def plugins_available(plugins):
+    available = False
+    if "all" in UWSGI_PLUGINS:
+        available = True
+    else:
+        available = all([plugin in UWSGI_PLUGINS for plugin in plugins])
+    return available, f"{plugins} plugins not available but required for this test case"
+
+
+class UwsgiTest(unittest.TestCase):
+
+    def start_server(self, args):
+        self.testserver = subprocess.Popen(
+            [UWSGI_BINARY] + args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+
+    def uwsgi_ready(self):
+        try:
+            s = socket.socket()
+            s.connect(
+                (
+                    UWSGI_ADDR,
+                    UWSGI_PORT,
+                )
+            )
+        except socket.error:
+            return False
+        else:
+            return True
+        finally:
+            s.close()
+
+    def start_listen_server(self, args):
+        self.start_server(["--http-socket", UWSGI_HTTP] + args)
+
+        # ensure server is ready
+        retries = 10
+        while not self.uwsgi_ready() and retries > 0:
+            time.sleep(0.1)
+            retries = retries - 1
+            if retries == 0:
+                raise RuntimeError("uwsgi test server is not available")
+
+    def tearDown(self):
+        if hasattr(self._outcome, "errors"):
+            # Python 3.4 - 3.10  (These two methods have no side effects)
+            result = self.defaultTestResult()
+            self._feedErrorsToResult(result, self._outcome.errors)
+        else:
+            # Python 3.11+
+            result = self._outcome.result
+        ok = not (result.errors + result.failures)
+
+        if hasattr(self, "testserver"):
+            self.testserver.send_signal(signal.SIGTERM)
+            if not ok:
+                print(self.testserver.stdout.read(), file=sys.stderr)
+
+            self.testserver.wait()
+            self.testserver.stdout.close()
+
+    def assert_GET_body(self, url_path, body_expected):
+        with requests.get(f"http://{UWSGI_HTTP}{url_path}") as r:
+            self.assertEqual(r.text, body_expected)
+
+    def test_static_expires(self):
+        self.start_listen_server(
+            [
+                "--plugin",
+                "notfound",
+                os.path.join(TESTS_DIR, "static", "config.ini"),
+            ]
+        )
+
+        with requests.get(f"http://{UWSGI_HTTP}/foobar/config.ini") as r:
+            self.assertTrue("Expires" in r.headers)
+
+    @unittest.skipUnless(*plugins_available(["python"]))
+    def test_mountpoints(self):
+        self.start_listen_server(
+            [
+                "--plugin",
+                "python",
+                os.path.join(
+                    TESTS_DIR,
+                    "python",
+                    "manage_script_name",
+                    "manage_script_name_test.ini",
+                ),
+            ]
+        )
+
+        mps = {"/foo", "/foobis/", "/footris/"}
+
+        for mp in mps:
+            # Requests to /foo should kick-in the managed script name.
+            self.assert_GET_body(mp, mp)
+
+            ends = mp.endswith("/")
+
+            # And equally requests to /foo/
+            self.assert_GET_body(f"{mp}/" if not ends else f"{mp}"[:-1], mp)
+
+            # Or correct requests (/foo/resource)
+            self.assert_GET_body(f"{mp}/resource" if not ends else f"{mp}resource", mp)
+
+        mps = {
+            "/fooanything",
+            "/foobisis/",
+            "/foofighters",
+        }
+
+        for mp in mps:
+            self.assert_GET_body(mp, "")
+
+    @unittest.skipUnless(*plugins_available(["python"]))
+    def test_python3_helloworld(self):
+        self.start_listen_server(
+            [
+                "--plugin",
+                "python",
+                "--wsgi-file",
+                os.path.join(TESTS_DIR, "python", "helloapp.py"),
+            ]
+        )
+
+        self.assert_GET_body("/", "Hello World")
+
+    @unittest.skipUnless(*plugins_available(["pypy"]))
+    def test_pypy3_helloworld(self):
+        self.start_listen_server(
+            [
+                os.path.join(TESTS_DIR, "pypy", "config.ini"),
+            ]
+        )
+
+        self.assert_GET_body("/", "Hello World")
+
+    @unittest.skipUnless(*plugins_available(["php"]))
+    def test_php_session(self):
+        self.start_listen_server(
+            [
+                os.path.join(TESTS_DIR, "php", "config.ini"),
+            ]
+        )
+
+        self.assert_GET_body("/test.php", "PASS\n")
+
+    @unittest.skipUnless(*plugins_available(["jvm"]))
+    def test_jvm_hellworld(self):
+        classpath = ":".join(
+            [
+                "/usr/share/java/uwsgi.jar",
+                os.path.join(TESTS_DIR, "java"),
+                os.path.join(TESTS_DIR, "..", "plugins", "jvm"),
+            ]
+        )
+
+        subprocess.call(
+            [
+                "javac",
+                "-classpath",
+                classpath,
+                os.path.join(TESTS_DIR, "java", "rpc.java"),
+            ]
+        )
+
+        self.start_listen_server(
+            [
+                "--need-app=0",
+                "--plugins",
+                "0:jvm,jwsgi",
+                "--jvm-classpath",
+                classpath,
+                "--jwsgi",
+                "rpc:application",
+            ]
+        )
+
+        self.assert_GET_body("/", "<h1>null</h1>")
+
+    @unittest.skipUnless(*plugins_available(["psgi"]))
+    def test_psgi_helloworld(self):
+        self.start_listen_server(
+            [
+                "--plugins",
+                "psgi",
+                "--psgi",
+                os.path.join(TESTS_DIR, "perl", "test_hello.psgi"),
+            ]
+        )
+
+        self.assert_GET_body("/", "Hello, world!")
+
+    @unittest.skipUnless(*plugins_available(["cgi"]))
+    def test_cgi_helloworld(self):
+        self.start_listen_server(
+            [
+                "--need-app=0",
+                "--plugins",
+                "0:cgi",
+                "--cgi",
+                os.path.join(TESTS_DIR, "cgi", "hello.cgi"),
+            ]
+        )
+
+        self.assert_GET_body(
+            "/foobar/say_hello", "Hello world!\nPATH_INFO=/foobar/say_hello\n"
+        )
+
+    @unittest.skipUnless(*plugins_available(["rack"]))
+    def test_rack_helloworld(self):
+        self.start_listen_server(
+            [
+                "--plugins",
+                "0:rack",
+                "--rack",
+                os.path.join(TESTS_DIR, "rack", "app.ru"),
+            ]
+        )
+
+        self.assert_GET_body("/", "Hello")
+
+
+if __name__ == "__main__":
+    unittest.main()
