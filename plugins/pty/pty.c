@@ -259,7 +259,7 @@ static void uwsgi_pty_init() {
 
 }
 
-static void uwsgi_pty_winch() {
+static void uwsgi_pty_winch(int sig) {
 	// 2 uwsgi packets
 	char uwsgi_pkt[8];
 #ifdef TIOCGWINSZ
@@ -309,7 +309,7 @@ static int uwsgi_pty_client() {
 	if (upty.uremote) {
 		signal(SIGWINCH, uwsgi_pty_winch);
 		// send current terminal size
-		uwsgi_pty_winch();
+		uwsgi_pty_winch(SIGWINCH);
 	}
 
 	upty.queue = event_queue_init();
