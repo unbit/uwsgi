@@ -54,7 +54,7 @@ static struct uwsgi_option rawrouter_options[] = {
 	{"rawrouter-ss", required_argument, 0, "run the rawrouter stats server", uwsgi_opt_set_str, &urr.cr.stats_server, 0},
 	{"rawrouter-harakiri", required_argument, 0, "enable rawrouter harakiri", uwsgi_opt_set_int, &urr.cr.harakiri, 0},
 
-	{"rawrouter-xclient", no_argument, 0, "use the xclient protocol to pass the client addres", uwsgi_opt_true, &urr.xclient, 0},
+	{"rawrouter-xclient", no_argument, 0, "use the xclient protocol to pass the client address", uwsgi_opt_true, &urr.xclient, 0},
 
 	{"rawrouter-buffer-size", required_argument, 0, "set internal buffer size (default: page size)", uwsgi_opt_set_64bit, &urr.cr.buffer_size, 0},
 
