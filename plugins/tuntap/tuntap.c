@@ -409,7 +409,7 @@ void uwsgi_tuntap_router_loop(int id, void *arg) {
 	}
 }
 
-static void uwsgi_tuntap_router() {
+static void uwsgi_tuntap_router(int (*uwsgi_start)(void *), char **uwsgi_argv) {
 
 	if (!utt.routers) return;
 
