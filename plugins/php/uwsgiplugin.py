@@ -24,9 +24,9 @@ if ld_run_path:
 # PHP8 and above does not add the version to the library
 # name
 if int(php_version) < 8:
-    LIBS = [os.popen(PHPPATH + ' --libs').read().rstrip(), '-lphp' + php_version]
+    LIBS = ['-lphp' + php_version]
 else:
-    LIBS = [os.popen(PHPPATH + ' --libs').read().rstrip(), '-lphp']
+    LIBS = ['-lphp']
 
 phplibdir = os.environ.get('UWSGICONFIG_PHPLIBDIR')
 if phplibdir:
