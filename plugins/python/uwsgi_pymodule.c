@@ -2141,6 +2141,24 @@ PyObject *py_uwsgi_spooler_jobs(PyObject * self, PyObject * args) {
 }
 
 
+#ifdef PYTHREE
+static PyObject *uwsgi_py_dict_get(PyObject *a, const char *key) {
+	PyObject *key_bytes = PyBytes_FromString(key);
+	PyObject *result = PyDict_GetItem(a, key_bytes);
+	Py_DECREF(key_bytes);
+	return result;
+}
+
+static void uwsgi_py_dict_del(PyObject *a, const char *key) {
+	PyObject *key_bytes = PyBytes_FromString(key);
+	PyDict_DelItem(a, key_bytes);
+	Py_DECREF(key_bytes);
+}
+#else
+#define uwsgi_py_dict_get(a, b) PyDict_GetItemString(a, b)
+#define uwsgi_py_dict_del(a, b) PyDict_DelItemString(a, b)
+#endif
+
 PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	PyObject *spool_dict, *spool_vars;
 	PyObject *zero, *key, *val;
