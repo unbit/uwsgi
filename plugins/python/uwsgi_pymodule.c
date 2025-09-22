@@ -447,11 +447,9 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 	if (PyString_Check(py_node)) {
 		node = PyString_AsString(py_node);
 	}
-#ifdef PYTHREE
         else if (PyUnicode_Check(py_node)) {
                 node = PyBytes_AsString(PyUnicode_AsLatin1String(py_node));
 	}
-#endif
 
 	py_func = PyTuple_GetItem(args, 1);
 
@@ -861,7 +859,6 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 		}
 
 	}
-#ifdef PYTHREE
 	else if (PyUnicode_Check(what)) {
 		filename = PyBytes_AsString(PyUnicode_AsLatin1String(what));
 
@@ -871,7 +868,6 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 			goto clear;
 		}
 	}
-#endif
 	else {
 		fd = PyObject_AsFileDescriptor(what);
 		if (fd < 0)
@@ -2023,11 +2019,7 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
 	}
 
 	PyObject *ret = PyString_FromStringAndSize(NULL, len);
-#ifdef PYTHREE
 	char *storage = PyBytes_AsString(ret);
-#else
-	char *storage = PyString_AS_STRING(ret);
-#endif
 
 	UWSGI_RELEASE_GIL
         int64_t rlen = uwsgi_sharedarea_read(id, pos, storage, len);
@@ -2044,8 +2036,6 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
 	return ret;
 }
 
-#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
-#ifndef HAS_NOT_PyMemoryView_FromBuffer
 PyObject *py_uwsgi_sharedarea_memoryview(PyObject * self, PyObject * args) {
         int id;
 	if (!PyArg_ParseTuple(args, "i:sharedarea_memoryview", &id)) {
@@ -2060,7 +2050,6 @@ PyObject *py_uwsgi_sharedarea_memoryview(PyObject * self, PyObject * args) {
         	return PyErr_Format(PyExc_ValueError, "cannot get a memoryview object from sharedarea %d", id);
 	return PyMemoryView_FromBuffer(&info);
 }
-#endif
 
 PyObject *py_uwsgi_sharedarea_object(PyObject * self, PyObject * args) {
 	int id;
@@ -2073,7 +2062,6 @@ PyObject *py_uwsgi_sharedarea_object(PyObject * self, PyObject * args) {
         }
 	return (PyObject *) sa->obj;
 }
-#endif
 
 PyObject *py_uwsgi_spooler_freq(PyObject * self, PyObject * args) {
 
@@ -2203,11 +2191,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 						}
 					}
 					else {
-#ifdef PYTHREE
 						PyObject *str = PyObject_Bytes(val);
-#else
-						PyObject *str = PyObject_Str(val);
-#endif
 						if (!str) {
 							uwsgi_buffer_destroy(ub);
 							goto error;
@@ -2261,11 +2245,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	}
 	return PyErr_Format(PyExc_ValueError, "unable to spool job");
 error:
-#ifdef PYTHREE
 	return PyErr_Format(PyExc_ValueError, "spooler callable dictionary must contains only bytes");
-#else
-	return PyErr_Format(PyExc_ValueError, "spooler callable dictionary must contains only strings");
-#endif
 }
 
 PyObject *py_uwsgi_spooler_pid(PyObject * self, PyObject * args) {
@@ -2924,12 +2904,8 @@ static PyMethodDef uwsgi_sa_methods[] = {
 	{"sharedarea_rlock", py_uwsgi_sharedarea_rlock, METH_VARARGS, ""},
 	{"sharedarea_wlock", py_uwsgi_sharedarea_wlock, METH_VARARGS, ""},
 	{"sharedarea_unlock", py_uwsgi_sharedarea_unlock, METH_VARARGS, ""},
-#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
-#ifndef HAS_NOT_PyMemoryView_FromBuffer
 	{"sharedarea_memoryview", py_uwsgi_sharedarea_memoryview, METH_VARARGS, ""},
-#endif
 	{"sharedarea_object", py_uwsgi_sharedarea_object, METH_VARARGS, ""},
-#endif
 	{NULL, NULL},
 };
 

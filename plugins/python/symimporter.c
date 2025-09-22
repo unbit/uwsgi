@@ -472,28 +472,7 @@ zipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
         }
 
 
-#ifdef PYTHREE
         PyObject *source_code = PyObject_CallMethodObjArgs(stringio, PyString_FromString("StringIO"), PyString_FromStringAndSize(body, len));
-#else
-	PyObject *stringio_dict = PyModule_GetDict(stringio);
-        if (!stringio_dict) {
-                return -1;
-        }
-
-
-        PyObject *stringio_stringio = PyDict_GetItemString(stringio_dict, "StringIO");
-        if (!stringio_stringio) {
-                return -1;
-        }
-
-
-        PyObject *stringio_args = PyTuple_New(1);
-        PyTuple_SetItem(stringio_args, 0, PyString_FromStringAndSize(body, len));
-
-
-
-        PyObject *source_code = PyInstance_New(stringio_stringio, stringio_args, NULL);
-#endif
         if (!source_code) {
                 return -1;
         }
@@ -507,26 +486,7 @@ zipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
         }
 
 
-#ifdef PYTHREE
 	self->zip = PyObject_CallMethodObjArgs(zipfile, PyString_FromString("ZipFile"), source_code);
-#else
-	PyObject *zipfile_dict = PyModule_GetDict(zipfile);
-        if (!zipfile_dict) {
-                return -1;
-        }
-
-        PyObject *zipfile_zipfile = PyDict_GetItemString(zipfile_dict, "ZipFile");
-        if (!zipfile_zipfile) {
-                return -1;
-        }
-
-
-        PyObject *zipfile_args = PyTuple_New(1);
-        PyTuple_SetItem(zipfile_args, 0, source_code);
-
-
-        self->zip = PyInstance_New(zipfile_zipfile, zipfile_args, NULL);
-#endif
         if (!self->zip) {
                 return -1;
         }
@@ -588,25 +548,7 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 		goto error;
 	}
 
-#ifdef PYTHREE
 	PyObject *source_code = PyObject_CallMethodObjArgs(stringio, PyString_FromString("StringIO"), PyString_FromStringAndSize(code_start, code_end-code_start));
-#else
-	PyObject *stringio_dict = PyModule_GetDict(stringio);
-	if (!stringio_dict) {
-		goto error;
-	}
-
-	PyObject *stringio_stringio = PyDict_GetItemString(stringio_dict, "StringIO");
-	if (!stringio_stringio) {
-		goto error;
-	}
-
-	PyObject *stringio_args = PyTuple_New(1);
-	PyTuple_SetItem(stringio_args, 0, PyString_FromStringAndSize(code_start, code_end-code_start));
-
-
-	PyObject *source_code = PyInstance_New(stringio_stringio, stringio_args, NULL);
-#endif
 	if (!source_code) {
 		goto error;
 	}
@@ -616,25 +558,7 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 		goto error;
 	}
 	
-#ifdef PYTHREE
 	self->zip = PyObject_CallMethodObjArgs(zipfile, PyString_FromString("ZipFile"), source_code);
-#else
-	PyObject *zipfile_dict = PyModule_GetDict(zipfile);
-        if (!zipfile_dict) {
-		goto error;
-        }
-
-        PyObject *zipfile_zipfile = PyDict_GetItemString(zipfile_dict, "ZipFile");
-        if (!zipfile_zipfile) {
-		goto error;
-        }
-
-        PyObject *zipfile_args = PyTuple_New(1);
-        PyTuple_SetItem(zipfile_args, 0, source_code);
-
-
-	self->zip = PyInstance_New(zipfile_zipfile, zipfile_args, NULL);
-#endif
         if (!self->zip) {
 		goto error;
         }
