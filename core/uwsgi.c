@@ -1319,38 +1319,57 @@ void kill_them_all(int signum) {
 
 // gracefully destroy
 void gracefully_kill_them_all(int signum) {
+  if (uwsgi_instance_is_dying) return;
+  uwsgi.status.gracefully_destroying = 1;
 
-        int waitpid_status;
+  // unsubscribe if needed
+  uwsgi_unsubscribe_all();
 
-        if (uwsgi_instance_is_dying) return;
-        uwsgi.status.gracefully_destroying = 1;
+  uwsgi_log_verbose("graceful shutdown triggered...\n");
 
-        // unsubscribe if needed
-        uwsgi_unsubscribe_all();
-
-        uwsgi_log_verbose("graceful shutdown triggered...\n");
-
-        int i;
-        for (i = 1; i <= uwsgi.numproc; i++) {
-                if (uwsgi.workers[i].pid > 0) {
+  int i;
+  for (i = 1; i <= uwsgi.numproc; i++) {
+    if (uwsgi.workers[i].pid > 0) {
 			if (uwsgi.shutdown_sockets)
-				uwsgi.workers[i].shutdown_sockets = 1;
-                        uwsgi_curse(i, SIGHUP);
-                }
-        }
-        for (i = 0; i < uwsgi.mules_cnt; i++) {
-                if (uwsgi.mules[i].pid > 0) {
-                        uwsgi_curse_mule(i, SIGHUP);
-                }
-        }
+        uwsgi.workers[i].shutdown_sockets = 1;
+      uwsgi_curse(i, SIGHUP);
+    }
+  }
 
-        for (i = 1; i <= uwsgi.numproc; i++) {
-            if (uwsgi.workers[i].pid > 0) {
-                waitpid(uwsgi.workers[i].pid, &waitpid_status, 0);
-            }
-        }
+  for (i = 0; i < uwsgi.mules_cnt; i++) {
+    if (uwsgi.mules[i].pid > 0) {
+      uwsgi_curse_mule(i, SIGHUP);
+    }
+  }
 
-        uwsgi_destroy_processes();
+  // avoid breaking other child process signal handling logic by doing nohang checks on the workers
+  // until they are all done.
+  int keep_waiting = 1;
+  while (keep_waiting == 1) {
+    int still_running = 0;
+    int errors = 0;
+    for (i = 1; i <= uwsgi.numproc; i++) {
+      if (uwsgi.workers[i].pid > 0) {
+        pid_t rval = waitpid(uwsgi.workers[i].pid, NULL, WNOHANG);
+        if (rval == uwsgi.workers[i].pid) {
+          uwsgi.workers[i].pid = 0;
+        } else if (rval == 0) {
+          still_running++;
+        } else if (rval < 0) {
+          errors++;
+        }
+      }
+    }
+
+    // exit out if everything is done or we got errors as we can't do much about the errors at this point
+    if (still_running == 0 || errors > 0) {
+      keep_waiting = 0;
+      break;
+    }
+    sleep(1);
+  }
+
+  uwsgi_destroy_processes();
 }
 
 
