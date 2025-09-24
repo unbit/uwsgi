@@ -782,6 +782,14 @@ void uwsgi_as_root() {
 		}
 	}
 
+    // fix the ownership to the spoolers directories when uid/gid is set
+	if (uwsgi.spoolers != NULL && uwsgi.uid != 0) {
+		struct uwsgi_spooler *us;
+		for (us = uwsgi.spoolers; us; us = us->next) {
+			chown(us->dir, uwsgi.uid, uwsgi.gid);
+		}
+	}
+
 	// fix ipcsem owner
 	if (uwsgi.lock_ops.lock_init == uwsgi_lock_ipcsem_init) {
 		struct uwsgi_lock_item *uli = uwsgi.registered_locks;
@@ -1930,7 +1938,7 @@ char *uwsgi_64bit2str(int64_t num) {
 char *uwsgi_size2str(size_t num) {
 	char *str = uwsgi_malloc(sizeof(UMAX64_STR) + 1);
 	snprintf(str, sizeof(UMAX64_STR) + 1, "%llu", (unsigned long long) num);
-	return str;	
+	return str;
 }
 
 int uwsgi_num2str2(int num, char *ptr) {
