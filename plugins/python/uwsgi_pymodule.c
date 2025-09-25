@@ -1596,7 +1596,7 @@ PyObject *py_uwsgi_farm_get_msg(PyObject * self, PyObject * args) {
 		}
 	}
 
-	ret = poll(farmpoll, count, -1);
+	ret = uwsgi_poll(farmpoll, count, -1);
 	if (ret <= 0) {
         	UWSGI_GET_GIL;
 		uwsgi_error("poll()");
