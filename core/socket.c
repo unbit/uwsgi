@@ -1155,10 +1155,26 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 						uwsgi_sock->family = AF_INET;
 						uwsgi_sock->bound = 1;
 						uwsgi_sock->name = uwsgi_concat2(computed_addr, "");
+						uwsgi_sock->name_len = strlen(uwsgi_sock->name);
 						if (uwsgi.zerg) {
 							uwsgi_log("uwsgi zerg socket %d attached to INET address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), computed_addr, uwsgi_sock->fd);
 						}
 						else {
+							struct uwsgi_socket *us = uwsgi.sockets;
+							while (us) {
+								/*
+								 * Apply SSL configuration for https-socket
+								 * under the same name to the the socket received form
+								 * systemd or upstart.
+								 */
+								if (!strcmp(us->name, computed_addr)) {
+									uwsgi_sock->proto_name = uwsgi_concat2(us->proto_name, "");
+									uwsgi_sock->ssl_ctx = us->ssl_ctx;
+									us->ssl_ctx = NULL;
+									break;
+								}
+								us = us->next;
+							}
 							uwsgi_log("uwsgi socket %d attached to INET address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), computed_addr, uwsgi_sock->fd);
 						}
 						free(computed_addr);
@@ -1222,10 +1238,26 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 						uwsgi_sock->family = AF_INET6;
 						uwsgi_sock->bound = 1;
 						uwsgi_sock->name = uwsgi_concat2(computed_addr, "");
+						uwsgi_sock->name_len = strlen(uwsgi_sock->name);
 						if (uwsgi.zerg) {
 							uwsgi_log("uwsgi zerg socket %d attached to INET6 address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), computed_addr, uwsgi_sock->fd);
 						}
 						else {
+							struct uwsgi_socket *us = uwsgi.sockets;
+							while (us) {
+								/*
+								 * Apply SSL configuration for https-socket
+								 * under the same name to the the socket received form
+								 * systemd or upstart.
+								 */
+								if (!strcmp(us->name, computed_addr)) {
+									uwsgi_sock->proto_name = uwsgi_concat2(us->proto_name, "");
+									uwsgi_sock->ssl_ctx = us->ssl_ctx;
+									us->ssl_ctx = NULL;
+									break;
+								}
+								us = us->next;
+							}
 							uwsgi_log("uwsgi socket %d attached to INET6 address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), computed_addr, uwsgi_sock->fd);
 						}
 						free(computed_addr);
