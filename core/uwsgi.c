@@ -1750,7 +1750,7 @@ static void fixup_argv_and_environ(int argc, char **argv, char **environ, char *
 	uwsgi.argv = uwsgi_malloc(sizeof(char *) * (argc + 1));
 
 	for (i = 0; i < argc; i++) {
-		if (i == 0 || argv[0] + uwsgi.max_procname + 1 == argv[i]) {
+		if (i == 0 || argv[0] + uwsgi.max_procname == argv[i]) {
 			uwsgi.max_procname += strlen(argv[i]) + 1;
 		}
 		uwsgi.argv[i] = strdup(argv[i]);
