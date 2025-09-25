@@ -1681,9 +1681,12 @@ void trigger_harakiri(int i) {
 		} else {
 			kill(uwsgi.workers[i].pid, SIGKILL);
 		}
-		if (!uwsgi.workers[i].pending_harakiri)
+		if (!uwsgi.workers[i].pending_harakiri) {
 			uwsgi.workers[i].harakiri_count++;
-		uwsgi.workers[i].pending_harakiri++;
+		}
+		if (!uwsgi.harakiri_only_graceful) {
+			uwsgi.workers[i].pending_harakiri++;
+		}
 	}
 
 }
