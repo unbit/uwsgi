@@ -14,7 +14,7 @@ PS_READ_FUNC(uwsgi) {
 	uint64_t valsize = 0;
 	char *value = uwsgi_cache_magic_get(key->val, key->len , &valsize, NULL, cache);
 	if (!value) {
-		*val = STR_EMPTY_ALLOC();
+		*val = ZSTR_EMPTY_ALLOC();
 		return SUCCESS;
 	}
 	*val = zend_string_init(value, valsize, 0);
