@@ -460,13 +460,18 @@ void uwsgi_python_post_fork() {
 
 	// reset python signal flags so child processes can trap signals
 	// Necessary if uwsgi fork hooks not called to update interpreter state
-	if (!up.call_uwsgi_fork_hooks && up.call_osafterfork) {
-#ifdef HAS_NOT_PYOS_FORK_STABLE_API
-		PyOS_AfterFork();
-#else
-                PyOS_AfterFork_Child();
-#endif
-	}
+    #if PY_VERSION_HEX < 0x030D0000
+		if (!up.call_uwsgi_fork_hooks && up.call_osafterfork) {
+			// before python 3.7
+			#ifdef HAS_NOT_PYOS_FORK_STABLE_API
+					PyOS_AfterFork();
+			
+			// python 3.7 - 3.12
+			#else
+					PyOS_AfterFork_Child();
+			#endif
+		}
+	#endif
 
 	uwsgi_python_reset_random_seed();
 
