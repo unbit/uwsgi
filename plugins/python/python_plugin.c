@@ -233,21 +233,6 @@ void uwsgi_python_pthread_child(void) {
 PyMethodDef uwsgi_spit_method[] = { {"uwsgi_spit", py_uwsgi_spit, METH_VARARGS, ""} };
 PyMethodDef uwsgi_write_method[] = { {"uwsgi_write", py_uwsgi_write, METH_VARARGS, ""} };
 
-PyDoc_STRVAR(uwsgi_py_doc, "uWSGI api module.");
-
-#ifdef PYTHREE
-static PyModuleDef uwsgi_module3 = {
-	PyModuleDef_HEAD_INIT,
-	"uwsgi",
-	uwsgi_py_doc,
-	-1,
-	NULL,
-};
-PyObject *init_uwsgi3(void) {
-	return PyModule_Create(&uwsgi_module3);
-}
-#endif
-
 int uwsgi_python_init() {
 
 	char *pyversion = strchr(Py_GetVersion(), '\n');
@@ -313,9 +298,6 @@ pep405:
 	wchar_t *pname = uwsgi_calloc(sizeof(wchar_t) * (strlen(program_name)+1));
 	mbstowcs(pname, program_name, strlen(program_name)+1);
 	Py_SetProgramName(pname);
-#ifdef UWSGI_PY312
-	PyImport_AppendInittab("uwsgi", init_uwsgi3);
-#endif
 #else
 	Py_SetProgramName(program_name);
 #endif
@@ -678,6 +660,21 @@ next:
 
 
 
+PyDoc_STRVAR(uwsgi_py_doc, "uWSGI api module.");
+
+#ifdef PYTHREE
+static PyModuleDef uwsgi_module3 = {
+	PyModuleDef_HEAD_INIT,
+	"uwsgi",
+	uwsgi_py_doc,
+	-1,
+	NULL,
+};
+PyObject *init_uwsgi3(void) {
+	return PyModule_Create(&uwsgi_module3);
+}
+#endif
+
 void init_uwsgi_embedded_module() {
 	PyObject *new_uwsgi_module, *zero;
 	int i;
@@ -700,11 +697,21 @@ void init_uwsgi_embedded_module() {
 #ifdef PYTHREE
 #ifndef UWSGI_PY312
 	PyImport_AppendInittab("uwsgi", init_uwsgi3);
-#endif
 	new_uwsgi_module = PyImport_AddModule("uwsgi");
-#else
+#else // UWSGI_PY312
+	// From python 3.12 onwards, PyImport_AppendInittab() can no
+	// longer be called after Py_Initialize(). Dynamically
+	// add the module instead
+	PyObject *sys_modules;
+	PyImport_AddModule("uwsgi");
+	new_uwsgi_module = init_uwsgi3();
+	sys_modules = PyImport_GetModuleDict();
+	PyDict_SetItemString(sys_modules, "uwsgi", new_uwsgi_module);
+	Py_DECREF(new_uwsgi_module);
+#endif // UWSGI_PY312
+#else // PYTHREE
 	new_uwsgi_module = Py_InitModule3("uwsgi", NULL, uwsgi_py_doc);
-#endif
+#endif // PYTHREE
 	if (new_uwsgi_module == NULL) {
 		uwsgi_log("could not initialize the uwsgi python module\n");
 		exit(1);
