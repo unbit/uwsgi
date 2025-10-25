@@ -62,6 +62,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"harakiri-verbose", no_argument, 0, "enable verbose mode for harakiri", uwsgi_opt_true, &uwsgi.harakiri_verbose, 0},
 	{"harakiri-graceful-timeout", required_argument, 0, "interval between graceful harakiri attempt and a sigkill", uwsgi_opt_set_int, &uwsgi.harakiri_graceful_timeout, 0},
 	{"harakiri-graceful-signal", required_argument, 0, "use this signal instead of sigterm for graceful harakiri attempts", uwsgi_opt_set_int, &uwsgi.harakiri_graceful_signal, 0},
+	{"harakiri-only-graceful", required_argument, 0, "use only graceful harakiri", uwsgi_opt_true, &uwsgi.harakiri_only_graceful, 0},
 	{"harakiri-queue-threshold", required_argument, 0, "only trigger harakiri if queue is greater than this threshold", uwsgi_opt_set_int, &uwsgi.harakiri_queue_threshold, 0},
 	{"harakiri-no-arh", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh, 0},
 	{"no-harakiri-arh", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh, 0},
