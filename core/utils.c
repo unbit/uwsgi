@@ -3,6 +3,9 @@
 
 extern struct uwsgi_server uwsgi;
 
+// Forward declaration for function defined in uwsgi.c
+extern void uwsgi_plugins_atexit(void);
+
 #ifdef __BIG_ENDIAN__
 uint16_t uwsgi_swap16(uint16_t x) {
 	return (uint16_t) ((x & 0xff) << 8 | (x & 0xff00) >> 8);
@@ -1930,7 +1933,7 @@ char *uwsgi_64bit2str(int64_t num) {
 char *uwsgi_size2str(size_t num) {
 	char *str = uwsgi_malloc(sizeof(UMAX64_STR) + 1);
 	snprintf(str, sizeof(UMAX64_STR) + 1, "%llu", (unsigned long long) num);
-	return str;	
+	return str;
 }
 
 int uwsgi_num2str2(int num, char *ptr) {
@@ -4476,8 +4479,14 @@ void uwsgi_opt_envdir(char *opt, char *value, void *foobar) {
 
 void uwsgi_exit(int status) {
 	uwsgi.last_exit_code = status;
-	// disable macro expansion
-	(exit) (status);
+
+	// Call uwsgi-specific cleanup (including Python plugin cleanup)
+	// This triggers Python atexit handlers before C++ destructors can interfere
+	uwsgi_plugins_atexit();
+
+	// Use _exit() to bypass C++ destructors that would cause race conditions
+	// At this point, Python cleanup has already completed safely
+  (_exit) (status);
 }
 
 int uwsgi_base128(struct uwsgi_buffer *ub, uint64_t l, int first) {
