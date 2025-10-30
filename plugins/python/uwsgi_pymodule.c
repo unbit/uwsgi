@@ -1271,10 +1271,45 @@ PyObject *py_uwsgi_websocket_recv_nb(PyObject * self, PyObject * args, PyObject 
         struct uwsgi_buffer *ub = uwsgi_websocket_recv_nb(wsgi_req);
         UWSGI_GET_GIL
         if (!ub) {
-                return PyErr_Format(PyExc_IOError, "unable to receive websocket message");
+            return PyErr_Format(PyExc_IOError, "unable to receive websocket message");
         }
 
         PyObject *ret = PyString_FromStringAndSize(ub->buf, ub->pos);
+        uwsgi_buffer_destroy(ub);
+        return ret;
+}
+
+
+PyObject *py_uwsgi_websocket_check_pingpong(PyObject * self, PyObject *args, PyObject *kwargs) {
+	PyObject *request_context = NULL;
+
+	static char *kwlist[] = {"request_context", NULL};
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:websocket_recv_nb", kwlist, &request_context)) {
+		return NULL;
+	}
+
+	struct wsgi_request *wsgi_req;
+	if(request_context == NULL) {
+		wsgi_req = py_current_wsgi_req();
+	} else {
+		py_uwsgi_context_argument_check(request_context);
+		wsgi_req = py_current_wsgi_req_from_context(request_context);
+	}
+
+	if(wsgi_req == NULL) {
+		return PyErr_Format(PyExc_IOError, "Unable to send ping/pong");
+	}
+
+	UWSGI_RELEASE_GIL
+	struct uwsgi_buffer *ub = uwsgi_websocket_recv_do(wsgi_req, 1);  // Non blocking by default
+	UWSGI_GET_GIL
+	if (!ub) {
+		wsgi_req->websocket_closed = 1;
+		return PyErr_Format(PyExc_IOError, "Pong not received");
+	}
+
+	PyObject *ret = PyString_FromStringAndSize(ub->buf, ub->pos);
         uwsgi_buffer_destroy(ub);
         return ret;
 }
@@ -2884,6 +2919,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"websocket_send", (PyCFunction)(void *)py_uwsgi_websocket_send, METH_VARARGS|METH_KEYWORDS, ""},
 	{"websocket_send_binary", (PyCFunction)(void *)py_uwsgi_websocket_send_binary, METH_VARARGS|METH_KEYWORDS, ""},
 	{"websocket_handshake", py_uwsgi_websocket_handshake, METH_VARARGS, ""},
+	{"websocket_check_pingpong", (PyCFunction)py_uwsgi_websocket_check_pingpong, METH_VARARGS|METH_KEYWORDS, ""},
 
 	{"chunked_read", py_uwsgi_chunked_read, METH_VARARGS, ""},
 	{"chunked_read_nb", py_uwsgi_chunked_read_nb, METH_VARARGS, ""},
