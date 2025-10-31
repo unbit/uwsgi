@@ -4482,11 +4482,13 @@ void uwsgi_exit(int status) {
 
 	// Call uwsgi-specific cleanup (including Python plugin cleanup)
 	// This triggers Python atexit handlers before C++ destructors can interfere
-	uwsgi_plugins_atexit();
+	if (!uwsgi.skip_atexit) {
+		uwsgi_plugins_atexit();
+	}
 
 	// Use _exit() to bypass C++ destructors that would cause race conditions
 	// At this point, Python cleanup has already completed safely
-  (_exit) (status);
+	(_exit) (status);
 }
 
 int uwsgi_base128(struct uwsgi_buffer *ub, uint64_t l, int first) {
