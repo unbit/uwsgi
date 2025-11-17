@@ -1570,7 +1570,7 @@ static void *logger_thread_loop(void *noarg) {
 
 
         for (;;) {
-                int ret = poll(logpoll, logpolls, -1);
+                int ret = uwsgi_poll(logpoll, logpolls, -1);
                 if (ret > 0) {
                         if (logpoll[0].revents & POLLIN) {
                                 pthread_mutex_lock(&uwsgi.threaded_logger_lock);

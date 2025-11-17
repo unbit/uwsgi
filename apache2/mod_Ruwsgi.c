@@ -597,7 +597,7 @@ static int uwsgi_handler(request_rec *r)
 				break;
 			}
 			if (rv != APR_SUCCESS) {
-				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: poll() %s", strerror(errno));
+				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: uwsgi_poll() %s", strerror(errno));
 				break;
 			}
 

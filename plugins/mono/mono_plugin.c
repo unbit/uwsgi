@@ -66,9 +66,11 @@ struct uwsgi_mono {
 	MonoClass *byte_class;
 
 	MonoClassField *filepath;
+	
+	MonoClassField *request;
 
 	// thunk
-	void (*process_request)(MonoObject *, MonoException **);
+	void (*process_request)(MonoObject *, void* req, MonoException **);
 
 	struct uwsgi_string_list *app;
 	struct uwsgi_string_list *exec;
@@ -88,14 +90,44 @@ struct uwsgi_option uwsgi_mono_options[] = {
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
-static MonoString *uwsgi_mono_method_GetFilePath(MonoObject *this) {
+static void uwsgi_mono_set_signal_mask(sigset_t* smask) {
+#if defined(__APPLE__) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
+	sigaddset(smask, SIGXFSZ);
+#else
+	sigaddset(smask, SIGPWR);
+#endif
+	sigaddset(smask, SIGXCPU);
+	sigaddset(smask, 33);
+	sigaddset(smask, 35);
+	sigaddset(smask, 36);
+	sigaddset(smask, 37);
+	sigaddset(smask, 38);
+	sigaddset(smask, SIGSEGV);
+	sigaddset(smask, SIGFPE);
+	sigaddset(smask, SIGCHLD);
+	sigaddset(smask, SIGQUIT);
+	sigaddset(smask, SIGKILL);
+	sigaddset(smask, SIGILL);
+	sigaddset(smask, SIGBUS);
+	sigaddset(smask, SIGUSR2);
+	sigaddset(smask, SIGABRT);
+	sigaddset(smask, SIGINT);
+}
+
+static struct wsgi_request *uwsgi_mono_get_current_req(MonoObject *this) {
+	struct wsgi_request *request;
+	mono_field_get_value(this, umono.request, (void*)(&request));
+	return request;
+}
+
+static MonoString *uwsgi_mono_method_GetFilePathInt(MonoObject *this) {
 	MonoString *ret = NULL;
 	// cache it !!!
 	MonoObject *filepath = mono_field_get_value_object(mono_domain_get(), umono.filepath, this);
 	if (filepath) {
 		return (MonoString *) filepath;
 	}
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	struct uwsgi_app *app = &uwsgi_apps[wsgi_req->app_id];
 	char *path = uwsgi_concat3n(app->interpreter, strlen(app->interpreter), "/", 1, wsgi_req->path_info, wsgi_req->path_info_len);
 	size_t path_len = strlen(app->interpreter) + 1 + wsgi_req->path_info_len;
@@ -128,11 +160,11 @@ simple:
 }
 
 static MonoString *uwsgi_mono_method_GetUriPath(MonoObject *this) {
-	return uwsgi_mono_method_GetFilePath(this);
+	return uwsgi_mono_method_GetFilePathInt(this);
 }
 
-static MonoString *uwsgi_mono_method_MapPath(MonoObject *this, MonoString *virtualPath) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+static MonoString *uwsgi_mono_method_MapPathInt(MonoObject *this, MonoString *virtualPath) {
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	struct uwsgi_app *app = &uwsgi_apps[wsgi_req->app_id];
 	char *path = uwsgi_concat3n(app->interpreter, strlen(app->interpreter), "/", 1, mono_string_to_utf8(virtualPath), mono_string_length(virtualPath));
 	MonoString *ret = mono_string_new_len(mono_domain_get(), path, strlen(path));
@@ -141,32 +173,32 @@ static MonoString *uwsgi_mono_method_MapPath(MonoObject *this, MonoString *virtu
 }
 
 static MonoString *uwsgi_mono_method_GetQueryString(MonoObject *this) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	return mono_string_new_len(mono_domain_get(), wsgi_req->query_string, wsgi_req->query_string_len);
 }
 
 static MonoString *uwsgi_mono_method_GetHttpVerbName(MonoObject *this) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	return mono_string_new_len(mono_domain_get(), wsgi_req->method, wsgi_req->method_len);
 }
 
 static MonoString *uwsgi_mono_method_GetRawUrl(MonoObject *this) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	return mono_string_new_len(mono_domain_get(), wsgi_req->uri, wsgi_req->uri_len);
 }
 
 static MonoString *uwsgi_mono_method_GetHttpVersion(MonoObject *this) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	return mono_string_new_len(mono_domain_get(), wsgi_req->protocol, wsgi_req->protocol_len);
 }
 
 static MonoString *uwsgi_mono_method_GetRemoteAddress(MonoObject *this) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	return mono_string_new_len(mono_domain_get(), wsgi_req->remote_addr, wsgi_req->remote_addr_len);
 }
 
 static void uwsgi_mono_method_SendStatus(MonoObject *this, int code, MonoString *msg) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	char status_code[4];
 	uwsgi_num2str2n(code, status_code, 4);
 	char *status_line = uwsgi_concat3n(status_code, 3, " ", 1, mono_string_to_utf8(msg), mono_string_length(msg));
@@ -175,22 +207,23 @@ static void uwsgi_mono_method_SendStatus(MonoObject *this, int code, MonoString 
 }
 
 static void uwsgi_mono_method_SendUnknownResponseHeader(MonoObject *this, MonoString *key, MonoString *value) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	uwsgi_response_add_header(wsgi_req, mono_string_to_utf8(key), mono_string_length(key), mono_string_to_utf8(value), mono_string_length(value));
 }
 
 static void uwsgi_mono_method_SendResponseFromMemory(MonoObject *this, MonoArray *byteArray, int len) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
-	uwsgi_response_write_body_do(wsgi_req, mono_array_addr(byteArray, char, 0), len);
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
+	char* array = mono_array_addr(byteArray, char, 0);
+	uwsgi_response_write_body_do(wsgi_req, array, len);
 }
 
 static void uwsgi_mono_method_FlushResponse(MonoObject *this, int is_final) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	uwsgi_response_write_body_do(wsgi_req, "", 0);
 }
 
 static void uwsgi_mono_method_SendResponseFromFd(MonoObject *this, int fd, long offset, long len) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	wsgi_req->sendfile_fd = fd;
 	if (fd >= 0) {
 		uwsgi_response_sendfile_do(wsgi_req, fd, offset, len);
@@ -199,7 +232,7 @@ static void uwsgi_mono_method_SendResponseFromFd(MonoObject *this, int fd, long 
 }
 
 static void uwsgi_mono_method_SendResponseFromFile(MonoObject *this, MonoString *filename, long offset, long len) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	int fd = open(mono_string_to_utf8(filename), O_RDONLY);
 	if (fd >= 0) {
 		uwsgi_response_sendfile_do(wsgi_req, fd, offset, len);
@@ -207,7 +240,7 @@ static void uwsgi_mono_method_SendResponseFromFile(MonoObject *this, MonoString 
 }
 
 static MonoString *uwsgi_mono_method_GetHeaderByName(MonoObject *this, MonoString *key) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	uint16_t rlen = 0;
 	char *value = uwsgi_get_header(wsgi_req, mono_string_to_utf8(key), mono_string_length(key), &rlen);
 	if (value) {
@@ -217,7 +250,7 @@ static MonoString *uwsgi_mono_method_GetHeaderByName(MonoObject *this, MonoStrin
 }
 
 static MonoString *uwsgi_mono_method_GetServerVariable(MonoObject *this, MonoString *key) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	uint16_t rlen = 0;
 	char *value = uwsgi_get_var(wsgi_req, mono_string_to_utf8(key), mono_string_length(key), &rlen);
 	if (value) {
@@ -227,7 +260,7 @@ static MonoString *uwsgi_mono_method_GetServerVariable(MonoObject *this, MonoStr
 }
 
 static int uwsgi_mono_method_ReadEntityBody(MonoObject *this, MonoArray *byteArray, int len) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	char *buf = mono_array_addr(byteArray, char, 0);	
 	ssize_t rlen = 0;
 	char *chunk = uwsgi_request_body_read(wsgi_req, len, &rlen);
@@ -242,7 +275,7 @@ static int uwsgi_mono_method_ReadEntityBody(MonoObject *this, MonoArray *byteArr
 }
 
 static int uwsgi_mono_method_GetTotalEntityBodyLength(MonoObject *this) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = uwsgi_mono_get_current_req(this);
 	return wsgi_req->post_cl;
 }
 
@@ -288,10 +321,10 @@ static void uwsgi_mono_add_internal_calls() {
 	mono_add_internal_call("uwsgi.uWSGIRequest::SendUnknownResponseHeader", uwsgi_mono_method_SendUnknownResponseHeader);
 	mono_add_internal_call("uwsgi.uWSGIRequest::FlushResponse", uwsgi_mono_method_FlushResponse);
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetQueryString", uwsgi_mono_method_GetQueryString);
-	mono_add_internal_call("uwsgi.uWSGIRequest::MapPath", uwsgi_mono_method_MapPath);
+	mono_add_internal_call("uwsgi.uWSGIRequest::MapPathInt", uwsgi_mono_method_MapPathInt);
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetHttpVerbName", uwsgi_mono_method_GetHttpVerbName);
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetRawUrl", uwsgi_mono_method_GetRawUrl);
-	mono_add_internal_call("uwsgi.uWSGIRequest::GetFilePath", uwsgi_mono_method_GetFilePath);
+	mono_add_internal_call("uwsgi.uWSGIRequest::GetFilePathInt", uwsgi_mono_method_GetFilePathInt);
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetUriPath", uwsgi_mono_method_GetUriPath);
 	mono_add_internal_call("uwsgi.uWSGIRequest::SendResponseFromFile", uwsgi_mono_method_SendResponseFromFile);
 	mono_add_internal_call("uwsgi.uWSGIRequest::SendResponseFromFd", uwsgi_mono_method_SendResponseFromFd);
@@ -325,6 +358,14 @@ static int uwsgi_mono_init() {
 	
 	pthread_mutex_init(&umono.lock_app_load, NULL);
 
+	// We need to unblock all the signal handlers for mono in the main thread too
+	sigset_t smask;
+	sigemptyset(&smask);
+	uwsgi_mono_set_signal_mask(&smask);
+	if (sigprocmask(SIG_UNBLOCK, &smask, NULL)) {
+		uwsgi_error("uwsgi_mono_init()/sigprocmask()");
+	}
+
 	return 0;
 }
 
@@ -333,6 +374,13 @@ static void uwsgi_mono_create_jit() {
 
 
 	mono_config_parse(umono.config);
+	
+	// For some reason Mono doesn't want to work with hybrid/coop Mono threading model
+	// Override it. Possible tracking bug (unsure it is the correct one): https://github.com/mono/mono/issues/21466
+	// Don't change it if it was set by someone else
+	if (setenv("MONO_THREADS_SUSPEND", "preemptive", 0)) {
+		uwsgi_error("uwsgi_mono_create_jit()/setenv()");
+	}
 
 	umono.main_domain = mono_jit_init_version("uwsgi", umono.version);
 	if (!umono.main_domain) {
@@ -387,6 +435,11 @@ static void uwsgi_mono_create_jit() {
 	if (!umono.filepath) {
 		uwsgi_log("unable to get reference to field uwsgi.uWSGIRequest.filepath\n");
 	}
+	
+	umono.request = mono_class_get_field_from_name(urequest, "request");
+	if (!umono.request) {
+		uwsgi_log("unable to get reference to field uwsgi.uWSGIRequest.request\n");
+	}
 
 	umono.api_class = mono_class_from_name(image, "uwsgi", "api");
 		if (!umono.api_class) {
@@ -406,7 +459,7 @@ static void uwsgi_mono_create_jit() {
 	}
 	mono_method_desc_free(desc);
 
-	desc = mono_method_desc_new("uwsgi.uWSGIApplication:Request()", 1);
+	desc = mono_method_desc_new("uwsgi.uWSGIApplication:Request(intptr)", 1);
 	if (!desc) {
 		uwsgi_log("unable to create description for uwsgi.uWSGIApplication:Request()\n");
 		exit(1);
@@ -614,7 +667,7 @@ static int uwsgi_mono_request(struct wsgi_request *wsgi_req) {
 	uintptr_t appHostHandle = (uintptr_t)(app->callable);
 	MonoObject* appHost = mono_gchandle_get_target(appHostHandle);
 
-	umono.process_request(appHost, &exc);
+	umono.process_request(appHost, wsgi_req, &exc);
 
 	if (exc) {
 		MonoClass *exceptionClass;
@@ -684,11 +737,7 @@ static void uwsgi_mono_init_thread(int core_id) {
 	// SIGPWR, SIGXCPU: these are used internally by the GC and pthreads.
 	sigset_t smask;
 	sigemptyset(&smask);
-#if defined(__APPLE__) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__GNU_kFreeBSD__)
-	sigaddset(&smask, SIGXFSZ);
-#else
-	sigaddset(&smask, SIGPWR);
-#endif
+	uwsgi_mono_set_signal_mask(&smask);
 	if (sigprocmask(SIG_UNBLOCK, &smask, NULL)) {
 		uwsgi_error("uwsgi_mono_init_thread()/sigprocmask()");
 	}

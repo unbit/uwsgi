@@ -1423,3 +1423,21 @@ int event_queue_read() {
 int event_queue_write() {
 	return UWSGI_EVENT_OUT;
 }
+
+int uwsgi_poll(struct pollfd *fds, nfds_t nfds, int timeout)
+{
+	int result;
+
+	while (1)
+	{
+		result = poll(fds, nfds, timeout);
+		if (result < 0 && errno == EINTR)
+		{
+			continue;
+		}
+		else
+		{
+			return result;
+		}
+	}
+}

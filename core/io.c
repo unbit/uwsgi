@@ -24,7 +24,7 @@ int uwsgi_waitfd_event(int fd, int timeout, int event) {
 	upoll.fd = fd;
 	upoll.events = event;
 	upoll.revents = 0;
-	ret = poll(&upoll, 1, timeout);
+	ret = uwsgi_poll(&upoll, 1, timeout);
 
 	if (ret < 0) {
 		uwsgi_error("uwsgi_waitfd_event()/poll()");
@@ -812,7 +812,7 @@ timeout:
 }
 
 /*
-	even if it is marked as non-blocking, so not use in request plugins as it uses poll() and not the hooks
+	even if it is marked as non-blocking, so not use in request plugins as it uses uwsgi_poll() and not the hooks
 */
 int uwsgi_write_nb(int fd, char *buf, size_t remains, int timeout) {
 	char *ptr = buf;
@@ -1633,4 +1633,3 @@ end:
         free(msg_control);
 	return ret;	
 }
-
