@@ -72,13 +72,8 @@ void *uwsgi_request_subhandler_pump(struct wsgi_request *wsgi_req, struct uwsgi_
 		if (wsgi_req->hvec[i].iov_len < 6) continue;
 		if (!uwsgi_startswith(wsgi_req->hvec[i].iov_base, "HTTP_", 5)) {
 			(void) uwsgi_lower(wsgi_req->hvec[i].iov_base+5, wsgi_req->hvec[i].iov_len-5);
-#ifdef PYTHREE
                 	pydictkey = PyUnicode_DecodeLatin1(wsgi_req->hvec[i].iov_base+5, wsgi_req->hvec[i].iov_len-5, NULL);
                 	pydictvalue = PyUnicode_DecodeLatin1(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len, NULL);
-#else
-                	pydictkey = PyString_FromStringAndSize(wsgi_req->hvec[i].iov_base+5, wsgi_req->hvec[i].iov_len-5);
-                	pydictvalue = PyString_FromStringAndSize(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len);
-#endif
 			PyObject *old_value = PyDict_GetItem(headers, pydictkey);
 			if (old_value) {
 				if (PyString_Check(old_value)) {
@@ -199,11 +194,7 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 			}
 
 			PyObject *hhkey, *hhvalue;
-#ifdef UWSGI_PYTHON_OLD
-			int hhpos = 0;
-#else
 			Py_ssize_t hhpos = 0;
-#endif
 			while (PyDict_Next(headers, &hhpos, &hhkey, &hhvalue)) {
 				if (!PyString_Check(hhkey)) continue;
 
@@ -235,12 +226,7 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
                                 }
                 		goto clear;
         		}
-#ifdef PYTHREE
 			else if ((wsgi_req->sendfile_fd = PyObject_AsFileDescriptor((PyObject *)wsgi_req->async_placeholder)) > -1) {
-#else
-			else if (PyFile_Check((PyObject *)wsgi_req->async_placeholder)) {
-				wsgi_req->sendfile_fd = fileno(PyFile_AsFile((PyObject *)wsgi_req->async_placeholder));
-#endif
 				UWSGI_RELEASE_GIL
                 		uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
                 		UWSGI_GET_GIL

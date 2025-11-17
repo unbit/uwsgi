@@ -190,9 +190,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 
 	{"python-raw", required_argument, 0, "load a python file for managing raw requests", uwsgi_opt_set_str, &up.raw, 0},
 
-#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
 	{"py-sharedarea", required_argument, 0, "create a sharedarea from a python bytearray object of the specified size", uwsgi_opt_add_string_list, &up.sharedarea, 0},
-#endif
 
 	{"py-call-osafterfork", no_argument, 0, "enable child processes running cpython to trap OS signals", uwsgi_opt_true, &up.call_osafterfork, 0},
 	{"py-call-uwsgi-fork-hooks", no_argument, 0, "call pre and post hooks when uswgi forks to update the internal interpreter state of CPython", uwsgi_opt_true, &up.call_uwsgi_fork_hooks, 0},
@@ -235,7 +233,6 @@ PyMethodDef uwsgi_write_method[] = { {"uwsgi_write", py_uwsgi_write, METH_VARARG
 
 PyDoc_STRVAR(uwsgi_py_doc, "uWSGI api module.");
 
-#ifdef PYTHREE
 static PyModuleDef uwsgi_module3 = {
 	PyModuleDef_HEAD_INIT,
 	"uwsgi",
@@ -246,7 +243,6 @@ static PyModuleDef uwsgi_module3 = {
 PyObject *init_uwsgi3(void) {
 	return PyModule_Create(&uwsgi_module3);
 }
-#endif
 
 int uwsgi_python_init() {
 
@@ -269,7 +265,6 @@ int uwsgi_python_init() {
 			uwsgi_log("Python Home is not a directory: %s\n", up.home);
 			exit(1);
 		}
-#ifdef PYTHREE
 		// check for PEP 405 virtualenv (starting from python 3.3)
 		char *pep405_env = uwsgi_concat2(up.home, "/pyvenv.cfg");
 		if (uwsgi_file_exists(pep405_env)) {
@@ -292,9 +287,6 @@ int uwsgi_python_init() {
 		// do not free this memory !!!
 		//free(wpyhome);
 pep405:
-#else
-		Py_SetPythonHome(up.home);
-#endif
 		uwsgi_log("Set PythonHome to %s\n", up.home);
 	}
 
@@ -303,7 +295,6 @@ pep405:
 		program_name = uwsgi.binary_path;
 	}
 
-#ifdef PYTHREE
 	if (!up.programname) {
 		if (up.home) {
 			program_name = uwsgi_concat2(up.home, "/bin/python");
@@ -316,10 +307,6 @@ pep405:
 #ifdef UWSGI_PY312
 	PyImport_AppendInittab("uwsgi", init_uwsgi3);
 #endif
-#else
-	Py_SetProgramName(program_name);
-#endif
-
 
 	Py_OptimizeFlag = up.optimize;
 
@@ -343,7 +330,6 @@ ready:
         up.swap_ts = simple_swap_ts;
         up.reset_ts = simple_reset_ts;
 	
-#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
 	struct uwsgi_string_list *usl = NULL;
 	uwsgi_foreach(usl, up.sharedarea) {
 		uint64_t len = uwsgi_n64(usl->value);
@@ -353,7 +339,6 @@ ready:
 		struct uwsgi_sharedarea *sa = uwsgi_sharedarea_init_ptr(storage, len);
 		sa->obj = obj;
 	}
-#endif
 
 	uwsgi_log_initial("Python main interpreter initialized at %p\n", up.main_thread);
 
@@ -597,7 +582,6 @@ void init_uwsgi_vars() {
 	}
 	pysys_dict = PyModule_GetDict(pysys);
 
-#ifdef PYTHREE
 	// In python3, stdout / stderr was changed to be buffered (a bug according
 	// to many):
 	// - https://bugs.python.org/issue13597
@@ -606,17 +590,12 @@ void init_uwsgi_vars() {
 	// In the case of a tty, this fix breaks readline support in interactive
 	// debuggers so we'll only do this in the non-tty case.
 	if (!Py_FdIsInteractive(stdin, NULL)) {
-#ifdef HAS_NO_ERRORS_IN_PyFile_FromFd
-		PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, NULL, 0);
-#else
 		PyObject *new_stdprint = PyFile_FromFd(2, NULL, "w", _IOLBF, NULL, "backslashreplace", NULL, 0);
-#endif
 		PyDict_SetItemString(pysys_dict, "stdout", new_stdprint);
 		PyDict_SetItemString(pysys_dict, "__stdout__", new_stdprint);
 		PyDict_SetItemString(pysys_dict, "stderr", new_stdprint);
 		PyDict_SetItemString(pysys_dict, "__stderr__", new_stdprint);
 	}
-#endif
 	pypath = PyDict_GetItemString(pysys_dict, "path");
 	if (!pypath) {
 		PyErr_Print();
@@ -697,14 +676,10 @@ void init_uwsgi_embedded_module() {
 	}
 
 
-#ifdef PYTHREE
 #ifndef UWSGI_PY312
 	PyImport_AppendInittab("uwsgi", init_uwsgi3);
 #endif
 	new_uwsgi_module = PyImport_AddModule("uwsgi");
-#else
-	new_uwsgi_module = Py_InitModule3("uwsgi", NULL, uwsgi_py_doc);
-#endif
 	if (new_uwsgi_module == NULL) {
 		uwsgi_log("could not initialize the uwsgi python module\n");
 		exit(1);
@@ -827,11 +802,7 @@ void init_uwsgi_embedded_module() {
 
 	PyObject *py_opt_dict = PyDict_New();
 	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
-#ifdef PYTHREE
 		PyObject *key = PyUnicode_FromString(uwsgi.exported_opts[i]->key);
-#else
-		PyObject *key = PyString_FromString(uwsgi.exported_opts[i]->key);
-#endif
 		if (PyDict_Contains(py_opt_dict, key)) {
 			PyObject *py_opt_item = PyDict_GetItem(py_opt_dict, key);
 			if (PyList_Check(py_opt_item)) {
@@ -1458,11 +1429,7 @@ void uwsgi_python_set_thread_name(int core_id) {
                                         PyErr_Clear();
                                 }
                                 else {
-#ifdef PYTHREE
                                         PyObject_SetAttrString(current_thread, "name", PyUnicode_FromFormat("uWSGIWorker%dCore%d", uwsgi.mywid, core_id));
-#else
-                                        PyObject_SetAttrString(current_thread, "name", PyString_FromFormat("uWSGIWorker%dCore%d", uwsgi.mywid, core_id));
-#endif
                                         Py_INCREF(current_thread);
                                 }
                         }
@@ -1577,11 +1544,7 @@ void *uwsgi_python_autoreloader_thread(void *interpreter) {
 			// do not start monitoring til the first app is loaded (required for lazy mode)
 			if (uwsgi_apps_cnt == 0) continue;
 		}
-#ifdef UWSGI_PYTHON_OLD
-                int pos = 0;
-#else
                 Py_ssize_t pos = 0;
-#endif
 		char *app_dir = NULL;
                 int i;
                 for (i = 0; i < uwsgi_apps_cnt; i++) {
@@ -1597,15 +1560,11 @@ void *uwsgi_python_autoreloader_thread(void *interpreter) {
 			int found = 0;
 			struct uwsgi_string_list *usl = up.auto_reload_ignore;
 			while(usl) {
-#ifdef PYTHREE
 				PyObject *zero = PyUnicode_AsUTF8String(mod_name);
 				char *str_mod_name = PyString_AsString(zero);
 				int ret_cmp = strcmp(usl->value, str_mod_name);
 				Py_DECREF(zero);
 				if (!ret_cmp) {
-#else
-				if (!strcmp(usl->value, PyString_AsString(mod_name))) {
-#endif
 					found = 1;
 					break;
 				}
@@ -1616,16 +1575,10 @@ void *uwsgi_python_autoreloader_thread(void *interpreter) {
 			PyObject *mod_file = PyObject_GetAttrString(mod, "__file__");
 			if (!mod_file) continue;
 			if (mod_file == Py_None) continue;
-#ifdef PYTHREE
 			PyObject *zero = PyUnicode_AsUTF8String(mod_file);
 			char *mod_filename = PyString_AsString(zero);
-#else
-			char *mod_filename = PyString_AsString(mod_file);
-#endif
 			if (!mod_filename) {
-#ifdef PYTHREE
 				Py_DECREF(zero);
-#endif
 				continue;
 			}
 			char *ext = strrchr(mod_filename, '.');
@@ -1645,9 +1598,7 @@ void *uwsgi_python_autoreloader_thread(void *interpreter) {
 				return NULL;
 			}
 			free(filename);
-#ifdef PYTHREE
 			Py_DECREF(zero);
-#endif
 		}
 	}
 

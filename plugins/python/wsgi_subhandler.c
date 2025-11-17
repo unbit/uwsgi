@@ -21,14 +21,11 @@ int uwsgi_python_send_body(struct wsgi_request *wsgi_req, PyObject *chunk) {
 	char *content = NULL;
 	size_t content_len = 0;
 
-#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
 	Py_buffer pbuf;
 	int has_buffer = 0;
-#endif
 
 	if (!up.wsgi_accept_buffer && !wsgi_req->is_raw) goto strict;
 
-#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
 	if (PyObject_CheckBuffer(chunk)) {
 		if (!PyObject_GetBuffer(chunk, &pbuf, PyBUF_SIMPLE)) {
 			content = (char *) pbuf.buf;
@@ -37,22 +34,6 @@ int uwsgi_python_send_body(struct wsgi_request *wsgi_req, PyObject *chunk) {
 			goto found;
 		}
 	}
-#else
-	if (PyObject_CheckReadBuffer(chunk)) {
-#ifdef UWSGI_PYTHON_OLD
-		int buffer_len = 0;
-		if (!PyObject_AsCharBuffer(chunk, (const char **) &content, &buffer_len)) {
-#else
-		if (!PyObject_AsCharBuffer(chunk, (const char **) &content, (Py_ssize_t *) &content_len)) {
-#endif
-			PyErr_Clear();
-			goto found;
-		}
-#ifdef UWSGI_PYTHON_OLD
-		content_len = buffer_len;
-#endif
-	}
-#endif
 
 strict:
 	// fallback
@@ -66,9 +47,7 @@ found:
                 UWSGI_RELEASE_GIL
                 uwsgi_response_write_body_do(wsgi_req, content, content_len);
                 UWSGI_GET_GIL
-#if defined(PYTHREE) || defined(Py_TPFLAGS_HAVE_NEWBUFFER)
 		if (has_buffer) PyBuffer_Release(&pbuf);
-#endif
                 uwsgi_py_check_write_errors {
                        	uwsgi_py_write_exception(wsgi_req);
 			return -1;
@@ -139,13 +118,8 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 #ifdef UWSGI_DEBUG
                 uwsgi_debug("%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
 #endif
-#ifdef PYTHREE
                 pydictkey = PyUnicode_DecodeLatin1(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, NULL);
                 pydictvalue = PyUnicode_DecodeLatin1(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len, NULL);
-#else
-                pydictkey = PyString_FromStringAndSize(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
-                pydictvalue = PyString_FromStringAndSize(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len);
-#endif
 
 #ifdef UWSGI_DEBUG
 		uwsgi_log("%p %d %p %d\n", pydictkey, wsgi_req->hvec[i].iov_len, pydictvalue, wsgi_req->hvec[i + 1].iov_len);
@@ -347,11 +321,7 @@ exception:
 	} else {
 		// The iterator returned something that we were not able to handle.
 		PyObject *pystr = PyObject_Repr(pychunk);
-#ifdef PYTHREE
 		const char *cstr = PyUnicode_AsUTF8(pystr);
-#else
-		const char *cstr = PyString_AsString(pystr);
-#endif
 		uwsgi_log("[ERROR] Unhandled object from iterator: %s (%p)\n", cstr, pychunk);
 		Py_DECREF(pystr);
 	}

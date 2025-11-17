@@ -46,18 +46,13 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		return PyErr_Format(PyExc_TypeError, "start_response() takes at least 2 arguments");
 	}
 
-#ifdef PYTHREE
 	// check for web3
         if ((self != Py_None && !PyUnicode_Check(head)) || (self == Py_None && !PyBytes_Check(head))) {
-#else
-	if (!PyString_Check(head)) {
-#endif
 		return PyErr_Format(PyExc_TypeError, "http status must be a string");
 	}
 
 	char *status_line = NULL;
 	size_t status_line_len = 0;
-#ifdef PYTHREE
 	PyObject *zero = NULL;
 	PyObject *zero2 = NULL;
 		if (self != Py_None) {
@@ -72,20 +67,12 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 			status_line = PyBytes_AsString(head);
 			status_line_len = PyBytes_Size(head);
 		}
-#else
-		status_line = PyString_AsString(head);
-		status_line_len = PyString_Size(head);
-#endif
 	if (uwsgi_response_prepare_headers(wsgi_req, status_line, status_line_len)) {
-#ifdef PYTHREE
 		Py_DECREF(zero);
-#endif
 		goto end;
 	}
 
-#ifdef PYTHREE
 	Py_DECREF(zero);
-#endif
 
 	headers = PyTuple_GetItem(args, 1);
 	if (!headers) {
@@ -110,22 +97,14 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		if (!h_key) {
 			return PyErr_Format(PyExc_TypeError, "http header must be a 2-item tuple");
 		}
-#ifdef PYTHREE
 		if ((self != Py_None && !PyUnicode_Check(h_key)) || (self == Py_None && !PyBytes_Check(h_key))) {
-#else
-        	if (!PyString_Check(h_key)) {
-#endif
 			return PyErr_Format(PyExc_TypeError, "http header key must be a string");
 		}
 		h_value = PyTuple_GetItem(head, 1);
 		if (!h_value) {
 			return PyErr_Format(PyExc_TypeError, "http header must be a 2-item tuple");
 		}
-#ifdef PYTHREE
 		if ((self != Py_None && !PyUnicode_Check(h_value)) || (self == Py_None && !PyBytes_Check(h_value))) {
-#else
-        	if (!PyString_Check(h_value)) {
-#endif
 			return PyErr_Format(PyExc_TypeError, "http header value must be a string");
 		}
 
@@ -133,7 +112,6 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		char *k = NULL; size_t kl = 0;
 		char *v = NULL; size_t vl = 0;
 
-#ifdef PYTHREE
 		if (self != Py_None) {
 			zero = PyUnicode_AsLatin1String(h_key);
 			if (!zero) {
@@ -146,12 +124,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 			k = PyBytes_AsString(h_key);
 			kl = PyBytes_Size(h_key);
 		}
-#else
-		k = PyString_AsString(h_key);
-		kl = PyString_Size(h_key);
-#endif
 
-#ifdef PYTHREE
 		if (self != Py_None) {
 			zero2 = PyUnicode_AsLatin1String(h_value);
 			if (!zero2) {
@@ -164,24 +137,15 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 			v = PyBytes_AsString(h_value);
 			vl = PyBytes_Size(h_value);
 		}
-#else
-		v = PyString_AsString(h_value);
-		vl = PyString_Size(h_value);
-#endif
 
 		if (uwsgi_response_add_header(wsgi_req, k, kl, v, vl)) {
-#ifdef PYTHREE
 			Py_DECREF(zero);
 			Py_DECREF(zero2);
-#endif
 			return PyErr_Format(PyExc_TypeError, "unable to add header to the response");
 		}
 
-#ifdef PYTHREE
 		Py_DECREF(zero);
 		Py_DECREF(zero2);
-#endif
-
 	}
 
 	if (up.start_response_nodelay) {
