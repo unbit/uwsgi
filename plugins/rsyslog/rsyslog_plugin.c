@@ -1,6 +1,7 @@
-#include "../../uwsgi.h"
+#include "../syslog/syslog_facility.h"
 
 extern struct uwsgi_server uwsgi;
+extern struct uwsgi_syslog_facility usf[];
 
 
 struct uwsgi_rsyslog {
@@ -23,6 +24,7 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 	time_t current_time;
 	int portn = 514;
 	int rlen;
+	int facility_priority = -1;
 
 	if (!ul->configured) {
 
@@ -52,8 +54,25 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
                 	*comma = 0;
 			char *prisev = strchr(ul->data, ',');
 			if (prisev) {
+				struct uwsgi_syslog_facility *fn = usf;
+				while(fn->name) {
+					if (!strcmp(fn->name, prisev+1)) {
+						facility_priority = fn->facility;
+						break;
+					}
+					fn++;
+				}
+
 				*prisev = 0;
-				ul->count = atoi(prisev+1);
+				if (facility_priority == -1) {
+					ul->count = atoi(prisev+1);
+				} else {
+#ifdef __APPLE__
+					ul->count = facility_priority | LOG_NOTICE;
+#else
+					ul->count = facility_priority | LOG_INFO;
+#endif
+				}
 			}
 		}
 		else {
