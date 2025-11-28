@@ -1,5 +1,9 @@
 #include "../python/uwsgi_python.h"
+#ifndef GREENLET_HEADER_HACK
 #include <greenlet/greenlet.h>
+#else
+#include <greenlet.h>
+#endif
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
