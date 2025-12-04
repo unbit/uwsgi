@@ -1346,6 +1346,57 @@ nocores:
 	if (uwsgi_stats_list_close(us))
 		goto end;
 
+	if (uwsgi.mules_cnt > 0) {
+		if (uwsgi_stats_comma(us))
+			goto end;
+
+		if (uwsgi_stats_key(us, "mules"))
+			goto end;
+
+		if (uwsgi_stats_list_open(us))
+			goto end;
+
+		for (i = 0; i < uwsgi.mules_cnt; i++) {
+			struct uwsgi_mule *mule = &uwsgi.mules[i];
+			if (uwsgi_stats_object_open(us))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "id", (unsigned long long) mule->id))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) mule->pid))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "signals", (unsigned long long) mule->signals))
+				goto end;
+
+			if (uwsgi_stats_keyval_comma(us, "mode", mule->patch ? "programmed" : "signal"))
+				goto end;
+
+			if (mule->patch) {
+				if (uwsgi_stats_keyval_comma(us, "patch", mule->patch))
+					goto end;
+			}
+
+			if (uwsgi_stats_keylong_comma(us, "rss", (unsigned long long) mule->rss_size))
+				goto end;
+
+			if (uwsgi_stats_keylong(us, "vsz", (unsigned long long) mule->vsz_size))
+				goto end;
+
+			if (uwsgi_stats_object_close(us))
+				goto end;
+
+			if (i < uwsgi.mules_cnt - 1) {
+				if (uwsgi_stats_comma(us))
+					goto end;
+			}
+		}
+
+		if (uwsgi_stats_list_close(us))
+			goto end;
+	}
+
 	struct uwsgi_spooler *uspool = uwsgi.spoolers;
 	if (uspool) {
 		if (uwsgi_stats_comma(us))
