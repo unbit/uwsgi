@@ -661,7 +661,7 @@ struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr
 				cs->client_port[0] = '0';
 				cs->client_port[1] = 0;
 			}
-			uwsgi_num2str2(cs->client_sockaddr.sa_in.sin_port, cs->client_port);
+			uwsgi_num2str2(ntohs(cs->client_sockaddr.sa_in.sin_port), cs->client_port);
 			break;
 #ifdef AF_INET6
 		case AF_INET6:
@@ -671,7 +671,7 @@ struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr
 				cs->client_port[0] = '0';
 				cs->client_port[1] = 0;
 			}
-			uwsgi_num2str2(cs->client_sockaddr.sa_in6.sin6_port, cs->client_port);
+			uwsgi_num2str2(ntohs(cs->client_sockaddr.sa_in6.sin6_port), cs->client_port);
 			break;
 #endif
 		default:
