@@ -93,20 +93,43 @@ void uwsgi_mule(int id) {
 }
 
 void uwsgi_mule_run() {
-	int id = uwsgi.muleid;
+	char* patch;
 	int i;
-	if (uwsgi.mules[id - 1].patch) {
-                        for (i = 0; i < 256; i++) {
-                                if (uwsgi.p[i]->mule) {
-                                        if (uwsgi.p[i]->mule(uwsgi.mules[id - 1].patch) == 1) {
-                                                // never here ?
-                                                end_me(1);
-                                        }
-                                }
-                        }
-                }
 
-                uwsgi_mule_handler();
+	patch = uwsgi.mules[uwsgi.muleid - 1].patch;
+	if (patch) {
+		/*
+		 * patches in form "<PLUGIN>(<PATCH>)"
+		 * directly dispatches <PATCH> to <PLUGIN>
+		 */
+		struct uwsgi_plugin *plugin = NULL;
+		char *obrace = strchr(patch, '(');
+		char *cbrace = patch + strlen(patch) - 1;
+		if (obrace && *cbrace == ')') {
+			*obrace = '\0';
+			plugin = uwsgi_plugin_get(patch);
+			*obrace = '(';
+		}
+
+		if (plugin && plugin->mule) {
+			*cbrace = '\0';
+			if (plugin->mule(&obrace[1]) == 1) {
+				end_me(1);
+			}
+			*cbrace = ')';
+		} else {
+			for (i = 0; i < 256; i++) {
+				if (uwsgi.p[i]->mule) {
+					if (uwsgi.p[i]->mule(patch) == 1) {
+						// never here ?
+						end_me(1);
+					}
+				}
+			}
+		}
+
+		uwsgi_mule_handler();
+	}
 }
 
 int uwsgi_farm_has_mule(struct uwsgi_farm *farm, int muleid) {
