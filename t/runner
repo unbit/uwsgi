@@ -251,8 +251,14 @@ class UwsgiTest(unittest.TestCase):
             ]
         )
 
-        self.assert_GET_body("/", "Hello")
+        with requests.get(f"http://{UWSGI_HTTP}/") as r:
+            self.assertEqual(r.text, "Hello")
+            self.assertEqual(r.headers["Content-type"], "text/plain")
+            self.assertEqual(
+                r.headers["Set-Cookie"],
+                "country=UK; path=/, autologin=yes; path=/; secure",
+            )
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(verbosity=2)

@@ -739,14 +739,19 @@ VALUE send_header(VALUE obj, VALUE headers, int argc, const VALUE *argv, VALUE b
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
-	VALUE hkey, hval;
+	VALUE hkey, hval, hval_str;
 	
 	//uwsgi_log("HEADERS %d\n", TYPE(obj));
 	if (TYPE(obj) == T_ARRAY) {
 		if (RARRAY_LEN(obj) >= 2) {
-			hkey = rb_obj_as_string( RARRAY_PTR(obj)[0]);
-			hval = rb_obj_as_string( RARRAY_PTR(obj)[1]);
-
+			hkey = rb_obj_as_string(RARRAY_PTR(obj)[0]);
+			hval = RARRAY_PTR(obj)[1];
+			if (TYPE(hval) == T_ARRAY) {
+				hval_str = rb_funcall(hval, rb_intern("join"), 1, rb_str_new_static(", ", 2));
+			}
+			else {
+				hval_str = rb_obj_as_string(hval);
+			}
 		}
 		else {
 			goto clear;
@@ -755,21 +760,21 @@ VALUE send_header(VALUE obj, VALUE headers, int argc, const VALUE *argv, VALUE b
 	else if (TYPE(obj) == T_STRING) {
 		hkey = obj;
 #ifdef RUBY19
-		hval = rb_hash_lookup(headers, obj);
+		hval_str = rb_hash_lookup(headers, obj);
 #else
-		hval = rb_hash_aref(headers, obj);
+		hval_str = rb_hash_aref(headers, obj);
 #endif
 	}
 	else {
 		goto clear;
 	}
 
-	if (TYPE(hkey) != T_STRING || TYPE(hval) != T_STRING) {
+	if (TYPE(hkey) != T_STRING || TYPE(hval_str) != T_STRING) {
 		goto clear;
 	}
 
-	char *header_value = RSTRING_PTR(hval);
-	size_t header_value_len = RSTRING_LEN(hval);
+	char *header_value = RSTRING_PTR(hval_str);
+	size_t header_value_len = RSTRING_LEN(hval_str);
 	size_t i,cnt=0;
 	char *this_header = header_value;
 
