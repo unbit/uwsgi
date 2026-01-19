@@ -1183,6 +1183,26 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 			int skip = http_headers_parse_first_round(new_peer);
 			if (skip < 0) return -1;
 
+			// check for spaces in request_uri
+			char *uri_ptr = hr->request_uri;
+			uint16_t space_count = 0;
+
+			while (*uri_ptr) {
+				if ((*uri_ptr == ' ' && ++space_count > 1) || *uri_ptr == '\r') {
+					break;
+				}
+				uri_ptr++;
+			}
+
+			if (space_count > 1) {
+				if (uwsgi_buffer_append(new_peer->in, "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n", 47)) return -1;
+				hr->session.connect_peer_after_write = new_peer;
+				new_peer->session->main_peer->out = new_peer->in;
+				new_peer->session->main_peer->out_pos = 0;
+				cr_write_to_main(new_peer, hr->func_write);
+				break;
+			}
+			
 			// check for a valid hostname
 			if (new_peer->key_len == 0) return -1;
 
