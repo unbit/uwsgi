@@ -5,13 +5,15 @@ using System.Web;
 using System.Web.Hosting;
 using System.Text;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Configuration;
 using System.Security.Permissions;
 using System.Security.Policy;
 using System.Web.Configuration;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyVersion ("0.0.0.1")]
+[assembly: System.Reflection.AssemblyVersion ("2.1.0.0")]
 
 namespace uwsgi {
 
@@ -45,8 +47,15 @@ namespace uwsgi {
 	}
 
 	class uWSGIRequest: HttpWorkerRequest {
-
-		private String filepath = null;
+		
+		
+		private IntPtr request;
+		private string filepath = null;
+		private ManualResetEvent _requestEndEvent = new ManualResetEvent(false);
+		
+		public uWSGIRequest(IntPtr req) : base() {
+			request = req;
+		}
 
 		public override string GetAppPath() {
 			return "/";
@@ -88,6 +97,11 @@ namespace uwsgi {
 		extern public override string MapPath(string virtualPath);
 
 		public override void EndOfRequest() {
+			_requestEndEvent.Set();
+		}
+		
+		public void WaitRequestEnd() {
+			_requestEndEvent.WaitOne();
 		}
 
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
@@ -158,12 +172,17 @@ namespace uwsgi {
 		public string hack_current_filename() {
 			return filepath;
 		}
+		
+		public IntPtr hack_current_request() {
+			return request;
+		}
 	}
 
 	public class uWSGIApplicationHost: MarshalByRefObject {
-		public void ProcessRequest() {
-			uWSGIRequest ur = new uWSGIRequest();
+		public void ProcessRequest(IntPtr req) {
+			uWSGIRequest ur = new uWSGIRequest(req);
 			HttpRuntime.ProcessRequest(ur);
+			ur.WaitRequestEnd();
 		}
 	}
 
@@ -175,8 +194,8 @@ namespace uwsgi {
 			appHost = (uWSGIApplicationHost)CreateApplicationHost(typeof(uWSGIApplicationHost), virtualPath, physicalPath);
 		}
 
-		public void Request() {
-			appHost.ProcessRequest();
+		public void Request(IntPtr req) {
+			appHost.ProcessRequest(req);
 		}
 
 

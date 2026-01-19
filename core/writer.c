@@ -692,7 +692,7 @@ int uwsgi_simple_wait_write_hook(int fd, int timeout) {
         upoll.fd = fd;
         upoll.events = POLLOUT;
         upoll.revents = 0;
-        int ret = poll(&upoll, 1, timeout);
+        int ret = uwsgi_poll(&upoll, 1, timeout);
 
         if (ret > 0) {
                 if (upoll.revents & POLLOUT) {

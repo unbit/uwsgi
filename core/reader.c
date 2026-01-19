@@ -11,7 +11,7 @@ int uwsgi_simple_wait_read_hook(int fd, int timeout) {
         upoll.events = POLLIN;
         upoll.revents = 0;
         for (;;) {
-            ret = poll(&upoll, 1, timeout);
+            ret = uwsgi_poll(&upoll, 1, timeout);
             if ((ret < 0) && (errno == EINTR))
                 continue;
             break;
@@ -42,7 +42,7 @@ int uwsgi_simple_wait_read2_hook(int fd0, int fd1, int timeout, int *fd) {
         upoll[1].events = POLLIN;
         upoll[1].revents = 0;
 
-        int ret = poll(upoll, 2, timeout);
+        int ret = uwsgi_poll(upoll, 2, timeout);
 
         if (ret > 0) {
                 if (upoll[0].revents & POLLIN) {
