@@ -13,7 +13,7 @@ except ImportError:
 
 NAME = 'stackless'
 
-CFLAGS = ['-I' + path for path in paths]
+CFLAGS = ['-I' + '"' + path + '"' for path in paths]
 LDFLAGS = []
 LIBS = []
 
