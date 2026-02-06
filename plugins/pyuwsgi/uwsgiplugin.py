@@ -17,7 +17,7 @@ os.environ['UWSGI_PYTHON_NOLIB'] = '1'
 
 NAME = 'pyuwsgi'
 
-CFLAGS = ['-I' + path for path in paths]
+CFLAGS = ['-I' + '"' + path + '"' for path in paths]
 LDFLAGS = []
 LIBS = []
 
