@@ -2583,6 +2583,36 @@ PyObject *py_uwsgi_stop(PyObject * self, PyObject * args) {
         return Py_True;
 }
 
+/* reload one worker */
+PyObject *py_uwsgi_reload_worker(PyObject * self, PyObject * args) {
+    int wid = 0;
+
+    if (!PyArg_ParseTuple(args, "|i:reload_worker", &wid)) {
+        return NULL;
+    }
+
+    if (wid < 0 || wid > uwsgi.numproc) {
+        return PyErr_Format(PyExc_ValueError, "invalid worker id");
+    }
+
+    if (wid == 0) {
+        wid = uwsgi.mywid;
+    }
+
+    if (wid == 0) {
+        return PyErr_Format(PyExc_ValueError, "only worker can call without argument");
+    }
+
+    if (kill(uwsgi.workers[wid].pid, SIGHUP)) {
+        uwsgi_error("kill()");
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    Py_INCREF(Py_True);
+    return Py_True;
+}
+
 PyObject *py_uwsgi_request_id(PyObject * self, PyObject * args) {
 	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 	return PyLong_FromUnsignedLongLong(uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests);
@@ -2794,6 +2824,7 @@ PyObject *py_uwsgi_suspend(PyObject * self, PyObject * args) {
 static PyMethodDef uwsgi_advanced_methods[] = {
 	{"reload", py_uwsgi_reload, METH_VARARGS, ""},
 	{"stop", py_uwsgi_stop, METH_VARARGS, ""},
+	{"reload_worker", py_uwsgi_reload_worker, METH_VARARGS, ""},
 	{"workers", py_uwsgi_workers, METH_VARARGS, ""},
 	{"masterpid", py_uwsgi_masterpid, METH_VARARGS, ""},
 	{"total_requests", py_uwsgi_total_requests, METH_VARARGS, ""},
