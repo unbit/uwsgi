@@ -571,35 +571,48 @@ void uwsgi_log_rotate() {
 	uwsgi_log_do_rotate(uwsgi.logfile, uwsgi.log_backupname, uwsgi.shared->logsize, uwsgi.original_log_fd);
 }
 
-void uwsgi_log_reopen() {
+void uwsgi_log_reopen()
+{
 	char message[1024];
-	if (!uwsgi.logfile) return;
-	int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering log-reopen...\n", (int) uwsgi_now(), (unsigned long long) uwsgi.shared->logsize);
-        if (ret > 0 && ret < 1024) {
-                        if (write(uwsgi.original_log_fd, message, ret) != ret) {
-                                // very probably this will never be printed
-                                uwsgi_error("write()");
-                        }
-                }
+	if (!uwsgi.logfile)
+		return;
+	int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering log-reopen...\n", (int)uwsgi_now(), (unsigned long long)uwsgi.shared->logsize);
+	if (ret > 0 && ret < 1024)
+	{
+		if (write(uwsgi.original_log_fd, message, ret) != ret)
+		{
+			// very probably this will never be printed
+			uwsgi_error("write()");
+		}
+	}
 
-                // reopen logfile;
-                close(uwsgi.original_log_fd);
-                uwsgi.original_log_fd = open(uwsgi.logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
-                if (uwsgi.original_log_fd < 0) {
-                        uwsgi_error_open(uwsgi.logfile);
-                        grace_them_all(0);
-			return;
-                }
-                ret = snprintf(message, 1024, "[%d] %s reopened.\n", (int) uwsgi_now(), uwsgi.logfile);
-                if (ret > 0 && ret < 1024) {
-                        if (write(uwsgi.original_log_fd, message, ret) != ret) {
-                                // very probably this will never be printed
-                                uwsgi_error("write()");
-                        }
-                }
-                uwsgi.shared->logsize = lseek(uwsgi.original_log_fd, 0, SEEK_CUR);
+	// reopen logfile;
+	close(uwsgi.original_log_fd);
+	uwsgi.original_log_fd = open(uwsgi.logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
+	if (uwsgi.original_log_fd < 0)
+	{
+		uwsgi_error_open(uwsgi.logfile);
+		grace_them_all(0);
+		return;
+	}
+	if (uwsgi.chmod_logfile_value)
+	{
+		if (fchmod(uwsgi.original_log_fd, uwsgi.chmod_logfile_value))
+		{
+			uwsgi_error("fchmod()");
+		}
+	}
+	ret = snprintf(message, 1024, "[%d] %s reopened.\n", (int)uwsgi_now(), uwsgi.logfile);
+	if (ret > 0 && ret < 1024)
+	{
+		if (write(uwsgi.original_log_fd, message, ret) != ret)
+		{
+			// very probably this will never be printed
+			uwsgi_error("write()");
+		}
+	}
+	uwsgi.shared->logsize = lseek(uwsgi.original_log_fd, 0, SEEK_CUR);
 }
-
 
 void log_request(struct wsgi_request *wsgi_req) {
 
@@ -1400,43 +1413,52 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 	}
 }
 
-static void uwsgi_log_func_do(struct uwsgi_string_list *encoders, struct uwsgi_logger *ul, char *msg, size_t len) {
+static void uwsgi_log_func_do(struct uwsgi_string_list *encoders, struct uwsgi_logger *ul, char *msg, size_t len)
+{
 	struct uwsgi_string_list *usl = encoders;
 	// note: msg must not be freed !!!
 	char *new_msg = msg;
 	size_t new_msg_len = len;
-	while(usl) {
-		struct uwsgi_log_encoder *ule = (struct uwsgi_log_encoder *) usl->custom_ptr;
-		if (ule->use_for) {
-			if (ul && ul->id) {
-				if (strcmp(ule->use_for, ul->id)) {
+	while (usl)
+	{
+		struct uwsgi_log_encoder *ule = (struct uwsgi_log_encoder *)usl->custom_ptr;
+		if (ule->use_for)
+		{
+			if (ul && ul->id)
+			{
+				if (strcmp(ule->use_for, ul->id))
+				{
 					goto next;
 				}
 			}
-			else {
+			else
+			{
 				goto next;
 			}
 		}
 		size_t rlen = 0;
 		char *buf = ule->func(ule, new_msg, new_msg_len, &rlen);
-		if (new_msg != msg) {
-                	free(new_msg);
-        	}
+		if (new_msg != msg)
+		{
+			free(new_msg);
+		}
 		new_msg = buf;
 		new_msg_len = rlen;
-next:
+	next:
 		usl = usl->next;
 	}
-	if (ul) {
+	if (ul)
+	{
 		ul->func(ul, new_msg, new_msg_len);
 	}
-	else {
-		new_msg_len = (size_t) write(uwsgi.original_log_fd, new_msg, new_msg_len);
+	else
+	{
+		new_msg_len = (size_t)write(uwsgi.original_log_fd, new_msg, new_msg_len);
 	}
-	if (new_msg != msg) {
+	if (new_msg != msg)
+	{
 		free(new_msg);
 	}
-
 }
 
 int uwsgi_master_log(void) {
