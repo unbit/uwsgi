@@ -1515,6 +1515,7 @@ struct wsgi_request {
 
 	int async_id;
 	int async_status;
+	int async_closed;
 
 	int switches;
 	size_t write_pos;
@@ -2383,6 +2384,7 @@ struct uwsgi_server {
 	// async commodity
 	struct wsgi_request **async_waiting_fd_table;
 	struct wsgi_request **async_proto_fd_table;
+	struct wsgi_request **async_idle_fd_table;
 	struct uwsgi_async_request *async_runqueue;
 	struct uwsgi_async_request *async_runqueue_last;
 
@@ -3428,6 +3430,7 @@ int event_queue_init(void);
 void *event_queue_alloc(int);
 int event_queue_add_fd_read(int, int);
 int event_queue_add_fd_write(int, int);
+int event_queue_idle_fd(int, int);
 int event_queue_del_fd(int, int, int);
 int event_queue_wait(int, int, int *);
 int event_queue_wait_multi(int, int, void *, int);
@@ -3441,6 +3444,7 @@ int event_queue_fd_read_to_readwrite(int, int);
 int event_queue_fd_write_to_readwrite(int, int);
 int event_queue_interesting_fd_is_read(void *, int);
 int event_queue_interesting_fd_is_write(void *, int);
+int event_queue_interesting_fd_is_closed(void *, int);
 
 int event_queue_add_timer(int, int *, int);
 int event_queue_add_timer_hr(int, int *, int, long);
