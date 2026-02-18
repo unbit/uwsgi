@@ -206,6 +206,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 
 	char *ptr = wsgi_req->proto_parser_buf;
 	char *base = ptr;
+	char *keep_ptr = NULL;
 	char *query_string = NULL;
 	char ip[INET6_ADDRSTRLEN+1];
 	struct sockaddr *http_sa = (struct sockaddr *) &wsgi_req->client_addr;
@@ -235,6 +236,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 
 	// REQUEST_URI / PATH_INFO / QUERY_STRING
 	base = ptr;
+PARSE_QUERYSTRING:
 	while (ptr < watermark) {
 		if (*ptr == '?' && !query_string) {
 			if (watermark + (ptr - base) < (char *)(wsgi_req->proto_parser_buf + uwsgi.buffer_size)) {
@@ -252,6 +254,21 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 			query_string = ptr + 1;
 		}
 		else if (*ptr == ' ') {
+			keep_ptr = ptr;
+			while (ptr < watermark) {
+				if (*ptr == '?' && !query_string) {
+					goto PARSE_QUERYSTRING;
+				}
+				if (*ptr == ' ') {
+					keep_ptr = ptr;
+				}
+				if (*ptr == '\r' || *ptr == '\n') {
+					ptr = keep_ptr;
+					break;
+				}
+				ptr++;
+			}
+
 			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, base, ptr - base);
 			
 			if (!query_string) {
