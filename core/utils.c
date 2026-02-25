@@ -149,7 +149,7 @@ void daemonize(char *logfile) {
 	}
 
 	if (!uwsgi.do_not_change_umask) {
-		umask(0);
+		umask(022);
 	}
 
 	/*if (chdir("/") != 0) {
@@ -3651,6 +3651,10 @@ int uwsgi_write_intfile(char *filename, int n) {
 	if (!pidfile) {
 		uwsgi_error_open(filename);
 		exit(1);
+	}
+	if (fchmod(fileno(pidfile), 0644) <= 0) {
+		fclose(pidfile);
+		return -1;
 	}
 	if (fprintf(pidfile, "%d\n", n) <= 0 || ferror(pidfile)) {
 		fclose(pidfile);
