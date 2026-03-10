@@ -79,9 +79,13 @@ if 'LD_RUN_PATH' in os.environ:
 else:
     os.environ['LD_RUN_PATH'] = JVM_LIBPATH[0][2:]
 
+if 'UWSGICONFIG_JVM_RELEASE' in os.environ:
+    release = '--release %s' % os.environ['UWSGICONFIG_JVM_RELEASE']
+else:
+    release = ''
 
 def post_build(config):
-    if subprocess.call("javac %s/plugins/jvm/uwsgi.java" % os.getcwd(), shell=True) != 0:
+    if subprocess.call("javac %s %s/plugins/jvm/uwsgi.java" % (release, os.getcwd()), shell=True) != 0:
         os._exit(1)
     if subprocess.call("cd %s/plugins/jvm ; jar cvf uwsgi.jar *.class" % os.getcwd(), shell=True) != 0:
         os._exit(1)
