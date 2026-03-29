@@ -365,16 +365,32 @@ void uwsgi_send_stats(int fd, struct uwsgi_stats *(*func) (void)) {
 		return;
 	}
 
+	enum uwsgi_stats_format fmt = UWSGI_STATS_FORMAT_JSON;
 	if (uwsgi.stats_http) {
-		if (uwsgi_send_http_stats(client_fd)) {
+		if (uwsgi_stats_read_request(client_fd, &fmt)) {
 			close(client_fd);
 			return;
 		}
 	}
 
-	struct uwsgi_stats *us = func();
+	struct uwsgi_stats *us;
+	switch (fmt) {
+	case UWSGI_STATS_FORMAT_PROMETHEUS:
+		us = uwsgi_master_generate_stats_prometheus();
+		break;
+	default:
+		us = func();
+		break;
+	}
+
 	if (!us)
 		goto end;
+
+	if (uwsgi.stats_http) {
+		if (uwsgi_stats_send_http_header(client_fd, fmt)) {
+			goto end0;
+		}
+	}
 
 	size_t remains = us->pos;
 	off_t pos = 0;

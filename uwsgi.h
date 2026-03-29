@@ -2705,6 +2705,7 @@ struct uwsgi_server {
 	char *stats;
 	int stats_fd;
 	int stats_http;
+	char *stats_prometheus_path;
 	int stats_minified;
 	struct uwsgi_string_list *requested_stats_pushers;
 	struct uwsgi_stats_pusher *stats_pushers;
@@ -4197,6 +4198,7 @@ void uwsgi_stats_pusher_loop(struct uwsgi_thread *);
 void uwsgi_stats_pusher_setup(void);
 void uwsgi_send_stats(int, struct uwsgi_stats *(*func) (void));
 struct uwsgi_stats *uwsgi_master_generate_stats(void);
+struct uwsgi_stats *uwsgi_master_generate_stats_prometheus(void);
 struct uwsgi_stats_pusher * uwsgi_register_stats_pusher(char *, void (*)(struct uwsgi_stats_pusher_instance *, time_t, char *, size_t));
 
 struct uwsgi_stats *uwsgi_stats_new(size_t);
@@ -4578,7 +4580,13 @@ void uwsgi_setup_thread_req(long, struct wsgi_request *);
 void uwsgi_loop_cores_run(void *(*)(void *));
 
 int uwsgi_kvlist_parse(char *, size_t, char, int, ...);
-int uwsgi_send_http_stats(int);
+enum uwsgi_stats_format {
+	UWSGI_STATS_FORMAT_JSON = 0,
+	UWSGI_STATS_FORMAT_PROMETHEUS,
+};
+
+int uwsgi_stats_read_request(int, enum uwsgi_stats_format *);
+int uwsgi_stats_send_http_header(int, enum uwsgi_stats_format);
 
 int uwsgi_plugin_modifier1(char *);
 

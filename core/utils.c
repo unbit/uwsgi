@@ -3988,16 +3988,45 @@ int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, int kv_separa
 	return 0;
 }
 
-int uwsgi_send_http_stats(int fd) {
+int uwsgi_stats_read_request(int fd, enum uwsgi_stats_format *fmt) {
 
 	char buf[4096];
+
+	*fmt = UWSGI_STATS_FORMAT_JSON;
 
 	int ret = uwsgi_waitfd(fd, uwsgi.socket_timeout);
 	if (ret <= 0)
 		return -1;
 
-	if (read(fd, buf, 4096) <= 0)
+	ssize_t rlen = read(fd, buf, 4096 - 1);
+	if (rlen <= 0)
 		return -1;
+	buf[rlen] = '\0';
+
+	// parse request path: GET <path> HTTP/...
+	if (!strncmp(buf, "GET ", 4)) {
+		char *path_start = buf + 4;
+		char *path_end = strchr(path_start, ' ');
+		if (path_end) {
+			size_t path_len = path_end - path_start;
+			char *query = memchr(path_start, '?', path_len);
+			if (query) path_len = query - path_start;
+			char *prom_path = uwsgi.stats_prometheus_path ? uwsgi.stats_prometheus_path : "/metrics";
+			size_t prom_len = strlen(prom_path);
+			if (path_len == prom_len && !strncmp(path_start, prom_path, prom_len)) {
+				*fmt = UWSGI_STATS_FORMAT_PROMETHEUS;
+			}
+		}
+	}
+
+	return 0;
+}
+
+int uwsgi_stats_send_http_header(int fd, enum uwsgi_stats_format fmt) {
+
+	char *content_type = (fmt == UWSGI_STATS_FORMAT_PROMETHEUS)
+		? "Content-Type: text/plain; version=0.0.4; charset=utf-8\r\n"
+		: "Content-Type: application/json\r\n";
 
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
 	if (!ub)
@@ -4009,7 +4038,7 @@ int uwsgi_send_http_stats(int fd) {
 		goto error;
 	if (uwsgi_buffer_append(ub, "Access-Control-Allow-Origin: *\r\n", 32))
 		goto error;
-	if (uwsgi_buffer_append(ub, "Content-Type: application/json\r\n", 32))
+	if (uwsgi_buffer_append(ub, content_type, strlen(content_type)))
 		goto error;
 	if (uwsgi_buffer_append(ub, "\r\n", 2))
 		goto error;

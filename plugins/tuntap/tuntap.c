@@ -463,7 +463,12 @@ void tuntaprouter_send_stats(struct uwsgi_tuntap_router *uttr) {
         }
 
         if (uwsgi.stats_http) {
-                if (uwsgi_send_http_stats(client_fd)) {
+                enum uwsgi_stats_format fmt;
+                if (uwsgi_stats_read_request(client_fd, &fmt)) {
+                        close(client_fd);
+                        return;
+                }
+                if (uwsgi_stats_send_http_header(client_fd, UWSGI_STATS_FORMAT_JSON)) {
                         close(client_fd);
                         return;
                 }

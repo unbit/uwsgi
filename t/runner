@@ -25,6 +25,8 @@ UWSGI_PLUGINS = os.getenv("UWSGI_PLUGINS_TEST", "all").split(" ")
 UWSGI_ADDR = "127.0.0.1"
 UWSGI_PORT = 8000
 UWSGI_HTTP = f"{UWSGI_ADDR}:{UWSGI_PORT}"
+UWSGI_STATS_PORT = 9191
+UWSGI_STATS = f"{UWSGI_ADDR}:{UWSGI_STATS_PORT}"
 
 
 def plugins_available(plugins):
@@ -46,15 +48,10 @@ class UwsgiTest(unittest.TestCase):
             text=True,
         )
 
-    def uwsgi_ready(self):
+    def uwsgi_ready(self, port=UWSGI_PORT):
         try:
             s = socket.socket()
-            s.connect(
-                (
-                    UWSGI_ADDR,
-                    UWSGI_PORT,
-                )
-            )
+            s.connect((UWSGI_ADDR, port))
         except socket.error:
             return False
         else:
@@ -62,16 +59,26 @@ class UwsgiTest(unittest.TestCase):
         finally:
             s.close()
 
+    def wait_for_port(self, port, retries=10):
+        while not self.uwsgi_ready(port) and retries > 0:
+            time.sleep(0.1)
+            retries -= 1
+            if retries == 0:
+                raise RuntimeError(f"uwsgi not available on port {port}")
+
     def start_listen_server(self, args):
         self.start_server(["--http-socket", UWSGI_HTTP] + args)
+        self.wait_for_port(UWSGI_PORT)
 
-        # ensure server is ready
-        retries = 10
-        while not self.uwsgi_ready() and retries > 0:
-            time.sleep(0.1)
-            retries = retries - 1
-            if retries == 0:
-                raise RuntimeError("uwsgi test server is not available")
+    def start_stats_server(self):
+        self.start_server([
+            "--master",
+            "--need-app=0",
+            "--http-socket", UWSGI_HTTP,
+            "--stats", UWSGI_STATS,
+            "--stats-http",
+        ])
+        self.wait_for_port(UWSGI_STATS_PORT)
 
     def tearDown(self):
         if hasattr(self._outcome, "errors"):
@@ -252,6 +259,24 @@ class UwsgiTest(unittest.TestCase):
         )
 
         self.assert_GET_body("/", "Hello")
+
+
+    def test_stats_json(self):
+        self.start_stats_server()
+        with requests.get(f"http://{UWSGI_STATS}/") as r:
+            self.assertEqual(r.status_code, 200)
+            self.assertIn("application/json", r.headers.get("Content-Type", ""))
+            data = r.json()
+            self.assertIn("version", data)
+            self.assertIn("workers", data)
+
+    def test_stats_prometheus(self):
+        self.start_stats_server()
+        with requests.get(f"http://{UWSGI_STATS}/metrics") as r:
+            self.assertEqual(r.status_code, 200)
+            self.assertIn("text/plain", r.headers.get("Content-Type", ""))
+            self.assertIn("# TYPE uwsgi_workers gauge", r.text)
+            self.assertRegex(r.text, r"uwsgi_workers \d+")
 
 
 if __name__ == "__main__":

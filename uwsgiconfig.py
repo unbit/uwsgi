@@ -651,7 +651,7 @@ class uConf(object):
         self.gcc_list = [
             'core/utils', 'core/protocol', 'core/socket', 'core/logging',
             'core/master', 'core/master_utils', 'core/emperor', 'core/notify',
-            'core/mule', 'core/subscription', 'core/stats', 'core/sendfile',
+            'core/mule', 'core/subscription', 'core/stats', 'core/stats_prometheus', 'core/sendfile',
             'core/async', 'core/master_checks', 'core/fifo', 'core/offload',
             'core/io', 'core/static', 'core/websockets', 'core/spooler',
             'core/snmp', 'core/exceptions', 'core/config', 'core/setup_utils',
