@@ -263,6 +263,8 @@ success:
 		}
 		if (!has_option)
 			uwsgi_log("%s\n", dlerror());
+
+		free(plugin_entry_symbol);
 	}
 
 end:
