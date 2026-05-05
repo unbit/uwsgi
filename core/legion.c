@@ -1151,6 +1151,12 @@ struct uwsgi_legion *uwsgi_legion_register(char *legion, char *addr, char *valor
 
 	uwsgi_legion_add(ul);
 
+	if ((unsigned int) cipher_len > s_len)
+		free(secret);
+
+	if ((unsigned int) iv_len > s_iv_len)
+		free(iv);
+
 	return ul;
 }
 
