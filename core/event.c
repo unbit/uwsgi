@@ -1172,6 +1172,11 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
 
 	if (rlen < 0) {
 		uwsgi_error("read()");
+
+		if (isize > sizeof(struct inotify_event))
+			free(bie);
+
+		return NULL;
 	}
 	else {
 		items = isize / (sizeof(struct inotify_event));
@@ -1196,9 +1201,6 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
 
 		return uf;
 	}
-
-	return NULL;
-
 }
 
 #endif
