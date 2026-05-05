@@ -1640,6 +1640,7 @@ void parse_sys_envs(char **envs) {
 			env_to_arg(*uenvs + 6, earg);
 			eq_pos = strchr(earg, '=');
 			if (!eq_pos) {
+				free(earg);
 				break;
 			}
 			eq_pos[0] = 0;
