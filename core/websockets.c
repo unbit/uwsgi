@@ -193,7 +193,8 @@ static struct uwsgi_buffer *uwsgi_websockets_parse(struct wsgi_request *wsgi_req
 	uwsgi_buffer_append(ub, "\0", 1);
 	return ub;
 error:
-	uwsgi_buffer_destroy(ub);
+	if (ub)
+		uwsgi_buffer_destroy(ub);
 	if (uwsgi.websockets_continuation_buffer != NULL && ub != uwsgi.websockets_continuation_buffer) {
 		uwsgi_buffer_destroy(uwsgi.websockets_continuation_buffer);
 	}

@@ -198,7 +198,11 @@ static void textElement(void *xml_id, const char *s, int len) {
 	if (!uwsgi_xml_found_stanza)
 		return;
 	if (uwsgi_xml_found_opt_key) {
-		add_exported_option(strdup(uwsgi_xml_found_opt_key), uwsgi_concat2n((char *) s, len, (char *) "", 0), 0);
+		char *opt_key_dup = strdup(uwsgi_xml_found_opt_key);
+		if (!opt_key_dup)
+			return;
+
+		add_exported_option(opt_key_dup, uwsgi_concat2n((char *) s, len, (char *) "", 0), 0);
 		uwsgi_xml_found_opt_key = NULL;
 	}
 }
@@ -216,7 +220,17 @@ static void endElement(void *xml_id, const XML_Char * name) {
 	if (!uwsgi_xml_found_opt_key)
 		return;
 
-	add_exported_option(strdup(uwsgi_xml_found_opt_key), strdup("1"), 0);
+	char *opt_key_dup = strdup(uwsgi_xml_found_opt_key);
+	if (!opt_key_dup)
+		return;
+
+	char *value_dup = strdup("1");
+	if (!value_dup) {
+		free(opt_key_dup);
+		return;
+	}
+
+	add_exported_option(opt_key_dup, value_dup, 0);
 	uwsgi_xml_found_opt_key = NULL;
 }
 
