@@ -333,7 +333,7 @@ void uwsgi_manage_exception(struct wsgi_request *wsgi_req,int catch) {
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].exceptions++;
 	uwsgi_apps[wsgi_req->app_id].exceptions++;
 
-	if (uwsgi.reload_on_exception_type && uwsgi.p[wsgi_req->uh->modifier1]->exception_class) {
+	if (uwsgi.reload_on_exception_type && uwsgi.p[wsgi_req->uh->modifier1]->exception_class && uwsgi.p[wsgi_req->uh->modifier1]->exception_msg) {
 		struct uwsgi_buffer *ub = uwsgi.p[wsgi_req->uh->modifier1]->exception_msg(wsgi_req);
 		if (ub) {
 			struct uwsgi_string_list *usl = uwsgi.reload_on_exception_type;
@@ -365,7 +365,7 @@ void uwsgi_manage_exception(struct wsgi_request *wsgi_req,int catch) {
 		}
         }
 
-        if (uwsgi.reload_on_exception_repr && uwsgi.p[wsgi_req->uh->modifier1]->exception_repr) {
+        if (uwsgi.reload_on_exception_repr && uwsgi.p[wsgi_req->uh->modifier1]->exception_repr && uwsgi.p[wsgi_req->uh->modifier1]->exception_msg) {
                 struct uwsgi_buffer *ub = uwsgi.p[wsgi_req->uh->modifier1]->exception_msg(wsgi_req);
 		if (ub) {
 			struct uwsgi_string_list *usl = uwsgi.reload_on_exception_repr;
