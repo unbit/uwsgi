@@ -270,6 +270,9 @@ end:
 		free(plugin_name);
 	if (plugin_filename)
 		free(plugin_filename);
+	if (plugin_handle && dlclose(plugin_handle)) {
+		uwsgi_error("dlclose()");
+	}
 
 	return NULL;
 }

@@ -94,6 +94,7 @@ static int create_server_socket(int domain, int type) {
 		if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
 			uwsgi_error("SO_REUSEADDR setsockopt()");
 			uwsgi_nuclear_blast();
+ 			close(serverfd);
 			return -1;
 		}
 	}
@@ -104,6 +105,7 @@ static int create_server_socket(int domain, int type) {
 			if (setsockopt(serverfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(socklen_t)) < 0) {
 				uwsgi_error("SO_SNDBUF setsockopt()");
 				uwsgi_nuclear_blast();
+ 				close(serverfd);
 				return -1;
 			}
 			else {
@@ -116,6 +118,7 @@ static int create_server_socket(int domain, int type) {
 			if (setsockopt(serverfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(socklen_t)) < 0) {
 				uwsgi_error("SO_RCVBUF setsockopt()");
 				uwsgi_nuclear_blast();
+ 				close(serverfd);
 				return -1;
 			}
 			else {
@@ -128,6 +131,7 @@ static int create_server_socket(int domain, int type) {
 		if (somaxconn > 0 && uwsgi.listen_queue > somaxconn) {
 			uwsgi_log("Listen queue size is greater than the system max net.core.somaxconn (%li).\n", somaxconn);
 			uwsgi_nuclear_blast();
+ 			close(serverfd);
 			return -1;
 		}
 #endif
