@@ -793,8 +793,18 @@ next:
 				best_found = mountpoint_len;
 				wsgi_req->script_name = uwsgi_apps[i].mountpoint;
 				wsgi_req->script_name_len = uwsgi_apps[i].mountpoint_len;
-				wsgi_req->path_info = orig_path_info + wsgi_req->script_name_len;
-				wsgi_req->path_info_len = orig_path_info_len - wsgi_req->script_name_len;
+				/* When the request path equals the mountpoint without its
+				 * trailing slash (e.g. GET /footris against /footris/),
+				 * orig_path_info_len < script_name_len.  Guard against the
+				 * uint16_t underflow that would otherwise set path_info_len
+				 * to 65535 and trigger an out-of-bounds read. */
+				if (orig_path_info_len >= (int)wsgi_req->script_name_len) {
+					wsgi_req->path_info = orig_path_info + wsgi_req->script_name_len;
+					wsgi_req->path_info_len = orig_path_info_len - wsgi_req->script_name_len;
+				} else {
+					wsgi_req->path_info = orig_path_info + orig_path_info_len;
+					wsgi_req->path_info_len = 0;
+				}
 
 				wsgi_req->hvec[wsgi_req->script_name_pos].iov_base = wsgi_req->script_name;
 				wsgi_req->hvec[wsgi_req->script_name_pos].iov_len = wsgi_req->script_name_len;
