@@ -190,6 +190,10 @@ struct uwsgi_python {
 
 	char *callable;
 
+#if defined UWSGI_PY312
+	PyConfig *pyconfig;
+#endif
+
 #ifdef UWSGI_PY314
 	int *current_py_recursion_remaining;
 	struct _PyInterpreterFrame **current_frame;
@@ -252,6 +256,8 @@ struct uwsgi_python {
 	void (*extension)(void);
 
 	int reload_os_env;
+
+	int dont_load_site;
 
 	PyObject *after_req_hook;
 	PyObject *after_req_hook_args;

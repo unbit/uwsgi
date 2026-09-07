@@ -388,7 +388,11 @@ void init_pyargv() {
 
 	}
 
+#ifdef UWSGI_PY312
+	PyConfig_SetArgv(up.pyconfig, up.argc, up.py_argv);
+#else
 	PySys_SetArgv(up.argc, up.py_argv);
+#endif
 
 	PyObject *sys_dict = get_uwsgi_pydict("sys");
 	if (!sys_dict) {
