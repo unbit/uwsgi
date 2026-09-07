@@ -14,7 +14,7 @@ ifeq ($(UNAME_S),Linux)
 endif
 
 
-objects = check_core check_regexp
+objects = check_core check_utils check_regexp
 
 all: $(objects)
 
