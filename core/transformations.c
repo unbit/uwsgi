@@ -131,6 +131,9 @@ void uwsgi_free_transformations(struct wsgi_request *wsgi_req) {
 	struct uwsgi_transformation *ut = wsgi_req->transformations;
 	while(ut) {
 		struct uwsgi_transformation *current_ut = ut;
+		if (current_ut->free_data) {
+			current_ut->free_data(current_ut);
+		}
 		if (current_ut->chunk) {
 			uwsgi_buffer_destroy(current_ut->chunk);
 		}
@@ -143,6 +146,7 @@ void uwsgi_free_transformations(struct wsgi_request *wsgi_req) {
 		ut = ut->next;
 		free(current_ut);
 	}
+	wsgi_req->transformations = NULL;
 }
 
 struct uwsgi_transformation *uwsgi_add_transformation(struct wsgi_request *wsgi_req, int (*func)(struct wsgi_request *, struct uwsgi_transformation *), void *data) {

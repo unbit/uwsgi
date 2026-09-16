@@ -9,6 +9,7 @@
 # to run fine.
 
 
+import gzip
 import os
 import requests
 import signal
@@ -157,6 +158,108 @@ class UwsgiTest(unittest.TestCase):
         )
 
         self.assert_GET_body("/", "Hello World")
+
+    GZIP_PAYLOAD = b"0123456789abcdef" * 4096
+
+    def start_gzip_server(self, config="config.ini", extra_args=()):
+        # the request log would fill the stdout pipe long before tearDown() reads it
+        self.start_listen_server(
+            [
+                "--plugin",
+                "python",
+                "--disable-logging",
+                *extra_args,
+                os.path.join(TESTS_DIR, "python", "gzip", config),
+            ]
+        )
+
+    def get_gzip(self, url_path):
+        # the body as sent: requests would silently decode even a truncated gzip
+        # stream
+        with requests.get(
+            f"http://{UWSGI_HTTP}{url_path}",
+            headers={"Accept-Encoding": "gzip"},
+            stream=True,
+            timeout=10,
+        ) as r:
+            return (
+                r.status_code,
+                r.headers.get("Content-Encoding"),
+                r.raw.read(decode_content=False),
+            )
+
+    def _server_rss_kib(self):
+        return int(
+            subprocess.check_output(
+                ["ps", "-o", "rss=", "-p", str(self.testserver.pid)]
+            )
+        )
+
+    @unittest.skipUnless(*plugins_available(["python"]))
+    def test_gzip_transformation_wire(self):
+        self.start_gzip_server()
+
+        status, encoding, body = self.get_gzip("/body")
+        self.assertEqual((status, encoding), (200, "gzip"))
+        self.assertEqual(gzip.decompress(body), self.GZIP_PAYLOAD)
+        self.assertEqual(self.get_gzip("/no-body"), (204, None, b""))
+        self.assertEqual(self.get_gzip("/empty-chunk"), (200, None, b""))
+        # the empty chunk sends the headers, so the data behind it cannot be labelled
+        # any more
+        self.assertEqual(
+            self.get_gzip("/leading-empty-chunk"), (200, None, self.GZIP_PAYLOAD)
+        )
+
+    @unittest.skipUnless(*plugins_available(["python"]))
+    def test_gzip_transformation_headers_sent_early(self):
+        # --start_response-nodelay sends the headers before the first chunk; the
+        # gzip-only route keeps chunked: (which has the same problem) out of the way
+        self.start_gzip_server("gzip_only.ini", ["--start_response-nodelay"])
+
+        self.assertEqual(self.get_gzip("/body"), (200, None, self.GZIP_PAYLOAD))
+
+    @unittest.skipUnless(*plugins_available(["python"]))
+    def test_gzip_transformation_announced_early(self):
+        # ... unless they already announce gzip
+        self.start_gzip_server(
+            "gzip_only.ini",
+            ["--start_response-nodelay", "--add-header", "Content-Encoding: gzip"],
+        )
+
+        status, encoding, body = self.get_gzip("/body")
+        self.assertEqual((status, encoding), (200, "gzip"))
+        self.assertEqual(gzip.decompress(body), self.GZIP_PAYLOAD)
+
+    @unittest.skipUnless(*plugins_available(["python"]))
+    def test_gzip_transformation_other_coding_early(self):
+        # a coding that merely contains "gzip" does not count
+        self.start_gzip_server(
+            "gzip_only.ini",
+            ["--start_response-nodelay", "--add-header", "Content-Encoding: notgzip"],
+        )
+
+        self.assertEqual(self.get_gzip("/body"), (200, "notgzip", self.GZIP_PAYLOAD))
+
+    @unittest.skipUnless(*plugins_available(["python"]))
+    def test_gzip_transformation_memory(self):
+        # the gzip route used to allocate the deflate state when the headers were
+        # written and free it only in the final transformation, which does not run
+        # when the application yields no chunk at all (#1749)
+        self.start_gzip_server()
+
+        for url_path in ("/no-body", "/empty-chunk", "/leading-empty-chunk", "/body"):
+            for _ in range(50):
+                self.get_gzip(url_path)
+            rss_before = self._server_rss_kib()
+            for _ in range(1000):
+                self.get_gzip(url_path)
+            growth = self._server_rss_kib() - rss_before
+            # 1000 leaked deflate states (about 400 KB each) would add far more
+            self.assertLess(
+                growth,
+                32 * 1024,
+                f"{url_path}: rss grew by {growth} KiB over 1000 responses",
+            )
 
     @unittest.skipUnless(*plugins_available(["pypy"]))
     def test_pypy3_helloworld(self):

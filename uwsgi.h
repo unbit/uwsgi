@@ -1378,6 +1378,7 @@ struct uwsgi_transformation {
 	uint64_t len;
 	uint64_t custom64;
 	struct uwsgi_transformation *next;
+	void (*free_data)(struct uwsgi_transformation *);
 };
 
 enum uwsgi_range {

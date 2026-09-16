@@ -1068,6 +1068,10 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->headers) {
 		if (!wsgi_req->headers_sent && !wsgi_req->headers_size && !wsgi_req->response_size) {
 			uwsgi_response_write_headers_do(wsgi_req);
+			// writing the headers can register transformations after the final pass: nothing else frees them
+			if (wsgi_req->transformations) {
+				uwsgi_free_transformations(wsgi_req);
+			}
 		}
 		uwsgi_buffer_destroy(wsgi_req->headers);
 	}
