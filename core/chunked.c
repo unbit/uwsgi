@@ -42,7 +42,13 @@ wait:
                 if (ret > 0) {
 			rlen = wsgi_req->socket->proto_read_body(wsgi_req, wsgi_req->chunked_input_buf->buf + wsgi_req->chunked_input_buf->pos, wsgi_req->chunked_input_buf->len - wsgi_req->chunked_input_buf->pos);
 			if (rlen > 0) return rlen;
-			if (rlen <= 0) return -1;
+			if (rlen == 0) return -1;
+			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+				// partial read, i.e. split TLS record or TCP segmentation, wait for the rest
+				continue;
+			}
+			uwsgi_error("uwsgi_chunked_input_recv()");
+			return -1;
 		}
                 if (ret < 0) {
 			uwsgi_error("uwsgi_chunked_input_recv()");
