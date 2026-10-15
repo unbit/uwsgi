@@ -127,6 +127,12 @@ int uwsgi_proto_ssl_accept(struct wsgi_request *wsgi_req, int server_fd) {
 }
 
 void uwsgi_proto_ssl_close(struct wsgi_request *wsgi_req) {
+	if (wsgi_req->ssl) {
+		// send close_notify so TLS peers see a clean session close;
+		// strict peers (GnuTLS with TLS 1.3, as linked into
+		// radosgw's libcurl) abort on a truncated close
+		SSL_shutdown(wsgi_req->ssl);
+	}
 	uwsgi_proto_base_close(wsgi_req);
 	// clear the errors (otherwise they could be propagated)
         ERR_clear_error();
