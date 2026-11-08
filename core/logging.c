@@ -1150,7 +1150,7 @@ static ssize_t uwsgi_lf_cl(struct wsgi_request *wsgi_req, char **buf) {
 
 
 static ssize_t uwsgi_lf_epoch(struct wsgi_request * wsgi_req, char **buf) {
-	*buf = uwsgi_num2str(uwsgi_now());
+	*buf = uwsgi_64bit2str(uwsgi_now());
 	return strlen(*buf);
 }
 
@@ -1165,7 +1165,7 @@ static ssize_t uwsgi_lf_ctime(struct wsgi_request * wsgi_req, char **buf) {
 }
 
 static ssize_t uwsgi_lf_time(struct wsgi_request * wsgi_req, char **buf) {
-	*buf = uwsgi_num2str(wsgi_req->start_of_request / 1000000);
+	*buf = uwsgi_64bit2str(wsgi_req->start_of_request / 1000000);
 	return strlen(*buf);
 }
 

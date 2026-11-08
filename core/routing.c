@@ -1974,7 +1974,7 @@ static char *uwsgi_route_var_httptime(struct wsgi_request *wsgi_req, char *key, 
 static char *uwsgi_route_var_time(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *vallen) {
         char *ret = NULL;
         if (!uwsgi_strncmp(key, keylen, "unix", 4)) {
-                ret = uwsgi_num2str(uwsgi_now());
+                ret = uwsgi_64bit2str(uwsgi_now());
                 *vallen = strlen(ret);
         }
 	else if (!uwsgi_strncmp(key, keylen, "micros", 6)) {
