@@ -4251,9 +4251,9 @@ char *uwsgi_sanitize_cert_filename(char *, char *, uint16_t);
 void uwsgi_opt_scd(char *, char *, void *);
 int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_req *);
 
-char *uwsgi_sha1(char *, size_t, char *);
-char *uwsgi_sha1_2n(char *, size_t, char *, size_t, char *);
-char *uwsgi_md5(char *, size_t, char *);
+unsigned char *uwsgi_sha1(const char *, size_t, unsigned char *);
+unsigned char *uwsgi_sha1_2n(const char *, size_t, const char *, size_t, unsigned char *);
+unsigned char *uwsgi_md5(const char *, size_t, unsigned char *);
 #endif
 
 void uwsgi_opt_ssa(char *, char *, void *);

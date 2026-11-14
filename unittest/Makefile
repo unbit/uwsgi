@@ -1,6 +1,6 @@
 
 CFLAGS = $(shell pkg-config --cflags check)
-CFLAGS += -DUWSGI_PCRE2
+CFLAGS += -DUWSGI_PCRE2 -DUWSGI_SSL
 LDFLAGS = $(shell pkg-config --libs check)
 LDFLAGS += -ldl -lz
 LDFLAGS += $(shell xml2-config --libs)
@@ -14,7 +14,7 @@ ifeq ($(UNAME_S),Linux)
 endif
 
 
-objects = check_core check_regexp
+objects = check_core check_regexp check_ssl
 
 all: $(objects)
 
