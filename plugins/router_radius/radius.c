@@ -60,7 +60,7 @@ static uint16_t uwsgi_radius_auth(struct uwsgi_radius_conf *urc, char *auth, siz
 		// append the last md5 to the hash (after the secret)
 		memcpy(hash + urc->secret_len, md5, 16);
 		// calculate its md5
-		if (!uwsgi_md5(hash, urc->secret_len + 16, md5_hash)) {
+		if (!uwsgi_md5(hash, urc->secret_len + 16, (unsigned char*)md5_hash)) {
 			goto end;
 		}	
 		size_t j;
@@ -120,7 +120,7 @@ static uint16_t uwsgi_radius_auth(struct uwsgi_radius_conf *urc, char *auth, siz
 		// change the authenticator
 		memcpy(access_request+4, authenticator, 16);
 		// compute the md5
-		if (!uwsgi_md5(access_request, rlen + urc->secret_len, md5_hash)) {
+		if (!uwsgi_md5(access_request, rlen + urc->secret_len, (unsigned char *)md5_hash)) {
 			goto end;
 		}
 		if (memcmp(md5_hash, response_authenticator, 16)) goto end;

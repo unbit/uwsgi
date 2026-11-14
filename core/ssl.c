@@ -1,7 +1,6 @@
 #include "uwsgi.h"
 #include <openssl/rand.h>
-#include <openssl/sha.h>
-#include <openssl/md5.h>
+#include <openssl/evp.h>
 
 extern struct uwsgi_server uwsgi;
 /*
@@ -133,7 +132,7 @@ static int uwsgi_sni_cb(SSL *ssl, int *ad, void *arg) {
                 	usl = usl->next;
         	}
 		if (!uwsgi.subscription_dotsplit) break;
-		char *next = memchr(servername+1, '.', servername_len-1);
+		const char *next = memchr(servername+1, '.', servername_len-1);
 		if (next) {
 			servername_len -= next - servername;
 			servername = next;
@@ -265,23 +264,18 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 // this part is based from stud
         BIO *bio = BIO_new_file(crt, "r");
         if (bio) {
-                DH *dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
+                EVP_PKEY *dh_params = PEM_read_bio_Parameters(bio, NULL);
                 BIO_free(bio);
-                if (dh) {
-                        SSL_CTX_set_options(ctx, SSL_OP_SINGLE_DH_USE);
-                        SSL_CTX_set_tmp_dh(ctx, dh);
-                        DH_free(dh);
+                if (dh_params) {
+                        if (SSL_CTX_set0_tmp_dh_pkey(ctx, dh_params) != 1) {
+                            EVP_PKEY_free(dh_params);
+                        }
                 }
         }
 #if OPENSSL_VERSION_NUMBER >= 0x0090800fL
 #ifndef OPENSSL_NO_ECDH
 #ifdef NID_X9_62_prime256v1
-        EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-        if (ecdh) {
-                SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE);
-                SSL_CTX_set_tmp_ecdh(ctx, ecdh);
-                EC_KEY_free(ecdh);
-        }
+        SSL_CTX_set1_groups_list(ctx, "P-256");
 #endif
 #endif
 #endif
@@ -565,29 +559,41 @@ char *uwsgi_ssl_rand(size_t len) {
 	return (char *) buf;
 }
 
-char *uwsgi_sha1(char *src, size_t len, char *dst) {
-        SHA_CTX sha;
-        SHA1_Init(&sha);
-        SHA1_Update(&sha, src, len);
-        SHA1_Final((unsigned char *)dst, &sha);
+unsigned char *uwsgi_sha1(const char *src, size_t len, unsigned char *dst) {
+	EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+	const EVP_MD *md = EVP_sha1();
+	unsigned int digest_len;
+
+	EVP_DigestInit_ex(ctx, md, NULL);
+	EVP_DigestUpdate(ctx, src, len);
+	EVP_DigestFinal_ex(ctx, dst, &digest_len);
+	EVP_MD_CTX_free(ctx);
 	return dst;
 }
 
-char *uwsgi_md5(char *src, size_t len, char *dst) {
-	MD5_CTX md5;
-	MD5_Init(&md5);
-	MD5_Update(&md5, src, len);
-	MD5_Final((unsigned char *)dst, &md5);
+unsigned char *uwsgi_md5(const char *src, size_t len, unsigned char *dst) {
+	EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+	const EVP_MD *md = EVP_md5();
+	unsigned int digest_len;
+
+	EVP_DigestInit_ex(ctx, md, NULL);
+	EVP_DigestUpdate(ctx, src, len);
+	EVP_DigestFinal_ex(ctx, dst, &digest_len);
+	EVP_MD_CTX_free(ctx);
 	return dst;
 }
 
-char *uwsgi_sha1_2n(char *s1, size_t len1, char *s2, size_t len2, char *dst) {
-        SHA_CTX sha;
-        SHA1_Init(&sha);
-        SHA1_Update(&sha, s1, len1);
-        SHA1_Update(&sha, s2, len2);
-        SHA1_Final((unsigned char *)dst, &sha);
-        return dst;
+unsigned char *uwsgi_sha1_2n(const char *s1, size_t len1, const char *s2, size_t len2, unsigned char *dst) {
+	EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+	const EVP_MD *md = EVP_sha1();
+	unsigned int digest_len;
+
+	EVP_DigestInit_ex(ctx, md, NULL);
+	EVP_DigestUpdate(ctx, s1, len1);
+	EVP_DigestUpdate(ctx, s2, len2);
+	EVP_DigestFinal_ex(ctx, dst, &digest_len);
+	EVP_MD_CTX_free(ctx);
+	return dst;
 }
 
 void uwsgi_opt_sni(char *opt, char *value, void *foobar) {

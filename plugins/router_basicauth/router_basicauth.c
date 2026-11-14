@@ -16,11 +16,11 @@ extern struct uwsgi_server uwsgi;
 
 static char *htpasswd_check_sha1(char *pwd) {
 #ifdef UWSGI_SSL
-	char sha1[20];
+	unsigned char sha1[20];
 	uwsgi_sha1(pwd, strlen(pwd), sha1);
 
 	size_t len = 0;
-	char *b64 = uwsgi_base64_encode(sha1, 20, &len);
+	char *b64 = uwsgi_base64_encode((char *)sha1, 20, &len);
 	if (!b64) return NULL;
 
 	// we add a new line for being fgets-friendly

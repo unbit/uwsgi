@@ -417,7 +417,7 @@ int uwsgi_websocket_handshake(struct wsgi_request *wsgi_req, char *key, uint16_t
 	}
 	if (key_len == 0) return -1;
 
-	char sha1[20];
+	unsigned char sha1[20];
 	if (uwsgi_response_prepare_headers(wsgi_req, "101 Web Socket Protocol Handshake", 33)) return -1;
 	if (uwsgi_response_add_header(wsgi_req, "Upgrade", 7, "WebSocket", 9)) return -1;
 	if (uwsgi_response_add_header(wsgi_req, "Connection", 10, "Upgrade", 7)) return -1;
@@ -445,7 +445,7 @@ int uwsgi_websocket_handshake(struct wsgi_request *wsgi_req, char *key, uint16_t
 	// generate websockets sha1 and encode it to base64
         if (!uwsgi_sha1_2n(key, key_len, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", 36, sha1)) return -1;
 	size_t b64_len = 0;
-        char *b64 = uwsgi_base64_encode(sha1, 20, &b64_len);
+        char *b64 = uwsgi_base64_encode((char *)sha1, 20, &b64_len);
 	if (!b64) return -1;
 
 	if (uwsgi_response_add_header(wsgi_req, "Sec-WebSocket-Accept", 20, b64, b64_len)) {
