@@ -159,7 +159,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"ini-paste-logged", required_argument, 0, "load a paste.deploy config file containing uwsgi section (load loggers too)", uwsgi_opt_ini_paste, NULL, UWSGI_OPT_IMMEDIATE},
 	{"reload-os-env", no_argument, 0, "force reload of os.environ at each request", uwsgi_opt_true, &up.reload_os_env, 0},
 #ifndef __CYGWIN__
-	{"no-site", no_argument, 0, "do not import site module", uwsgi_opt_true, &Py_NoSiteFlag, 0},
+	{"no-site", no_argument, 0, "do not import site module", uwsgi_opt_true, &up.dont_load_site, 0},
 #endif
 	{"pyshell", optional_argument, 0, "run an interactive python shell in the uWSGI environment", uwsgi_opt_pyshell, NULL, 0},
 	{"pyshell-oneshot", optional_argument, 0, "run an interactive python shell in the uWSGI environment (one-shot variant)", uwsgi_opt_pyshell, NULL, 0},
@@ -250,7 +250,7 @@ PyObject *init_uwsgi3(void) {
 
 int uwsgi_python_init() {
 
-	char *pyversion = strchr(Py_GetVersion(), '\n');
+	const char *pyversion = strchr(Py_GetVersion(), '\n');
 	if (!pyversion) {
         	uwsgi_log_initial("Python version: %s\n", Py_GetVersion());
 	}
@@ -263,6 +263,15 @@ int uwsgi_python_init() {
 		PyGILState_Ensure();
 		goto ready;
 	}
+
+#ifdef UWSGI_PY312
+	up.pyconfig = (PyConfig *)uwsgi_malloc(sizeof(PyConfig));
+	if (up.pyconfig == NULL) {
+		uwsgi_log("Python PyConfig memory allocation failed.\n");
+		exit(1);
+	}
+	PyConfig_InitPythonConfig(up.pyconfig);
+#endif
 
 	if (up.home != NULL) {
 		if (!uwsgi_is_dir(up.home)) {
@@ -288,12 +297,22 @@ int uwsgi_python_init() {
 			exit(1);
 		}
 		mbstowcs(wpyhome, up.home, len);
+#ifdef UWSGI_PY312
+		PyConfig_SetString(up.pyconfig, &up.pyconfig->home, wpyhome);
+		free(wpyhome);
+#else
 		Py_SetPythonHome(wpyhome);
 		// do not free this memory !!!
 		//free(wpyhome);
+#endif
 pep405:
+#ifdef UWSGI_PY312
+		wchar_t *whome = Py_DecodeLocale(up.home, NULL);
+		PyConfig_SetString(up.pyconfig, &up.pyconfig->home, whome);
+		PyMem_RawFree(whome);
 #else
 		Py_SetPythonHome(up.home);
+#endif
 #endif
 		uwsgi_log("Set PythonHome to %s\n", up.home);
 	}
@@ -312,7 +331,11 @@ pep405:
 
 	wchar_t *pname = uwsgi_calloc(sizeof(wchar_t) * (strlen(program_name)+1));
 	mbstowcs(pname, program_name, strlen(program_name)+1);
+#ifdef UWSGI_PY311
+	PyConfig_SetString(up.pyconfig, &up.pyconfig->program_name, pname);
+#else
 	Py_SetProgramName(pname);
+#endif
 #ifdef UWSGI_PY312
 	PyImport_AppendInittab("uwsgi", init_uwsgi3);
 #endif
@@ -320,10 +343,16 @@ pep405:
 	Py_SetProgramName(program_name);
 #endif
 
+#ifdef UWSGI_PY312
+	up.pyconfig->optimization_level = up.optimize;
 
+	Py_InitializeFromConfig(up.pyconfig);
+	PyConfig_Clear(up.pyconfig);
+#else
 	Py_OptimizeFlag = up.optimize;
 
 	Py_Initialize();
+#endif
 
 ready:
 
